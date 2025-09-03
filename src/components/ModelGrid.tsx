@@ -34,7 +34,7 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
           onClick={() => model.isActive && onModelSelect(model.slug)}
         >
           <CardHeader className="pb-3">
-            <div className="w-full h-32 bg-muted rounded-lg mb-3 overflow-hidden">
+            <div className="w-full aspect-[7/10] bg-muted rounded-lg mb-3 overflow-hidden">
               {model.imageUrl ? (
                 <img 
                   src={model.imageUrl} 

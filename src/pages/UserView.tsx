@@ -125,7 +125,7 @@ const UserView = () => {
                     >
                       <div className="flex items-center gap-3">
                         {model.imageUrl && (
-                          <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                          <div className="w-20 aspect-[7/10] bg-muted rounded-lg overflow-hidden flex-shrink-0">
                             <img 
                               src={model.imageUrl} 
                               alt={`${model.name} 3D Printer`}

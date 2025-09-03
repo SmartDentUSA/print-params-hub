@@ -312,13 +312,13 @@ const AdminView = () => {
                           <img 
                             src={model.imageUrl} 
                             alt={model.name}
-                            className="w-12 h-12 object-cover rounded border"
+                            className="w-20 aspect-[7/10] object-cover rounded border"
                             onError={(e) => {
                               e.currentTarget.src = '/placeholder.svg';
                             }}
                           />
                         ) : (
-                          <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
+                          <div className="w-20 aspect-[7/10] bg-muted rounded border flex items-center justify-center">
                             <Printer className="w-5 h-5 text-muted-foreground" />
                           </div>
                         )}
