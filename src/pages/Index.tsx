@@ -4,15 +4,17 @@ import { BrandSelector } from "@/components/BrandSelector";
 import { ModelGrid } from "@/components/ModelGrid";
 import { ResinAccordion } from "@/components/ResinAccordion";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { DataStats } from "@/components/DataStats";
+import { DataImport } from "@/components/DataImport";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Mail } from "lucide-react";
+import { MessageCircle, Mail, Database } from "lucide-react";
 import { 
-  mockBrands, 
-  getModelsByBrand, 
-  getResinsByModel, 
-  getBrandBySlug, 
-  getModelBySlug 
-} from "@/data/mockData";
+  getUniqueBrands,
+  getModelsByBrandReal, 
+  getResinsByModelReal, 
+  getBrandBySlugReal, 
+  getModelBySlugReal 
+} from "@/data/realData";
 
 const Index = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -27,10 +29,11 @@ const Index = () => {
     setSelectedModel(modelSlug);
   };
 
-  const selectedBrandData = selectedBrand ? getBrandBySlug(selectedBrand) : null;
-  const selectedModelData = selectedModel ? getModelBySlug(selectedModel) : null;
-  const models = selectedBrand ? getModelsByBrand(selectedBrand) : [];
-  const resins = selectedModel ? getResinsByModel(selectedModel) : [];
+  const brands = getUniqueBrands();
+  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand) : null;
+  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel) : null;
+  const models = selectedBrand ? getModelsByBrandReal(selectedBrand) : [];
+  const resins = selectedModel ? getResinsByModelReal(selectedModel) : [];
 
   const breadcrumbItems = [];
   if (selectedBrandData) {
@@ -47,13 +50,25 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
-            Parâmetros de Impressão 3D
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Encontre os parâmetros perfeitos para sua impressora e resina. 
-            Configurações testadas e otimizadas pela comunidade.
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Database className="w-8 h-8 text-primary" />
+            <h1 className="text-4xl font-bold text-foreground">
+              Parâmetros de Impressão 3D
+            </h1>
+          </div>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-4">
+            Base de dados profissional com parâmetros testados para impressoras e resinas odontológicas.
           </p>
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-success rounded-full"></span>
+              {brands.length} Marcas
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 bg-primary rounded-full"></span>
+              Dados Reais da Planilha
+            </span>
+          </div>
         </div>
 
         {/* Navigation and Content */}
@@ -65,7 +80,7 @@ const Index = () => {
 
           {/* Brand Selection */}
           <BrandSelector 
-            brands={mockBrands.filter(b => b.isActive)} 
+            brands={brands} 
             selectedBrand={selectedBrand}
             onBrandSelect={handleBrandSelect}
           />
@@ -99,6 +114,25 @@ const Index = () => {
                 </Button>
               </div>
               <ResinAccordion resins={resins} />
+            </div>
+          )}
+
+          {/* Data Statistics and Import */}
+          {!selectedBrand && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-2xl font-semibold text-foreground mb-6">
+                  Estatísticas da Base de Dados
+                </h2>
+                <DataStats />
+              </div>
+              
+              <div>
+                <h2 className="text-2xl font-semibold text-foreground mb-6">
+                  Importar Novos Dados
+                </h2>
+                <DataImport />
+              </div>
             </div>
           )}
         </div>
