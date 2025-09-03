@@ -73,10 +73,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       // For parameters, we need to ensure the data matches what's available in dropdowns
       const parameterItem = item as Parameter;
       return {
-        ...parameterItem,
-        brand: parameterItem.brand || '',
-        model: parameterItem.model || '',
-        resin: parameterItem.resin || ''
+        ...parameterItem
       };
     } else if (item) {
       return { ...item };
