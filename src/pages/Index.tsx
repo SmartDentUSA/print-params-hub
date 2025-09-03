@@ -20,6 +20,7 @@ import {
 const Index = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const { data, setData } = useData();
 
   const handleBrandSelect = (brandSlug: string) => {
@@ -31,11 +32,21 @@ const Index = () => {
     setSelectedModel(modelSlug);
   };
 
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+  };
+
+  // Get data first
   const brands = getUniqueBrands(data);
   const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand, data) : null;
   const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel, data) : null;
   const models = selectedBrand ? getModelsByBrandReal(selectedBrand, data) : [];
   const resins = selectedModel ? getResinsByModelReal(selectedModel, data) : [];
+
+  // Filter brands based on search term
+  const filteredBrands = brands.filter(brand => 
+    brand.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const breadcrumbItems = [];
   if (selectedBrandData) {
@@ -47,7 +58,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <Header />
+      <Header onSearch={handleSearch} searchValue={searchTerm} />
       
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
@@ -82,7 +93,7 @@ const Index = () => {
 
           {/* Brand Selection */}
           <BrandSelector 
-            brands={brands} 
+            brands={filteredBrands} 
             selectedBrand={selectedBrand}
             onBrandSelect={handleBrandSelect}
           />

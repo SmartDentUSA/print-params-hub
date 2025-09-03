@@ -1,8 +1,22 @@
+import { useState } from "react";
 import { Search, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export function Header() {
+interface HeaderProps {
+  onSearch?: (searchTerm: string) => void;
+  searchValue?: string;
+}
+
+export function Header({ onSearch, searchValue = "" }: HeaderProps) {
+  const [localSearchValue, setLocalSearchValue] = useState(searchValue);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalSearchValue(value);
+    onSearch?.(value);
+  };
+
   return (
     <header className="bg-gradient-surface border-b border-border shadow-soft">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -21,6 +35,8 @@ export function Header() {
             <Input 
               placeholder="Buscar marca, modelo ou resina..." 
               className="pl-10 bg-card border-border"
+              value={localSearchValue}
+              onChange={handleSearchChange}
             />
           </div>
         </div>

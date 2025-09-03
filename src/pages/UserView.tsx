@@ -19,6 +19,7 @@ import { Link } from "react-router-dom";
 const UserView = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const { data } = useData();
 
   const handleBrandSelect = (brandSlug: string) => {
@@ -30,11 +31,21 @@ const UserView = () => {
     setSelectedModel(modelSlug);
   };
 
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+  };
+
+  // Get data first
   const brands = getUniqueBrands(data);
   const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand, data) : null;
   const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel, data) : null;
   const models = selectedBrand ? getModelsByBrandReal(selectedBrand, data) : [];
   const resins = selectedModel ? getResinsByModelReal(selectedModel, data) : [];
+
+  // Filter brands based on search term
+  const filteredBrands = brands.filter(brand => 
+    brand.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const breadcrumbItems = [];
   if (selectedBrandData) {
@@ -46,7 +57,7 @@ const UserView = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
-      <Header />
+      <Header onSearch={handleSearch} searchValue={searchTerm} />
       
       {/* Admin Button */}
       <div className="fixed top-4 right-20 z-50">
@@ -86,7 +97,7 @@ const UserView = () => {
         {/* Brand Selection */}
         <div className="mb-8">
           <BrandSelector 
-            brands={brands} 
+            brands={filteredBrands} 
             selectedBrand={selectedBrand}
             onBrandSelect={handleBrandSelect}
           />
