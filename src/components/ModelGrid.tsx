@@ -29,22 +29,21 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="space-y-4">
       {models.map((model) => (
         <Card 
           key={model.id} 
-          className="bg-card border-border hover:shadow-medium transition-smooth cursor-pointer group w-full max-w-[280px] mx-auto"
+          className="bg-card border-border hover:shadow-medium transition-smooth cursor-pointer group p-4"
           onClick={() => model.isActive && onModelSelect(model.slug)}
         >
-          <CardHeader className="p-4 pb-2">
-            {/* Image Container - Fixed 200x300 */}
-            <div className="w-[200px] h-[300px] bg-muted rounded-lg overflow-hidden relative mx-auto">
+          <div className="flex items-center gap-4">
+            {/* Image Container - Fixed 200x300 but scaled down for list view */}
+            <div className="w-20 h-24 bg-muted rounded-lg overflow-hidden relative flex-shrink-0">
               {model.imageUrl ? (
                 <img 
                   src={model.imageUrl} 
                   alt={`${model.name} 3D Printer`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
-                  style={{ width: '200px', height: '300px', objectFit: 'cover' }}
                   loading="lazy"
                   onError={(e) => {
                     console.error('Image load error for:', model.imageUrl);
@@ -54,47 +53,32 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
                 />
               ) : (
                 <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground">
-                  <div className="text-center p-4">
-                    <div className="w-16 h-16 bg-muted-foreground/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                      <span className="text-2xl">📷</span>
-                    </div>
-                    <span className="text-xs">{t('models.image_not_available')}</span>
-                  </div>
+                  <span className="text-lg">📷</span>
                 </div>
               )}
-              
-              {/* Status Badge */}
-              <div className="absolute top-2 right-2">
-                <Badge variant={model.isActive ? "default" : "secondary"} className="text-xs">
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-lg font-semibold text-foreground truncate">
+                    {model.name}
+                  </CardTitle>
+                  {model.notes && (
+                    <CardDescription className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {model.notes}
+                    </CardDescription>
+                  )}
+                </div>
+                
+                {/* Status Badge */}
+                <Badge variant={model.isActive ? "default" : "secondary"} className="text-xs ml-2 flex-shrink-0">
                   {model.isActive ? t('common.available') : t('common.coming_soon')}
                 </Badge>
               </div>
             </div>
-          </CardHeader>
-          
-          <CardContent className="p-4 pt-2 space-y-2">
-            {/* Model Name */}
-            <div>
-              <CardTitle className="text-base font-semibold text-foreground line-clamp-2 text-center">
-                {model.name}
-              </CardTitle>
-              {model.notes && (
-                <CardDescription className="text-xs text-muted-foreground mt-1 line-clamp-2 text-center">
-                  {model.notes}
-                </CardDescription>
-              )}
-            </div>
-            
-            {/* Action Button */}
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full mt-3"
-              disabled={!model.isActive}
-            >
-              {t('models.view_parameters')}
-            </Button>
-          </CardContent>
+          </div>
         </Card>
       ))}
     </div>
