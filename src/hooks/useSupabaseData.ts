@@ -213,6 +213,7 @@ export const useSupabaseData = () => {
         .select('*')
         .eq('model_slug', modelSlug)
         .eq('active', true)
+        .gte('cure_time', 5)
         .order('resin_name');
       
       if (error) throw error;
