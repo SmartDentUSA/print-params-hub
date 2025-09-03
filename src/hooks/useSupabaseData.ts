@@ -267,6 +267,15 @@ export const useSupabaseData = () => {
       
       console.log(`Inserção bem-sucedida: ${uniqueData.length} registros de parâmetros`);
       
+      // 6. Sincronizar resinas automaticamente após importação
+      console.log('Iniciando sincronização automática das resinas...');
+      const syncSuccess = await syncResinsFromParameters();
+      if (syncSuccess) {
+        console.log('Sincronização de resinas concluída com sucesso');
+      } else {
+        console.warn('Falha na sincronização de resinas, mas parâmetros foram importados');
+      }
+      
       // Aguardar um pouco para garantir que os dados sejam persistidos
       await new Promise(resolve => setTimeout(resolve, 1000));
       
@@ -436,9 +445,9 @@ export const useSupabaseData = () => {
   };
 
   // Sync resins from parameter_sets to resins table
-  const syncResinsFromParameters = async () => {
+  const syncResinsFromParameters = async (): Promise<boolean> => {
     try {
-      console.log('Syncing resins from parameter_sets to resins table...');
+      console.log('Iniciando sincronização de resinas...');
       
       // Get all unique resins from parameter_sets
       const { data: paramData, error } = await supabase
@@ -446,50 +455,73 @@ export const useSupabaseData = () => {
         .select('resin_name, resin_manufacturer')
         .eq('active', true);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar parâmetros para sincronização:', error);
+        throw error;
+      }
       
-      // Create unique resins list
+      if (!paramData || paramData.length === 0) {
+        console.log('Nenhum parâmetro encontrado para sincronização');
+        return true;
+      }
+      
+      // Get existing resins to avoid duplicates
+      const { data: existingResins } = await supabase
+        .from('resins')
+        .select('name, manufacturer');
+      
+      const existingKeys = new Set(
+        (existingResins || []).map(r => `${r.name}|${r.manufacturer}`)
+      );
+      
+      // Create unique resins list (excluding existing ones)
       const uniqueResins = [...new Set(paramData?.map(item => 
         `${item.resin_name}|${item.resin_manufacturer}`
       ) || [])];
       
-      const resinsToInsert = uniqueResins.map(combined => {
-        const [name, manufacturer] = combined.split('|');
-        return {
-          name: name,
-          manufacturer: manufacturer,
-          type: 'standard' as const,
-          active: true
-        };
-      });
+      const resinsToInsert = uniqueResins
+        .filter(key => !existingKeys.has(key))
+        .map(combined => {
+          const [name, manufacturer] = combined.split('|');
+          return {
+            name: name,
+            manufacturer: manufacturer,
+            type: 'standard' as const,
+            active: true
+          };
+        });
       
-      console.log(`Found ${resinsToInsert.length} unique resins to sync`);
+      console.log(`Encontradas ${uniqueResins.length} resinas únicas, ${resinsToInsert.length} novas para inserir`);
+      
+      if (resinsToInsert.length === 0) {
+        console.log('Todas as resinas já existem na tabela');
+        return true;
+      }
       
       // Insert in batches
-      const batchSize = 10;
+      const batchSize = 20;
       let successCount = 0;
       
       for (let i = 0; i < resinsToInsert.length; i += batchSize) {
         const batch = resinsToInsert.slice(i, i + batchSize);
-        const { error: batchError } = await supabase
-          .from('resins')
-          .upsert(batch, { 
-            onConflict: 'name,manufacturer',
-            ignoreDuplicates: true 
-          });
         
-        if (batchError) {
-          console.error('Error syncing resin batch:', batchError);
+        const { error: insertError } = await supabase
+          .from('resins')
+          .insert(batch);
+        
+        if (insertError) {
+          console.error(`Erro ao inserir lote ${i/batchSize + 1}:`, insertError);
+          // Continue mesmo com erro para processar outros lotes
         } else {
           successCount += batch.length;
-          console.log(`Synced batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(resinsToInsert.length/batchSize)}`);
+          console.log(`Lote ${Math.floor(i/batchSize) + 1}/${Math.ceil(resinsToInsert.length/batchSize)} inserido com sucesso`);
         }
       }
       
-      console.log(`Sync complete: ${successCount}/${resinsToInsert.length} resins synced`);
-      return true;
+      console.log(`Sincronização concluída: ${successCount}/${resinsToInsert.length} resinas inseridas`);
+      return successCount > 0 || resinsToInsert.length === 0;
     } catch (err) {
-      console.error('Error syncing resins:', err);
+      console.error('Erro na sincronização de resinas:', err);
       return false;
     }
   };
