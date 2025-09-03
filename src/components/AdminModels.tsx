@@ -136,8 +136,10 @@ export function AdminModels() {
     }
 
     try {
+      console.log('FormData antes de salvar:', formData);
       if (editingModel) {
         const updated = await updateModel(editingModel.id, formData);
+        console.log('Resultado do update:', updated);
         if (updated) {
           setModels(prev => prev.map(model => 
             model.id === editingModel.id ? { ...updated, created_at: model.created_at, updated_at: new Date().toISOString() } : model
@@ -149,6 +151,7 @@ export function AdminModels() {
         }
       } else {
         const created = await insertModel(formData);
+        console.log('Resultado do insert:', created);
         if (created) {
           setModels(prev => [...prev, { ...created, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
           toast({
