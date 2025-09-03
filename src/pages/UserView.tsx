@@ -70,11 +70,11 @@ const UserView = () => {
           <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-success rounded-full"></span>
-              13 Marcas Integradas
+              {brands.length} Marcas Integradas
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-primary rounded-full"></span>
-              266+ Parâmetros Reais
+              {data.length}+ Parâmetros Reais
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-accent rounded-full"></span>

@@ -172,15 +172,15 @@ export function DataStats({ data }: DataStatsProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="text-center p-4 bg-success/10 rounded-lg border border-success/20">
-              <div className="text-2xl font-bold text-success">100%</div>
+              <div className="text-2xl font-bold text-success">{data.length > 0 ? '100%' : '0%'}</div>
               <div className="text-sm text-muted-foreground">Cobertura</div>
             </div>
             <div className="text-center p-4 bg-primary/10 rounded-lg border border-primary/20">
-              <div className="text-2xl font-bold text-primary">13</div>
+              <div className="text-2xl font-bold text-primary">{brands.length}</div>
               <div className="text-sm text-muted-foreground">Marcas Ativas</div>
             </div>
             <div className="text-center p-4 bg-accent/10 rounded-lg border border-accent/20">
-              <div className="text-2xl font-bold text-accent">266+</div>
+              <div className="text-2xl font-bold text-accent">{totalParameterSets}+</div>
               <div className="text-sm text-muted-foreground">Registros Únicos</div>
             </div>
           </div>
