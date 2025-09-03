@@ -45,12 +45,24 @@ const AdminView = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'brand' | 'model' | 'resin' | 'parameter'>('brand');
   const [editingItem, setEditingItem] = useState<any>(null);
+  
+  // Local state for models with images
+  const [modelsWithImages, setModelsWithImages] = useState<any[]>([]);
+  
   const { toast } = useToast();
   const { data, setData, addData } = useData();
 
   const brands = getUniqueBrands(data);
-  const models = getUniqueModels(data);
+  const models = modelsWithImages.length > 0 ? modelsWithImages : getUniqueModels(data);
   const resins = getUniqueResins(data);
+
+  // Initialize models with images from localStorage
+  useEffect(() => {
+    const savedModels = localStorage.getItem('modelsWithImages');
+    if (savedModels) {
+      setModelsWithImages(JSON.parse(savedModels));
+    }
+  }, []);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -104,11 +116,41 @@ const AdminView = () => {
           description: "Novo conjunto de parâmetros foi adicionado com sucesso.",
         });
       }
+    } else if (modalType === 'model') {
+      // Handle model saving with images
+      let updatedModels;
+      
+      if (editingItem) {
+        // Update existing model
+        updatedModels = modelsWithImages.length > 0 
+          ? modelsWithImages.map(model => 
+              model.id === editingItem.id ? { ...formData } : model
+            )
+          : getUniqueModels(data).map(model => 
+              model.id === editingItem.id ? { ...model, ...formData } : model
+            );
+      } else {
+        // Add new model
+        const baseModels = modelsWithImages.length > 0 ? modelsWithImages : getUniqueModels(data);
+        updatedModels = [...baseModels, { 
+          ...formData, 
+          id: Date.now().toString(),
+          slug: formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+        }];
+      }
+      
+      setModelsWithImages(updatedModels);
+      localStorage.setItem('modelsWithImages', JSON.stringify(updatedModels));
+      
+      toast({
+        title: editingItem ? "Modelo atualizado!" : "Modelo criado!",
+        description: "Modelo foi salvo com sucesso.",
+      });
     } else {
-      // For brands, models, and resins - we'll show success but note they're not yet fully integrated
+      // For brands and resins - show success but note they're not yet fully integrated
       toast({
         title: editingItem ? "Item atualizado!" : "Item criado!",
-        description: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : 'Resina'} foi ${editingItem ? 'atualizada' : 'criada'} com sucesso.`,
+        description: `${modalType === 'brand' ? 'Marca' : 'Resina'} foi ${editingItem ? 'atualizada' : 'criada'} com sucesso.`,
       });
     }
   };

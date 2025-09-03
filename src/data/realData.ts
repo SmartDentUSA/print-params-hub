@@ -396,7 +396,20 @@ export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Arra
 }
 
 export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, imageUrl?: string, isActive: boolean, notes?: string}> {
-  
+  // Check for models with images saved in localStorage first
+  const savedModels = localStorage.getItem('modelsWithImages');
+  if (savedModels) {
+    try {
+      const modelsWithImages = JSON.parse(savedModels);
+      if (Array.isArray(modelsWithImages) && modelsWithImages.length > 0) {
+        return modelsWithImages;
+      }
+    } catch (error) {
+      console.error('Error parsing saved models:', error);
+    }
+  }
+
+  // Fallback to original data-based method
   const brandToId = getUniqueBrands(data).reduce((acc, brand) => {
     acc[brand.name] = brand.id;
     return acc;
