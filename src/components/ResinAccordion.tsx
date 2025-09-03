@@ -28,10 +28,13 @@ interface ResinAccordionProps {
 }
 
 export function ResinAccordion({ resins }: ResinAccordionProps) {
-  // Filter out parameter sets with very low cure times (< 5 seconds)
+  // Filter out parameter sets with invalid data (but allow cure_time = 0 for special cases)
   const filteredResins = resins.map(resin => ({
     ...resin,
-    parameterSets: resin.parameterSets.filter(paramSet => paramSet.tempo_cura_seg >= 5)
+    parameterSets: resin.parameterSets.filter(paramSet => 
+      paramSet.tempo_cura_seg >= 0 && // Allow cure_time = 0
+      paramSet.altura_da_camada_mm > 0 // Ensure valid layer height
+    )
   })).filter(resin => resin.parameterSets.length > 0);
 
   if (filteredResins.length === 0) {
