@@ -137,34 +137,48 @@ export const useSupabaseData = () => {
         light_intensity: parseInt(param.intensidade_luz_pct?.toString() || '100'),
         bottom_layers: parseInt(param.camadas_transicao?.toString() || '5'),
         bottom_cure_time: parseInt(param.tempo_adesao_seg?.toString() || '60'),
-        lift_distance: 5.0, // Default value
-        lift_speed: 3.0, // Default value
-        retract_speed: 3.0, // Default value
+        lift_distance: 5.0,
+        lift_speed: 3.0,
+        retract_speed: 3.0,
         xy_adjustment_x_pct: parseInt(param.ajuste_x_pct?.toString() || '100'),
         xy_adjustment_y_pct: parseInt(param.ajuste_y_pct?.toString() || '100'),
-        xy_size_compensation: 0.0, // Default value
-        anti_aliasing: true, // Default value
-        wait_time_before_cure: 0, // Default value
-        wait_time_after_cure: 0, // Default value
-        wait_time_after_lift: 0, // Default value
+        xy_size_compensation: 0.0,
+        anti_aliasing: true,
+        wait_time_before_cure: 0,
+        wait_time_after_cure: 0,
+        wait_time_after_lift: 0,
         notes: param.notes || null
       }));
 
-      const { data, error } = await supabase
-        .from('parameter_sets')
-        .upsert(formattedData, {
-          onConflict: 'brand_slug,model_slug,resin_name,resin_manufacturer,layer_height',
-          ignoreDuplicates: false
-        });
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      // Remove duplicatas baseado na chave única
+      const uniqueData = formattedData.filter((item, index, array) => {
+        const key = `${item.brand_slug}-${item.model_slug}-${item.resin_name}-${item.resin_manufacturer}-${item.layer_height}`;
+        return array.findIndex(i => 
+          `${i.brand_slug}-${i.model_slug}-${i.resin_name}-${i.resin_manufacturer}-${i.layer_height}` === key
+        ) === index;
+      });
+
+      console.log(`Dados originais: ${formattedData.length}, Dados únicos: ${uniqueData.length}`);
+
+      // Inserir em lotes pequenos para evitar conflitos
+      const batchSize = 50;
+      for (let i = 0; i < uniqueData.length; i += batchSize) {
+        const batch = uniqueData.slice(i, i + batchSize);
+        
+        const { error } = await supabase
+          .from('parameter_sets')
+          .insert(batch);
+        
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
       }
       
-      console.log('Upsert successful:', data);
+      console.log(`Inserção bem-sucedida: ${uniqueData.length} registros`);
       return true;
     } catch (err) {
+      console.error('Erro na inserção:', err);
       setError(err instanceof Error ? err.message : 'Erro ao importar dados');
       return false;
     } finally {
