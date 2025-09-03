@@ -27,26 +27,10 @@ interface DataProviderProps {
 }
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
-  const {
-    loading,
-    error,
-    insertParameterSets,
-    getUniqueBrands,
-    getModelsByBrand,
-    getResinsByModel,
-    clearError
-  } = useSupabaseData();
+  const supabaseData = useSupabaseData();
 
   return (
-    <DataContext.Provider value={{
-      loading,
-      error,
-      insertParameterSets,
-      getUniqueBrands,
-      getModelsByBrand,
-      getResinsByModel,
-      clearError
-    }}>
+    <DataContext.Provider value={supabaseData}>
       {children}
     </DataContext.Provider>
   );

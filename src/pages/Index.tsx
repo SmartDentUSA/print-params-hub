@@ -6,16 +6,21 @@ import { useData } from "@/contexts/DataContext";
 import UserViewSupabase from "./UserViewSupabase";
 
 const Index = () => {
-  const { getUniqueBrands } = useData();
+  const { getUniqueBrands, loading } = useData();
   const [hasData, setHasData] = useState(false);
+  const [checkingData, setCheckingData] = useState(true);
 
   useEffect(() => {
     const checkData = async () => {
       try {
+        setCheckingData(true);
         const brands = await getUniqueBrands();
         setHasData(brands.length > 0);
       } catch (error) {
         console.error('Error checking data:', error);
+        setHasData(false);
+      } finally {
+        setCheckingData(false);
       }
     };
     checkData();
@@ -24,6 +29,17 @@ const Index = () => {
   const handleDataLoaded = () => {
     setHasData(true);
   };
+
+  if (checkingData || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-foreground">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   return hasData ? (
     <UserViewSupabase />
