@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,8 @@ import {
   FileText,
   Image,
   Download,
+  Edit,
+  Plus,
   LogOut
 } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
@@ -40,6 +43,16 @@ const AdminViewComplete = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(false);
+  
+  // Modal states
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'brand' | 'model' | 'resin' | 'parameter'>('brand');
+  const [editingItem, setEditingItem] = useState<any>(null);
+  
+  // Catalog data states
+  const [brands, setBrands] = useState<any[]>([]);
+  const [models, setModels] = useState<any[]>([]);
+  const [resins, setResins] = useState<any[]>([]);
   
   // Configuration states
   const [siteConfig, setSiteConfig] = useState({
@@ -58,6 +71,42 @@ const AdminViewComplete = () => {
   
   const { toast } = useToast();
   const { insertParameterSets, getUniqueBrands } = useData();
+
+  // Load catalog data
+  useEffect(() => {
+    loadCatalogData();
+  }, []);
+
+  const loadCatalogData = () => {
+    // Load brands from localStorage or mock data
+    const storedBrands = JSON.parse(localStorage.getItem('catalogBrands') || '[]');
+    const storedModels = JSON.parse(localStorage.getItem('catalogModels') || '[]');
+    const storedResins = JSON.parse(localStorage.getItem('catalogResins') || '[]');
+    
+    setBrands(storedBrands.length > 0 ? storedBrands : [
+      { id: '1', name: 'ELEGOO', slug: 'elegoo', isActive: true },
+      { id: '2', name: 'PHROZEN', slug: 'phrozen', isActive: true },
+      { id: '3', name: 'ANYCUBIC', slug: 'anycubic', isActive: true }
+    ]);
+    
+    setModels(storedModels.length > 0 ? storedModels : [
+      { id: '1', brandId: '1', name: 'Mars 2', slug: 'mars-2', isActive: true, notes: 'Impressora de entrada' },
+      { id: '2', brandId: '1', name: 'Mars 3', slug: 'mars-3', isActive: true, notes: 'Versão melhorada' },
+      { id: '3', brandId: '2', name: 'Sonic Mini 4K', slug: 'sonic-mini-4k', isActive: true, notes: 'Compacta e precisa' }
+    ]);
+    
+    setResins(storedResins.length > 0 ? storedResins : [
+      { id: '1', name: 'Smart Print Model Ocre', manufacturer: 'Smart Print', isActive: true },
+      { id: '2', name: 'NextDent ORTHO Clear', manufacturer: 'NextDent', isActive: true },
+      { id: '3', name: 'ASIGA DentaBASE', manufacturer: 'ASIGA', isActive: true }
+    ]);
+  };
+
+  const saveCatalogData = () => {
+    localStorage.setItem('catalogBrands', JSON.stringify(brands));
+    localStorage.setItem('catalogModels', JSON.stringify(models));
+    localStorage.setItem('catalogResins', JSON.stringify(resins));
+  };
 
   useEffect(() => {
     const authStatus = localStorage.getItem("adminAuth");
@@ -88,6 +137,59 @@ const AdminViewComplete = () => {
     toast({
       title: "Logout realizado",
       description: "Você foi desconectado do painel administrativo.",
+    });
+  };
+
+  const openModal = (type: 'brand' | 'model' | 'resin' | 'parameter', item?: any) => {
+    setModalType(type);
+    setEditingItem(item || null);
+    setModalOpen(true);
+  };
+
+  const handleModalSave = (data: any) => {
+    if (modalType === 'brand') {
+      if (editingItem) {
+        setBrands(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
+      } else {
+        setBrands(prev => [...prev, { ...data, id: Date.now().toString() }]);
+      }
+    } else if (modalType === 'model') {
+      if (editingItem) {
+        setModels(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
+      } else {
+        setModels(prev => [...prev, { ...data, id: Date.now().toString() }]);
+      }
+    } else if (modalType === 'resin') {
+      if (editingItem) {
+        setResins(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
+      } else {
+        setResins(prev => [...prev, { ...data, id: Date.now().toString() }]);
+      }
+    }
+    
+    saveCatalogData();
+    setModalOpen(false);
+    
+    toast({
+      title: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : 'Resina'} ${editingItem ? 'atualizada' : 'criada'}`,
+      description: "Dados salvos com sucesso.",
+    });
+  };
+
+  const handleDelete = (type: string, id: string) => {
+    if (type === 'brand') {
+      setBrands(prev => prev.filter(item => item.id !== id));
+    } else if (type === 'model') {
+      setModels(prev => prev.filter(item => item.id !== id));
+    } else if (type === 'resin') {
+      setResins(prev => prev.filter(item => item.id !== id));
+    }
+    
+    saveCatalogData();
+    
+    toast({
+      title: `${type === 'brand' ? 'Marca' : type === 'model' ? 'Modelo' : 'Resina'} removida`,
+      description: "Item excluído com sucesso.",
     });
   };
 
@@ -191,7 +293,7 @@ const AdminViewComplete = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.brands}</div>
+                <div className="text-2xl font-bold">{brands.length}</div>
                 <p className="text-xs text-muted-foreground">fabricantes únicos</p>
               </CardContent>
             </Card>
@@ -202,7 +304,7 @@ const AdminViewComplete = () => {
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.models}</div>
+                <div className="text-2xl font-bold">{models.length}</div>
                 <p className="text-xs text-muted-foreground">impressoras cadastradas</p>
               </CardContent>
             </Card>
@@ -213,15 +315,19 @@ const AdminViewComplete = () => {
                 <RefreshCw className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.resins}</div>
+                <div className="text-2xl font-bold">{resins.length}</div>
                 <p className="text-xs text-muted-foreground">tipos diferentes</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Main Admin Tabs */}
-          <Tabs defaultValue="import" className="w-full">
+          <Tabs defaultValue="catalog" className="w-full">
             <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="catalog" className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Catálogo
+              </TabsTrigger>
               <TabsTrigger value="import" className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
                 Importar
@@ -231,22 +337,180 @@ const AdminViewComplete = () => {
                 Estatísticas
               </TabsTrigger>
               <TabsTrigger value="database" className="flex items-center gap-2">
-                <Database className="w-4 h-4" />
+                <Globe className="w-4 h-4" />
                 Banco
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
                 Configurações
               </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Usuários
-              </TabsTrigger>
               <TabsTrigger value="system" className="flex items-center gap-2">
-                <Globe className="w-4 h-4" />
+                <FileText className="w-4 h-4" />
                 Sistema
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="catalog" className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Brands */}
+                <Card className="bg-gradient-card border-border shadow-medium">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base">Marcas ({brands.length})</CardTitle>
+                    <Button size="sm" onClick={() => openModal('brand')}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {brands.map((brand) => (
+                        <div key={brand.id} className="flex items-center justify-between p-2 border rounded">
+                          <div>
+                            <div className="font-medium text-sm">{brand.name}</div>
+                            <div className="text-xs text-muted-foreground">{brand.slug}</div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => openModal('brand', brand)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete('brand', brand.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Models */}
+                <Card className="bg-gradient-card border-border shadow-medium">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base">Modelos ({models.length})</CardTitle>
+                    <Button size="sm" onClick={() => openModal('model')}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {models.map((model) => {
+                        const brand = brands.find(b => b.id === model.brandId);
+                        return (
+                          <div key={model.id} className="flex items-center justify-between p-2 border rounded">
+                            <div>
+                              <div className="font-medium text-sm">{model.name}</div>
+                              <div className="text-xs text-muted-foreground">{brand?.name || 'Sem marca'}</div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button size="sm" variant="ghost" onClick={() => openModal('model', model)}>
+                                <Edit className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => handleDelete('model', model.id)}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Resins */}
+                <Card className="bg-gradient-card border-border shadow-medium">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                    <CardTitle className="text-base">Resinas ({resins.length})</CardTitle>
+                    <Button size="sm" onClick={() => openModal('resin')}>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {resins.map((resin) => (
+                        <div key={resin.id} className="flex items-center justify-between p-2 border rounded">
+                          <div>
+                            <div className="font-medium text-sm">{resin.name}</div>
+                            <div className="text-xs text-muted-foreground">{resin.manufacturer}</div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => openModal('resin', resin)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete('resin', resin.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Parameters Table */}
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle>Parâmetros de Impressão</CardTitle>
+                  <Button onClick={() => openModal('parameter')}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Adicionar Parâmetro
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Marca</TableHead>
+                          <TableHead>Modelo</TableHead>
+                          <TableHead>Resina</TableHead>
+                          <TableHead>Camada</TableHead>
+                          <TableHead>Cura</TableHead>
+                          <TableHead>Luz</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {importedData.slice(0, 10).map((param, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{param.brand}</TableCell>
+                            <TableCell>{param.model}</TableCell>
+                            <TableCell>{param.resin}</TableCell>
+                            <TableCell>{param.altura_da_camada_mm}mm</TableCell>
+                            <TableCell>{param.tempo_cura_seg}s</TableCell>
+                            <TableCell>{param.intensidade_luz_pct}%</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button size="sm" variant="ghost" onClick={() => openModal('parameter', param)}>
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button size="sm" variant="ghost">
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {importedData.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                              Nenhum parâmetro encontrado. Importe dados CSV na aba "Importar".
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {importedData.length > 10 && (
+                    <div className="text-sm text-muted-foreground mt-4 text-center">
+                      Mostrando 10 de {importedData.length} parâmetros
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="import" className="space-y-6">
               <Card className="bg-gradient-card border-border shadow-medium">
@@ -459,33 +723,6 @@ const AdminViewComplete = () => {
               </Card>
             </TabsContent>
 
-            <TabsContent value="users" className="space-y-6">
-              <Card className="bg-gradient-card border-border shadow-medium">
-                <CardHeader>
-                  <CardTitle>Gerenciamento de Usuários</CardTitle>
-                  <CardDescription>
-                    Administre usuários e permissões do sistema
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">Sistema Público</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Atualmente o sistema está configurado para acesso público.
-                      Para gerenciar usuários específicos, configure autenticação no Supabase.
-                    </p>
-                    <Button 
-                      variant="outline"
-                      onClick={() => window.open("https://supabase.com/dashboard/project/okeogjgqijbfkudfjadz/auth/users", "_blank")}
-                    >
-                      Configurar Autenticação
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
             <TabsContent value="system" className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Card className="bg-gradient-card border-border shadow-medium">
@@ -544,6 +781,18 @@ const AdminViewComplete = () => {
           </Tabs>
         </div>
       </main>
+
+      {/* Admin Modal */}
+      <AdminModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        type={modalType}
+        item={editingItem}
+        brands={brands}
+        models={models}
+        resins={resins}
+        onSave={handleModalSave}
+      />
     </div>
   );
 };
