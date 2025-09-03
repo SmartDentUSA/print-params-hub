@@ -37,10 +37,12 @@ import {
 } from "@/data/realData";
 
 const AdminView = () => {
+  // ALL HOOKS MUST BE AT THE TOP - NEVER CONDITIONAL
   const [activeTab, setActiveTab] = useState("dashboard");
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState<Partial<RealParameterSet>>({});
   const { toast } = useToast();
   const { data, addData } = useData();
 
@@ -68,21 +70,6 @@ const AdminView = () => {
     });
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
-        <div className="text-lg">Carregando...</div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />;
-  }
-
-  // Mock form states for editing
-  const [formData, setFormData] = useState<Partial<RealParameterSet>>({});
-
   const handleEdit = (id: string, data: any) => {
     setEditingItem(id);
     setFormData(data);
@@ -109,6 +96,22 @@ const AdminView = () => {
       description: `${type} foi removido com sucesso.`,
     });
   };
+
+  // CONDITIONAL RENDERS AFTER ALL HOOKS
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
+        <div className="text-lg">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
+
+  // Mock form states for editing - MOVED TO TOP
+
 
   return (
     <div className="min-h-screen bg-gradient-surface">
