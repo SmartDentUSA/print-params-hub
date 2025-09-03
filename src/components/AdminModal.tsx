@@ -68,7 +68,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onSave 
 }) => {
   const [formData, setFormData] = useState<any>(() => {
-    if (item) return { ...item };
+    if (item && type === 'parameter') {
+      // For parameters, we need to ensure the data matches what's available in dropdowns
+      const parameterItem = item as Parameter;
+      return {
+        ...parameterItem,
+        brand: parameterItem.brand || '',
+        model: parameterItem.model || '',
+        resin: parameterItem.resin || ''
+      };
+    } else if (item) {
+      return { ...item };
+    }
     
     switch (type) {
       case 'brand':
@@ -125,7 +136,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleInputChange = (field: string, value: any) => {
     const newFormData = { ...formData, [field]: value };
     
-    // If brand changes in parameter form, clear the model selection
+    // If brand changes in parameter form, reset the model selection
     if (field === 'brand' && type === 'parameter') {
       newFormData.model = '';
     }
@@ -271,9 +282,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="model">Modelo</Label>
-                  <Select value={formData.model || ''} onValueChange={(value) => handleInputChange('model', value)} disabled={!formData.brand}>
+                  <Select 
+                    value={formData.model || ''} 
+                    onValueChange={(value) => handleInputChange('model', value)} 
+                    disabled={!formData.brand}
+                  >
                     <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Selecione um modelo" />
+                      <SelectValue placeholder={!formData.brand ? "Selecione uma marca primeiro" : "Selecione um modelo"} />
                     </SelectTrigger>
                     <SelectContent className="bg-background border border-border z-50">
                       {availableModels.map((model) => (
