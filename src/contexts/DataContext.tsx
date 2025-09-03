@@ -14,6 +14,7 @@ interface DataContextType {
   getUniqueBrands: () => Promise<any[]>;
   getModelsByBrand: (brandSlug: string) => Promise<any[]>;
   getResinsByModel: (modelSlug: string) => Promise<any[]>;
+  syncResinsFromParameters: () => Promise<boolean>;
   // CRUD operations
   insertBrand: (brand: Omit<Brand, 'id'>) => Promise<Brand | null>;
   updateBrand: (id: string, updates: Partial<Brand>) => Promise<Brand | null>;
@@ -62,6 +63,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     getUniqueBrands: dataHook.getUniqueBrands,
     getModelsByBrand: dataHook.getModelsByBrand,
     getResinsByModel: dataHook.getResinsByModel,
+    syncResinsFromParameters: dataHook.syncResinsFromParameters,
     // CRUD operations
     insertBrand: crudHook.insertBrand,
     updateBrand: crudHook.updateBrand,

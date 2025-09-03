@@ -76,6 +76,7 @@ export function AdminSettings() {
     fetchBrands, 
     fetchModelsByBrand,
     fetchParametersByModel,
+    syncResinsFromParameters,
     insertBrand, 
     updateBrand, 
     deleteBrand,
@@ -117,13 +118,17 @@ export function AdminSettings() {
       console.log('Total models loaded:', allModelsData.length);
       setModels(allModelsData);
       
-      // For resins and parameters, let's use a simpler approach
-      // by fetching from the main data functions
+      // Sync resins from parameter_sets to resins table
+      console.log('Syncing resins...');
+      await syncResinsFromParameters();
+      
+      // Now load resins from the synced table
       const { data: resinsData } = await supabase
         .from('resins')
         .select('*')
         .eq('active', true)
         .order('name');
+      console.log('Resins loaded from table:', resinsData?.length || 0);
       setResins(resinsData || []);
       
       // Get parameter sets - these are public readable

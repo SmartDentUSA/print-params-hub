@@ -225,15 +225,29 @@ export const useSupabaseData = () => {
       });
 
       if (resinsToInsert.length > 0) {
-        const { error: resinsError } = await supabase
-          .from('resins')
-          .upsert(resinsToInsert, { onConflict: 'name,manufacturer' });
+        console.log('Inserting resins:', resinsToInsert.length);
+        console.log('Sample resins:', resinsToInsert.slice(0, 3));
         
-        if (resinsError) {
-          console.error('Erro ao inserir resinas:', resinsError);
-          throw resinsError;
+        // Insert in smaller batches to avoid conflicts
+        const batchSize = 10;
+        for (let i = 0; i < resinsToInsert.length; i += batchSize) {
+          const batch = resinsToInsert.slice(i, i + batchSize);
+          const { error: resinsError } = await supabase
+            .from('resins')
+            .upsert(batch, { 
+              onConflict: 'name,manufacturer',
+              ignoreDuplicates: false 
+            });
+          
+          if (resinsError) {
+            console.error('Erro ao inserir lote de resinas:', resinsError);
+            console.error('Lote que falhou:', batch);
+            // Don't throw, continue with other batches
+          } else {
+            console.log(`Lote ${i/batchSize + 1} de resinas inserido com sucesso`);
+          }
         }
-        console.log(`${resinsToInsert.length} resinas inseridas`);
+        console.log(`Processamento de ${resinsToInsert.length} resinas concluído`);
       }
 
       // 5. Inserir parâmetros em lotes pequenos
@@ -421,6 +435,65 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Sync resins from parameter_sets to resins table
+  const syncResinsFromParameters = async () => {
+    try {
+      console.log('Syncing resins from parameter_sets to resins table...');
+      
+      // Get all unique resins from parameter_sets
+      const { data: paramData, error } = await supabase
+        .from('parameter_sets')
+        .select('resin_name, resin_manufacturer')
+        .eq('active', true);
+      
+      if (error) throw error;
+      
+      // Create unique resins list
+      const uniqueResins = [...new Set(paramData?.map(item => 
+        `${item.resin_name}|${item.resin_manufacturer}`
+      ) || [])];
+      
+      const resinsToInsert = uniqueResins.map(combined => {
+        const [name, manufacturer] = combined.split('|');
+        return {
+          name: name,
+          manufacturer: manufacturer,
+          type: 'standard' as const,
+          active: true
+        };
+      });
+      
+      console.log(`Found ${resinsToInsert.length} unique resins to sync`);
+      
+      // Insert in batches
+      const batchSize = 10;
+      let successCount = 0;
+      
+      for (let i = 0; i < resinsToInsert.length; i += batchSize) {
+        const batch = resinsToInsert.slice(i, i + batchSize);
+        const { error: batchError } = await supabase
+          .from('resins')
+          .upsert(batch, { 
+            onConflict: 'name,manufacturer',
+            ignoreDuplicates: true 
+          });
+        
+        if (batchError) {
+          console.error('Error syncing resin batch:', batchError);
+        } else {
+          successCount += batch.length;
+          console.log(`Synced batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(resinsToInsert.length/batchSize)}`);
+        }
+      }
+      
+      console.log(`Sync complete: ${successCount}/${resinsToInsert.length} resins synced`);
+      return true;
+    } catch (err) {
+      console.error('Error syncing resins:', err);
+      return false;
+    }
+  };
+
   return {
     loading,
     error,
@@ -431,6 +504,7 @@ export const useSupabaseData = () => {
     getUniqueBrands,
     getModelsByBrand,
     getResinsByModel,
+    syncResinsFromParameters,
     clearError: () => setError(null)
   };
 };
