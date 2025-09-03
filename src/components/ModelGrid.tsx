@@ -29,20 +29,22 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {models.map((model) => (
         <Card 
           key={model.id} 
-          className="bg-gradient-card border-border hover:shadow-medium transition-smooth cursor-pointer group"
+          className="bg-gradient-card border-border hover:shadow-medium transition-smooth cursor-pointer group overflow-hidden"
           onClick={() => model.isActive && onModelSelect(model.slug)}
         >
-          <CardHeader className="pb-3">
-            <div className="w-full aspect-[7/10] bg-muted rounded-lg mb-3 overflow-hidden">
+          <CardHeader className="p-0">
+            {/* Image Container - Fixed 200x300 */}
+            <div className="w-[200px] h-[300px] bg-muted overflow-hidden relative mx-auto">
               {model.imageUrl ? (
                 <img 
                   src={model.imageUrl} 
                   alt={`${model.name} 3D Printer`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
+                  style={{ width: '200px', height: '300px', objectFit: 'cover' }}
                   loading="lazy"
                   onError={(e) => {
                     console.error('Image load error for:', model.imageUrl);
@@ -52,21 +54,38 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-surface flex items-center justify-center text-muted-foreground">
-                  <span className="text-xs text-center px-2">{t('models.image_not_available')}</span>
+                  <div className="text-center p-4">
+                    <div className="w-16 h-16 bg-muted-foreground/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <span className="text-2xl">📷</span>
+                    </div>
+                    <span className="text-xs">{t('models.image_not_available')}</span>
+                  </div>
                 </div>
               )}
+              
+              {/* Status Badge */}
+              <div className="absolute top-3 right-3">
+                <Badge variant={model.isActive ? "default" : "secondary"} className="text-xs">
+                  {model.isActive ? t('common.available') : t('common.coming_soon')}
+                </Badge>
+              </div>
             </div>
-            <div className="flex items-start justify-between">
-              <CardTitle className="text-base">{model.name}</CardTitle>
-              <Badge variant={model.isActive ? "default" : "secondary"}>
-                {model.isActive ? t('common.available') : t('common.coming_soon')}
-              </Badge>
-            </div>
-            {model.notes && (
-              <CardDescription className="text-sm">{model.notes}</CardDescription>
-            )}
           </CardHeader>
-          <CardContent className="pt-0">
+          
+          <CardContent className="p-4 space-y-3">
+            {/* Model Name */}
+            <div>
+              <CardTitle className="text-lg font-semibold text-foreground line-clamp-2">
+                {model.name}
+              </CardTitle>
+              {model.notes && (
+                <CardDescription className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {model.notes}
+                </CardDescription>
+              )}
+            </div>
+            
+            {/* Action Button */}
             <Button 
               variant="outline" 
               size="sm" 
