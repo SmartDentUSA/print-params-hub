@@ -32,8 +32,12 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
     setIsLoading(true);
 
     try {
+      console.log("Reading file:", file.name, "Size:", file.size, "bytes");
       const text = await file.text();
+      console.log("File content preview:", text.substring(0, 200));
+      
       const data = await loadDataFromCSV(text);
+      console.log("Successfully parsed data:", data.length, "records");
       
       setImportedData(data);
       onDataLoaded?.(data);
@@ -42,11 +46,19 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
         title: "Dados importados com sucesso!",
         description: `${data.length} registros carregados de ${file.name}`,
       });
+      
+      // Reset the file input to allow re-uploading the same file
+      if (event.target) {
+        event.target.value = '';
+      }
+      
     } catch (error) {
-      console.error("Erro ao importar dados:", error);
+      console.error("Erro detalhado ao importar dados:", error);
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      
       toast({
         title: "Erro na importação",
-        description: "Não foi possível carregar o arquivo CSV.",
+        description: `${errorMessage}. Verifique o formato do arquivo CSV.`,
         variant: "destructive",
       });
     } finally {
@@ -126,23 +138,44 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
                 <div className="text-muted-foreground">Resinas</div>
               </div>
             </div>
-          </div>
+        </div>
         )}
 
         <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
           <div className="flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
             <div className="text-sm">
-              <div className="font-medium text-accent-foreground mb-1">Como usar:</div>
-              <ul className="text-muted-foreground space-y-1">
+              <div className="font-medium text-accent-foreground mb-2">Como usar:</div>
+              <ul className="text-muted-foreground space-y-1 mb-3">
                 <li>• Use os CSVs gerados pelo processamento da planilha Excel</li>
                 <li>• Cada arquivo CSV deve conter as colunas padronizadas</li>
-                <li>• Você pode importar múltiplos arquivos (um por marca)</li>
-                <li>• Os dados serão carregados dinamicamente na aplicação</li>
+                <li>• Headers obrigatórios: brand, model, resin, variant_label</li>
+                <li>• Valores numéricos serão validados automaticamente</li>
               </ul>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => window.open('/exemplo-importacao.csv', '_blank')}
+                className="flex items-center gap-2"
+              >
+                <Upload className="w-4 h-4" />
+                Baixar Arquivo de Exemplo
+              </Button>
             </div>
           </div>
         </div>
+
+        {/* Debug Information */}
+        {importedData.length > 0 && (
+          <div className="bg-muted/50 border rounded-lg p-4">
+            <div className="text-sm">
+              <div className="font-medium mb-2">Primeiros 3 registros importados:</div>
+              <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+                {JSON.stringify(importedData.slice(0, 3), null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

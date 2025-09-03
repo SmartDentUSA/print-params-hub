@@ -463,32 +463,128 @@ export function getModelBySlugReal(slug: string) {
   return getUniqueModels().find(m => m.slug === slug);
 }
 
-// CSV loader utility (for future use when you want to load from actual CSV files)
+// CSV loader utility - Improved version with better error handling
 export async function loadDataFromCSV(csvData: string): Promise<RealParameterSet[]> {
-  const lines = csvData.split('\n');
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  console.log("Starting CSV import...");
+  console.log("CSV data length:", csvData.length);
   
-  return lines.slice(1).map(line => {
-    const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-    const row: any = {};
+  if (!csvData || csvData.trim().length === 0) {
+    throw new Error("Arquivo CSV vazio ou inválido");
+  }
+
+  const lines = csvData.split('\n').filter(line => line.trim().length > 0);
+  console.log("Total lines found:", lines.length);
+  
+  if (lines.length < 2) {
+    throw new Error("Arquivo CSV deve ter pelo menos um cabeçalho e uma linha de dados");
+  }
+
+  // Parse CSV header with better handling for quoted fields
+  const headerLine = lines[0];
+  console.log("Header line:", headerLine);
+  
+  const headers = parseCSVLine(headerLine);
+  console.log("Parsed headers:", headers);
+  
+  // Validate required headers
+  const requiredHeaders = ['brand', 'model', 'resin', 'variant_label'];
+  const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+  
+  if (missingHeaders.length > 0) {
+    console.error("Missing required headers:", missingHeaders);
+    throw new Error(`Headers obrigatórios não encontrados: ${missingHeaders.join(', ')}`);
+  }
+  
+  const results: RealParameterSet[] = [];
+  let processedCount = 0;
+  let errorCount = 0;
+  
+  // Process data lines
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
     
-    headers.forEach((header, index) => {
-      row[header] = values[index] || '';
-    });
+    try {
+      const values = parseCSVLine(line);
+      const row: any = {};
+      
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      
+      // Validate essential fields
+      if (!row.brand || !row.model || !row.resin) {
+        console.warn(`Skipping line ${i + 1}: missing essential data`, row);
+        continue;
+      }
+      
+      const processedRow: RealParameterSet = {
+        brand: row.brand.trim(),
+        model: row.model.trim(),
+        resin: row.resin.trim(),
+        variant_label: row.variant_label || '',
+        altura_da_camada_mm: parseFloat(row.altura_da_camada_mm) || 0.05,
+        tempo_cura_seg: parseFloat(row.tempo_cura_seg) || 0,
+        tempo_adesao_seg: parseFloat(row.tempo_adesao_seg) || 0,
+        camadas_transicao: parseInt(row.camadas_transicao) || 8,
+        intensidade_luz_pct: parseInt(row.intensidade_luz_pct) || 100,
+        ajuste_x_pct: parseInt(row.ajuste_x_pct) || 100,
+        ajuste_y_pct: parseInt(row.ajuste_y_pct) || 100,
+        notes: row.notes || ''
+      };
+      
+      results.push(processedRow);
+      processedCount++;
+      
+    } catch (error) {
+      console.error(`Error processing line ${i + 1}:`, error, line);
+      errorCount++;
+    }
+  }
+  
+  console.log(`Import completed: ${processedCount} rows processed, ${errorCount} errors`);
+  
+  if (results.length === 0) {
+    throw new Error("Nenhum registro válido encontrado no arquivo CSV");
+  }
+  
+  return results;
+}
+
+// Helper function to parse CSV lines properly handling quoted fields
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  let i = 0;
+  
+  while (i < line.length) {
+    const char = line[i];
+    const nextChar = line[i + 1];
     
-    return {
-      brand: row.brand || '',
-      model: row.model || '',
-      resin: row.resin || '',
-      variant_label: row.variant_label || '',
-      altura_da_camada_mm: parseFloat(row.altura_da_camada_mm) || 0.05,
-      tempo_cura_seg: parseFloat(row.tempo_cura_seg) || 0,
-      tempo_adesao_seg: parseFloat(row.tempo_adesao_seg) || 0,
-      camadas_transicao: parseInt(row.camadas_transicao) || 8,
-      intensidade_luz_pct: parseInt(row.intensidade_luz_pct) || 100,
-      ajuste_x_pct: parseInt(row.ajuste_x_pct) || 100,
-      ajuste_y_pct: parseInt(row.ajuste_y_pct) || 100,
-      notes: row.notes || ''
-    };
-  }).filter(row => row.brand && row.model && row.resin);
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        // Escaped quote
+        currentField += '"';
+        i += 2;
+        continue;
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // Field separator
+      result.push(currentField.trim());
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+    
+    i++;
+  }
+  
+  // Add the last field
+  result.push(currentField.trim());
+  
+  return result;
 }
