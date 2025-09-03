@@ -56,8 +56,14 @@ const AdminView = () => {
   const models = modelsWithImages.length > 0 ? modelsWithImages : getUniqueModels(data);
   const resins = getUniqueResins(data);
 
-  // Initialize models with images from localStorage
+  // Initialize models with images from localStorage and clear data
   useEffect(() => {
+    // Clear all localStorage data on component mount
+    localStorage.removeItem('modelsWithImages');
+    localStorage.removeItem('brandsData');
+    localStorage.removeItem('resinsData');
+    localStorage.removeItem('parametersData');
+    
     const savedModels = localStorage.getItem('modelsWithImages');
     if (savedModels) {
       setModelsWithImages(JSON.parse(savedModels));
