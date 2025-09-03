@@ -152,7 +152,9 @@ export const useSupabaseData = () => {
 
       const { error } = await supabase
         .from('parameter_sets')
-        .insert(formattedData);
+        .upsert(formattedData, {
+          onConflict: 'brand_slug,model_slug,resin_name,resin_manufacturer,layer_height'
+        });
       
       if (error) throw error;
       return true;
