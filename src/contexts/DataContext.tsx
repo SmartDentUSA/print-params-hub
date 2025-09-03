@@ -24,7 +24,7 @@ interface DataProviderProps {
 }
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
-  const [data, setDataState] = useState<RealParameterSet[]>([]);
+  const [data, setDataState] = useState<RealParameterSet[]>(realBrandsData);
 
   const setData = (newData: RealParameterSet[]) => {
     setDataState(newData);

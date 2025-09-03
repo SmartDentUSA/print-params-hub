@@ -341,7 +341,7 @@ export const realBrandsData: RealParameterSet[] = [
 ];
 
 // Helper functions to process the real data
-export function getUniqueBrands(data: RealParameterSet[] = []): Array<{id: string, name: string, slug: string, isActive: boolean}> {
+export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Array<{id: string, name: string, slug: string, isActive: boolean}> {
   const uniqueBrands = [...new Set(data.map(item => item.brand))];
   return uniqueBrands.map((brand, index) => ({
     id: (index + 1).toString(),
@@ -351,7 +351,7 @@ export function getUniqueBrands(data: RealParameterSet[] = []): Array<{id: strin
   }));
 }
 
-export function getUniqueModels(data: RealParameterSet[] = []): Array<{id: string, brandId: string, name: string, slug: string, isActive: boolean, notes?: string}> {
+export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, isActive: boolean, notes?: string}> {
   const brandToId = getUniqueBrands(data).reduce((acc, brand) => {
     acc[brand.name] = brand.id;
     return acc;
@@ -378,7 +378,7 @@ export function getUniqueModels(data: RealParameterSet[] = []): Array<{id: strin
   }));
 }
 
-export function getUniqueResins(data: RealParameterSet[] = []): Array<{id: string, name: string, manufacturer: string, color?: string, isActive: boolean}> {
+export function getUniqueResins(data: RealParameterSet[] = realBrandsData): Array<{id: string, name: string, manufacturer: string, color?: string, isActive: boolean}> {
   const uniqueResins = new Map();
   data.forEach(item => {
     if (!uniqueResins.has(item.resin)) {
@@ -398,7 +398,7 @@ export function getUniqueResins(data: RealParameterSet[] = []): Array<{id: strin
   }));
 }
 
-export function getModelsByBrandReal(brandSlug: string, data: RealParameterSet[] = []) {
+export function getModelsByBrandReal(brandSlug: string, data: RealParameterSet[] = realBrandsData) {
   const brands = getUniqueBrands(data);
   const models = getUniqueModels(data);
   const brand = brands.find(b => b.slug === brandSlug);
@@ -408,7 +408,7 @@ export function getModelsByBrandReal(brandSlug: string, data: RealParameterSet[]
   return models.filter(m => m.brandId === brand.id);
 }
 
-export function getResinsByModelReal(modelSlug: string, data: RealParameterSet[] = []) {
+export function getResinsByModelReal(modelSlug: string, data: RealParameterSet[] = realBrandsData) {
   const models = getUniqueModels(data);
   const resins = getUniqueResins(data);
   const model = models.find(m => m.slug === modelSlug);
@@ -455,11 +455,11 @@ export function getResinsByModelReal(modelSlug: string, data: RealParameterSet[]
   }).filter(r => r.parameterSets.length > 0);
 }
 
-export function getBrandBySlugReal(slug: string, data: RealParameterSet[] = []) {
+export function getBrandBySlugReal(slug: string, data: RealParameterSet[] = realBrandsData) {
   return getUniqueBrands(data).find(b => b.slug === slug);
 }
 
-export function getModelBySlugReal(slug: string, data: RealParameterSet[] = []) {
+export function getModelBySlugReal(slug: string, data: RealParameterSet[] = realBrandsData) {
   return getUniqueModels(data).find(m => m.slug === slug);
 }
 
