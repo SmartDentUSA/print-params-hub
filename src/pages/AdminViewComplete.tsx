@@ -95,25 +95,17 @@ const AdminViewComplete = () => {
   const loadCatalogData = async () => {
     try {
       // Load brands from Supabase
-      const brandsData = await fetchBrands();
+      const brandsData = await getUniqueBrands();
       setBrands(brandsData || []);
       
-      // For now, keep models and resins from localStorage until we have proper relations
+      // For now, keep models and resins from localStorage
       const storedModels = JSON.parse(localStorage.getItem('catalogModels') || '[]');
       const storedResins = JSON.parse(localStorage.getItem('catalogResins') || '[]');
       
-      setModels(storedModels.length > 0 ? storedModels : []);
-      setResins(storedResins.length > 0 ? storedResins : []);
-    } catch (error) {
-      console.error('Error loading catalog data:', error);
-      // Fallback to localStorage
-      const storedBrands = JSON.parse(localStorage.getItem('catalogBrands') || '[]');
-      const storedModels = JSON.parse(localStorage.getItem('catalogModels') || '[]');
-      const storedResins = JSON.parse(localStorage.getItem('catalogResins') || '[]');
-      
-      setBrands(storedBrands);
       setModels(storedModels);
       setResins(storedResins);
+    } catch (error) {
+      console.error('Error loading catalog data:', error);
     }
   };
 
@@ -162,214 +154,78 @@ const AdminViewComplete = () => {
   };
 
   const handleModalSave = async (data: any) => {
-    try {
-      if (modalType === 'brand') {
-        if (editingItem) {
-          // Update existing brand
-          const updated = await updateBrand(editingItem.id, data);
-          if (updated) {
-            setBrands(brands.map(brand => 
-              brand.id === editingItem.id ? updated : brand
-            ));
-            toast({
-              title: "Marca atualizada",
-              description: "A marca foi atualizada com sucesso.",
-            });
-          }
-        } else {
-          // Add new brand
-          const brandData = {
-            name: data.name,
-            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-            active: data.active ?? true,
-            logo_url: data.logoUrl || null
-          };
-          const newBrand = await insertBrand(brandData);
-          if (newBrand) {
-            setBrands([...brands, newBrand]);
-            toast({
-              title: "Marca criada",
-              description: "A marca foi criada com sucesso.",
-            });
-          }
-        }
-      } else if (modalType === 'model') {
-        if (editingItem) {
-          // Update existing model
-          const updated = await updateModel(editingItem.id, data);
-          if (updated) {
-            setModels(models.map(model => 
-              model.id === editingItem.id ? updated : model
-            ));
-            toast({
-              title: "Modelo atualizado",
-              description: "O modelo foi atualizado com sucesso.",
-            });
-          }
-        } else {
-          // Add new model
-          const modelData = {
-            name: data.name,
-            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
-            brand_id: data.brandId,
-            active: data.active ?? true,
-            image_url: data.imageUrl || null,
-            notes: data.notes || null
-          };
-          const newModel = await insertModel(modelData);
-          if (newModel) {
-            setModels([...models, newModel]);
-            toast({
-              title: "Modelo criado",
-              description: "O modelo foi criado com sucesso.",
-            });
-          }
-        }
-      } else if (modalType === 'resin') {
-        if (editingItem) {
-          // Update existing resin
-          const updated = await updateResin(editingItem.id, data);
-          if (updated) {
-            setResins(resins.map(resin => 
-              resin.id === editingItem.id ? updated : resin
-            ));
-            toast({
-              title: "Resina atualizada",
-              description: "A resina foi atualizada com sucesso.",
-            });
-          }
-        } else {
-          // Add new resin
-          const resinData = {
-            name: data.name,
-            manufacturer: data.manufacturer,
-            color: data.color || null,
-            type: data.type || 'standard',
-            active: data.active ?? true
-          };
-          const newResin = await insertResin(resinData);
-          if (newResin) {
-            setResins([...resins, newResin]);
-            toast({
-              title: "Resina criada",
-              description: "A resina foi criada com sucesso.",
-            });
-          }
-        }
-      } else if (modalType === 'parameter') {
-        if (editingItem) {
-          // Update existing parameter
-          const updated = await updateParameterSet(editingItem.id, data);
-          if (updated) {
-            setImportedData(importedData.map(param => 
-              param.id === editingItem.id ? updated : param
-            ));
-            toast({
-              title: "Parâmetro atualizado",
-              description: "O parâmetro foi atualizado com sucesso.",
-            });
-          }
-        } else {
-          // Add new parameter
-          const paramData = {
-            brand_slug: data.brandSlug,
-            model_slug: data.modelSlug,
-            resin_name: data.resinName,
-            resin_manufacturer: data.resinManufacturer,
-            layer_height: parseFloat(data.layerHeight),
-            cure_time: parseInt(data.cureTime),
-            light_intensity: parseInt(data.lightIntensity),
-            bottom_layers: parseInt(data.bottomLayers) || null,
-            bottom_cure_time: parseInt(data.bottomCureTime) || null,
-            lift_distance: parseFloat(data.liftDistance) || null,
-            lift_speed: parseFloat(data.liftSpeed) || null,
-            retract_speed: parseFloat(data.retractSpeed) || null,
-            anti_aliasing: data.antiAliasing || null,
-            xy_size_compensation: parseFloat(data.xySizeCompensation) || null,
-            wait_time_before_cure: parseInt(data.waitTimeBeforeCure) || null,
-            wait_time_after_cure: parseInt(data.waitTimeAfterCure) || null,
-            wait_time_after_lift: parseInt(data.waitTimeAfterLift) || null,
-            notes: data.notes || null,
-            active: data.active ?? true
-          };
-          const newParameter = await insertParameterSet(paramData);
-          if (newParameter) {
-            setImportedData([...importedData, newParameter]);
-            toast({
-              title: "Parâmetro criado",
-              description: "O parâmetro foi criado com sucesso.",
-            });
-          }
-        }
+    if (modalType === 'brand') {
+      if (editingItem) {
+        const updatedBrands = brands.map(brand => 
+          brand.id === editingItem.id ? { ...brand, ...data } : brand
+        );
+        setBrands(updatedBrands);
+      } else {
+        const newBrand = {
+          ...data,
+          id: Date.now().toString(),
+          slug: data.name.toLowerCase().replace(/\s+/g, '-')
+        };
+        setBrands([...brands, newBrand]);
       }
-      
-      setModalOpen(false);
-      setEditingItem(null);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar os dados.",
-        variant: "destructive",
-      });
+    } else if (modalType === 'model') {
+      if (editingItem) {
+        const updatedModels = models.map(model => 
+          model.id === editingItem.id ? { ...model, ...data } : model
+        );
+        setModels(updatedModels);
+      } else {
+        const newModel = {
+          ...data,
+          id: Date.now().toString(),
+          slug: data.name.toLowerCase().replace(/\s+/g, '-')
+        };
+        setModels([...models, newModel]);
+      }
+    } else if (modalType === 'resin') {
+      if (editingItem) {
+        const updatedResins = resins.map(resin => 
+          resin.id === editingItem.id ? { ...resin, ...data } : resin
+        );
+        setResins(updatedResins);
+      } else {
+        const newResin = {
+          ...data,
+          id: Date.now().toString()
+        };
+        setResins([...resins, newResin]);
+      }
+    } else if (modalType === 'parameter') {
+      if (editingItem) {
+        const updatedParameters = importedData.map(param => 
+          param.id === editingItem.id ? { ...param, ...data } : param
+        );
+        setImportedData(updatedParameters);
+      } else {
+        const newParameter = {
+          ...data,
+          id: Date.now().toString()
+        };
+        setImportedData([...importedData, newParameter]);
+      }
     }
+    
+    saveCatalogData();
+    setModalOpen(false);
+    setEditingItem(null);
   };
 
-  const handleDelete = async (type: string, id: string) => {
-    try {
-      let success = false;
-      
-      if (type === 'brand') {
-        success = await deleteBrand(id);
-        if (success) {
-          setBrands(brands.filter(brand => brand.id !== id));
-          toast({
-            title: "Marca deletada",
-            description: "A marca foi deletada com sucesso.",
-          });
-        }
-      } else if (type === 'model') {
-        success = await deleteModel(id);
-        if (success) {
-          setModels(models.filter(model => model.id !== id));
-          toast({
-            title: "Modelo deletado",
-            description: "O modelo foi deletado com sucesso.",
-          });
-        }
-      } else if (type === 'resin') {
-        success = await deleteResin(id);
-        if (success) {
-          setResins(resins.filter(resin => resin.id !== id));
-          toast({
-            title: "Resina deletada",
-            description: "A resina foi deletada com sucesso.",
-          });
-        }
-      } else if (type === 'parameter') {
-        success = await deleteParameterSet(id);
-        if (success) {
-          setImportedData(importedData.filter(param => param.id !== id));
-          toast({
-            title: "Parâmetro deletado",
-            description: "O parâmetro foi deletado com sucesso.",
-          });
-        }
-      }
-      
-      if (!success) {
-        toast({
-          title: "Erro",
-          description: "Erro ao deletar o item.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao deletar o item.",
-        variant: "destructive",
-      });
+  const handleDelete = (type: string, id: string) => {
+    if (type === 'brand') {
+      setBrands(brands.filter(brand => brand.id !== id));
+    } else if (type === 'model') {
+      setModels(models.filter(model => model.id !== id));
+    } else if (type === 'resin') {
+      setResins(resins.filter(resin => resin.id !== id));
+    } else if (type === 'parameter') {
+      setImportedData(importedData.filter(param => param.id !== id));
     }
+    saveCatalogData();
   };
 
   const handleConfigUpdate = (key: string, value: any) => {
@@ -394,12 +250,7 @@ const AdminViewComplete = () => {
   if (showLoginForm && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-background">
-        <LoginForm 
-          onLoginSuccess={() => {
-            setIsAuthenticated(true);
-            setShowLoginForm(false);
-          }}
-        />
+        <LoginForm />
       </div>
     );
   }

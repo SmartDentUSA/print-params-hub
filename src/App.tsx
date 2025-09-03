@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { DataProvider } from "@/contexts/DataContext";
-import Index from "./pages/Index";
+import UserViewSupabase from "./pages/UserViewSupabase";
 import AdminViewComplete from "./pages/AdminViewComplete";
 import NotFound from "./pages/NotFound";
 
@@ -19,7 +19,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<UserViewSupabase />} />
             <Route path="/admin" element={<AdminViewComplete />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
