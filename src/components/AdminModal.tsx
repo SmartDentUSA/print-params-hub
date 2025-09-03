@@ -138,9 +138,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     : models;
 
   const handleSave = () => {
+    console.log('=== AdminModal handleSave START ===');
+    console.log('Type:', type);
+    console.log('Item (editing):', item);
+    console.log('FormData before save:', formData);
+    console.log('Image URL specifically:', formData.image_url);
+    
     // Generate slug for brands and models if creating new ones
     if ((type === 'brand' || type === 'model') && formData.name && !item) {
       formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      console.log('Generated slug:', formData.slug);
     }
     
     // For parameters, ensure we have proper slugs and manufacturer
@@ -161,11 +168,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       }
     }
     
+    console.log('=== AdminModal calling onSave ===');
+    console.log('Final formData being sent:', formData);
+    console.log('Final image_url being sent:', formData.image_url);
+    
     onSave(formData);
     onClose();
   };
 
   const handleInputChange = (field: string, value: any) => {
+    console.log('=== AdminModal handleInputChange ===');
+    console.log('Field:', field);
+    console.log('Value:', value);
+    console.log('Current formData before change:', formData);
+    
     const newFormData = { ...formData, [field]: value };
     
     // If brand changes in parameter form, reset the model selection
@@ -182,6 +198,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
     
     setFormData(newFormData);
+    console.log('Updated formData:', newFormData);
+    
+    // Special logging for image_url field
+    if (field === 'image_url') {
+      console.log('=== IMAGE_URL FIELD UPDATED ===');
+      console.log('New image_url value:', value);
+      console.log('Form data after image_url update:', newFormData);
+    }
   };
 
   const getModalTitle = () => {

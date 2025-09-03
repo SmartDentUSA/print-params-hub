@@ -166,6 +166,11 @@ export function AdminSettings() {
 
   const handleSave = async (data: any) => {
     try {
+      console.log('=== AdminSettings handleSave START ===');
+      console.log('Modal type:', modalType);
+      console.log('Data received:', data);
+      console.log('Selected item:', selectedItem);
+      
       let result = null;
       
       if (modalType === 'brand') {
@@ -181,15 +186,25 @@ export function AdminSettings() {
           }
         }
       } else if (modalType === 'model') {
+        console.log('=== MODEL SAVE PROCESS ===');
+        console.log('Model data to save:', data);
+        console.log('Image URL specifically:', data.image_url);
+        
         if (selectedItem) {
+          console.log('Updating existing model:', selectedItem.id);
           result = await updateModel(selectedItem.id, data);
+          console.log('Update result:', result);
           if (result) {
             setModels(models.map(m => m.id === selectedItem.id ? result : m));
+            console.log('Model updated in local state');
           }
         } else {
+          console.log('Creating new model');
           result = await insertModel(data);
+          console.log('Insert result:', result);
           if (result) {
             setModels([...models, result]);
+            console.log('New model added to local state');
           }
         }
       } else if (modalType === 'resin') {
@@ -219,10 +234,21 @@ export function AdminSettings() {
       }
       
       if (result) {
+        console.log('=== SAVE SUCCESS ===');
+        console.log('Final result:', result);
+        console.log('Final result image_url:', result.image_url);
+        
         toast({
           title: "Sucesso",
           description: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : modalType === 'resin' ? 'Resina' : 'Parâmetros'} ${selectedItem ? 'atualizado' : 'criado'} com sucesso.`,
         });
+        
+        // Reload data to confirm save
+        console.log('Reloading data to confirm save...');
+        await loadData();
+      } else {
+        console.log('=== SAVE FAILED ===');
+        console.log('No result returned from save operation');
       }
     } catch (error) {
       toast({
