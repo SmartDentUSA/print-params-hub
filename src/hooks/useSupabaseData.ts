@@ -160,7 +160,83 @@ export const useSupabaseData = () => {
 
       console.log(`Dados originais: ${formattedData.length}, Dados únicos: ${uniqueData.length}`);
 
-      // Inserir em lotes pequenos para evitar conflitos
+      // 1. Inserir marcas únicas
+      const uniqueBrands = [...new Set(uniqueData.map(item => item.brand_slug))];
+      const brandsToInsert = uniqueBrands.map(slug => ({
+        name: slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        slug: slug,
+        active: true
+      }));
+
+      if (brandsToInsert.length > 0) {
+        const { error: brandsError } = await supabase
+          .from('brands')
+          .upsert(brandsToInsert, { onConflict: 'slug' });
+        
+        if (brandsError) {
+          console.error('Erro ao inserir marcas:', brandsError);
+          throw brandsError;
+        }
+        console.log(`${brandsToInsert.length} marcas inseridas`);
+      }
+
+      // 2. Buscar brand_ids para os modelos
+      const { data: brandsData } = await supabase
+        .from('brands')
+        .select('id, slug')
+        .in('slug', uniqueBrands);
+
+      const brandMap = new Map(brandsData?.map(brand => [brand.slug, brand.id]) || []);
+
+      // 3. Inserir modelos únicos
+      const uniqueModels = [...new Set(uniqueData.map(item => `${item.brand_slug}|${item.model_slug}`))];
+      const modelsToInsert = uniqueModels.map(combined => {
+        const [brandSlug, modelSlug] = combined.split('|');
+        return {
+          brand_id: brandMap.get(brandSlug),
+          name: modelSlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          slug: modelSlug,
+          active: true
+        };
+      }).filter(model => model.brand_id); // Remove modelos sem marca válida
+
+      if (modelsToInsert.length > 0) {
+        const { error: modelsError } = await supabase
+          .from('models')
+          .upsert(modelsToInsert, { onConflict: 'brand_id,slug' });
+        
+        if (modelsError) {
+          console.error('Erro ao inserir modelos:', modelsError);
+          throw modelsError;
+        }
+        console.log(`${modelsToInsert.length} modelos inseridos`);
+      }
+
+      // 4. Inserir resinas únicas
+      const uniqueResins = [...new Set(uniqueData.map(item => `${item.resin_name}|${item.resin_manufacturer}`))];
+      const resinsToInsert = uniqueResins.map(combined => {
+        const [name, manufacturer] = combined.split('|');
+        return {
+          name: name,
+          manufacturer: manufacturer,
+          type: 'standard' as const,
+          active: true
+        };
+      });
+
+      if (resinsToInsert.length > 0) {
+        const { error: resinsError } = await supabase
+          .from('resins')
+          .upsert(resinsToInsert, { onConflict: 'name,manufacturer' });
+        
+        if (resinsError) {
+          console.error('Erro ao inserir resinas:', resinsError);
+          throw resinsError;
+        }
+        console.log(`${resinsToInsert.length} resinas inseridas`);
+      }
+
+      // 5. Inserir parâmetros em lotes pequenos
       const batchSize = 50;
       for (let i = 0; i < uniqueData.length; i += batchSize) {
         const batch = uniqueData.slice(i, i + batchSize);
@@ -175,7 +251,7 @@ export const useSupabaseData = () => {
         }
       }
       
-      console.log(`Inserção bem-sucedida: ${uniqueData.length} registros`);
+      console.log(`Inserção bem-sucedida: ${uniqueData.length} registros de parâmetros`);
       return true;
     } catch (err) {
       console.error('Erro na inserção:', err);
