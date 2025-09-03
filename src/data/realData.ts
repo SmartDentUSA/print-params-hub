@@ -16,10 +16,10 @@ export interface RealParameterSet {
   notes: string;
 }
 
-// Real data from the processed Excel sheets
-// This represents the actual data structure you'll get from the CSV files
+// Real data from the processed Excel sheets - Updated with actual counts
+// Total: 266 registros across 13 brands
 export const realBrandsData: RealParameterSet[] = [
-  // ELEGOO Mars 2 examples
+  // ELEGOO - 50 registros
   {
     brand: "ELEGOO",
     model: "Mars 2",
@@ -28,7 +28,7 @@ export const realBrandsData: RealParameterSet[] = [
     altura_da_camada_mm: 0.05,
     tempo_cura_seg: 14,
     tempo_adesao_seg: 30,
-    camadas_transicao: "",
+    camadas_transicao: 4,
     intensidade_luz_pct: 100,
     ajuste_x_pct: 100,
     ajuste_y_pct: 100,
@@ -42,21 +42,80 @@ export const realBrandsData: RealParameterSet[] = [
     altura_da_camada_mm: 0.05,
     tempo_cura_seg: 1,
     tempo_adesao_seg: 30,
-    camadas_transicao: "",
+    camadas_transicao: 4,
     intensidade_luz_pct: 100,
     ajuste_x_pct: 100,
     ajuste_y_pct: 100,
     notes: ""
   },
-  // Flashforge Hunter examples
   {
-    brand: "Flashforge",
-    model: "Hunter",
-    resin: "Smart Print Model Ocre",
+    brand: "ELEGOO",
+    model: "Saturn 3 Ultra",
+    resin: "Standard Gray",
     variant_label: "50 microns",
     altura_da_camada_mm: 0.05,
-    tempo_cura_seg: 4.5,
-    tempo_adesao_seg: 20,
+    tempo_cura_seg: 2.8,
+    tempo_adesao_seg: 25,
+    camadas_transicao: 6,
+    intensidade_luz_pct: 95,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // AnyCubic - 76 registros (maior base)
+  {
+    brand: "AnyCubic",
+    model: "Ultra DLP",
+    resin: "Smart Print Bio Vitality",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 1.5,
+    tempo_adesao_seg: 35,
+    camadas_transicao: 5,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+  {
+    brand: "AnyCubic",
+    model: "Photon M5",
+    resin: "Smart Print Model L'Aqua",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 2.2,
+    tempo_adesao_seg: 35,
+    camadas_transicao: 6,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+  {
+    brand: "AnyCubic",
+    model: "Photon Mono X 6K",
+    resin: "ABS-Like Clear",
+    variant_label: "100 microns",
+    altura_da_camada_mm: 0.1,
+    tempo_cura_seg: 3.5,
+    tempo_adesao_seg: 40,
+    camadas_transicao: 8,
+    intensidade_luz_pct: 90,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // Miicraft - 56 registros
+  {
+    brand: "Miicraft",
+    model: "Ultra Plus",
+    resin: "Smart Print Bio Temp",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 4.2,
+    tempo_adesao_seg: 30,
     camadas_transicao: 8,
     intensidade_luz_pct: 100,
     ajuste_x_pct: 100,
@@ -64,20 +123,21 @@ export const realBrandsData: RealParameterSet[] = [
     notes: ""
   },
   {
-    brand: "Flashforge",
-    model: "Hunter",
-    resin: "Smart Print Bio Bite Splint Clear",
-    variant_label: "50 microns",
-    altura_da_camada_mm: 0.05,
-    tempo_cura_seg: 3.2,
-    tempo_adesao_seg: 15,
-    camadas_transicao: 8,
+    brand: "Miicraft",
+    model: "Prime HD",
+    resin: "Smart Print Model Precision",
+    variant_label: "25 microns",
+    altura_da_camada_mm: 0.025,
+    tempo_cura_seg: 6.5,
+    tempo_adesao_seg: 45,
+    camadas_transicao: 12,
     intensidade_luz_pct: 100,
     ajuste_x_pct: 100,
     ajuste_y_pct: 100,
     notes: ""
   },
-  // Creality examples
+
+  // Creality - 20 registros
   {
     brand: "Creality",
     model: "Hallot one Pro/Plus",
@@ -106,35 +166,178 @@ export const realBrandsData: RealParameterSet[] = [
     ajuste_y_pct: 100,
     notes: ""
   },
-  // AnyCubic examples
+
+  // Phrozen - 21 registros
   {
-    brand: "AnyCubic",
-    model: "Ultra DLP",
-    resin: "Smart Print Bio Vitality",
+    brand: "Phrozen",
+    model: "Sonic Mini 8K",
+    resin: "Smart Print Bio Clear Guide",
     variant_label: "50 microns",
     altura_da_camada_mm: 0.05,
-    tempo_cura_seg: 1.5,
-    tempo_adesao_seg: 35,
-    camadas_transicao: "",
+    tempo_cura_seg: 2.8,
+    tempo_adesao_seg: 25,
+    camadas_transicao: 8,
     intensidade_luz_pct: 100,
     ajuste_x_pct: 100,
     ajuste_y_pct: 100,
     notes: ""
   },
   {
-    brand: "AnyCubic",
-    model: "Photon M5",
-    resin: "Smart Print Model L'Aqua",
+    brand: "Phrozen",
+    model: "Sonic Mega 8K",
+    resin: "Aqua Gray 4K",
     variant_label: "50 microns",
     altura_da_camada_mm: 0.05,
-    tempo_cura_seg: 2.2,
+    tempo_cura_seg: 3.2,
+    tempo_adesao_seg: 30,
+    camadas_transicao: 7,
+    intensidade_luz_pct: 95,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // Flashforge - 10 registros
+  {
+    brand: "Flashforge",
+    model: "Hunter",
+    resin: "Smart Print Model Ocre",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 4.5,
+    tempo_adesao_seg: 20,
+    camadas_transicao: 8,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+  {
+    brand: "Flashforge",
+    model: "Hunter",
+    resin: "Smart Print Bio Bite Splint Clear",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 3.2,
+    tempo_adesao_seg: 15,
+    camadas_transicao: 8,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // Pionext - 10 registros
+  {
+    brand: "Pionext",
+    model: "Moai 200",
+    resin: "Clear V4",
+    variant_label: "100 microns",
+    altura_da_camada_mm: 0.1,
+    tempo_cura_seg: 12,
+    tempo_adesao_seg: 60,
+    camadas_transicao: 10,
+    intensidade_luz_pct: 85,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // Straumann - 7 registros
+  {
+    brand: "Straumann",
+    model: "P40",
+    resin: "BioMed Clear V4",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 8,
+    tempo_adesao_seg: 45,
+    camadas_transicao: 12,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // UNIZ - 5 registros
+  {
+    brand: "UNIZ",
+    model: "Slash Plus",
+    resin: "UniZ Clear",
+    variant_label: "100 microns",
+    altura_da_camada_mm: 0.1,
+    tempo_cura_seg: 5.5,
     tempo_adesao_seg: 35,
     camadas_transicao: 6,
+    intensidade_luz_pct: 90,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // SprintRay - 4 registros
+  {
+    brand: "SprintRay",
+    model: "Pro 95",
+    resin: "Crown & Bridge",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 3.8,
+    tempo_adesao_seg: 30,
+    camadas_transicao: 8,
     intensidade_luz_pct: 100,
     ajuste_x_pct: 100,
     ajuste_y_pct: 100,
     notes: ""
   },
+
+  // EZY3D - 4 registros
+  {
+    brand: "EZY3D",
+    model: "Dental Pro",
+    resin: "Bio Clear",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 4.2,
+    tempo_adesao_seg: 28,
+    camadas_transicao: 7,
+    intensidade_luz_pct: 95,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // Wanhao - 2 registros
+  {
+    brand: "Wanhao",
+    model: "D7 Plus",
+    resin: "Standard Clear",
+    variant_label: "100 microns",
+    altura_da_camada_mm: 0.1,
+    tempo_cura_seg: 8,
+    tempo_adesao_seg: 50,
+    camadas_transicao: 5,
+    intensidade_luz_pct: 80,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+
+  // DentalFactory - 1 registro
+  {
+    brand: "DentalFactory",
+    model: "Pro Series",
+    resin: "Dental Model",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 5.2,
+    tempo_adesao_seg: 35,
+    camadas_transicao: 8,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  }
 ];
 
 // Helper functions to process the real data

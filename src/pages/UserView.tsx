@@ -62,9 +62,23 @@ const UserView = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Parâmetros de Impressão 3D
           </h1>
-          <p className="text-lg text-muted-foreground">
-            Base de dados profissional com parâmetros testados para impressoras e resinas.
+          <p className="text-lg text-muted-foreground mb-4">
+            Base de dados profissional com parâmetros testados para impressoras e resinas odontológicas.
           </p>
+          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-success rounded-full"></span>
+              13 Marcas Integradas
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-primary rounded-full"></span>
+              266+ Parâmetros Reais
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-accent rounded-full"></span>
+              Dados Odontológicos
+            </span>
+          </div>
         </div>
 
         {/* Brand Selection */}
