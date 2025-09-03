@@ -225,27 +225,25 @@ const UserViewSupabase = () => {
           </div>
         )}
 
-        {/* Help Section */}
-        {!selectedBrand && (
-          <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
-            <h3 className="text-xl font-semibold text-foreground mb-4">
-              {t('help.need_help')}
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {t('help.help_description')}
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Button 
-                variant="accent" 
-                className="flex items-center gap-2"
-                onClick={() => window.open("https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1%2C+n%C3%A3o+encontrei+os+par%C3%A2metros+da+minha+impressora+no+site+de+voc%C3%AAs%2C+como+posso+iniciar+a+parametriza%C3%A7%C3%A3o%3F&type=phone_number&app_absent=0&utm_source=chatgpt.com", "_blank")}
-              >
-                <MessageCircle className="w-4 h-4" />
-                {t('help.whatsapp_button')}
-              </Button>
-            </div>
+        {/* Help Section - Always visible */}
+        <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
+          <h3 className="text-xl font-semibold text-foreground mb-4">
+            {t('help.need_help')}
+          </h3>
+          <p className="text-muted-foreground mb-6">
+            {t('help.help_description')}
+          </p>
+          <div className="flex flex-wrap justify-center gap-4">
+            <Button 
+              variant="accent" 
+              className="flex items-center gap-2"
+              onClick={() => window.open("https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1%2C+n%C3%A3o+encontrei+os+par%C3%A2metros+da+minha+impressora+no+site+de+voc%C3%AAs%2C+como+posso+iniciar+a+parametriza%C3%A7%C3%A3o%3F&type=phone_number&app_absent=0&utm_source=chatgpt.com", "_blank")}
+            >
+              <MessageCircle className="w-4 h-4" />
+              {t('help.whatsapp_button')}
+            </Button>
           </div>
-        )}
+        </div>
       </main>
 
       {/* Footer */}
