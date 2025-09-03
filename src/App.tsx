@@ -20,7 +20,7 @@ const App = () => (
           <Sonner />
           <Routes>
             <Route path="/" element={<UserViewSupabase />} />
-            <Route path="/admin" element={<AdminViewComplete />} />
+            <Route path="/admin" element={<AdminViewSecure />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>

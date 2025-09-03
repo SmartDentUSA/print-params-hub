@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Brand, Model, Resin, ParameterSet } from './useSupabaseData';
+import { Brand, Model, Resin, ParameterSet } from '@/hooks/useSupabaseData';
 
 export const useSupabaseCRUD = () => {
   const [loading, setLoading] = useState(false);
