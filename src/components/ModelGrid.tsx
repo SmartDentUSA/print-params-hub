@@ -45,6 +45,7 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
                   className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
                   loading="lazy"
                   onError={(e) => {
+                    console.error('Image load error for:', model.imageUrl);
                     e.currentTarget.src = '/placeholder.svg';
                     e.currentTarget.alt = t('models.image_not_available');
                   }}

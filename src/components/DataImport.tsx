@@ -43,18 +43,23 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
       console.log("Successfully parsed data:", data.length, "records");
       
       // Save to Supabase
-      const success = await insertParameterSets(data);
-      
-      if (success) {
-        setImportedData(data);
-        onDataLoaded?.(data);
+      try {
+        const success = await insertParameterSets(data);
+        
+        if (success) {
+          setImportedData(data);
+          onDataLoaded?.(data);
 
-        toast({
-          title: "Dados importados com sucesso!",
-          description: `${data.length} registros salvos no banco de dados.`,
-        });
-      } else {
-        throw new Error("Falha ao salvar no banco de dados");
+          toast({
+            title: "Dados importados com sucesso!",
+            description: `${data.length} registros salvos no banco de dados.`,
+          });
+        } else {
+          throw new Error("Falha ao salvar no banco de dados");
+        }
+      } catch (dbError) {
+        console.error("Erro específico do banco:", dbError);
+        throw new Error(`Erro no banco de dados: ${dbError instanceof Error ? dbError.message : 'Erro desconhecido'}`);
       }
       
       // Reset the file input to allow re-uploading the same file

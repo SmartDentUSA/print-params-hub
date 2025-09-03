@@ -150,13 +150,19 @@ export const useSupabaseData = () => {
         notes: param.notes || null
       }));
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('parameter_sets')
         .upsert(formattedData, {
-          onConflict: 'brand_slug,model_slug,resin_name,resin_manufacturer,layer_height'
+          onConflict: 'brand_slug,model_slug,resin_name,resin_manufacturer,layer_height',
+          ignoreDuplicates: false
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Upsert successful:', data);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao importar dados');
