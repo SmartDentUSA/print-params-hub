@@ -14,7 +14,188 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      brands: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      models: {
+        Row: {
+          active: boolean
+          brand_id: string
+          created_at: string
+          id: string
+          image_url: string | null
+          name: string
+          notes: string | null
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          brand_id: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          notes?: string | null
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          brand_id?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          notes?: string | null
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "models_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      parameter_sets: {
+        Row: {
+          active: boolean
+          anti_aliasing: boolean | null
+          bottom_cure_time: number | null
+          bottom_layers: number | null
+          brand_slug: string
+          created_at: string
+          cure_time: number
+          id: string
+          layer_height: number
+          lift_distance: number | null
+          lift_speed: number | null
+          light_intensity: number
+          model_slug: string
+          notes: string | null
+          resin_manufacturer: string
+          resin_name: string
+          retract_speed: number | null
+          updated_at: string
+          wait_time_after_cure: number | null
+          wait_time_after_lift: number | null
+          wait_time_before_cure: number | null
+          xy_size_compensation: number | null
+        }
+        Insert: {
+          active?: boolean
+          anti_aliasing?: boolean | null
+          bottom_cure_time?: number | null
+          bottom_layers?: number | null
+          brand_slug: string
+          created_at?: string
+          cure_time: number
+          id?: string
+          layer_height: number
+          lift_distance?: number | null
+          lift_speed?: number | null
+          light_intensity: number
+          model_slug: string
+          notes?: string | null
+          resin_manufacturer: string
+          resin_name: string
+          retract_speed?: number | null
+          updated_at?: string
+          wait_time_after_cure?: number | null
+          wait_time_after_lift?: number | null
+          wait_time_before_cure?: number | null
+          xy_size_compensation?: number | null
+        }
+        Update: {
+          active?: boolean
+          anti_aliasing?: boolean | null
+          bottom_cure_time?: number | null
+          bottom_layers?: number | null
+          brand_slug?: string
+          created_at?: string
+          cure_time?: number
+          id?: string
+          layer_height?: number
+          lift_distance?: number | null
+          lift_speed?: number | null
+          light_intensity?: number
+          model_slug?: string
+          notes?: string | null
+          resin_manufacturer?: string
+          resin_name?: string
+          retract_speed?: number | null
+          updated_at?: string
+          wait_time_after_cure?: number | null
+          wait_time_after_lift?: number | null
+          wait_time_before_cure?: number | null
+          xy_size_compensation?: number | null
+        }
+        Relationships: []
+      }
+      resins: {
+        Row: {
+          active: boolean
+          color: string | null
+          created_at: string
+          id: string
+          manufacturer: string
+          name: string
+          type: Database["public"]["Enums"]["resin_type"] | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          manufacturer: string
+          name: string
+          type?: Database["public"]["Enums"]["resin_type"] | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          manufacturer?: string
+          name?: string
+          type?: Database["public"]["Enums"]["resin_type"] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +204,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      resin_type:
+        | "standard"
+        | "flexible"
+        | "tough"
+        | "transparent"
+        | "biocompatible"
+        | "high_temp"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +337,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      resin_type: [
+        "standard",
+        "flexible",
+        "tough",
+        "transparent",
+        "biocompatible",
+        "high_temp",
+      ],
+    },
   },
 } as const

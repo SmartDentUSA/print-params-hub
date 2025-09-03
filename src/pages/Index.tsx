@@ -1,65 +1,34 @@
-import { useState } from "react";
-import { Header } from "@/components/Header";
-import { BrandSelector } from "@/components/BrandSelector";
-import { ModelGrid } from "@/components/ModelGrid";
-import { ResinAccordion } from "@/components/ResinAccordion";
-import { Breadcrumb } from "@/components/Breadcrumb";
-import { DataStats } from "@/components/DataStats";
+import { useState, useEffect } from "react";
 import { DataImport } from "@/components/DataImport";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Mail, Database } from "lucide-react";
+import { MessageCircle, Database } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
-import { 
-  getUniqueBrands,
-  getModelsByBrandReal, 
-  getResinsByModelReal, 
-  getBrandBySlugReal, 
-  getModelBySlugReal 
-} from "@/data/realData";
+import UserViewSupabase from "./UserViewSupabase";
 
 const Index = () => {
-  const [selectedBrand, setSelectedBrand] = useState<string>("");
-  const [selectedModel, setSelectedModel] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const { data, setData } = useData();
+  const { getUniqueBrands } = useData();
+  const [hasData, setHasData] = useState(false);
 
-  const handleBrandSelect = (brandSlug: string) => {
-    setSelectedBrand(brandSlug);
-    setSelectedModel("");
+  useEffect(() => {
+    const checkData = async () => {
+      try {
+        const brands = await getUniqueBrands();
+        setHasData(brands.length > 0);
+      } catch (error) {
+        console.error('Error checking data:', error);
+      }
+    };
+    checkData();
+  }, [getUniqueBrands]);
+
+  const handleDataLoaded = () => {
+    setHasData(true);
   };
 
-  const handleModelSelect = (modelSlug: string) => {
-    setSelectedModel(modelSlug);
-  };
-
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
-  };
-
-  // Get data first
-  const brands = getUniqueBrands(data);
-  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand, data) : null;
-  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel, data) : null;
-  const models = selectedBrand ? getModelsByBrandReal(selectedBrand, data) : [];
-  const resins = selectedModel ? getResinsByModelReal(selectedModel, data) : [];
-
-  // Filter brands based on search term
-  const filteredBrands = brands.filter(brand => 
-    brand.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const breadcrumbItems = [];
-  if (selectedBrandData) {
-    breadcrumbItems.push({ label: selectedBrandData.name });
-  }
-  if (selectedModelData) {
-    breadcrumbItems.push({ label: selectedModelData.name });
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-surface">
-      <Header onSearch={handleSearch} searchValue={searchTerm} />
-      
+  return hasData ? (
+    <UserViewSupabase />
+  ) : (
+    <div className="min-h-screen bg-gradient-surface">      
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
@@ -74,80 +43,20 @@ const Index = () => {
           </p>
           <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-success rounded-full"></span>
-              {brands.length} Marcas
-            </span>
-            <span className="flex items-center gap-1">
               <span className="w-2 h-2 bg-primary rounded-full"></span>
-              {data.length > 0 ? 'Dados Importados' : 'Aguardando Import'}
+              Aguardando Importação de Dados
             </span>
           </div>
         </div>
 
-        {/* Navigation and Content */}
-        <div className="space-y-8">
-          {/* Breadcrumb */}
-          {breadcrumbItems.length > 0 && (
-            <Breadcrumb items={breadcrumbItems} />
-          )}
-
-          {/* Brand Selection */}
-          <BrandSelector 
-            brands={filteredBrands} 
-            selectedBrand={selectedBrand}
-            onBrandSelect={handleBrandSelect}
-          />
-
-          {/* Model Selection */}
-          {selectedBrand && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-semibold text-foreground">
-                Modelos {selectedBrandData?.name}
-              </h2>
-              <ModelGrid 
-                models={models}
-                onModelSelect={handleModelSelect}
-              />
-            </div>
-          )}
-
-          {/* Resin Parameters */}
-          {selectedModel && selectedModelData && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-foreground">
-                  Resinas para {selectedModelData.name}
-                </h2>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setSelectedModel("")}
-                >
-                  Voltar aos Modelos
-                </Button>
-              </div>
-              <ResinAccordion resins={resins} />
-            </div>
-          )}
-
-          {/* Data Statistics and Import */}
-          {!selectedBrand && (
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-2xl font-semibold text-foreground mb-6">
-                  Estatísticas da Base de Dados
-                </h2>
-                <DataStats data={data} />
-              </div>
-              
-              <div>
-                <h2 className="text-2xl font-semibold text-foreground mb-6">
-                  Importar Novos Dados
-                </h2>
-                <DataImport onDataLoaded={setData} />
-              </div>
-            </div>
-          )}
+        {/* Data Import */}
+        <div className="space-y-8">              
+          <div>
+            <h2 className="text-2xl font-semibold text-foreground mb-6">
+              Importar Dados
+            </h2>
+            <DataImport onDataLoaded={handleDataLoaded} />
+          </div>
         </div>
 
         {/* Help Section */}

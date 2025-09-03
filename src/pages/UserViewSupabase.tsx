@@ -1,28 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { BrandSelector } from "@/components/BrandSelector";
 import { ModelGrid } from "@/components/ModelGrid";
 import { ResinAccordion } from "@/components/ResinAccordion";
 import { Breadcrumb } from "@/components/Breadcrumb";
+import { DataStats } from "@/components/DataStats";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Settings } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { 
-  getUniqueBrands,
-  getModelsByBrandReal, 
-  getResinsByModelReal, 
-  getBrandBySlugReal, 
-  getModelBySlugReal 
-} from "@/data/realData";
 import { Link } from "react-router-dom";
 
-const UserView = () => {
+const UserViewSupabase = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const { data } = useData();
+  const { getUniqueBrands, getModelsByBrand, getResinsByModel, loading } = useData();
   const { t } = useLanguage();
+
+  const [brands, setBrands] = useState<any[]>([]);
+  const [models, setModels] = useState<any[]>([]);
+  const [resins, setResins] = useState<any[]>([]);
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -37,17 +35,63 @@ const UserView = () => {
     setSearchTerm(term);
   };
 
-  // Get data first
-  const brands = getUniqueBrands(data);
-  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand, data) : null;
-  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel, data) : null;
-  const models = selectedBrand ? getModelsByBrandReal(selectedBrand, data) : [];
-  const resins = selectedModel ? getResinsByModelReal(selectedModel, data) : [];
+  // Load brands
+  useEffect(() => {
+    const loadBrands = async () => {
+      try {
+        const brandsData = await getUniqueBrands();
+        setBrands(brandsData);
+      } catch (error) {
+        console.error('Error loading brands:', error);
+      }
+    };
+    loadBrands();
+  }, [getUniqueBrands]);
 
-  // Filter brands based on search term
-  const filteredBrands = brands.filter(brand => 
-    brand.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Load models when brand changes
+  useEffect(() => {
+    if (selectedBrand) {
+      const loadModels = async () => {
+        try {
+          const modelsData = await getModelsByBrand(selectedBrand);
+          setModels(modelsData);
+        } catch (error) {
+          console.error('Error loading models:', error);
+        }
+      };
+      loadModels();
+    } else {
+      setModels([]);
+      setSelectedModel('');
+    }
+  }, [selectedBrand, getModelsByBrand]);
+
+  // Load resins when model changes
+  useEffect(() => {
+    if (selectedModel) {
+      const loadResins = async () => {
+        try {
+          const resinsData = await getResinsByModel(selectedModel);
+          setResins(resinsData);
+        } catch (error) {
+          console.error('Error loading resins:', error);
+        }
+      };
+      loadResins();
+    } else {
+      setResins([]);
+    }
+  }, [selectedModel, getResinsByModel]);
+
+  const filteredBrands = useMemo(() => {
+    if (!searchTerm) return brands;
+    return brands.filter(brand => 
+      brand.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [brands, searchTerm]);
+
+  const selectedBrandData = selectedBrand ? brands.find(b => b.slug === selectedBrand) : null;
+  const selectedModelData = selectedModel ? models.find(m => m.slug === selectedModel) : null;
 
   const breadcrumbItems = [];
   if (selectedBrandData) {
@@ -55,6 +99,14 @@ const UserView = () => {
   }
   if (selectedModelData) {
     breadcrumbItems.push({ label: selectedModelData.name });
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
+        <div className="text-lg">Carregando dados...</div>
+      </div>
+    );
   }
 
   return (
@@ -87,7 +139,7 @@ const UserView = () => {
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-primary rounded-full"></span>
-              {t('hero.real_parameters', { count: data.length })}
+              {t('hero.real_parameters', { count: 'Supabase' })}
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-accent rounded-full"></span>
@@ -105,7 +157,7 @@ const UserView = () => {
           />
         </div>
 
-        {/* Two Column Layout like the reference image */}
+        {/* Two Column Layout */}
         {selectedBrand && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Left Sidebar - Models */}
@@ -126,19 +178,6 @@ const UserView = () => {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        {model.imageUrl && (
-                          <div className="w-20 aspect-[7/10] bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                            <img 
-                              src={model.imageUrl} 
-                              alt={`${model.name} 3D Printer`}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                              }}
-                            />
-                          </div>
-                        )}
                         <div className="flex-1">
                           <div className="font-medium">{model.name}</div>
                           {model.notes && (
@@ -221,4 +260,4 @@ const UserView = () => {
   );
 };
 
-export default UserView;
+export default UserViewSupabase;

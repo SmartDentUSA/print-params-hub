@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadDataFromCSV, type RealParameterSet } from "@/data/realData";
+import { useData } from "@/contexts/DataContext";
 
 interface DataImportProps {
   onDataLoaded?: (data: RealParameterSet[]) => void;
@@ -15,6 +16,7 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [importedData, setImportedData] = useState<RealParameterSet[]>([]);
   const { toast } = useToast();
+  const { insertParameterSets, loading: dbLoading } = useData();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -39,14 +41,20 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
       const data = await loadDataFromCSV(text);
       console.log("Successfully parsed data:", data.length, "records");
       
-      // Clear existing data and set new data
-      setImportedData(data);
-      onDataLoaded?.(data);
+      // Save to Supabase
+      const success = await insertParameterSets(data);
+      
+      if (success) {
+        setImportedData(data);
+        onDataLoaded?.(data);
 
-      toast({
-        title: "Dados importados com sucesso!",
-        description: `${data.length} registros carregados de ${file.name}. Dados anteriores foram substituídos.`,
-      });
+        toast({
+          title: "Dados importados com sucesso!",
+          description: `${data.length} registros salvos no banco de dados.`,
+        });
+      } else {
+        throw new Error("Falha ao salvar no banco de dados");
+      }
       
       // Reset the file input to allow re-uploading the same file
       if (event.target) {
@@ -104,14 +112,14 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
             type="file"
             accept=".csv"
             onChange={handleFileUpload}
-            disabled={isLoading}
+            disabled={isLoading || dbLoading}
           />
         </div>
 
-        {isLoading && (
+        {(isLoading || dbLoading) && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            Processando arquivo...
+            {isLoading ? 'Processando arquivo...' : 'Salvando no banco de dados...'}
           </div>
         )}
 

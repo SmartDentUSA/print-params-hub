@@ -5,8 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Routes, Route } from "react-router-dom";
 import { DataProvider } from "@/contexts/DataContext";
 import Index from "./pages/Index";
-import UserView from "./pages/UserView";
-import AdminView from "./pages/AdminView";
+import AdminViewSupabase from "./pages/AdminViewSupabase";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -18,10 +17,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
-          <Route path="/" element={<UserView />} />
-          <Route path="/overview" element={<Index />} />
-          <Route path="/admin" element={<AdminView />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/" element={<Index />} />
+          <Route path="/admin" element={<AdminViewSupabase />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </TooltipProvider>
