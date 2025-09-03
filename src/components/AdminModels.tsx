@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,14 @@ export function AdminModels() {
     notes: '',
     active: true
   });
+  
+  // Ref to track the latest formData for debugging
+  const formDataRef = useRef(formData);
+  
+  useEffect(() => {
+    formDataRef.current = formData;
+    console.log('FormData state updated:', formData);
+  }, [formData]);
 
   const { 
     fetchBrands, 
@@ -136,9 +144,23 @@ export function AdminModels() {
     }
 
     try {
-      console.log('FormData antes de salvar:', formData);
+      console.log('FormData antes de salvar (incluindo image_url):', formData);
+      console.log('Specifically checking image_url:', formData.image_url);
+      
+      // Ensure image_url is included in the data being sent
+      const modelData = {
+        name: formData.name,
+        slug: formData.slug,
+        brand_id: formData.brand_id,
+        image_url: formData.image_url || '',
+        notes: formData.notes,
+        active: formData.active
+      };
+      
+      console.log('Dados que serão enviados para o banco:', modelData);
+      
       if (editingModel) {
-        const updated = await updateModel(editingModel.id, formData);
+        const updated = await updateModel(editingModel.id, modelData);
         console.log('Resultado do update:', updated);
         if (updated) {
           setModels(prev => prev.map(model => 
@@ -150,7 +172,7 @@ export function AdminModels() {
           });
         }
       } else {
-        const created = await insertModel(formData);
+        const created = await insertModel(modelData);
         console.log('Resultado do insert:', created);
         if (created) {
           setModels(prev => [...prev, { ...created, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }]);
@@ -218,6 +240,12 @@ export function AdminModels() {
       console.log('Updated formData with image URL:', updated);
       return updated;
     });
+    
+    // Check state after React has had time to update
+    setTimeout(() => {
+      console.log('Delayed check - current formDataRef:', formDataRef.current);
+      console.log('Delayed check - formData state:', formData);
+    }, 100);
   };
 
   const getBrandName = (brandId: string) => {
