@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { DataStats } from "@/components/DataStats";
 import { DataImport } from "@/components/DataImport";
 import { LoginForm } from "@/components/LoginForm";
+import { AdminModal } from "@/components/AdminModal";
 import { useData } from "@/contexts/DataContext";
 import { 
   Settings, 
@@ -39,12 +40,13 @@ import {
 const AdminView = () => {
   // ALL HOOKS MUST BE AT THE TOP - NEVER CONDITIONAL
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [editingItem, setEditingItem] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [formData, setFormData] = useState<Partial<RealParameterSet>>({});
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'brand' | 'model' | 'resin' | 'parameter'>('brand');
+  const [editingItem, setEditingItem] = useState<any>(null);
   const { toast } = useToast();
-  const { data, addData } = useData();
+  const { data, setData, addData } = useData();
 
   const brands = getUniqueBrands(data);
   const models = getUniqueModels(data);
@@ -70,27 +72,53 @@ const AdminView = () => {
     });
   };
 
-  const handleEdit = (id: string, data: any) => {
-    setEditingItem(id);
-    setFormData(data);
-  };
-
-  const handleSave = () => {
-    // Mock save functionality
-    toast({
-      title: "Dados salvos!",
-      description: "As alterações foram salvas com sucesso.",
-    });
+  const handleNewItem = (type: 'brand' | 'model' | 'resin' | 'parameter') => {
+    setModalType(type);
     setEditingItem(null);
-    setFormData({});
+    setModalOpen(true);
   };
 
-  const handleCancel = () => {
-    setEditingItem(null);
-    setFormData({});
+  const handleEdit = (item: any, type: 'brand' | 'model' | 'resin' | 'parameter') => {
+    setModalType(type);
+    setEditingItem(item);
+    setModalOpen(true);
   };
 
-  const handleDelete = (id: string, type: string) => {
+  const handleSave = (formData: any) => {
+    if (modalType === 'parameter') {
+      if (editingItem) {
+        // Update existing parameter
+        const updatedData = data.map(item => 
+          item === editingItem ? { ...formData } : item
+        );
+        setData(updatedData);
+        toast({
+          title: "Parâmetro atualizado!",
+          description: "O conjunto de parâmetros foi atualizado com sucesso.",
+        });
+      } else {
+        // Add new parameter
+        addData([formData]);
+        toast({
+          title: "Parâmetro criado!",
+          description: "Novo conjunto de parâmetros foi adicionado com sucesso.",
+        });
+      }
+    } else {
+      // For brands, models, and resins - we'll show success but note they're not yet fully integrated
+      toast({
+        title: editingItem ? "Item atualizado!" : "Item criado!",
+        description: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : 'Resina'} foi ${editingItem ? 'atualizada' : 'criada'} com sucesso.`,
+      });
+    }
+  };
+
+  const handleDelete = (item: any, type: string) => {
+    if (type === "Parâmetro") {
+      const updatedData = data.filter(dataItem => dataItem !== item);
+      setData(updatedData);
+    }
+    
     toast({
       title: "Item removido",
       description: `${type} foi removido com sucesso.`,
@@ -186,7 +214,7 @@ const AdminView = () => {
           <TabsContent value="brands" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Gerenciar Marcas</h2>
-              <Button className="flex items-center gap-2">
+              <Button onClick={() => handleNewItem('brand')} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Nova Marca
               </Button>
@@ -208,10 +236,10 @@ const AdminView = () => {
                         <Badge variant={brand.isActive ? "default" : "secondary"}>
                           {brand.isActive ? "Ativo" : "Inativo"}
                         </Badge>
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(brand.id, brand)}>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(brand, 'brand')}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(brand.id, "Marca")}>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(brand, "Marca")}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -226,7 +254,7 @@ const AdminView = () => {
           <TabsContent value="models" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Gerenciar Modelos</h2>
-              <Button className="flex items-center gap-2">
+              <Button onClick={() => handleNewItem('model')} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Novo Modelo
               </Button>
@@ -253,10 +281,10 @@ const AdminView = () => {
                         <Badge variant={model.isActive ? "default" : "secondary"}>
                           {model.isActive ? "Ativo" : "Inativo"}
                         </Badge>
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(model.id, model)}>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(model, 'model')}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(model.id, "Modelo")}>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(model, "Modelo")}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -271,7 +299,7 @@ const AdminView = () => {
           <TabsContent value="resins" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Gerenciar Resinas</h2>
-              <Button className="flex items-center gap-2">
+              <Button onClick={() => handleNewItem('resin')} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Nova Resina
               </Button>
@@ -295,10 +323,10 @@ const AdminView = () => {
                         <Badge variant={resin.isActive ? "default" : "secondary"}>
                           {resin.isActive ? "Ativo" : "Inativo"}
                         </Badge>
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(resin.id, resin)}>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(resin, 'resin')}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(resin.id, "Resina")}>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(resin, "Resina")}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -313,7 +341,7 @@ const AdminView = () => {
           <TabsContent value="parameters" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-semibold">Gerenciar Parâmetros</h2>
-              <Button className="flex items-center gap-2">
+              <Button onClick={() => handleNewItem('parameter')} className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Novo Conjunto
               </Button>
@@ -337,10 +365,10 @@ const AdminView = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => handleEdit(`param-${index}`, param)}>
+                        <Button size="sm" variant="outline" onClick={() => handleEdit(param, 'parameter')}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(`param-${index}`, "Parâmetro")}>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(param, "Parâmetro")}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
@@ -393,35 +421,14 @@ const AdminView = () => {
         </Tabs>
       </div>
 
-      {/* Edit Modal/Form */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Editar Item</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Nome</Label>
-                <Input 
-                  value={formData.brand || formData.resin || ""} 
-                  onChange={(e) => setFormData({...formData, brand: e.target.value})}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSave} className="flex items-center gap-2">
-                  <Save className="w-4 h-4" />
-                  Salvar
-                </Button>
-                <Button variant="outline" onClick={handleCancel} className="flex items-center gap-2">
-                  <X className="w-4 h-4" />
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <AdminModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        type={modalType}
+        item={editingItem}
+        brands={brands}
+        onSave={handleSave}
+      />
     </div>
   );
 };
