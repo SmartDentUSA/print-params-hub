@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,7 +68,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   resins = [],
   onSave 
 }) => {
-  const [formData, setFormData] = useState<any>(() => {
+  const getInitialFormData = () => {
     if (item && type === 'parameter') {
       // For parameters, we need to ensure the data matches what's available in dropdowns
       const parameterItem = item as Parameter;
@@ -107,7 +107,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       default:
         return {};
     }
-  });
+  };
+
+  const [formData, setFormData] = useState<any>(getInitialFormData);
+
+  // Update form data when item or type changes
+  useEffect(() => {
+    setFormData(getInitialFormData());
+  }, [item, type, isOpen]);
 
   // Filter models based on selected brand for parameter form
   const availableModels = formData.brand 
