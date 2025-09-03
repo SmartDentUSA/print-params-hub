@@ -44,18 +44,12 @@ export function AdminModels() {
     name: '',
     slug: '',
     brand_id: '',
-    image_url: '',
     notes: '',
     active: true
   });
   
-  // Ref to track the latest formData for debugging
-  const formDataRef = useRef(formData);
-  
-  useEffect(() => {
-    formDataRef.current = formData;
-    console.log('FormData state updated:', formData);
-  }, [formData]);
+  // Separate state for image URL to avoid timing issues
+  const [imageUrl, setImageUrl] = useState<string>('');
 
   const { 
     fetchBrands, 
@@ -106,10 +100,10 @@ export function AdminModels() {
       name: '',
       slug: '',
       brand_id: '',
-      image_url: '',
       notes: '',
       active: true
     });
+    setImageUrl('');
     setEditingModel(null);
   };
 
@@ -119,10 +113,10 @@ export function AdminModels() {
       name: model.name,
       slug: model.slug,
       brand_id: model.brand_id,
-      image_url: model.image_url || '',
       notes: model.notes || '',
       active: model.active
     });
+    setImageUrl(model.image_url || '');
     setIsDialogOpen(true);
   };
 
@@ -144,15 +138,15 @@ export function AdminModels() {
     }
 
     try {
-      console.log('FormData antes de salvar (incluindo image_url):', formData);
-      console.log('Specifically checking image_url:', formData.image_url);
+      console.log('FormData antes de salvar:', formData);
+      console.log('Specifically checking imageUrl state:', imageUrl);
       
-      // Ensure image_url is included in the data being sent
+      // Use the separate imageUrl state instead of formData.image_url
       const modelData = {
         name: formData.name,
         slug: formData.slug,
         brand_id: formData.brand_id,
-        image_url: formData.image_url || '',
+        image_url: imageUrl,
         notes: formData.notes,
         active: formData.active
       };
@@ -235,17 +229,8 @@ export function AdminModels() {
 
   const handleImageUploaded = (imageUrl: string) => {
     console.log('Image URL received in handleImageUploaded:', imageUrl);
-    setFormData(prev => {
-      const updated = { ...prev, image_url: imageUrl };
-      console.log('Updated formData with image URL:', updated);
-      return updated;
-    });
-    
-    // Check state after React has had time to update
-    setTimeout(() => {
-      console.log('Delayed check - current formDataRef:', formDataRef.current);
-      console.log('Delayed check - formData state:', formData);
-    }, 100);
+    setImageUrl(imageUrl);
+    console.log('Updated imageUrl state with:', imageUrl);
   };
 
   const getBrandName = (brandId: string) => {
@@ -369,7 +354,7 @@ export function AdminModels() {
 
                     <TabsContent value="image">
                       <ImageUpload
-                        currentImageUrl={formData.image_url}
+                        currentImageUrl={imageUrl}
                         onImageUploaded={handleImageUploaded}
                         modelSlug={formData.slug || 'novo-modelo'}
                       />
