@@ -6,7 +6,7 @@ import { Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { DataProvider } from "@/contexts/DataContext";
 import Index from "./pages/Index";
-import AdminViewSupabase from "./pages/AdminViewSupabase";
+import AdminViewComplete from "./pages/AdminViewComplete";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,7 +20,7 @@ const App = () => (
           <Sonner />
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/admin" element={<AdminViewSupabase />} />
+            <Route path="/admin" element={<AdminViewComplete />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </TooltipProvider>
