@@ -176,7 +176,7 @@ const Index = () => {
       <footer className="border-t border-border bg-gradient-surface mt-16">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center text-muted-foreground">
-            <p>&copy; 2024 PrinterParams. Desenvolvido para a comunidade de impressão 3D.</p>
+            <p>&copy; 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D.</p>
           </div>
         </div>
       </footer>

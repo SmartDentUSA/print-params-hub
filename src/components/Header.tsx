@@ -25,7 +25,7 @@ export function Header({ onSearch, searchValue = "" }: HeaderProps) {
           <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">3D</span>
           </div>
-          <span className="font-semibold text-lg text-foreground">PrinterParams</span>
+          <span className="font-semibold text-lg text-foreground">Smart Dent</span>
         </div>
 
         {/* Search */}
