@@ -142,15 +142,6 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
             {copied ? "Copiado!" : "Copiar"}
           </Button>
           <Button 
-            onClick={handleDownloadCSV} 
-            size="sm" 
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Download className="w-4 h-4" />
-            CSV
-          </Button>
-          <Button 
             onClick={handleShare} 
             size="sm" 
             variant="outline"

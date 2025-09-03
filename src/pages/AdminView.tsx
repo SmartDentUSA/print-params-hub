@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { DataStats } from "@/components/DataStats";
 import { DataImport } from "@/components/DataImport";
+import { LoginForm } from "@/components/LoginForm";
 import { useData } from "@/contexts/DataContext";
 import { 
   Settings, 
@@ -38,12 +39,46 @@ import {
 const AdminView = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { data, addData } = useData();
 
   const brands = getUniqueBrands(data);
   const models = getUniqueModels(data);
   const resins = getUniqueResins(data);
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const authStatus = localStorage.getItem("adminAuth");
+    setIsAuthenticated(authStatus === "true");
+    setIsLoading(false);
+  }, []);
+
+  const handleLogin = (success: boolean) => {
+    setIsAuthenticated(success);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("adminAuth");
+    setIsAuthenticated(false);
+    toast({
+      title: "Logout realizado",
+      description: "Você foi desconectado do painel administrativo.",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
+        <div className="text-lg">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
 
   // Mock form states for editing
   const [formData, setFormData] = useState<Partial<RealParameterSet>>({});
