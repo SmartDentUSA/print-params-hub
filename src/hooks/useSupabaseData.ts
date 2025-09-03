@@ -363,15 +363,22 @@ export const useSupabaseData = () => {
   // Get resins by model
   const getResinsByModel = async (modelSlug: string) => {
     try {
+      console.log('Loading resins for model:', modelSlug);
       const { data, error } = await supabase
         .from('parameter_sets')
         .select('*')
         .eq('model_slug', modelSlug)
         .eq('active', true)
-        .gte('cure_time', 5)
         .order('resin_name');
       
+      console.log('Raw parameter data for model:', data?.length || 0, 'records');
+      
       if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        console.log('No parameter sets found for model:', modelSlug);
+        return [];
+      }
       
       // Group by resin
       const resinsMap = new Map();
@@ -403,7 +410,11 @@ export const useSupabaseData = () => {
         resinsMap.get(key).parameterSets.push(mappedParam);
       });
       
-      return Array.from(resinsMap.values());
+      const result = Array.from(resinsMap.values());
+      console.log('Processed resins for model:', result.length);
+      console.log('Resin names:', result.map(r => r.name));
+      
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar resinas');
       return [];
