@@ -195,25 +195,71 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Get models by brand from parameter_sets
+  // Get models by brand with proper image integration
   const getModelsByBrand = async (brandSlug: string) => {
     try {
-      const { data, error } = await supabase
+      // First, get unique model slugs from parameter_sets
+      const { data: paramData, error: paramError } = await supabase
         .from('parameter_sets')
         .select('model_slug')
         .eq('brand_slug', brandSlug)
         .eq('active', true);
       
-      if (error) throw error;
+      if (paramError) throw paramError;
       
-      const uniqueModels = [...new Set(data?.map(item => item.model_slug) || [])];
-      return uniqueModels.map(slug => ({
-        id: slug,
-        brand_id: brandSlug,
-        name: slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        slug,
-        active: true
-      }));
+      const uniqueModelSlugs = [...new Set(paramData?.map(item => item.model_slug) || [])];
+      
+      if (uniqueModelSlugs.length === 0) return [];
+      
+      // Then, get complete model information from models table
+      const { data: modelsData, error: modelsError } = await supabase
+        .from('models')
+        .select('id, name, slug, image_url, notes, active')
+        .in('slug', uniqueModelSlugs)
+        .eq('active', true);
+      
+      if (modelsError) {
+        console.warn('Could not fetch from models table:', modelsError.message);
+        // Fallback to generated model data if models table doesn't have the data
+        return uniqueModelSlugs.map(slug => ({
+          id: slug,
+          brand_id: brandSlug,
+          name: slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          slug,
+          active: true,
+          image_url: undefined,
+          notes: undefined
+        }));
+      }
+      
+      // Merge models table data with fallback for missing models
+      const result = uniqueModelSlugs.map(slug => {
+        const modelData = modelsData?.find(m => m.slug === slug);
+        if (modelData) {
+          return {
+            id: modelData.id,
+            brand_id: brandSlug,
+            name: modelData.name,
+            slug: modelData.slug,
+            image_url: modelData.image_url,
+            notes: modelData.notes,
+            active: modelData.active
+          };
+        } else {
+          // Fallback for models not in models table
+          return {
+            id: slug,
+            brand_id: brandSlug,
+            name: slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            slug,
+            active: true,
+            image_url: undefined,
+            notes: undefined
+          };
+        }
+      });
+      
+      return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar modelos');
       return [];
