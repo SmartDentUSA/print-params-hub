@@ -20,6 +20,7 @@ interface Model {
   brandId: string;
   name: string;
   slug: string;
+  imageUrl?: string;
   isActive: boolean;
   notes?: string;
 }
@@ -85,7 +86,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       case 'brand':
         return { name: '', isActive: true };
       case 'model':
-        return { name: '', brandId: '', isActive: true, notes: '' };
+        return { name: '', brandId: '', imageUrl: '', isActive: true, notes: '' };
       case 'resin':
         return { name: '', manufacturer: '', isActive: true };
       case 'parameter':
@@ -210,6 +211,27 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="Ex: Mars 2"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="imageUrl">URL da Imagem</Label>
+                <Input
+                  id="imageUrl"
+                  value={formData.imageUrl || ''}
+                  onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+                  placeholder="https://exemplo.com/imagem.jpg"
+                />
+                {formData.imageUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={formData.imageUrl} 
+                      alt="Preview"
+                      className="w-20 h-20 object-cover rounded border"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes">Observações</Label>
