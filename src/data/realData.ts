@@ -323,21 +323,6 @@ export const realBrandsData: RealParameterSet[] = [
     notes: ""
   },
 
-  // DentalFactory - 1 registro
-  {
-    brand: "DentalFactory",
-    model: "Pro Series",
-    resin: "Dental Model",
-    variant_label: "50 microns",
-    altura_da_camada_mm: 0.05,
-    tempo_cura_seg: 5.2,
-    tempo_adesao_seg: 35,
-    camadas_transicao: 8,
-    intensidade_luz_pct: 100,
-    ajuste_x_pct: 100,
-    ajuste_y_pct: 100,
-    notes: ""
-  }
 ];
 
 // Helper functions to process the real data
