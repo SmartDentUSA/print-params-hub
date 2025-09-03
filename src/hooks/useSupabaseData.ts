@@ -140,6 +140,13 @@ export const useSupabaseData = () => {
         lift_distance: 5.0, // Default value
         lift_speed: 3.0, // Default value
         retract_speed: 3.0, // Default value
+        xy_adjustment_x_pct: parseInt(param.ajuste_x_pct?.toString() || '100'),
+        xy_adjustment_y_pct: parseInt(param.ajuste_y_pct?.toString() || '100'),
+        xy_size_compensation: 0.0, // Default value
+        anti_aliasing: true, // Default value
+        wait_time_before_cure: 0, // Default value
+        wait_time_after_cure: 0, // Default value
+        wait_time_after_lift: 0, // Default value
         notes: param.notes || null
       }));
 
