@@ -51,6 +51,7 @@ export function AdminModels() {
 
   const { 
     fetchBrands, 
+    fetchAllModels,
     insertModel, 
     updateModel, 
     deleteModel, 
@@ -67,15 +68,19 @@ export function AdminModels() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [brandsData] = await Promise.all([
-        fetchBrands()
+      const [brandsData, modelsData] = await Promise.all([
+        fetchBrands(),
+        fetchAllModels()
       ]);
       setBrands(brandsData || []);
-
-      // Fetch models from all brands
-      const allModels: LocalModel[] = [];
-      // For now, we'll set empty array until we implement proper model fetching
-      setModels(allModels);
+      
+      // Convert Model[] to LocalModel[] by adding timestamp fields
+      const localModels = (modelsData || []).map(model => ({
+        ...model,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }));
+      setModels(localModels);
     } catch (error) {
       console.error('Error loading data:', error);
       toast({

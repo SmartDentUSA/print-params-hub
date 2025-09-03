@@ -10,6 +10,7 @@ interface DataContextType {
   fetchBrands: () => Promise<Brand[]>;
   fetchModelsByBrand: (brandSlug: string) => Promise<Model[]>;
   fetchParametersByModel: (modelSlug: string) => Promise<ParameterSet[]>;
+  fetchAllModels: () => Promise<Model[]>;
   insertParameterSets: (data: RealParameterSet[]) => Promise<boolean>;
   getUniqueBrands: () => Promise<any[]>;
   getModelsByBrand: (brandSlug: string) => Promise<any[]>;
@@ -59,6 +60,7 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     fetchBrands: dataHook.fetchBrands,
     fetchModelsByBrand: dataHook.fetchModelsByBrand,
     fetchParametersByModel: dataHook.fetchParametersByModel,
+    fetchAllModels: dataHook.fetchAllModels,
     insertParameterSets: dataHook.insertParameterSets,
     getUniqueBrands: dataHook.getUniqueBrands,
     getModelsByBrand: dataHook.getModelsByBrand,

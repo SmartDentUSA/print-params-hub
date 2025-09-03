@@ -38,7 +38,7 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
         >
           <div className="flex items-center gap-3">
             {/* Image Container */}
-            <div className="w-16 h-20 bg-blue-600 rounded overflow-hidden relative flex-shrink-0">
+            <div className="w-16 h-20 bg-muted rounded overflow-hidden relative flex-shrink-0">
               {model.imageUrl ? (
                 <img 
                   src={model.imageUrl} 
@@ -47,13 +47,21 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
                   loading="lazy"
                   onError={(e) => {
                     console.error('Image load error for:', model.imageUrl);
-                    e.currentTarget.src = '/placeholder.svg';
-                    e.currentTarget.alt = t('models.image_not_available');
+                    // Fallback to a placeholder
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) {
+                      parent.innerHTML = `
+                        <div class="w-full h-full bg-muted flex items-center justify-center">
+                          <span class="text-sm text-muted-foreground">📷</span>
+                        </div>
+                      `;
+                    }
                   }}
                 />
               ) : (
-                <div className="w-full h-full bg-blue-600 flex items-center justify-center text-white">
-                  <span className="text-sm">📷</span>
+                <div className="w-full h-full bg-muted flex items-center justify-center">
+                  <span className="text-sm text-muted-foreground">📷</span>
                 </div>
               )}
             </div>

@@ -526,12 +526,40 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Fetch all models for admin interface
+  const fetchAllModels = async (): Promise<Model[]> => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data, error } = await supabase
+        .from('models')
+        .select('*')
+        .eq('active', true)
+        .order('name');
+
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      return data || [];
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar modelos';
+      setError(errorMessage);
+      console.error('Error fetching models:', error);
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
     fetchBrands,
     fetchModelsByBrand,
     fetchParametersByModel,
+    fetchAllModels,
     insertParameterSets,
     getUniqueBrands,
     getModelsByBrand,
