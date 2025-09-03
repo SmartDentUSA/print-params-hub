@@ -74,6 +74,8 @@ export function AdminSettings() {
   const { toast } = useToast();
   const { 
     fetchBrands, 
+    fetchModelsByBrand,
+    fetchParametersByModel,
     insertBrand, 
     updateBrand, 
     deleteBrand,
@@ -96,32 +98,45 @@ export function AdminSettings() {
     try {
       setLoading(true);
       
-      // Fetch brands
+      console.log('Loading brands...');
       const brandsData = await fetchBrands();
+      console.log('Brands loaded:', brandsData.length);
       setBrands(brandsData);
       
-      // Fetch models
-      const { data: modelsData } = await supabase
-        .from('models')
-        .select('*')
-        .order('name');
-      setModels(modelsData || []);
+      console.log('Loading models for', brandsData.length, 'brands...');
+      const allModelsData: Model[] = [];
+      for (const brand of brandsData) {
+        try {
+          const brandModels = await fetchModelsByBrand(brand.slug);
+          console.log(`Models for ${brand.slug}:`, brandModels.length);
+          allModelsData.push(...brandModels);
+        } catch (error) {
+          console.warn(`Error fetching models for brand ${brand.slug}:`, error);
+        }
+      }
+      console.log('Total models loaded:', allModelsData.length);
+      setModels(allModelsData);
       
-      // Fetch resins
+      // For resins and parameters, let's use a simpler approach
+      // by fetching from the main data functions
       const { data: resinsData } = await supabase
         .from('resins')
         .select('*')
+        .eq('active', true)
         .order('name');
       setResins(resinsData || []);
       
-      // Fetch parameter sets
+      // Get parameter sets - these are public readable
       const { data: parametersData } = await supabase
         .from('parameter_sets')
         .select('*')
-        .order('brand_slug, model_slug, resin_name');
+        .eq('active', true)
+        .order('brand_slug, model_slug, resin_name')
+        .limit(100); // Limit to avoid too much data
       setParameters(parametersData || []);
       
     } catch (error) {
+      console.error('Error loading admin data:', error);
       toast({
         title: "Erro ao carregar dados",
         description: "Não foi possível carregar os dados do sistema.",
