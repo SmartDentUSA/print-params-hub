@@ -239,8 +239,8 @@ export const useSupabaseData = () => {
           tempo_adesao_seg: param.bottom_cure_time || 0,
           camadas_transicao: param.bottom_layers || 8,
           intensidade_luz_pct: param.light_intensity,
-          ajuste_x_pct: 100, // Default value as this field doesn't exist in Supabase
-          ajuste_y_pct: 100, // Default value as this field doesn't exist in Supabase
+          ajuste_x_pct: param.xy_adjustment_x_pct || 100,
+          ajuste_y_pct: param.xy_adjustment_y_pct || 100,
           notes: param.notes
         };
         

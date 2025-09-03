@@ -111,6 +111,8 @@ export type Database = {
           wait_time_after_cure: number | null
           wait_time_after_lift: number | null
           wait_time_before_cure: number | null
+          xy_adjustment_x_pct: number | null
+          xy_adjustment_y_pct: number | null
           xy_size_compensation: number | null
         }
         Insert: {
@@ -135,6 +137,8 @@ export type Database = {
           wait_time_after_cure?: number | null
           wait_time_after_lift?: number | null
           wait_time_before_cure?: number | null
+          xy_adjustment_x_pct?: number | null
+          xy_adjustment_y_pct?: number | null
           xy_size_compensation?: number | null
         }
         Update: {
@@ -159,6 +163,8 @@ export type Database = {
           wait_time_after_cure?: number | null
           wait_time_after_lift?: number | null
           wait_time_before_cure?: number | null
+          xy_adjustment_x_pct?: number | null
+          xy_adjustment_y_pct?: number | null
           xy_size_compensation?: number | null
         }
         Relationships: []
