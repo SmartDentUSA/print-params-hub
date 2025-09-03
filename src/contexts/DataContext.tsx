@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useSupabaseData, Brand, Model, Resin, ParameterSet } from '@/hooks/useSupabaseData';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
+import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { RealParameterSet } from '@/data/realData';
 
 interface DataContextType {
@@ -47,6 +48,9 @@ interface DataProviderProps {
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const dataHook = useSupabaseData();
   const crudHook = useSupabaseCRUD();
+  
+  // Initialize realtime updates
+  useRealtimeUpdates();
 
   const value = {
     loading: dataHook.loading || crudHook.loading,
@@ -76,8 +80,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       crudHook.clearError();
     },
     refreshData: () => {
-      // Force re-fetch of all data by clearing internal caches
       console.log('Refreshing data...');
+      // Force page refresh to ensure data is updated
+      window.location.reload();
     }
   };
 
