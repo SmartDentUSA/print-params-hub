@@ -160,13 +160,13 @@ const Index = () => {
             ou tirar dúvidas sobre impressão 3D.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Button variant="accent" className="flex items-center gap-2">
+            <Button 
+              variant="accent" 
+              className="flex items-center gap-2"
+              onClick={() => window.open("https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1%2C+n%C3%A3o+encontrei+os+par%C3%A2metros+da+minha+impressora+no+site+de+voc%C3%AAs%2C+como+posso+iniciar+a+parametriza%C3%A7%C3%A3o%3F&type=phone_number&app_absent=0&utm_source=chatgpt.com", "_blank")}
+            >
               <MessageCircle className="w-4 h-4" />
               Falar no WhatsApp
-            </Button>
-            <Button variant="outline" className="flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              Enviar Email
             </Button>
           </div>
         </div>
