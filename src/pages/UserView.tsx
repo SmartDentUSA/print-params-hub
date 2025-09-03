@@ -6,6 +6,7 @@ import { ResinAccordion } from "@/components/ResinAccordion";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Mail, Settings } from "lucide-react";
+import { useData } from "@/contexts/DataContext";
 import { 
   getUniqueBrands,
   getModelsByBrandReal, 
@@ -18,6 +19,7 @@ import { Link } from "react-router-dom";
 const UserView = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const { data } = useData();
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -28,11 +30,11 @@ const UserView = () => {
     setSelectedModel(modelSlug);
   };
 
-  const brands = getUniqueBrands();
-  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand) : null;
-  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel) : null;
-  const models = selectedBrand ? getModelsByBrandReal(selectedBrand) : [];
-  const resins = selectedModel ? getResinsByModelReal(selectedModel) : [];
+  const brands = getUniqueBrands(data);
+  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand, data) : null;
+  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel, data) : null;
+  const models = selectedBrand ? getModelsByBrandReal(selectedBrand, data) : [];
+  const resins = selectedModel ? getResinsByModelReal(selectedModel, data) : [];
 
   const breadcrumbItems = [];
   if (selectedBrandData) {

@@ -8,6 +8,7 @@ import { DataStats } from "@/components/DataStats";
 import { DataImport } from "@/components/DataImport";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Mail, Database } from "lucide-react";
+import { useData } from "@/contexts/DataContext";
 import { 
   getUniqueBrands,
   getModelsByBrandReal, 
@@ -19,6 +20,7 @@ import {
 const Index = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const { data, addData } = useData();
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -29,11 +31,11 @@ const Index = () => {
     setSelectedModel(modelSlug);
   };
 
-  const brands = getUniqueBrands();
-  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand) : null;
-  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel) : null;
-  const models = selectedBrand ? getModelsByBrandReal(selectedBrand) : [];
-  const resins = selectedModel ? getResinsByModelReal(selectedModel) : [];
+  const brands = getUniqueBrands(data);
+  const selectedBrandData = selectedBrand ? getBrandBySlugReal(selectedBrand, data) : null;
+  const selectedModelData = selectedModel ? getModelBySlugReal(selectedModel, data) : null;
+  const models = selectedBrand ? getModelsByBrandReal(selectedBrand, data) : [];
+  const resins = selectedModel ? getResinsByModelReal(selectedModel, data) : [];
 
   const breadcrumbItems = [];
   if (selectedBrandData) {
@@ -124,14 +126,14 @@ const Index = () => {
                 <h2 className="text-2xl font-semibold text-foreground mb-6">
                   Estatísticas da Base de Dados
                 </h2>
-                <DataStats />
+                <DataStats data={data} />
               </div>
               
               <div>
                 <h2 className="text-2xl font-semibold text-foreground mb-6">
                   Importar Novos Dados
                 </h2>
-                <DataImport />
+                <DataImport onDataLoaded={addData} />
               </div>
             </div>
           )}

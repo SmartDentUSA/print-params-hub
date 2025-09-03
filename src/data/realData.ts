@@ -341,8 +341,8 @@ export const realBrandsData: RealParameterSet[] = [
 ];
 
 // Helper functions to process the real data
-export function getUniqueBrands(): Array<{id: string, name: string, slug: string, isActive: boolean}> {
-  const uniqueBrands = [...new Set(realBrandsData.map(item => item.brand))];
+export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Array<{id: string, name: string, slug: string, isActive: boolean}> {
+  const uniqueBrands = [...new Set(data.map(item => item.brand))];
   return uniqueBrands.map((brand, index) => ({
     id: (index + 1).toString(),
     name: brand,
@@ -351,14 +351,14 @@ export function getUniqueBrands(): Array<{id: string, name: string, slug: string
   }));
 }
 
-export function getUniqueModels(): Array<{id: string, brandId: string, name: string, slug: string, isActive: boolean, notes?: string}> {
-  const brandToId = getUniqueBrands().reduce((acc, brand) => {
+export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, isActive: boolean, notes?: string}> {
+  const brandToId = getUniqueBrands(data).reduce((acc, brand) => {
     acc[brand.name] = brand.id;
     return acc;
   }, {} as Record<string, string>);
 
   const uniqueModels = new Map();
-  realBrandsData.forEach(item => {
+  data.forEach(item => {
     const key = `${item.brand}-${item.model}`;
     if (!uniqueModels.has(key)) {
       uniqueModels.set(key, {
@@ -378,9 +378,9 @@ export function getUniqueModels(): Array<{id: string, brandId: string, name: str
   }));
 }
 
-export function getUniqueResins(): Array<{id: string, name: string, manufacturer: string, color?: string, isActive: boolean}> {
+export function getUniqueResins(data: RealParameterSet[] = realBrandsData): Array<{id: string, name: string, manufacturer: string, color?: string, isActive: boolean}> {
   const uniqueResins = new Map();
-  realBrandsData.forEach(item => {
+  data.forEach(item => {
     if (!uniqueResins.has(item.resin)) {
       uniqueResins.set(item.resin, {
         resin: item.resin,
@@ -398,9 +398,9 @@ export function getUniqueResins(): Array<{id: string, name: string, manufacturer
   }));
 }
 
-export function getModelsByBrandReal(brandSlug: string) {
-  const brands = getUniqueBrands();
-  const models = getUniqueModels();
+export function getModelsByBrandReal(brandSlug: string, data: RealParameterSet[] = realBrandsData) {
+  const brands = getUniqueBrands(data);
+  const models = getUniqueModels(data);
   const brand = brands.find(b => b.slug === brandSlug);
   
   if (!brand) return [];
@@ -408,20 +408,20 @@ export function getModelsByBrandReal(brandSlug: string) {
   return models.filter(m => m.brandId === brand.id);
 }
 
-export function getResinsByModelReal(modelSlug: string) {
-  const models = getUniqueModels();
-  const resins = getUniqueResins();
+export function getResinsByModelReal(modelSlug: string, data: RealParameterSet[] = realBrandsData) {
+  const models = getUniqueModels(data);
+  const resins = getUniqueResins(data);
   const model = models.find(m => m.slug === modelSlug);
   
   if (!model) return [];
 
   // Find the brand for this model
-  const brands = getUniqueBrands();
+  const brands = getUniqueBrands(data);
   const brand = brands.find(b => b.id === model.brandId);
   if (!brand) return [];
 
   // Get all parameter sets for this brand/model combination
-  const modelData = realBrandsData.filter(item => 
+  const modelData = data.filter(item => 
     item.brand === brand.name && 
     item.model === model.name
   );
@@ -455,12 +455,12 @@ export function getResinsByModelReal(modelSlug: string) {
   }).filter(r => r.parameterSets.length > 0);
 }
 
-export function getBrandBySlugReal(slug: string) {
-  return getUniqueBrands().find(b => b.slug === slug);
+export function getBrandBySlugReal(slug: string, data: RealParameterSet[] = realBrandsData) {
+  return getUniqueBrands(data).find(b => b.slug === slug);
 }
 
-export function getModelBySlugReal(slug: string) {
-  return getUniqueModels().find(m => m.slug === slug);
+export function getModelBySlugReal(slug: string, data: RealParameterSet[] = realBrandsData) {
+  return getUniqueModels(data).find(m => m.slug === slug);
 }
 
 // CSV loader utility - Improved version with better error handling

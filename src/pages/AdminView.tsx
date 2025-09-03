@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { DataStats } from "@/components/DataStats";
 import { DataImport } from "@/components/DataImport";
+import { useData } from "@/contexts/DataContext";
 import { 
   Settings, 
   Plus, 
@@ -38,10 +39,11 @@ const AdminView = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const { toast } = useToast();
+  const { data, addData } = useData();
 
-  const brands = getUniqueBrands();
-  const models = getUniqueModels();
-  const resins = getUniqueResins();
+  const brands = getUniqueBrands(data);
+  const models = getUniqueModels(data);
+  const resins = getUniqueResins(data);
 
   // Mock form states for editing
   const [formData, setFormData] = useState<Partial<RealParameterSet>>({});
@@ -138,7 +140,7 @@ const AdminView = () => {
                   </CardDescription>
                 </CardHeader>
               </Card>
-              <DataStats />
+              <DataStats data={data} />
             </div>
           </TabsContent>
 
@@ -282,7 +284,7 @@ const AdminView = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="space-y-4">
-                  {realBrandsData.slice(0, 10).map((param, index) => (
+                  {data.slice(0, 10).map((param, index) => (
                     <div key={index} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <Settings className="w-5 h-5 text-warning" />
@@ -322,7 +324,7 @@ const AdminView = () => {
               </div>
               
               <div className="grid gap-6">
-                <DataImport />
+                <DataImport onDataLoaded={addData} />
                 
                 <Card>
                   <CardHeader>

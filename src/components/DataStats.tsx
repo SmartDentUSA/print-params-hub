@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Printer, Beaker, Settings, TrendingUp, Database } from "lucide-react";
-import { getUniqueBrands, getUniqueModels, getUniqueResins, realBrandsData } from "@/data/realData";
+import { getUniqueBrands, getUniqueModels, getUniqueResins, RealParameterSet } from "@/data/realData";
 
 // Real brand statistics based on your actual CSV data
 const realBrandStats = [
@@ -20,11 +20,15 @@ const realBrandStats = [
   { name: "DentalFactory", records: 1, color: "bg-gray-500" },
 ];
 
-export function DataStats() {
-  const brands = getUniqueBrands();
-  const models = getUniqueModels();
-  const resins = getUniqueResins();
-  const totalParameterSets = realBrandStats.reduce((sum, brand) => sum + brand.records, 0);
+interface DataStatsProps {
+  data: RealParameterSet[];
+}
+
+export function DataStats({ data }: DataStatsProps) {
+  const brands = getUniqueBrands(data);
+  const models = getUniqueModels(data);
+  const resins = getUniqueResins(data);
+  const totalParameterSets = data.length;
 
   return (
     <div className="space-y-6">

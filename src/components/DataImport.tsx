@@ -44,7 +44,7 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
 
       toast({
         title: "Dados importados com sucesso!",
-        description: `${data.length} registros carregados de ${file.name}`,
+        description: `${data.length} registros carregados de ${file.name}. Os dados já estão disponíveis na aplicação.`,
       });
       
       // Reset the file input to allow re-uploading the same file
