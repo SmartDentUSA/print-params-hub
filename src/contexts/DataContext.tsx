@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useSupabaseData, Brand, Model, Resin, ParameterSet } from '@/hooks/useSupabaseData';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
@@ -38,6 +38,9 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const useData = () => {
   const context = useContext(DataContext);
   if (!context) {
+    console.error('useData called outside DataProvider context');
+    console.error('Current context:', context);
+    console.error('DataContext:', DataContext);
     throw new Error('useData must be used within a DataProvider');
   }
   return context;
@@ -48,8 +51,19 @@ interface DataProviderProps {
 }
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
+  const [isInitialized, setIsInitialized] = useState(false);
+  
+  console.log('DataProvider rendering...');
+  
   const dataHook = useSupabaseData();
   const crudHook = useSupabaseCRUD();
+  
+  console.log('DataProvider hooks loaded:', {
+    dataHookLoading: dataHook.loading,
+    crudHookLoading: crudHook.loading,
+    dataHookError: dataHook.error,
+    crudHookError: crudHook.error
+  });
   
   // Initialize realtime updates
   useRealtimeUpdates();
@@ -94,6 +108,14 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }, 500);
     }
   };
+
+  // Mark as initialized after first render
+  useEffect(() => {
+    setIsInitialized(true);
+    console.log('DataProvider initialized');
+  }, []);
+
+  console.log('DataProvider providing context value:', value);
 
   return (
     <DataContext.Provider value={value}>

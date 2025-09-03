@@ -17,7 +17,13 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [importedData, setImportedData] = useState<RealParameterSet[]>([]);
   const { toast } = useToast();
+  
+  console.log('DataImport component rendering');
+  console.log('About to call useData...');
+  
   const { insertParameterSets, refreshData, clearError, loading: dbLoading } = useData();
+  
+  console.log('useData called successfully');
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
