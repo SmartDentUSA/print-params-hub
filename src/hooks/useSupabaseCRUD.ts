@@ -87,6 +87,7 @@ export const useSupabaseCRUD = () => {
   const updateModel = async (id: string, updates: Partial<Model>): Promise<Model | null> => {
     try {
       setLoading(true);
+      console.log('updateModel called with id:', id, 'updates:', updates);
       const { data, error } = await supabase
         .from('models')
         .update(updates)
@@ -95,6 +96,7 @@ export const useSupabaseCRUD = () => {
         .single();
       
       if (error) throw error;
+      console.log('updateModel success, returned data:', data);
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar modelo');

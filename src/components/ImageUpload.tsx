@@ -60,6 +60,7 @@ export function ImageUpload({ currentImageUrl, onImageUploaded, modelSlug, disab
         .from('model-images')
         .getPublicUrl(filePath);
 
+      console.log('Image uploaded to storage. Public URL:', data.publicUrl);
       onImageUploaded(data.publicUrl);
       
       toast({

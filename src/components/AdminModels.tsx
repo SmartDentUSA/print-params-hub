@@ -212,7 +212,12 @@ export function AdminModels() {
   };
 
   const handleImageUploaded = (imageUrl: string) => {
-    setFormData(prev => ({ ...prev, image_url: imageUrl }));
+    console.log('Image URL received in handleImageUploaded:', imageUrl);
+    setFormData(prev => {
+      const updated = { ...prev, image_url: imageUrl };
+      console.log('Updated formData with image URL:', updated);
+      return updated;
+    });
   };
 
   const getBrandName = (brandId: string) => {
