@@ -20,7 +20,7 @@ import {
 const Index = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const { data, addData } = useData();
+  const { data, setData } = useData();
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -133,7 +133,7 @@ const Index = () => {
                 <h2 className="text-2xl font-semibold text-foreground mb-6">
                   Importar Novos Dados
                 </h2>
-                <DataImport onDataLoaded={addData} />
+                <DataImport onDataLoaded={setData} />
               </div>
             </div>
           )}
