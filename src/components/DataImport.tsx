@@ -17,7 +17,7 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [importedData, setImportedData] = useState<RealParameterSet[]>([]);
   const { toast } = useToast();
-  const { insertParameterSets, refreshData, loading: dbLoading } = useData();
+  const { insertParameterSets, refreshData, clearError, loading: dbLoading } = useData();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -48,16 +48,18 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
         
         if (success) {
           setImportedData(data);
-          
-          // Refresh data to update UI
-          refreshData();
-          
           onDataLoaded?.(data);
 
           toast({
             title: "Dados importados com sucesso!",
-            description: `${data.length} registros salvos no banco de dados.`,
+            description: `${data.length} registros salvos. Os dados aparecerão na interface em alguns segundos.`,
           });
+          
+          // Trigger data refresh after a short delay to show updated data
+          setTimeout(() => {
+            clearError();
+            refreshData();
+          }, 2000);
         } else {
           throw new Error("Falha ao salvar no banco de dados");
         }

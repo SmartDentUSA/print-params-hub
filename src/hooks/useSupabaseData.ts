@@ -252,6 +252,10 @@ export const useSupabaseData = () => {
       }
       
       console.log(`Inserção bem-sucedida: ${uniqueData.length} registros de parâmetros`);
+      
+      // Aguardar um pouco para garantir que os dados sejam persistidos
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       return true;
     } catch (err) {
       console.error('Erro na inserção:', err);

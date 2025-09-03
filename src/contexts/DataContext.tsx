@@ -81,8 +81,13 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     },
     refreshData: () => {
       console.log('Refreshing data...');
-      // Force page refresh to ensure data is updated
-      window.location.reload();
+      // Force data refresh by clearing any cached data and reloading
+      dataHook.clearError();
+      crudHook.clearError();
+      // Trigger a small delay then reload to ensure updates are visible
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     }
   };
 
