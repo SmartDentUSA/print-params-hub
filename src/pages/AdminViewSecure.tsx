@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { User } from '@supabase/supabase-js';
+import { Link } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
 import { AuthPage } from "@/components/AuthPage";
 import { DataImport } from "@/components/DataImport";
@@ -9,7 +10,7 @@ import { AdminSettings } from "@/components/AdminSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3 } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminViewSecure() {
@@ -147,10 +148,23 @@ export default function AdminViewSecure() {
               Bem-vindo, {user.email}
             </span>
           </div>
-          <Button onClick={handleLogout} variant="outline">
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link to="/">
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Voltar ao Site</span>
+                <span className="sm:hidden">Home</span>
+              </Button>
+            </Link>
+            <Button onClick={handleLogout} variant="outline">
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultValue="import" className="space-y-6">
