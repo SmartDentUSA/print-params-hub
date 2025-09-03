@@ -351,7 +351,10 @@ export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Arra
   }));
 }
 
-export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, isActive: boolean, notes?: string}> {
+import { getPrinterImage } from '@/data/printerImages';
+
+export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, imageUrl?: string, isActive: boolean, notes?: string}> {
+  
   const brandToId = getUniqueBrands(data).reduce((acc, brand) => {
     acc[brand.name] = brand.id;
     return acc;
@@ -368,14 +371,18 @@ export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Arra
     }
   });
 
-  return Array.from(uniqueModels.values()).map((item, index) => ({
-    id: (index + 1).toString(),
-    brandId: brandToId[item.brand],
-    name: item.model,
-    slug: item.model.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
-    isActive: true,
-    notes: `Parâmetros otimizados para ${item.brand} ${item.model}`
-  }));
+  return Array.from(uniqueModels.values()).map((item, index) => {
+    const slug = item.model.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return {
+      id: (index + 1).toString(),
+      brandId: brandToId[item.brand],
+      name: item.model,
+      slug,
+      imageUrl: getPrinterImage(slug),
+      isActive: true,
+      notes: `Parâmetros otimizados para ${item.brand} ${item.model}`
+    };
+  });
 }
 
 export function getUniqueResins(data: RealParameterSet[] = realBrandsData): Array<{id: string, name: string, manufacturer: string, color?: string, isActive: boolean}> {

@@ -34,15 +34,24 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
           onClick={() => model.isActive && onModelSelect(model.slug)}
         >
           <CardHeader className="pb-3">
-            {model.imageUrl && (
-              <div className="w-full h-32 bg-muted rounded-lg mb-3 overflow-hidden">
+            <div className="w-full h-32 bg-muted rounded-lg mb-3 overflow-hidden">
+              {model.imageUrl ? (
                 <img 
                   src={model.imageUrl} 
-                  alt={model.name}
+                  alt={`${model.name} 3D Printer`}
                   className="w-full h-full object-cover group-hover:scale-105 transition-smooth"
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.src = '/placeholder.svg';
+                    e.currentTarget.alt = 'Imagem não disponível';
+                  }}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="w-full h-full bg-gradient-surface flex items-center justify-center text-muted-foreground">
+                  <span className="text-xs text-center px-2">Imagem não disponível</span>
+                </div>
+              )}
+            </div>
             <div className="flex items-start justify-between">
               <CardTitle className="text-base">{model.name}</CardTitle>
               <Badge variant={model.isActive ? "default" : "secondary"}>
