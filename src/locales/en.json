@@ -1,0 +1,123 @@
+{
+  "common": {
+    "search": "Search",
+    "admin": "Admin",
+    "back": "Back",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "loading": "Loading...",
+    "yes": "Yes",
+    "no": "No",
+    "close": "Close",
+    "view": "View",
+    "active": "Active",
+    "inactive": "Inactive",
+    "available": "Available",
+    "coming_soon": "Coming Soon"
+  },
+  "header": {
+    "title": "3D Printing Parameters",
+    "subtitle": "Professional database with tested parameters for dental printers and resins.",
+    "search_placeholder": "Search brands, models or resins..."
+  },
+  "hero": {
+    "brands_integrated": "{{count}} Integrated Brands",
+    "real_parameters": "{{count}}+ Real Parameters",
+    "dental_data": "Dental Data"
+  },
+  "brands": {
+    "select_brand": "Select a brand to get started",
+    "no_brands": "No brands found",
+    "brand_models": "{{brand}} Models"
+  },
+  "models": {
+    "select_model": "Select a Model",
+    "select_model_description": "Choose a model from the list on the side to see available parameters.",
+    "no_models": "Select a brand to see available models",
+    "view_parameters": "View Parameters",
+    "image_not_available": "Image not available"
+  },
+  "parameters": {
+    "layer_height": "Layer Height",
+    "cure_time": "Cure Time",
+    "adhesion_time": "Adhesion Time",
+    "transition_layers": "Transition Layers",
+    "light_intensity": "Light Intensity",
+    "x_adjustment": "X Adjustment",
+    "y_adjustment": "Y Adjustment",
+    "notes": "Notes",
+    "optimized_for": "Parameters optimized for {{brand}} {{model}}"
+  },
+  "help": {
+    "need_help": "Need Help?",
+    "help_description": "Our team is ready to help you find the best parameters or answer questions about 3D printing.",
+    "whatsapp_button": "Chat on WhatsApp"
+  },
+  "footer": {
+    "copyright": "© 2024 Smart Dent. Developed for the 3D printing community."
+  },
+  "admin": {
+    "title": "Administrative Panel",
+    "back_to_site": "Back to Site",
+    "dashboard": "Dashboard",
+    "brands": "Brands",
+    "models": "Models",
+    "resins": "Resins",
+    "parameters": "Parameters",
+    "import": "Import",
+    "system_overview": "System Overview",
+    "system_overview_description": "Statistics and general database information",
+    "manage_brands": "Manage Brands",
+    "manage_models": "Manage Models",
+    "manage_resins": "Manage Resins",
+    "manage_parameters": "Manage Parameters",
+    "new_brand": "New Brand",
+    "new_model": "New Model",
+    "new_resin": "New Resin",
+    "new_parameter_set": "New Set",
+    "brand_name": "Brand Name",
+    "model_name": "Model Name",
+    "image_url": "Image URL",
+    "manufacturer": "Manufacturer",
+    "resin_name": "Resin Name",
+    "variant_label": "Variant Label",
+    "slug": "Slug"
+  },
+  "login": {
+    "title": "Administrative Access",
+    "description": "Enter the password to access the administrative panel.",
+    "password_label": "Password",
+    "password_placeholder": "Enter administrator password",
+    "login_button": "Login",
+    "invalid_password": "Incorrect password",
+    "login_success": "Login successful!"
+  },
+  "data_import": {
+    "title": "Data Import",
+    "description": "Import parameter data from a CSV file.",
+    "download_example": "Download CSV Example",
+    "drag_drop": "Drag a CSV file here or click to select",
+    "processing": "Processing file...",
+    "success": "{{count}} records imported successfully!",
+    "error": "Error processing file: {{error}}",
+    "invalid_format": "Invalid file format. Please use a CSV file."
+  },
+  "toast": {
+    "logout": "Logout completed",
+    "logout_description": "You have been logged out of the administrative panel.",
+    "parameter_updated": "Parameter updated!",
+    "parameter_updated_description": "The parameter set has been successfully updated.",
+    "parameter_created": "Parameter created!",
+    "parameter_created_description": "New parameter set has been successfully added.",
+    "model_updated": "Model updated!",
+    "model_created": "Model created!",
+    "model_saved": "Model has been saved successfully.",
+    "item_updated": "Item updated!",
+    "item_created": "Item created!",
+    "item_removed": "Item removed",
+    "item_removed_description": "{{type}} has been successfully removed."
+  }
+}

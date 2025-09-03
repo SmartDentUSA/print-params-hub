@@ -1,0 +1,123 @@
+{
+  "common": {
+    "search": "Buscar",
+    "admin": "Admin",
+    "back": "Volver",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "loading": "Cargando...",
+    "yes": "Sí",
+    "no": "No",
+    "close": "Cerrar",
+    "view": "Ver",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "available": "Disponible",
+    "coming_soon": "Próximamente"
+  },
+  "header": {
+    "title": "Parámetros de Impresión 3D",
+    "subtitle": "Base de datos profesional con parámetros probados para impresoras y resinas dentales.",
+    "search_placeholder": "Buscar marcas, modelos o resinas..."
+  },
+  "hero": {
+    "brands_integrated": "{{count}} Marcas Integradas",
+    "real_parameters": "{{count}}+ Parámetros Reales",
+    "dental_data": "Datos Dentales"
+  },
+  "brands": {
+    "select_brand": "Selecciona una marca para comenzar",
+    "no_brands": "No se encontraron marcas",
+    "brand_models": "Modelos {{brand}}"
+  },
+  "models": {
+    "select_model": "Seleccionar un Modelo",
+    "select_model_description": "Elige un modelo de la lista lateral para ver los parámetros disponibles.",
+    "no_models": "Selecciona una marca para ver los modelos disponibles",
+    "view_parameters": "Ver Parámetros",
+    "image_not_available": "Imagen no disponible"
+  },
+  "parameters": {
+    "layer_height": "Altura de Capa",
+    "cure_time": "Tiempo de Curado",
+    "adhesion_time": "Tiempo de Adhesión",
+    "transition_layers": "Capas de Transición",
+    "light_intensity": "Intensidad de Luz",
+    "x_adjustment": "Ajuste X",
+    "y_adjustment": "Ajuste Y",
+    "notes": "Notas",
+    "optimized_for": "Parámetros optimizados para {{brand}} {{model}}"
+  },
+  "help": {
+    "need_help": "¿Necesitas Ayuda?",
+    "help_description": "Nuestro equipo está listo para ayudarte a encontrar los mejores parámetros o responder preguntas sobre impresión 3D.",
+    "whatsapp_button": "Chatear en WhatsApp"
+  },
+  "footer": {
+    "copyright": "© 2024 Smart Dent. Desarrollado para la comunidad de impresión 3D."
+  },
+  "admin": {
+    "title": "Panel Administrativo",
+    "back_to_site": "Volver al Sitio",
+    "dashboard": "Panel",
+    "brands": "Marcas",
+    "models": "Modelos",
+    "resins": "Resinas",
+    "parameters": "Parámetros",
+    "import": "Importar",
+    "system_overview": "Visión General del Sistema",
+    "system_overview_description": "Estadísticas e información general de la base de datos",
+    "manage_brands": "Gestionar Marcas",
+    "manage_models": "Gestionar Modelos",
+    "manage_resins": "Gestionar Resinas",
+    "manage_parameters": "Gestionar Parámetros",
+    "new_brand": "Nueva Marca",
+    "new_model": "Nuevo Modelo",
+    "new_resin": "Nueva Resina",
+    "new_parameter_set": "Nuevo Conjunto",
+    "brand_name": "Nombre de Marca",
+    "model_name": "Nombre del Modelo",
+    "image_url": "URL de Imagen",
+    "manufacturer": "Fabricante",
+    "resin_name": "Nombre de Resina",
+    "variant_label": "Etiqueta de Variante",
+    "slug": "Slug"
+  },
+  "login": {
+    "title": "Acceso Administrativo",
+    "description": "Ingresa la contraseña para acceder al panel administrativo.",
+    "password_label": "Contraseña",
+    "password_placeholder": "Ingresa la contraseña de administrador",
+    "login_button": "Iniciar Sesión",
+    "invalid_password": "Contraseña incorrecta",
+    "login_success": "¡Inicio de sesión exitoso!"
+  },
+  "data_import": {
+    "title": "Importación de Datos",
+    "description": "Importa datos de parámetros desde un archivo CSV.",
+    "download_example": "Descargar Ejemplo CSV",
+    "drag_drop": "Arrastra un archivo CSV aquí o haz clic para seleccionar",
+    "processing": "Procesando archivo...",
+    "success": "¡{{count}} registros importados exitosamente!",
+    "error": "Error al procesar archivo: {{error}}",
+    "invalid_format": "Formato de archivo inválido. Por favor usa un archivo CSV."
+  },
+  "toast": {
+    "logout": "Cierre de sesión completado",
+    "logout_description": "Has sido desconectado del panel administrativo.",
+    "parameter_updated": "¡Parámetro actualizado!",
+    "parameter_updated_description": "El conjunto de parámetros ha sido actualizado exitosamente.",
+    "parameter_created": "¡Parámetro creado!",
+    "parameter_created_description": "Nuevo conjunto de parámetros ha sido agregado exitosamente.",
+    "model_updated": "¡Modelo actualizado!",
+    "model_created": "¡Modelo creado!",
+    "model_saved": "El modelo ha sido guardado exitosamente.",
+    "item_updated": "¡Elemento actualizado!",
+    "item_created": "¡Elemento creado!",
+    "item_removed": "Elemento eliminado",
+    "item_removed_description": "{{type}} ha sido eliminado exitosamente."
+  }
+}

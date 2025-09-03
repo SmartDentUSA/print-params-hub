@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Model {
   id: string;
@@ -17,10 +18,12 @@ interface ModelGridProps {
 }
 
 export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
+  const { t } = useLanguage();
+  
   if (models.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Selecione uma marca para ver os modelos disponíveis</p>
+        <p className="text-muted-foreground">{t('models.no_models')}</p>
       </div>
     );
   }
@@ -43,19 +46,19 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
                   loading="lazy"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder.svg';
-                    e.currentTarget.alt = 'Imagem não disponível';
+                    e.currentTarget.alt = t('models.image_not_available');
                   }}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-surface flex items-center justify-center text-muted-foreground">
-                  <span className="text-xs text-center px-2">Imagem não disponível</span>
+                  <span className="text-xs text-center px-2">{t('models.image_not_available')}</span>
                 </div>
               )}
             </div>
             <div className="flex items-start justify-between">
               <CardTitle className="text-base">{model.name}</CardTitle>
               <Badge variant={model.isActive ? "default" : "secondary"}>
-                {model.isActive ? "Disponível" : "Em breve"}
+                {model.isActive ? t('common.available') : t('common.coming_soon')}
               </Badge>
             </div>
             {model.notes && (
@@ -69,7 +72,7 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
               className="w-full"
               disabled={!model.isActive}
             >
-              Ver Parâmetros
+              {t('models.view_parameters')}
             </Button>
           </CardContent>
         </Card>

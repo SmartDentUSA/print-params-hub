@@ -1,0 +1,123 @@
+{
+  "common": {
+    "search": "Buscar",
+    "admin": "Admin",
+    "back": "Voltar",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "loading": "Carregando...",
+    "yes": "Sim",
+    "no": "Não",
+    "close": "Fechar",
+    "view": "Ver",
+    "active": "Ativo",
+    "inactive": "Inativo",
+    "available": "Disponível",
+    "coming_soon": "Em breve"
+  },
+  "header": {
+    "title": "Parâmetros de Impressão 3D",
+    "subtitle": "Base de dados profissional com parâmetros testados para impressoras e resinas odontológicas.",
+    "search_placeholder": "Buscar marcas, modelos ou resinas..."
+  },
+  "hero": {
+    "brands_integrated": "{{count}} Marcas Integradas",
+    "real_parameters": "{{count}}+ Parâmetros Reais",
+    "dental_data": "Dados Odontológicos"
+  },
+  "brands": {
+    "select_brand": "Selecione uma marca para começar",
+    "no_brands": "Nenhuma marca encontrada",
+    "brand_models": "{{brand}} Models"
+  },
+  "models": {
+    "select_model": "Selecione um Modelo",
+    "select_model_description": "Escolha um modelo na lista ao lado para ver os parâmetros disponíveis.",
+    "no_models": "Selecione uma marca para ver os modelos disponíveis",
+    "view_parameters": "Ver Parâmetros",
+    "image_not_available": "Imagem não disponível"
+  },
+  "parameters": {
+    "layer_height": "Altura da Camada",
+    "cure_time": "Tempo de Cura",
+    "adhesion_time": "Tempo de Adesão",
+    "transition_layers": "Camadas de Transição",
+    "light_intensity": "Intensidade da Luz",
+    "x_adjustment": "Ajuste X",
+    "y_adjustment": "Ajuste Y",
+    "notes": "Observações",
+    "optimized_for": "Parâmetros otimizados para {{brand}} {{model}}"
+  },
+  "help": {
+    "need_help": "Precisa de Ajuda?",
+    "help_description": "Nossa equipe está pronta para ajudar você a encontrar os melhores parâmetros ou tirar dúvidas sobre impressão 3D.",
+    "whatsapp_button": "Falar no WhatsApp"
+  },
+  "footer": {
+    "copyright": "© 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D."
+  },
+  "admin": {
+    "title": "Painel Administrativo",
+    "back_to_site": "Voltar ao Site",
+    "dashboard": "Dashboard",
+    "brands": "Marcas",
+    "models": "Modelos",
+    "resins": "Resinas",
+    "parameters": "Parâmetros",
+    "import": "Importar",
+    "system_overview": "Visão Geral do Sistema",
+    "system_overview_description": "Estatísticas e informações gerais da base de dados",
+    "manage_brands": "Gerenciar Marcas",
+    "manage_models": "Gerenciar Modelos",
+    "manage_resins": "Gerenciar Resinas",
+    "manage_parameters": "Gerenciar Parâmetros",
+    "new_brand": "Nova Marca",
+    "new_model": "Novo Modelo",
+    "new_resin": "Nova Resina",
+    "new_parameter_set": "Novo Conjunto",
+    "brand_name": "Nome da Marca",
+    "model_name": "Nome do Modelo",
+    "image_url": "URL da Imagem",
+    "manufacturer": "Fabricante",
+    "resin_name": "Nome da Resina",
+    "variant_label": "Rótulo da Variante",
+    "slug": "Slug"
+  },
+  "login": {
+    "title": "Acesso Administrativo",
+    "description": "Digite a senha para acessar o painel administrativo.",
+    "password_label": "Senha",
+    "password_placeholder": "Digite a senha de administrador",
+    "login_button": "Entrar",
+    "invalid_password": "Senha incorreta",
+    "login_success": "Login realizado com sucesso!"
+  },
+  "data_import": {
+    "title": "Importação de Dados",
+    "description": "Importe dados de parâmetros a partir de um arquivo CSV.",
+    "download_example": "Baixar Exemplo CSV",
+    "drag_drop": "Arraste um arquivo CSV aqui ou clique para selecionar",
+    "processing": "Processando arquivo...",
+    "success": "{{count}} registros importados com sucesso!",
+    "error": "Erro ao processar arquivo: {{error}}",
+    "invalid_format": "Formato de arquivo inválido. Por favor, use um arquivo CSV."
+  },
+  "toast": {
+    "logout": "Logout realizado",
+    "logout_description": "Você foi desconectado do painel administrativo.",
+    "parameter_updated": "Parâmetro atualizado!",
+    "parameter_updated_description": "O conjunto de parâmetros foi atualizado com sucesso.",
+    "parameter_created": "Parâmetro criado!",
+    "parameter_created_description": "Novo conjunto de parâmetros foi adicionado com sucesso.",
+    "model_updated": "Modelo atualizado!",
+    "model_created": "Modelo criado!",
+    "model_saved": "Modelo foi salvo com sucesso.",
+    "item_updated": "Item atualizado!",
+    "item_created": "Item criado!",
+    "item_removed": "Item removido",
+    "item_removed_description": "{{type}} foi removido com sucesso."
+  }
+}

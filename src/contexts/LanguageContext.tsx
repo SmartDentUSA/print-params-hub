@@ -1,0 +1,81 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+type Language = 'pt' | 'en' | 'es';
+
+interface LanguageContextType {
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string, params?: Record<string, string | number>) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+// Import translations
+import ptTranslations from '@/locales/pt.json';
+import enTranslations from '@/locales/en.json';
+import esTranslations from '@/locales/es.json';
+
+const translations = {
+  pt: ptTranslations,
+  en: enTranslations,
+  es: esTranslations,
+};
+
+export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [language, setLanguageState] = useState<Language>(() => {
+    // Get language from localStorage or default to Portuguese
+    const saved = localStorage.getItem('language');
+    return (saved as Language) || 'pt';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('language', language);
+  }, [language]);
+
+  const setLanguage = (lang: Language) => {
+    setLanguageState(lang);
+  };
+
+  const t = (key: string, params?: Record<string, string | number>): string => {
+    const keys = key.split('.');
+    let value: any = translations[language];
+    
+    for (const k of keys) {
+      value = value?.[k];
+      if (value === undefined) break;
+    }
+    
+    // Fallback to Portuguese if translation not found
+    if (value === undefined) {
+      let fallback: any = translations.pt;
+      for (const k of keys) {
+        fallback = fallback?.[k];
+        if (fallback === undefined) break;
+      }
+      value = fallback || key;
+    }
+    
+    // Replace parameters if provided
+    if (params && typeof value === 'string') {
+      Object.entries(params).forEach(([param, val]) => {
+        value = value.replace(`{{${param}}}`, String(val));
+      });
+    }
+    
+    return value || key;
+  };
+
+  return (
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const context = useContext(LanguageContext);
+  if (context === undefined) {
+    throw new Error('useLanguage must be used within a LanguageProvider');
+  }
+  return context;
+}

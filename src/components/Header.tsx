@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Search, Globe } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface HeaderProps {
   onSearch?: (searchTerm: string) => void;
@@ -10,6 +11,7 @@ interface HeaderProps {
 
 export function Header({ onSearch, searchValue = "" }: HeaderProps) {
   const [localSearchValue, setLocalSearchValue] = useState(searchValue);
+  const { t } = useLanguage();
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -33,7 +35,7 @@ export function Header({ onSearch, searchValue = "" }: HeaderProps) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input 
-              placeholder="Buscar marca, modelo ou resina..." 
+              placeholder={t('header.search_placeholder')}
               className="pl-10 bg-card border-border"
               value={localSearchValue}
               onChange={handleSearchChange}
@@ -41,11 +43,8 @@ export function Header({ onSearch, searchValue = "" }: HeaderProps) {
           </div>
         </div>
 
-        {/* Language Toggle */}
-        <Button variant="ghost" size="sm" className="flex items-center gap-2">
-          <Globe className="w-4 h-4" />
-          PT
-        </Button>
+        {/* Language Selector */}
+        <LanguageSelector />
       </div>
     </header>
   );

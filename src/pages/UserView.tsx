@@ -5,8 +5,9 @@ import { ModelGrid } from "@/components/ModelGrid";
 import { ResinAccordion } from "@/components/ResinAccordion";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Mail, Settings } from "lucide-react";
+import { MessageCircle, Settings } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { 
   getUniqueBrands,
   getModelsByBrandReal, 
@@ -21,6 +22,7 @@ const UserView = () => {
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const { data } = useData();
+  const { t } = useLanguage();
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -64,7 +66,7 @@ const UserView = () => {
         <Link to="/admin">
           <Button variant="outline" size="sm" className="flex items-center gap-2">
             <Settings className="w-4 h-4" />
-            Admin
+            {t('common.admin')}
           </Button>
         </Link>
       </div>
@@ -73,23 +75,23 @@ const UserView = () => {
         {/* Hero Section */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Parâmetros de Impressão 3D
+            {t('header.title')}
           </h1>
           <p className="text-lg text-muted-foreground mb-4">
-            Base de dados profissional com parâmetros testados para impressoras e resinas odontológicas.
+            {t('header.subtitle')}
           </p>
           <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-success rounded-full"></span>
-              {brands.length} Marcas Integradas
+              {t('hero.brands_integrated', { count: brands.length })}
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-primary rounded-full"></span>
-              {data.length}+ Parâmetros Reais
+              {t('hero.real_parameters', { count: data.length })}
             </span>
             <span className="flex items-center gap-2">
               <span className="w-2 h-2 bg-accent rounded-full"></span>
-              Dados Odontológicos
+              {t('hero.dental_data')}
             </span>
           </div>
         </div>
@@ -110,7 +112,7 @@ const UserView = () => {
             <div className="lg:col-span-1">
               <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  {selectedBrandData?.name} Models
+                  {t('brands.brand_models', { brand: selectedBrandData?.name })}
                 </h3>
                 <div className="space-y-3">
                   {models.map((model) => (
@@ -173,10 +175,10 @@ const UserView = () => {
               ) : (
                 <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
                   <h3 className="text-xl font-semibold text-foreground mb-2">
-                    Selecione um Modelo
+                    {t('models.select_model')}
                   </h3>
                   <p className="text-muted-foreground">
-                    Escolha um modelo na lista ao lado para ver os parâmetros disponíveis.
+                    {t('models.select_model_description')}
                   </p>
                 </div>
               )}
@@ -188,11 +190,10 @@ const UserView = () => {
         {!selectedBrand && (
           <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
             <h3 className="text-xl font-semibold text-foreground mb-4">
-              Precisa de Ajuda?
+              {t('help.need_help')}
             </h3>
             <p className="text-muted-foreground mb-6">
-              Nossa equipe está pronta para ajudar você a encontrar os melhores parâmetros 
-              ou tirar dúvidas sobre impressão 3D.
+              {t('help.help_description')}
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Button 
@@ -201,7 +202,7 @@ const UserView = () => {
                 onClick={() => window.open("https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1%2C+n%C3%A3o+encontrei+os+par%C3%A2metros+da+minha+impressora+no+site+de+voc%C3%AAs%2C+como+posso+iniciar+a+parametriza%C3%A7%C3%A3o%3F&type=phone_number&app_absent=0&utm_source=chatgpt.com", "_blank")}
               >
                 <MessageCircle className="w-4 h-4" />
-                Falar no WhatsApp
+                {t('help.whatsapp_button')}
               </Button>
             </div>
           </div>
@@ -212,7 +213,7 @@ const UserView = () => {
       <footer className="border-t border-border bg-gradient-surface mt-16">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center text-muted-foreground">
-            <p>&copy; 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D.</p>
+            <p>{t('footer.copyright')}</p>
           </div>
         </div>
       </footer>
