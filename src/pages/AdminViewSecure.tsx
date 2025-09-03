@@ -3,6 +3,9 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthPage } from "@/components/AuthPage";
 import { DataImport } from "@/components/DataImport";
+import { AdminStats } from "@/components/AdminStats";
+import { AdminUsers } from "@/components/AdminUsers";
+import { AdminSettings } from "@/components/AdminSettings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -185,60 +188,15 @@ export default function AdminViewSecure() {
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Estatísticas</CardTitle>
-                <CardDescription>
-                  Visualize dados e métricas do sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <BarChart3 className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    Estatísticas em desenvolvimento
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <AdminStats />
           </TabsContent>
 
           <TabsContent value="users" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gerenciamento de Usuários</CardTitle>
-                <CardDescription>
-                  Controle de usuários e permissões (em desenvolvimento)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Users className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    Funcionalidade em desenvolvimento
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <AdminUsers />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
-                <CardDescription>
-                  Configurações gerais e preferências
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Settings className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
-                    Configurações em desenvolvimento
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <AdminSettings />
           </TabsContent>
         </Tabs>
       </div>
