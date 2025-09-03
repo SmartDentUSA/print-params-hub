@@ -190,9 +190,21 @@ export function AdminSettings() {
         console.log('Model data to save:', data);
         console.log('Image URL specifically:', data.image_url);
         
+        // Filter data to only include valid model fields for update/insert
+        const validModelFields = {
+          name: data.name,
+          slug: data.slug,
+          image_url: data.image_url,
+          notes: data.notes,
+          active: data.active,
+          brand_id: data.brand_id
+        };
+        
+        console.log('Filtered model data:', validModelFields);
+        
         if (selectedItem) {
           console.log('Updating existing model:', selectedItem.id);
-          result = await updateModel(selectedItem.id, data);
+          result = await updateModel(selectedItem.id, validModelFields);
           console.log('Update result:', result);
           if (result) {
             setModels(models.map(m => m.id === selectedItem.id ? result : m));
@@ -200,7 +212,7 @@ export function AdminSettings() {
           }
         } else {
           console.log('Creating new model');
-          result = await insertModel(data);
+          result = await insertModel(validModelFields);
           console.log('Insert result:', result);
           if (result) {
             setModels([...models, result]);
