@@ -15,6 +15,8 @@ const AdminViewSupabase = () => {
   const [importedData, setImportedData] = useState<any[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   
+  console.log("AdminViewSupabase component is rendering");
+  
   const { toast } = useToast();
   const { insertParameterSets } = useData();
 
@@ -55,11 +57,15 @@ const AdminViewSupabase = () => {
               </Badge>
             </div>
             <div className="flex items-center gap-2">
-              <Link to="/">
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Link to="/" className="block">
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md"
+                >
                   <ArrowLeft className="w-4 h-4" />
-                  <span className="hidden sm:inline">Voltar ao App</span>
-                  <span className="sm:hidden">Voltar</span>
+                  <span className="hidden sm:inline">Voltar ao Site</span>
+                  <span className="sm:hidden">Home</span>
                 </Button>
               </Link>
             </div>
