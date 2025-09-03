@@ -12,16 +12,17 @@ interface Brand {
   id: string;
   name: string;
   slug: string;
-  isActive: boolean;
+  active: boolean;
+  logo_url?: string;
 }
 
 interface Model {
   id: string;
-  brandId: string;
+  brand_id: string;
   name: string;
   slug: string;
-  imageUrl?: string;
-  isActive: boolean;
+  image_url?: string;
+  active: boolean;
   notes?: string;
 }
 
@@ -29,29 +30,41 @@ interface Resin {
   id: string;
   name: string;
   manufacturer: string;
-  isActive: boolean;
+  active: boolean;
+  color?: string;
+  type?: string;
 }
 
-interface Parameter {
-  brand: string;
-  model: string;
-  resin: string;
-  variant_label: string;
-  altura_da_camada_mm: number;
-  tempo_cura_seg: number;
-  tempo_adesao_seg: number;
-  camadas_transicao: number;
-  intensidade_luz_pct: number;
-  ajuste_x_pct: number;
-  ajuste_y_pct: number;
-  notes: string;
+interface ParameterSet {
+  id?: string;
+  brand_slug: string;
+  model_slug: string;
+  resin_name: string;
+  resin_manufacturer: string;
+  layer_height: number;
+  cure_time: number;
+  bottom_layers?: number;
+  bottom_cure_time?: number;
+  lift_distance?: number;
+  lift_speed?: number;
+  retract_speed?: number;
+  light_intensity: number;
+  anti_aliasing?: boolean;
+  xy_size_compensation?: number;
+  xy_adjustment_x_pct?: number;
+  xy_adjustment_y_pct?: number;
+  wait_time_before_cure?: number;
+  wait_time_after_cure?: number;
+  wait_time_after_lift?: number;
+  notes?: string;
+  active: boolean;
 }
 
 interface AdminModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'brand' | 'model' | 'resin' | 'parameter';
-  item?: Brand | Model | Resin | Parameter | null;
+  item?: Brand | Model | Resin | ParameterSet | null;
   brands?: Brand[];
   models?: Model[];
   resins?: Resin[];
@@ -69,37 +82,40 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   onSave 
 }) => {
   const getInitialFormData = () => {
-    if (item && type === 'parameter') {
-      // For parameters, we need to ensure the data matches what's available in dropdowns
-      const parameterItem = item as Parameter;
-      return {
-        ...parameterItem
-      };
-    } else if (item) {
+    if (item) {
       return { ...item };
     }
     
     switch (type) {
       case 'brand':
-        return { name: '', isActive: true };
+        return { name: '', logo_url: '', active: true };
       case 'model':
-        return { name: '', brandId: '', imageUrl: '', isActive: true, notes: '' };
+        return { name: '', brand_id: '', image_url: '', notes: '', active: true };
       case 'resin':
-        return { name: '', manufacturer: '', isActive: true };
+        return { name: '', manufacturer: '', color: '', type: 'standard', active: true };
       case 'parameter':
         return {
-          brand: '',
-          model: '',
-          resin: '',
-          variant_label: '50 microns',
-          altura_da_camada_mm: 0.05,
-          tempo_cura_seg: 5,
-          tempo_adesao_seg: 30,
-          camadas_transicao: 8,
-          intensidade_luz_pct: 100,
-          ajuste_x_pct: 100,
-          ajuste_y_pct: 100,
-          notes: ''
+          brand_slug: '',
+          model_slug: '',
+          resin_name: '',
+          resin_manufacturer: '',
+          layer_height: 0.05,
+          cure_time: 3,
+          bottom_layers: 5,
+          bottom_cure_time: 30,
+          lift_distance: 5.0,
+          lift_speed: 3.0,
+          retract_speed: 3.0,
+          light_intensity: 100,
+          anti_aliasing: true,
+          xy_size_compensation: 0.0,
+          xy_adjustment_x_pct: 100,
+          xy_adjustment_y_pct: 100,
+          wait_time_before_cure: 0,
+          wait_time_after_cure: 0,
+          wait_time_after_lift: 0,
+          notes: '',
+          active: true,
         };
       default:
         return {};
@@ -114,23 +130,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   }, [item, type, isOpen]);
 
   // Filter models based on selected brand for parameter form
-  const availableModels = formData.brand 
+  const availableModels = formData.brand_slug 
     ? models.filter(model => {
-        const selectedBrand = brands.find(b => b.name === formData.brand);
-        return selectedBrand && model.brandId === selectedBrand.id;
+        const selectedBrand = brands.find(b => b.slug === formData.brand_slug);
+        return selectedBrand && model.brand_id === selectedBrand.id;
       })
     : models;
 
   const handleSave = () => {
-    if (type === 'brand' || type === 'model' || type === 'resin') {
-      // Generate slug for brands and models
-      if (type === 'brand' || type === 'model') {
-        formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    // Generate slug for brands and models if creating new ones
+    if ((type === 'brand' || type === 'model') && formData.name && !item) {
+      formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    }
+    
+    // For parameters, ensure we have proper slugs and manufacturer
+    if (type === 'parameter') {
+      if (formData.brand_slug) {
+        const selectedBrand = brands.find(b => b.slug === formData.brand_slug);
+        if (selectedBrand) formData.brand_slug = selectedBrand.slug;
       }
       
-      // Generate ID if creating new item
-      if (!formData.id) {
-        formData.id = Date.now().toString();
+      if (formData.model_slug) {
+        const selectedModel = models.find(m => m.slug === formData.model_slug);
+        if (selectedModel) formData.model_slug = selectedModel.slug;
+      }
+      
+      if (formData.resin_name) {
+        const selectedResin = resins.find(r => r.name === formData.resin_name);
+        if (selectedResin) formData.resin_manufacturer = selectedResin.manufacturer;
       }
     }
     
@@ -142,8 +169,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const newFormData = { ...formData, [field]: value };
     
     // If brand changes in parameter form, reset the model selection
-    if (field === 'brand' && type === 'parameter') {
-      newFormData.model = '';
+    if (field === 'brand_slug' && type === 'parameter') {
+      newFormData.model_slug = '';
+    }
+    
+    // If resin changes, update manufacturer
+    if (field === 'resin_name' && type === 'parameter') {
+      const selectedResin = resins.find(r => r.name === value);
+      if (selectedResin) {
+        newFormData.resin_manufacturer = selectedResin.manufacturer;
+      }
     }
     
     setFormData(newFormData);
@@ -155,14 +190,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       case 'brand': return `${action} Marca`;
       case 'model': return `${action} Modelo`;
       case 'resin': return `${action} Resina`;
-      case 'parameter': return `${action} Parâmetro`;
+      case 'parameter': return `${action} Parâmetros`;
       default: return action;
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{getModalTitle()}</DialogTitle>
         </DialogHeader>
@@ -170,7 +205,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         <div className="space-y-4">
           {type === 'brand' && (
             <>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="name">Nome da Marca</Label>
                 <Input
                   id="name"
@@ -179,11 +214,32 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   placeholder="Ex: ELEGOO"
                 />
               </div>
+              <div>
+                <Label htmlFor="logo-url">URL do Logo</Label>
+                <Input
+                  id="logo-url"
+                  value={formData.logo_url || ''}
+                  onChange={(e) => handleInputChange('logo_url', e.target.value)}
+                  placeholder="https://exemplo.com/logo.png"
+                />
+                {formData.logo_url && (
+                  <div className="mt-2">
+                    <img 
+                      src={formData.logo_url} 
+                      alt="Preview"
+                      className="w-16 h-16 object-contain rounded border"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="active"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => handleInputChange('isActive', checked)}
+                  checked={formData.active}
+                  onCheckedChange={(checked) => handleInputChange('active', checked)}
                 />
                 <Label htmlFor="active">Ativo</Label>
               </div>
@@ -192,9 +248,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'model' && (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="brandId">Marca</Label>
-                <Select value={formData.brandId || ''} onValueChange={(value) => handleInputChange('brandId', value)}>
+              <div>
+                <Label htmlFor="brand-id">Marca</Label>
+                <Select value={formData.brand_id || ''} onValueChange={(value) => handleInputChange('brand_id', value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma marca" />
                   </SelectTrigger>
@@ -207,7 +263,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="name">Nome do Modelo</Label>
                 <Input
                   id="name"
@@ -216,18 +272,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   placeholder="Ex: Mars 2"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">URL da Imagem</Label>
+              <div>
+                <Label htmlFor="image-url">URL da Imagem</Label>
                 <Input
-                  id="imageUrl"
-                  value={formData.imageUrl || ''}
-                  onChange={(e) => handleInputChange('imageUrl', e.target.value)}
+                  id="image-url"
+                  value={formData.image_url || ''}
+                  onChange={(e) => handleInputChange('image_url', e.target.value)}
                   placeholder="https://exemplo.com/imagem.jpg"
                 />
-                {formData.imageUrl && (
+                {formData.image_url && (
                   <div className="mt-2">
                     <img 
-                      src={formData.imageUrl} 
+                      src={formData.image_url} 
                       alt="Preview"
                       className="w-20 h-20 object-cover rounded border"
                       onError={(e) => {
@@ -237,7 +293,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="notes">Observações</Label>
                 <Textarea
                   id="notes"
@@ -249,8 +305,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <div className="flex items-center space-x-2">
                 <Switch
                   id="active"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => handleInputChange('isActive', checked)}
+                  checked={formData.active}
+                  onCheckedChange={(checked) => handleInputChange('active', checked)}
                 />
                 <Label htmlFor="active">Ativo</Label>
               </div>
@@ -259,7 +315,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'resin' && (
             <>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="name">Nome da Resina</Label>
                 <Input
                   id="name"
@@ -268,7 +324,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   placeholder="Ex: Smart Print Model Ocre"
                 />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="manufacturer">Fabricante</Label>
                 <Input
                   id="manufacturer"
@@ -277,11 +333,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   placeholder="Ex: Smart Print"
                 />
               </div>
+              <div>
+                <Label htmlFor="color">Cor</Label>
+                <Input
+                  id="color"
+                  value={formData.color || ''}
+                  onChange={(e) => handleInputChange('color', e.target.value)}
+                  placeholder="Ex: #FF5733"
+                />
+              </div>
+              <div>
+                <Label htmlFor="type">Tipo</Label>
+                <Select value={formData.type || 'standard'} onValueChange={(value) => handleInputChange('type', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="tough">Tough</SelectItem>
+                    <SelectItem value="flexible">Flexible</SelectItem>
+                    <SelectItem value="water_washable">Water Washable</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center space-x-2">
                 <Switch
                   id="active"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => handleInputChange('isActive', checked)}
+                  checked={formData.active}
+                  onCheckedChange={(checked) => handleInputChange('active', checked)}
                 />
                 <Label htmlFor="active">Ativo</Label>
               </div>
@@ -291,34 +370,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           {type === 'parameter' && (
             <>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="brand">Marca</Label>
-                  <Select value={formData.brand || ''} onValueChange={(value) => handleInputChange('brand', value)}>
-                    <SelectTrigger className="bg-background">
+                <div>
+                  <Label htmlFor="brand-slug">Marca</Label>
+                  <Select value={formData.brand_slug || ''} onValueChange={(value) => handleInputChange('brand_slug', value)}>
+                    <SelectTrigger>
                       <SelectValue placeholder="Selecione uma marca" />
                     </SelectTrigger>
-                    <SelectContent className="bg-background border border-border z-50">
+                    <SelectContent>
                       {brands.map((brand) => (
-                        <SelectItem key={brand.id} value={brand.name}>
+                        <SelectItem key={brand.id} value={brand.slug}>
                           {brand.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="model">Modelo</Label>
+                <div>
+                  <Label htmlFor="model-slug">Modelo</Label>
                   <Select 
-                    value={formData.model || ''} 
-                    onValueChange={(value) => handleInputChange('model', value)} 
-                    disabled={!formData.brand}
+                    value={formData.model_slug || ''} 
+                    onValueChange={(value) => handleInputChange('model_slug', value)} 
+                    disabled={!formData.brand_slug}
                   >
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder={!formData.brand ? "Selecione uma marca primeiro" : "Selecione um modelo"} />
+                    <SelectTrigger>
+                      <SelectValue placeholder={!formData.brand_slug ? "Selecione uma marca primeiro" : "Selecione um modelo"} />
                     </SelectTrigger>
-                    <SelectContent className="bg-background border border-border z-50">
+                    <SelectContent>
                       {availableModels.map((model) => (
-                        <SelectItem key={model.id} value={model.name}>
+                        <SelectItem key={model.id} value={model.slug}>
                           {model.name}
                         </SelectItem>
                       ))}
@@ -327,111 +406,203 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="resin">Resina</Label>
-                <Select value={formData.resin || ''} onValueChange={(value) => handleInputChange('resin', value)}>
-                  <SelectTrigger className="bg-background">
+              <div>
+                <Label htmlFor="resin-name">Resina</Label>
+                <Select value={formData.resin_name || ''} onValueChange={(value) => handleInputChange('resin_name', value)}>
+                  <SelectTrigger>
                     <SelectValue placeholder="Selecione uma resina" />
                   </SelectTrigger>
-                  <SelectContent className="bg-background border border-border z-50">
+                  <SelectContent>
                     {resins.map((resin) => (
                       <SelectItem key={resin.id} value={resin.name}>
-                        {resin.name}
+                        {resin.name} ({resin.manufacturer})
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="variant_label">Variante</Label>
-                <Select value={formData.variant_label || ''} onValueChange={(value) => handleInputChange('variant_label', value)}>
-                  <SelectTrigger className="bg-background">
-                    <SelectValue placeholder="Selecione a variante" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background border border-border z-50">
-                    <SelectItem value="25 microns">25 microns</SelectItem>
-                    <SelectItem value="50 microns">50 microns</SelectItem>
-                    <SelectItem value="100 microns">100 microns</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="altura_da_camada_mm">Altura da Camada (mm)</Label>
+                <div>
+                  <Label htmlFor="layer-height">Altura da camada (mm)</Label>
                   <Input
-                    id="altura_da_camada_mm"
+                    id="layer-height"
                     type="number"
                     step="0.001"
-                    value={formData.altura_da_camada_mm || ''}
-                    onChange={(e) => handleInputChange('altura_da_camada_mm', parseFloat(e.target.value))}
+                    value={formData.layer_height || ''}
+                    onChange={(e) => handleInputChange('layer_height', Number(e.target.value))}
+                    placeholder="Ex: 0.05"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tempo_cura_seg">Tempo de Cura (s)</Label>
-                  <Input
-                    id="tempo_cura_seg"
-                    type="number"
-                    step="0.1"
-                    value={formData.tempo_cura_seg || ''}
-                    onChange={(e) => handleInputChange('tempo_cura_seg', parseFloat(e.target.value))}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tempo_adesao_seg">Tempo de Adesão (s)</Label>
+                <div>
+                  <Label htmlFor="cure-time">Tempo de cura (segundos)</Label>
                   <Input
-                    id="tempo_adesao_seg"
+                    id="cure-time"
                     type="number"
-                    value={formData.tempo_adesao_seg || ''}
-                    onChange={(e) => handleInputChange('tempo_adesao_seg', parseInt(e.target.value))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="camadas_transicao">Camadas de Transição</Label>
-                  <Input
-                    id="camadas_transicao"
-                    type="number"
-                    value={formData.camadas_transicao || ''}
-                    onChange={(e) => handleInputChange('camadas_transicao', parseInt(e.target.value))}
+                    value={formData.cure_time || ''}
+                    onChange={(e) => handleInputChange('cure_time', Number(e.target.value))}
+                    placeholder="Ex: 3"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="intensidade_luz_pct">Luz (%)</Label>
+                <div>
+                  <Label htmlFor="bottom-layers">Camadas de base</Label>
                   <Input
-                    id="intensidade_luz_pct"
+                    id="bottom-layers"
                     type="number"
-                    value={formData.intensidade_luz_pct || ''}
-                    onChange={(e) => handleInputChange('intensidade_luz_pct', parseInt(e.target.value))}
+                    value={formData.bottom_layers || ''}
+                    onChange={(e) => handleInputChange('bottom_layers', Number(e.target.value))}
+                    placeholder="Ex: 5"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ajuste_x_pct">Ajuste X (%)</Label>
+
+                <div>
+                  <Label htmlFor="bottom-cure-time">Tempo de cura da base (segundos)</Label>
                   <Input
-                    id="ajuste_x_pct"
+                    id="bottom-cure-time"
                     type="number"
-                    value={formData.ajuste_x_pct || ''}
-                    onChange={(e) => handleInputChange('ajuste_x_pct', parseInt(e.target.value))}
+                    value={formData.bottom_cure_time || ''}
+                    onChange={(e) => handleInputChange('bottom_cure_time', Number(e.target.value))}
+                    placeholder="Ex: 30"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ajuste_y_pct">Ajuste Y (%)</Label>
+
+                <div>
+                  <Label htmlFor="light-intensity">Intensidade da luz (%)</Label>
                   <Input
-                    id="ajuste_y_pct"
+                    id="light-intensity"
                     type="number"
-                    value={formData.ajuste_y_pct || ''}
-                    onChange={(e) => handleInputChange('ajuste_y_pct', parseInt(e.target.value))}
+                    value={formData.light_intensity || ''}
+                    onChange={(e) => handleInputChange('light_intensity', Number(e.target.value))}
+                    placeholder="Ex: 100"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="lift-distance">Distância de elevação (mm)</Label>
+                  <Input
+                    id="lift-distance"
+                    type="number"
+                    step="0.1"
+                    value={formData.lift_distance || ''}
+                    onChange={(e) => handleInputChange('lift_distance', Number(e.target.value))}
+                    placeholder="Ex: 5.0"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="lift-speed">Velocidade de elevação (mm/min)</Label>
+                  <Input
+                    id="lift-speed"
+                    type="number"
+                    step="0.1"
+                    value={formData.lift_speed || ''}
+                    onChange={(e) => handleInputChange('lift_speed', Number(e.target.value))}
+                    placeholder="Ex: 3.0"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="retract-speed">Velocidade de retração (mm/min)</Label>
+                  <Input
+                    id="retract-speed"
+                    type="number"
+                    step="0.1"
+                    value={formData.retract_speed || ''}
+                    onChange={(e) => handleInputChange('retract_speed', Number(e.target.value))}
+                    placeholder="Ex: 3.0"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="xy-size-compensation">Compensação XY (mm)</Label>
+                  <Input
+                    id="xy-size-compensation"
+                    type="number"
+                    step="0.01"
+                    value={formData.xy_size_compensation || ''}
+                    onChange={(e) => handleInputChange('xy_size_compensation', Number(e.target.value))}
+                    placeholder="Ex: 0.0"
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="anti-aliasing"
+                    checked={formData.anti_aliasing || false}
+                    onCheckedChange={(checked) => handleInputChange('anti_aliasing', checked)}
+                  />
+                  <Label htmlFor="anti-aliasing">Anti-aliasing</Label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="xy-adjustment-x">Ajuste X (%)</Label>
+                  <Input
+                    id="xy-adjustment-x"
+                    type="number"
+                    value={formData.xy_adjustment_x_pct || ''}
+                    onChange={(e) => handleInputChange('xy_adjustment_x_pct', Number(e.target.value))}
+                    placeholder="Ex: 100"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="xy-adjustment-y">Ajuste Y (%)</Label>
+                  <Input
+                    id="xy-adjustment-y"
+                    type="number"
+                    value={formData.xy_adjustment_y_pct || ''}
+                    onChange={(e) => handleInputChange('xy_adjustment_y_pct', Number(e.target.value))}
+                    placeholder="Ex: 100"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="wait-before-cure">Espera antes da cura (s)</Label>
+                  <Input
+                    id="wait-before-cure"
+                    type="number"
+                    value={formData.wait_time_before_cure || ''}
+                    onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
+                    placeholder="Ex: 0"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="wait-after-cure">Espera após a cura (s)</Label>
+                  <Input
+                    id="wait-after-cure"
+                    type="number"
+                    value={formData.wait_time_after_cure || ''}
+                    onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
+                    placeholder="Ex: 0"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="wait-after-lift">Espera após elevação (s)</Label>
+                  <Input
+                    id="wait-after-lift"
+                    type="number"
+                    value={formData.wait_time_after_lift || ''}
+                    onChange={(e) => handleInputChange('wait_time_after_lift', Number(e.target.value))}
+                    placeholder="Ex: 0"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <Label htmlFor="notes">Observações</Label>
                 <Textarea
                   id="notes"
@@ -439,6 +610,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   placeholder="Notas sobre este conjunto de parâmetros..."
                 />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="active"
+                  checked={formData.active}
+                  onCheckedChange={(checked) => handleInputChange('active', checked)}
+                />
+                <Label htmlFor="active">Ativo</Label>
               </div>
             </>
           )}

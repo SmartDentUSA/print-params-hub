@@ -761,9 +761,9 @@ export function AdminSettings() {
         onClose={closeModal}
         type={modalType}
         item={selectedItem}
-        brands={brands.map(b => ({ ...b, isActive: b.active }))}
-        models={models.map(m => ({ ...m, isActive: m.active, brandId: m.brand_id, imageUrl: m.image_url }))}
-        resins={resins.map(r => ({ ...r, isActive: r.active }))}
+        brands={brands}
+        models={models}
+        resins={resins}
         onSave={handleSave}
       />
     </div>
