@@ -7,6 +7,7 @@ import { DataImport } from "@/components/DataImport";
 import { AdminStats } from "@/components/AdminStats";
 import { AdminUsers } from "@/components/AdminUsers";
 import { AdminSettings } from "@/components/AdminSettings";
+import { AdminModels } from "@/components/AdminModels";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -168,10 +169,14 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue="import" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="import" className="flex items-center gap-2">
               <Database className="w-4 h-4" />
               Importar
+            </TabsTrigger>
+            <TabsTrigger value="models" className="flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              Modelos
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -199,6 +204,10 @@ export default function AdminViewSecure() {
                 <DataImport />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="models" className="space-y-6">
+            <AdminModels />
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-6">

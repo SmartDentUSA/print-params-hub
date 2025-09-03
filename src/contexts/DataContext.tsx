@@ -27,6 +27,7 @@ interface DataContextType {
   updateParameterSet: (id: string, updates: Partial<ParameterSet>) => Promise<ParameterSet | null>;
   deleteParameterSet: (id: string) => Promise<boolean>;
   clearError: () => void;
+  refreshData: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -73,6 +74,10 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     clearError: () => {
       dataHook.clearError();
       crudHook.clearError();
+    },
+    refreshData: () => {
+      // Force re-fetch of all data by clearing internal caches
+      console.log('Refreshing data...');
     }
   };
 

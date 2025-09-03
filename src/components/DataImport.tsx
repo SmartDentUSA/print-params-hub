@@ -17,7 +17,7 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [importedData, setImportedData] = useState<RealParameterSet[]>([]);
   const { toast } = useToast();
-  const { insertParameterSets, loading: dbLoading } = useData();
+  const { insertParameterSets, refreshData, loading: dbLoading } = useData();
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -48,6 +48,10 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
         
         if (success) {
           setImportedData(data);
+          
+          // Refresh data to update UI
+          refreshData();
+          
           onDataLoaded?.(data);
 
           toast({

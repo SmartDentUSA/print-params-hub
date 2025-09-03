@@ -166,28 +166,17 @@ const UserViewSupabase = () => {
                 <h3 className="text-lg font-semibold text-foreground mb-4">
                   {t('brands.brand_models', { brand: selectedBrandData?.name })}
                 </h3>
-                <div className="space-y-3">
-                  {models.map((model) => (
-                    <button
-                      key={model.id}
-                      onClick={() => handleModelSelect(model.slug)}
-                      className={`w-full p-4 rounded-lg border text-left transition-smooth ${
-                        selectedModel === model.slug 
-                          ? 'bg-primary text-primary-foreground border-primary' 
-                          : 'bg-card border-border hover:bg-accent hover:text-accent-foreground'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <div className="font-medium">{model.name}</div>
-                          {model.notes && (
-                            <div className="text-sm opacity-75 mt-1">{model.notes}</div>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <ModelGrid 
+                  models={models.map(model => ({
+                    id: model.id || model.slug,
+                    name: model.name,
+                    slug: model.slug,
+                    imageUrl: model.image_url,
+                    isActive: model.active !== false,
+                    notes: model.notes
+                  }))}
+                  onModelSelect={handleModelSelect}
+                />
               </div>
             </div>
 
