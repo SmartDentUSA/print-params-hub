@@ -39,12 +39,13 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
       const data = await loadDataFromCSV(text);
       console.log("Successfully parsed data:", data.length, "records");
       
+      // Clear existing data and set new data
       setImportedData(data);
       onDataLoaded?.(data);
 
       toast({
         title: "Dados importados com sucesso!",
-        description: `${data.length} registros carregados de ${file.name}. Os dados já estão disponíveis na aplicação.`,
+        description: `${data.length} registros carregados de ${file.name}. Dados anteriores foram substituídos.`,
       });
       
       // Reset the file input to allow re-uploading the same file
