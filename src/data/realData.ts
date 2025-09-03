@@ -1,6 +1,8 @@
 // Real data structure based on the processed spreadsheet
 // This matches the normalized CSV format from the Excel processing
 
+import { getPrinterImage } from '@/data/printerImages';
+
 export interface RealParameterSet {
   brand: string;
   model: string;
@@ -350,8 +352,6 @@ export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Arra
     isActive: true
   }));
 }
-
-import { getPrinterImage } from '@/data/printerImages';
 
 export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, imageUrl?: string, isActive: boolean, notes?: string}> {
   
