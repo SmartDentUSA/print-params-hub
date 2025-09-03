@@ -123,10 +123,27 @@ const UserView = () => {
                           : 'bg-card border-border hover:bg-accent hover:text-accent-foreground'
                       }`}
                     >
-                      <div className="font-medium">{model.name}</div>
-                      {model.notes && (
-                        <div className="text-sm opacity-75 mt-1">{model.notes}</div>
-                      )}
+                      <div className="flex items-center gap-3">
+                        {model.imageUrl && (
+                          <div className="w-12 h-12 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                            <img 
+                              src={model.imageUrl} 
+                              alt={`${model.name} 3D Printer`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium">{model.name}</div>
+                          {model.notes && (
+                            <div className="text-sm opacity-75 mt-1">{model.notes}</div>
+                          )}
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>

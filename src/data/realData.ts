@@ -327,6 +327,48 @@ export const realBrandsData: RealParameterSet[] = [
 
   // Ouring - 1 registro
   {
+     brand: "Pionext",
+    model: "Moai 200",
+    resin: "Smart Print Model Ocre",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 12,
+    tempo_adesao_seg: 30,
+    camadas_transicao: 4,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+  {
+    brand: "Pionext",
+    model: "DJ89",
+    resin: "Smart Print Model Ocre",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 14,
+    tempo_adesao_seg: 30,
+    camadas_transicao: 4,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+  {
+    brand: "Pionext",
+    model: "DJ89 Pró",
+    resin: "Smart Print Vitality",
+    variant_label: "50 microns",
+    altura_da_camada_mm: 0.05,
+    tempo_cura_seg: 1,
+    tempo_adesao_seg: 30,
+    camadas_transicao: 4,
+    intensidade_luz_pct: 100,
+    ajuste_x_pct: 100,
+    ajuste_y_pct: 100,
+    notes: ""
+  },
+  {
     brand: "Ouring",
     model: "Pro Series",
     resin: "Dental Model",
@@ -344,7 +386,6 @@ export const realBrandsData: RealParameterSet[] = [
 
 // Helper functions to process the real data
 export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Array<{id: string, name: string, slug: string, isActive: boolean}> {
-  console.log('getUniqueBrands called with data length:', data.length);
   const uniqueBrands = [...new Set(data.map(item => item.brand))];
   return uniqueBrands.map((brand, index) => ({
     id: (index + 1).toString(),
@@ -355,7 +396,6 @@ export function getUniqueBrands(data: RealParameterSet[] = realBrandsData): Arra
 }
 
 export function getUniqueModels(data: RealParameterSet[] = realBrandsData): Array<{id: string, brandId: string, name: string, slug: string, imageUrl?: string, isActive: boolean, notes?: string}> {
-  console.log('getUniqueModels called with data length:', data.length);
   
   const brandToId = getUniqueBrands(data).reduce((acc, brand) => {
     acc[brand.name] = brand.id;
