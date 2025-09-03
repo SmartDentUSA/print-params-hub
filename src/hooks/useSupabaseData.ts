@@ -229,7 +229,22 @@ export const useSupabaseData = () => {
             parameterSets: []
           });
         }
-        resinsMap.get(key).parameterSets.push(param);
+        
+        // Map parameter data to component interface
+        const mappedParam = {
+          id: param.id,
+          label: `${param.layer_height}mm - ${param.cure_time}s`,
+          altura_da_camada_mm: param.layer_height,
+          tempo_cura_seg: param.cure_time,
+          tempo_adesao_seg: param.bottom_cure_time || 0,
+          camadas_transicao: param.bottom_layers || 8,
+          intensidade_luz_pct: param.light_intensity,
+          ajuste_x_pct: 100, // Default value as this field doesn't exist in Supabase
+          ajuste_y_pct: 100, // Default value as this field doesn't exist in Supabase
+          notes: param.notes
+        };
+        
+        resinsMap.get(key).parameterSets.push(mappedParam);
       });
       
       return Array.from(resinsMap.values());
