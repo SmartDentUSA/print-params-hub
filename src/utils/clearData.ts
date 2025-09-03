@@ -6,8 +6,6 @@ export const clearAllData = () => {
   localStorage.removeItem('resinsData');
   localStorage.removeItem('parametersData');
   
-  console.log('All data cleared from localStorage');
-  
   // Reload the page to reset state
   window.location.reload();
 };

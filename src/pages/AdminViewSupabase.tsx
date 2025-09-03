@@ -19,7 +19,6 @@ const AdminViewSupabase = () => {
   const { insertParameterSets } = useData();
 
   const handleDataLoaded = (newData: any[]) => {
-    console.log("Admin: Dados carregados:", newData.length);
     setImportedData(newData);
   };
 

@@ -216,7 +216,6 @@ export async function loadDataFromCSV(csvData: string): Promise<RealParameterSet
       
       // Validate essential fields
       if (!row.brand || !row.model || !row.resin) {
-        console.warn(`Skipping line ${i + 1}: missing essential data`, row);
         continue;
       }
       
@@ -239,12 +238,9 @@ export async function loadDataFromCSV(csvData: string): Promise<RealParameterSet
       processedCount++;
       
     } catch (error) {
-      console.error(`Error processing line ${i + 1}:`, error, line);
       errorCount++;
     }
   }
-  
-  console.log(`Import completed: ${processedCount} rows processed, ${errorCount} errors`);
   
   if (results.length === 0) {
     throw new Error("Nenhum registro válido encontrado no arquivo CSV");

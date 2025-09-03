@@ -7,6 +7,7 @@ import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast";
 import { loadDataFromCSV, type RealParameterSet } from "@/data/realData";
 import { useData } from "@/contexts/DataContext";
+import { validateFileSize, validateCSVFile, sanitizeErrorMessage, rateLimiter } from "@/utils/security";
 
 interface DataImportProps {
   onDataLoaded?: (data: RealParameterSet[]) => void;

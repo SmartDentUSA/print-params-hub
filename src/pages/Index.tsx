@@ -17,7 +17,6 @@ const Index = () => {
         const brands = await getUniqueBrands();
         setHasData(brands.length > 0);
       } catch (error) {
-        console.error('Error checking data:', error);
         setHasData(false);
       } finally {
         setCheckingData(false);

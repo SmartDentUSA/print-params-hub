@@ -28,14 +28,13 @@ export default function AdminViewSecure() {
             .rpc('is_admin', { user_id: session.user.id });
           
           if (error) {
-            console.error('Error checking admin role:', error);
             setIsAdmin(false);
           } else {
             setIsAdmin(roleData);
           }
         }
       } catch (error) {
-        console.error('Error checking auth:', error);
+        // Silent error handling for security
       } finally {
         setLoading(false);
       }
@@ -62,7 +61,7 @@ export default function AdminViewSecure() {
                 setIsAdmin(roleData);
               }
             } catch (error) {
-              console.error('Error checking admin role:', error);
+              // Silent error handling for security
             }
           }, 100);
         }

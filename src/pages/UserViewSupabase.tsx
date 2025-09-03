@@ -42,7 +42,7 @@ const UserViewSupabase = () => {
         const brandsData = await getUniqueBrands();
         setBrands(brandsData);
       } catch (error) {
-        console.error('Error loading brands:', error);
+        // Silent error handling
       }
     };
     loadBrands();
@@ -56,7 +56,7 @@ const UserViewSupabase = () => {
           const modelsData = await getModelsByBrand(selectedBrand);
           setModels(modelsData);
         } catch (error) {
-          console.error('Error loading models:', error);
+          // Silent error handling
         }
       };
       loadModels();
@@ -74,7 +74,7 @@ const UserViewSupabase = () => {
           const resinsData = await getResinsByModel(selectedModel);
           setResins(resinsData);
         } catch (error) {
-          console.error('Error loading resins:', error);
+          // Silent error handling
         }
       };
       loadResins();
