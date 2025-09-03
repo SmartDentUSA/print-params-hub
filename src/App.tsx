@@ -6,7 +6,7 @@ import { Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { DataProvider } from "@/contexts/DataContext";
 import UserViewSupabase from "./pages/UserViewSupabase";
-import AdminViewComplete from "./pages/AdminViewComplete";
+import AdminViewSecure from "./pages/AdminViewSecure";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
