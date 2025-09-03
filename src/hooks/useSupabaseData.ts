@@ -25,7 +25,7 @@ export interface Resin {
   name: string;
   manufacturer: string;
   color?: string;
-  type: string;
+  type: 'standard' | 'flexible' | 'tough' | 'transparent' | 'biocompatible' | 'high_temp';
   active: boolean;
 }
 

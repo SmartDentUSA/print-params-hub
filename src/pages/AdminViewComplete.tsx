@@ -34,7 +34,7 @@ import {
   Plus,
   LogOut
 } from "lucide-react";
-import { useData } from "@/contexts/DataContext";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
@@ -70,36 +70,51 @@ const AdminViewComplete = () => {
   });
   
   const { toast } = useToast();
-  const { insertParameterSets, getUniqueBrands } = useData();
+  const { 
+    insertParameterSets,
+    fetchBrands,
+    insertBrand,
+    updateBrand,
+    deleteBrand,
+    insertModel,
+    updateModel,
+    deleteModel,
+    insertResin,
+    updateResin,
+    deleteResin,
+    insertParameterSet,
+    updateParameterSet,
+    deleteParameterSet
+  } = useSupabaseData();
 
   // Load catalog data
   useEffect(() => {
     loadCatalogData();
   }, []);
 
-  const loadCatalogData = () => {
-    // Load brands from localStorage or mock data
-    const storedBrands = JSON.parse(localStorage.getItem('catalogBrands') || '[]');
-    const storedModels = JSON.parse(localStorage.getItem('catalogModels') || '[]');
-    const storedResins = JSON.parse(localStorage.getItem('catalogResins') || '[]');
-    
-    setBrands(storedBrands.length > 0 ? storedBrands : [
-      { id: '1', name: 'ELEGOO', slug: 'elegoo', isActive: true },
-      { id: '2', name: 'PHROZEN', slug: 'phrozen', isActive: true },
-      { id: '3', name: 'ANYCUBIC', slug: 'anycubic', isActive: true }
-    ]);
-    
-    setModels(storedModels.length > 0 ? storedModels : [
-      { id: '1', brandId: '1', name: 'Mars 2', slug: 'mars-2', isActive: true, notes: 'Impressora de entrada' },
-      { id: '2', brandId: '1', name: 'Mars 3', slug: 'mars-3', isActive: true, notes: 'Versão melhorada' },
-      { id: '3', brandId: '2', name: 'Sonic Mini 4K', slug: 'sonic-mini-4k', isActive: true, notes: 'Compacta e precisa' }
-    ]);
-    
-    setResins(storedResins.length > 0 ? storedResins : [
-      { id: '1', name: 'Smart Print Model Ocre', manufacturer: 'Smart Print', isActive: true },
-      { id: '2', name: 'NextDent ORTHO Clear', manufacturer: 'NextDent', isActive: true },
-      { id: '3', name: 'ASIGA DentaBASE', manufacturer: 'ASIGA', isActive: true }
-    ]);
+  const loadCatalogData = async () => {
+    try {
+      // Load brands from Supabase
+      const brandsData = await fetchBrands();
+      setBrands(brandsData || []);
+      
+      // For now, keep models and resins from localStorage until we have proper relations
+      const storedModels = JSON.parse(localStorage.getItem('catalogModels') || '[]');
+      const storedResins = JSON.parse(localStorage.getItem('catalogResins') || '[]');
+      
+      setModels(storedModels.length > 0 ? storedModels : []);
+      setResins(storedResins.length > 0 ? storedResins : []);
+    } catch (error) {
+      console.error('Error loading catalog data:', error);
+      // Fallback to localStorage
+      const storedBrands = JSON.parse(localStorage.getItem('catalogBrands') || '[]');
+      const storedModels = JSON.parse(localStorage.getItem('catalogModels') || '[]');
+      const storedResins = JSON.parse(localStorage.getItem('catalogResins') || '[]');
+      
+      setBrands(storedBrands);
+      setModels(storedModels);
+      setResins(storedResins);
+    }
   };
 
   const saveCatalogData = () => {
@@ -146,51 +161,215 @@ const AdminViewComplete = () => {
     setModalOpen(true);
   };
 
-  const handleModalSave = (data: any) => {
-    if (modalType === 'brand') {
-      if (editingItem) {
-        setBrands(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
-      } else {
-        setBrands(prev => [...prev, { ...data, id: Date.now().toString() }]);
+  const handleModalSave = async (data: any) => {
+    try {
+      if (modalType === 'brand') {
+        if (editingItem) {
+          // Update existing brand
+          const updated = await updateBrand(editingItem.id, data);
+          if (updated) {
+            setBrands(brands.map(brand => 
+              brand.id === editingItem.id ? updated : brand
+            ));
+            toast({
+              title: "Marca atualizada",
+              description: "A marca foi atualizada com sucesso.",
+            });
+          }
+        } else {
+          // Add new brand
+          const brandData = {
+            name: data.name,
+            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+            active: data.active ?? true,
+            logo_url: data.logoUrl || null
+          };
+          const newBrand = await insertBrand(brandData);
+          if (newBrand) {
+            setBrands([...brands, newBrand]);
+            toast({
+              title: "Marca criada",
+              description: "A marca foi criada com sucesso.",
+            });
+          }
+        }
+      } else if (modalType === 'model') {
+        if (editingItem) {
+          // Update existing model
+          const updated = await updateModel(editingItem.id, data);
+          if (updated) {
+            setModels(models.map(model => 
+              model.id === editingItem.id ? updated : model
+            ));
+            toast({
+              title: "Modelo atualizado",
+              description: "O modelo foi atualizado com sucesso.",
+            });
+          }
+        } else {
+          // Add new model
+          const modelData = {
+            name: data.name,
+            slug: data.name.toLowerCase().replace(/\s+/g, '-'),
+            brand_id: data.brandId,
+            active: data.active ?? true,
+            image_url: data.imageUrl || null,
+            notes: data.notes || null
+          };
+          const newModel = await insertModel(modelData);
+          if (newModel) {
+            setModels([...models, newModel]);
+            toast({
+              title: "Modelo criado",
+              description: "O modelo foi criado com sucesso.",
+            });
+          }
+        }
+      } else if (modalType === 'resin') {
+        if (editingItem) {
+          // Update existing resin
+          const updated = await updateResin(editingItem.id, data);
+          if (updated) {
+            setResins(resins.map(resin => 
+              resin.id === editingItem.id ? updated : resin
+            ));
+            toast({
+              title: "Resina atualizada",
+              description: "A resina foi atualizada com sucesso.",
+            });
+          }
+        } else {
+          // Add new resin
+          const resinData = {
+            name: data.name,
+            manufacturer: data.manufacturer,
+            color: data.color || null,
+            type: data.type || 'standard',
+            active: data.active ?? true
+          };
+          const newResin = await insertResin(resinData);
+          if (newResin) {
+            setResins([...resins, newResin]);
+            toast({
+              title: "Resina criada",
+              description: "A resina foi criada com sucesso.",
+            });
+          }
+        }
+      } else if (modalType === 'parameter') {
+        if (editingItem) {
+          // Update existing parameter
+          const updated = await updateParameterSet(editingItem.id, data);
+          if (updated) {
+            setImportedData(importedData.map(param => 
+              param.id === editingItem.id ? updated : param
+            ));
+            toast({
+              title: "Parâmetro atualizado",
+              description: "O parâmetro foi atualizado com sucesso.",
+            });
+          }
+        } else {
+          // Add new parameter
+          const paramData = {
+            brand_slug: data.brandSlug,
+            model_slug: data.modelSlug,
+            resin_name: data.resinName,
+            resin_manufacturer: data.resinManufacturer,
+            layer_height: parseFloat(data.layerHeight),
+            cure_time: parseInt(data.cureTime),
+            light_intensity: parseInt(data.lightIntensity),
+            bottom_layers: parseInt(data.bottomLayers) || null,
+            bottom_cure_time: parseInt(data.bottomCureTime) || null,
+            lift_distance: parseFloat(data.liftDistance) || null,
+            lift_speed: parseFloat(data.liftSpeed) || null,
+            retract_speed: parseFloat(data.retractSpeed) || null,
+            anti_aliasing: data.antiAliasing || null,
+            xy_size_compensation: parseFloat(data.xySizeCompensation) || null,
+            wait_time_before_cure: parseInt(data.waitTimeBeforeCure) || null,
+            wait_time_after_cure: parseInt(data.waitTimeAfterCure) || null,
+            wait_time_after_lift: parseInt(data.waitTimeAfterLift) || null,
+            notes: data.notes || null,
+            active: data.active ?? true
+          };
+          const newParameter = await insertParameterSet(paramData);
+          if (newParameter) {
+            setImportedData([...importedData, newParameter]);
+            toast({
+              title: "Parâmetro criado",
+              description: "O parâmetro foi criado com sucesso.",
+            });
+          }
+        }
       }
-    } else if (modalType === 'model') {
-      if (editingItem) {
-        setModels(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
-      } else {
-        setModels(prev => [...prev, { ...data, id: Date.now().toString() }]);
-      }
-    } else if (modalType === 'resin') {
-      if (editingItem) {
-        setResins(prev => prev.map(item => item.id === editingItem.id ? { ...item, ...data } : item));
-      } else {
-        setResins(prev => [...prev, { ...data, id: Date.now().toString() }]);
-      }
+      
+      setModalOpen(false);
+      setEditingItem(null);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar os dados.",
+        variant: "destructive",
+      });
     }
-    
-    saveCatalogData();
-    setModalOpen(false);
-    
-    toast({
-      title: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : 'Resina'} ${editingItem ? 'atualizada' : 'criada'}`,
-      description: "Dados salvos com sucesso.",
-    });
   };
 
-  const handleDelete = (type: string, id: string) => {
-    if (type === 'brand') {
-      setBrands(prev => prev.filter(item => item.id !== id));
-    } else if (type === 'model') {
-      setModels(prev => prev.filter(item => item.id !== id));
-    } else if (type === 'resin') {
-      setResins(prev => prev.filter(item => item.id !== id));
+  const handleDelete = async (type: string, id: string) => {
+    try {
+      let success = false;
+      
+      if (type === 'brand') {
+        success = await deleteBrand(id);
+        if (success) {
+          setBrands(brands.filter(brand => brand.id !== id));
+          toast({
+            title: "Marca deletada",
+            description: "A marca foi deletada com sucesso.",
+          });
+        }
+      } else if (type === 'model') {
+        success = await deleteModel(id);
+        if (success) {
+          setModels(models.filter(model => model.id !== id));
+          toast({
+            title: "Modelo deletado",
+            description: "O modelo foi deletado com sucesso.",
+          });
+        }
+      } else if (type === 'resin') {
+        success = await deleteResin(id);
+        if (success) {
+          setResins(resins.filter(resin => resin.id !== id));
+          toast({
+            title: "Resina deletada",
+            description: "A resina foi deletada com sucesso.",
+          });
+        }
+      } else if (type === 'parameter') {
+        success = await deleteParameterSet(id);
+        if (success) {
+          setImportedData(importedData.filter(param => param.id !== id));
+          toast({
+            title: "Parâmetro deletado",
+            description: "O parâmetro foi deletado com sucesso.",
+          });
+        }
+      }
+      
+      if (!success) {
+        toast({
+          title: "Erro",
+          description: "Erro ao deletar o item.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao deletar o item.",
+        variant: "destructive",
+      });
     }
-    
-    saveCatalogData();
-    
-    toast({
-      title: `${type === 'brand' ? 'Marca' : type === 'model' ? 'Modelo' : 'Resina'} removida`,
-      description: "Item excluído com sucesso.",
-    });
   };
 
   const handleConfigUpdate = (key: string, value: any) => {
@@ -199,593 +378,495 @@ const AdminViewComplete = () => {
       [key]: value
     }));
     
-    // Salvar no localStorage
-    localStorage.setItem("siteConfig", JSON.stringify({
+    // Save config to localStorage
+    localStorage.setItem('siteConfig', JSON.stringify({
       ...siteConfig,
       [key]: value
     }));
     
     toast({
       title: "Configuração atualizada",
-      description: `${key} foi atualizado com sucesso.`,
+      description: "As configurações foram salvas com sucesso.",
     });
   };
 
-  const stats = {
-    totalRecords: importedData.length,
-    brands: new Set(importedData.map(item => item.brand)).size,
-    models: new Set(importedData.map(item => `${item.brand}-${item.model}`)).size,
-    resins: new Set(importedData.map(item => item.resin)).size
-  };
-
-  if (!isAuthenticated) {
+  // Show login form if not authenticated
+  if (showLoginForm && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-surface">
-        <Header />
-        <div className="container mx-auto px-4 py-16">
-          <div className="max-w-md mx-auto">
-            <LoginForm onLogin={() => {
-              setIsAuthenticated(true);
-              setShowLoginForm(false);
-              toast({
-                title: "Login realizado com sucesso",
-                description: "Bem-vindo ao painel administrativo.",
-              });
-            }} />
-          </div>
-        </div>
+      <div className="min-h-screen bg-background">
+        <LoginForm 
+          onLoginSuccess={() => {
+            setIsAuthenticated(true);
+            setShowLoginForm(false);
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
+    <div className="min-h-screen bg-background">
       <Header />
       
-      {/* Admin Header */}
-      <div className="border-b border-border bg-card/50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Settings className="w-6 h-6 text-primary" />
-                <h1 className="text-2xl font-bold text-foreground">Painel Administrativo</h1>
-              </div>
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                <Shield className="w-3 h-3 mr-1" />
-                Supabase Integrado
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/">
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
-                  <ArrowLeft className="w-4 h-4" />
-                  Voltar ao Site
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center gap-2">
-                <LogOut className="w-4 h-4" />
-                Sair
+      {/* Main Admin Panel */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Painel Administrativo</h1>
+            <p className="text-muted-foreground mt-2">Gerencie dados, importações e configurações do sistema</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Voltar ao Site
               </Button>
-            </div>
+            </Link>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Sair
+            </Button>
           </div>
         </div>
-      </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="bg-gradient-card border-border shadow-medium">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Registros</CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalRecords}</div>
-                <p className="text-xs text-muted-foreground">parâmetros no sistema</p>
-              </CardContent>
-            </Card>
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="bg-gradient-card border-border shadow-medium">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Parâmetros</CardTitle>
+              <Database className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{importedData.length}</div>
+              <p className="text-xs text-muted-foreground">configurações ativas</p>
+            </CardContent>
+          </Card>
 
-            <Card className="bg-gradient-card border-border shadow-medium">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Marcas</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{brands.length}</div>
-                <p className="text-xs text-muted-foreground">fabricantes únicos</p>
-              </CardContent>
-            </Card>
+          <Card className="bg-gradient-card border-border shadow-medium">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Marcas</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{brands.length}</div>
+              <p className="text-xs text-muted-foreground">fabricantes cadastrados</p>
+            </CardContent>
+          </Card>
 
-            <Card className="bg-gradient-card border-border shadow-medium">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Modelos</CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{models.length}</div>
-                <p className="text-xs text-muted-foreground">impressoras cadastradas</p>
-              </CardContent>
-            </Card>
+          <Card className="bg-gradient-card border-border shadow-medium">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Modelos</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{models.length}</div>
+              <p className="text-xs text-muted-foreground">impressoras cadastradas</p>
+            </CardContent>
+          </Card>
 
-            <Card className="bg-gradient-card border-border shadow-medium">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Resinas</CardTitle>
-                <RefreshCw className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{resins.length}</div>
-                <p className="text-xs text-muted-foreground">tipos diferentes</p>
-              </CardContent>
-            </Card>
-          </div>
+          <Card className="bg-gradient-card border-border shadow-medium">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Resinas</CardTitle>
+              <RefreshCw className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{resins.length}</div>
+              <p className="text-xs text-muted-foreground">tipos diferentes</p>
+            </CardContent>
+          </Card>
+        </div>
 
-          {/* Main Admin Tabs */}
-          <Tabs defaultValue="catalog" className="w-full">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="catalog" className="flex items-center gap-2">
-                <Database className="w-4 h-4" />
-                Catálogo
-              </TabsTrigger>
-              <TabsTrigger value="import" className="flex items-center gap-2">
-                <Upload className="w-4 h-4" />
-                Importar
-              </TabsTrigger>
-              <TabsTrigger value="stats" className="flex items-center gap-2">
-                <BarChart3 className="w-4 h-4" />
-                Estatísticas
-              </TabsTrigger>
-              <TabsTrigger value="database" className="flex items-center gap-2">
-                <Globe className="w-4 h-4" />
-                Banco
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="flex items-center gap-2">
-                <Settings className="w-4 h-4" />
-                Configurações
-              </TabsTrigger>
-              <TabsTrigger value="system" className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Sistema
-              </TabsTrigger>
-            </TabsList>
+        {/* Main Admin Tabs */}
+        <Tabs defaultValue="catalog" className="w-full">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="catalog" className="flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              Catálogo
+            </TabsTrigger>
+            <TabsTrigger value="import" className="flex items-center gap-2">
+              <Upload className="w-4 h-4" />
+              Importar
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Estatísticas
+            </TabsTrigger>
+            <TabsTrigger value="database" className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Banco
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Configurações
+            </TabsTrigger>
+            <TabsTrigger value="system" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Sistema
+            </TabsTrigger>
+          </TabsList>
 
-            <TabsContent value="catalog" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Brands */}
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base">Marcas ({brands.length})</CardTitle>
-                    <Button size="sm" onClick={() => openModal('brand')}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Adicionar
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {brands.map((brand) => (
-                        <div key={brand.id} className="flex items-center justify-between p-2 border rounded">
-                          <div>
-                            <div className="font-medium text-sm">{brand.name}</div>
-                            <div className="text-xs text-muted-foreground">{brand.slug}</div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => openModal('brand', brand)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleDelete('brand', brand.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Models */}
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base">Modelos ({models.length})</CardTitle>
-                    <Button size="sm" onClick={() => openModal('model')}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Adicionar
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {models.map((model) => {
-                        const brand = brands.find(b => b.id === model.brandId);
-                        return (
-                          <div key={model.id} className="flex items-center justify-between p-2 border rounded">
-                            <div>
-                              <div className="font-medium text-sm">{model.name}</div>
-                              <div className="text-xs text-muted-foreground">{brand?.name || 'Sem marca'}</div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button size="sm" variant="ghost" onClick={() => openModal('model', model)}>
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleDelete('model', model.id)}>
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Resins */}
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                    <CardTitle className="text-base">Resinas ({resins.length})</CardTitle>
-                    <Button size="sm" onClick={() => openModal('resin')}>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Adicionar
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {resins.map((resin) => (
-                        <div key={resin.id} className="flex items-center justify-between p-2 border rounded">
-                          <div>
-                            <div className="font-medium text-sm">{resin.name}</div>
-                            <div className="text-xs text-muted-foreground">{resin.manufacturer}</div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => openModal('resin', resin)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleDelete('resin', resin.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Parameters Table */}
+          <TabsContent value="catalog" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Brands */}
               <Card className="bg-gradient-card border-border shadow-medium">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-                  <CardTitle>Parâmetros de Impressão</CardTitle>
-                  <Button onClick={() => openModal('parameter')}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Adicionar Parâmetro
+                  <CardTitle className="text-base">Marcas ({brands.length})</CardTitle>
+                  <Button size="sm" onClick={() => openModal('brand')}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Adicionar
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-md border">
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {brands.map((brand) => (
+                      <div key={brand.id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <div className="font-medium text-sm">{brand.name}</div>
+                          <div className="text-xs text-muted-foreground">{brand.slug}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openModal('brand', brand)}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete('brand', brand.id)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Models */}
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-base">Modelos ({models.length})</CardTitle>
+                  <Button size="sm" onClick={() => openModal('model')}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Adicionar
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {models.map((model) => {
+                      const brand = brands.find(b => b.id === model.brandId);
+                      return (
+                        <div key={model.id} className="flex items-center justify-between p-2 border rounded">
+                          <div>
+                            <div className="font-medium text-sm">{model.name}</div>
+                            <div className="text-xs text-muted-foreground">{brand?.name || 'Marca não encontrada'}</div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => openModal('model', model)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete('model', model.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Resins */}
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-base">Resinas ({resins.length})</CardTitle>
+                  <Button size="sm" onClick={() => openModal('resin')}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Adicionar
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {resins.map((resin) => (
+                      <div key={resin.id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <div className="font-medium text-sm">{resin.name}</div>
+                          <div className="text-xs text-muted-foreground">{resin.manufacturer}</div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => openModal('resin', resin)}>
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete('resin', resin.id)}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Parameters Table */}
+            {importedData.length > 0 && (
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                  <CardTitle className="text-base">Parâmetros Importados ({importedData.length})</CardTitle>
+                  <Button size="sm" onClick={() => openModal('parameter')}>
+                    <Plus className="w-4 h-4 mr-1" />
+                    Adicionar
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="max-h-96 overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Marca</TableHead>
                           <TableHead>Modelo</TableHead>
                           <TableHead>Resina</TableHead>
-                          <TableHead>Camada</TableHead>
+                          <TableHead>Altura</TableHead>
                           <TableHead>Cura</TableHead>
-                          <TableHead>Luz</TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {importedData.slice(0, 10).map((param, index) => (
                           <TableRow key={index}>
-                            <TableCell>{param.brand}</TableCell>
-                            <TableCell>{param.model}</TableCell>
-                            <TableCell>{param.resin}</TableCell>
-                            <TableCell>{param.altura_da_camada_mm}mm</TableCell>
-                            <TableCell>{param.tempo_cura_seg}s</TableCell>
-                            <TableCell>{param.intensidade_luz_pct}%</TableCell>
+                            <TableCell className="font-medium">{param.brand_slug}</TableCell>
+                            <TableCell>{param.model_slug}</TableCell>
+                            <TableCell>{param.resin_name}</TableCell>
+                            <TableCell>{param.layer_height}mm</TableCell>
+                            <TableCell>{param.cure_time}s</TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
                                 <Button size="sm" variant="ghost" onClick={() => openModal('parameter', param)}>
                                   <Edit className="w-3 h-3" />
                                 </Button>
-                                <Button size="sm" variant="ghost">
+                                <Button size="sm" variant="ghost" onClick={() => handleDelete('parameter', param.id)}>
                                   <Trash2 className="w-3 h-3" />
                                 </Button>
                               </div>
                             </TableCell>
                           </TableRow>
                         ))}
-                        {importedData.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                              Nenhum parâmetro encontrado. Importe dados CSV na aba "Importar".
-                            </TableCell>
-                          </TableRow>
-                        )}
                       </TableBody>
                     </Table>
+                    {importedData.length > 10 && (
+                      <p className="text-sm text-muted-foreground mt-2 text-center">
+                        ... e mais {importedData.length - 10} parâmetros
+                      </p>
+                    )}
                   </div>
-                  {importedData.length > 10 && (
-                    <div className="text-sm text-muted-foreground mt-4 text-center">
-                      Mostrando 10 de {importedData.length} parâmetros
-                    </div>
-                  )}
                 </CardContent>
               </Card>
-            </TabsContent>
+            )}
+          </TabsContent>
 
-            <TabsContent value="import" className="space-y-6">
+          <TabsContent value="import" className="space-y-6">
+            <DataImport onDataLoaded={handleDataLoaded} />
+            
+            {importedData.length > 0 && (
               <Card className="bg-gradient-card border-border shadow-medium">
                 <CardHeader>
-                  <CardTitle>Importação de Dados CSV</CardTitle>
+                  <CardTitle>Dados Importados ({importedData.length} registros)</CardTitle>
                   <CardDescription>
-                    Importe dados CSV processados diretamente para o banco de dados Supabase.
-                    Os dados serão persistidos permanentemente.
+                    Dados carregados na memória local. Use o botão abaixo para limpar se necessário.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <DataImport onDataLoaded={handleDataLoaded} />
+                  <Button onClick={handleClearData} variant="outline">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Limpar Dados Locais
+                  </Button>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
 
-              {importedData.length > 0 && (
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader>
-                    <CardTitle>Dados Importados Recentemente</CardTitle>
-                    <CardDescription>
-                      Visualização dos últimos dados importados para o Supabase
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-muted-foreground">
-                          {importedData.length} registros importados
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleClearData}
-                          className="flex items-center gap-2"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Limpar Visualização
-                        </Button>
-                      </div>
-                      
-                      <div className="bg-muted/50 border rounded-lg p-4 max-h-96 overflow-y-auto">
-                        <pre className="text-xs">
-                          {JSON.stringify(importedData.slice(0, 5), null, 2)}
-                        </pre>
-                        {importedData.length > 5 && (
-                          <div className="text-xs text-muted-foreground mt-2">
-                            ... e mais {importedData.length - 5} registros
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+          <TabsContent value="stats" className="space-y-6">
+            <DataStats data={importedData} />
+          </TabsContent>
 
-            <TabsContent value="stats" className="space-y-6">
+          <TabsContent value="database" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-gradient-card border-border shadow-medium">
                 <CardHeader>
-                  <CardTitle>Estatísticas Detalhadas</CardTitle>
-                  <CardDescription>
-                    Análise detalhada dos dados importados no sistema
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <DataStats data={importedData} />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="database" className="space-y-6">
-              <Card className="bg-gradient-card border-border shadow-medium">
-                <CardHeader>
-                  <CardTitle>Gerenciamento do Banco de Dados</CardTitle>
-                  <CardDescription>
-                    Ferramentas para administração dos dados no Supabase
-                  </CardDescription>
+                  <CardTitle>Acesso ao Banco de Dados</CardTitle>
+                  <CardDescription>Links diretos para gerenciar o banco Supabase</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
-                    <h4 className="font-medium text-accent-foreground mb-2">Status do Banco</h4>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      <p>• Conectado ao Supabase</p>
-                      <p>• RLS (Row Level Security) habilitado</p>
-                      <p>• Políticas de acesso público configuradas</p>
-                      <p>• Backup automático ativo</p>
-                    </div>
+                  <Button asChild className="w-full">
+                    <a href="https://supabase.com/dashboard/project/okeogjgqijbfkudfjadz" target="_blank" rel="noopener noreferrer">
+                      <Globe className="w-4 h-4 mr-2" />
+                      Dashboard Supabase
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full">
+                    <a href="https://supabase.com/dashboard/project/okeogjgqijbfkudfjadz/sql/new" target="_blank" rel="noopener noreferrer">
+                      <Database className="w-4 h-4 mr-2" />
+                      Editor SQL
+                    </a>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle>Status do Sistema</CardTitle>
+                  <CardDescription>Informações sobre a conexão e performance</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Status da Conexão</span>
+                    <Badge variant="default">Conectado</Badge>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button 
-                      variant="outline" 
-                      className="justify-start h-auto p-4"
-                      onClick={() => window.open("https://supabase.com/dashboard/project/okeogjgqijbfkudfjadz", "_blank")}
-                    >
-                      <div className="text-left">
-                        <div className="font-medium">Dashboard Supabase</div>
-                        <div className="text-sm text-muted-foreground">Painel administrativo completo</div>
-                      </div>
-                    </Button>
-
-                    <Button 
-                      variant="outline" 
-                      className="justify-start h-auto p-4"
-                      onClick={() => window.open("https://supabase.com/dashboard/project/okeogjgqijbfkudfjadz/editor", "_blank")}
-                    >
-                      <div className="text-left">
-                        <div className="font-medium">Editor SQL</div>
-                        <div className="text-sm text-muted-foreground">Executar consultas diretas</div>
-                      </div>
-                    </Button>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Última Sincronização</span>
+                    <span className="text-sm text-muted-foreground">Agora</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Versão da API</span>
+                    <span className="text-sm text-muted-foreground">v2.57.0</span>
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+            </div>
+          </TabsContent>
 
-            <TabsContent value="settings" className="space-y-6">
+          <TabsContent value="settings" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="bg-gradient-card border-border shadow-medium">
                 <CardHeader>
-                  <CardTitle>Configurações do Site</CardTitle>
-                  <CardDescription>
-                    Configure as informações básicas e comportamento do site
-                  </CardDescription>
+                  <CardTitle>Configurações Gerais</CardTitle>
+                  <CardDescription>Configurações básicas do site</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="siteName">Nome do Site</Label>
-                      <Input
-                        id="siteName"
-                        value={siteConfig.siteName}
-                        onChange={(e) => handleConfigUpdate('siteName', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="adminEmail">Email do Administrador</Label>
-                      <Input
-                        id="adminEmail"
-                        type="email"
-                        value={siteConfig.adminEmail}
-                        onChange={(e) => handleConfigUpdate('adminEmail', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="siteDescription">Descrição do Site</Label>
-                    <Textarea
+                    <Label htmlFor="siteName">Nome do Site</Label>
+                    <Input 
+                      id="siteName"
+                      value={siteConfig.siteName}
+                      onChange={(e) => handleConfigUpdate('siteName', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="siteDescription">Descrição</Label>
+                    <Textarea 
                       id="siteDescription"
                       value={siteConfig.siteDescription}
                       onChange={(e) => handleConfigUpdate('siteDescription', e.target.value)}
-                      rows={3}
                     />
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="whatsappNumber">Número WhatsApp</Label>
-                      <Input
-                        id="whatsappNumber"
-                        value={siteConfig.whatsappNumber}
-                        onChange={(e) => handleConfigUpdate('whatsappNumber', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="maxFileSize">Tamanho Máximo de Arquivo (MB)</Label>
-                      <Input
-                        id="maxFileSize"
-                        type="number"
-                        value={siteConfig.maxFileSize}
-                        onChange={(e) => handleConfigUpdate('maxFileSize', parseInt(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-medium">Configurações de Acesso</h4>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="allowPublicAccess">Permitir Acesso Público</Label>
-                        <Switch
-                          id="allowPublicAccess"
-                          checked={siteConfig.allowPublicAccess}
-                          onCheckedChange={(checked) => handleConfigUpdate('allowPublicAccess', checked)}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="maintenanceMode">Modo Manutenção</Label>
-                        <Switch
-                          id="maintenanceMode"
-                          checked={siteConfig.maintenanceMode}
-                          onCheckedChange={(checked) => handleConfigUpdate('maintenanceMode', checked)}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="enableNotifications">Notificações Ativas</Label>
-                        <Switch
-                          id="enableNotifications"
-                          checked={siteConfig.enableNotifications}
-                          onCheckedChange={(checked) => handleConfigUpdate('enableNotifications', checked)}
-                        />
-                      </div>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="adminEmail">Email do Administrador</Label>
+                    <Input 
+                      id="adminEmail"
+                      type="email"
+                      value={siteConfig.adminEmail}
+                      onChange={(e) => handleConfigUpdate('adminEmail', e.target.value)}
+                    />
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
 
-            <TabsContent value="system" className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Globe className="w-5 h-5" />
-                      Informações do Sistema
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Versão:</span>
-                      <span className="font-medium">1.0.0</span>
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle>Controle de Acesso</CardTitle>
+                  <CardDescription>Configurações de segurança e acesso</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Acesso Público</Label>
+                      <div className="text-sm text-muted-foreground">Permitir visualização sem login</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Última Atualização:</span>
-                      <span className="font-medium">Hoje</span>
+                    <Switch 
+                      checked={siteConfig.allowPublicAccess}
+                      onCheckedChange={(checked) => handleConfigUpdate('allowPublicAccess', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Verificação de Email</Label>
+                      <div className="text-sm text-muted-foreground">Obrigar verificação de email</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Framework:</span>
-                      <span className="font-medium">React + Supabase</span>
+                    <Switch 
+                      checked={siteConfig.requireEmailVerification}
+                      onCheckedChange={(checked) => handleConfigUpdate('requireEmailVerification', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label>Modo Manutenção</Label>
+                      <div className="text-sm text-muted-foreground">Desabilitar acesso temporariamente</div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status:</span>
-                      <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                        Operacional
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
+                    <Switch 
+                      checked={siteConfig.maintenanceMode}
+                      onCheckedChange={(checked) => handleConfigUpdate('maintenanceMode', checked)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      Ações do Sistema
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button variant="outline" className="w-full justify-start">
-                      <Download className="w-4 h-4 mr-2" />
-                      Exportar Configurações
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Limpar Cache
-                    </Button>
-                    <Button variant="outline" className="w-full justify-start">
-                      <Database className="w-4 h-4 mr-2" />
-                      Backup Manual
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
+          <TabsContent value="system" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle>Informações do Sistema</CardTitle>
+                  <CardDescription>Detalhes técnicos e versões</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Versão da Aplicação</span>
+                    <span className="text-sm font-mono">v1.0.0</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Framework</span>
+                    <span className="text-sm font-mono">React 18.3.1</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Banco de Dados</span>
+                    <span className="text-sm font-mono">Supabase PostgreSQL</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">Última Atualização</span>
+                    <span className="text-sm text-muted-foreground">Hoje</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle>Ações do Sistema</CardTitle>
+                  <CardDescription>Ferramentas de manutenção e backup</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button variant="outline" className="w-full">
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar Configurações
+                  </Button>
+                  <Button variant="outline" className="w-full">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Limpar Cache
+                  </Button>
+                  <Button variant="outline" className="w-full">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Ver Logs do Sistema
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
 
       {/* Admin Modal */}
-      <AdminModal
+      <AdminModal 
         isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => {
+          setModalOpen(false);
+          setEditingItem(null);
+        }}
         type={modalType}
         item={editingItem}
         brands={brands}
