@@ -17,6 +17,7 @@ const realBrandStats = [
   { name: "SprintRay", records: 4, color: "bg-teal-500" },
   { name: "EZY3D", records: 4, color: "bg-lime-500" },
   { name: "Wanhao", records: 2, color: "bg-amber-500" },
+  { name: "Ouring", records: 1, color: "bg-gray-500" },
 ];
 
 interface DataStatsProps {
