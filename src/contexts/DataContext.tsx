@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
 import { useSupabaseData, Brand, Model, Resin, ParameterSet } from '@/hooks/useSupabaseData';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
@@ -51,8 +51,6 @@ interface DataProviderProps {
 }
 
 export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
-  const [isInitialized, setIsInitialized] = useState(false);
-  
   console.log('DataProvider rendering...');
   
   const dataHook = useSupabaseData();
@@ -108,12 +106,6 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
       }, 500);
     }
   };
-
-  // Mark as initialized after first render
-  useEffect(() => {
-    setIsInitialized(true);
-    console.log('DataProvider initialized');
-  }, []);
 
   console.log('DataProvider providing context value:', value);
 
