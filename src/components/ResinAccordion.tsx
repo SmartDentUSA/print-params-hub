@@ -28,7 +28,13 @@ interface ResinAccordionProps {
 }
 
 export function ResinAccordion({ resins }: ResinAccordionProps) {
-  if (resins.length === 0) {
+  // Filter out parameter sets with 0 cure time
+  const filteredResins = resins.map(resin => ({
+    ...resin,
+    parameterSets: resin.parameterSets.filter(paramSet => paramSet.tempo_cura_seg > 0)
+  })).filter(resin => resin.parameterSets.length > 0);
+
+  if (filteredResins.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Nenhuma resina disponível para este modelo</p>
@@ -38,7 +44,7 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
 
   return (
     <div className="space-y-4">
-      {resins.map((resin) => (
+      {filteredResins.map((resin) => (
         <div key={resin.id} className="bg-gradient-card rounded-xl border border-border shadow-medium">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value={resin.id} className="border-0">
