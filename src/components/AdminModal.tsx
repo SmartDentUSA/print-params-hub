@@ -52,6 +52,8 @@ interface AdminModalProps {
   type: 'brand' | 'model' | 'resin' | 'parameter';
   item?: Brand | Model | Resin | Parameter | null;
   brands?: Brand[];
+  models?: Model[];
+  resins?: Resin[];
   onSave: (data: any) => void;
 }
 
@@ -61,6 +63,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   type, 
   item, 
   brands = [], 
+  models = [],
+  resins = [],
   onSave 
 }) => {
   const [formData, setFormData] = useState<any>(() => {
@@ -93,6 +97,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   });
 
+  // Filter models based on selected brand for parameter form
+  const availableModels = formData.brand 
+    ? models.filter(model => {
+        const selectedBrand = brands.find(b => b.name === formData.brand);
+        return selectedBrand && model.brandId === selectedBrand.id;
+      })
+    : models;
+
   const handleSave = () => {
     if (type === 'brand' || type === 'model' || type === 'resin') {
       // Generate slug for brands and models
@@ -111,7 +123,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData({ ...formData, [field]: value });
+    const newFormData = { ...formData, [field]: value };
+    
+    // If brand changes in parameter form, clear the model selection
+    if (field === 'brand' && type === 'parameter') {
+      newFormData.model = '';
+    }
+    
+    setFormData(newFormData);
   };
 
   const getModalTitle = () => {
@@ -237,41 +256,59 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="brand">Marca</Label>
-                  <Input
-                    id="brand"
-                    value={formData.brand || ''}
-                    onChange={(e) => handleInputChange('brand', e.target.value)}
-                    placeholder="Ex: ELEGOO"
-                  />
+                  <Select value={formData.brand || ''} onValueChange={(value) => handleInputChange('brand', value)}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Selecione uma marca" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border z-50">
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.name}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="model">Modelo</Label>
-                  <Input
-                    id="model"
-                    value={formData.model || ''}
-                    onChange={(e) => handleInputChange('model', e.target.value)}
-                    placeholder="Ex: Mars 2"
-                  />
+                  <Select value={formData.model || ''} onValueChange={(value) => handleInputChange('model', value)} disabled={!formData.brand}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Selecione um modelo" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border border-border z-50">
+                      {availableModels.map((model) => (
+                        <SelectItem key={model.id} value={model.name}>
+                          {model.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="resin">Resina</Label>
-                <Input
-                  id="resin"
-                  value={formData.resin || ''}
-                  onChange={(e) => handleInputChange('resin', e.target.value)}
-                  placeholder="Ex: Smart Print Model Ocre"
-                />
+                <Select value={formData.resin || ''} onValueChange={(value) => handleInputChange('resin', value)}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Selecione uma resina" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background border border-border z-50">
+                    {resins.map((resin) => (
+                      <SelectItem key={resin.id} value={resin.name}>
+                        {resin.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="variant_label">Variante</Label>
                 <Select value={formData.variant_label || ''} onValueChange={(value) => handleInputChange('variant_label', value)}>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-background">
                     <SelectValue placeholder="Selecione a variante" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border border-border z-50">
                     <SelectItem value="25 microns">25 microns</SelectItem>
                     <SelectItem value="50 microns">50 microns</SelectItem>
                     <SelectItem value="100 microns">100 microns</SelectItem>

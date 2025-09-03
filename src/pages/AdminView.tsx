@@ -427,6 +427,8 @@ const AdminView = () => {
         type={modalType}
         item={editingItem}
         brands={brands}
+        models={models}
+        resins={resins}
         onSave={handleSave}
       />
     </div>
