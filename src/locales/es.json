@@ -49,7 +49,12 @@
     "x_adjustment": "Ajuste X",
     "y_adjustment": "Ajuste Y",
     "notes": "Notas",
-    "optimized_for": "Parámetros optimizados para {{brand}} {{model}}"
+    "optimized_for": "Parámetros optimizados para {{brand}} {{model}}",
+    "normal_layers": "CAPAS NORMALES",
+    "bottom_layers": "CAPAS INFERIORES",
+    "wait_before_cure": "Espera antes del curado",
+    "wait_after_cure": "Espera después del curado",
+    "bottom_cure_time": "Tiempo de curado inferior"
   },
   "help": {
     "need_help": "¿Necesitas Ayuda?",

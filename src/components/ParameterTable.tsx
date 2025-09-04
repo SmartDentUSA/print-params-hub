@@ -14,6 +14,9 @@ interface ParameterSet {
   intensidade_luz_pct: number;
   ajuste_x_pct: number;
   ajuste_y_pct: number;
+  wait_time_before_cure?: number;
+  wait_time_after_cure?: number;
+  bottom_cure_time?: number;
   notes?: string;
 }
 
@@ -26,20 +29,33 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
   const { toast } = useToast();
   const { t } = useLanguage();
 
-  const parameters = [
+  const normalLayersParams = [
     { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.altura_da_camada_mm },
     { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.tempo_cura_seg },
-    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.tempo_adesao_seg },
-    { label: t('parameters.transition_layers'), value: parameterSet.camadas_transicao },
+    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure || 0 },
+    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure || 0 },
     { label: `${t('parameters.light_intensity')} (%)`, value: parameterSet.intensidade_luz_pct },
     { label: `${t('parameters.x_adjustment')} (%)`, value: parameterSet.ajuste_x_pct },
     { label: `${t('parameters.y_adjustment')} (%)`, value: parameterSet.ajuste_y_pct },
   ];
 
+  const bottomLayersParams = [
+    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.tempo_adesao_seg },
+    { label: `${t('parameters.bottom_cure_time')} (seg)`, value: parameterSet.bottom_cure_time || parameterSet.tempo_adesao_seg },
+    { label: t('parameters.transition_layers'), value: parameterSet.camadas_transicao },
+    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure || 0 },
+    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure || 0 },
+  ];
+
   const handleCopy = async () => {
-    const textToCopy = parameters
-      .map(param => `${param.label}: ${param.value}`)
-      .join('\n');
+    const allParams = [
+      `${t('parameters.normal_layers')}:`,
+      ...normalLayersParams.map(param => `${param.label}: ${param.value}`),
+      '',
+      `${t('parameters.bottom_layers')}:`,
+      ...bottomLayersParams.map(param => `${param.label}: ${param.value}`)
+    ];
+    const textToCopy = allParams.join('\n');
 
     try {
       await navigator.clipboard.writeText(textToCopy);
@@ -61,7 +77,10 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
   const handleDownloadCSV = () => {
     const csvContent = [
       "Especificação,Valor",
-      ...parameters.map(param => `"${param.label}","${param.value}"`)
+      `"${t('parameters.normal_layers')}","`,
+      ...normalLayersParams.map(param => `"${param.label}","${param.value}"`),
+      `"${t('parameters.bottom_layers')}","`,
+      ...bottomLayersParams.map(param => `"${param.label}","${param.value}"`)
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -85,7 +104,13 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
       try {
         await navigator.share({
           title: `Parâmetros - ${parameterSet.label}`,
-          text: parameters.map(param => `${param.label}: ${param.value}`).join('\n'),
+          text: [
+            `${t('parameters.normal_layers')}:`,
+            ...normalLayersParams.map(param => `${param.label}: ${param.value}`),
+            '',
+            `${t('parameters.bottom_layers')}:`,
+            ...bottomLayersParams.map(param => `${param.label}: ${param.value}`)
+          ].join('\n'),
         });
       } catch (err) {
         // Fallback to copy URL
@@ -99,28 +124,59 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
 
   return (
     <div className="bg-gradient-card rounded-xl border border-border shadow-soft overflow-hidden">
-      <div className="p-6">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-2 pr-4 font-medium text-foreground">Especificação</th>
-                <th className="text-left py-2 font-medium text-foreground">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {parameters.map((param, index) => (
-                <tr key={index} className="border-b border-border last:border-0">
-                  <td className="py-3 pr-4 text-muted-foreground font-medium">
-                    {param.label}
-                  </td>
-                  <td className="py-3 font-mono text-foreground">
-                    {param.value}
-                  </td>
+      <div className="p-6 space-y-6">
+        {/* Camadas Normais */}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-3">{t('parameters.normal_layers')}</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 font-medium text-foreground">Especificação</th>
+                  <th className="text-left py-2 font-medium text-foreground">Valor</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {normalLayersParams.map((param, index) => (
+                  <tr key={index} className="border-b border-border last:border-0">
+                    <td className="py-3 pr-4 text-muted-foreground font-medium">
+                      {param.label}
+                    </td>
+                    <td className="py-3 font-mono text-foreground">
+                      {param.value}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Camadas Inferiores */}
+        <div>
+          <h3 className="text-lg font-semibold text-foreground mb-3">{t('parameters.bottom_layers')}</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 pr-4 font-medium text-foreground">Especificação</th>
+                  <th className="text-left py-2 font-medium text-foreground">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bottomLayersParams.map((param, index) => (
+                  <tr key={index} className="border-b border-border last:border-0">
+                    <td className="py-3 pr-4 text-muted-foreground font-medium">
+                      {param.label}
+                    </td>
+                    <td className="py-3 font-mono text-foreground">
+                      {param.value}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {parameterSet.notes && (

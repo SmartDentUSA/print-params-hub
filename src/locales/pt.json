@@ -49,7 +49,12 @@
     "x_adjustment": "Ajuste X",
     "y_adjustment": "Ajuste Y",
     "notes": "Observações",
-    "optimized_for": "Parâmetros otimizados para {{brand}} {{model}}"
+    "optimized_for": "Parâmetros otimizados para {{brand}} {{model}}",
+    "normal_layers": "CAMADAS NORMAIS",
+    "bottom_layers": "CAMADAS INFERIORES",
+    "wait_before_cure": "Espera antes da cura",
+    "wait_after_cure": "Espera após a cura",
+    "bottom_cure_time": "Tempo de adesão"
   },
   "help": {
     "need_help": "Precisa de Ajuda?",

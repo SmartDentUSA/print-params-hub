@@ -557,14 +557,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="anti-aliasing"
-                    checked={formData.anti_aliasing || false}
-                    onCheckedChange={(checked) => handleInputChange('anti_aliasing', checked)}
-                  />
-                  <Label htmlFor="anti-aliasing">Anti-aliasing</Label>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

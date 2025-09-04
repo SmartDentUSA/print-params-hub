@@ -49,7 +49,12 @@
     "x_adjustment": "X Adjustment",
     "y_adjustment": "Y Adjustment",
     "notes": "Notes",
-    "optimized_for": "Parameters optimized for {{brand}} {{model}}"
+    "optimized_for": "Parameters optimized for {{brand}} {{model}}",
+    "normal_layers": "NORMAL LAYERS",
+    "bottom_layers": "BOTTOM LAYERS",
+    "wait_before_cure": "Wait before cure",
+    "wait_after_cure": "Wait after cure",
+    "bottom_cure_time": "Bottom cure time"
   },
   "help": {
     "need_help": "Need Help?",
