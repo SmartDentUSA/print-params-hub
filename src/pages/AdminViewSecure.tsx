@@ -8,6 +8,7 @@ import { AdminStats } from "@/components/AdminStats";
 import { AdminUsers } from "@/components/AdminUsers";
 import { AdminSettings } from "@/components/AdminSettings";
 import { AdminModels } from "@/components/AdminModels";
+import { DataProvider } from "@/contexts/DataContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -133,6 +134,7 @@ export default function AdminViewSecure() {
 
   // Show admin panel if authenticated and admin
   return (
+    <DataProvider>
     <div className="min-h-screen bg-gradient-surface">
       <div className="bg-white/10 backdrop-blur-lg border-b border-white/20">
         <div className="container mx-auto px-6 py-4">
@@ -224,5 +226,6 @@ export default function AdminViewSecure() {
         </Tabs>
       </div>
     </div>
+    </DataProvider>
   );
 }
