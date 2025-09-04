@@ -434,16 +434,16 @@ export const useSupabaseData = () => {
         const mappedParam = {
           id: param.id,
           label: `${param.layer_height}mm - ${param.cure_time}s`,
-          altura_da_camada_mm: param.layer_height,
-          tempo_cura_seg: param.cure_time,
-          tempo_adesao_seg: param.bottom_cure_time || 0,
-          camadas_transicao: param.bottom_layers || 8,
-          intensidade_luz_pct: param.light_intensity,
-          ajuste_x_pct: param.xy_adjustment_x_pct || 100,
-          ajuste_y_pct: param.xy_adjustment_y_pct || 100,
+          layer_height: param.layer_height,
+          cure_time: param.cure_time,
+          bottom_cure_time: param.bottom_cure_time || 0,
+          bottom_layers: param.bottom_layers || 8,
+          light_intensity: param.light_intensity,
+          xy_adjustment_x_pct: param.xy_adjustment_x_pct || 100,
+          xy_adjustment_y_pct: param.xy_adjustment_y_pct || 100,
           wait_time_before_cure: param.wait_time_before_cure || 0,
           wait_time_after_cure: param.wait_time_after_cure || 0,
-          bottom_cure_time: param.bottom_cure_time || 0,
+          wait_time_after_lift: param.wait_time_after_lift || 0,
           notes: param.notes
         };
         

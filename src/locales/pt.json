@@ -54,6 +54,9 @@
     "bottom_layers": "CAMADAS INFERIORES",
     "wait_before_cure": "Espera antes da cura",
     "wait_after_cure": "Espera após a cura",
+    "wait_before_cure_base": "Espera antes da cura base",
+    "wait_after_cure_base": "Espera após a cura base",
+    "wait_after_lift": "Espera após elevação",
     "bottom_cure_time": "Tempo de adesão"
   },
   "help": {

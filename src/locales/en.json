@@ -54,7 +54,10 @@
     "bottom_layers": "BOTTOM LAYERS",
     "wait_before_cure": "Wait before cure",
     "wait_after_cure": "Wait after cure",
-    "bottom_cure_time": "Bottom cure time"
+    "wait_before_cure_base": "Wait before base cure",
+    "wait_after_cure_base": "Wait after base cure",
+    "wait_after_lift": "Wait after lift",
+    "bottom_cure_time": "Adhesion time"
   },
   "help": {
     "need_help": "Need Help?",

@@ -393,6 +393,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'parameter' && (
             <>
+              {/* Seleção de Marca, Modelo e Resina */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="brand-slug">Marca</Label>
@@ -446,178 +447,144 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 </Select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="layer-height">Altura da camada (mm)</Label>
-                  <Input
-                    id="layer-height"
-                    type="number"
-                    step="0.001"
-                    value={formData.layer_height || ''}
-                    onChange={(e) => handleInputChange('layer_height', Number(e.target.value))}
-                    placeholder="Ex: 0.05"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="cure-time">Tempo de cura (segundos)</Label>
-                  <Input
-                    id="cure-time"
-                    type="number"
-                    value={formData.cure_time || ''}
-                    onChange={(e) => handleInputChange('cure_time', Number(e.target.value))}
-                    placeholder="Ex: 3"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="bottom-layers">Camadas de base</Label>
-                  <Input
-                    id="bottom-layers"
-                    type="number"
-                    value={formData.bottom_layers || ''}
-                    onChange={(e) => handleInputChange('bottom_layers', Number(e.target.value))}
-                    placeholder="Ex: 5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="bottom-cure-time">Tempo de cura da base (segundos)</Label>
-                  <Input
-                    id="bottom-cure-time"
-                    type="number"
-                    value={formData.bottom_cure_time || ''}
-                    onChange={(e) => handleInputChange('bottom_cure_time', Number(e.target.value))}
-                    placeholder="Ex: 30"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="light-intensity">Intensidade da luz (%)</Label>
-                  <Input
-                    id="light-intensity"
-                    type="number"
-                    value={formData.light_intensity || ''}
-                    onChange={(e) => handleInputChange('light_intensity', Number(e.target.value))}
-                    placeholder="Ex: 100"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="lift-distance">Distância de elevação (mm)</Label>
-                  <Input
-                    id="lift-distance"
-                    type="number"
-                    step="0.1"
-                    value={formData.lift_distance || ''}
-                    onChange={(e) => handleInputChange('lift_distance', Number(e.target.value))}
-                    placeholder="Ex: 5.0"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="lift-speed">Velocidade de elevação (mm/min)</Label>
-                  <Input
-                    id="lift-speed"
-                    type="number"
-                    step="0.1"
-                    value={formData.lift_speed || ''}
-                    onChange={(e) => handleInputChange('lift_speed', Number(e.target.value))}
-                    placeholder="Ex: 3.0"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="retract-speed">Velocidade de retração (mm/min)</Label>
-                  <Input
-                    id="retract-speed"
-                    type="number"
-                    step="0.1"
-                    value={formData.retract_speed || ''}
-                    onChange={(e) => handleInputChange('retract_speed', Number(e.target.value))}
-                    placeholder="Ex: 3.0"
-                  />
+              {/* CAMADAS NORMAIS */}
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <h3 className="font-semibold mb-4 text-primary">CAMADAS NORMAIS</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="layer-height">Altura da camada (mm)</Label>
+                    <Input
+                      id="layer-height"
+                      type="number"
+                      step="0.001"
+                      value={formData.layer_height || ''}
+                      onChange={(e) => handleInputChange('layer_height', Number(e.target.value))}
+                      placeholder="Ex: 0.05"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="cure-time">Tempo de cura (seg)</Label>
+                    <Input
+                      id="cure-time"
+                      type="number"
+                      value={formData.cure_time || ''}
+                      onChange={(e) => handleInputChange('cure_time', Number(e.target.value))}
+                      placeholder="Ex: 3"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="wait-before-cure">Espera antes da cura (s)</Label>
+                    <Input
+                      id="wait-before-cure"
+                      type="number"
+                      value={formData.wait_time_before_cure || ''}
+                      onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
+                      placeholder="Ex: 0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="wait-after-cure">Espera após a cura (s)</Label>
+                    <Input
+                      id="wait-after-cure"
+                      type="number"
+                      value={formData.wait_time_after_cure || ''}
+                      onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
+                      placeholder="Ex: 0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="light-intensity">Intensidade da luz (%)</Label>
+                    <Input
+                      id="light-intensity"
+                      type="number"
+                      value={formData.light_intensity || ''}
+                      onChange={(e) => handleInputChange('light_intensity', Number(e.target.value))}
+                      placeholder="Ex: 100"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="x-adjustment">Ajuste X (%)</Label>
+                      <Input
+                        id="x-adjustment"
+                        type="number"
+                        value={formData.xy_adjustment_x_pct || ''}
+                        onChange={(e) => handleInputChange('xy_adjustment_x_pct', Number(e.target.value))}
+                        placeholder="100"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="y-adjustment">Ajuste Y (%)</Label>
+                      <Input
+                        id="y-adjustment"
+                        type="number"
+                        value={formData.xy_adjustment_y_pct || ''}
+                        onChange={(e) => handleInputChange('xy_adjustment_y_pct', Number(e.target.value))}
+                        placeholder="100"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="xy-size-compensation">Compensação XY (mm)</Label>
-                  <Input
-                    id="xy-size-compensation"
-                    type="number"
-                    step="0.01"
-                    value={formData.xy_size_compensation || ''}
-                    onChange={(e) => handleInputChange('xy_size_compensation', Number(e.target.value))}
-                    placeholder="Ex: 0.0"
-                  />
-                </div>
-
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="xy-adjustment-x">Ajuste X (%)</Label>
-                  <Input
-                    id="xy-adjustment-x"
-                    type="number"
-                    value={formData.xy_adjustment_x_pct || ''}
-                    onChange={(e) => handleInputChange('xy_adjustment_x_pct', Number(e.target.value))}
-                    placeholder="Ex: 100"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="xy-adjustment-y">Ajuste Y (%)</Label>
-                  <Input
-                    id="xy-adjustment-y"
-                    type="number"
-                    value={formData.xy_adjustment_y_pct || ''}
-                    onChange={(e) => handleInputChange('xy_adjustment_y_pct', Number(e.target.value))}
-                    placeholder="Ex: 100"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="wait-before-cure">Espera antes da cura (s)</Label>
-                  <Input
-                    id="wait-before-cure"
-                    type="number"
-                    value={formData.wait_time_before_cure || ''}
-                    onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
-                    placeholder="Ex: 0"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="wait-after-cure">Espera após a cura (s)</Label>
-                  <Input
-                    id="wait-after-cure"
-                    type="number"
-                    value={formData.wait_time_after_cure || ''}
-                    onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
-                    placeholder="Ex: 0"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="wait-after-lift">Espera após elevação (s)</Label>
-                  <Input
-                    id="wait-after-lift"
-                    type="number"
-                    value={formData.wait_time_after_lift || ''}
-                    onChange={(e) => handleInputChange('wait_time_after_lift', Number(e.target.value))}
-                    placeholder="Ex: 0"
-                  />
+              {/* CAMADAS INFERIORES */}
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <h3 className="font-semibold mb-4 text-primary">CAMADAS INFERIORES</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="bottom-cure-time">Tempo de adesão (seg)</Label>
+                    <Input
+                      id="bottom-cure-time"
+                      type="number"
+                      value={formData.bottom_cure_time || ''}
+                      onChange={(e) => handleInputChange('bottom_cure_time', Number(e.target.value))}
+                      placeholder="Ex: 30"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="bottom-layers">Camadas base</Label>
+                    <Input
+                      id="bottom-layers"
+                      type="number"
+                      value={formData.bottom_layers || ''}
+                      onChange={(e) => handleInputChange('bottom_layers', Number(e.target.value))}
+                      placeholder="Ex: 5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="wait-before-cure-base">Espera antes da cura base (s)</Label>
+                    <Input
+                      id="wait-before-cure-base"
+                      type="number"
+                      value={formData.wait_time_before_cure || ''}
+                      onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
+                      placeholder="Ex: 0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="wait-after-cure-base">Espera após a cura base (s)</Label>
+                    <Input
+                      id="wait-after-cure-base"
+                      type="number"
+                      value={formData.wait_time_after_cure || ''}
+                      onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
+                      placeholder="Ex: 0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="wait-after-lift">Espera após elevação (s)</Label>
+                    <Input
+                      id="wait-after-lift"
+                      type="number"
+                      value={formData.wait_time_after_lift || ''}
+                      onChange={(e) => handleInputChange('wait_time_after_lift', Number(e.target.value))}
+                      placeholder="Ex: 0"
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* Observações */}
               <div>
                 <Label htmlFor="notes">Observações</Label>
                 <Textarea
@@ -628,6 +595,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 />
               </div>
 
+              {/* Status */}
               <div className="flex items-center space-x-2">
                 <Switch
                   id="active"

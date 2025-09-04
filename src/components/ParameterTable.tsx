@@ -7,16 +7,16 @@ import { useLanguage } from "@/contexts/LanguageContext";
 interface ParameterSet {
   id: string;
   label: string;
-  altura_da_camada_mm: number;
-  tempo_cura_seg: number;
-  tempo_adesao_seg: number;
-  camadas_transicao: number;
-  intensidade_luz_pct: number;
-  ajuste_x_pct: number;
-  ajuste_y_pct: number;
+  layer_height: number;
+  cure_time: number;
+  bottom_cure_time?: number;
+  bottom_layers?: number;
+  light_intensity: number;
+  xy_adjustment_x_pct?: number;
+  xy_adjustment_y_pct?: number;
   wait_time_before_cure?: number;
   wait_time_after_cure?: number;
-  bottom_cure_time?: number;
+  wait_time_after_lift?: number;
   notes?: string;
 }
 
@@ -37,20 +37,21 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
   };
 
   const normalLayersParams = [
-    { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.altura_da_camada_mm },
-    { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.tempo_cura_seg },
-    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure || 0 },
-    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure || 0 },
-    { label: `${t('parameters.light_intensity')} (%)`, value: parameterSet.intensidade_luz_pct },
-    { label: `${t('parameters.x_adjustment')} (%)`, value: parameterSet.ajuste_x_pct },
-    { label: `${t('parameters.y_adjustment')} (%)`, value: parameterSet.ajuste_y_pct },
+    { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.layer_height },
+    { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.cure_time },
+    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure },
+    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure },
+    { label: `${t('parameters.light_intensity')} (%)`, value: parameterSet.light_intensity },
+    { label: `${t('parameters.x_adjustment')} (%)`, value: parameterSet.xy_adjustment_x_pct },
+    { label: `${t('parameters.y_adjustment')} (%)`, value: parameterSet.xy_adjustment_y_pct },
   ];
 
   const bottomLayersParams = [
-    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.tempo_adesao_seg },
-    { label: t('parameters.transition_layers'), value: parameterSet.camadas_transicao },
-    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure || 0 },
-    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure || 0 },
+    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.bottom_cure_time },
+    { label: t('parameters.transition_layers'), value: parameterSet.bottom_layers },
+    { label: `${t('parameters.wait_before_cure_base')} (s)`, value: parameterSet.wait_time_before_cure },
+    { label: `${t('parameters.wait_after_cure_base')} (s)`, value: parameterSet.wait_time_after_cure },
+    { label: `${t('parameters.wait_after_lift')} (s)`, value: parameterSet.wait_time_after_lift },
   ];
 
   const handleCopy = async () => {

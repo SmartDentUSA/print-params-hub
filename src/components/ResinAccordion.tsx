@@ -5,13 +5,16 @@ import { ParameterTable } from "./ParameterTable";
 interface ParameterSet {
   id: string;
   label: string;
-  altura_da_camada_mm: number;
-  tempo_cura_seg: number;
-  tempo_adesao_seg: number;
-  camadas_transicao: number;
-  intensidade_luz_pct: number;
-  ajuste_x_pct: number;
-  ajuste_y_pct: number;
+  layer_height: number;
+  cure_time: number;
+  bottom_cure_time?: number;
+  bottom_layers?: number;
+  light_intensity: number;
+  xy_adjustment_x_pct?: number;
+  xy_adjustment_y_pct?: number;
+  wait_time_before_cure?: number;
+  wait_time_after_cure?: number;
+  wait_time_after_lift?: number;
   notes?: string;
 }
 
@@ -32,8 +35,8 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
   const filteredResins = resins.map(resin => ({
     ...resin,
     parameterSets: resin.parameterSets.filter(paramSet => 
-      paramSet.tempo_cura_seg >= 0 && // Allow cure_time = 0
-      paramSet.altura_da_camada_mm > 0 // Ensure valid layer height
+      paramSet.cure_time >= 0 && // Allow cure_time = 0
+      paramSet.layer_height > 0 // Ensure valid layer height
     )
   })).filter(resin => resin.parameterSets.length > 0);
 
@@ -76,7 +79,7 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                           <div className="flex items-center justify-between w-full">
                             <span className="font-medium text-left">{paramSet.label}</span>
                             <Badge variant="outline" className="ml-2">
-                              {paramSet.altura_da_camada_mm}mm
+                              {paramSet.layer_height}mm
                             </Badge>
                           </div>
                         </AccordionTrigger>

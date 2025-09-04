@@ -54,7 +54,10 @@
     "bottom_layers": "CAPAS INFERIORES",
     "wait_before_cure": "Espera antes del curado",
     "wait_after_cure": "Espera después del curado",
-    "bottom_cure_time": "Tiempo de curado inferior"
+    "wait_before_cure_base": "Espera antes del curado base",
+    "wait_after_cure_base": "Espera después del curado base", 
+    "wait_after_lift": "Espera después de la elevación",
+    "bottom_cure_time": "Tiempo de adhesión"
   },
   "help": {
     "need_help": "¿Necesitas Ayuda?",
