@@ -29,6 +29,13 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
   const { toast } = useToast();
   const { t } = useLanguage();
 
+  const formatValue = (value: number | undefined | null): string => {
+    if (value === 0 || value === null || value === undefined) {
+      return "-";
+    }
+    return value.toString();
+  };
+
   const normalLayersParams = [
     { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.altura_da_camada_mm },
     { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.tempo_cura_seg },
@@ -41,7 +48,6 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
 
   const bottomLayersParams = [
     { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.tempo_adesao_seg },
-    { label: `${t('parameters.bottom_cure_time')} (seg)`, value: parameterSet.bottom_cure_time || parameterSet.tempo_adesao_seg },
     { label: t('parameters.transition_layers'), value: parameterSet.camadas_transicao },
     { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure || 0 },
     { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure || 0 },
@@ -50,10 +56,10 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
   const handleCopy = async () => {
     const allParams = [
       `${t('parameters.normal_layers')}:`,
-      ...normalLayersParams.map(param => `${param.label}: ${param.value}`),
+      ...normalLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`),
       '',
       `${t('parameters.bottom_layers')}:`,
-      ...bottomLayersParams.map(param => `${param.label}: ${param.value}`)
+      ...bottomLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`)
     ];
     const textToCopy = allParams.join('\n');
 
@@ -78,9 +84,9 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
     const csvContent = [
       "Especificação,Valor",
       `"${t('parameters.normal_layers')}","`,
-      ...normalLayersParams.map(param => `"${param.label}","${param.value}"`),
+      ...normalLayersParams.map(param => `"${param.label}","${formatValue(param.value)}"`),
       `"${t('parameters.bottom_layers')}","`,
-      ...bottomLayersParams.map(param => `"${param.label}","${param.value}"`)
+      ...bottomLayersParams.map(param => `"${param.label}","${formatValue(param.value)}"`)
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -106,10 +112,10 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
           title: `Parâmetros - ${parameterSet.label}`,
           text: [
             `${t('parameters.normal_layers')}:`,
-            ...normalLayersParams.map(param => `${param.label}: ${param.value}`),
+            ...normalLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`),
             '',
             `${t('parameters.bottom_layers')}:`,
-            ...bottomLayersParams.map(param => `${param.label}: ${param.value}`)
+            ...bottomLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`)
           ].join('\n'),
         });
       } catch (err) {
@@ -143,7 +149,7 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
                       {param.label}
                     </td>
                     <td className="py-3 font-mono text-foreground">
-                      {param.value}
+                      {formatValue(param.value)}
                     </td>
                   </tr>
                 ))}
@@ -170,7 +176,7 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
                       {param.label}
                     </td>
                     <td className="py-3 font-mono text-foreground">
-                      {param.value}
+                      {formatValue(param.value)}
                     </td>
                   </tr>
                 ))}
