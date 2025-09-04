@@ -467,9 +467,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="cure-time"
                       type="number"
+                      step="0.01"
                       value={formData.cure_time || ''}
                       onChange={(e) => handleInputChange('cure_time', Number(e.target.value))}
-                      placeholder="Ex: 3"
+                      placeholder="Ex: 3.00"
                     />
                   </div>
                   <div>
@@ -477,9 +478,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="wait-before-cure"
                       type="number"
+                      step="0.01"
                       value={formData.wait_time_before_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
-                      placeholder="Ex: 0"
+                      placeholder="Ex: 0.00"
                     />
                   </div>
                   <div>
@@ -487,9 +489,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="wait-after-cure"
                       type="number"
+                      step="0.01"
                       value={formData.wait_time_after_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
-                      placeholder="Ex: 0"
+                      placeholder="Ex: 0.00"
                     />
                   </div>
                   <div>
@@ -536,9 +539,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="bottom-cure-time"
                       type="number"
+                      step="0.01"
                       value={formData.bottom_cure_time || ''}
                       onChange={(e) => handleInputChange('bottom_cure_time', Number(e.target.value))}
-                      placeholder="Ex: 30"
+                      placeholder="Ex: 30.00"
                     />
                   </div>
                   <div>
@@ -556,9 +560,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="wait-before-cure-base"
                       type="number"
+                      step="0.01"
                       value={formData.wait_time_before_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
-                      placeholder="Ex: 0"
+                      placeholder="Ex: 0.00"
                     />
                   </div>
                   <div>
@@ -566,9 +571,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="wait-after-cure-base"
                       type="number"
+                      step="0.01"
                       value={formData.wait_time_after_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
-                      placeholder="Ex: 0"
+                      placeholder="Ex: 0.00"
                     />
                   </div>
                   <div>
@@ -576,9 +582,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="wait-after-lift"
                       type="number"
+                      step="0.01"
                       value={formData.wait_time_after_lift || ''}
                       onChange={(e) => handleInputChange('wait_time_after_lift', Number(e.target.value))}
-                      placeholder="Ex: 0"
+                      placeholder="Ex: 0.00"
                     />
                   </div>
                 </div>
