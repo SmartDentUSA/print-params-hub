@@ -289,22 +289,36 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Get unique brands with count
+  // Get unique brands with count - only active brands with active parameters
   const getUniqueBrands = async () => {
     try {
-      const { data, error } = await supabase
+      // First, get unique brand slugs from active parameter sets
+      const { data: paramData, error: paramError } = await supabase
         .from('parameter_sets')
         .select('brand_slug')
         .eq('active', true);
       
-      if (error) throw error;
+      if (paramError) throw paramError;
       
-      const uniqueBrands = [...new Set(data?.map(item => item.brand_slug) || [])];
-      return uniqueBrands.map(slug => ({
-        id: slug,
-        name: slug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        slug,
-        active: true
+      const uniqueBrandSlugs = [...new Set(paramData?.map(item => item.brand_slug) || [])];
+      
+      if (uniqueBrandSlugs.length === 0) return [];
+      
+      // Then, get brand data only for active brands that have parameters
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .select('id, name, slug, active')
+        .in('slug', uniqueBrandSlugs)
+        .eq('active', true);
+      
+      if (brandError) throw brandError;
+      
+      // Return only brands that are both active and have active parameters
+      return (brandData || []).map(brand => ({
+        id: brand.slug,
+        name: brand.name,
+        slug: brand.slug,
+        active: brand.active
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar marcas');
