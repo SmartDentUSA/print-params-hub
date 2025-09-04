@@ -29,38 +29,51 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
   const { toast } = useToast();
   const { t } = useLanguage();
 
-  const formatValue = (value: number | undefined | null): string => {
+  const formatValue = (value: number | undefined | null, type?: string): string => {
     if (value === 0 || value === null || value === undefined) {
       return "-";
     }
-    return value.toString();
+    
+    // Apply specific formatting based on parameter type
+    switch (type) {
+      case 'time':
+        return value.toFixed(2); // Cure times with 2 decimal places
+      case 'height':
+        return value.toFixed(3); // Layer height with 3 decimal places  
+      case 'percentage':
+        return value.toFixed(1); // Percentages with 1 decimal place
+      case 'integer':
+        return Math.round(value).toString(); // Whole numbers
+      default:
+        return value.toFixed(2); // Default 2 decimal places
+    }
   };
 
   const normalLayersParams = [
-    { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.layer_height },
-    { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.cure_time },
-    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure },
-    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure },
-    { label: `${t('parameters.light_intensity')} (%)`, value: parameterSet.light_intensity },
-    { label: `${t('parameters.x_adjustment')} (%)`, value: parameterSet.xy_adjustment_x_pct },
-    { label: `${t('parameters.y_adjustment')} (%)`, value: parameterSet.xy_adjustment_y_pct },
+    { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.layer_height, type: 'height' },
+    { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.cure_time, type: 'time' },
+    { label: `${t('parameters.wait_before_cure')} (s)`, value: parameterSet.wait_time_before_cure, type: 'time' },
+    { label: `${t('parameters.wait_after_cure')} (s)`, value: parameterSet.wait_time_after_cure, type: 'time' },
+    { label: `${t('parameters.light_intensity')} (%)`, value: parameterSet.light_intensity, type: 'percentage' },
+    { label: `${t('parameters.x_adjustment')} (%)`, value: parameterSet.xy_adjustment_x_pct, type: 'percentage' },
+    { label: `${t('parameters.y_adjustment')} (%)`, value: parameterSet.xy_adjustment_y_pct, type: 'percentage' },
   ];
 
   const bottomLayersParams = [
-    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.bottom_cure_time },
-    { label: t('parameters.transition_layers'), value: parameterSet.bottom_layers },
-    { label: `${t('parameters.wait_before_cure_base')} (s)`, value: parameterSet.wait_time_before_cure },
-    { label: `${t('parameters.wait_after_cure_base')} (s)`, value: parameterSet.wait_time_after_cure },
-    { label: `${t('parameters.wait_after_lift')} (s)`, value: parameterSet.wait_time_after_lift },
+    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.bottom_cure_time, type: 'time' },
+    { label: t('parameters.transition_layers'), value: parameterSet.bottom_layers, type: 'integer' },
+    { label: `${t('parameters.wait_before_cure_base')} (s)`, value: parameterSet.wait_time_before_cure, type: 'time' },
+    { label: `${t('parameters.wait_after_cure_base')} (s)`, value: parameterSet.wait_time_after_cure, type: 'time' },
+    { label: `${t('parameters.wait_after_lift')} (s)`, value: parameterSet.wait_time_after_lift, type: 'time' },
   ];
 
   const handleCopy = async () => {
     const allParams = [
       `${t('parameters.normal_layers')}:`,
-      ...normalLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`),
+      ...normalLayersParams.map(param => `${param.label}: ${formatValue(param.value, param.type)}`),
       '',
       `${t('parameters.bottom_layers')}:`,
-      ...bottomLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`)
+      ...bottomLayersParams.map(param => `${param.label}: ${formatValue(param.value, param.type)}`)
     ];
     const textToCopy = allParams.join('\n');
 
@@ -85,9 +98,9 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
     const csvContent = [
       "Especificação,Valor",
       `"${t('parameters.normal_layers')}","`,
-      ...normalLayersParams.map(param => `"${param.label}","${formatValue(param.value)}"`),
+      ...normalLayersParams.map(param => `"${param.label}","${formatValue(param.value, param.type)}"`),
       `"${t('parameters.bottom_layers')}","`,
-      ...bottomLayersParams.map(param => `"${param.label}","${formatValue(param.value)}"`)
+      ...bottomLayersParams.map(param => `"${param.label}","${formatValue(param.value, param.type)}"`)
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -113,10 +126,10 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
           title: `Parâmetros - ${parameterSet.label}`,
           text: [
             `${t('parameters.normal_layers')}:`,
-            ...normalLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`),
+            ...normalLayersParams.map(param => `${param.label}: ${formatValue(param.value, param.type)}`),
             '',
             `${t('parameters.bottom_layers')}:`,
-            ...bottomLayersParams.map(param => `${param.label}: ${formatValue(param.value)}`)
+            ...bottomLayersParams.map(param => `${param.label}: ${formatValue(param.value, param.type)}`)
           ].join('\n'),
         });
       } catch (err) {
@@ -150,7 +163,7 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
                       {param.label}
                     </td>
                     <td className="py-3 font-mono text-foreground">
-                      {formatValue(param.value)}
+                      {formatValue(param.value, param.type)}
                     </td>
                   </tr>
                 ))}
@@ -177,7 +190,7 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
                       {param.label}
                     </td>
                     <td className="py-3 font-mono text-foreground">
-                      {formatValue(param.value)}
+                      {formatValue(param.value, param.type)}
                     </td>
                   </tr>
                 ))}
