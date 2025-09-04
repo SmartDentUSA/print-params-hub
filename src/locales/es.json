@@ -44,7 +44,7 @@
     "layer_height": "Altura de Capa",
     "cure_time": "Tiempo de Curado",
     "adhesion_time": "Tiempo de Adhesión",
-    "transition_layers": "Capas de Transición",
+    "transition_layers": "Capas base",
     "light_intensity": "Intensidad de Luz",
     "x_adjustment": "Ajuste X",
     "y_adjustment": "Ajuste Y",

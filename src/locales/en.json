@@ -44,7 +44,7 @@
     "layer_height": "Layer Height",
     "cure_time": "Cure Time",
     "adhesion_time": "Adhesion Time",
-    "transition_layers": "Transition Layers",
+    "transition_layers": "Bottom Layers",
     "light_intensity": "Light Intensity",
     "x_adjustment": "X Adjustment",
     "y_adjustment": "Y Adjustment",

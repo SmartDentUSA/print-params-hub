@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Copy, Download, Share, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ParameterSet {
   id: string;
@@ -23,15 +24,16 @@ interface ParameterTableProps {
 export function ParameterTable({ parameterSet }: ParameterTableProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const parameters = [
-    { label: "Altura da Camada (mm)", value: parameterSet.altura_da_camada_mm },
-    { label: "Tempo de Cura (seg)", value: parameterSet.tempo_cura_seg },
-    { label: "Tempo de Adesão (seg)", value: parameterSet.tempo_adesao_seg },
-    { label: "Camadas de Transição", value: parameterSet.camadas_transicao },
-    { label: "Intensidade da Luz (%)", value: parameterSet.intensidade_luz_pct },
-    { label: "Ajuste do Tamanho X (%)", value: parameterSet.ajuste_x_pct },
-    { label: "Ajuste do Tamanho Y (%)", value: parameterSet.ajuste_y_pct },
+    { label: `${t('parameters.layer_height')} (mm)`, value: parameterSet.altura_da_camada_mm },
+    { label: `${t('parameters.cure_time')} (seg)`, value: parameterSet.tempo_cura_seg },
+    { label: `${t('parameters.adhesion_time')} (seg)`, value: parameterSet.tempo_adesao_seg },
+    { label: t('parameters.transition_layers'), value: parameterSet.camadas_transicao },
+    { label: `${t('parameters.light_intensity')} (%)`, value: parameterSet.intensidade_luz_pct },
+    { label: `${t('parameters.x_adjustment')} (%)`, value: parameterSet.ajuste_x_pct },
+    { label: `${t('parameters.y_adjustment')} (%)`, value: parameterSet.ajuste_y_pct },
   ];
 
   const handleCopy = async () => {
