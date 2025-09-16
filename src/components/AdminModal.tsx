@@ -279,7 +279,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <SelectValue placeholder="Selecione uma marca" />
                   </SelectTrigger>
                   <SelectContent>
-                    {brands.map((brand) => (
+                    {brands.filter(brand => brand.id && brand.id.trim() !== '').map((brand) => (
                       <SelectItem key={brand.id} value={brand.id}>
                         {brand.name}
                       </SelectItem>
@@ -402,7 +402,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <SelectValue placeholder="Selecione uma marca" />
                     </SelectTrigger>
                     <SelectContent>
-                      {brands.map((brand) => (
+                      {brands.filter(brand => brand.slug && brand.slug.trim() !== '').map((brand) => (
                         <SelectItem key={brand.id} value={brand.slug}>
                           {brand.name}
                         </SelectItem>
@@ -421,7 +421,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <SelectValue placeholder={!formData.brand_slug ? "Selecione uma marca primeiro" : "Selecione um modelo"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableModels.map((model) => (
+                      {availableModels.filter(model => model.slug && model.slug.trim() !== '').map((model) => (
                         <SelectItem key={model.id} value={model.slug}>
                           {model.name}
                         </SelectItem>
@@ -438,7 +438,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <SelectValue placeholder="Selecione uma resina" />
                   </SelectTrigger>
                   <SelectContent>
-                    {resins.map((resin) => (
+                    {resins.filter(resin => resin.name && resin.name.trim() !== '').map((resin) => (
                       <SelectItem key={resin.id} value={resin.name}>
                         {resin.name} ({resin.manufacturer})
                       </SelectItem>
