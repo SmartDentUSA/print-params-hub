@@ -192,11 +192,15 @@ export const useSupabaseCRUD = () => {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        setError(error.message);
+        throw error;
+      }
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar conjunto de parâmetros');
-      return null;
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar conjunto de parâmetros';
+      setError(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -212,11 +216,15 @@ export const useSupabaseCRUD = () => {
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        setError(error.message);
+        throw error;
+      }
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao atualizar conjunto de parâmetros');
-      return null;
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar conjunto de parâmetros';
+      setError(errorMessage);
+      throw err;
     } finally {
       setLoading(false);
     }

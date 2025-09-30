@@ -227,14 +227,17 @@ export function AdminSettings() {
           description: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : modalType === 'resin' ? 'Resina' : 'Parâmetros'} ${selectedItem ? 'atualizado' : 'criado'} com sucesso.`,
         });
         closeModal();
-      } else {
-        throw new Error('Falha ao salvar os dados');
       }
     } catch (error) {
       console.error('Error saving:', error);
+      const errorMessage = error instanceof Error ? error.message : `Não foi possível ${selectedItem ? 'atualizar' : 'criar'} o item.`;
       toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : `Não foi possível ${selectedItem ? 'atualizar' : 'criar'} o item.`,
+        title: "Erro ao salvar",
+        description: errorMessage.includes('numeric field overflow') 
+          ? 'Valor numérico fora do limite permitido. Verifique os campos e tente novamente.'
+          : errorMessage.includes('out of range')
+          ? 'Valor numérico muito grande. Verifique os campos e tente novamente.'
+          : errorMessage,
         variant: "destructive",
       });
     }

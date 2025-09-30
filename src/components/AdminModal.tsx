@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Save, X } from 'lucide-react';
+import { z } from 'zod';
+import { useToast } from '@/hooks/use-toast';
 
 interface Brand {
   id: string;
@@ -60,6 +62,29 @@ interface ParameterSet {
   active: boolean;
 }
 
+// Validation schema for parameter sets
+const parameterSetSchema = z.object({
+  brand_slug: z.string().min(1, "Marca é obrigatória"),
+  model_slug: z.string().min(1, "Modelo é obrigatório"),
+  resin_name: z.string().min(1, "Resina é obrigatória"),
+  resin_manufacturer: z.string().min(1, "Fabricante é obrigatório"),
+  layer_height: z.number().min(0.01, "Mínimo 0.01mm").max(0.30, "Máximo 0.30mm"),
+  cure_time: z.number().min(0, "Mínimo 0s").max(999.99, "Máximo 999.99s"),
+  light_intensity: z.number().int().min(0, "Mínimo 0%").max(100, "Máximo 100%"),
+  bottom_layers: z.number().int().min(0, "Mínimo 0").max(100, "Máximo 100").optional(),
+  bottom_cure_time: z.number().min(0, "Mínimo 0s").max(999.99, "Máximo 999.99s").optional(),
+  lift_distance: z.number().min(0, "Mínimo 0mm").max(999.99, "Máximo 999.99mm").optional(),
+  lift_speed: z.number().min(0, "Mínimo 0mm/s").max(999.99, "Máximo 999.99mm/s").optional(),
+  retract_speed: z.number().min(0, "Mínimo 0mm/s").max(999.99, "Máximo 999.99mm/s").optional(),
+  xy_size_compensation: z.number().min(-999.99, "Mínimo -999.99mm").max(999.99, "Máximo 999.99mm").optional(),
+  xy_adjustment_x_pct: z.number().int().min(0, "Mínimo 0%").max(1000, "Máximo 1000%").optional(),
+  xy_adjustment_y_pct: z.number().int().min(0, "Mínimo 0%").max(1000, "Máximo 1000%").optional(),
+  wait_time_before_cure: z.number().min(0, "Mínimo 0s").max(999.99, "Máximo 999.99s").optional(),
+  wait_time_after_cure: z.number().min(0, "Mínimo 0s").max(999.99, "Máximo 999.99s").optional(),
+  wait_time_after_lift: z.number().min(0, "Mínimo 0s").max(999.99, "Máximo 999.99s").optional(),
+  active: z.boolean(),
+});
+
 interface AdminModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -81,6 +106,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   resins = [],
   onSave 
 }) => {
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
   const getInitialFormData = () => {
     if (item) {
       return { ...item };
@@ -137,52 +164,77 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       })
     : models;
 
-  const handleSave = () => {
-    // Generate slug for brands and models if creating new ones
-    if ((type === 'brand' || type === 'model') && formData.name && !item) {
-      formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    }
-    
-    // For parameters, ensure we have proper slugs and manufacturer
-    if (type === 'parameter') {
-      // Validate required fields
-      if (!formData.brand_slug || !formData.model_slug || !formData.resin_name) {
-        console.error('Missing required fields for parameter');
-        return;
-      }
-
-      if (formData.brand_slug) {
-        const selectedBrand = brands.find(b => b.slug === formData.brand_slug);
-        if (selectedBrand) formData.brand_slug = selectedBrand.slug;
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Generate slug for brands and models if creating new ones
+      if ((type === 'brand' || type === 'model') && formData.name && !item) {
+        formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
       }
       
-      if (formData.model_slug) {
-        const selectedModel = models.find(m => m.slug === formData.model_slug);
-        if (selectedModel) formData.model_slug = selectedModel.slug;
-      }
-      
-      if (formData.resin_name) {
-        const selectedResin = resins.find(r => r.name === formData.resin_name);
-        if (selectedResin) formData.resin_manufacturer = selectedResin.manufacturer;
-      }
-
-      // Ensure all numeric fields are properly converted to numbers
-      const numericFields = [
-        'layer_height', 'cure_time', 'bottom_cure_time', 'lift_distance',
-        'lift_speed', 'retract_speed', 'light_intensity', 'xy_size_compensation',
-        'xy_adjustment_x_pct', 'xy_adjustment_y_pct', 'wait_time_before_cure',
-        'wait_time_after_cure', 'wait_time_after_lift', 'bottom_layers'
-      ];
-
-      numericFields.forEach(field => {
-        if (formData[field] !== undefined && formData[field] !== null && formData[field] !== '') {
-          formData[field] = Number(formData[field]);
+      // For parameters, validate and convert fields
+      if (type === 'parameter') {
+        // Ensure we have proper slugs and manufacturer
+        if (formData.brand_slug) {
+          const selectedBrand = brands.find(b => b.slug === formData.brand_slug);
+          if (selectedBrand) formData.brand_slug = selectedBrand.slug;
         }
-      });
+        
+        if (formData.model_slug) {
+          const selectedModel = models.find(m => m.slug === formData.model_slug);
+          if (selectedModel) formData.model_slug = selectedModel.slug;
+        }
+        
+        if (formData.resin_name) {
+          const selectedResin = resins.find(r => r.name === formData.resin_name);
+          if (selectedResin) formData.resin_manufacturer = selectedResin.manufacturer;
+        }
+
+        // Convert all numeric fields to numbers and clamp to 2 decimals
+        const numericFields = [
+          'layer_height', 'cure_time', 'bottom_cure_time', 'lift_distance',
+          'lift_speed', 'retract_speed', 'xy_size_compensation',
+          'wait_time_before_cure', 'wait_time_after_cure', 'wait_time_after_lift'
+        ];
+
+        numericFields.forEach(field => {
+          if (formData[field] !== undefined && formData[field] !== null && formData[field] !== '') {
+            const num = Number(formData[field]);
+            formData[field] = Math.round(num * 100) / 100; // Round to 2 decimals
+          }
+        });
+
+        // Convert integer fields
+        const intFields = ['light_intensity', 'bottom_layers', 'xy_adjustment_x_pct', 'xy_adjustment_y_pct'];
+        intFields.forEach(field => {
+          if (formData[field] !== undefined && formData[field] !== null && formData[field] !== '') {
+            formData[field] = Math.round(Number(formData[field]));
+          }
+        });
+
+        // Validate with zod schema
+        const validation = parameterSetSchema.safeParse(formData);
+        
+        if (!validation.success) {
+          const firstError = validation.error.errors[0];
+          toast({
+            title: "Erro de validação",
+            description: firstError.message,
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+      }
+      
+      await onSave(formData);
+      // Don't close here - let parent component close on success
+    } catch (error) {
+      // Error will be handled by parent
+      console.error('Error in handleSave:', error);
+    } finally {
+      setIsSaving(false);
     }
-    
-    onSave(formData);
-    onClose();
   };
 
   const handleInputChange = (field: string, value: any) => {
@@ -220,6 +272,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{getModalTitle()}</DialogTitle>
+          <DialogDescription>
+            {type === 'parameter' && 'Configure os parâmetros de impressão para esta combinação'}
+            {type === 'brand' && 'Adicione ou edite informações da marca'}
+            {type === 'model' && 'Adicione ou edite informações do modelo'}
+            {type === 'resin' && 'Adicione ou edite informações da resina'}
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -453,6 +511,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="layer-height"
                       type="number"
                       step="0.001"
+                      min="0.01"
+                      max="0.30"
                       value={formData.layer_height || ''}
                       onChange={(e) => handleInputChange('layer_height', Number(e.target.value))}
                       placeholder="Ex: 0.05"
@@ -464,6 +524,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="cure-time"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.cure_time || ''}
                       onChange={(e) => handleInputChange('cure_time', Number(e.target.value))}
                       placeholder="Ex: 3.00"
@@ -475,6 +537,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="wait-before-cure"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.wait_time_before_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
                       placeholder="Ex: 0.00"
@@ -486,6 +550,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="wait-after-cure"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.wait_time_after_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
                       placeholder="Ex: 0.00"
@@ -496,6 +562,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="light-intensity"
                       type="number"
+                      step="1"
+                      min="0"
+                      max="100"
                       value={formData.light_intensity || ''}
                       onChange={(e) => handleInputChange('light_intensity', Number(e.target.value))}
                       placeholder="Ex: 100"
@@ -507,6 +576,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <Input
                         id="x-adjustment"
                         type="number"
+                        step="1"
+                        min="0"
+                        max="1000"
                         value={formData.xy_adjustment_x_pct || ''}
                         onChange={(e) => handleInputChange('xy_adjustment_x_pct', Number(e.target.value))}
                         placeholder="100"
@@ -517,6 +589,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <Input
                         id="y-adjustment"
                         type="number"
+                        step="1"
+                        min="0"
+                        max="1000"
                         value={formData.xy_adjustment_y_pct || ''}
                         onChange={(e) => handleInputChange('xy_adjustment_y_pct', Number(e.target.value))}
                         placeholder="100"
@@ -536,6 +611,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="bottom-cure-time"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.bottom_cure_time || ''}
                       onChange={(e) => handleInputChange('bottom_cure_time', Number(e.target.value))}
                       placeholder="Ex: 30.00"
@@ -546,6 +623,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <Input
                       id="bottom-layers"
                       type="number"
+                      step="1"
+                      min="0"
+                      max="100"
                       value={formData.bottom_layers || ''}
                       onChange={(e) => handleInputChange('bottom_layers', Number(e.target.value))}
                       placeholder="Ex: 5"
@@ -557,6 +637,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="wait-before-cure-base"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.wait_time_before_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_before_cure', Number(e.target.value))}
                       placeholder="Ex: 0.00"
@@ -568,6 +650,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="wait-after-cure-base"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.wait_time_after_cure || ''}
                       onChange={(e) => handleInputChange('wait_time_after_cure', Number(e.target.value))}
                       placeholder="Ex: 0.00"
@@ -579,6 +663,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       id="wait-after-lift"
                       type="number"
                       step="0.01"
+                      min="0"
+                      max="999.99"
                       value={formData.wait_time_after_lift || ''}
                       onChange={(e) => handleInputChange('wait_time_after_lift', Number(e.target.value))}
                       placeholder="Ex: 0.00"
@@ -612,13 +698,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} className="flex items-center gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isSaving} className="flex items-center gap-2">
             <X className="w-4 h-4" />
             Cancelar
           </Button>
-          <Button onClick={handleSave} className="flex items-center gap-2">
+          <Button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2">
             <Save className="w-4 h-4" />
-            Salvar
+            {isSaving ? 'Salvando...' : 'Salvar'}
           </Button>
         </DialogFooter>
       </DialogContent>
