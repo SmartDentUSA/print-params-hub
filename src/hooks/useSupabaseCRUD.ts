@@ -87,10 +87,6 @@ export const useSupabaseCRUD = () => {
   const updateModel = async (id: string, updates: Partial<Model>): Promise<Model | null> => {
     try {
       setLoading(true);
-      console.log('=== updateModel START ===');
-      console.log('Model ID:', id);
-      console.log('Updates to apply:', updates);
-      console.log('Image URL in updates:', updates.image_url);
       
       const { data, error } = await supabase
         .from('models')
@@ -99,28 +95,10 @@ export const useSupabaseCRUD = () => {
         .select()
         .single();
       
-      console.log('=== Supabase response ===');
-      console.log('Data returned:', data);
-      console.log('Error returned:', error);
-      
-      if (error) {
-        console.error('=== SUPABASE ERROR DETAILS ===');
-        console.error('Error code:', error.code);
-        console.error('Error message:', error.message);
-        console.error('Error details:', error.details);
-        console.error('Error hint:', error.hint);
-        throw error;
-      }
-      
-      console.log('=== updateModel SUCCESS ===');
-      console.log('Final returned data:', data);
-      console.log('Final image_url:', data?.image_url);
+      if (error) throw error;
       return data;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar modelo';
-      console.error('=== updateModel FINAL ERROR ===');
-      console.error('Error object:', err);
-      console.error('Error message:', errorMessage);
       setError(errorMessage);
       return null;
     } finally {

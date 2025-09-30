@@ -99,27 +99,21 @@ export function AdminSettings() {
     try {
       setLoading(true);
       
-      console.log('Loading brands...');
       const brandsData = await fetchBrands();
-      console.log('Brands loaded:', brandsData.length);
       setBrands(brandsData);
       
-      console.log('Loading models for', brandsData.length, 'brands...');
       const allModelsData: Model[] = [];
       for (const brand of brandsData) {
         try {
           const brandModels = await fetchModelsByBrand(brand.slug);
-          console.log(`Models for ${brand.slug}:`, brandModels.length);
           allModelsData.push(...brandModels);
         } catch (error) {
           console.warn(`Error fetching models for brand ${brand.slug}:`, error);
         }
       }
-      console.log('Total models loaded:', allModelsData.length);
       setModels(allModelsData);
       
       // Sync resins from parameter_sets to resins table
-      console.log('Syncing resins...');
       await syncResinsFromParameters();
       
       // Now load resins from the synced table
@@ -128,7 +122,6 @@ export function AdminSettings() {
         .select('*')
         .eq('active', true)
         .order('name');
-      console.log('Resins loaded from table:', resinsData?.length || 0);
       setResins(resinsData || []);
       
       // Get parameter sets - these are public readable
@@ -166,11 +159,6 @@ export function AdminSettings() {
 
   const handleSave = async (data: any) => {
     try {
-      console.log('=== AdminSettings handleSave START ===');
-      console.log('Modal type:', modalType);
-      console.log('Data received:', data);
-      console.log('Selected item:', selectedItem);
-      
       let result = null;
       
       if (modalType === 'brand') {
@@ -186,10 +174,6 @@ export function AdminSettings() {
           }
         }
       } else if (modalType === 'model') {
-        console.log('=== MODEL SAVE PROCESS ===');
-        console.log('Model data to save:', data);
-        console.log('Image URL specifically:', data.image_url);
-        
         // Filter data to only include valid model fields for update/insert
         const validModelFields = {
           name: data.name,
@@ -200,23 +184,15 @@ export function AdminSettings() {
           brand_id: data.brand_id
         };
         
-        console.log('Filtered model data:', validModelFields);
-        
         if (selectedItem) {
-          console.log('Updating existing model:', selectedItem.id);
           result = await updateModel(selectedItem.id, validModelFields);
-          console.log('Update result:', result);
           if (result) {
             setModels(models.map(m => m.id === selectedItem.id ? result : m));
-            console.log('Model updated in local state');
           }
         } else {
-          console.log('Creating new model');
           result = await insertModel(validModelFields);
-          console.log('Insert result:', result);
           if (result) {
             setModels([...models, result]);
-            console.log('New model added to local state');
           }
         }
       } else if (modalType === 'resin') {
@@ -246,26 +222,19 @@ export function AdminSettings() {
       }
       
       if (result) {
-        console.log('=== SAVE SUCCESS ===');
-        console.log('Final result:', result);
-        console.log('Final result image_url:', result.image_url);
-        
         toast({
           title: "Sucesso",
           description: `${modalType === 'brand' ? 'Marca' : modalType === 'model' ? 'Modelo' : modalType === 'resin' ? 'Resina' : 'Parâmetros'} ${selectedItem ? 'atualizado' : 'criado'} com sucesso.`,
         });
-        
-        // Reload data to confirm save
-        console.log('Reloading data to confirm save...');
-        await loadData();
+        closeModal();
       } else {
-        console.log('=== SAVE FAILED ===');
-        console.log('No result returned from save operation');
+        throw new Error('Falha ao salvar os dados');
       }
     } catch (error) {
+      console.error('Error saving:', error);
       toast({
         title: "Erro",
-        description: `Não foi possível ${selectedItem ? 'atualizar' : 'criar'} o item.`,
+        description: error instanceof Error ? error.message : `Não foi possível ${selectedItem ? 'atualizar' : 'criar'} o item.`,
         variant: "destructive",
       });
     }
