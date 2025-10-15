@@ -69,15 +69,7 @@ const AdminViewSupabase = () => {
                 Ferramentas de Gerenciamento
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
-                <h4 className="font-medium text-accent-foreground mb-2">Configurações do Sistema</h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Gerencie marcas, modelos, resinas e importe/exporte dados em CSV
-                </p>
-                <AdminSettings />
-              </div>
-
+            <CardContent>
               <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
                 <h4 className="font-medium text-accent-foreground mb-2">Banco de Dados Supabase</h4>
                 <div className="text-sm text-muted-foreground space-y-1 mb-4">
