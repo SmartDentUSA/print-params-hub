@@ -168,6 +168,18 @@ export const useDataExportImport = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Normalize string for fuzzy matching (remove diacritics, lowercase, trim, collapse spaces)
+  const normalizeForMatch = (s: any): string => {
+    if (!s) return '';
+    return s
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' '); // Collapse multiple spaces
+  };
+
   const bulkUpsertParameterSets = async (
     csvData: any[]
   ): Promise<ImportStats> => {
@@ -228,10 +240,10 @@ export const useDataExportImport = () => {
             layer_height: row.layer_height && row.layer_height.trim() !== '' ? parseFloat(row.layer_height) : existingRecord.layer_height
           };
 
-          // Check if another record with different ID has the same natural key
+          // Check if another record with different ID has the same natural key (exact match)
           const { data: conflictingRecords } = await supabase
             .from('parameter_sets')
-            .select('id')
+            .select('id, resin_name, resin_manufacturer')
             .eq('brand_slug', naturalKey.brand_slug)
             .eq('model_slug', naturalKey.model_slug)
             .eq('resin_name', naturalKey.resin_name)
@@ -242,6 +254,27 @@ export const useDataExportImport = () => {
           if (conflictingRecords && conflictingRecords.length > 0) {
             stats.errors.push(
               `CONFLITO: ID ${row.id} - Parâmetros ${naturalKey.brand_slug}/${naturalKey.model_slug}/${naturalKey.resin_name}/${naturalKey.layer_height}mm já existem em outro registro (ID: ${conflictingRecords[0].id})`
+            );
+            continue;
+          }
+
+          // If no exact match, check for normalized match (case/space/diacritic differences)
+          const { data: candidates } = await supabase
+            .from('parameter_sets')
+            .select('id, resin_name, resin_manufacturer')
+            .eq('brand_slug', naturalKey.brand_slug)
+            .eq('model_slug', naturalKey.model_slug)
+            .eq('layer_height', naturalKey.layer_height)
+            .neq('id', row.id);
+
+          const normalizedConflict = candidates?.find(c =>
+            normalizeForMatch(c.resin_name) === normalizeForMatch(naturalKey.resin_name) &&
+            normalizeForMatch(c.resin_manufacturer) === normalizeForMatch(naturalKey.resin_manufacturer)
+          );
+
+          if (normalizedConflict) {
+            stats.errors.push(
+              `CONFLITO NORMALIZADO: ID ${row.id} - Parâmetros equivalentes já existem em ${normalizedConflict.id} (diferença apenas em case/acentos/espaços)`
             );
             continue;
           }
@@ -302,7 +335,8 @@ export const useDataExportImport = () => {
             layer_height: parseFloat(row.layer_height)
           };
 
-          const { data: existing } = await supabase
+          // First try exact match
+          const { data: exactMatch } = await supabase
             .from('parameter_sets')
             .select('id')
             .eq('brand_slug', naturalKey.brand_slug)
@@ -312,8 +346,28 @@ export const useDataExportImport = () => {
             .eq('layer_height', naturalKey.layer_height)
             .maybeSingle();
 
-          if (existing) {
-            convertedToUpdates.push({ ...row, id: existing.id });
+          if (exactMatch) {
+            convertedToUpdates.push({ ...row, id: exactMatch.id });
+            console.log(`INSERT→UPDATE: ${exactMatch.id} (match exato)`);
+            continue;
+          }
+
+          // If no exact match, try normalized match
+          const { data: candidates } = await supabase
+            .from('parameter_sets')
+            .select('id, resin_name, resin_manufacturer')
+            .eq('brand_slug', naturalKey.brand_slug)
+            .eq('model_slug', naturalKey.model_slug)
+            .eq('layer_height', naturalKey.layer_height);
+
+          const normalizedMatch = candidates?.find(c =>
+            normalizeForMatch(c.resin_name) === normalizeForMatch(naturalKey.resin_name) &&
+            normalizeForMatch(c.resin_manufacturer) === normalizeForMatch(naturalKey.resin_manufacturer)
+          );
+
+          if (normalizedMatch) {
+            convertedToUpdates.push({ ...row, id: normalizedMatch.id });
+            console.log(`INSERT→UPDATE: ${normalizedMatch.id} (match normalizado - case/espaços/acentos)`);
           } else {
             actualInserts.push(row);
           }

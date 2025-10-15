@@ -29,7 +29,7 @@ export function DataImport() {
 
     // Parse header row
     const headerLine = lines[0];
-    const headers: string[] = [];
+    const rawHeaders: string[] = [];
     let currentHeader = '';
     let insideQuotes = false;
 
@@ -39,13 +39,41 @@ export function DataImport() {
       if (char === '"') {
         insideQuotes = !insideQuotes;
       } else if (char === ',' && !insideQuotes) {
-        headers.push(currentHeader.trim().replace(/^"|"$/g, ''));
+        rawHeaders.push(currentHeader.trim().replace(/^"|"$/g, ''));
         currentHeader = '';
       } else {
         currentHeader += char;
       }
     }
-    headers.push(currentHeader.trim().replace(/^"|"$/g, ''));
+    rawHeaders.push(currentHeader.trim().replace(/^"|"$/g, ''));
+
+    // Normalize headers: lowercase + trim + aliases
+    const headerAliases: Record<string, string> = {
+      'id': 'id',
+      'ID': 'id',
+      'Id': 'id',
+      'id_sistema': 'id',
+      'system_id': 'id',
+      'uuid': 'id',
+      'brand': 'brand',
+      'marca': 'brand',
+      'model': 'model',
+      'modelo': 'model',
+      'resin': 'resin_name',
+      'resina': 'resin_name',
+      'resin_name': 'resin_name',
+      'resin_manufacturer': 'resin_manufacturer',
+      'manufacturer': 'resin_manufacturer',
+      'fabricante': 'resin_manufacturer',
+      'variant_label': 'variant_label',
+      'variant': 'variant_label',
+      'variante': 'variant_label'
+    };
+
+    const headers = rawHeaders.map(h => {
+      const normalized = h.toLowerCase().trim();
+      return headerAliases[normalized] || normalized;
+    });
 
     const rows: any[] = [];
 
@@ -77,10 +105,11 @@ export function DataImport() {
         console.warn(`Linha ${i + 1}: esperado ${headers.length} colunas, encontrado ${values.length}`);
       }
 
-      // Map to object
+      // Map to object with trimmed values
       const row: any = {};
       headers.forEach((header, index) => {
-        row[header] = values[index] || '';
+        const value = values[index] || '';
+        row[header] = typeof value === 'string' ? value.trim() : value;
       });
       
       rows.push(row);
@@ -148,27 +177,27 @@ export function DataImport() {
         }
 
         const transformed: any = {
-          id: row.id && row.id.trim() !== '' ? row.id : undefined,
-          brand_slug: (row.brand || '').toLowerCase().replace(/\s+/g, '-'),
-          model_slug: (row.model || '').toLowerCase().replace(/\s+/g, '-'),
-          resin_name: row.resin || '',
-          resin_manufacturer: row.resin_manufacturer || row.variant_label || '',
-          layer_height: row.layer_height || '0.05',
-          cure_time: row.cure_time || '8',
-          bottom_cure_time: row.bottom_cure_time || '',
-          light_intensity: row.light_intensity || '100',
-          bottom_layers: row.bottom_layers || '',
-          lift_distance: row.lift_distance || '',
-          lift_speed: row.lift_speed || '',
-          retract_speed: row.retract_speed || '',
-          anti_aliasing: row.anti_aliasing || 'true',
-          xy_size_compensation: row.xy_size_compensation || '',
-          wait_time_before_cure: row.wait_time_before_cure || '',
-          wait_time_after_cure: row.wait_time_after_cure || '',
-          wait_time_after_lift: row.wait_time_after_lift || '',
-          xy_adjustment_x_pct: row.xy_adjustment_x_pct || '',
-          xy_adjustment_y_pct: row.xy_adjustment_y_pct || '',
-          notes: row.notes || ''
+          id: row.id && row.id.trim() !== '' ? row.id.trim() : undefined,
+          brand_slug: (row.brand || '').trim().toLowerCase().replace(/\s+/g, '-'),
+          model_slug: (row.model || '').trim().toLowerCase().replace(/\s+/g, '-'),
+          resin_name: (row.resin_name || '').trim(),
+          resin_manufacturer: (row.resin_manufacturer || row.variant_label || '').trim(),
+          layer_height: (row.layer_height || '0.05').trim(),
+          cure_time: (row.cure_time || '8').trim(),
+          bottom_cure_time: (row.bottom_cure_time || '').trim(),
+          light_intensity: (row.light_intensity || '100').trim(),
+          bottom_layers: (row.bottom_layers || '').trim(),
+          lift_distance: (row.lift_distance || '').trim(),
+          lift_speed: (row.lift_speed || '').trim(),
+          retract_speed: (row.retract_speed || '').trim(),
+          anti_aliasing: (row.anti_aliasing || 'true').trim(),
+          xy_size_compensation: (row.xy_size_compensation || '').trim(),
+          wait_time_before_cure: (row.wait_time_before_cure || '').trim(),
+          wait_time_after_cure: (row.wait_time_after_cure || '').trim(),
+          wait_time_after_lift: (row.wait_time_after_lift || '').trim(),
+          xy_adjustment_x_pct: (row.xy_adjustment_x_pct || '').trim(),
+          xy_adjustment_y_pct: (row.xy_adjustment_y_pct || '').trim(),
+          notes: (row.notes || '').trim()
         };
 
         // Só incluir active se foi definido
