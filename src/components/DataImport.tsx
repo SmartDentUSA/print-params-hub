@@ -27,13 +27,58 @@ export function DataImport() {
     const lines = text.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
+    // Parse header row
+    const headerLine = lines[0];
+    const headers: string[] = [];
+    let currentHeader = '';
+    let insideQuotes = false;
+
+    for (let i = 0; i < headerLine.length; i++) {
+      const char = headerLine[i];
+      
+      if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === ',' && !insideQuotes) {
+        headers.push(currentHeader.trim().replace(/^"|"$/g, ''));
+        currentHeader = '';
+      } else {
+        currentHeader += char;
+      }
+    }
+    headers.push(currentHeader.trim().replace(/^"|"$/g, ''));
+
     const rows: any[] = [];
 
+    // Parse data rows
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim());
-      const row: any = {};
+      const line = lines[i];
+      if (!line.trim()) continue; // Skip empty lines
       
+      const values: string[] = [];
+      let currentValue = '';
+      insideQuotes = false;
+
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        
+        if (char === '"') {
+          insideQuotes = !insideQuotes;
+        } else if (char === ',' && !insideQuotes) {
+          values.push(currentValue.trim().replace(/^"|"$/g, ''));
+          currentValue = '';
+        } else {
+          currentValue += char;
+        }
+      }
+      values.push(currentValue.trim().replace(/^"|"$/g, ''));
+
+      // Validate column count
+      if (values.length !== headers.length) {
+        console.warn(`Linha ${i + 1}: esperado ${headers.length} colunas, encontrado ${values.length}`);
+      }
+
+      // Map to object
+      const row: any = {};
       headers.forEach((header, index) => {
         row[header] = values[index] || '';
       });

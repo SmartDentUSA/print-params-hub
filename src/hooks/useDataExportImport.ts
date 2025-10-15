@@ -204,34 +204,49 @@ export const useDataExportImport = () => {
 
       console.log(`Processando: ${rowsToUpdate.length} atualizações, ${rowsToInsert.length} inserções`);
 
-      // Process updates
+      // Process updates - fetch existing data first to preserve fields
       for (const row of rowsToUpdate) {
         try {
+          // Fetch existing record
+          const { data: existingRecord, error: fetchError } = await supabase
+            .from('parameter_sets')
+            .select('*')
+            .eq('id', row.id)
+            .single();
+
+          if (fetchError || !existingRecord) {
+            stats.errors.push(`Registro ${row.id} não encontrado para atualização`);
+            continue;
+          }
+
+          // Merge data: use CSV value if present (and not empty), otherwise keep existing
+          const mergedData = {
+            brand_slug: row.brand_slug && row.brand_slug.trim() !== '' ? row.brand_slug : existingRecord.brand_slug,
+            model_slug: row.model_slug && row.model_slug.trim() !== '' ? row.model_slug : existingRecord.model_slug,
+            resin_name: row.resin_name && row.resin_name.trim() !== '' ? row.resin_name : existingRecord.resin_name,
+            resin_manufacturer: row.resin_manufacturer && row.resin_manufacturer.trim() !== '' ? row.resin_manufacturer : existingRecord.resin_manufacturer,
+            layer_height: row.layer_height && row.layer_height.trim() !== '' ? parseFloat(row.layer_height) : existingRecord.layer_height,
+            cure_time: row.cure_time && row.cure_time.trim() !== '' ? parseFloat(row.cure_time) : existingRecord.cure_time,
+            bottom_cure_time: row.bottom_cure_time && row.bottom_cure_time.trim() !== '' ? parseFloat(row.bottom_cure_time) : existingRecord.bottom_cure_time,
+            light_intensity: row.light_intensity && row.light_intensity.trim() !== '' ? parseInt(row.light_intensity) : existingRecord.light_intensity,
+            bottom_layers: row.bottom_layers && row.bottom_layers.trim() !== '' ? parseInt(row.bottom_layers) : existingRecord.bottom_layers,
+            lift_distance: row.lift_distance && row.lift_distance.trim() !== '' ? parseFloat(row.lift_distance) : existingRecord.lift_distance,
+            lift_speed: row.lift_speed && row.lift_speed.trim() !== '' ? parseFloat(row.lift_speed) : existingRecord.lift_speed,
+            retract_speed: row.retract_speed && row.retract_speed.trim() !== '' ? parseFloat(row.retract_speed) : existingRecord.retract_speed,
+            anti_aliasing: row.anti_aliasing && row.anti_aliasing.trim() !== '' ? (row.anti_aliasing === 'true' || row.anti_aliasing === true) : existingRecord.anti_aliasing,
+            xy_size_compensation: row.xy_size_compensation && row.xy_size_compensation.trim() !== '' ? parseFloat(row.xy_size_compensation) : existingRecord.xy_size_compensation,
+            wait_time_before_cure: row.wait_time_before_cure && row.wait_time_before_cure.trim() !== '' ? parseFloat(row.wait_time_before_cure) : existingRecord.wait_time_before_cure,
+            wait_time_after_cure: row.wait_time_after_cure && row.wait_time_after_cure.trim() !== '' ? parseFloat(row.wait_time_after_cure) : existingRecord.wait_time_after_cure,
+            wait_time_after_lift: row.wait_time_after_lift && row.wait_time_after_lift.trim() !== '' ? parseFloat(row.wait_time_after_lift) : existingRecord.wait_time_after_lift,
+            xy_adjustment_x_pct: row.xy_adjustment_x_pct && row.xy_adjustment_x_pct.trim() !== '' ? parseInt(row.xy_adjustment_x_pct) : existingRecord.xy_adjustment_x_pct,
+            xy_adjustment_y_pct: row.xy_adjustment_y_pct && row.xy_adjustment_y_pct.trim() !== '' ? parseInt(row.xy_adjustment_y_pct) : existingRecord.xy_adjustment_y_pct,
+            notes: row.notes && row.notes.trim() !== '' ? row.notes : existingRecord.notes,
+            active: row.active && row.active.trim() !== '' ? (row.active === 'true' || row.active === true) : existingRecord.active
+          };
+
           const { error: updateError } = await supabase
             .from('parameter_sets')
-            .update({
-              brand_slug: row.brand_slug,
-              model_slug: row.model_slug,
-              resin_name: row.resin_name,
-              resin_manufacturer: row.resin_manufacturer,
-              layer_height: parseFloat(row.layer_height),
-              cure_time: parseFloat(row.cure_time),
-              bottom_cure_time: row.bottom_cure_time ? parseFloat(row.bottom_cure_time) : null,
-              light_intensity: parseInt(row.light_intensity),
-              bottom_layers: row.bottom_layers ? parseInt(row.bottom_layers) : null,
-              lift_distance: row.lift_distance ? parseFloat(row.lift_distance) : null,
-              lift_speed: row.lift_speed ? parseFloat(row.lift_speed) : null,
-              retract_speed: row.retract_speed ? parseFloat(row.retract_speed) : null,
-              anti_aliasing: row.anti_aliasing === 'true' || row.anti_aliasing === true,
-              xy_size_compensation: row.xy_size_compensation ? parseFloat(row.xy_size_compensation) : null,
-              wait_time_before_cure: row.wait_time_before_cure ? parseFloat(row.wait_time_before_cure) : null,
-              wait_time_after_cure: row.wait_time_after_cure ? parseFloat(row.wait_time_after_cure) : null,
-              wait_time_after_lift: row.wait_time_after_lift ? parseFloat(row.wait_time_after_lift) : null,
-              xy_adjustment_x_pct: row.xy_adjustment_x_pct ? parseInt(row.xy_adjustment_x_pct) : null,
-              xy_adjustment_y_pct: row.xy_adjustment_y_pct ? parseInt(row.xy_adjustment_y_pct) : null,
-              notes: row.notes || null,
-              active: row.active === 'true' || row.active === true
-            })
+            .update(mergedData)
             .eq('id', row.id);
 
           if (updateError) {
