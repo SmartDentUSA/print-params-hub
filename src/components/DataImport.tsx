@@ -117,6 +117,23 @@ export function DataImport() {
         throw new Error("Arquivo CSV vazio ou formato inválido");
       }
 
+      // Validate for duplicate IDs within CSV
+      const idCounts = new Map<string, number>();
+      parsedData
+        .filter(row => row.id && row.id.trim())
+        .forEach(row => {
+          const id = row.id.trim();
+          idCounts.set(id, (idCounts.get(id) || 0) + 1);
+        });
+
+      const duplicateIds = Array.from(idCounts.entries())
+        .filter(([_, count]) => count > 1)
+        .map(([id, _]) => id);
+
+      if (duplicateIds.length > 0) {
+        throw new Error(`IDs duplicados encontrados no CSV: ${duplicateIds.join(', ')}. Cada ID deve aparecer apenas uma vez.`);
+      }
+
       // Transform to database format
       const transformedData = parsedData.map(row => {
         // Normalizar active para boolean ou undefined

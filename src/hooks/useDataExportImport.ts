@@ -204,7 +204,7 @@ export const useDataExportImport = () => {
 
       console.log(`Processando: ${rowsToUpdate.length} atualizações, ${rowsToInsert.length} inserções`);
 
-      // Process updates - fetch existing data first to preserve fields
+      // Process updates with conflict detection
       for (const row of rowsToUpdate) {
         try {
           // Fetch existing record
@@ -219,13 +219,40 @@ export const useDataExportImport = () => {
             continue;
           }
 
-          // Merge data: use CSV value if present (and not empty), otherwise keep existing
-          const mergedData = {
+          // Calculate natural key after merge
+          const naturalKey = {
             brand_slug: row.brand_slug && row.brand_slug.trim() !== '' ? row.brand_slug : existingRecord.brand_slug,
             model_slug: row.model_slug && row.model_slug.trim() !== '' ? row.model_slug : existingRecord.model_slug,
             resin_name: row.resin_name && row.resin_name.trim() !== '' ? row.resin_name : existingRecord.resin_name,
             resin_manufacturer: row.resin_manufacturer && row.resin_manufacturer.trim() !== '' ? row.resin_manufacturer : existingRecord.resin_manufacturer,
-            layer_height: row.layer_height && row.layer_height.trim() !== '' ? parseFloat(row.layer_height) : existingRecord.layer_height,
+            layer_height: row.layer_height && row.layer_height.trim() !== '' ? parseFloat(row.layer_height) : existingRecord.layer_height
+          };
+
+          // Check if another record with different ID has the same natural key
+          const { data: conflictingRecords } = await supabase
+            .from('parameter_sets')
+            .select('id')
+            .eq('brand_slug', naturalKey.brand_slug)
+            .eq('model_slug', naturalKey.model_slug)
+            .eq('resin_name', naturalKey.resin_name)
+            .eq('resin_manufacturer', naturalKey.resin_manufacturer)
+            .eq('layer_height', naturalKey.layer_height)
+            .neq('id', row.id);
+
+          if (conflictingRecords && conflictingRecords.length > 0) {
+            stats.errors.push(
+              `CONFLITO: ID ${row.id} - Parâmetros ${naturalKey.brand_slug}/${naturalKey.model_slug}/${naturalKey.resin_name}/${naturalKey.layer_height}mm já existem em outro registro (ID: ${conflictingRecords[0].id})`
+            );
+            continue;
+          }
+
+          // Merge data: use CSV value if present (and not empty), otherwise keep existing
+          const mergedData = {
+            brand_slug: naturalKey.brand_slug,
+            model_slug: naturalKey.model_slug,
+            resin_name: naturalKey.resin_name,
+            resin_manufacturer: naturalKey.resin_manufacturer,
+            layer_height: naturalKey.layer_height,
             cure_time: row.cure_time && row.cure_time.trim() !== '' ? parseFloat(row.cure_time) : existingRecord.cure_time,
             bottom_cure_time: row.bottom_cure_time && row.bottom_cure_time.trim() !== '' ? parseFloat(row.bottom_cure_time) : existingRecord.bottom_cure_time,
             light_intensity: row.light_intensity && row.light_intensity.trim() !== '' ? parseInt(row.light_intensity) : existingRecord.light_intensity,
@@ -260,11 +287,92 @@ export const useDataExportImport = () => {
         }
       }
 
-      // Process inserts in batches
+      // Process inserts with duplicate detection
       if (rowsToInsert.length > 0) {
+        const actualInserts: any[] = [];
+        const convertedToUpdates: any[] = [];
+
+        // Check each insert for existing natural key
+        for (const row of rowsToInsert) {
+          const naturalKey = {
+            brand_slug: row.brand_slug,
+            model_slug: row.model_slug,
+            resin_name: row.resin_name,
+            resin_manufacturer: row.resin_manufacturer,
+            layer_height: parseFloat(row.layer_height)
+          };
+
+          const { data: existing } = await supabase
+            .from('parameter_sets')
+            .select('id')
+            .eq('brand_slug', naturalKey.brand_slug)
+            .eq('model_slug', naturalKey.model_slug)
+            .eq('resin_name', naturalKey.resin_name)
+            .eq('resin_manufacturer', naturalKey.resin_manufacturer)
+            .eq('layer_height', naturalKey.layer_height)
+            .maybeSingle();
+
+          if (existing) {
+            convertedToUpdates.push({ ...row, id: existing.id });
+          } else {
+            actualInserts.push(row);
+          }
+        }
+
+        if (convertedToUpdates.length > 0) {
+          console.log(`Converted ${convertedToUpdates.length} inserts to updates (duplicates detected)`);
+        }
+
+        // Process converted updates
+        for (const row of convertedToUpdates) {
+          try {
+            const updateData: any = {
+              brand_slug: row.brand_slug,
+              model_slug: row.model_slug,
+              resin_name: row.resin_name,
+              resin_manufacturer: row.resin_manufacturer,
+              layer_height: parseFloat(row.layer_height),
+              cure_time: parseFloat(row.cure_time),
+              bottom_cure_time: row.bottom_cure_time ? parseFloat(row.bottom_cure_time) : null,
+              light_intensity: parseInt(row.light_intensity),
+              bottom_layers: row.bottom_layers ? parseInt(row.bottom_layers) : null,
+              lift_distance: row.lift_distance ? parseFloat(row.lift_distance) : 5.0,
+              lift_speed: row.lift_speed ? parseFloat(row.lift_speed) : 3.0,
+              retract_speed: row.retract_speed ? parseFloat(row.retract_speed) : 3.0,
+              anti_aliasing: row.anti_aliasing === 'true' || row.anti_aliasing === true,
+              xy_size_compensation: row.xy_size_compensation ? parseFloat(row.xy_size_compensation) : 0.0,
+              wait_time_before_cure: row.wait_time_before_cure ? parseFloat(row.wait_time_before_cure) : 0,
+              wait_time_after_cure: row.wait_time_after_cure ? parseFloat(row.wait_time_after_cure) : 0,
+              wait_time_after_lift: row.wait_time_after_lift ? parseFloat(row.wait_time_after_lift) : 0,
+              xy_adjustment_x_pct: row.xy_adjustment_x_pct ? parseInt(row.xy_adjustment_x_pct) : 100,
+              xy_adjustment_y_pct: row.xy_adjustment_y_pct ? parseInt(row.xy_adjustment_y_pct) : 100,
+              notes: row.notes || null
+            };
+
+            if (row.active !== undefined && row.active !== '') {
+              updateData.active = row.active === 'true' || row.active === true;
+            }
+
+            const { error: updateError } = await supabase
+              .from('parameter_sets')
+              .update(updateData)
+              .eq('id', row.id);
+
+            if (updateError) {
+              stats.errors.push(`Erro ao atualizar duplicata: ${updateError.message}`);
+            } else {
+              stats.updated++;
+            }
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido';
+            stats.errors.push(`Erro ao processar duplicata: ${errorMsg}`);
+          }
+        }
+
+        // Process actual inserts in batches
         const batchSize = 50;
-        for (let i = 0; i < rowsToInsert.length; i += batchSize) {
-          const batch = rowsToInsert.slice(i, i + batchSize);
+        for (let i = 0; i < actualInserts.length; i += batchSize) {
+          const batch = actualInserts.slice(i, i + batchSize);
           
           const formattedBatch = batch.map(row => {
             const insertData: any = {
@@ -290,7 +398,6 @@ export const useDataExportImport = () => {
               notes: row.notes || null
             };
 
-            // Só incluir active se foi explicitamente definido no CSV
             if (row.active !== undefined && row.active !== '') {
               insertData.active = row.active === 'true' || row.active === true;
             }
