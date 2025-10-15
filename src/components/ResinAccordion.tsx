@@ -1,5 +1,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
 import { ParameterTable } from "./ParameterTable";
 
 interface ParameterSet {
@@ -24,6 +26,12 @@ interface Resin {
   manufacturer: string;
   color?: string;
   parameterSets: ParameterSet[];
+  cta_1_label?: string;
+  cta_1_url?: string;
+  cta_2_label?: string;
+  cta_2_url?: string;
+  cta_3_label?: string;
+  cta_3_url?: string;
 }
 
 interface ResinAccordionProps {
@@ -65,9 +73,52 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                       </p>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="ml-2">
-                    {resin.parameterSets.length} variação{resin.parameterSets.length !== 1 ? 'ões' : ''}
-                  </Badge>
+                  
+                  <div className="flex items-center gap-2 ml-4">
+                    {resin.cta_1_label && resin.cta_1_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        {resin.cta_1_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    {resin.cta_2_label && resin.cta_2_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        {resin.cta_2_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    {resin.cta_3_label && resin.cta_3_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        {resin.cta_3_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    
+                    <Badge variant="secondary" className="ml-2">
+                      {resin.parameterSets.length} variação{resin.parameterSets.length !== 1 ? 'ões' : ''}
+                    </Badge>
+                  </div>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="px-6 pb-6">

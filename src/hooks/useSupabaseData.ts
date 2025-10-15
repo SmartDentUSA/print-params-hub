@@ -27,6 +27,12 @@ export interface Resin {
   color?: string;
   type: 'standard' | 'flexible' | 'tough' | 'transparent' | 'biocompatible' | 'high_temp';
   active: boolean;
+  cta_1_label?: string;
+  cta_1_url?: string;
+  cta_2_label?: string;
+  cta_2_url?: string;
+  cta_3_label?: string;
+  cta_3_url?: string;
 }
 
 export interface ParameterSet {

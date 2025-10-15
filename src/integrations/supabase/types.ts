@@ -174,6 +174,12 @@ export type Database = {
           active: boolean
           color: string | null
           created_at: string
+          cta_1_label: string | null
+          cta_1_url: string | null
+          cta_2_label: string | null
+          cta_2_url: string | null
+          cta_3_label: string | null
+          cta_3_url: string | null
           id: string
           manufacturer: string
           name: string
@@ -184,6 +190,12 @@ export type Database = {
           active?: boolean
           color?: string | null
           created_at?: string
+          cta_1_label?: string | null
+          cta_1_url?: string | null
+          cta_2_label?: string | null
+          cta_2_url?: string | null
+          cta_3_label?: string | null
+          cta_3_url?: string | null
           id?: string
           manufacturer: string
           name: string
@@ -194,6 +206,12 @@ export type Database = {
           active?: boolean
           color?: string | null
           created_at?: string
+          cta_1_label?: string | null
+          cta_1_url?: string | null
+          cta_2_label?: string | null
+          cta_2_url?: string | null
+          cta_3_label?: string | null
+          cta_3_url?: string | null
           id?: string
           manufacturer?: string
           name?: string

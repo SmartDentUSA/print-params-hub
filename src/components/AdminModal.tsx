@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Save, X } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Save, X, ExternalLink } from 'lucide-react';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,6 +36,12 @@ interface Resin {
   active: boolean;
   color?: string;
   type?: string;
+  cta_1_label?: string;
+  cta_1_url?: string;
+  cta_2_label?: string;
+  cta_2_url?: string;
+  cta_3_label?: string;
+  cta_3_url?: string;
 }
 
 interface ParameterSet {
@@ -434,6 +441,103 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* CTAs Customizáveis */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Botões de Ação (CTAs)</Label>
+                <Accordion type="single" collapsible className="w-full">
+                  <AccordionItem value="cta-1">
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="w-4 h-4" />
+                        <span>CTA 1</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 pt-2">
+                      <div>
+                        <Label htmlFor="cta_1_label">Nome do Botão</Label>
+                        <Input
+                          id="cta_1_label"
+                          value={formData.cta_1_label || ''}
+                          onChange={(e) => handleInputChange('cta_1_label', e.target.value)}
+                          placeholder="Ex: Comprar"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cta_1_url">URL</Label>
+                        <Input
+                          id="cta_1_url"
+                          type="url"
+                          value={formData.cta_1_url || ''}
+                          onChange={(e) => handleInputChange('cta_1_url', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="cta-2">
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="w-4 h-4" />
+                        <span>CTA 2</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 pt-2">
+                      <div>
+                        <Label htmlFor="cta_2_label">Nome do Botão</Label>
+                        <Input
+                          id="cta_2_label"
+                          value={formData.cta_2_label || ''}
+                          onChange={(e) => handleInputChange('cta_2_label', e.target.value)}
+                          placeholder="Ex: Ficha Técnica"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cta_2_url">URL</Label>
+                        <Input
+                          id="cta_2_url"
+                          type="url"
+                          value={formData.cta_2_url || ''}
+                          onChange={(e) => handleInputChange('cta_2_url', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  <AccordionItem value="cta-3">
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="w-4 h-4" />
+                        <span>CTA 3</span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-3 pt-2">
+                      <div>
+                        <Label htmlFor="cta_3_label">Nome do Botão</Label>
+                        <Input
+                          id="cta_3_label"
+                          value={formData.cta_3_label || ''}
+                          onChange={(e) => handleInputChange('cta_3_label', e.target.value)}
+                          placeholder="Ex: Suporte"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="cta_3_url">URL</Label>
+                        <Input
+                          id="cta_3_url"
+                          type="url"
+                          value={formData.cta_3_url || ''}
+                          onChange={(e) => handleInputChange('cta_3_url', e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+              
               <div className="flex items-center space-x-2">
                 <Switch
                   id="active"
