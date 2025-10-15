@@ -6,13 +6,15 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
 import { AdminModal } from "@/components/AdminModal";
 import { supabase } from "@/integrations/supabase/client";
 import { DataExport } from "@/components/DataExport";
 import { DataImport } from "@/components/DataImport";
+import { useAdminMaintenance, MaintenanceStats } from "@/hooks/useAdminMaintenance";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Brand {
   id: string;
@@ -73,7 +75,12 @@ export function AdminSettings() {
   const [resinSearch, setResinSearch] = useState("");
   const [parameterSearch, setParameterSearch] = useState("");
 
+  // Maintenance states
+  const [inactiveStats, setInactiveStats] = useState<MaintenanceStats>({ affected: 0, brands: 0, models: 0 });
+  const [recentFilter, setRecentFilter] = useState<string>("all");
+
   const { toast } = useToast();
+  const { loading: maintenanceLoading, getInactiveStats, reactivateAllInactive, reactivateInactiveSince } = useAdminMaintenance();
   const { 
     fetchBrands, 
     fetchModelsByBrand,
@@ -95,7 +102,17 @@ export function AdminSettings() {
 
   useEffect(() => {
     loadData();
+    loadInactiveStats();
   }, []);
+
+  const loadInactiveStats = async () => {
+    try {
+      const stats = await getInactiveStats();
+      setInactiveStats(stats);
+    } catch (error) {
+      console.error('Error loading inactive stats:', error);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -790,16 +807,164 @@ export function AdminSettings() {
             </TabsContent>
 
             <TabsContent value="data" className="space-y-4">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Gerenciamento de Dados em Massa</h3>
-                <p className="text-sm text-muted-foreground">
-                  Exporte todos os dados do sistema para CSV, edite localmente e reimporte com sobrescrita automática.
-                </p>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Gerenciamento de Dados em Massa</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Exporte todos os dados do sistema para CSV, edite localmente e reimporte com sobrescrita automática.
+                  </p>
+                </div>
                 
                 <div className="grid md:grid-cols-2 gap-4">
                   <DataExport />
                   <DataImport />
                 </div>
+
+                {/* Maintenance Card */}
+                <Card className="border-warning/20 bg-warning/5">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-warning">
+                      <AlertTriangle className="w-5 h-5" />
+                      Reparar Visibilidade
+                    </CardTitle>
+                    <CardDescription>
+                      Reative parâmetros que foram marcados como inativos acidentalmente
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {inactiveStats.affected > 0 ? (
+                      <>
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge variant="destructive" className="text-base px-3 py-1">
+                            {inactiveStats.affected}
+                          </Badge>
+                          <span className="text-muted-foreground">
+                            parâmetros inativos em <strong>{inactiveStats.brands}</strong> marcas e <strong>{inactiveStats.models}</strong> modelos
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button 
+                                variant="default" 
+                                className="flex items-center gap-2"
+                                disabled={maintenanceLoading}
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                                Reativar Todos
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Reativar todos os parâmetros inativos?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação irá reativar <strong>{inactiveStats.affected} parâmetros</strong> marcados como inativos.
+                                  Os dados voltarão a aparecer imediatamente nas listagens.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={async () => {
+                                  try {
+                                    const count = await reactivateAllInactive();
+                                    toast({
+                                      title: "Sucesso",
+                                      description: `${count} parâmetros reativados com sucesso.`,
+                                    });
+                                    await loadInactiveStats();
+                                    await loadData();
+                                  } catch (error) {
+                                    toast({
+                                      title: "Erro",
+                                      description: error instanceof Error ? error.message : "Erro ao reativar parâmetros",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}>
+                                  Confirmar Reativação
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+
+                          <div className="flex gap-2 flex-1">
+                            <Select value={recentFilter} onValueChange={setRecentFilter}>
+                              <SelectTrigger className="w-[160px]">
+                                <SelectValue placeholder="Filtro temporal" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">Todos</SelectItem>
+                                <SelectItem value="2">Últimas 2h</SelectItem>
+                                <SelectItem value="24">Últimas 24h</SelectItem>
+                                <SelectItem value="168">Últimos 7 dias</SelectItem>
+                              </SelectContent>
+                            </Select>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="outline" 
+                                  className="flex items-center gap-2"
+                                  disabled={maintenanceLoading || recentFilter === "all"}
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                  Reativar Recentes
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Reativar parâmetros recentes?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação irá reativar apenas os parâmetros inativos modificados nas últimas{' '}
+                                    {recentFilter === "2" ? "2 horas" : recentFilter === "24" ? "24 horas" : "7 dias"}.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={async () => {
+                                    try {
+                                      const hours = parseInt(recentFilter);
+                                      const count = await reactivateInactiveSince(hours);
+                                      if (count === 0) {
+                                        toast({
+                                          title: "Sem alterações",
+                                          description: "Nenhum registro inativo encontrado para este período.",
+                                        });
+                                      } else {
+                                        toast({
+                                          title: "Sucesso",
+                                          description: `${count} parâmetros reativados com sucesso.`,
+                                        });
+                                      }
+                                      await loadInactiveStats();
+                                      await loadData();
+                                    } catch (error) {
+                                      toast({
+                                        title: "Erro",
+                                        description: error instanceof Error ? error.message : "Erro ao reativar parâmetros",
+                                        variant: "destructive",
+                                      });
+                                    }
+                                  }}>
+                                    Confirmar Reativação
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+                          ✓ OK
+                        </Badge>
+                        <span>Nenhum parâmetro inativo encontrado no sistema</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </TabsContent>
           </Tabs>
