@@ -118,30 +118,49 @@ export function DataImport() {
       }
 
       // Transform to database format
-      const transformedData = parsedData.map(row => ({
-        id: row.id && row.id.trim() !== '' ? row.id : undefined,
-        brand_slug: (row.brand || '').toLowerCase().replace(/\s+/g, '-'),
-        model_slug: (row.model || '').toLowerCase().replace(/\s+/g, '-'),
-        resin_name: row.resin || '',
-        resin_manufacturer: row.resin_manufacturer || '',
-        layer_height: row.layer_height || '0.05',
-        cure_time: row.cure_time || '8',
-        bottom_cure_time: row.bottom_cure_time || '',
-        light_intensity: row.light_intensity || '100',
-        bottom_layers: row.bottom_layers || '',
-        lift_distance: row.lift_distance || '',
-        lift_speed: row.lift_speed || '',
-        retract_speed: row.retract_speed || '',
-        anti_aliasing: row.anti_aliasing || 'true',
-        xy_size_compensation: row.xy_size_compensation || '',
-        wait_time_before_cure: row.wait_time_before_cure || '',
-        wait_time_after_cure: row.wait_time_after_cure || '',
-        wait_time_after_lift: row.wait_time_after_lift || '',
-        xy_adjustment_x_pct: row.xy_adjustment_x_pct || '',
-        xy_adjustment_y_pct: row.xy_adjustment_y_pct || '',
-        notes: row.notes || '',
-        active: row.active !== undefined ? row.active : 'true'
-      }));
+      const transformedData = parsedData.map(row => {
+        // Normalizar active para boolean ou undefined
+        let activeValue: string | boolean | undefined = undefined;
+        if (row.active && row.active.trim() !== '') {
+          const normalizedActive = row.active.toString().toLowerCase().trim();
+          if (['true', '1', 'yes', 'y', 'sim'].includes(normalizedActive)) {
+            activeValue = 'true';
+          } else if (['false', '0', 'no', 'n', 'não'].includes(normalizedActive)) {
+            activeValue = 'false';
+          }
+        }
+
+        const transformed: any = {
+          id: row.id && row.id.trim() !== '' ? row.id : undefined,
+          brand_slug: (row.brand || '').toLowerCase().replace(/\s+/g, '-'),
+          model_slug: (row.model || '').toLowerCase().replace(/\s+/g, '-'),
+          resin_name: row.resin || '',
+          resin_manufacturer: row.resin_manufacturer || row.variant_label || '',
+          layer_height: row.layer_height || '0.05',
+          cure_time: row.cure_time || '8',
+          bottom_cure_time: row.bottom_cure_time || '',
+          light_intensity: row.light_intensity || '100',
+          bottom_layers: row.bottom_layers || '',
+          lift_distance: row.lift_distance || '',
+          lift_speed: row.lift_speed || '',
+          retract_speed: row.retract_speed || '',
+          anti_aliasing: row.anti_aliasing || 'true',
+          xy_size_compensation: row.xy_size_compensation || '',
+          wait_time_before_cure: row.wait_time_before_cure || '',
+          wait_time_after_cure: row.wait_time_after_cure || '',
+          wait_time_after_lift: row.wait_time_after_lift || '',
+          xy_adjustment_x_pct: row.xy_adjustment_x_pct || '',
+          xy_adjustment_y_pct: row.xy_adjustment_y_pct || '',
+          notes: row.notes || ''
+        };
+
+        // Só incluir active se foi definido
+        if (activeValue !== undefined) {
+          transformed.active = activeValue;
+        }
+
+        return transformed;
+      });
 
       // Execute bulk upsert
       const stats = await bulkUpsertParameterSets(transformedData);

@@ -266,29 +266,37 @@ export const useDataExportImport = () => {
         for (let i = 0; i < rowsToInsert.length; i += batchSize) {
           const batch = rowsToInsert.slice(i, i + batchSize);
           
-          const formattedBatch = batch.map(row => ({
-            brand_slug: row.brand_slug,
-            model_slug: row.model_slug,
-            resin_name: row.resin_name,
-            resin_manufacturer: row.resin_manufacturer,
-            layer_height: parseFloat(row.layer_height),
-            cure_time: parseFloat(row.cure_time),
-            bottom_cure_time: row.bottom_cure_time ? parseFloat(row.bottom_cure_time) : null,
-            light_intensity: parseInt(row.light_intensity),
-            bottom_layers: row.bottom_layers ? parseInt(row.bottom_layers) : null,
-            lift_distance: row.lift_distance ? parseFloat(row.lift_distance) : 5.0,
-            lift_speed: row.lift_speed ? parseFloat(row.lift_speed) : 3.0,
-            retract_speed: row.retract_speed ? parseFloat(row.retract_speed) : 3.0,
-            anti_aliasing: row.anti_aliasing === 'true' || row.anti_aliasing === true,
-            xy_size_compensation: row.xy_size_compensation ? parseFloat(row.xy_size_compensation) : 0.0,
-            wait_time_before_cure: row.wait_time_before_cure ? parseFloat(row.wait_time_before_cure) : 0,
-            wait_time_after_cure: row.wait_time_after_cure ? parseFloat(row.wait_time_after_cure) : 0,
-            wait_time_after_lift: row.wait_time_after_lift ? parseFloat(row.wait_time_after_lift) : 0,
-            xy_adjustment_x_pct: row.xy_adjustment_x_pct ? parseInt(row.xy_adjustment_x_pct) : 100,
-            xy_adjustment_y_pct: row.xy_adjustment_y_pct ? parseInt(row.xy_adjustment_y_pct) : 100,
-            notes: row.notes || null,
-            active: row.active === 'true' || row.active === true
-          }));
+          const formattedBatch = batch.map(row => {
+            const insertData: any = {
+              brand_slug: row.brand_slug,
+              model_slug: row.model_slug,
+              resin_name: row.resin_name,
+              resin_manufacturer: row.resin_manufacturer,
+              layer_height: parseFloat(row.layer_height),
+              cure_time: parseFloat(row.cure_time),
+              bottom_cure_time: row.bottom_cure_time ? parseFloat(row.bottom_cure_time) : null,
+              light_intensity: parseInt(row.light_intensity),
+              bottom_layers: row.bottom_layers ? parseInt(row.bottom_layers) : null,
+              lift_distance: row.lift_distance ? parseFloat(row.lift_distance) : 5.0,
+              lift_speed: row.lift_speed ? parseFloat(row.lift_speed) : 3.0,
+              retract_speed: row.retract_speed ? parseFloat(row.retract_speed) : 3.0,
+              anti_aliasing: row.anti_aliasing === 'true' || row.anti_aliasing === true,
+              xy_size_compensation: row.xy_size_compensation ? parseFloat(row.xy_size_compensation) : 0.0,
+              wait_time_before_cure: row.wait_time_before_cure ? parseFloat(row.wait_time_before_cure) : 0,
+              wait_time_after_cure: row.wait_time_after_cure ? parseFloat(row.wait_time_after_cure) : 0,
+              wait_time_after_lift: row.wait_time_after_lift ? parseFloat(row.wait_time_after_lift) : 0,
+              xy_adjustment_x_pct: row.xy_adjustment_x_pct ? parseInt(row.xy_adjustment_x_pct) : 100,
+              xy_adjustment_y_pct: row.xy_adjustment_y_pct ? parseInt(row.xy_adjustment_y_pct) : 100,
+              notes: row.notes || null
+            };
+
+            // Só incluir active se foi explicitamente definido no CSV
+            if (row.active !== undefined && row.active !== '') {
+              insertData.active = row.active === 'true' || row.active === true;
+            }
+
+            return insertData;
+          });
 
           const { error: insertError } = await supabase
             .from('parameter_sets')
