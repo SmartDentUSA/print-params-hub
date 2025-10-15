@@ -8,6 +8,162 @@ export interface ImportStats {
   total: number;
 }
 
+interface ValidationError {
+  row: number;
+  field: string;
+  value: any;
+  message: string;
+}
+
+const validateRow = (row: any, rowIndex: number): ValidationError[] => {
+  const errors: ValidationError[] = [];
+
+  // Validar resin_name
+  const resinName = row.resin_name?.trim();
+  if (!resinName || resinName.length < 2) {
+    errors.push({
+      row: rowIndex + 2, // +2 porque linha 1 é header e array começa em 0
+      field: 'resin_name',
+      value: row.resin_name,
+      message: 'Nome da resina deve ter pelo menos 2 caracteres'
+    });
+  }
+
+  // Validar resin_manufacturer
+  if (!row.resin_manufacturer?.trim()) {
+    errors.push({
+      row: rowIndex + 2,
+      field: 'resin_manufacturer',
+      value: row.resin_manufacturer,
+      message: 'Fabricante da resina é obrigatório'
+    });
+  }
+
+  // Validar layer_height
+  const layerHeight = parseFloat(row.layer_height);
+  if (isNaN(layerHeight) || layerHeight <= 0 || layerHeight > 0.2) {
+    errors.push({
+      row: rowIndex + 2,
+      field: 'layer_height',
+      value: row.layer_height,
+      message: 'Altura da camada deve estar entre 0 e 0.2mm'
+    });
+  }
+
+  // Validar cure_time
+  const cureTime = parseFloat(row.cure_time);
+  if (isNaN(cureTime) || cureTime < 0.5 || cureTime > 120) {
+    errors.push({
+      row: rowIndex + 2,
+      field: 'cure_time',
+      value: row.cure_time,
+      message: 'Tempo de cura deve estar entre 0.5 e 120 segundos'
+    });
+  }
+
+  // Validar bottom_cure_time (obrigatório)
+  const bottomCureTime = parseFloat(row.bottom_cure_time);
+  if (isNaN(bottomCureTime) || bottomCureTime < 5 || bottomCureTime > 300) {
+    errors.push({
+      row: rowIndex + 2,
+      field: 'bottom_cure_time',
+      value: row.bottom_cure_time,
+      message: 'Tempo de cura da base é obrigatório e deve estar entre 5 e 300 segundos'
+    });
+  }
+
+  // Validar light_intensity
+  const lightIntensity = parseInt(row.light_intensity);
+  if (isNaN(lightIntensity) || lightIntensity < 1 || lightIntensity > 100) {
+    errors.push({
+      row: rowIndex + 2,
+      field: 'light_intensity',
+      value: row.light_intensity,
+      message: 'Intensidade da luz deve estar entre 1 e 100%'
+    });
+  }
+
+  // Validar bottom_layers
+  if (row.bottom_layers) {
+    const bottomLayers = parseInt(row.bottom_layers);
+    if (isNaN(bottomLayers) || bottomLayers < 1 || bottomLayers > 20) {
+      errors.push({
+        row: rowIndex + 2,
+        field: 'bottom_layers',
+        value: row.bottom_layers,
+        message: 'Camadas de base devem estar entre 1 e 20'
+      });
+    }
+  }
+
+  // Validar xy_adjustment_x_pct
+  if (row.xy_adjustment_x_pct) {
+    const xPct = parseInt(row.xy_adjustment_x_pct);
+    if (isNaN(xPct) || xPct < 50 || xPct > 150) {
+      errors.push({
+        row: rowIndex + 2,
+        field: 'xy_adjustment_x_pct',
+        value: row.xy_adjustment_x_pct,
+        message: 'Ajuste X deve estar entre 50 e 150%'
+      });
+    }
+  }
+
+  // Validar xy_adjustment_y_pct
+  if (row.xy_adjustment_y_pct) {
+    const yPct = parseInt(row.xy_adjustment_y_pct);
+    if (isNaN(yPct) || yPct < 50 || yPct > 150) {
+      errors.push({
+        row: rowIndex + 2,
+        field: 'xy_adjustment_y_pct',
+        value: row.xy_adjustment_y_pct,
+        message: 'Ajuste Y deve estar entre 50 e 150%'
+      });
+    }
+  }
+
+  // Validar lift_distance
+  if (row.lift_distance) {
+    const liftDist = parseFloat(row.lift_distance);
+    if (isNaN(liftDist) || liftDist < 1 || liftDist > 20) {
+      errors.push({
+        row: rowIndex + 2,
+        field: 'lift_distance',
+        value: row.lift_distance,
+        message: 'Distância de elevação deve estar entre 1 e 20mm'
+      });
+    }
+  }
+
+  // Validar lift_speed
+  if (row.lift_speed) {
+    const liftSpeed = parseFloat(row.lift_speed);
+    if (isNaN(liftSpeed) || liftSpeed < 0.5 || liftSpeed > 10) {
+      errors.push({
+        row: rowIndex + 2,
+        field: 'lift_speed',
+        value: row.lift_speed,
+        message: 'Velocidade de elevação deve estar entre 0.5 e 10mm/s'
+      });
+    }
+  }
+
+  // Validar retract_speed
+  if (row.retract_speed) {
+    const retractSpeed = parseFloat(row.retract_speed);
+    if (isNaN(retractSpeed) || retractSpeed < 0.5 || retractSpeed > 10) {
+      errors.push({
+        row: rowIndex + 2,
+        field: 'retract_speed',
+        value: row.retract_speed,
+        message: 'Velocidade de retração deve estar entre 0.5 e 10mm/s'
+      });
+    }
+  }
+
+  return errors;
+};
+
 export const useDataExportImport = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,9 +174,33 @@ export const useDataExportImport = () => {
     const stats: ImportStats = { inserted: 0, updated: 0, errors: [], total: csvData.length };
     
     try {
+      // Validar todas as linhas antes de processar
+      const validationErrors: ValidationError[] = [];
+      csvData.forEach((row, index) => {
+        const rowErrors = validateRow(row, index);
+        validationErrors.push(...rowErrors);
+      });
+
+      if (validationErrors.length > 0) {
+        validationErrors.forEach(err => {
+          stats.errors.push(`Linha ${err.row}, campo "${err.field}": ${err.message} (valor: "${err.value}")`);
+        });
+        return stats;
+      }
+
+      // Trim automático de strings e normalizar dados
+      const normalizedData = csvData.map(row => ({
+        ...row,
+        brand_slug: row.brand_slug?.trim(),
+        model_slug: row.model_slug?.trim(),
+        resin_name: row.resin_name?.trim(),
+        resin_manufacturer: row.resin_manufacturer?.trim(),
+        notes: row.notes?.trim() || null
+      }));
+
       // Separate rows with ID (update) from rows without ID (insert)
-      const rowsToUpdate = csvData.filter(row => row.id && row.id.trim() !== '');
-      const rowsToInsert = csvData.filter(row => !row.id || row.id.trim() === '');
+      const rowsToUpdate = normalizedData.filter(row => row.id && row.id.trim() !== '');
+      const rowsToInsert = normalizedData.filter(row => !row.id || row.id.trim() === '');
 
       console.log(`Processando: ${rowsToUpdate.length} atualizações, ${rowsToInsert.length} inserções`);
 
