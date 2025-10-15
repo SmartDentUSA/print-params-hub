@@ -6,11 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
 import { AdminModal } from "@/components/AdminModal";
 import { supabase } from "@/integrations/supabase/client";
+import { DataExport } from "@/components/DataExport";
+import { DataImport } from "@/components/DataImport";
 
 interface Brand {
   id: string;
@@ -353,7 +355,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -369,6 +371,10 @@ export function AdminSettings() {
               <TabsTrigger value="parameters" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
                 Parâmetros
+              </TabsTrigger>
+              <TabsTrigger value="data" className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Dados
               </TabsTrigger>
             </TabsList>
 
@@ -780,6 +786,20 @@ export function AdminSettings() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="data" className="space-y-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Gerenciamento de Dados em Massa</h3>
+                <p className="text-sm text-muted-foreground">
+                  Exporte todos os dados do sistema para CSV, edite localmente e reimporte com sobrescrita automática.
+                </p>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <DataExport />
+                  <DataImport />
+                </div>
               </div>
             </TabsContent>
           </Tabs>

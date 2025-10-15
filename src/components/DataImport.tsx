@@ -5,25 +5,44 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileSpreadsheet, CheckCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { loadDataFromCSV, type RealParameterSet } from "@/data/realData";
 import { useData } from "@/contexts/DataContext";
-import { validateFileSize, validateCSVFile, sanitizeErrorMessage, rateLimiter } from "@/utils/security";
+import { useDataExportImport } from "@/hooks/useDataExportImport";
+import { Badge } from "@/components/ui/badge";
 
-interface DataImportProps {
-  onDataLoaded?: (data: RealParameterSet[]) => void;
+interface ImportStats {
+  inserted: number;
+  updated: number;
+  errors: string[];
+  total: number;
 }
 
-export function DataImport({ onDataLoaded }: DataImportProps) {
+export function DataImport() {
   const [isLoading, setIsLoading] = useState(false);
-  const [importedData, setImportedData] = useState<RealParameterSet[]>([]);
+  const [importStats, setImportStats] = useState<ImportStats | null>(null);
   const { toast } = useToast();
-  
-  console.log('DataImport component rendering');
-  console.log('About to call useData...');
-  
-  const { insertParameterSets, refreshData, clearError, loading: dbLoading } = useData();
-  
-  console.log('useData called successfully');
+  const { refreshData } = useData();
+  const { bulkUpsertParameterSets } = useDataExportImport();
+
+  const parseCSV = (text: string): any[] => {
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const rows: any[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim());
+      const row: any = {};
+      
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      
+      rows.push(row);
+    }
+
+    return rows;
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -39,53 +58,80 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
     }
 
     setIsLoading(true);
+    setImportStats(null);
 
     try {
       console.log("Reading file:", file.name, "Size:", file.size, "bytes");
       const text = await file.text();
-      console.log("File content preview:", text.substring(0, 200));
       
-      const data = await loadDataFromCSV(text);
-      console.log("Successfully parsed data:", data.length, "records");
-      
-      // Save to Supabase
-      try {
-        const success = await insertParameterSets(data);
-        
-        if (success) {
-          setImportedData(data);
-          onDataLoaded?.(data);
+      // Parse CSV
+      const parsedData = parseCSV(text);
+      console.log("Parsed CSV rows:", parsedData.length);
 
-          toast({
-            title: "Dados importados com sucesso!",
-            description: `${data.length} registros salvos. Os dados aparecerão na interface em alguns segundos.`,
-          });
-          
-          // Trigger data refresh after a short delay to show updated data
-          setTimeout(() => {
-            clearError();
-            refreshData();
-          }, 2000);
-        } else {
-          throw new Error("Falha ao salvar no banco de dados");
-        }
-      } catch (dbError) {
-        console.error("Erro específico do banco:", dbError);
-        throw new Error(`Erro no banco de dados: ${dbError instanceof Error ? dbError.message : 'Erro desconhecido'}`);
+      if (parsedData.length === 0) {
+        throw new Error("Arquivo CSV vazio ou formato inválido");
       }
-      
-      // Reset the file input to allow re-uploading the same file
+
+      // Transform to database format
+      const transformedData = parsedData.map(row => ({
+        id: row.id && row.id.trim() !== '' ? row.id : undefined,
+        brand_slug: (row.brand || '').toLowerCase().replace(/\s+/g, '-'),
+        model_slug: (row.model || '').toLowerCase().replace(/\s+/g, '-'),
+        resin_name: row.resin || '',
+        resin_manufacturer: row.resin_manufacturer || '',
+        layer_height: row.layer_height || '0.05',
+        cure_time: row.cure_time || '8',
+        bottom_cure_time: row.bottom_cure_time || '',
+        light_intensity: row.light_intensity || '100',
+        bottom_layers: row.bottom_layers || '',
+        lift_distance: row.lift_distance || '',
+        lift_speed: row.lift_speed || '',
+        retract_speed: row.retract_speed || '',
+        anti_aliasing: row.anti_aliasing || 'true',
+        xy_size_compensation: row.xy_size_compensation || '',
+        wait_time_before_cure: row.wait_time_before_cure || '',
+        wait_time_after_cure: row.wait_time_after_cure || '',
+        wait_time_after_lift: row.wait_time_after_lift || '',
+        xy_adjustment_x_pct: row.xy_adjustment_x_pct || '',
+        xy_adjustment_y_pct: row.xy_adjustment_y_pct || '',
+        notes: row.notes || '',
+        active: row.active !== undefined ? row.active : 'true'
+      }));
+
+      // Execute bulk upsert
+      const stats = await bulkUpsertParameterSets(transformedData);
+      setImportStats(stats);
+
+      if (stats.errors.length === 0) {
+        toast({
+          title: "Importação concluída!",
+          description: `✅ ${stats.updated} atualizados, ${stats.inserted} novos inseridos`,
+        });
+      } else {
+        toast({
+          title: "Importação parcial",
+          description: `${stats.updated} atualizados, ${stats.inserted} inseridos, ${stats.errors.length} erros`,
+          variant: "destructive",
+        });
+      }
+
+      // Refresh data after import
+      setTimeout(() => {
+        refreshData();
+      }, 1500);
+
+      // Reset file input
       if (event.target) {
         event.target.value = '';
       }
-      
+
     } catch (error) {
-      console.error("Erro detalhado ao importar dados:", error);
+      console.error("Erro ao importar dados:", error);
       const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
       
       toast({
         title: "Erro na importação",
-        description: `${errorMessage}. Verifique o formato do arquivo CSV.`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -93,22 +139,6 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
     }
   };
 
-  const getDataStats = () => {
-    if (importedData.length === 0) return null;
-
-    const brands = new Set(importedData.map(item => item.brand));
-    const models = new Set(importedData.map(item => `${item.brand}-${item.model}`));
-    const resins = new Set(importedData.map(item => item.resin));
-
-    return {
-      total: importedData.length,
-      brands: brands.size,
-      models: models.size,
-      resins: resins.size
-    };
-  };
-
-  const stats = getDataStats();
 
   return (
     <Card className="bg-gradient-card border-border shadow-medium">
@@ -130,42 +160,56 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
             type="file"
             accept=".csv"
             onChange={handleFileUpload}
-            disabled={isLoading || dbLoading}
+            disabled={isLoading}
           />
         </div>
 
-        {(isLoading || dbLoading) && (
+        {isLoading && (
           <div className="flex items-center gap-2 text-muted-foreground">
             <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-            {isLoading ? 'Processando arquivo...' : 'Salvando no banco de dados...'}
+            Processando importação...
           </div>
         )}
 
-        {stats && (
+        {importStats && (
           <div className="bg-muted rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3">
               <CheckCircle className="w-4 h-4 text-success" />
-              <span className="font-medium">Dados Carregados</span>
+              <span className="font-medium">Resultado da Importação</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-3">
               <div>
-                <div className="font-medium text-foreground">{stats.total}</div>
-                <div className="text-muted-foreground">Registros</div>
+                <div className="font-medium text-foreground">{importStats.total}</div>
+                <div className="text-muted-foreground">Total</div>
               </div>
               <div>
-                <div className="font-medium text-foreground">{stats.brands}</div>
-                <div className="text-muted-foreground">Marcas</div>
+                <div className="font-medium text-success">{importStats.updated}</div>
+                <div className="text-muted-foreground">Atualizados</div>
               </div>
               <div>
-                <div className="font-medium text-foreground">{stats.models}</div>
-                <div className="text-muted-foreground">Modelos</div>
+                <div className="font-medium text-primary">{importStats.inserted}</div>
+                <div className="text-muted-foreground">Inseridos</div>
               </div>
               <div>
-                <div className="font-medium text-foreground">{stats.resins}</div>
-                <div className="text-muted-foreground">Resinas</div>
+                <div className="font-medium text-destructive">{importStats.errors.length}</div>
+                <div className="text-muted-foreground">Erros</div>
               </div>
             </div>
-        </div>
+            
+            {importStats.errors.length > 0 && (
+              <div className="mt-3 space-y-1">
+                <div className="font-medium text-sm text-destructive">Erros encontrados:</div>
+                <div className="text-xs text-muted-foreground max-h-32 overflow-y-auto space-y-1">
+                  {importStats.errors.slice(0, 10).map((error, i) => (
+                    <div key={i}>• {error}</div>
+                  ))}
+                  {importStats.errors.length > 10 && (
+                    <div>... e mais {importStats.errors.length - 10} erros</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
@@ -192,17 +236,6 @@ export function DataImport({ onDataLoaded }: DataImportProps) {
           </div>
         </div>
 
-        {/* Debug Information */}
-        {importedData.length > 0 && (
-          <div className="bg-muted/50 border rounded-lg p-4">
-            <div className="text-sm">
-              <div className="font-medium mb-2">Primeiros 3 registros importados:</div>
-              <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-                {JSON.stringify(importedData.slice(0, 3), null, 2)}
-              </pre>
-            </div>
-          </div>
-        )}
       </CardContent>
     </Card>
   );

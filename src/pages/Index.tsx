@@ -70,7 +70,7 @@ const Index = () => {
             <h2 className="text-2xl font-semibold text-foreground mb-6">
               Importar Dados
             </h2>
-            <DataImport onDataLoaded={handleDataLoaded} />
+            <DataImport />
           </div>
         </div>
 

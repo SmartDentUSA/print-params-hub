@@ -149,7 +149,7 @@ const AdminViewSupabase = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <DataImport onDataLoaded={handleDataLoaded} />
+                  <DataImport />
                 </CardContent>
               </Card>
 

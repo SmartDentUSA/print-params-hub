@@ -1,4 +1,4 @@
-brand,model,resin,variant_label,altura_da_camada_mm,tempo_cura_seg,tempo_adesao_seg,camadas_transicao,intensidade_luz_pct,ajuste_x_pct,ajuste_y_pct,notes
-ELEGOO,Mars 3,Smart Print Clear,50 microns,0.05,3.5,25,6,100,100,100,Teste de importação
-ELEGOO,Mars 3,Smart Print Gray,50 microns,0.05,4.0,30,8,95,100,100,
-Creality,LD-002H,Resin Standard,100 microns,0.1,6.0,35,5,90,100,100,Parâmetros testados
+id,brand,model,resin,resin_manufacturer,variant_label,layer_height,cure_time,bottom_cure_time,light_intensity,bottom_layers,lift_distance,lift_speed,retract_speed,anti_aliasing,xy_size_compensation,wait_time_before_cure,wait_time_after_cure,wait_time_after_lift,xy_adjustment_x_pct,xy_adjustment_y_pct,notes,active
+,ELEGOO,Mars 3,Smart Print Clear,Smart Print,50 microns,0.05,3.5,25,100,6,5.0,3.0,3.0,true,0.0,0,0,0,100,100,Novo registro - sem ID,true
+abc-123-uuid-example,ELEGOO,Mars 3,Smart Print Gray,Smart Print,50 microns,0.05,4.0,30,95,8,5.0,3.0,3.0,true,0.0,0,0,0,100,100,Atualização - com ID existente,true
+,Creality,LD-002H,Resin Standard,Generic,100 microns,0.1,6.0,35,90,5,5.0,3.0,3.0,true,0.0,0,0,0,100,100,Parâmetros testados,false
