@@ -170,12 +170,8 @@ export default function AdminViewSecure() {
           </div>
         </div>
 
-        <Tabs defaultValue="import" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="import" className="flex items-center gap-2">
-              <Database className="w-4 h-4" />
-              Importar
-            </TabsTrigger>
+        <Tabs defaultValue="models" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="models" className="flex items-center gap-2">
               <Database className="w-4 h-4" />
               Modelos
@@ -193,20 +189,6 @@ export default function AdminViewSecure() {
               Configurações
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="import" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Importação de Dados</CardTitle>
-                <CardDescription>
-                  Importe dados CSV de parâmetros de impressão 3D
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DataImport />
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="models" className="space-y-6">
             <AdminModels />
