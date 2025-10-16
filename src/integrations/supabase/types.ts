@@ -181,6 +181,7 @@ export type Database = {
           cta_3_label: string | null
           cta_3_url: string | null
           id: string
+          image_url: string | null
           manufacturer: string
           name: string
           type: Database["public"]["Enums"]["resin_type"] | null
@@ -197,6 +198,7 @@ export type Database = {
           cta_3_label?: string | null
           cta_3_url?: string | null
           id?: string
+          image_url?: string | null
           manufacturer: string
           name: string
           type?: Database["public"]["Enums"]["resin_type"] | null
@@ -213,6 +215,7 @@ export type Database = {
           cta_3_label?: string | null
           cta_3_url?: string | null
           id?: string
+          image_url?: string | null
           manufacturer?: string
           name?: string
           type?: Database["public"]["Enums"]["resin_type"] | null

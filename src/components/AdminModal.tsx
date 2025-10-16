@@ -10,6 +10,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Save, X, ExternalLink } from 'lucide-react';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
+import { ImageUpload } from '@/components/ImageUpload';
 
 interface Brand {
   id: string;
@@ -36,6 +37,7 @@ interface Resin {
   active: boolean;
   color?: string;
   type?: string;
+  image_url?: string;
   cta_1_label?: string;
   cta_1_url?: string;
   cta_2_label?: string;
@@ -441,6 +443,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Image Upload Section */}
+              {formData.id && (
+                <ImageUpload
+                  currentImageUrl={formData.image_url || ''}
+                  onImageUploaded={(url) => {
+                    setFormData(prev => ({ ...prev, image_url: url }));
+                  }}
+                  modelSlug={`resin-${formData.id}`}
+                  disabled={false}
+                />
+              )}
               
               {/* CTAs Customizáveis */}
               <div className="space-y-4">

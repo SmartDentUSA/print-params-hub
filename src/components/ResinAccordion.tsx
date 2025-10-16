@@ -25,6 +25,7 @@ interface Resin {
   name: string;
   manufacturer: string;
   color?: string;
+  image_url?: string;
   parameterSets: ParameterSet[];
   cta_1_label?: string;
   cta_1_url?: string;
@@ -65,6 +66,13 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
+                    {resin.image_url && (
+                      <img 
+                        src={resin.image_url} 
+                        alt={resin.name}
+                        className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm"
+                      />
+                    )}
                     <div>
                       <h3 className="font-semibold text-left">{resin.name}</h3>
                       <p className="text-sm text-muted-foreground text-left">
