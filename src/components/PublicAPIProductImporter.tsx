@@ -2,193 +2,218 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Download, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { toast } from '@/components/ui/sonner';
+import { Loader2, Download, CheckCircle2 } from 'lucide-react';
 import { EXTERNAL_API_CONFIG } from '@/config/externalAPI';
 
 interface ProductData {
-  id?: string;
+  id: string;
   name: string;
-  manufacturer: string;
-  description?: string;
-  price?: number;
-  promo_price?: number;
-  image_url?: string;
-  images_gallery?: any[];
   brand?: string;
   category?: string;
   subcategory?: string;
-  slug?: string;
-  keywords?: any[];
-  benefits?: any[];
-  features?: any[];
-  technical_specifications?: any[];
-  faq?: any[];
   color?: string;
-  type?: string;
-  variations?: any[];
-  [key: string]: any;
+  image_url?: string;
+  description?: string;
+  price?: number;
+  active?: boolean;
+  resource_cta1?: { label?: string; url?: string; visible?: boolean };
+  resource_cta2?: { label?: string; url?: string; visible?: boolean };
+  resource_cta3?: { label?: string; url?: string; visible?: boolean };
+  resource_descriptions?: { cta1?: string; cta2?: string; cta3?: string };
 }
 
 interface PublicAPIProductImporterProps {
-  onImportSuccess?: (data: ProductData) => void;
+  onImportSuccess?: (productData: any) => void;
   onImportError?: (error: string) => void;
 }
 
-export function PublicAPIProductImporter({
+export function PublicAPIProductImporter({ 
   onImportSuccess,
   onImportError
 }: PublicAPIProductImporterProps) {
   const [slug, setSlug] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{
-    type: 'success' | 'error';
-    message: string;
-  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
 
   const handleImport = async () => {
     if (!slug.trim()) {
-      setResult({
-        type: 'error',
-        message: 'Por favor, digite um slug válido'
-      });
+      toast.error('Por favor, insira um slug ou URL');
       return;
     }
 
-    setLoading(true);
-    setResult(null);
+    setIsLoading(true);
+    setPreviewData(null);
+    console.log('🔍 Iniciando importação para slug:', slug);
 
     try {
-      console.log('🔍 Buscando produto com slug:', slug);
+      // Extrair slug da URL se necessário
+      let productSlug = slug.trim();
+      if (productSlug.includes('http')) {
+        const urlParts = productSlug.split('/');
+        productSlug = urlParts[urlParts.length - 1] || urlParts[urlParts.length - 2];
+      }
 
-      const url = `${EXTERNAL_API_CONFIG.BASE_URL}?slug=${encodeURIComponent(slug.trim())}`;
+      // Montar URL da API
+      const apiUrl = new URL(EXTERNAL_API_CONFIG.PRODUCTS_API_URL);
+      apiUrl.searchParams.append('slug', productSlug);
+      apiUrl.searchParams.append('approved', EXTERNAL_API_CONFIG.DEFAULT_PARAMS.approved);
+
+      console.log('📡 Fazendo requisição para:', apiUrl.toString());
+
+      // Fazer requisição
+      const response = await fetch(apiUrl.toString());
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      console.log('📦 Resposta da API:', data);
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || data.error || 'Erro ao buscar produto');
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
 
-      if (!data.data) {
-        throw new Error('Produto não encontrado');
+      const result = await response.json();
+      console.log('📦 Resposta da API:', result);
+
+      if (!result.success || !result.data) {
+        throw new Error(result.message || 'Produto não encontrado');
       }
 
-      // Normalizar dados
-      const productData: ProductData = {
-        name: data.data.name || '',
-        manufacturer: data.data.brand || '',
-        description: data.data.description || '',
-        price: parseFloat(data.data.promo_price || data.data.price || 0),
-        image_url: data.data.image_url || '',
-        color: data.data.color || '',
-        type: data.data.subcategory || data.data.type || '',
-        // Campos extras para referência
-        promo_price: data.data.promo_price || 0,
-        images_gallery: data.data.images_gallery || [],
-        brand: data.data.brand || '',
-        category: data.data.category || '',
-        subcategory: data.data.subcategory || '',
-        slug: data.data.slug || '',
-        keywords: data.data.keywords || [],
-        benefits: data.data.benefits || [],
-        features: data.data.features || [],
-        technical_specifications: data.data.technical_specifications || [],
-        faq: data.data.faq || [],
-        variations: data.data.variations || [],
+      const productData: ProductData = result.data;
+      console.log('📦 Dados originais da API:', productData);
+
+      // MAPEAMENTO CORRIGIDO
+      const mappedData = {
+        // OBRIGATÓRIOS (4 campos)
+        id: productData.id,
+        name: productData.name,
+        manufacturer: productData.brand || 'SmartDent', // ← CORRIGIDO: brand → manufacturer
+        active: productData.active ?? true,
+        
+        // BÁSICOS OPCIONAIS (5 campos)
+        color: productData.color || null,
+        type: productData.subcategory || productData.category || null, // ← NOVO: extrair de subcategory
+        image_url: productData.image_url || null,
+        description: productData.description || null,
+        price: productData.price || null,
+        
+        // CTA 1 (3 campos) ← CORRIGIDO: extrair dos objetos resource_cta
+        cta_1_label: productData.resource_cta1?.label || null,
+        cta_1_url: productData.resource_cta1?.url || null,
+        cta_1_description: productData.resource_descriptions?.cta1 || null,
+        
+        // CTA 2 (3 campos)
+        cta_2_label: productData.resource_cta2?.label || null,
+        cta_2_url: productData.resource_cta2?.url || null,
+        cta_2_description: productData.resource_descriptions?.cta2 || null,
+        
+        // CTA 3 (3 campos)
+        cta_3_label: productData.resource_cta3?.label || null,
+        cta_3_url: productData.resource_cta3?.url || null,
+        cta_3_description: productData.resource_descriptions?.cta3 || null,
       };
 
-      console.log('✅ Dados normalizados:', productData);
+      console.log('🔄 Dados mapeados:', mappedData);
 
-      setResult({
-        type: 'success',
-        message: `Produto "${productData.name}" importado com sucesso!`
+      // Validar campos obrigatórios
+      const requiredFields = ['id', 'name', 'manufacturer'];
+      const missingFields = requiredFields.filter(field => !mappedData[field as keyof typeof mappedData]);
+
+      console.log('✅ Validação de campos obrigatórios:', {
+        id: mappedData.id ? '✅' : '❌',
+        name: mappedData.name ? '✅' : '❌',
+        manufacturer: mappedData.manufacturer ? '✅' : '❌',
+        active: mappedData.active !== undefined ? '✅' : '❌',
       });
 
-      if (onImportSuccess) {
-        onImportSuccess(productData);
+      if (missingFields.length > 0) {
+        throw new Error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
       }
 
+      // Mostrar preview
+      setPreviewData(mappedData);
+
+      // Chamar callback de sucesso
+      if (onImportSuccess) {
+        onImportSuccess(mappedData);
+      }
+
+      console.log('✅ Dados importados com sucesso!');
+      toast.success('✅ Produto importado com sucesso!');
+
     } catch (error) {
-      console.error('❌ Erro ao importar:', error);
+      console.error('❌ Erro ao importar produto:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro ao importar dados';
       
-      setResult({
-        type: 'error',
-        message: errorMessage
-      });
+      toast.error(`Erro ao importar: ${errorMessage}`);
 
       if (onImportError) {
         onImportError(errorMessage);
       }
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <Card className="border-2 border-dashed border-primary/30">
-      <CardContent className="pt-6">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Download className="h-4 w-4" />
-            <span>Importar dados do Sistema A (landing-craftsman-76)</span>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="product-slug">Slug do Produto</Label>
-            <div className="flex gap-2">
-              <Input
-                id="product-slug"
-                placeholder="Ex: disco-de-zirconia-98mm"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleImport()}
-                disabled={loading}
-              />
-              <Button
-                onClick={handleImport}
-                disabled={loading || !slug.trim()}
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Importando...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Importar
-                  </>
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Digite o slug do produto cadastrado no Sistema A
-            </p>
-          </div>
-
-          {result && (
-            <Alert variant={result.type === 'success' ? 'default' : 'destructive'}>
-              {result.type === 'success' ? (
-                <CheckCircle2 className="h-4 w-4" />
-              ) : (
-                <AlertCircle className="h-4 w-4" />
-              )}
-              <AlertDescription>{result.message}</AlertDescription>
-            </Alert>
-          )}
+    <Card className="border-2 border-dashed border-primary/30 p-4 space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="product-slug">
+          Slug ou URL do Produto (Sistema A)
+        </Label>
+        <div className="flex gap-2">
+          <Input
+            id="product-slug"
+            placeholder="Ex: resina-smart-print-bio-vitality"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleImport()}
+            disabled={isLoading}
+          />
+          <Button 
+            onClick={handleImport}
+            disabled={isLoading || !slug.trim()}
+            className="min-w-[140px]"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Importando...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Importar
+              </>
+            )}
+          </Button>
         </div>
-      </CardContent>
+        <p className="text-xs text-muted-foreground">
+          💡 Cole o slug (ex: resina-smart-print-bio-vitality) ou a URL completa do produto
+        </p>
+      </div>
+
+      {previewData && (
+        <Card className="p-4 bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+          <div className="flex items-start gap-2 mb-3">
+            <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+            <h4 className="font-semibold text-blue-900 dark:text-blue-100">📦 Dados Importados:</h4>
+          </div>
+          <div className="space-y-1 text-sm text-blue-900 dark:text-blue-100">
+            <p><strong>Nome:</strong> {previewData.name}</p>
+            <p><strong>Fabricante:</strong> {previewData.manufacturer}</p>
+            {previewData.color && <p><strong>Cor:</strong> {previewData.color}</p>}
+            {previewData.type && <p><strong>Tipo:</strong> {previewData.type}</p>}
+            {previewData.price && <p><strong>Preço:</strong> R$ {Number(previewData.price).toFixed(2)}</p>}
+            {previewData.cta_1_label && (
+              <p><strong>CTA 1:</strong> {previewData.cta_1_label}</p>
+            )}
+            {previewData.cta_2_label && (
+              <p><strong>CTA 2:</strong> {previewData.cta_2_label}</p>
+            )}
+            {previewData.cta_3_label && (
+              <p><strong>CTA 3:</strong> {previewData.cta_3_label}</p>
+            )}
+          </div>
+        </Card>
+      )}
     </Card>
   );
 }
