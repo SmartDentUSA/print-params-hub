@@ -5,6 +5,7 @@ import { ModelGrid } from "@/components/ModelGrid";
 import { ResinAccordion } from "@/components/ResinAccordion";
 import { Breadcrumb } from "@/components/Breadcrumb";
 import { DataStats } from "@/components/DataStats";
+import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Settings } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
@@ -93,6 +94,9 @@ const UserViewSupabase = () => {
   const selectedBrandData = selectedBrand ? brands.find(b => b.slug === selectedBrand) : null;
   const selectedModelData = selectedModel ? models.find(m => m.slug === selectedModel) : null;
 
+  // Determine page type for SEO
+  const pageType = !selectedBrand ? 'home' : !selectedModel ? 'brand' : 'model';
+
   const breadcrumbItems = [];
   if (selectedBrandData) {
     breadcrumbItems.push({ label: selectedBrandData.name });
@@ -111,6 +115,12 @@ const UserViewSupabase = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+      <SEOHead 
+        pageType={pageType}
+        brand={selectedBrandData}
+        model={selectedModelData}
+        resins={resins}
+      />
       <Header onSearch={handleSearch} searchValue={searchTerm} />
       
       {/* Admin Button */}

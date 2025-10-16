@@ -12,3 +12,5 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap
