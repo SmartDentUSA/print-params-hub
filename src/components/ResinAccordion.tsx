@@ -69,8 +69,9 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value={resin.id} className="border-0">
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-col md:flex-row md:items-start md:justify-between w-full gap-4">
+                  {/* Seção Imagem + Texto + Botões */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
                     {resin.image_url && (
                       <img 
                         src={resin.image_url} 
@@ -80,8 +81,12 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                         className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm flex-shrink-0"
                       />
                     )}
+                    
                     <div className="flex-1 min-w-0">
+                      {/* Nome */}
                       <h3 className="font-semibold text-left">{resin.name}</h3>
+                      
+                      {/* Fabricante + Cor */}
                       <p className="text-sm text-muted-foreground text-left">
                         {resin.manufacturer}
                         {resin.color && ` • ${resin.color}`}
@@ -100,63 +105,68 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                           R$ {resin.price.toFixed(2).replace('.', ',')}
                         </p>
                       )}
+
+                      {/* Botões CTA - NOVA POSIÇÃO */}
+                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                        {resin.cta_1_label && resin.cta_1_url && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
+                            }}
+                            aria-label={resin.cta_1_description || resin.cta_1_label}
+                            title={resin.cta_1_description || resin.cta_1_label}
+                            data-seo-description={resin.cta_1_description}
+                          >
+                            {resin.cta_1_label}
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </Button>
+                        )}
+                        {resin.cta_2_label && resin.cta_2_url && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
+                            }}
+                            aria-label={resin.cta_2_description || resin.cta_2_label}
+                            title={resin.cta_2_description || resin.cta_2_label}
+                            data-seo-description={resin.cta_2_description}
+                          >
+                            {resin.cta_2_label}
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </Button>
+                        )}
+                        {resin.cta_3_label && resin.cta_3_url && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
+                            }}
+                            aria-label={resin.cta_3_description || resin.cta_3_label}
+                            title={resin.cta_3_description || resin.cta_3_label}
+                            data-seo-description={resin.cta_3_description}
+                          >
+                            {resin.cta_3_label}
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 ml-4">
-                    {resin.cta_1_label && resin.cta_1_url && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
-                        }}
-                        aria-label={resin.cta_1_description || resin.cta_1_label}
-                        title={resin.cta_1_description || resin.cta_1_label}
-                        data-seo-description={resin.cta_1_description}
-                      >
-                        {resin.cta_1_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
-                    )}
-                    {resin.cta_2_label && resin.cta_2_url && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
-                        }}
-                        aria-label={resin.cta_2_description || resin.cta_2_label}
-                        title={resin.cta_2_description || resin.cta_2_label}
-                        data-seo-description={resin.cta_2_description}
-                      >
-                        {resin.cta_2_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
-                    )}
-                    {resin.cta_3_label && resin.cta_3_url && (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
-                        }}
-                        aria-label={resin.cta_3_description || resin.cta_3_label}
-                        title={resin.cta_3_description || resin.cta_3_label}
-                        data-seo-description={resin.cta_3_description}
-                      >
-                        {resin.cta_3_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
-                      </Button>
-                    )}
-                    
-                    <Badge variant="secondary" className="ml-2">
-                      {resin.parameterSets.length} variação{resin.parameterSets.length !== 1 ? 'ões' : ''}
-                    </Badge>
-                  </div>
+                  {/* Badge Isolado à Direita */}
+                  <Badge 
+                    variant="secondary" 
+                    className="self-start md:self-center flex-shrink-0"
+                  >
+                    {resin.parameterSets.length} variação{resin.parameterSets.length !== 1 ? 'ões' : ''}
+                  </Badge>
                 </div>
               </AccordionTrigger>
               {/* SEO Hidden Content for Crawlers */}
