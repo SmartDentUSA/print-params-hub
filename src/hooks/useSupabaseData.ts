@@ -424,15 +424,48 @@ export const useSupabaseData = () => {
         return [];
       }
       
-      // Group by resin
+      // Get unique resin identifiers
+      const uniqueResins = [...new Set(data.map(param => `${param.resin_name}|${param.resin_manufacturer}`))];
+      
+      // Fetch complete resin data from resins table
+      const resinDataPromises = uniqueResins.map(async (combined) => {
+        const [name, manufacturer] = combined.split('|');
+        const { data: resinData } = await supabase
+          .from('resins')
+          .select('*')
+          .eq('name', name)
+          .eq('manufacturer', manufacturer)
+          .single();
+        return resinData;
+      });
+      
+      const resinsDataArray = await Promise.all(resinDataPromises);
+      const resinsDataMap = new Map(
+        resinsDataArray
+          .filter(r => r !== null)
+          .map(r => [`${r.name}|${r.manufacturer}`, r])
+      );
+      
+      // Group by resin with complete data
       const resinsMap = new Map();
       data?.forEach(param => {
         const key = `${param.resin_name}-${param.resin_manufacturer}`;
+        const resinLookupKey = `${param.resin_name}|${param.resin_manufacturer}`;
+        const resinData = resinsDataMap.get(resinLookupKey);
+        
         if (!resinsMap.has(key)) {
           resinsMap.set(key, {
             id: key,
             name: param.resin_name,
             manufacturer: param.resin_manufacturer,
+            image_url: resinData?.image_url,
+            color: resinData?.color,
+            cta_1_label: resinData?.cta_1_label,
+            cta_1_url: resinData?.cta_1_url,
+            cta_2_label: resinData?.cta_2_label,
+            cta_2_url: resinData?.cta_2_url,
+            cta_3_label: resinData?.cta_3_label,
+            cta_3_url: resinData?.cta_3_url,
             parameterSets: []
           });
         }
@@ -460,6 +493,7 @@ export const useSupabaseData = () => {
       const result = Array.from(resinsMap.values());
       console.log('Processed resins for model:', result.length);
       console.log('Resin names:', result.map(r => r.name));
+      console.log('Resins with CTAs:', result.filter(r => r.cta_1_label || r.cta_2_label || r.cta_3_label).length);
       
       return result;
     } catch (err) {
