@@ -14,8 +14,8 @@ const queryClient = new QueryClient();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <HelmetProvider>
         <BrowserRouter>
           <TooltipProvider>
             <LanguageProvider>
@@ -26,7 +26,7 @@ createRoot(document.getElementById("root")!).render(
             </LanguageProvider>
           </TooltipProvider>
         </BrowserRouter>
-      </QueryClientProvider>
-    </HelmetProvider>
+      </HelmetProvider>
+    </QueryClientProvider>
   </StrictMode>
 );
