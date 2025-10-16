@@ -12,7 +12,7 @@ import { Save, X, ExternalLink, Info } from 'lucide-react';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
-import { LojaIntegradaImporter } from '@/components/LojaIntegradaImporter';
+import { PublicAPIProductImporter } from '@/components/PublicAPIProductImporter';
 import { uploadExternalImage } from '@/utils/uploadExternalImage';
 
 interface Brand {
@@ -445,9 +445,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'resin' && (
             <>
-              <LojaIntegradaImporter 
+              <PublicAPIProductImporter
                 onImportSuccess={handleLojaIntegradaImport}
-                onImportError={(error) => console.error('Erro na importação:', error)}
+                onImportError={(error) => console.error('Erro ao importar:', error)}
               />
 
               <div>
@@ -504,7 +504,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="resize-none"
                 />
                 <p className="text-xs text-muted-foreground">
-                  💡 Este campo é preenchido automaticamente ao importar da Loja Integrada
+                  💡 Este campo é preenchido automaticamente ao importar do Sistema A
                 </p>
               </div>
 
