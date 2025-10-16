@@ -35,10 +35,22 @@ export function LojaIntegradaImporter({
   const { toast } = useToast();
 
   const handleImport = async () => {
-    if (!productUrl.trim()) {
+    const input = productUrl.trim();
+    
+    if (!input) {
       toast({
-        title: "URL necessária",
-        description: "Informe a URL ou ID do produto da Loja Integrada",
+        title: "Campo vazio",
+        description: "Cole a URL do produto ou o ID numérico",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Validar input básico
+    if (input.includes('\n') || input.length > 500) {
+      toast({
+        title: "Entrada inválida",
+        description: "Cole apenas a URL completa ou o ID numérico do produto",
         variant: "destructive"
       });
       return;
@@ -48,20 +60,27 @@ export function LojaIntegradaImporter({
 
     try {
       const { data, error } = await supabase.functions.invoke('import-loja-integrada', {
-        body: { productUrl }
+        body: { productUrl: input }
       });
 
       if (error) throw error;
 
       if (!data?.success) {
-        throw new Error(data?.error || 'Erro ao importar produto');
+        const errorMsg = data?.error || 'Erro ao importar produto';
+        
+        // Mensagem específica para erro 401
+        if (errorMsg.includes('401')) {
+          throw new Error('Chaves de API inválidas ou não autorizadas. Verifique LOJA_INTEGRADA_API_KEY e LOJA_INTEGRADA_APP_KEY nas configurações de Secrets do projeto.');
+        }
+        
+        throw new Error(errorMsg);
       }
 
       onImportSuccess(data.data);
       
       toast({
-        title: "Produto importado!",
-        description: "Dados preenchidos. Agora faça upload da imagem.",
+        title: "✅ Produto importado!",
+        description: "Dados e imagem carregados automaticamente. Revise e salve.",
       });
 
       setProductUrl('');
@@ -88,7 +107,7 @@ export function LojaIntegradaImporter({
       </h4>
       <div className="flex gap-2">
         <Input
-          placeholder="Cole a URL do produto aqui"
+          placeholder="Cole a URL do produto ou ID (ex: 123456)"
           value={productUrl}
           onChange={(e) => setProductUrl(e.target.value)}
           disabled={importing}
@@ -109,7 +128,7 @@ export function LojaIntegradaImporter({
         </Button>
       </div>
       <p className="text-xs text-muted-foreground mt-2">
-        💡 Exemplo: https://smartdent.com.br/produto/resina-ocre-123 ou apenas o ID
+        💡 Aceita URL completa ou ID numérico: <code className="text-xs">https://loja.smartdent.com.br/resina-bio-vitality</code> ou <code className="text-xs">123456</code>
       </p>
     </div>
   );

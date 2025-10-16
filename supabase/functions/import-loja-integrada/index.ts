@@ -6,6 +6,116 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Função para extrair identificador do produto
+function extractProductIdentifier(input: string): { type: 'id' | 'slug', value: string } {
+  const trimmed = input.trim();
+  
+  // Validar input
+  if (!trimmed || trimmed.includes('\n') || trimmed.length > 500) {
+    throw new Error('Cole apenas a URL do produto ou o ID numérico');
+  }
+  
+  // Se é número puro, tratar como ID
+  if (/^\d+$/.test(trimmed)) {
+    return { type: 'id', value: trimmed };
+  }
+  
+  // Tentar extrair slug da URL
+  try {
+    const url = new URL(trimmed);
+    const pathParts = url.pathname.split('/').filter(p => p.length > 0);
+    let slug = pathParts[pathParts.length - 1];
+    
+    // Remover .html se existir
+    slug = slug.replace(/\.html$/, '');
+    slug = decodeURIComponent(slug);
+    
+    if (!slug) {
+      throw new Error('URL inválida - não foi possível extrair o slug');
+    }
+    
+    return { type: 'slug', value: slug };
+  } catch {
+    throw new Error('Cole uma URL válida ou ID numérico do produto');
+  }
+}
+
+// Função para tentar autenticação com múltiplas estratégias
+async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | null) {
+  const baseUrl = 'https://api.awsli.com.br/v1';
+  const fullUrl = `${baseUrl}${endpoint}`;
+  
+  const strategies = [
+    {
+      name: 'header-combined',
+      config: {
+        headers: {
+          'Authorization': appKey 
+            ? `chave_api ${apiKey.trim()} app_key ${appKey.trim()}`
+            : `chave_api ${apiKey.trim()}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      }
+    },
+    {
+      name: 'querystring',
+      config: {
+        url: appKey 
+          ? `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}&app_key=${encodeURIComponent(appKey.trim())}`
+          : `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}`,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      }
+    }
+  ];
+  
+  // Se temos appKey, adicionar estratégia Basic Auth
+  if (appKey) {
+    const basicAuth = btoa(`${apiKey.trim()}:${appKey.trim()}`);
+    strategies.push({
+      name: 'basic-auth',
+      config: {
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }
+      }
+    });
+  }
+  
+  // Tentar cada estratégia até conseguir 2xx
+  for (const strategy of strategies) {
+    const fetchUrl = strategy.config.url || fullUrl;
+    console.log(`🔄 Tentando estratégia: ${strategy.name}`);
+    
+    const response = await fetch(fetchUrl, {
+      headers: strategy.config.headers
+    });
+    
+    console.log(`📡 Status: ${response.status} (${strategy.name})`);
+    
+    if (response.ok) {
+      console.log(`✅ Autenticação bem-sucedida com: ${strategy.name}`);
+      return response;
+    }
+    
+    if (response.status === 401) {
+      console.warn(`⚠️  401 com estratégia ${strategy.name}`);
+      continue;
+    }
+    
+    // Se não é 401, retornar o erro
+    return response;
+  }
+  
+  // Se todas falharam com 401
+  throw new Error('401 não autorizado — verifique API Key e App Key nas configurações de Secrets');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { 
@@ -15,57 +125,33 @@ serve(async (req) => {
   }
 
   try {
-    const { productId, productUrl } = await req.json();
+    const body = await req.json();
+    const input = body.productId || body.productUrl;
+    
+    if (!input) {
+      throw new Error('productId ou productUrl é obrigatório');
+    }
     
     const apiKey = Deno.env.get('LOJA_INTEGRADA_API_KEY');
     const appKey = Deno.env.get('LOJA_INTEGRADA_APP_KEY');
-    if (!apiKey) {
-      throw new Error('API Key não configurada');
-    }
-    if (!appKey) {
-      console.warn('LOJA_INTEGRADA_APP_KEY ausente - tentando com apenas API Key');
-    }
-
-    // Construir endpoint
-    let productIdentifier = '';
     
-    if (productId) {
-      productIdentifier = productId;
-    } else if (productUrl) {
-      // Extrair slug completo da URL
-      const urlParts = productUrl.split('/');
-      productIdentifier = urlParts[urlParts.length - 1];
-      
-      // Remover .html se existir
-      if (productIdentifier.endsWith('.html')) {
-        productIdentifier = productIdentifier.replace('.html', '');
-      }
-    } else {
-      throw new Error('productId ou productUrl é obrigatório');
+    if (!apiKey) {
+      throw new Error('LOJA_INTEGRADA_API_KEY não configurada');
     }
-
-    const endpoint = `/produto/${productIdentifier}`;
     
     console.log('🔑 API Key:', apiKey.substring(0, 10) + '...');
-    if (appKey) {
-      console.log('🔑 App Key:', appKey.substring(0, 10) + '...');
-    } else {
-      console.log('🔑 App Key: (ausente)');
-    }
-    console.log('🔗 Slug extraído:', productIdentifier);
-    console.log('🌐 URL:', `https://api.awsli.com.br/v1${endpoint}`);
+    console.log('🔑 App Key:', appKey ? appKey.substring(0, 10) + '...' : '(ausente)');
+    
+    // Extrair identificador
+    const { type, value } = extractProductIdentifier(input);
+    console.log(`🔗 ${type === 'id' ? 'ID' : 'Slug'} extraído:`, value);
+    
+    // Construir endpoint com barra final
+    const endpoint = `/produto/${value}/`;
+    console.log('🌐 Endpoint:', endpoint);
 
-    // Chamar API da Loja Integrada
-    const response = await fetch(`https://api.awsli.com.br/v1${endpoint}`, {
-      headers: {
-        'Authorization': appKey 
-          ? `chave_api ${apiKey.trim()} app_key ${appKey.trim()}`
-          : `chave_api ${apiKey.trim()}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Supabase-Edge-Function'
-      }
-    });
+    // Fazer requisição com estratégias de autenticação
+    const response = await fetchWithAuth(endpoint, apiKey, appKey || null);
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -74,6 +160,11 @@ serve(async (req) => {
         statusText: response.statusText,
         body: errorText.substring(0, 500)
       });
+      
+      if (response.status === 401) {
+        throw new Error('401 não autorizado — verifique API Key e App Key');
+      }
+      
       throw new Error(`API Error: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
