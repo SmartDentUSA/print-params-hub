@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "@/components/Header";
 import { BrandSelector } from "@/components/BrandSelector";
 import { ModelGrid } from "@/components/ModelGrid";
@@ -22,6 +23,9 @@ const UserViewSupabase = () => {
   const [brands, setBrands] = useState<any[]>([]);
   const [models, setModels] = useState<any[]>([]);
   const [resins, setResins] = useState<any[]>([]);
+  
+  const isMobile = useIsMobile();
+  const resinsRef = useRef<HTMLDivElement>(null);
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -83,6 +87,20 @@ const UserViewSupabase = () => {
       setResins([]);
     }
   }, [selectedModel, getResinsByModel]);
+
+  // Auto-scroll to resins section on mobile when model is selected
+  useEffect(() => {
+    if (selectedModel && resins.length > 0 && isMobile && resinsRef.current) {
+      // Small delay to ensure content is rendered
+      setTimeout(() => {
+        resinsRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        });
+      }, 300);
+    }
+  }, [selectedModel, resins, isMobile]);
 
   const filteredBrands = useMemo(() => {
     if (!searchTerm) return brands;
@@ -193,7 +211,7 @@ const UserViewSupabase = () => {
             {/* Right Content - Model Details */}
             <div className="lg:col-span-3">
               {selectedModel && selectedModelData ? (
-                <div className="space-y-6">
+                <div ref={resinsRef} className="space-y-6">
                   {/* Breadcrumb */}
                   <Breadcrumb items={breadcrumbItems} />
                   
