@@ -538,16 +538,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
 
               {/* Image Upload Section */}
-              {formData.id && (
-                <ImageUpload
-                  currentImageUrl={formData.image_url || ''}
-                  onImageUploaded={(url) => {
-                    setFormData(prev => ({ ...prev, image_url: url }));
-                  }}
-                  modelSlug={`resin-${formData.id}`}
-                  disabled={false}
-                />
-              )}
+              <ImageUpload
+                currentImageUrl={formData.image_url || ''}
+                onImageUploaded={(url) => {
+                  setFormData(prev => ({ ...prev, image_url: url }));
+                }}
+                modelSlug={`resin-${formData.id || 'new'}`}
+                disabled={false}
+              />
               
               {/* CTAs Customizáveis */}
               <div className="space-y-4">
