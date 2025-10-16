@@ -10,6 +10,7 @@ import { EXTERNAL_API_CONFIG } from '@/config/externalAPI';
 interface ProductData {
   id?: string;
   name: string;
+  manufacturer: string;
   description?: string;
   price?: number;
   promo_price?: number;
@@ -85,10 +86,14 @@ export function PublicAPIProductImporter({
       // Normalizar dados
       const productData: ProductData = {
         name: data.data.name || '',
+        manufacturer: data.data.brand || '',
         description: data.data.description || '',
-        price: data.data.price || 0,
-        promo_price: data.data.promo_price || 0,
+        price: parseFloat(data.data.promo_price || data.data.price || 0),
         image_url: data.data.image_url || '',
+        color: data.data.color || '',
+        type: data.data.subcategory || data.data.type || '',
+        // Campos extras para referência
+        promo_price: data.data.promo_price || 0,
         images_gallery: data.data.images_gallery || [],
         brand: data.data.brand || '',
         category: data.data.category || '',
@@ -99,8 +104,6 @@ export function PublicAPIProductImporter({
         features: data.data.features || [],
         technical_specifications: data.data.technical_specifications || [],
         faq: data.data.faq || [],
-        color: data.data.color || '',
-        type: data.data.type || '',
         variations: data.data.variations || [],
       };
 
