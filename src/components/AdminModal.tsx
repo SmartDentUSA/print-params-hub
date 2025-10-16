@@ -275,34 +275,46 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const handleLojaIntegradaImport = async (importedData: any) => {
     try {
-      // Upload da imagem da Loja Integrada para Supabase
+      console.log('📦 Dados recebidos do importador:', importedData);
+
+      // Gerar nome único para upload
+      const timestamp = Date.now();
+      const fileName = `resin-${formData.id || 'new'}-${timestamp}.webp`;
+
+      console.log('🔄 Fazendo upload da imagem...');
+
+      // Upload da imagem para Supabase Storage
       const supabaseImageUrl = await uploadExternalImage(
         importedData.image_url,
-        `resina-${importedData.name.replace(/\s/g, '-').toLowerCase()}.jpg`
+        fileName
       );
 
-      // Preencher formulário com dados importados
+      console.log('✅ Upload concluído:', supabaseImageUrl);
+
+      // Atualizar APENAS os 3 campos importados
       setFormData((prev: any) => ({
         ...prev,
-        name: importedData.name,
-        manufacturer: importedData.manufacturer,
-        color: importedData.color || '',
-        type: importedData.type,
-        description: importedData.description || '',
-        price: parseFloat(importedData.price) || 0,
-        image_url: supabaseImageUrl
+        description: importedData.description || prev.description || '',
+        price: importedData.price ? parseFloat(importedData.price) : (prev.price || 0),
+        image_url: supabaseImageUrl || prev.image_url || ''
       }));
 
+      console.log('✅ FormData atualizado:', {
+        description: importedData.description?.substring(0, 50) + '...',
+        price: importedData.price,
+        image_url: '✅ Imagem no Supabase'
+      });
+
       toast({
-        title: "Sucesso!",
-        description: `Produto importado (${importedData.description?.length || 0} chars descrição)`,
+        title: "✅ Importação concluída!",
+        description: `Imagem, descrição e preço atualizados com sucesso`,
       });
 
     } catch (error) {
-      console.error('Erro ao processar importação:', error);
+      console.error('❌ Erro ao processar importação:', error);
       toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : 'Erro ao processar imagem',
+        title: "Erro na importação",
+        description: error instanceof Error ? error.message : 'Erro ao processar dados',
         variant: "destructive"
       });
     }

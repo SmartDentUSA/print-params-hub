@@ -107,25 +107,6 @@ export function PublicAPIProductImporter({
         </Button>
       </div>
 
-      {previewData && (
-        <Card className="p-3 bg-success/10 border-success/20">
-          <p className="text-sm font-semibold text-success mb-2">
-            ✅ 3 campos importados
-          </p>
-          {previewData.image_url && (
-            <img 
-              src={previewData.image_url} 
-              alt="Preview" 
-              className="w-20 h-20 object-cover rounded mb-2"
-            />
-          )}
-          {previewData.price && (
-            <p className="text-xs text-success">
-              💰 Preço: R$ {Number(previewData.price).toFixed(2)}
-            </p>
-          )}
-        </Card>
-      )}
     </div>
   );
 }
