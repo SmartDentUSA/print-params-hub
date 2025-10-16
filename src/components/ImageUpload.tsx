@@ -131,7 +131,7 @@ export function ImageUpload({ currentImageUrl, onImageUploaded, modelSlug, disab
               <img 
                 src={currentImageUrl} 
                 alt="Imagem atual" 
-                className="w-full h-48 object-cover rounded-lg border"
+                className="max-w-full h-48 object-contain rounded-lg border bg-white mx-auto"
               />
               <Button
                 variant="destructive"
