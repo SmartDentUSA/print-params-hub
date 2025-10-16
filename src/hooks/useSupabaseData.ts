@@ -462,10 +462,13 @@ export const useSupabaseData = () => {
             color: resinData?.color,
             cta_1_label: resinData?.cta_1_label,
             cta_1_url: resinData?.cta_1_url,
+            cta_1_description: resinData?.cta_1_description,
             cta_2_label: resinData?.cta_2_label,
             cta_2_url: resinData?.cta_2_url,
+            cta_2_description: resinData?.cta_2_description,
             cta_3_label: resinData?.cta_3_label,
             cta_3_url: resinData?.cta_3_url,
+            cta_3_description: resinData?.cta_3_description,
             parameterSets: []
           });
         }

@@ -7,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Save, X, ExternalLink } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Save, X, ExternalLink, Info } from 'lucide-react';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
@@ -40,10 +41,13 @@ interface Resin {
   image_url?: string;
   cta_1_label?: string;
   cta_1_url?: string;
+  cta_1_description?: string;
   cta_2_label?: string;
   cta_2_url?: string;
+  cta_2_description?: string;
   cta_3_label?: string;
   cta_3_url?: string;
+  cta_3_description?: string;
 }
 
 interface ParameterSet {
@@ -487,6 +491,33 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           placeholder="https://..."
                         />
                       </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label htmlFor="cta_1_description">Descrição SEO</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">Descrição invisível para usuários, usada para SEO e acessibilidade. Máx: 200 caracteres.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Textarea
+                          id="cta_1_description"
+                          value={formData.cta_1_description || ''}
+                          onChange={(e) => handleInputChange('cta_1_description', e.target.value)}
+                          placeholder="Ex: Compre Smart Print Model Ocre no nosso e-commerce com entrega rápida"
+                          maxLength={200}
+                          className="resize-none"
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(formData.cta_1_description || '').length}/200 caracteres
+                        </p>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                   
@@ -517,6 +548,33 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           placeholder="https://..."
                         />
                       </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label htmlFor="cta_2_description">Descrição SEO</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">Descrição invisível para usuários, usada para SEO e acessibilidade. Máx: 200 caracteres.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Textarea
+                          id="cta_2_description"
+                          value={formData.cta_2_description || ''}
+                          onChange={(e) => handleInputChange('cta_2_description', e.target.value)}
+                          placeholder="Ex: Acesse dados técnicos completos da resina Smart Print Model Ocre"
+                          maxLength={200}
+                          className="resize-none"
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(formData.cta_2_description || '').length}/200 caracteres
+                        </p>
+                      </div>
                     </AccordionContent>
                   </AccordionItem>
                   
@@ -546,6 +604,33 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           onChange={(e) => handleInputChange('cta_3_url', e.target.value)}
                           placeholder="https://..."
                         />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label htmlFor="cta_3_description">Descrição SEO</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">Descrição invisível para usuários, usada para SEO e acessibilidade. Máx: 200 caracteres.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Textarea
+                          id="cta_3_description"
+                          value={formData.cta_3_description || ''}
+                          onChange={(e) => handleInputChange('cta_3_description', e.target.value)}
+                          placeholder="Ex: Baixe manual e e-book gratuito sobre impressão 3D com Smart Print"
+                          maxLength={200}
+                          className="resize-none"
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(formData.cta_3_description || '').length}/200 caracteres
+                        </p>
                       </div>
                     </AccordionContent>
                   </AccordionItem>

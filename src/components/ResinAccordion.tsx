@@ -29,10 +29,13 @@ interface Resin {
   parameterSets: ParameterSet[];
   cta_1_label?: string;
   cta_1_url?: string;
+  cta_1_description?: string;
   cta_2_label?: string;
   cta_2_url?: string;
+  cta_2_description?: string;
   cta_3_label?: string;
   cta_3_url?: string;
+  cta_3_description?: string;
 }
 
 interface ResinAccordionProps {
@@ -69,7 +72,9 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                     {resin.image_url && (
                       <img 
                         src={resin.image_url} 
-                        alt={resin.name}
+                        alt={`${resin.name} ${resin.color || ''} ${resin.manufacturer} - Resina para impressão 3D`}
+                        title={`${resin.name} ${resin.manufacturer}`}
+                        loading="lazy"
                         className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm"
                       />
                     )}
@@ -91,6 +96,9 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                           e.stopPropagation();
                           window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
                         }}
+                        aria-label={resin.cta_1_description || resin.cta_1_label}
+                        title={resin.cta_1_description || resin.cta_1_label}
+                        data-seo-description={resin.cta_1_description}
                       >
                         {resin.cta_1_label}
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -104,6 +112,9 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                           e.stopPropagation();
                           window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
                         }}
+                        aria-label={resin.cta_2_description || resin.cta_2_label}
+                        title={resin.cta_2_description || resin.cta_2_label}
+                        data-seo-description={resin.cta_2_description}
                       >
                         {resin.cta_2_label}
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -117,6 +128,9 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                           e.stopPropagation();
                           window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
                         }}
+                        aria-label={resin.cta_3_description || resin.cta_3_label}
+                        title={resin.cta_3_description || resin.cta_3_label}
+                        data-seo-description={resin.cta_3_description}
                       >
                         {resin.cta_3_label}
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -129,6 +143,14 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                   </div>
                 </div>
               </AccordionTrigger>
+              {/* SEO Hidden Content for Crawlers */}
+              {(resin.cta_1_description || resin.cta_2_description || resin.cta_3_description) && (
+                <div className="sr-only px-6">
+                  {resin.cta_1_description && <p>{resin.cta_1_description}</p>}
+                  {resin.cta_2_description && <p>{resin.cta_2_description}</p>}
+                  {resin.cta_3_description && <p>{resin.cta_3_description}</p>}
+                </div>
+              )}
               <AccordionContent className="px-6 pb-6">
                 <div className="space-y-4">
                   {resin.parameterSets.map((paramSet) => (
