@@ -115,12 +115,19 @@ const UserViewSupabase = () => {
   // Determine page type for SEO
   const pageType = !selectedBrand ? 'home' : !selectedModel ? 'brand' : 'model';
 
-  const breadcrumbItems = [];
+  const breadcrumbItems: Array<{ label: string; href?: string; onClick?: () => void }> = [
+    { label: 'Home', href: '/' }
+  ];
   if (selectedBrandData) {
-    breadcrumbItems.push({ label: selectedBrandData.name });
+    breadcrumbItems.push({ 
+      label: selectedBrandData.name, 
+      onClick: () => setSelectedModel(null)
+    });
   }
   if (selectedModelData) {
-    breadcrumbItems.push({ label: selectedModelData.name });
+    breadcrumbItems.push({ 
+      label: selectedModelData.name 
+    });
   }
 
   if (loading) {
@@ -230,9 +237,9 @@ const UserViewSupabase = () => {
                 </div>
               ) : (
                 <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
-                  <h3 className="text-xl font-semibold text-foreground mb-2">
-                    {t('models.select_model')}
-                  </h3>
+          <h2 className="text-xl font-semibold text-foreground mb-2">
+            {t('models.select_model')}
+          </h2>
                   <p className="text-muted-foreground">
                     {t('models.select_model_description')}
                   </p>
@@ -244,9 +251,9 @@ const UserViewSupabase = () => {
 
         {/* Help Section - Always visible */}
         <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
-          <h3 className="text-xl font-semibold text-foreground mb-4">
+          <h2 className="text-xl font-semibold text-foreground mb-4">
             {t('help.need_help')}
-          </h3>
+          </h2>
           <p className="text-muted-foreground mb-6">
             {t('help.help_description')}
           </p>

@@ -77,7 +77,10 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                         src={resin.image_url} 
                         alt={`${resin.name} ${resin.color || ''} ${resin.manufacturer} - Resina para impressão 3D`}
                         title={`${resin.name} ${resin.manufacturer}`}
+                        width="64"
+                        height="64"
                         loading="lazy"
+                        decoding="async"
                         className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm flex-shrink-0"
                       />
                     )}

@@ -43,8 +43,11 @@ export function ModelGrid({ models, onModelSelect }: ModelGridProps) {
                 <img 
                   src={model.imageUrl} 
                   alt={`${model.name} 3D Printer`}
-                  className="w-full h-full object-cover"
+                  width="64"
+                  height="80"
                   loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-cover"
                   onError={(e) => {
                     console.error('Image load error for:', model.imageUrl);
                     // Fallback to a placeholder

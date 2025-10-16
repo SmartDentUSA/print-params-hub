@@ -30,7 +30,12 @@ export function BrandSelector({ brands, selectedBrand, onBrandSelect }: BrandSel
             {brand.logoUrl && (
               <img 
                 src={brand.logoUrl} 
-                alt={brand.name}
+                alt={`${brand.name} logo`}
+                title={brand.name}
+                width="16"
+                height="16"
+                loading="lazy"
+                decoding="async"
                 className="w-4 h-4 object-contain"
               />
             )}

@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 interface BreadcrumbItem {
   label: string;
   href?: string;
+  onClick?: () => void;
 }
 
 interface BreadcrumbProps {
@@ -15,10 +16,20 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
       {items.map((item, index) => (
         <div key={index} className="flex items-center">
           {index > 0 && <ChevronRight className="w-4 h-4 mx-2" />}
-          {item.href ? (
-            <a href={item.href} className="hover:text-foreground transition-smooth">
+          {item.href || item.onClick ? (
+            <button 
+              onClick={(e) => {
+                if (item.onClick) {
+                  e.preventDefault();
+                  item.onClick();
+                } else if (item.href) {
+                  window.location.href = item.href;
+                }
+              }}
+              className="hover:text-foreground transition-smooth cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit underline-offset-4 hover:underline"
+            >
               {item.label}
-            </a>
+            </button>
           ) : (
             <span className={index === items.length - 1 ? "text-foreground font-medium" : ""}>
               {item.label}
