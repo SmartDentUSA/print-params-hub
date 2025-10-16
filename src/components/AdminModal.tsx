@@ -12,6 +12,8 @@ import { Save, X, ExternalLink, Info } from 'lucide-react';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
+import { LojaIntegradaImporter } from '@/components/LojaIntegradaImporter';
+import { uploadExternalImage } from '@/utils/uploadExternalImage';
 
 interface Brand {
   id: string;
@@ -269,6 +271,39 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setFormData(newFormData);
   };
 
+  const handleLojaIntegradaImport = async (importedData: any) => {
+    try {
+      // Upload da imagem da Loja Integrada para Supabase
+      const supabaseImageUrl = await uploadExternalImage(
+        importedData.image_url,
+        `resina-${importedData.name.replace(/\s/g, '-').toLowerCase()}.jpg`
+      );
+
+      // Preencher formulário com dados importados
+      setFormData((prev: any) => ({
+        ...prev,
+        name: importedData.name,
+        manufacturer: importedData.manufacturer,
+        color: importedData.color || '',
+        type: importedData.type,
+        image_url: supabaseImageUrl
+      }));
+
+      toast({
+        title: "Sucesso!",
+        description: "Produto importado e imagem salva no Supabase",
+      });
+
+    } catch (error) {
+      console.error('Erro ao processar importação:', error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : 'Erro ao processar imagem',
+        variant: "destructive"
+      });
+    }
+  };
+
   const getModalTitle = () => {
     const action = item ? 'Editar' : 'Criar';
     switch (type) {
@@ -406,6 +441,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'resin' && (
             <>
+              <LojaIntegradaImporter 
+                onImportSuccess={handleLojaIntegradaImport}
+                onImportError={(error) => console.error('Erro na importação:', error)}
+              />
+
               <div>
                 <Label htmlFor="name">Nome da Resina</Label>
                 <Input
