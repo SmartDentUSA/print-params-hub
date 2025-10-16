@@ -18,8 +18,12 @@ serve(async (req) => {
     const { productId, productUrl } = await req.json();
     
     const apiKey = Deno.env.get('LOJA_INTEGRADA_API_KEY');
+    const appKey = Deno.env.get('LOJA_INTEGRADA_APP_KEY');
     if (!apiKey) {
       throw new Error('API Key não configurada');
+    }
+    if (!appKey) {
+      console.warn('LOJA_INTEGRADA_APP_KEY ausente - tentando com apenas API Key');
     }
 
     // Construir endpoint
@@ -43,13 +47,20 @@ serve(async (req) => {
     const endpoint = `/produto/${productIdentifier}`;
     
     console.log('🔑 API Key:', apiKey.substring(0, 10) + '...');
+    if (appKey) {
+      console.log('🔑 App Key:', appKey.substring(0, 10) + '...');
+    } else {
+      console.log('🔑 App Key: (ausente)');
+    }
     console.log('🔗 Slug extraído:', productIdentifier);
     console.log('🌐 URL:', `https://api.awsli.com.br/v1${endpoint}`);
 
     // Chamar API da Loja Integrada
     const response = await fetch(`https://api.awsli.com.br/v1${endpoint}`, {
       headers: {
-        'Authorization': `chave_api ${apiKey}`,
+        'Authorization': appKey 
+          ? `chave_api ${apiKey.trim()} app_key ${appKey.trim()}`
+          : `chave_api ${apiKey.trim()}`,
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'User-Agent': 'Supabase-Edge-Function'
