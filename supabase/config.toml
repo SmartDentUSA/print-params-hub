@@ -1,1 +1,4 @@
 project_id = "okeogjgqijbfkudfjadz"
+
+[functions.import-loja-integrada]
+verify_jwt = false
