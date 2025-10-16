@@ -23,18 +23,28 @@ serve(async (req) => {
     }
 
     // Construir endpoint
-    let endpoint = '';
+    let productIdentifier = '';
+    
     if (productId) {
-      endpoint = `/produto/${productId}`;
+      productIdentifier = productId;
     } else if (productUrl) {
+      // Extrair slug completo da URL
       const urlParts = productUrl.split('/');
-      const id = urlParts[urlParts.length - 1].split('-')[0];
-      endpoint = `/produto/${id}`;
+      productIdentifier = urlParts[urlParts.length - 1];
+      
+      // Remover .html se existir
+      if (productIdentifier.endsWith('.html')) {
+        productIdentifier = productIdentifier.replace('.html', '');
+      }
     } else {
       throw new Error('productId ou productUrl é obrigatório');
     }
 
-    console.log('Buscando produto:', endpoint);
+    const endpoint = `/produto/${productIdentifier}`;
+    
+    console.log('🔑 API Key:', apiKey.substring(0, 10) + '...');
+    console.log('🔗 Slug extraído:', productIdentifier);
+    console.log('🌐 URL:', `https://api.awsli.com.br/v1${endpoint}`);
 
     // Chamar API da Loja Integrada
     const response = await fetch(`https://api.awsli.com.br/v1${endpoint}`, {
@@ -46,7 +56,13 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      throw new Error(`API Error: ${response.status} - ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText.substring(0, 500)
+      });
+      throw new Error(`API Error: ${response.status} - ${errorText.substring(0, 200)}`);
     }
 
     const apiProduct = await response.json();
