@@ -20,7 +20,17 @@ interface Resin {
   description?: string;
   image_url?: string;
   price?: number;
+  color?: string;
+  type?: string;
+  cta_1_label?: string;
   cta_1_url?: string;
+  cta_1_description?: string;
+  cta_2_label?: string;
+  cta_2_url?: string;
+  cta_2_description?: string;
+  cta_3_label?: string;
+  cta_3_url?: string;
+  cta_3_description?: string;
 }
 
 interface SEOHeadProps {
@@ -109,8 +119,51 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
   let productSchema = null;
   if (pageType === 'model' && resins.length > 0) {
     if (resins.length === 1) {
-      // Single Product Schema
+      // Single Product Schema with Multiple Offers
       const resin = resins[0];
+      
+      // Build offers array dynamically
+      const offers = [];
+      if (resin.cta_1_url && resin.price) {
+        offers.push({
+          "@type": "Offer",
+          "url": resin.cta_1_url,
+          "priceCurrency": "BRL",
+          "price": resin.price.toString(),
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": resin.cta_1_label || "Vendedor 1"
+          }
+        });
+      }
+      if (resin.cta_2_url) {
+        offers.push({
+          "@type": "Offer",
+          "url": resin.cta_2_url,
+          "priceCurrency": "BRL",
+          "price": resin.price?.toString() || "0",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": resin.cta_2_label || "Vendedor 2"
+          }
+        });
+      }
+      if (resin.cta_3_url) {
+        offers.push({
+          "@type": "Offer",
+          "url": resin.cta_3_url,
+          "priceCurrency": "BRL",
+          "price": resin.price?.toString() || "0",
+          "availability": "https://schema.org/InStock",
+          "seller": {
+            "@type": "Organization",
+            "name": resin.cta_3_label || "Vendedor 3"
+          }
+        });
+      }
+      
       productSchema = {
         "@context": "https://schema.org",
         "@type": "Product",
@@ -121,40 +174,76 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         },
         "description": resin.description || `Resina ${resin.name} para impressão 3D odontológica`,
         ...(resin.image_url && { "image": resin.image_url }),
-        ...(resin.price && resin.cta_1_url && {
-          "offers": {
-            "@type": "Offer",
-            "url": resin.cta_1_url,
-            "priceCurrency": "BRL",
-            "price": resin.price.toString(),
-            "availability": "https://schema.org/InStock"
-          }
+        ...(resin.color && { "color": resin.color }),
+        ...(resin.type && { "category": resin.type }),
+        ...(offers.length > 0 && { 
+          "offers": offers.length === 1 ? offers[0] : offers 
         })
       };
     } else {
-      // ItemList Schema for multiple resins
+      // ItemList Schema for multiple resins (each with multiple offers)
       const items = resins
-        .filter(resin => resin.cta_1_url || resin.price) // Only include resins with offer data
-        .map((resin, index) => ({
-          "@type": "Product",
-          "position": index + 1,
-          "name": resin.name,
-          "brand": {
-            "@type": "Brand",
-            "name": resin.manufacturer
-          },
-          "description": resin.description || `Resina ${resin.name} para impressão 3D odontológica`,
-          ...(resin.image_url && { "image": resin.image_url }),
-          ...(resin.price && resin.cta_1_url && {
-            "offers": {
+        .filter(resin => resin.cta_1_url || resin.cta_2_url || resin.cta_3_url)
+        .map((resin, index) => {
+          // Build offers array for each resin
+          const offers = [];
+          if (resin.cta_1_url && resin.price) {
+            offers.push({
               "@type": "Offer",
               "url": resin.cta_1_url,
               "priceCurrency": "BRL",
               "price": resin.price.toString(),
-              "availability": "https://schema.org/InStock"
-            }
-          })
-        }));
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": resin.cta_1_label || "Vendedor 1"
+              }
+            });
+          }
+          if (resin.cta_2_url) {
+            offers.push({
+              "@type": "Offer",
+              "url": resin.cta_2_url,
+              "priceCurrency": "BRL",
+              "price": resin.price?.toString() || "0",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": resin.cta_2_label || "Vendedor 2"
+              }
+            });
+          }
+          if (resin.cta_3_url) {
+            offers.push({
+              "@type": "Offer",
+              "url": resin.cta_3_url,
+              "priceCurrency": "BRL",
+              "price": resin.price?.toString() || "0",
+              "availability": "https://schema.org/InStock",
+              "seller": {
+                "@type": "Organization",
+                "name": resin.cta_3_label || "Vendedor 3"
+              }
+            });
+          }
+          
+          return {
+            "@type": "Product",
+            "position": index + 1,
+            "name": resin.name,
+            "brand": {
+              "@type": "Brand",
+              "name": resin.manufacturer
+            },
+            "description": resin.description || `Resina ${resin.name} para impressão 3D odontológica`,
+            ...(resin.image_url && { "image": resin.image_url }),
+            ...(resin.color && { "color": resin.color }),
+            ...(resin.type && { "category": resin.type }),
+            ...(offers.length > 0 && { 
+              "offers": offers.length === 1 ? offers[0] : offers 
+            })
+          };
+        });
 
       if (items.length > 0) {
         productSchema = {
