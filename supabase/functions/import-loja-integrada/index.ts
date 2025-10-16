@@ -57,6 +57,8 @@ serve(async (req) => {
       manufacturer: apiProduct.marca?.nome || apiProduct.fornecedor || '',
       color: '', // Sempre vazio - admin preenche manualmente
       type: 'standard', // Padrão
+      description: (apiProduct.descricao_completa || apiProduct.descricao || '').trim(),
+      price: parseFloat(apiProduct.preco_promocional || apiProduct.preco_cheio || apiProduct.preco || 0) || 0,
       image_url: apiProduct.imagens?.[0]?.url || '',
       images_gallery: (apiProduct.imagens || []).map((img: any, index: number) => ({
         url: img.url || img.grande || img.media || '',
@@ -66,7 +68,13 @@ serve(async (req) => {
       }))
     };
 
-    console.log('Produto importado:', apiProduct.nome);
+    console.log('✅ Produto importado:', {
+      name: apiProduct.nome,
+      description_length: resinData.description.length,
+      price: resinData.price,
+      has_image: !!resinData.image_url,
+      gallery_count: resinData.images_gallery.length
+    });
 
     return new Response(
       JSON.stringify({ success: true, data: resinData }),

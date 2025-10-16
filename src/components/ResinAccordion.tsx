@@ -26,6 +26,8 @@ interface Resin {
   manufacturer: string;
   color?: string;
   image_url?: string;
+  description?: string;
+  price?: number;
   parameterSets: ParameterSet[];
   cta_1_label?: string;
   cta_1_url?: string;
@@ -75,15 +77,29 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
                         alt={`${resin.name} ${resin.color || ''} ${resin.manufacturer} - Resina para impressão 3D`}
                         title={`${resin.name} ${resin.manufacturer}`}
                         loading="lazy"
-                        className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm"
+                        className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm flex-shrink-0"
                       />
                     )}
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-left">{resin.name}</h3>
                       <p className="text-sm text-muted-foreground text-left">
                         {resin.manufacturer}
                         {resin.color && ` • ${resin.color}`}
                       </p>
+
+                      {/* Descrição (máximo 3 linhas) */}
+                      {resin.description && (
+                        <p className="text-xs text-muted-foreground text-left mt-2 line-clamp-3">
+                          {resin.description}
+                        </p>
+                      )}
+
+                      {/* Preço formatado */}
+                      {resin.price && resin.price > 0 && (
+                        <p className="text-sm font-semibold text-green-600 mt-2">
+                          R$ {resin.price.toFixed(2).replace('.', ',')}
+                        </p>
+                      )}
                     </div>
                   </div>
                   

@@ -41,6 +41,8 @@ interface Resin {
   color?: string;
   type?: string;
   image_url?: string;
+  description?: string;
+  price?: number;
   cta_1_label?: string;
   cta_1_url?: string;
   cta_1_description?: string;
@@ -134,7 +136,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       case 'model':
         return { name: '', brand_id: '', image_url: '', notes: '', active: true };
       case 'resin':
-        return { name: '', manufacturer: '', color: '', type: 'standard', active: true };
+        return { name: '', manufacturer: '', color: '', type: 'standard', description: '', price: 0, active: true };
       case 'parameter':
         return {
           brand_slug: '',
@@ -286,12 +288,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         manufacturer: importedData.manufacturer,
         color: importedData.color || '',
         type: importedData.type,
+        description: importedData.description || '',
+        price: parseFloat(importedData.price) || 0,
         image_url: supabaseImageUrl
       }));
 
       toast({
         title: "Sucesso!",
-        description: "Produto importado e imagem salva no Supabase",
+        description: `Produto importado (${importedData.description?.length || 0} chars descrição)`,
       });
 
     } catch (error) {
@@ -486,6 +490,39 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     <SelectItem value="water_washable">Water Washable</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Campo Description */}
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição do Produto</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description || ''}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  placeholder="Descrição detalhada (preenchida automaticamente na importação)"
+                  rows={4}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">
+                  💡 Este campo é preenchido automaticamente ao importar da Loja Integrada
+                </p>
+              </div>
+
+              {/* Campo Price */}
+              <div className="space-y-2">
+                <Label htmlFor="price">Preço (R$)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.price || ''}
+                  onChange={(e) => handleInputChange('price', parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">
+                  💡 Usado para SEO (Schema.org Offers)
+                </p>
               </div>
 
               {/* Image Upload Section */}

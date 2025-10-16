@@ -183,10 +183,12 @@ export type Database = {
           cta_3_description: string | null
           cta_3_label: string | null
           cta_3_url: string | null
+          description: string | null
           id: string
           image_url: string | null
           manufacturer: string
           name: string
+          price: number | null
           type: Database["public"]["Enums"]["resin_type"] | null
           updated_at: string
         }
@@ -203,10 +205,12 @@ export type Database = {
           cta_3_description?: string | null
           cta_3_label?: string | null
           cta_3_url?: string | null
+          description?: string | null
           id?: string
           image_url?: string | null
           manufacturer: string
           name: string
+          price?: number | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
         }
@@ -223,10 +227,12 @@ export type Database = {
           cta_3_description?: string | null
           cta_3_label?: string | null
           cta_3_url?: string | null
+          description?: string | null
           id?: string
           image_url?: string | null
           manufacturer?: string
           name?: string
+          price?: number | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
         }
