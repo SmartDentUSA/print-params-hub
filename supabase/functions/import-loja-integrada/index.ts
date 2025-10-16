@@ -51,7 +51,8 @@ serve(async (req) => {
       headers: {
         'Authorization': `chave_api ${apiKey}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'User-Agent': 'Supabase-Edge-Function'
       }
     });
 
