@@ -10,6 +10,8 @@ interface ImportedResinData {
   manufacturer: string;
   color: string;
   type: string;
+  description: string;
+  price: number;
   image_url: string;
   images_gallery: Array<{
     url: string;
