@@ -277,37 +277,54 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       console.log('📦 Dados recebidos do importador:', importedData);
 
-      // Gerar nome único para upload
-      const timestamp = Date.now();
-      const fileName = `resin-${formData.id || 'new'}-${timestamp}.webp`;
-
-      console.log('🔄 Fazendo upload da imagem...');
-
-      // Upload da imagem para Supabase Storage
-      const supabaseImageUrl = await uploadExternalImage(
-        importedData.image_url,
-        fileName
-      );
-
-      console.log('✅ Upload concluído:', supabaseImageUrl);
-
-      // Atualizar APENAS os 3 campos importados
+      // 1️⃣ PREENCHER CAMPOS IMEDIATAMENTE (ANTES do upload)
+      const parsedPrice = importedData.price 
+        ? parseFloat(importedData.price.toString().replace(/\./g, '').replace(',', '.')) 
+        : 0;
+      
       setFormData((prev: any) => ({
         ...prev,
         description: importedData.description || prev.description || '',
-        price: importedData.price ? parseFloat(importedData.price) : (prev.price || 0),
-        image_url: supabaseImageUrl || prev.image_url || ''
+        price: parsedPrice || prev.price || 0,
+        // Usar URL externa temporariamente (funciona mesmo sem upload)
+        image_url: importedData.image_url || prev.image_url || ''
       }));
 
-      console.log('✅ FormData atualizado:', {
+      console.log('✅ Campos preenchidos IMEDIATAMENTE:', {
         description: importedData.description?.substring(0, 50) + '...',
-        price: importedData.price,
-        image_url: '✅ Imagem no Supabase'
+        price: parsedPrice,
+        image_url: 'URL externa (temporária)'
       });
+
+      // 2️⃣ TENTAR UPLOAD (não bloqueia se falhar)
+      try {
+        if (importedData.image_url) {
+          console.log('🔄 Tentando upload da imagem para Supabase...');
+          
+          const timestamp = Date.now();
+          const fileName = `resin-${formData.id || 'new'}-${timestamp}.webp`;
+          
+          const supabaseImageUrl = await uploadExternalImage(
+            importedData.image_url,
+            fileName
+          );
+
+          console.log('✅ Upload concluído! URL Supabase:', supabaseImageUrl);
+
+          // Atualizar com URL do Supabase (melhora a URL)
+          setFormData((prev: any) => ({
+            ...prev,
+            image_url: supabaseImageUrl
+          }));
+        }
+      } catch (uploadError) {
+        console.warn('⚠️ Upload da imagem falhou, mantendo URL externa:', uploadError);
+        // Não faz nada - campos já estão preenchidos com URL externa
+      }
 
       toast({
         title: "✅ Importação concluída!",
-        description: `Imagem, descrição e preço atualizados com sucesso`,
+        description: `Descrição, preço e imagem atualizados com sucesso`,
       });
 
     } catch (error) {
