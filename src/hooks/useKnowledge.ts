@@ -65,7 +65,7 @@ export function useKnowledge() {
       setLoading(true);
       const { data, error } = await supabase
         .from('knowledge_contents')
-        .select('*, knowledge_categories!inner(*)')
+        .select('*, knowledge_categories!inner(*), authors(*)')
         .eq('knowledge_categories.letter', categoryLetter.toUpperCase())
         .eq('active', true)
         .order('order_index');
@@ -85,7 +85,7 @@ export function useKnowledge() {
       setLoading(true);
       const { data, error } = await supabase
         .from('knowledge_contents')
-        .select('*, knowledge_categories(*)')
+        .select('*, knowledge_categories(*), authors(*)')
         .eq('slug', slug)
         .single();
       

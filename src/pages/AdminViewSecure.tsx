@@ -12,9 +12,10 @@ import { DataProvider } from "@/contexts/DataContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
+import { AdminAuthors } from "@/components/AdminAuthors";
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
@@ -172,7 +173,7 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue="models" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="models" className="flex items-center gap-2">
               <Database className="w-4 h-4" />
               Modelos
@@ -180,6 +181,10 @@ export default function AdminViewSecure() {
             <TabsTrigger value="knowledge" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Conteúdo
+            </TabsTrigger>
+            <TabsTrigger value="authors" className="flex items-center gap-2">
+              <UserCircle className="w-4 h-4" />
+              Autores
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -201,6 +206,10 @@ export default function AdminViewSecure() {
 
           <TabsContent value="knowledge" className="space-y-6">
             <AdminKnowledge />
+          </TabsContent>
+
+          <TabsContent value="authors" className="space-y-6">
+            <AdminAuthors />
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-6">

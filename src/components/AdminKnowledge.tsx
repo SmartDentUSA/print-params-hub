@@ -7,9 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
+import { useAuthors } from '@/hooks/useAuthors';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -20,6 +22,7 @@ export function AdminKnowledge() {
   const [videos, setVideos] = useState<any[]>([]);
   const [editingCategoryName, setEditingCategoryName] = useState<{[key: string]: string}>({});
   const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('visual');
+  const [authors, setAuthors] = useState<any[]>([]);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -32,6 +35,7 @@ export function AdminKnowledge() {
     file_name: '',
     meta_description: '',
     og_image_url: '',
+    author_id: null as string | null,
     order_index: 0,
     active: true
   });
@@ -48,8 +52,11 @@ export function AdminKnowledge() {
     deleteVideo
   } = useKnowledge();
 
+  const { fetchAuthors } = useAuthors();
+
   useEffect(() => {
     loadCategories();
+    loadAuthors();
   }, []);
 
   useEffect(() => {
@@ -75,6 +82,11 @@ export function AdminKnowledge() {
     setContents(data);
   };
 
+  const loadAuthors = async () => {
+    const data = await fetchAuthors();
+    setAuthors(data);
+  };
+
   const handleOpenEdit = async (content: any) => {
     setEditingContent(content);
     setContentEditorMode('visual');
@@ -88,6 +100,7 @@ export function AdminKnowledge() {
       file_name: content.file_name || '',
       meta_description: content.meta_description || '',
       og_image_url: content.og_image_url || '',
+      author_id: content.author_id || null,
       order_index: content.order_index,
       active: content.active
     });
@@ -110,6 +123,7 @@ export function AdminKnowledge() {
       file_name: '',
       meta_description: '',
       og_image_url: '',
+      author_id: null,
       order_index: contents.length,
       active: true
     });
@@ -307,6 +321,25 @@ export function AdminKnowledge() {
                     value={formData.excerpt}
                     onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
                   />
+                </div>
+                <div>
+                  <Label>Autor</Label>
+                  <Select 
+                    value={formData.author_id || 'none'} 
+                    onValueChange={(value) => setFormData({...formData, author_id: value === 'none' ? null : value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um autor (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem autor</SelectItem>
+                      {authors.map((author) => (
+                        <SelectItem key={author.id} value={author.id}>
+                          {author.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">

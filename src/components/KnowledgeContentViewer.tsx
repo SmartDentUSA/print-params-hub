@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, ExternalLink } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
+import { AuthorSignature } from '@/components/AuthorSignature';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -101,6 +102,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             className="prose prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: content.content_html }}
           />
+        )}
+
+        {/* Author Signature */}
+        {content.authors && (
+          <AuthorSignature author={content.authors} />
         )}
       </div>
     </div>

@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      authors: {
+        Row: {
+          active: boolean
+          created_at: string
+          facebook_url: string | null
+          full_bio: string | null
+          id: string
+          instagram_url: string | null
+          lattes_url: string | null
+          linkedin_url: string | null
+          mini_bio: string | null
+          name: string
+          order_index: number
+          photo_url: string | null
+          specialty: string | null
+          tiktok_url: string | null
+          twitter_url: string | null
+          updated_at: string
+          website_url: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          facebook_url?: string | null
+          full_bio?: string | null
+          id?: string
+          instagram_url?: string | null
+          lattes_url?: string | null
+          linkedin_url?: string | null
+          mini_bio?: string | null
+          name: string
+          order_index?: number
+          photo_url?: string | null
+          specialty?: string | null
+          tiktok_url?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          facebook_url?: string | null
+          full_bio?: string | null
+          id?: string
+          instagram_url?: string | null
+          lattes_url?: string | null
+          linkedin_url?: string | null
+          mini_bio?: string | null
+          name?: string
+          order_index?: number
+          photo_url?: string | null
+          specialty?: string | null
+          tiktok_url?: string | null
+          twitter_url?: string | null
+          updated_at?: string
+          website_url?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           active: boolean
@@ -77,6 +140,7 @@ export type Database = {
       knowledge_contents: {
         Row: {
           active: boolean | null
+          author_id: string | null
           category_id: string | null
           content_html: string | null
           created_at: string | null
@@ -95,6 +159,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          author_id?: string | null
           category_id?: string | null
           content_html?: string | null
           created_at?: string | null
@@ -113,6 +178,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          author_id?: string | null
           category_id?: string | null
           content_html?: string | null
           created_at?: string | null
@@ -130,6 +196,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "knowledge_contents_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "authors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "knowledge_contents_category_id_fkey"
             columns: ["category_id"]

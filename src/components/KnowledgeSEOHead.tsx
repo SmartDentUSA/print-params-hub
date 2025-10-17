@@ -25,7 +25,12 @@ export function KnowledgeSEOHead({ content, category }: KnowledgeSEOHeadProps) {
     "image": content.og_image_url,
     "datePublished": content.created_at,
     "dateModified": content.updated_at,
-    "author": { 
+    "author": content.authors ? {
+      "@type": "Person",
+      "name": content.authors.name,
+      "url": content.authors.website_url,
+      "image": content.authors.photo_url
+    } : { 
       "@type": "Organization", 
       "name": "Smart Dent" 
     },
