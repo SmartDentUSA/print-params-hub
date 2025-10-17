@@ -60,21 +60,17 @@ export function generateAuthorSignatureHTML(author: Author): string {
     ${photoHTML}
     
     <div style="flex: 1; min-width: 0;">
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px;">
-        <div>
-          <p style="font-size: 12px; color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">
-            Sobre o autor
-          </p>
-          <h4 style="font-size: 18px; font-weight: bold; color: hsl(var(--foreground)); margin: 0;">${author.name}</h4>
-          ${author.specialty ? `<p style="font-size: 14px; color: hsl(var(--muted-foreground)); margin: 4px 0 0 0;">${author.specialty}</p>` : ''}
-        </div>
-        ${socialLinksHTML}
-      </div>
-
-      ${miniBioHTML}
-      ${lattesHTML}
+      <p style="font-size: 12px; color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">
+        Sobre o autor
+      </p>
+      <h4 style="font-size: 18px; font-weight: bold; color: hsl(var(--foreground)); margin: 0;">${author.name}</h4>
+      ${author.specialty ? `<p style="font-size: 14px; color: hsl(var(--muted-foreground)); margin: 4px 0 0 0;">${author.specialty}</p>` : ''}
+      ${socialLinksHTML ? `<div style="margin-top: 8px;">${socialLinksHTML}</div>` : ''}
     </div>
   </div>
+  
+  ${miniBioHTML ? `<div style="margin-top: 16px;">${miniBioHTML}</div>` : ''}
+  ${lattesHTML}
 </div>
   `.trim();
 }
