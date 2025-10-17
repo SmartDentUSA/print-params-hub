@@ -19,7 +19,7 @@ export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: Kn
   if (contents.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Nenhum artigo disponível</p>
+        <p className="text-muted-foreground">Nenhum conteúdo disponível</p>
       </div>
     );
   }

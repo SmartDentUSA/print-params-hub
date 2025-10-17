@@ -23,11 +23,8 @@ export function KnowledgeCategoryPills({
   return (
     <div className="bg-card/80 rounded-lg p-3 md:p-4 border border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
-        {/* Left: Label + Pills */}
+        {/* Left: Pills */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 flex-1">
-          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-            Categorias
-          </span>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <Button

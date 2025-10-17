@@ -140,7 +140,7 @@ export default function KnowledgeBase() {
             <div className="lg:col-span-1">
               <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Artigos
+                  Conteúdo
                 </h3>
                 <KnowledgeSidebar 
                   contents={filteredContents}
@@ -158,10 +158,10 @@ export default function KnowledgeBase() {
                 ) : (
                   <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
                     <h2 className="text-xl font-semibold text-foreground mb-2">
-                      Selecione um artigo
+                      Selecione um conteúdo
                     </h2>
                     <p className="text-muted-foreground">
-                      Escolha um artigo ao lado para visualizar o conteúdo
+                      Escolha um conteúdo ao lado para visualizar
                     </p>
                   </div>
                 )}
