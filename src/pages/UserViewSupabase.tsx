@@ -28,9 +28,40 @@ const UserViewSupabase = () => {
   const [models, setModels] = useState<any[]>([]);
   const [resins, setResins] = useState<any[]>([]);
   const [preSelectedResins, setPreSelectedResins] = useState<string[]>([]);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   
   const isMobile = useIsMobile();
   const resinsRef = useRef<HTMLDivElement>(null);
+
+  // Debug log para mobile
+  useEffect(() => {
+    console.log('📱 UserViewSupabase - Estado atual:', {
+      isMobile,
+      loading,
+      brandsCount: brands.length,
+      modelsCount: models.length,
+      resinsCount: resins.length,
+      selectedBrand,
+      selectedModel
+    });
+  }, [isMobile, loading, brands, models, resins, selectedBrand, selectedModel]);
+
+  // Loading timeout de segurança
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimeout(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      if (loading) {
+        setLoadingTimeout(true);
+        console.error('⏱️ Loading timeout - possível problema ao carregar dados');
+      }
+    }, 10000); // 10 segundos
+    
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
@@ -167,10 +198,29 @@ const UserViewSupabase = () => {
     });
   }
 
-  if (loading) {
+  if (loading && !loadingTimeout) {
     return (
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
-        <div className="text-lg">Carregando dados...</div>
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-foreground">Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingTimeout) {
+    return (
+      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <p className="text-lg text-foreground mb-4">⚠️ Erro ao carregar dados</p>
+          <p className="text-muted-foreground mb-6">
+            Não foi possível carregar os dados. Verifique sua conexão ou tente novamente.
+          </p>
+          <Button onClick={() => window.location.reload()}>
+            Recarregar Página
+          </Button>
+        </div>
       </div>
     );
   }

@@ -1,12 +1,12 @@
 import { Routes, Route } from "react-router-dom";
-import UserViewSupabase from "./pages/UserViewSupabase";
+import Index from "./pages/Index";
 import AdminViewSecure from "./pages/AdminViewSecure";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
   <Routes>
-    <Route path="/" element={<UserViewSupabase />} />
+    <Route path="/" element={<Index />} />
     <Route path="/admin" element={<AdminViewSecure />} />
     <Route path="/base-conhecimento" element={<KnowledgeBase />} />
     <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase />} />
