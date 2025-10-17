@@ -8,8 +8,7 @@ import { Breadcrumb } from "@/components/Breadcrumb";
 import { DataStats } from "@/components/DataStats";
 import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { MessageCircle, Settings, Search } from "lucide-react";
+import { MessageCircle, Settings } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link, useSearchParams } from "react-router-dom";
@@ -30,8 +29,6 @@ const UserViewSupabase = () => {
   const [resins, setResins] = useState<any[]>([]);
   const [preSelectedResins, setPreSelectedResins] = useState<string[]>([]);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
-  const [isLoadingModels, setIsLoadingModels] = useState(false);
-  const [isLoadingResins, setIsLoadingResins] = useState(false);
   
   const isMobile = useIsMobile();
   const resinsRef = useRef<HTMLDivElement>(null);
@@ -66,15 +63,17 @@ const UserViewSupabase = () => {
     return () => clearTimeout(timer);
   }, [loading]);
 
-  const handleBrandSelect = async (brandSlug: string) => {
+  const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
     setSelectedModel("");
-    setIsLoadingModels(true);
   };
 
-  const handleModelSelect = async (modelSlug: string) => {
+  const handleModelSelect = (modelSlug: string) => {
     setSelectedModel(modelSlug);
-    setIsLoadingResins(true);
+  };
+
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
   };
 
   // Load brands
@@ -95,20 +94,16 @@ const UserViewSupabase = () => {
     if (selectedBrand) {
       const loadModels = async () => {
         try {
-          setIsLoadingModels(true);
           const modelsData = await getModelsByBrand(selectedBrand);
           setModels(modelsData);
         } catch (error) {
           // Silent error handling
-        } finally {
-          setIsLoadingModels(false);
         }
       };
       loadModels();
     } else {
       setModels([]);
       setSelectedModel('');
-      setIsLoadingModels(false);
     }
   }, [selectedBrand, getModelsByBrand]);
 
@@ -117,19 +112,15 @@ const UserViewSupabase = () => {
     if (selectedModel) {
       const loadResins = async () => {
         try {
-          setIsLoadingResins(true);
           const resinsData = await getResinsByModel(selectedModel);
           setResins(resinsData);
         } catch (error) {
           // Silent error handling
-        } finally {
-          setIsLoadingResins(false);
         }
       };
       loadResins();
     } else {
       setResins([]);
-      setIsLoadingResins(false);
     }
   }, [selectedModel, getResinsByModel]);
 
@@ -207,7 +198,7 @@ const UserViewSupabase = () => {
     });
   }
 
-  if (loading && brands.length === 0 && !loadingTimeout) {
+  if (loading && !loadingTimeout) {
     return (
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
         <div className="text-center">
@@ -255,21 +246,6 @@ const UserViewSupabase = () => {
           </p>
         </div>
 
-        {/* Search Field */}
-        <div className="mb-8">
-          <div className="max-w-2xl mx-auto">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
-              <Input 
-                placeholder="Buscar conteúdo..."
-                className="pl-10 bg-card border-border h-12 text-base"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Brand Selection */}
         <div className="mb-8">
           <BrandSelector 
@@ -288,23 +264,17 @@ const UserViewSupabase = () => {
                 <h3 className="text-lg font-semibold text-foreground mb-4">
                   {t('brands.brand_models', { brand: selectedBrandData?.name })}
                 </h3>
-                {isLoadingModels ? (
-                  <div className="flex justify-center py-8">
-                    <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  </div>
-                ) : (
-                  <ModelGrid 
-                    models={models.map(model => ({
-                      id: model.id || model.slug,
-                      name: model.name,
-                      slug: model.slug,
-                      imageUrl: model.image_url,
-                      isActive: model.active !== false,
-                      notes: model.notes
-                    }))}
-                    onModelSelect={handleModelSelect}
-                  />
-                )}
+                <ModelGrid 
+                  models={models.map(model => ({
+                    id: model.id || model.slug,
+                    name: model.name,
+                    slug: model.slug,
+                    imageUrl: model.image_url,
+                    isActive: model.active !== false,
+                    notes: model.notes
+                  }))}
+                  onModelSelect={handleModelSelect}
+                />
               </div>
             </div>
 
@@ -326,17 +296,10 @@ const UserViewSupabase = () => {
                   </div>
 
                   {/* Resins and Parameters */}
-                  {isLoadingResins ? (
-                    <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
-                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-lg text-foreground">Carregando resinas...</p>
-                    </div>
-                  ) : (
-                    <ResinAccordion 
-                      resins={resins} 
-                      preSelectedResins={preSelectedResins}
-                    />
-                  )}
+                  <ResinAccordion 
+                    resins={resins} 
+                    preSelectedResins={preSelectedResins}
+                  />
                 </div>
               ) : (
                 <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
