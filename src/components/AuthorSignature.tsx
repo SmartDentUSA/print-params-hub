@@ -6,6 +6,15 @@ interface AuthorSignatureProps {
 }
 
 export function AuthorSignature({ author }: AuthorSignatureProps) {
+  const socialBrandColors: { [key: string]: string } = {
+    'Facebook': 'bg-[#1877F2]',
+    'Instagram': 'bg-gradient-to-br from-[#feda75] via-[#d62976] via-[#962fbf] to-[#4f5bd5]',
+    'TikTok': 'bg-black',
+    'LinkedIn': 'bg-[#0A66C2]',
+    'YouTube': 'bg-[#FF0000]',
+    'Twitter': 'bg-black',
+  };
+
   const socialLinks = [
     { url: author.facebook_url, icon: Facebook, label: 'Facebook' },
     { url: author.instagram_url, icon: Instagram, label: 'Instagram' },
@@ -16,75 +25,81 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
   ].filter(link => link.url);
 
   return (
-    <div className="mt-8 bg-gradient-card rounded-xl border border-border p-6 shadow-medium">
+    <div className="mt-8 bg-white rounded-xl border border-gray-200 p-6 shadow-md">
       <div className="flex gap-4 items-start">
         {/* Foto do autor */}
         {author.photo_url ? (
           <img 
             src={author.photo_url} 
             alt={author.name}
-            className="w-20 h-20 rounded-full object-cover border-2 border-primary/20 flex-shrink-0"
+            className="w-20 h-20 rounded-full object-cover border-2 border-black flex-shrink-0"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
           />
         ) : (
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-primary/20 flex-shrink-0">
-            <UserCircle className="w-12 h-12 text-muted-foreground" />
+          <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center border-2 border-black flex-shrink-0">
+            <UserCircle className="w-12 h-12 text-gray-500" />
           </div>
         )}
         
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
-            Sobre o autor
-          </p>
-          <h4 className="text-lg font-bold text-foreground">{author.name}</h4>
-          {author.specialty && (
-            <p className="text-sm text-muted-foreground">{author.specialty}</p>
-          )}
-          
-          {/* Ícones sociais abaixo do nome */}
-          {socialLinks.length > 0 && (
-            <div className="flex gap-2 mt-2">
-              {socialLinks.map((link, idx) => (
-                <a
-                  key={idx}
-                  href={link.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 flex items-center justify-center transition-colors"
-                  aria-label={link.label}
-                >
-                  {link.icon ? (
-                    <link.icon className="w-4 h-4 text-primary" />
-                  ) : (
-                    <span className="text-primary font-bold text-xs">TT</span>
-                  )}
-                </a>
-              ))}
+          <div className="flex justify-between items-start gap-3 mb-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                Sobre o autor
+              </p>
+              <h4 className="text-lg font-extrabold uppercase text-black leading-tight">{author.name}</h4>
+              {author.specialty && (
+                <p className="text-sm text-gray-500 mt-1">{author.specialty}</p>
+              )}
             </div>
+            
+            {/* Ícones sociais à direita */}
+            {socialLinks.length > 0 && (
+              <div className="flex gap-2 flex-wrap items-start">
+                {socialLinks.map((link, idx) => (
+                  <a
+                    key={idx}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-8 h-8 rounded-full ${socialBrandColors[link.label]} hover:opacity-90 flex items-center justify-center transition-opacity`}
+                    aria-label={link.label}
+                  >
+                    {link.icon ? (
+                      <link.icon className="w-[18px] h-[18px] text-white" />
+                    ) : (
+                      <span className="text-white font-bold text-[11px]">TT</span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Caixa Mini Currículo */}
+          <div className="rounded-[20px] border-2 border-black p-4">
+            {author.mini_bio ? (
+              <p className="text-sm text-black leading-relaxed text-left">{author.mini_bio}</p>
+            ) : (
+              <p className="text-base font-semibold text-black text-center">Mini Currículo</p>
+            )}
+          </div>
+
+          {/* Currículo Lattes */}
+          {author.lattes_url && (
+            <a
+              href={author.lattes_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block mt-3 text-sm text-[#1877F2] hover:underline"
+            >
+              Ver Currículo Lattes
+            </a>
           )}
         </div>
       </div>
-
-      {/* Mini bio em caixa - fora do flex principal */}
-      {author.mini_bio && (
-        <div className="mt-4 bg-muted/30 rounded-lg p-4 border border-border">
-          <p className="text-sm text-foreground/80 leading-relaxed">{author.mini_bio}</p>
-        </div>
-      )}
-
-      {/* Currículo Lattes */}
-      {author.lattes_url && (
-        <a
-          href={author.lattes_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block mt-3 text-sm text-primary hover:underline"
-        >
-          Ver Currículo Lattes
-        </a>
-      )}
     </div>
   );
 }
