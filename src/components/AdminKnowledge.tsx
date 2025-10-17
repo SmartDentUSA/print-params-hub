@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Edit, Trash2, UserCircle, Upload, X } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
+import { ResinMultiSelect } from '@/components/ResinMultiSelect';
 import { useAuthors } from '@/hooks/useAuthors';
 import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -47,7 +48,8 @@ export function AdminKnowledge() {
     author_id: null as string | null,
     faqs: [] as Array<{ question: string; answer: string }>,
     order_index: 0,
-    active: true
+    active: true,
+    recommended_resins: [] as string[]
   });
   
   const { 
@@ -113,7 +115,8 @@ export function AdminKnowledge() {
       author_id: content.author_id || null,
       faqs: content.faqs || [],
       order_index: content.order_index,
-      active: content.active
+      active: content.active,
+      recommended_resins: content.recommended_resins || []
     });
     
     const vids = await fetchVideosByContent(content.id);
@@ -137,7 +140,8 @@ export function AdminKnowledge() {
       author_id: null,
       faqs: [],
       order_index: contents.length,
-      active: true
+      active: true,
+      recommended_resins: []
     });
     setVideos([]);
     setModalOpen(true);
@@ -159,7 +163,8 @@ export function AdminKnowledge() {
       const contentData = {
         ...formData,
         category_id: categoryId,
-        slug: formData.slug || generateSlug(formData.title)
+        slug: formData.slug || generateSlug(formData.title),
+        recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
       };
 
       if (editingContent) {
@@ -401,11 +406,12 @@ export function AdminKnowledge() {
             </DialogHeader>
             
             <Tabs defaultValue="content">
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="content">📝 Conteúdo</TabsTrigger>
                 <TabsTrigger value="seo">🔍 SEO</TabsTrigger>
                 <TabsTrigger value="faqs">❓ FAQs</TabsTrigger>
                 <TabsTrigger value="media">🎬 Mídias</TabsTrigger>
+                <TabsTrigger value="conversion">💰 Conversão</TabsTrigger>
               </TabsList>
 
               {/* Content Tab */}
@@ -711,6 +717,40 @@ export function AdminKnowledge() {
                     value={formData.file_name}
                     onChange={(e) => setFormData({...formData, file_name: e.target.value})}
                   />
+                </div>
+              </TabsContent>
+
+              {/* Conversion Tab */}
+              <TabsContent value="conversion" className="space-y-4">
+                <div>
+                  <Label className="text-lg font-semibold">💰 CTAs de Conversão</Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Selecione as resinas mencionadas no artigo. CTAs aparecerão automaticamente (topo, meio, final).
+                  </p>
+                  
+                  <ResinMultiSelect 
+                    value={formData.recommended_resins}
+                    onChange={(resins) => setFormData({...formData, recommended_resins: resins})}
+                  />
+                  
+                  {/* Preview */}
+                  {formData.recommended_resins.length > 0 && (
+                    <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
+                      <p className="text-sm font-medium mb-2">📋 Preview do CTA:</p>
+                      <div className="p-4 bg-card border border-primary/20 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="h-6 w-1 bg-primary rounded-full" />
+                          <p className="text-sm font-semibold">🎯 Resinas mencionadas neste artigo</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          ✓ {formData.recommended_resins.length} {formData.recommended_resins.length === 1 ? 'resina selecionada' : 'resinas selecionadas'}
+                        </p>
+                        <div className="text-xs text-primary">
+                          CTAs aparecerão no topo, meio e fim do artigo
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
 import { ParameterTable } from "./ParameterTable";
+import { cn } from "@/lib/utils";
 
 interface ParameterSet {
   id: string;
@@ -42,9 +43,10 @@ interface Resin {
 
 interface ResinAccordionProps {
   resins: Resin[];
+  preSelectedResins?: string[];
 }
 
-export function ResinAccordion({ resins }: ResinAccordionProps) {
+export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordionProps) {
   // Filter out parameter sets with invalid data (but allow cure_time = 0 for special cases)
   const filteredResins = resins.map(resin => ({
     ...resin,
@@ -65,7 +67,13 @@ export function ResinAccordion({ resins }: ResinAccordionProps) {
   return (
     <div className="space-y-4">
       {filteredResins.map((resin) => (
-        <div key={resin.id} className="bg-gradient-card rounded-xl border border-border shadow-medium">
+        <div 
+          key={resin.id} 
+          className={cn(
+            "bg-gradient-card rounded-xl border border-border shadow-medium",
+            preSelectedResins.includes(resin.id) && "ring-2 ring-primary shadow-lg"
+          )}
+        >
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value={resin.id} className="border-0">
               <AccordionTrigger className="px-6 py-4 hover:no-underline">

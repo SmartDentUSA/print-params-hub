@@ -11,7 +11,9 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle, Settings } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const UserViewSupabase = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -19,10 +21,13 @@ const UserViewSupabase = () => {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const { getUniqueBrands, getModelsByBrand, getResinsByModel, loading } = useData();
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
 
   const [brands, setBrands] = useState<any[]>([]);
   const [models, setModels] = useState<any[]>([]);
   const [resins, setResins] = useState<any[]>([]);
+  const [preSelectedResins, setPreSelectedResins] = useState<string[]>([]);
   
   const isMobile = useIsMobile();
   const resinsRef = useRef<HTMLDivElement>(null);
@@ -87,6 +92,38 @@ const UserViewSupabase = () => {
       setResins([]);
     }
   }, [selectedModel, getResinsByModel]);
+
+  // Check for pre-selected resins from URL query params
+  useEffect(() => {
+    const resinsParam = searchParams.get('resins');
+    if (resinsParam) {
+      const resinIds = resinsParam.split(',');
+      setPreSelectedResins(resinIds);
+      
+      // Fetch resin names for toast
+      supabase
+        .from('resins')
+        .select('name, manufacturer')
+        .in('id', resinIds)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const names = data.map(r => `${r.name} (${r.manufacturer})`).join(', ');
+            toast({
+              title: "🎯 Resinas Filtradas",
+              description: names,
+            });
+            
+            // Auto-scroll to resins section
+            setTimeout(() => {
+              resinsRef.current?.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start' 
+              });
+            }, 500);
+          }
+        });
+    }
+  }, [searchParams, toast]);
 
   // Auto-scroll to resins section on mobile when model is selected
   useEffect(() => {
@@ -223,7 +260,10 @@ const UserViewSupabase = () => {
                   </div>
 
                   {/* Resins and Parameters */}
-                  <ResinAccordion resins={resins} />
+                  <ResinAccordion 
+                    resins={resins} 
+                    preSelectedResins={preSelectedResins}
+                  />
                 </div>
               ) : (
                 <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">

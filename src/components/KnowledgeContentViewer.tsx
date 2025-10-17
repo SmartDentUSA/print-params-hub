@@ -7,6 +7,7 @@ import { useKnowledge } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
+import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { Link } from 'react-router-dom';
 
 interface KnowledgeContentViewerProps {
@@ -70,6 +71,15 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       />
       <Breadcrumb items={breadcrumbItems} />
       
+      {/* CTA TOP */}
+      {content.recommended_resins?.length > 0 && (
+        <KnowledgeCTA 
+          recommendedResins={content.recommended_resins}
+          articleTitle={content.title}
+          position="top"
+        />
+      )}
+      
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
         <h2 className="text-2xl font-bold text-foreground mb-4">
           {content.title}
@@ -95,6 +105,17 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* CTA MIDDLE */}
+        {content.recommended_resins?.length > 0 && (
+          <div className="my-6">
+            <KnowledgeCTA 
+              recommendedResins={content.recommended_resins}
+              articleTitle={content.title}
+              position="middle"
+            />
           </div>
         )}
 
@@ -126,7 +147,21 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         {content.authors && !/\[\[ASSINATURA_AUTOR\]\]/i.test(content.content_html || '') && (
           <AuthorSignature author={content.authors} />
         )}
+
+        {/* Transparency Disclaimer */}
+        <div className="mt-8 p-4 bg-muted/30 border border-border rounded-lg text-xs text-muted-foreground">
+          <strong className="text-foreground">Transparência:</strong> Este artigo foi escrito com base em testes práticos realizados pelo autor. Smart Dent apenas fornece materiais necessários para desenvolvimento do conteúdo, mas isso não afeta nossas recomendações.
+        </div>
       </div>
+
+      {/* CTA BOTTOM */}
+      {content.recommended_resins?.length > 0 && (
+        <KnowledgeCTA 
+          recommendedResins={content.recommended_resins}
+          articleTitle={content.title}
+          position="bottom"
+        />
+      )}
 
       {/* Related Articles */}
       {relatedArticles.length > 0 && (

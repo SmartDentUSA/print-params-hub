@@ -154,6 +154,7 @@ export type Database = {
           meta_description: string | null
           og_image_url: string | null
           order_index: number
+          recommended_resins: string[] | null
           slug: string
           title: string
           updated_at: string | null
@@ -174,6 +175,7 @@ export type Database = {
           meta_description?: string | null
           og_image_url?: string | null
           order_index: number
+          recommended_resins?: string[] | null
           slug: string
           title: string
           updated_at?: string | null
@@ -194,6 +196,7 @@ export type Database = {
           meta_description?: string | null
           og_image_url?: string | null
           order_index?: number
+          recommended_resins?: string[] | null
           slug?: string
           title?: string
           updated_at?: string | null
