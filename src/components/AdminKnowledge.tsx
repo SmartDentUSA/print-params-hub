@@ -300,7 +300,7 @@ export function AdminKnowledge() {
       <CardContent>
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2">
             {categories.map((cat) => (
               <TabsTrigger key={cat.id} value={cat.letter}>
                 {cat.letter} • {cat.name}
