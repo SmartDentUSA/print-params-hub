@@ -194,20 +194,6 @@ const UserViewSupabase = () => {
           <p className="text-lg text-muted-foreground mb-4">
             {t('header.subtitle')}
           </p>
-          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-success rounded-full"></span>
-              {t('hero.brands_integrated', { count: brands.length })}
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-primary rounded-full"></span>
-              {t('hero.real_parameters', { count: 'Supabase' })}
-            </span>
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-accent rounded-full"></span>
-              {t('hero.dental_data')}
-            </span>
-          </div>
         </div>
 
         {/* Brand Selection */}
