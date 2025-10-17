@@ -61,27 +61,43 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         {/* Videos Tabs */}
         {videos.length > 0 && (
           <div className="mb-6">
-            <Tabs defaultValue={videos[0].id} className="w-full">
-              <TabsList>
-                {videos.map((video, idx) => (
-                  <TabsTrigger key={video.id} value={video.id}>
-                    📹 {video.title || `Vídeo ${idx + 1}`}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {videos.map((video) => (
-                <TabsContent key={video.id} value={video.id}>
+              <Tabs defaultValue={videos[0] ? `${videos[0].id}` : undefined} className="w-full">
+                {videos.length > 1 && (
+                  <div className="overflow-x-auto max-w-full">
+                    <TabsList className="min-w-max">
+                      {videos.map((video, idx) => (
+                        <TabsTrigger key={video.id} value={`${video.id}`}>
+                          📹 {video.title || `Vídeo ${idx + 1}`}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </div>
+                )}
+
+                {videos.length === 1 ? (
                   <div className="aspect-video rounded-lg overflow-hidden border border-border mt-4">
-                    <iframe 
-                      src={getEmbedUrl(video.url)}
+                    <iframe
+                      src={getEmbedUrl(videos[0].url)}
                       className="w-full h-full"
                       allowFullScreen
-                      title={video.title}
+                      title={videos[0].title}
                     />
                   </div>
-                </TabsContent>
-              ))}
-            </Tabs>
+                ) : (
+                  videos.map((video) => (
+                    <TabsContent key={video.id} value={`${video.id}`}>
+                      <div className="aspect-video rounded-lg overflow-hidden border border-border mt-4">
+                        <iframe
+                          src={getEmbedUrl(video.url)}
+                          className="w-full h-full"
+                          allowFullScreen
+                          title={video.title}
+                        />
+                      </div>
+                    </TabsContent>
+                  ))
+                )}
+              </Tabs>
           </div>
         )}
 
