@@ -1,4 +1,6 @@
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -19,20 +21,37 @@ export function KnowledgeCategoryPills({
   onCategorySelect 
 }: KnowledgeCategoryPillsProps) {
   return (
-    <div className="bg-gradient-card rounded-xl p-6 shadow-medium border border-border">
-      <h2 className="text-lg font-semibold text-foreground mb-4">Categorias</h2>
-      <div className="flex flex-wrap gap-3">
-        {categories.map((cat) => (
-          <Button
-            key={cat.id}
-            variant={selectedCategory === cat.letter ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onCategorySelect(cat.letter)}
-            className="transition-smooth hover:shadow-soft"
-          >
-            {cat.letter} • {cat.name}
-          </Button>
-        ))}
+    <div className="bg-card/80 rounded-lg p-3 md:p-4 border border-border">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+        {/* Left: Label + Pills */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 flex-1">
+          <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+            Categorias
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <Button
+                key={cat.id}
+                variant={selectedCategory === cat.letter ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onCategorySelect(cat.letter)}
+                className="transition-smooth hover:shadow-soft"
+              >
+                {cat.letter} • {cat.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Right: Back Link */}
+        <Link 
+          to="/" 
+          className="flex items-center gap-2 text-sm text-primary hover:underline whitespace-nowrap self-end md:self-auto"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">Voltar para Parametrização</span>
+          <span className="sm:hidden">Voltar</span>
+        </Link>
       </div>
     </div>
   );

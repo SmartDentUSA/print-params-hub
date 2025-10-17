@@ -111,18 +111,6 @@ export default function KnowledgeBase() {
         category={categories.find(c => c.letter === categoryLetter?.toUpperCase())}
       />
       
-      <div className="border-b border-border bg-gradient-surface/50">
-        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          <Link to="/">
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline">Voltar para Parametrização</span>
-              <span className="sm:hidden">Parametrização</span>
-            </Button>
-          </Link>
-        </div>
-      </div>
-      
       <Header onSearch={handleSearch} searchValue={searchTerm} showAdminButton={true} />
       
       <main className="container mx-auto px-4 py-8">
