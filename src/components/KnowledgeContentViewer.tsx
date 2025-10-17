@@ -58,46 +58,26 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           {content.title}
         </h2>
 
-        {/* Videos Tabs */}
+        {/* Videos */}
         {videos.length > 0 && (
-          <div className="mb-6">
-              <Tabs defaultValue={videos[0] ? `${videos[0].id}` : undefined} className="w-full">
-                {videos.length > 1 && (
-                  <div className="overflow-x-auto max-w-full">
-                    <TabsList className="min-w-max">
-                      {videos.map((video, idx) => (
-                        <TabsTrigger key={video.id} value={`${video.id}`}>
-                          📹 {video.title || `Vídeo ${idx + 1}`}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
+          <div className="space-y-4 mb-6">
+            {videos.map((video, idx) => (
+              <div key={video.id} className="space-y-2">
+                {video.title && (
+                  <div className="text-sm font-medium text-muted-foreground">
+                    📹 Vídeo {idx + 1} — {video.title}
                   </div>
                 )}
-
-                {videos.length === 1 ? (
-                  <div className="aspect-video rounded-lg overflow-hidden border border-border mt-4">
-                    <iframe
-                      src={getEmbedUrl(videos[0].url)}
-                      className="w-full h-full"
-                      allowFullScreen
-                      title={videos[0].title}
-                    />
-                  </div>
-                ) : (
-                  videos.map((video) => (
-                    <TabsContent key={video.id} value={`${video.id}`}>
-                      <div className="aspect-video rounded-lg overflow-hidden border border-border mt-4">
-                        <iframe
-                          src={getEmbedUrl(video.url)}
-                          className="w-full h-full"
-                          allowFullScreen
-                          title={video.title}
-                        />
-                      </div>
-                    </TabsContent>
-                  ))
-                )}
-              </Tabs>
+                <div className="aspect-video rounded-lg overflow-hidden border border-border">
+                  <iframe
+                    src={getEmbedUrl(video.url)}
+                    className="w-full h-full"
+                    allowFullScreen
+                    title={video.title || `Vídeo ${idx + 1}`}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

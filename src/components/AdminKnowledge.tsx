@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { useAuthors } from '@/hooks/useAuthors';
@@ -16,6 +16,7 @@ import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { useToast } from '@/hooks/use-toast';
 import type { Editor } from '@tiptap/react';
+import { supabase } from '@/integrations/supabase/client';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -28,6 +29,8 @@ export function AdminKnowledge() {
   const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('visual');
   const [authors, setAuthors] = useState<any[]>([]);
   const editorRef = useRef<Editor | null>(null);
+  const ogFileRef = useRef<HTMLInputElement>(null);
+  const [uploadingOg, setUploadingOg] = useState(false);
   const { toast } = useToast();
   
   // Form state
@@ -222,6 +225,63 @@ export function AdminKnowledge() {
       title: "Sucesso",
       description: "Assinatura do autor inserida no final do conteúdo"
     });
+  };
+
+  const handleUploadOgImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ 
+        title: 'Arquivo inválido', 
+        description: 'Selecione uma imagem.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ 
+        title: 'Imagem muito grande', 
+        description: 'Máximo 5MB.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    try {
+      setUploadingOg(true);
+      const ext = file.name.split('.').pop();
+      const slug = formData.slug || generateSlug(formData.title) || 'og-image';
+      const path = `knowledge-og/${slug}-${Date.now()}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('model-images')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('model-images')
+        .getPublicUrl(path);
+
+      setFormData({ ...formData, og_image_url: data.publicUrl });
+      
+      toast({ 
+        title: 'Imagem OG enviada', 
+        description: 'Upload concluído!' 
+      });
+    } catch (err) {
+      console.error(err);
+      toast({ 
+        title: 'Erro no upload', 
+        description: 'Tente novamente.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setUploadingOg(false);
+      if (ogFileRef.current) ogFileRef.current.value = '';
+    }
   };
 
   return (
@@ -469,13 +529,55 @@ export function AdminKnowledge() {
                     onChange={(e) => setFormData({...formData, meta_description: e.target.value})}
                   />
                 </div>
-                <div>
-                  <Label>Imagem OG (URL)</Label>
+                <div className="space-y-3">
+                  <Label>Imagem OG</Label>
                   <Input 
-                    placeholder="https://..." 
+                    placeholder="https://... (ou envie abaixo)" 
                     value={formData.og_image_url}
                     onChange={(e) => setFormData({...formData, og_image_url: e.target.value})}
                   />
+                  
+                  {/* Preview and Remove */}
+                  {formData.og_image_url && (
+                    <div className="space-y-2">
+                      <img 
+                        src={formData.og_image_url} 
+                        alt="OG Preview" 
+                        className="w-full max-h-40 object-cover rounded border border-border"
+                      />
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, og_image_url: '' })}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Remover
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Upload Button */}
+                  <div>
+                    <input 
+                      ref={ogFileRef} 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleUploadOgImage(file);
+                      }}
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => ogFileRef.current?.click()}
+                      disabled={uploadingOg}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadingOg ? 'Enviando...' : 'Enviar imagem OG'}
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
 

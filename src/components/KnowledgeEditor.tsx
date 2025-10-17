@@ -6,9 +6,11 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Button } from '@/components/ui/button';
 import { 
   Bold, Italic, List, ListOrdered, Heading2, 
-  Undo, Redo 
+  Undo, Redo, Image as ImageIcon 
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface KnowledgeEditorProps {
   content: string;
@@ -18,6 +20,10 @@ interface KnowledgeEditorProps {
 }
 
 export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady }: KnowledgeEditorProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -36,6 +42,65 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
       onEditorReady(editor);
     }
   }, [editor, onEditorReady]);
+
+  const handleSelectImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ 
+        title: 'Arquivo inválido', 
+        description: 'Selecione uma imagem.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ 
+        title: 'Imagem muito grande', 
+        description: 'Máximo 5MB.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const ext = file.name.split('.').pop();
+      const path = `knowledge-content/${Date.now()}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('model-images')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('model-images')
+        .getPublicUrl(path);
+
+      editor?.chain().focus().setImage({ src: data.publicUrl }).run();
+      
+      toast({ 
+        title: 'Imagem inserida', 
+        description: 'Upload concluído!' 
+      });
+    } catch (err) {
+      console.error(err);
+      toast({ 
+        title: 'Erro no upload', 
+        description: 'Tente novamente.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   if (!editor) return null;
 
@@ -83,6 +148,24 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
         >
           <ListOrdered className="w-4 h-4" />
         </Button>
+        <div className="w-px h-8 bg-border mx-1" />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Inserir imagem"
+        >
+          <ImageIcon className="w-4 h-4" />
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleSelectImage}
+        />
         <div className="w-px h-8 bg-border mx-1" />
         <Button
           type="button"
