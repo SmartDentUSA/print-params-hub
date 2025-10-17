@@ -27,9 +27,12 @@ export function Header({ onSearch, searchValue = "", showAdminButton = false }: 
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">3D</span>
-          </div>
+          <img 
+            src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/k5ehr22i90e_1760719904346.png"
+            alt="Smart Dent Logo"
+            className="h-8 w-auto object-contain"
+            loading="eager"
+          />
           <span className="font-semibold text-lg text-foreground">Smart Dent</span>
         </div>
 
