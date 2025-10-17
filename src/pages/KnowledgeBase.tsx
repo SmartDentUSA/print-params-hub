@@ -8,7 +8,8 @@ import { KnowledgeContentViewer } from "@/components/KnowledgeContentViewer";
 import { KnowledgeSEOHead } from "@/components/KnowledgeSEOHead";
 import { useKnowledge } from "@/hooks/useKnowledge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, ArrowLeft } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MessageCircle, ArrowLeft, Search } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function KnowledgeBase() {
@@ -111,7 +112,7 @@ export default function KnowledgeBase() {
         category={categories.find(c => c.letter === categoryLetter?.toUpperCase())}
       />
       
-      <Header onSearch={handleSearch} searchValue={searchTerm} showAdminButton={true} />
+      <Header showAdminButton={true} />
       
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
@@ -119,14 +120,27 @@ export default function KnowledgeBase() {
           <h1 className="text-3xl font-bold text-foreground mb-2">
             Base de Conhecimento
           </h1>
-          <p className="text-lg text-muted-foreground mb-4">
+          <p className="text-lg text-muted-foreground mb-6">
             Aprenda tudo sobre impressão 3D odontológica
           </p>
+          
+          {/* Search Field */}
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+              <Input 
+                placeholder="Buscar conteúdo..."
+                className="pl-10 bg-card border-border h-12 text-base"
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Category Pills */}
         <div className="mb-8">
-          <KnowledgeCategoryPills 
+          <KnowledgeCategoryPills
             categories={categories}
             selectedCategory={categoryLetter?.toUpperCase()}
             onCategorySelect={handleCategorySelect}

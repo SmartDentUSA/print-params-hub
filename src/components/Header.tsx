@@ -1,66 +1,46 @@
-import { useState } from "react";
-import { Search, Settings, BookOpen } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Settings, BookOpen } from "lucide-react";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
-  onSearch?: (searchTerm: string) => void;
-  searchValue?: string;
   showAdminButton?: boolean;
 }
 
-export function Header({ onSearch, searchValue = "", showAdminButton = false }: HeaderProps) {
-  const [localSearchValue, setLocalSearchValue] = useState(searchValue);
+export function Header({ showAdminButton = false }: HeaderProps) {
   const { t } = useLanguage();
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setLocalSearchValue(value);
-    onSearch?.(value);
-  };
+  const location = useLocation();
+  const isKnowledgeBasePage = location.pathname.startsWith('/base-conhecimento');
 
   return (
     <header className="bg-gradient-surface border-b border-border shadow-soft">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container mx-auto px-3 md:px-4 h-14 md:h-16 flex items-center justify-between gap-2 md:gap-4">
         {/* Logo */}
-        <div className="flex items-center">
+        <div className="flex items-center flex-shrink-0">
           <img 
             src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
             alt="Smart Dent Logo"
-            className="h-12 w-auto object-contain"
+            className="h-8 md:h-12 w-auto object-contain"
             loading="eager"
           />
         </div>
 
-        {/* Search */}
-        <div className="flex-1 max-w-md mx-8">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input 
-              placeholder={t('header.search_placeholder')}
-              className="pl-10 bg-card border-border"
-              value={localSearchValue}
-              onChange={handleSearchChange}
-            />
-          </div>
-        </div>
-
         {/* Actions */}
-        <div className="flex items-center gap-2">
-          <Link to="/base-conhecimento">
-            <Button variant="ghost" size="sm" className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              <span className="hidden sm:inline">Base de Conhecimento</span>
-            </Button>
-          </Link>
+        <div className="flex items-center gap-1 md:gap-2">
+          {!isKnowledgeBasePage && (
+            <Link to="/base-conhecimento">
+              <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />
+                <span className="hidden md:inline">Base de Conhecimento</span>
+              </Button>
+            </Link>
+          )}
           {showAdminButton && (
             <Link to="/admin">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
-                <span className="hidden sm:inline">{t('common.admin')}</span>
+                <span className="hidden md:inline">{t('common.admin')}</span>
               </Button>
             </Link>
           )}

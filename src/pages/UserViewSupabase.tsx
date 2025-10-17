@@ -183,7 +183,7 @@ const UserViewSupabase = () => {
         model={selectedModelData}
         resins={resins}
       />
-      <Header onSearch={handleSearch} searchValue={searchTerm} showAdminButton={true} />
+      <Header showAdminButton={true} />
       
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
