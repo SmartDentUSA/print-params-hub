@@ -23,6 +23,7 @@ export default function KnowledgeBase() {
   const [contents, setContents] = useState<any[]>([]);
   const [selectedContent, setSelectedContent] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
 
   const { 
     fetchCategories, 
@@ -30,6 +31,22 @@ export default function KnowledgeBase() {
     fetchContentBySlug,
     loading
   } = useKnowledge();
+
+  // Loading timeout de segurança
+  useEffect(() => {
+    if (!loading) {
+      setLoadingTimeout(false);
+      return;
+    }
+    
+    const timer = setTimeout(() => {
+      if (loading) {
+        setLoadingTimeout(true);
+      }
+    }, 10000); // 10 segundos
+    
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   // Load categories
   useEffect(() => {
@@ -94,12 +111,28 @@ export default function KnowledgeBase() {
       )
     : contents;
 
-  if (loading && categories.length === 0) {
+  if (loading && categories.length === 0 && !loadingTimeout) {
     return (
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-lg text-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingTimeout) {
+    return (
+      <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <p className="text-lg text-foreground mb-4">⚠️ Erro ao carregar dados</p>
+          <p className="text-muted-foreground mb-6">
+            Não foi possível carregar os dados. Verifique sua conexão ou tente novamente.
+          </p>
+          <Button onClick={() => window.location.reload()}>
+            Recarregar Página
+          </Button>
         </div>
       </div>
     );
