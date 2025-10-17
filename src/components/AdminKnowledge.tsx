@@ -339,7 +339,7 @@ export function AdminKnowledge() {
                   ) : (
                     <div className="space-y-2">
                       <Textarea 
-                        className="font-mono text-sm min-h-[400px]"
+                        className="font-mono text-sm min-h-[400px] relative z-10 bg-card"
                         placeholder="<div>Insira HTML aqui...</div>"
                         value={formData.content_html}
                         onChange={(e) => setFormData({...formData, content_html: e.target.value})}
@@ -349,7 +349,7 @@ export function AdminKnowledge() {
                           👁️ Preview HTML
                         </summary>
                         <div 
-                          className="mt-2 p-4 border border-border rounded-lg bg-muted/30"
+                          className="mt-2 p-4 border border-border rounded-lg bg-card"
                           dangerouslySetInnerHTML={{ __html: formData.content_html }}
                         />
                       </details>
