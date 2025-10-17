@@ -87,7 +87,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       <Breadcrumb items={breadcrumbItems} />
       
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
-        <h2 className="text-2xl font-bold text-foreground mb-4">
+        <h2 className="text-2xl font-bold text-foreground mb-4 break-words">
           {content.title}
         </h2>
 
@@ -102,7 +102,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             {videos.map((video, idx) => (
               <div key={video.id} className="space-y-2">
                 {video.title && (
-                  <div className="text-sm font-medium text-muted-foreground">
+                  <div className="text-sm font-medium text-muted-foreground break-words">
                     📹 Vídeo {idx + 1} — {video.title}
                   </div>
                 )}
@@ -148,7 +148,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         {/* Rich Content */}
         {content.content_html && (
           <div 
-            className="prose prose-sm max-w-none"
+            className="prose prose-sm sm:prose-base max-w-none break-words prose-headings:break-words prose-p:break-words prose-li:break-words"
             dangerouslySetInnerHTML={{ 
               __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
             }}

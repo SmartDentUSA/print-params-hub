@@ -12,9 +12,9 @@ interface BreadcrumbProps {
 
 export function Breadcrumb({ items }: BreadcrumbProps) {
   return (
-    <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
+    <nav className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground mb-6">
       {items.map((item, index) => (
-        <div key={index} className="flex items-center">
+        <div key={index} className="flex items-center min-w-0">
           {index > 0 && <ChevronRight className="w-4 h-4 mx-2" />}
           {item.href || item.onClick ? (
             <button 
@@ -26,7 +26,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
                   window.location.href = item.href;
                 }
               }}
-              className="hover:text-foreground transition-smooth cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit underline-offset-4 hover:underline break-words"
+              className="hover:text-foreground transition-smooth cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit underline-offset-4 hover:underline break-words text-left"
             >
               {item.label}
             </button>
