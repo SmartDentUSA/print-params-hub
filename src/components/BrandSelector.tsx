@@ -35,7 +35,7 @@ export function BrandSelector({ brands, selectedBrand, onBrandSelect }: BrandSel
 
   return (
     <div className="bg-gradient-card rounded-xl p-6 shadow-medium border border-border">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold text-foreground">Selecione a Marca</h2>
         
         {cta3Url && cta3Url !== '#' && (
@@ -43,10 +43,10 @@ export function BrandSelector({ brands, selectedBrand, onBrandSelect }: BrandSel
             variant="default"
             size="sm"
             onClick={() => window.open(cta3Url, '_blank')}
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2 w-full sm:w-auto text-xs sm:text-sm whitespace-nowrap"
           >
-            <Download className="w-4 h-4" />
-            {cta3Label}
+            <Download className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate">{cta3Label}</span>
           </Button>
         )}
       </div>
