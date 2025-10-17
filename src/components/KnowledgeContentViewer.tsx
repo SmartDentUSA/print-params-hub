@@ -18,12 +18,14 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   useEffect(() => {
     if (content?.id) {
       const load = async () => {
+        console.log('🎬 Carregando vídeos para:', content.id);
         const vids = await fetchVideosByContent(content.id);
+        console.log('✅ Vídeos carregados:', vids.length, vids);
         setVideos(vids);
       };
       load();
     }
-  }, [content]);
+  }, [content?.id, fetchVideosByContent]);
 
   if (!content) return null;
 
