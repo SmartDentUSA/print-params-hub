@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Settings } from "lucide-react";
+import { Search, Settings, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -48,6 +48,12 @@ export function Header({ onSearch, searchValue = "", showAdminButton = false }: 
 
         {/* Actions */}
         <div className="flex items-center gap-2">
+          <Link to="/base-conhecimento">
+            <Button variant="ghost" size="sm" className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">Base de Conhecimento</span>
+            </Button>
+          </Link>
           {showAdminButton && (
             <Link to="/admin">
               <Button variant="outline" size="sm" className="flex items-center gap-2">

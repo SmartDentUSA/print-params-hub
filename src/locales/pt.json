@@ -127,5 +127,16 @@
     "item_created": "Item criado!",
     "item_removed": "Item removido",
     "item_removed_description": "{{type}} foi removido com sucesso."
+  },
+  "knowledge": {
+    "title": "Base de Conhecimento",
+    "subtitle": "Aprenda tudo sobre impressão 3D odontológica",
+    "categories": "Categorias",
+    "articles": "Artigos",
+    "select_article": "Selecione um artigo",
+    "select_article_description": "Escolha um artigo ao lado para visualizar o conteúdo",
+    "no_articles": "Nenhum artigo disponível",
+    "download_file": "Baixar Arquivo",
+    "video": "Vídeo"
   }
 }

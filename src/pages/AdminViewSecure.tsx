@@ -12,8 +12,9 @@ import { DataProvider } from "@/contexts/DataContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AdminKnowledge } from "@/components/AdminKnowledge";
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
@@ -171,10 +172,14 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue="models" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="models" className="flex items-center gap-2">
               <Database className="w-4 h-4" />
               Modelos
+            </TabsTrigger>
+            <TabsTrigger value="knowledge" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Conteúdo
             </TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
@@ -192,6 +197,10 @@ export default function AdminViewSecure() {
 
           <TabsContent value="models" className="space-y-6">
             <AdminModels />
+          </TabsContent>
+
+          <TabsContent value="knowledge" className="space-y-6">
+            <AdminKnowledge />
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-6">

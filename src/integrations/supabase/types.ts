@@ -44,6 +44,136 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_categories: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          id: string
+          letter: string
+          name: string
+          order_index: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          letter: string
+          name: string
+          order_index: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          id?: string
+          letter?: string
+          name?: string
+          order_index?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      knowledge_contents: {
+        Row: {
+          active: boolean | null
+          category_id: string | null
+          content_html: string | null
+          created_at: string | null
+          excerpt: string
+          file_name: string | null
+          file_url: string | null
+          icon_color: string | null
+          id: string
+          keywords: string[] | null
+          meta_description: string | null
+          og_image_url: string | null
+          order_index: number
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          category_id?: string | null
+          content_html?: string | null
+          created_at?: string | null
+          excerpt: string
+          file_name?: string | null
+          file_url?: string | null
+          icon_color?: string | null
+          id?: string
+          keywords?: string[] | null
+          meta_description?: string | null
+          og_image_url?: string | null
+          order_index: number
+          slug: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          category_id?: string | null
+          content_html?: string | null
+          created_at?: string | null
+          excerpt?: string
+          file_name?: string | null
+          file_url?: string | null
+          icon_color?: string | null
+          id?: string
+          keywords?: string[] | null
+          meta_description?: string | null
+          og_image_url?: string | null
+          order_index?: number
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_contents_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_videos: {
+        Row: {
+          content_id: string | null
+          created_at: string | null
+          id: string
+          order_index: number
+          title: string
+          url: string
+        }
+        Insert: {
+          content_id?: string | null
+          created_at?: string | null
+          id?: string
+          order_index: number
+          title: string
+          url: string
+        }
+        Update: {
+          content_id?: string | null
+          created_at?: string | null
+          id?: string
+          order_index?: number
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_videos_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       models: {
         Row: {
           active: boolean

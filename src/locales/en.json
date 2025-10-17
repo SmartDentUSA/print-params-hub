@@ -127,5 +127,16 @@
     "item_created": "Item created!",
     "item_removed": "Item removed",
     "item_removed_description": "{{type}} has been successfully removed."
+  },
+  "knowledge": {
+    "title": "Knowledge Base",
+    "subtitle": "Learn everything about dental 3D printing",
+    "categories": "Categories",
+    "articles": "Articles",
+    "select_article": "Select an article",
+    "select_article_description": "Choose an article from the side to view the content",
+    "no_articles": "No articles available",
+    "download_file": "Download File",
+    "video": "Video"
   }
 }
