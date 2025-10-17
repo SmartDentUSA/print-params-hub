@@ -19,6 +19,7 @@ export function AdminKnowledge() {
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
   const [editingCategoryName, setEditingCategoryName] = useState<{[key: string]: string}>({});
+  const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('visual');
   
   // Form state
   const [formData, setFormData] = useState({
@@ -76,6 +77,7 @@ export function AdminKnowledge() {
 
   const handleOpenEdit = async (content: any) => {
     setEditingContent(content);
+    setContentEditorMode('visual');
     setFormData({
       title: content.title,
       slug: content.slug,
@@ -97,6 +99,7 @@ export function AdminKnowledge() {
 
   const handleOpenNew = () => {
     setEditingContent(null);
+    setContentEditorMode('visual');
     setFormData({
       title: '',
       slug: '',
@@ -306,11 +309,52 @@ export function AdminKnowledge() {
                   />
                 </div>
                 <div>
-                  <Label>Conteúdo Principal</Label>
-                  <KnowledgeEditor 
-                    content={formData.content_html}
-                    onChange={(html) => setFormData({...formData, content_html: html})}
-                  />
+                  <div className="flex items-center justify-between mb-2">
+                    <Label>Conteúdo Principal</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={contentEditorMode === 'visual' ? 'default' : 'outline'}
+                        onClick={() => setContentEditorMode('visual')}
+                      >
+                        📝 Visual
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={contentEditorMode === 'html' ? 'default' : 'outline'}
+                        onClick={() => setContentEditorMode('html')}
+                      >
+                        🔧 HTML
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {contentEditorMode === 'visual' ? (
+                    <KnowledgeEditor 
+                      content={formData.content_html}
+                      onChange={(html) => setFormData({...formData, content_html: html})}
+                    />
+                  ) : (
+                    <div className="space-y-2">
+                      <Textarea 
+                        className="font-mono text-sm min-h-[400px]"
+                        placeholder="<div>Insira HTML aqui...</div>"
+                        value={formData.content_html}
+                        onChange={(e) => setFormData({...formData, content_html: e.target.value})}
+                      />
+                      <details className="text-sm">
+                        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                          👁️ Preview HTML
+                        </summary>
+                        <div 
+                          className="mt-2 p-4 border border-border rounded-lg bg-muted/30"
+                          dangerouslySetInnerHTML={{ __html: formData.content_html }}
+                        />
+                      </details>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
