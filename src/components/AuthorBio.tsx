@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Linkedin, Youtube, Twitter } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Youtube, Twitter, UserCircle } from 'lucide-react';
 import { Author } from '@/hooks/useAuthors';
 
 interface AuthorBioProps {
@@ -19,12 +19,19 @@ export function AuthorBio({ author }: AuthorBioProps) {
     <div className="bg-gradient-card rounded-xl border border-border p-6 shadow-medium">
       <div className="flex flex-col items-center text-center space-y-4">
         {/* Foto do autor */}
-        {author.photo_url && (
+        {author.photo_url ? (
           <img 
             src={author.photo_url} 
             alt={author.name}
             className="w-32 h-32 rounded-full object-cover border-4 border-primary/20"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
           />
+        ) : (
+          <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center border-4 border-primary/20">
+            <UserCircle className="w-20 h-20 text-muted-foreground" />
+          </div>
         )}
         
         {/* Nome e especialidade */}

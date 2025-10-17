@@ -6,14 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle } from 'lucide-react';
 import { useAuthors, Author } from '@/hooks/useAuthors';
 import { useToast } from '@/hooks/use-toast';
+import { AuthorImageUpload } from '@/components/AuthorImageUpload';
 
 export function AdminAuthors() {
   const [authors, setAuthors] = useState<Author[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAuthor, setEditingAuthor] = useState<Author | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     specialty: '',
@@ -46,6 +48,7 @@ export function AdminAuthors() {
 
   const handleOpenNew = () => {
     setEditingAuthor(null);
+    setImageUrl('');
     setFormData({
       name: '',
       specialty: '',
@@ -68,6 +71,7 @@ export function AdminAuthors() {
 
   const handleOpenEdit = (author: Author) => {
     setEditingAuthor(author);
+    setImageUrl(author.photo_url || '');
     setFormData({
       name: author.name,
       specialty: author.specialty || '',
@@ -98,15 +102,20 @@ export function AdminAuthors() {
       return;
     }
 
+    const dataToSave = {
+      ...formData,
+      photo_url: imageUrl || formData.photo_url
+    };
+
     if (editingAuthor) {
-      const result = await updateAuthor(editingAuthor.id, formData);
+      const result = await updateAuthor(editingAuthor.id, dataToSave);
       if (result) {
         toast({ title: 'Autor atualizado com sucesso!' });
         setIsModalOpen(false);
         loadAuthors();
       }
     } else {
-      const result = await insertAuthor(formData);
+      const result = await insertAuthor(dataToSave);
       if (result) {
         toast({ title: 'Autor criado com sucesso!' });
         setIsModalOpen(false);
@@ -142,13 +151,20 @@ export function AdminAuthors() {
               className="flex items-center justify-between p-4 border border-border rounded-lg bg-card"
             >
               <div className="flex items-center gap-4">
-                {author.photo_url && (
-                  <img
-                    src={author.photo_url}
-                    alt={author.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                )}
+                <div className="relative w-12 h-12 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+                  {author.photo_url ? (
+                    <img
+                      src={author.photo_url}
+                      alt={author.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <UserCircle className="w-8 h-8 text-muted-foreground" />
+                  )}
+                </div>
                 <div>
                   <p className="font-semibold text-foreground">{author.name}</p>
                   {author.specialty && (
@@ -215,13 +231,23 @@ export function AdminAuthors() {
               </div>
 
               <div>
-                <Label htmlFor="photo_url">URL da Foto</Label>
-                <Input
-                  id="photo_url"
-                  value={formData.photo_url}
-                  onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
-                  placeholder="https://exemplo.com/foto.jpg"
+                <Label>Foto do Autor</Label>
+                <AuthorImageUpload
+                  currentImageUrl={imageUrl || formData.photo_url}
+                  onImageUploaded={setImageUrl}
+                  authorName={formData.name || 'novo-autor'}
+                  disabled={!formData.name.trim()}
                 />
+                
+                <div className="mt-4">
+                  <Label htmlFor="photo_url_manual">Ou insira URL manualmente</Label>
+                  <Input
+                    id="photo_url_manual"
+                    value={formData.photo_url}
+                    onChange={(e) => setFormData({ ...formData, photo_url: e.target.value })}
+                    placeholder="https://exemplo.com/foto.jpg"
+                  />
+                </div>
               </div>
 
               <div>

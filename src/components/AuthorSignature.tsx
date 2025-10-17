@@ -1,4 +1,4 @@
-import { Facebook, Instagram, Linkedin, Youtube, Twitter } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Youtube, Twitter, UserCircle } from 'lucide-react';
 import { Author } from '@/hooks/useAuthors';
 
 interface AuthorSignatureProps {
@@ -19,12 +19,19 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
     <div className="mt-8 bg-gradient-card rounded-xl border border-border p-6 shadow-medium">
       <div className="flex gap-4 items-start">
         {/* Foto do autor */}
-        {author.photo_url && (
+        {author.photo_url ? (
           <img 
             src={author.photo_url} 
             alt={author.name}
             className="w-20 h-20 rounded-full object-cover border-2 border-primary/20 flex-shrink-0"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
           />
+        ) : (
+          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center border-2 border-primary/20 flex-shrink-0">
+            <UserCircle className="w-12 h-12 text-muted-foreground" />
+          </div>
         )}
         
         <div className="flex-1 min-w-0">
