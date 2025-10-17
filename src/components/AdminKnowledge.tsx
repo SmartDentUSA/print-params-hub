@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,10 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { useAuthors } from '@/hooks/useAuthors';
+import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
+import { useToast } from '@/hooks/use-toast';
+import type { Editor } from '@tiptap/react';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -23,6 +26,8 @@ export function AdminKnowledge() {
   const [editingCategoryName, setEditingCategoryName] = useState<{[key: string]: string}>({});
   const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('visual');
   const [authors, setAuthors] = useState<any[]>([]);
+  const editorRef = useRef<Editor | null>(null);
+  const { toast } = useToast();
   
   // Form state
   const [formData, setFormData] = useState({
@@ -184,6 +189,39 @@ export function AdminKnowledge() {
     }
   };
 
+  const handleInsertAuthorSignature = () => {
+    if (!formData.author_id) return;
+    
+    const author = authors.find(a => a.id === formData.author_id);
+    if (!author) {
+      toast({
+        title: "Erro",
+        description: "Autor não encontrado",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const signatureHTML = generateAuthorSignatureHTML(author);
+    
+    if (contentEditorMode === 'visual' && editorRef.current) {
+      // Inserir no final do editor TipTap
+      editorRef.current.commands.focus('end');
+      editorRef.current.commands.insertContent(signatureHTML);
+    } else {
+      // Modo HTML: concatenar ao final
+      setFormData({
+        ...formData,
+        content_html: formData.content_html + '\n\n' + signatureHTML
+      });
+    }
+    
+    toast({
+      title: "Sucesso",
+      description: "Assinatura do autor inserida no final do conteúdo"
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -340,6 +378,18 @@ export function AdminKnowledge() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {formData.author_id && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleInsertAuthorSignature}
+                      className="mt-2"
+                    >
+                      <UserCircle className="w-4 h-4 mr-2" />
+                      Inserir Assinatura do Autor
+                    </Button>
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -368,6 +418,7 @@ export function AdminKnowledge() {
                     <KnowledgeEditor 
                       content={formData.content_html}
                       onChange={(html) => setFormData({...formData, content_html: html})}
+                      onEditorReady={(editor) => editorRef.current = editor}
                     />
                   ) : (
                     <div className="space-y-2">

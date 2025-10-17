@@ -1,4 +1,4 @@
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
@@ -8,14 +8,16 @@ import {
   Bold, Italic, List, ListOrdered, Heading2, 
   Undo, Redo 
 } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface KnowledgeEditorProps {
   content: string;
   onChange: (html: string) => void;
   placeholder?: string;
+  onEditorReady?: (editor: Editor) => void;
 }
 
-export function KnowledgeEditor({ content, onChange, placeholder }: KnowledgeEditorProps) {
+export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady }: KnowledgeEditorProps) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -28,6 +30,12 @@ export function KnowledgeEditor({ content, onChange, placeholder }: KnowledgeEdi
       onChange(editor.getHTML());
     },
   });
+
+  useEffect(() => {
+    if (editor && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
 
   if (!editor) return null;
 
