@@ -48,7 +48,7 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
     const fetchResins = async () => {
       const { data } = await supabase
         .from('resins')
-        .select('id, name, manufacturer, image_url')
+        .select('id, name, manufacturer, image_url, cta_1_url')
         .in('id', recommendedResins)
         .eq('active', true);
 
