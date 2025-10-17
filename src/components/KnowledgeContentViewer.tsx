@@ -86,16 +86,6 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       />
       <Breadcrumb items={breadcrumbItems} />
       
-      {/* CTA TOP */}
-      {content.recommended_resins?.length > 0 && (
-        <KnowledgeCTA 
-          recommendedResins={content.recommended_resins}
-          articleTitle={content.title}
-          position="top"
-          resins={ctaResins}
-        />
-      )}
-      
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
         <h2 className="text-2xl font-bold text-foreground mb-4">
           {content.title}
