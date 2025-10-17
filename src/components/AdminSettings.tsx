@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
 import { AdminModal } from "@/components/AdminModal";
@@ -78,6 +78,11 @@ export function AdminSettings() {
   // Maintenance states
   const [inactiveStats, setInactiveStats] = useState<MaintenanceStats>({ affected: 0, brands: 0, models: 0 });
   const [recentFilter, setRecentFilter] = useState<string>("all");
+  
+  // CTA 3 states
+  const [cta3Label, setCta3Label] = useState<string>("");
+  const [cta3Url, setCta3Url] = useState<string>("");
+  const [savingCta3, setSavingCta3] = useState(false);
 
   const { toast } = useToast();
   const { loading: maintenanceLoading, getInactiveStats, reactivateAllInactive, reactivateInactiveSince } = useAdminMaintenance();
@@ -86,6 +91,8 @@ export function AdminSettings() {
     fetchModelsByBrand,
     fetchParametersByModel,
     syncResinsFromParameters,
+    fetchSetting,
+    updateSetting,
     insertBrand, 
     updateBrand, 
     deleteBrand,
@@ -151,6 +158,13 @@ export function AdminSettings() {
         .order('brand_slug, model_slug, resin_name')
         .limit(100); // Limit to avoid too much data
       setParameters(parametersData || []);
+      
+      // Load CTA 3 settings
+      const label = await fetchSetting('cta3_label');
+      const url = await fetchSetting('cta3_url');
+      
+      setCta3Label(label || '');
+      setCta3Url(url || '');
       
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -328,6 +342,32 @@ export function AdminSettings() {
     }
   };
 
+  const handleSaveCta3 = async () => {
+    try {
+      setSavingCta3(true);
+      
+      const labelSuccess = await updateSetting('cta3_label', cta3Label);
+      const urlSuccess = await updateSetting('cta3_url', cta3Url);
+      
+      if (labelSuccess && urlSuccess) {
+        toast({
+          title: "CTA 3 atualizado!",
+          description: "As configurações do botão foram salvas com sucesso.",
+        });
+      } else {
+        throw new Error("Falha ao salvar configurações");
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as configurações do CTA 3.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingCta3(false);
+    }
+  };
+
   // Filter functions
   const filteredBrands = brands.filter(brand =>
     brand.name.toLowerCase().includes(brandSearch.toLowerCase())
@@ -372,7 +412,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -388,6 +428,10 @@ export function AdminSettings() {
               <TabsTrigger value="parameters" className="flex items-center gap-2">
                 <Settings className="w-4 h-4" />
                 Parâmetros
+              </TabsTrigger>
+              <TabsTrigger value="cta3" className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                CTA 3
               </TabsTrigger>
               <TabsTrigger value="data" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
@@ -804,6 +848,73 @@ export function AdminSettings() {
                   </TableBody>
                 </Table>
               </div>
+            </TabsContent>
+
+            <TabsContent value="cta3" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    Configurar Botão CTA 3
+                  </CardTitle>
+                  <CardDescription>
+                    Personalize o botão exibido na seção "Selecione a Marca"
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Nome do Botão</label>
+                    <Input
+                      placeholder="Ex: Download, Baixar Catálogo"
+                      value={cta3Label}
+                      onChange={(e) => setCta3Label(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Este será o texto exibido no botão
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">URL do Botão</label>
+                    <Input
+                      placeholder="Ex: https://exemplo.com/catalogo.pdf"
+                      value={cta3Url}
+                      onChange={(e) => setCta3Url(e.target.value)}
+                      type="url"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Link que será aberto ao clicar no botão (nova aba)
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/50 p-4 rounded-lg border">
+                    <p className="text-sm font-medium mb-2">Pré-visualização:</p>
+                    {cta3Url && cta3Url !== '#' ? (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="flex items-center gap-2"
+                        disabled
+                      >
+                        <Download className="w-4 h-4" />
+                        {cta3Label || 'Download'}
+                      </Button>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">
+                        Botão oculto (URL não configurada)
+                      </p>
+                    )}
+                  </div>
+
+                  <Button 
+                    onClick={handleSaveCta3}
+                    disabled={savingCta3}
+                    className="w-full"
+                  >
+                    {savingCta3 ? "Salvando..." : "Salvar Configurações"}
+                  </Button>
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="data" className="space-y-4">

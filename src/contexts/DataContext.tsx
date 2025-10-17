@@ -18,6 +18,8 @@ interface DataContextType {
   syncResinsFromParameters: () => Promise<boolean>;
   fetchStats: () => Promise<StatsData>;
   fetchBrandDistribution: () => Promise<BrandDistribution[]>;
+  fetchSetting: (key: string) => Promise<string | null>;
+  updateSetting: (key: string, value: string) => Promise<boolean>;
   // CRUD operations
   insertBrand: (brand: Omit<Brand, 'id'>) => Promise<Brand | null>;
   updateBrand: (id: string, updates: Partial<Brand>) => Promise<Brand | null>;
@@ -82,6 +84,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     syncResinsFromParameters: dataHook.syncResinsFromParameters,
     fetchStats: dataHook.fetchStats,
     fetchBrandDistribution: dataHook.fetchBrandDistribution,
+    fetchSetting: dataHook.fetchSetting,
+    updateSetting: dataHook.updateSetting,
     // CRUD operations
     insertBrand: crudHook.insertBrand,
     updateBrand: crudHook.updateBrand,

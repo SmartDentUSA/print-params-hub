@@ -667,6 +667,38 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Fetch setting by key
+  const fetchSetting = async (key: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', key)
+        .single();
+      
+      if (error) throw error;
+      return data?.value || null;
+    } catch (error) {
+      console.error(`Error fetching setting ${key}:`, error);
+      return null;
+    }
+  };
+
+  // Update setting by key
+  const updateSetting = async (key: string, value: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ key, value }, { onConflict: 'key' });
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error(`Error updating setting ${key}:`, error);
+      return false;
+    }
+  };
+
   return {
     loading,
     error,
@@ -681,6 +713,8 @@ export const useSupabaseData = () => {
     syncResinsFromParameters,
     fetchStats,
     fetchBrandDistribution,
+    fetchSetting,
+    updateSetting,
     clearError: () => setError(null)
   };
 };
