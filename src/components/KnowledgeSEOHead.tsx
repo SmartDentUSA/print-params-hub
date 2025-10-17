@@ -26,6 +26,89 @@ const getEmbedUrl = (url: string): string => {
   return url;
 };
 
+// Extrai FAQs do conteúdo HTML
+const extractFAQsFromContent = (htmlContent: string): { question: string; answer: string }[] => {
+  if (!htmlContent) return [];
+  
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  const faqs: { question: string; answer: string }[] = [];
+  
+  // Procurar por padrões de perguntas (h2, h3 com "?")
+  const headings = doc.querySelectorAll('h2, h3, h4');
+  
+  headings.forEach((heading) => {
+    const text = heading.textContent?.trim() || '';
+    
+    // Se o heading contém "?" ou começa com palavras interrogativas
+    if (text.includes('?') || /^(como|qual|quando|onde|por que|o que|quais|quanto)/i.test(text)) {
+      let answer = '';
+      let nextElement = heading.nextElementSibling;
+      
+      // Coletar próximos parágrafos como resposta (até encontrar outro heading)
+      while (nextElement && !['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(nextElement.tagName)) {
+        if (nextElement.tagName === 'P' || nextElement.tagName === 'UL' || nextElement.tagName === 'OL') {
+          answer += nextElement.textContent?.trim() + ' ';
+        }
+        nextElement = nextElement.nextElementSibling;
+      }
+      
+      if (answer.trim()) {
+        faqs.push({
+          question: text,
+          answer: answer.trim().substring(0, 500) // Limitar resposta
+        });
+      }
+    }
+  });
+  
+  return faqs;
+};
+
+// Extrai passos (HowTo) do conteúdo HTML
+const extractHowToSteps = (htmlContent: string): string[] => {
+  if (!htmlContent) return [];
+  
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  const steps: string[] = [];
+  
+  // Procurar por listas ordenadas
+  const orderedLists = doc.querySelectorAll('ol');
+  
+  orderedLists.forEach((ol) => {
+    const listItems = ol.querySelectorAll('li');
+    listItems.forEach((li) => {
+      const text = li.textContent?.trim();
+      if (text && text.length > 10) { // Ignorar itens muito curtos
+        steps.push(text);
+      }
+    });
+  });
+  
+  // Se não encontrou lista ordenada, procurar por headings numerados
+  if (steps.length === 0) {
+    const headings = doc.querySelectorAll('h2, h3, h4');
+    headings.forEach((heading) => {
+      const text = heading.textContent?.trim() || '';
+      // Padrões: "1.", "Passo 1", "Etapa 1", etc.
+      if (/^(\d+\.|passo \d+|etapa \d+|step \d+)/i.test(text)) {
+        let stepContent = text;
+        let nextElement = heading.nextElementSibling;
+        
+        // Adicionar próximo parágrafo ao passo
+        if (nextElement && nextElement.tagName === 'P') {
+          stepContent += ' ' + nextElement.textContent?.trim();
+        }
+        
+        steps.push(stepContent);
+      }
+    });
+  }
+  
+  return steps;
+};
+
 export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
 
@@ -152,17 +235,40 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
     ]
   };
 
-  // FAQ Schema
-  const faqSchema = content.faqs && content.faqs.length > 0 ? {
+  // FAQ Schema - usar FAQs do banco OU extrair do conteúdo
+  const contentFAQs = extractFAQsFromContent(content.content || '');
+  const allFAQs = content.faqs && content.faqs.length > 0 
+    ? content.faqs 
+    : contentFAQs.length > 0 
+      ? contentFAQs 
+      : [];
+  
+  const faqSchema = allFAQs.length > 0 ? {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": content.faqs.map((faq: any) => ({
+    "mainEntity": allFAQs.map((faq: any) => ({
       "@type": "Question",
       "name": faq.question,
       "acceptedAnswer": {
         "@type": "Answer",
         "text": faq.answer
       }
+    }))
+  } : null;
+
+  // HowTo Schema - detectar tutoriais passo a passo
+  const howToSteps = extractHowToSteps(content.content || '');
+  const howToSchema = howToSteps.length >= 2 ? {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": content.title,
+    "description": content.meta_description || content.excerpt,
+    "image": content.og_image_url,
+    "step": howToSteps.map((step, idx) => ({
+      "@type": "HowToStep",
+      "position": idx + 1,
+      "name": `Passo ${idx + 1}`,
+      "text": step
     }))
   } : null;
 
@@ -224,7 +330,8 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
             articleSchema,
             breadcrumbSchema,
             ...videoSchemas,
-            ...(faqSchema ? [faqSchema] : [])
+            ...(faqSchema ? [faqSchema] : []),
+            ...(howToSchema ? [howToSchema] : [])
           ]
         })}
       </script>
