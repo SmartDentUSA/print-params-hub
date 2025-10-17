@@ -79,7 +79,7 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
           </div>
 
           {/* Caixa Mini Currículo */}
-          <div className="rounded-[20px] border-2 border-black p-4">
+          <div className="rounded-[20px] border-2 border-gray-200 p-4">
             {author.mini_bio ? (
               <p className="text-sm text-black leading-relaxed text-left">{author.mini_bio}</p>
             ) : (

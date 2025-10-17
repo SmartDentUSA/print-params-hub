@@ -78,7 +78,7 @@ export function generateAuthorSignatureHTML(author: Author): string {
         ${socialLinksHTML ? `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${socialLinksHTML}</div>` : ''}
       </div>
       
-      <div style="border: 2px solid #111111; border-radius: 20px; padding: 16px;">
+      <div style="border: 2px solid #e5e7eb; border-radius: 20px; padding: 16px;">
         ${miniBioHTML}
       </div>
       
