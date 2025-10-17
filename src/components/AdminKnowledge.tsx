@@ -18,6 +18,7 @@ export function AdminKnowledge() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
+  const [editingCategoryName, setEditingCategoryName] = useState<{[key: string]: string}>({});
   
   // Form state
   const [formData, setFormData] = useState({
@@ -59,6 +60,13 @@ export function AdminKnowledge() {
   const loadCategories = async () => {
     const data = await fetchCategories();
     setCategories(data);
+    
+    // Inicializar estado de edição
+    const namesMap: {[key: string]: string} = {};
+    data.forEach(cat => {
+      namesMap[cat.id] = cat.name;
+    });
+    setEditingCategoryName(namesMap);
   };
 
   const loadContents = async () => {
@@ -183,10 +191,26 @@ export function AdminKnowledge() {
                   <div className="flex-1">
                     <Label>Nome da Categoria</Label>
                     <Input 
-                      value={cat.name}
+                      value={editingCategoryName[cat.id] || cat.name}
                       onChange={(e) => {
-                        updateCategory(cat.id, { name: e.target.value });
-                        loadCategories();
+                        // Apenas atualiza estado local
+                        setEditingCategoryName({
+                          ...editingCategoryName,
+                          [cat.id]: e.target.value
+                        });
+                      }}
+                      onBlur={async () => {
+                        // Salva apenas quando sair do campo (onBlur)
+                        if (editingCategoryName[cat.id] && editingCategoryName[cat.id] !== cat.name) {
+                          await updateCategory(cat.id, { name: editingCategoryName[cat.id] });
+                          await loadCategories();
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Salva ao pressionar Enter
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
                       }}
                     />
                   </div>
