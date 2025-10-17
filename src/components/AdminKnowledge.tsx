@@ -13,6 +13,7 @@ import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { useAuthors } from '@/hooks/useAuthors';
 import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
+import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { useToast } from '@/hooks/use-toast';
 import type { Editor } from '@tiptap/react';
 
@@ -202,17 +203,18 @@ export function AdminKnowledge() {
       return;
     }
     
-    const signatureHTML = generateAuthorSignatureHTML(author);
-    
     if (contentEditorMode === 'visual' && editorRef.current) {
-      // Inserir no final do editor TipTap
+      // Inserir marcador no editor TipTap
       editorRef.current.commands.focus('end');
-      editorRef.current.commands.insertContent(signatureHTML);
+      editorRef.current.commands.insertContent({
+        type: 'paragraph',
+        content: [{ type: 'text', text: AUTHOR_SIGNATURE_TOKEN }]
+      });
     } else {
-      // Modo HTML: concatenar ao final
+      // Modo HTML: concatenar marcador ao final
       setFormData({
         ...formData,
-        content_html: formData.content_html + '\n\n' + signatureHTML
+        content_html: formData.content_html + '\n\n' + AUTHOR_SIGNATURE_TOKEN + '\n\n'
       });
     }
     
@@ -434,7 +436,14 @@ export function AdminKnowledge() {
                         </summary>
                         <div 
                           className="mt-2 p-4 border border-border rounded-lg bg-card"
-                          dangerouslySetInnerHTML={{ __html: formData.content_html }}
+                          dangerouslySetInnerHTML={{ 
+                            __html: (() => {
+                              const selectedAuthor = authors.find(a => a.id === formData.author_id);
+                              return selectedAuthor 
+                                ? renderAuthorSignaturePlaceholders(formData.content_html, selectedAuthor)
+                                : formData.content_html;
+                            })()
+                          }}
                         />
                       </details>
                     </div>

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Download, ExternalLink } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
+import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -100,12 +101,14 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         {content.content_html && (
           <div 
             className="prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: content.content_html }}
+            dangerouslySetInnerHTML={{ 
+              __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
+            }}
           />
         )}
 
-        {/* Author Signature */}
-        {content.authors && (
+        {/* Author Signature - only show if token not in content */}
+        {content.authors && !/\[\[ASSINATURA_AUTOR\]\]/i.test(content.content_html || '') && (
           <AuthorSignature author={content.authors} />
         )}
       </div>
