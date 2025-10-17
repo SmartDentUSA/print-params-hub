@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "@/components/Header";
 import { KnowledgeCategoryPills } from "@/components/KnowledgeCategoryPills";
@@ -8,7 +8,7 @@ import { KnowledgeContentViewer } from "@/components/KnowledgeContentViewer";
 import { KnowledgeSEOHead } from "@/components/KnowledgeSEOHead";
 import { useKnowledge } from "@/hooks/useKnowledge";
 import { Button } from "@/components/ui/button";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ArrowLeft } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function KnowledgeBase() {
@@ -110,6 +110,19 @@ export default function KnowledgeBase() {
         content={selectedContent}
         category={categories.find(c => c.letter === categoryLetter?.toUpperCase())}
       />
+      
+      <div className="border-b border-border bg-gradient-surface/50">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <Link to="/">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Voltar para Parametrização</span>
+              <span className="sm:hidden">Parametrização</span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+      
       <Header onSearch={handleSearch} searchValue={searchTerm} showAdminButton={true} />
       
       <main className="container mx-auto px-4 py-8">

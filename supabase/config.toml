@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-sitemap]
 verify_jwt = false
+
+[functions.generate-knowledge-sitemap]
+verify_jwt = false

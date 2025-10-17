@@ -145,6 +145,7 @@ export type Database = {
           content_html: string | null
           created_at: string | null
           excerpt: string
+          faqs: Json | null
           file_name: string | null
           file_url: string | null
           icon_color: string | null
@@ -164,6 +165,7 @@ export type Database = {
           content_html?: string | null
           created_at?: string | null
           excerpt: string
+          faqs?: Json | null
           file_name?: string | null
           file_url?: string | null
           icon_color?: string | null
@@ -183,6 +185,7 @@ export type Database = {
           content_html?: string | null
           created_at?: string | null
           excerpt?: string
+          faqs?: Json | null
           file_name?: string | null
           file_url?: string | null
           icon_color?: string | null

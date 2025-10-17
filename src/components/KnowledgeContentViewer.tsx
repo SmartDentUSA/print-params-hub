@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Download, ExternalLink } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
+import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -51,6 +51,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
   return (
     <div className="space-y-6">
+      <KnowledgeSEOHead 
+        content={content}
+        category={content.knowledge_categories}
+        videos={videos}
+      />
       <Breadcrumb items={breadcrumbItems} />
       
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
