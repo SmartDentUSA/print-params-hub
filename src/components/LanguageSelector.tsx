@@ -15,11 +15,10 @@ export function LanguageSelector() {
 
   return (
     <Select value={language} onValueChange={(value: 'pt' | 'en' | 'es') => setLanguage(value)}>
-      <SelectTrigger className="w-auto border-border bg-card hover:bg-accent transition-smooth">
+    <SelectTrigger className="w-[70px] sm:w-auto border-border bg-card hover:bg-accent transition-smooth">
         <div className="flex items-center gap-2">
-          <Globe className="w-4 h-4" />
-          <span className="text-sm">{currentLanguage?.flag}</span>
-          <SelectValue />
+          <span className="text-lg">{currentLanguage?.flag}</span>
+          <span className="hidden sm:inline text-sm">{currentLanguage?.name}</span>
         </div>
       </SelectTrigger>
       <SelectContent>
