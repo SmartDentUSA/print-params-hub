@@ -89,18 +89,14 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
   // Skeleton durante loading
   if (loading) {
     return (
-      <Card className="border-2 border-border bg-card">
-        <CardContent className="p-6">
-          <div className="space-y-4 animate-pulse">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-1 bg-muted rounded-full" />
-              <div className="h-6 w-64 bg-muted rounded" />
+      <Card className="border-l-4 border-primary bg-muted/30">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-center gap-2 flex-1">
+              <div className="h-4 w-20 bg-muted-foreground/20 rounded" />
+              <div className="h-4 w-48 bg-muted-foreground/20 rounded" />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <div className="h-10 w-32 bg-muted rounded-lg" />
-              <div className="h-10 w-40 bg-muted rounded-lg" />
-            </div>
-            <div className="h-10 w-full sm:w-64 bg-muted rounded" />
+            <div className="h-8 w-32 bg-muted-foreground/20 rounded" />
           </div>
         </CardContent>
       </Card>
@@ -110,45 +106,28 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
   if (resins.length === 0) return null;
 
   return (
-    <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
-      <CardContent className="p-6">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-1 bg-primary rounded-full" />
-            <h3 className="text-lg font-semibold text-foreground">
-              🎯 Resinas mencionadas neste artigo
-            </h3>
+    <Card className="border-l-4 border-primary bg-muted/30">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          {/* Título + Resinas inline */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              🎯 Resinas:
+            </span>
+            <span className="text-sm text-foreground truncate">
+              {resins.map(r => `${r.name} (${r.manufacturer})`).join(' • ')}
+            </span>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            {resins.map(resin => (
-              <div 
-                key={resin.id}
-                className="inline-flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg"
-              >
-                <span className="text-primary">💧</span>
-                <span className="text-sm font-medium text-foreground">
-                  {resin.name}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  ({resin.manufacturer})
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex items-start gap-2 text-sm text-muted-foreground">
-            <span>✓</span>
-            <span>Veja parâmetros completos para sua impressora</span>
-          </div>
-
+          
+          {/* Botão compacto */}
           <Button 
             onClick={handleClick}
-            className="w-full sm:w-auto group"
-            size="lg"
+            size="sm"
+            variant="default"
+            className="shrink-0"
           >
-            Ver Parâmetros Dessas Resinas
-            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            Ver Parâmetros
+            <ArrowRight className="ml-2 h-3 w-3" />
           </Button>
         </div>
       </CardContent>
