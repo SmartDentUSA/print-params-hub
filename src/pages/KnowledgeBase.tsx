@@ -99,7 +99,7 @@ export default function KnowledgeBase() {
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg text-foreground">Carregando...</p>
+          <p className="text-lg text-foreground">{t('common.loading')}</p>
         </div>
       </div>
     );
@@ -118,10 +118,10 @@ export default function KnowledgeBase() {
         {/* Hero Section */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Base de Conhecimento
+            {t('knowledge.title')}
           </h1>
           <p className="text-lg text-muted-foreground mb-6">
-            Aprenda tudo sobre impressão 3D odontológica
+            {t('knowledge.subtitle')}
           </p>
           
           {/* Search Field */}
@@ -129,7 +129,7 @@ export default function KnowledgeBase() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <Input 
-                placeholder="Buscar conteúdo..."
+                placeholder={t('knowledge.search_placeholder')}
                 className="pl-10 bg-card border-border h-12 text-base"
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
@@ -154,7 +154,7 @@ export default function KnowledgeBase() {
             <div className="lg:col-span-1">
               <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
-                  Conteúdo
+                  {t('knowledge.content')}
                 </h3>
                 <KnowledgeSidebar 
                   contents={filteredContents}
@@ -172,10 +172,10 @@ export default function KnowledgeBase() {
                 ) : (
                   <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-12 text-center">
                     <h2 className="text-xl font-semibold text-foreground mb-2">
-                      Selecione um conteúdo
+                      {t('knowledge.select_content')}
                     </h2>
                     <p className="text-muted-foreground">
-                      Escolha um conteúdo ao lado para visualizar
+                      {t('knowledge.select_content_description')}
                     </p>
                   </div>
                 )}

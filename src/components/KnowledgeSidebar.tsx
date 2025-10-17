@@ -1,4 +1,5 @@
 import { FileText } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Content {
   id: string;
@@ -16,10 +17,12 @@ interface KnowledgeSidebarProps {
 }
 
 export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: KnowledgeSidebarProps) {
+  const { t } = useLanguage();
+  
   if (contents.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Nenhum conteúdo disponível</p>
+        <p className="text-muted-foreground">{t('knowledge.no_content')}</p>
       </div>
     );
   }

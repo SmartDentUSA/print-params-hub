@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Category {
   id: string;
@@ -20,6 +21,8 @@ export function KnowledgeCategoryPills({
   selectedCategory, 
   onCategorySelect 
 }: KnowledgeCategoryPillsProps) {
+  const { t } = useLanguage();
+  
   return (
     <div className="bg-card/80 rounded-lg p-3 md:p-4 border border-border">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
@@ -46,8 +49,8 @@ export function KnowledgeCategoryPills({
           className="flex items-center gap-2 text-sm text-primary hover:underline whitespace-nowrap self-end md:self-auto"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Voltar para Parametrização</span>
-          <span className="sm:hidden">Voltar</span>
+          <span className="hidden sm:inline">{t('knowledge.back_to_parameters')}</span>
+          <span className="sm:hidden">{t('common.back')}</span>
         </Link>
       </div>
     </div>

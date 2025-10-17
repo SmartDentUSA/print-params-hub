@@ -137,6 +137,17 @@
     "select_article_description": "Escolha um artigo ao lado para visualizar o conteúdo",
     "no_articles": "Nenhum artigo disponível",
     "download_file": "Baixar Arquivo",
-    "video": "Vídeo"
+    "video": "Vídeo",
+    "search_placeholder": "Buscar conteúdo...",
+    "no_content": "Nenhum conteúdo disponível",
+    "content": "Conteúdo",
+    "select_content": "Selecione um conteúdo",
+    "select_content_description": "Escolha um conteúdo ao lado para visualizar",
+    "related_articles": "Artigos Relacionados",
+    "transparency_disclaimer": "Transparência: Este artigo foi escrito com base em testes práticos realizados pelo autor. Smart Dent apenas fornece materiais necessários para desenvolvimento do conteúdo, mas isso não afeta nossas recomendações.",
+    "content_in_portuguese": "📝 Conteúdo disponível apenas em Português",
+    "back_to_parameters": "Voltar para Parametrização",
+    "knowledge_base": "Base de Conhecimento",
+    "download": "Baixar"
   }
 }

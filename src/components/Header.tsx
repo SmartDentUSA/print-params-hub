@@ -32,7 +32,7 @@ export function Header({ showAdminButton = false }: HeaderProps) {
             <Link to="/base-conhecimento">
               <Button variant="ghost" size="sm" className="flex items-center gap-2">
                 <BookOpen className="w-4 h-4" />
-                <span className="hidden md:inline">Base de Conhecimento</span>
+                <span className="hidden md:inline">{t('knowledge.knowledge_base')}</span>
               </Button>
             </Link>
           )}

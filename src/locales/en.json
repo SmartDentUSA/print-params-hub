@@ -137,6 +137,17 @@
     "select_article_description": "Choose an article from the side to view the content",
     "no_articles": "No articles available",
     "download_file": "Download File",
-    "video": "Video"
+    "video": "Video",
+    "search_placeholder": "Search content...",
+    "no_content": "No content available",
+    "content": "Content",
+    "select_content": "Select content",
+    "select_content_description": "Choose content from the side to view",
+    "related_articles": "Related Articles",
+    "transparency_disclaimer": "Transparency: This article was written based on practical tests performed by the author. Smart Dent only provides materials necessary for content development, but this does not affect our recommendations.",
+    "content_in_portuguese": "📝 Content available only in Portuguese",
+    "back_to_parameters": "Back to Parameters",
+    "knowledge_base": "Knowledge Base",
+    "download": "Download"
   }
 }

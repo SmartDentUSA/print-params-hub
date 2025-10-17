@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink, Globe } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -10,12 +10,15 @@ import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Badge } from '@/components/ui/badge';
 
 interface KnowledgeContentViewerProps {
   content: any;
 }
 
 export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps) {
+  const { t, language } = useLanguage();
   const [videos, setVideos] = useState<any[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [ctaResins, setCtaResins] = useState<any[]>([]);
@@ -59,9 +62,9 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
-    { label: 'Base de Conhecimento', href: '/base-conhecimento' },
+    { label: t('knowledge.knowledge_base'), href: '/base-conhecimento' },
     { 
-      label: content.knowledge_categories?.name || 'Categoria', 
+      label: content.knowledge_categories?.name || t('knowledge.categories'), 
       href: `/base-conhecimento/${content.knowledge_categories?.letter?.toLowerCase() || 'a'}` 
     },
     { label: content.title }
@@ -87,6 +90,14 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       <Breadcrumb items={breadcrumbItems} />
       
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
+        {/* Language Badge - only show if not PT */}
+        {language !== 'pt' && (
+          <Badge variant="outline" className="mb-4 flex items-center gap-2 w-fit">
+            <Globe className="w-3 h-3" />
+            {t('knowledge.content_in_portuguese')}
+          </Badge>
+        )}
+        
         <h2 className="text-2xl font-bold text-foreground mb-4 break-words">
           {content.title}
         </h2>
@@ -103,7 +114,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
               <div key={video.id} className="space-y-2">
                 {video.title && (
                   <div className="text-sm font-medium text-muted-foreground break-words">
-                    📹 Vídeo {idx + 1} — {video.title}
+                    📹 {t('knowledge.video')} {idx + 1} — {video.title}
                   </div>
                 )}
                 <div className="aspect-video rounded-lg overflow-hidden border border-border">
@@ -139,7 +150,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
               className="flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
-              Baixar {content.file_name || 'Arquivo'}
+              {t('knowledge.download')} {content.file_name || t('knowledge.download_file')}
               <ExternalLink className="w-3 h-3" />
             </Button>
           </div>
@@ -162,7 +173,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
         {/* Transparency Disclaimer */}
         <div className="mt-8 p-4 bg-muted/30 border border-border rounded-lg text-xs text-muted-foreground">
-          <strong className="text-foreground">Transparência:</strong> Este artigo foi escrito com base em testes práticos realizados pelo autor. Smart Dent apenas fornece materiais necessários para desenvolvimento do conteúdo, mas isso não afeta nossas recomendações.
+          {t('knowledge.transparency_disclaimer')}
         </div>
       </div>
 
@@ -179,7 +190,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       {/* Related Articles */}
       {relatedArticles.length > 0 && (
         <div className="mt-12 border-t border-border pt-8">
-          <h3 className="text-2xl font-bold text-foreground mb-6">📚 Artigos Relacionados</h3>
+          <h3 className="text-2xl font-bold text-foreground mb-6">📚 {t('knowledge.related_articles')}</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {relatedArticles.map(article => (
               <Link 
