@@ -6,6 +6,7 @@ interface Content {
   slug: string;
   excerpt: string;
   icon_color: string;
+  og_image_url?: string;
 }
 
 interface KnowledgeSidebarProps {
@@ -28,26 +29,30 @@ export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: Kn
       {contents.map((content) => (
         <div 
           key={content.id}
-          className={`bg-card border rounded-lg p-3 hover:bg-accent/5 transition-smooth cursor-pointer ${
+          className={`bg-card border rounded-lg overflow-hidden hover:bg-accent/5 transition-smooth cursor-pointer ${
             selectedSlug === content.slug ? 'border-primary bg-accent/10' : 'border-border'
           }`}
           onClick={() => onContentSelect(content.slug)}
         >
-          <div className="flex items-start gap-3">
-            {/* Icon */}
-            <div className="w-10 h-10 bg-primary/10 rounded flex items-center justify-center flex-shrink-0">
-              <FileText className="w-5 h-5 text-primary" />
+          {/* Imagem de destaque */}
+          {content.og_image_url && (
+            <div className="w-full aspect-[1.91/1] overflow-hidden">
+              <img 
+                src={content.og_image_url} 
+                alt={content.title}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
             </div>
-            
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground text-sm truncate">
-                {content.title}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                {content.excerpt}
-              </p>
-            </div>
+          )}
+          
+          {/* Texto abaixo da imagem */}
+          <div className="p-3">
+            <h3 className="font-semibold text-foreground text-sm truncate">
+              {content.title}
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+              {content.excerpt}
+            </p>
           </div>
         </div>
       ))}
