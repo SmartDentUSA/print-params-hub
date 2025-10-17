@@ -141,6 +141,7 @@ export type Database = {
         Row: {
           active: boolean | null
           author_id: string | null
+          canva_template_url: string | null
           category_id: string | null
           content_html: string | null
           created_at: string | null
@@ -162,6 +163,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           author_id?: string | null
+          canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
           created_at?: string | null
@@ -183,6 +185,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           author_id?: string | null
+          canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
           created_at?: string | null

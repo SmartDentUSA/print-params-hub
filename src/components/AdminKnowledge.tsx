@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ResinMultiSelect } from '@/components/ResinMultiSelect';
@@ -45,6 +45,7 @@ export function AdminKnowledge() {
     file_name: '',
     meta_description: '',
     og_image_url: '',
+    canva_template_url: '',
     author_id: null as string | null,
     faqs: [] as Array<{ question: string; answer: string }>,
     order_index: 0,
@@ -112,6 +113,7 @@ export function AdminKnowledge() {
       file_name: content.file_name || '',
       meta_description: content.meta_description || '',
       og_image_url: content.og_image_url || '',
+      canva_template_url: content.canva_template_url || '',
       author_id: content.author_id || null,
       faqs: content.faqs || [],
       order_index: content.order_index,
@@ -137,6 +139,7 @@ export function AdminKnowledge() {
       file_name: '',
       meta_description: '',
       og_image_url: '',
+      canva_template_url: '',
       author_id: null,
       faqs: [],
       order_index: contents.length,
@@ -566,8 +569,8 @@ export function AdminKnowledge() {
                     </div>
                   )}
                   
-                  {/* Upload Button */}
-                  <div>
+                  {/* Upload Button and Template Canva */}
+                  <div className="flex gap-2 flex-wrap">
                     <input 
                       ref={ogFileRef} 
                       type="file" 
@@ -587,7 +590,46 @@ export function AdminKnowledge() {
                       <Upload className="w-4 h-4 mr-2" />
                       {uploadingOg ? 'Enviando...' : 'Enviar imagem OG'}
                     </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        const url = prompt('Cole a URL do Template Canva:');
+                        if (url) {
+                          setFormData({ ...formData, canva_template_url: url });
+                          toast({ title: 'URL do Template Canva adicionada!' });
+                        }
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Template Canva
+                    </Button>
                   </div>
+                  
+                  {/* Display Canva URL if exists */}
+                  {formData.canva_template_url && (
+                    <div className="flex items-center gap-2 p-2 bg-muted rounded text-sm">
+                      <span className="text-muted-foreground">Template Canva:</span>
+                      <a 
+                        href={formData.canva_template_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1"
+                      >
+                        Ver template
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setFormData({ ...formData, canva_template_url: '' })}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
