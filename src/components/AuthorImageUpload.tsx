@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Upload, X, UserCircle } from 'lucide-react';
@@ -21,9 +21,29 @@ export function AuthorImageUpload({
   const [previewUrl, setPreviewUrl] = useState(currentImageUrl || '');
   const { toast } = useToast();
 
+  // Sincronizar preview quando currentImageUrl mudar
+  useEffect(() => {
+    setPreviewUrl(currentImageUrl || '');
+  }, [currentImageUrl]);
+
+  // Gerar ID único para o input
+  const inputId = `author-image-upload-${authorName.replace(/[^a-z0-9]/gi, '-')}`;
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Verificar autenticação
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para fazer upload",
+        variant: "destructive",
+      });
+      event.target.value = '';
+      return;
+    }
 
     // Validar tipo de arquivo
     if (!file.type.startsWith('image/')) {
@@ -32,6 +52,7 @@ export function AuthorImageUpload({
         description: "Por favor, selecione uma imagem válida",
         variant: "destructive",
       });
+      event.target.value = '';
       return;
     }
 
@@ -42,6 +63,7 @@ export function AuthorImageUpload({
         description: "A imagem deve ter no máximo 5MB",
         variant: "destructive",
       });
+      event.target.value = '';
       return;
     }
 
@@ -53,6 +75,8 @@ export function AuthorImageUpload({
       const fileName = `${slug}-${Date.now()}.${fileExt}`;
       const filePath = `authors/${fileName}`;
 
+      console.log('Iniciando upload para bucket author-images, path:', filePath);
+
       const { error: uploadError } = await supabase.storage
         .from('author-images')
         .upload(filePath, file, {
@@ -60,11 +84,16 @@ export function AuthorImageUpload({
           upsert: true
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Erro no upload:', uploadError);
+        throw uploadError;
+      }
 
       const { data } = supabase.storage
         .from('author-images')
         .getPublicUrl(filePath);
+
+      console.log('Upload bem-sucedido, URL:', data.publicUrl);
 
       setPreviewUrl(data.publicUrl);
       onImageUploaded(data.publicUrl);
@@ -74,14 +103,16 @@ export function AuthorImageUpload({
         description: "Foto enviada com sucesso!",
       });
     } catch (error) {
-      console.error('Erro ao fazer upload:', error);
+      console.error('Erro completo ao fazer upload:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       toast({
         title: "Erro",
-        description: "Erro ao fazer upload da foto",
+        description: `Erro ao fazer upload: ${errorMessage}`,
         variant: "destructive",
       });
     } finally {
       setUploading(false);
+      event.target.value = '';
     }
   };
 
@@ -120,13 +151,13 @@ export function AuthorImageUpload({
       <div>
         <input
           type="file"
-          id="author-image-upload"
+          id={inputId}
           className="hidden"
           accept="image/*"
           onChange={handleFileSelect}
           disabled={uploading || disabled}
         />
-        <label htmlFor="author-image-upload">
+        <label htmlFor={inputId}>
           <Button
             type="button"
             variant="outline"
