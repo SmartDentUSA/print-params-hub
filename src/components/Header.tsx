@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
   onSearch?: (searchTerm: string) => void;
   searchValue?: string;
+  showAdminButton?: boolean;
 }
 
-export function Header({ onSearch, searchValue = "" }: HeaderProps) {
+export function Header({ onSearch, searchValue = "", showAdminButton = false }: HeaderProps) {
   const [localSearchValue, setLocalSearchValue] = useState(searchValue);
   const { t } = useLanguage();
 
@@ -43,8 +46,18 @@ export function Header({ onSearch, searchValue = "" }: HeaderProps) {
           </div>
         </div>
 
-        {/* Language Selector */}
-        <LanguageSelector />
+        {/* Actions */}
+        <div className="flex items-center gap-2">
+          {showAdminButton && (
+            <Link to="/admin">
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">{t('common.admin')}</span>
+              </Button>
+            </Link>
+          )}
+          <LanguageSelector />
+        </div>
       </div>
     </header>
   );

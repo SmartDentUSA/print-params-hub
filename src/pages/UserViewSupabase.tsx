@@ -146,17 +146,7 @@ const UserViewSupabase = () => {
         model={selectedModelData}
         resins={resins}
       />
-      <Header onSearch={handleSearch} searchValue={searchTerm} />
-      
-      {/* Admin Button */}
-      <div className="fixed top-4 right-20 z-50">
-        <Link to="/admin">
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            {t('common.admin')}
-          </Button>
-        </Link>
-      </div>
+      <Header onSearch={handleSearch} searchValue={searchTerm} showAdminButton={true} />
       
       <main className="container mx-auto px-4 py-8">
         {/* Hero Section */}
