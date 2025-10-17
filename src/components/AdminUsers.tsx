@@ -16,7 +16,7 @@ interface UserData {
   id: string;
   email: string;
   created_at: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'author' | 'user';
   email_confirmed: boolean;
 }
 
@@ -27,7 +27,10 @@ export function AdminUsers() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'author' | 'user'>('user');
+  const [isCreating, setIsCreating] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<{email: string, password: string} | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -70,28 +73,55 @@ export function AdminUsers() {
   };
 
   const handleAddUser = async () => {
-    if (!newUserEmail) return;
-
-    try {
-      // In a real implementation, you'd create the user via Supabase auth
+    if (!newUserEmail || !newUserPassword) {
       toast({
-        title: "Funcionalidade em desenvolvimento",
-        description: "A criação de usuários será implementada em breve.",
-      });
-      
-      setIsAddModalOpen(false);
-      setNewUserEmail("");
-      setNewUserRole('user');
-    } catch (error) {
-      toast({
-        title: "Erro ao criar usuário",
-        description: "Não foi possível criar o usuário.",
+        title: "Campos obrigatórios",
+        description: "Preencha email e senha.",
         variant: "destructive",
       });
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      
+      // Chamar edge function para criar usuário
+      const { data, error } = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserEmail,
+          password: newUserPassword,
+          role: newUserRole
+        }
+      });
+
+      if (error) throw error;
+
+      // Armazenar credenciais para mostrar ao admin
+      setCreatedCredentials({
+        email: data.credentials.email,
+        password: data.credentials.password
+      });
+      
+      toast({
+        title: "Usuário criado com sucesso!",
+        description: `${data.credentials.email} foi criado com a permissão de ${newUserRole}.`,
+      });
+      
+      // Recarregar lista de usuários
+      await loadUsers();
+      
+    } catch (error: any) {
+      toast({
+        title: "Erro ao criar usuário",
+        description: error.message || "Não foi possível criar o usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  const handleUpdateUserRole = async (userId: string, newRole: 'admin' | 'user') => {
+  const handleUpdateUserRole = async (userId: string, newRole: 'admin' | 'author' | 'user') => {
     try {
       // Update role in user_roles table
       const { error } = await supabase
@@ -174,40 +204,102 @@ export function AdminUsers() {
                 <DialogHeader>
                   <DialogTitle>Adicionar Novo Usuário</DialogTitle>
                   <DialogDescription>
-                    Crie uma nova conta de usuário no sistema
+                    {createdCredentials ? (
+                      "Usuário criado! Envie as credenciais abaixo manualmente ao novo usuário."
+                    ) : (
+                      "Crie uma nova conta de usuário no sistema"
+                    )}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="usuario@exemplo.com"
-                      value={newUserEmail}
-                      onChange={(e) => setNewUserEmail(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="role">Permissão</Label>
-                    <Select value={newUserRole} onValueChange={(value: 'admin' | 'user') => setNewUserRole(value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Usuário</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-                      Cancelar
-                    </Button>
-                    <Button onClick={handleAddUser}>
-                      Criar Usuário
-                    </Button>
-                  </div>
+                  {createdCredentials ? (
+                    <>
+                      <div className="p-4 bg-muted rounded-lg space-y-2">
+                        <div>
+                          <Label className="text-sm font-semibold">Email:</Label>
+                          <p className="text-sm font-mono">{createdCredentials.email}</p>
+                        </div>
+                        <div>
+                          <Label className="text-sm font-semibold">Senha:</Label>
+                          <p className="text-sm font-mono">{createdCredentials.password}</p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        ⚠️ Copie estas credenciais e envie manualmente ao usuário. Elas não serão exibidas novamente.
+                      </p>
+                      <Button 
+                        className="w-full"
+                        onClick={() => {
+                          setCreatedCredentials(null);
+                          setIsAddModalOpen(false);
+                          setNewUserEmail("");
+                          setNewUserPassword("");
+                          setNewUserRole('user');
+                        }}
+                      >
+                        Fechar
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          placeholder="usuario@exemplo.com"
+                          value={newUserEmail}
+                          onChange={(e) => setNewUserEmail(e.target.value)}
+                          disabled={isCreating}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="password">Senha</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Senha segura"
+                          value={newUserPassword}
+                          onChange={(e) => setNewUserPassword(e.target.value)}
+                          disabled={isCreating}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="role">Permissão</Label>
+                        <Select 
+                          value={newUserRole} 
+                          onValueChange={(value: 'admin' | 'author' | 'user') => setNewUserRole(value)}
+                          disabled={isCreating}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">Usuário</SelectItem>
+                            <SelectItem value="author">Autor</SelectItem>
+                            <SelectItem value="admin">Administrador</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setIsAddModalOpen(false);
+                            setNewUserEmail("");
+                            setNewUserPassword("");
+                            setNewUserRole('user');
+                          }}
+                          disabled={isCreating}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleAddUser} disabled={isCreating}>
+                          {isCreating ? "Criando..." : "Criar Usuário"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </DialogContent>
             </Dialog>
@@ -230,9 +322,11 @@ export function AdminUsers() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                      <Badge variant={user.role === 'admin' ? 'default' : user.role === 'author' ? 'outline' : 'secondary'}>
                         {user.role === 'admin' ? (
                           <><Shield className="w-3 h-3 mr-1" /> Admin</>
+                        ) : user.role === 'author' ? (
+                          <><Edit className="w-3 h-3 mr-1" /> Autor</>
                         ) : (
                           <><User className="w-3 h-3 mr-1" /> Usuário</>
                         )}
@@ -278,13 +372,14 @@ export function AdminUsers() {
                                 <Label>Permissão Atual</Label>
                                 <Select 
                                   value={user.role} 
-                                  onValueChange={(value: 'admin' | 'user') => handleUpdateUserRole(user.id, value)}
+                                  onValueChange={(value: 'admin' | 'author' | 'user') => handleUpdateUserRole(user.id, value)}
                                 >
                                   <SelectTrigger>
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="user">Usuário</SelectItem>
+                                    <SelectItem value="author">Autor</SelectItem>
                                     <SelectItem value="admin">Administrador</SelectItem>
                                   </SelectContent>
                                 </Select>

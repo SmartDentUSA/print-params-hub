@@ -20,6 +20,8 @@ import { AdminAuthors } from "@/components/AdminAuthors";
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAuthor, setIsAuthor] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -31,14 +33,17 @@ export default function AdminViewSecure() {
         if (session?.user) {
           setUser(session.user);
           
-          // Check if user is admin
-          const { data: roleData, error } = await supabase
-            .rpc('is_admin', { user_id: session.user.id });
+          // Get user role from user_roles table
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .single();
           
-          if (error) {
-            setIsAdmin(false);
-          } else {
-            setIsAdmin(roleData);
+          if (roleData) {
+            setUserRole(roleData.role);
+            setIsAdmin(roleData.role === 'admin');
+            setIsAuthor(roleData.role === 'author');
           }
         }
       } catch (error) {
@@ -56,17 +61,24 @@ export default function AdminViewSecure() {
         if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAdmin(false);
+          setIsAuthor(false);
+          setUserRole(null);
         } else if (session?.user) {
           setUser(session.user);
           
-          // Check admin role for new session
+          // Check user role for new session
           setTimeout(async () => {
             try {
-              const { data: roleData, error } = await supabase
-                .rpc('is_admin', { user_id: session.user.id });
+              const { data: roleData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', session.user.id)
+                .single();
               
-              if (!error) {
-                setIsAdmin(roleData);
+              if (roleData) {
+                setUserRole(roleData.role);
+                setIsAdmin(roleData.role === 'admin');
+                setIsAuthor(roleData.role === 'author');
               }
             } catch (error) {
               // Silent error handling for security
@@ -108,8 +120,8 @@ export default function AdminViewSecure() {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Show access denied if not admin
-  if (!isAdmin) {
+  // Show access denied if not admin or author
+  if (!isAdmin && !isAuthor) {
     return (
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
@@ -172,12 +184,14 @@ export default function AdminViewSecure() {
           </div>
         </div>
 
-        <Tabs defaultValue="models" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="models" className="flex items-center gap-2">
-              <Database className="w-4 h-4" />
-              Modelos
-            </TabsTrigger>
+        <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-6' : 'grid-cols-2'}`}>
+            {isAdmin && (
+              <TabsTrigger value="models" className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Modelos
+              </TabsTrigger>
+            )}
             <TabsTrigger value="knowledge" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Conteúdo
@@ -186,23 +200,29 @@ export default function AdminViewSecure() {
               <UserCircle className="w-4 h-4" />
               Autores
             </TabsTrigger>
-            <TabsTrigger value="stats" className="flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Estatísticas
-            </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Usuários
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Configurações
-            </TabsTrigger>
+            {isAdmin && (
+              <>
+                <TabsTrigger value="stats" className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  Estatísticas
+                </TabsTrigger>
+                <TabsTrigger value="users" className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Usuários
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="flex items-center gap-2">
+                  <Settings className="w-4 h-4" />
+                  Configurações
+                </TabsTrigger>
+              </>
+            )}
           </TabsList>
 
-          <TabsContent value="models" className="space-y-6">
-            <AdminModels />
-          </TabsContent>
+          {isAdmin && (
+            <TabsContent value="models" className="space-y-6">
+              <AdminModels />
+            </TabsContent>
+          )}
 
           <TabsContent value="knowledge" className="space-y-6">
             <AdminKnowledge />
@@ -212,17 +232,21 @@ export default function AdminViewSecure() {
             <AdminAuthors />
           </TabsContent>
 
-          <TabsContent value="stats" className="space-y-6">
-            <AdminStats />
-          </TabsContent>
+          {isAdmin && (
+            <>
+              <TabsContent value="stats" className="space-y-6">
+                <AdminStats />
+              </TabsContent>
 
-          <TabsContent value="users" className="space-y-6">
-            <AdminUsers />
-          </TabsContent>
+              <TabsContent value="users" className="space-y-6">
+                <AdminUsers />
+              </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
-            <AdminSettings />
-          </TabsContent>
+              <TabsContent value="settings" className="space-y-6">
+                <AdminSettings />
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     </div>

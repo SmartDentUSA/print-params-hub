@@ -515,13 +515,21 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_panel_access: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
       is_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
+      is_author: {
         Args: { user_id: string }
         Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "author"
       resin_type:
         | "standard"
         | "flexible"
@@ -656,7 +664,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "author"],
       resin_type: [
         "standard",
         "flexible",
