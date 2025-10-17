@@ -125,13 +125,13 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
   return (
     <Card className="border-l-4 border-primary bg-muted/30">
       <CardContent className="p-3">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Título + Resinas inline */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
               🎯 Resinas:
             </span>
-            <span className="text-sm text-foreground truncate">
+            <span className="text-sm text-foreground line-clamp-2">
               {resins.map(r => `${r.name} (${r.manufacturer})`).join(' • ')}
             </span>
           </div>

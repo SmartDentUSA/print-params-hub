@@ -26,12 +26,12 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
                   window.location.href = item.href;
                 }
               }}
-              className="hover:text-foreground transition-smooth cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit underline-offset-4 hover:underline"
+              className="hover:text-foreground transition-smooth cursor-pointer bg-transparent border-0 p-0 font-inherit text-inherit underline-offset-4 hover:underline break-words"
             >
               {item.label}
             </button>
           ) : (
-            <span className={index === items.length - 1 ? "text-foreground font-medium" : ""}>
+            <span className={index === items.length - 1 ? "text-foreground font-medium break-words" : "break-words"}>
               {item.label}
             </span>
           )}
