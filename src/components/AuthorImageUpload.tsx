@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Upload, X, UserCircle } from 'lucide-react';
@@ -20,7 +20,7 @@ export function AuthorImageUpload({
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(currentImageUrl || '');
   const { toast } = useToast();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
 
   // Sincronizar preview quando currentImageUrl mudar
   useEffect(() => {
@@ -69,7 +69,7 @@ export function AuthorImageUpload({
 
     try {
       const fileExt = file.name.split('.').pop();
-      const slug = authorName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      const slug = (authorName || 'novo-autor').toLowerCase().replace(/[^a-z0-9]+/g, '-');
       const fileName = `${slug}-${Date.now()}.${fileExt}`;
       const filePath = `authors/${fileName}`;
 
@@ -148,33 +148,25 @@ export function AuthorImageUpload({
 
       <div>
         <input
-          ref={inputRef}
+          id={inputId}
           type="file"
-          className="hidden"
+          className="sr-only"
           accept="image/*"
           onChange={handleFileSelect}
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            if (disabled) {
-              toast({
-                title: "Ação bloqueada",
-                description: "Digite o nome do autor para habilitar o upload.",
-                variant: "destructive",
-              });
-              return;
-            }
-            if (!uploading) {
-              inputRef.current?.click();
-            }
-          }}
-          disabled={uploading}
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          {uploading ? 'Enviando...' : 'Selecionar Foto'}
-        </Button>
+        <label htmlFor={inputId}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={uploading}
+            asChild
+          >
+            <span className="cursor-pointer">
+              <Upload className="mr-2 h-4 w-4" />
+              {uploading ? 'Enviando...' : 'Selecionar Foto'}
+            </span>
+          </Button>
+        </label>
         <p className="text-sm text-muted-foreground mt-2">
           Imagem circular • Máx. 5MB
         </p>
