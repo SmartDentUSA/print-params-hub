@@ -9,6 +9,7 @@ import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/uti
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -17,24 +18,38 @@ interface KnowledgeContentViewerProps {
 export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps) {
   const [videos, setVideos] = useState<any[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
+  const [ctaResins, setCtaResins] = useState<any[]>([]);
+  const [videosLoading, setVideosLoading] = useState(true);
   const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
 
   useEffect(() => {
     if (content?.id) {
       const load = async () => {
-        console.log('🎬 Carregando vídeos para:', content.id);
-        const vids = await fetchVideosByContent(content.id);
-        console.log('✅ Vídeos carregados:', vids.length, vids);
-        setVideos(vids);
+        // Fetch paralelo: videos + artigos relacionados + resinas CTA
+        const [vids, related, resinsData] = await Promise.all([
+          fetchVideosByContent(content.id),
+          fetchRelatedContents(
+            content.id, 
+            content.category_id, 
+            content.keywords || []
+          ),
+          // Fetch resinas apenas se necessário
+          content.recommended_resins?.length > 0
+            ? (async () => {
+                const { data } = await supabase
+                  .from('resins')
+                  .select('id, name, manufacturer, image_url')
+                  .in('id', content.recommended_resins)
+                  .eq('active', true);
+                return data || [];
+              })()
+            : Promise.resolve([])
+        ]);
 
-        // Carregar artigos relacionados
-        const related = await fetchRelatedContents(
-          content.id, 
-          content.category_id, 
-          content.keywords || []
-        );
-        console.log('📚 Artigos relacionados:', related.length);
+        setVideos(vids);
         setRelatedArticles(related);
+        setCtaResins(resinsData);
+        setVideosLoading(false);
       };
       load();
     }
@@ -77,6 +92,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           recommendedResins={content.recommended_resins}
           articleTitle={content.title}
           position="top"
+          resins={ctaResins}
         />
       )}
       
@@ -85,9 +101,14 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           {content.title}
         </h2>
 
-        {/* Videos */}
-        {videos.length > 0 && (
+        {/* Videos - com skeleton durante loading */}
+        {videosLoading && (
           <div className="space-y-4 mb-6">
+            <div className="aspect-video rounded-lg bg-muted animate-pulse" />
+          </div>
+        )}
+        {!videosLoading && videos.length > 0 && (
+          <div className="space-y-4 mb-6" style={{ minHeight: '300px' }}>
             {videos.map((video, idx) => (
               <div key={video.id} className="space-y-2">
                 {video.title && (
@@ -115,6 +136,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
               recommendedResins={content.recommended_resins}
               articleTitle={content.title}
               position="middle"
+              resins={ctaResins}
             />
           </div>
         )}
@@ -160,6 +182,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           recommendedResins={content.recommended_resins}
           articleTitle={content.title}
           position="bottom"
+          resins={ctaResins}
         />
       )}
 

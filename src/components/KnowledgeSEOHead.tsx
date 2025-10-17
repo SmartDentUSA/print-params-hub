@@ -216,27 +216,18 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
         </>
       )}
       
-      {/* JSON-LD Schemas */}
-      <script type="application/ld+json">
-        {JSON.stringify(articleSchema)}
+      {/* JSON-LD Schemas - Agrupados em 1 único script */}
+      <script type="application/ld+json" defer>
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            articleSchema,
+            breadcrumbSchema,
+            ...videoSchemas,
+            ...(faqSchema ? [faqSchema] : [])
+          ]
+        })}
       </script>
-      <script type="application/ld+json">
-        {JSON.stringify(breadcrumbSchema)}
-      </script>
-      
-      {/* VideoObject Schemas */}
-      {videoSchemas.map((schema, idx) => (
-        <script key={`video-${idx}`} type="application/ld+json">
-          {JSON.stringify(schema)}
-        </script>
-      ))}
-      
-      {/* FAQ Schema */}
-      {faqSchema && (
-        <script type="application/ld+json">
-          {JSON.stringify(faqSchema)}
-        </script>
-      )}
     </Helmet>
   );
 }

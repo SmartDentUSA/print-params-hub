@@ -9,6 +9,7 @@ interface KnowledgeCTAProps {
   recommendedResins: string[];
   articleTitle: string;
   position: 'top' | 'middle' | 'bottom';
+  resins?: Resin[]; // Pre-fetched resins para evitar 3 requests
 }
 
 interface Resin {
@@ -18,12 +19,26 @@ interface Resin {
   image_url?: string;
 }
 
-export function KnowledgeCTA({ recommendedResins, articleTitle, position }: KnowledgeCTAProps) {
-  const [resins, setResins] = useState<Resin[]>([]);
-  const [loading, setLoading] = useState(true);
+export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins: preFetchedResins }: KnowledgeCTAProps) {
+  const [resins, setResins] = useState<Resin[]>(preFetchedResins || []);
+  const [loading, setLoading] = useState(!preFetchedResins);
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Se já temos resinas pré-carregadas, não fazer fetch
+    if (preFetchedResins && preFetchedResins.length > 0) {
+      // Track CTA view apenas
+      if (typeof (window as any).gtag === 'function') {
+        (window as any).gtag('event', 'cta_view', {
+          event_category: 'conversion',
+          event_label: articleTitle,
+          position: position,
+          resins_count: preFetchedResins.length
+        });
+      }
+      return;
+    }
+
     if (!recommendedResins || recommendedResins.length === 0) {
       setLoading(false);
       return;
@@ -53,7 +68,7 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position }: Know
     };
 
     fetchResins();
-  }, [recommendedResins, articleTitle, position]);
+  }, [recommendedResins, articleTitle, position, preFetchedResins]);
 
   const handleClick = () => {
     // Track CTA click
@@ -71,7 +86,28 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position }: Know
     navigate(`/?resins=${resinIds}`);
   };
 
-  if (loading || resins.length === 0) return null;
+  // Skeleton durante loading
+  if (loading) {
+    return (
+      <Card className="border-2 border-border bg-card">
+        <CardContent className="p-6">
+          <div className="space-y-4 animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-1 bg-muted rounded-full" />
+              <div className="h-6 w-64 bg-muted rounded" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <div className="h-10 w-32 bg-muted rounded-lg" />
+              <div className="h-10 w-40 bg-muted rounded-lg" />
+            </div>
+            <div className="h-10 w-full sm:w-64 bg-muted rounded" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (resins.length === 0) return null;
 
   return (
     <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
