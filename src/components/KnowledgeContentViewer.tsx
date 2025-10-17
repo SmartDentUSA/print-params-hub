@@ -38,7 +38,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             ? (async () => {
                 const { data } = await supabase
                   .from('resins')
-                  .select('id, name, manufacturer, image_url')
+                  .select('id, name, manufacturer, image_url, cta_1_url')
                   .in('id', content.recommended_resins)
                   .eq('active', true);
                 return data || [];

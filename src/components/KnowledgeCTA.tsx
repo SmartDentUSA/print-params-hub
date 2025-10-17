@@ -17,6 +17,7 @@ interface Resin {
   name: string;
   manufacturer: string;
   image_url?: string;
+  cta_1_url?: string;
 }
 
 export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins: preFetchedResins }: KnowledgeCTAProps) {
@@ -81,9 +82,25 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
       });
     }
 
-    // Navigate with pre-selected resins
-    const resinIds = resins.map(r => r.id).join(',');
-    navigate(`/?resins=${resinIds}`);
+    // Redirecionar para cta_1_url
+    if (resins.length === 1 && resins[0].cta_1_url) {
+      // Uma resina com CTA1 → redirect direto
+      window.open(resins[0].cta_1_url, '_blank', 'noopener,noreferrer');
+    } else if (resins.length > 1) {
+      // Múltiplas resinas → pegar primeira com cta_1_url
+      const firstResinWithCta = resins.find(r => r.cta_1_url);
+      if (firstResinWithCta?.cta_1_url) {
+        window.open(firstResinWithCta.cta_1_url, '_blank', 'noopener,noreferrer');
+      } else {
+        // Fallback: se nenhuma tem CTA1, usar comportamento antigo
+        const resinIds = resins.map(r => r.id).join(',');
+        navigate(`/?resins=${resinIds}`);
+      }
+    } else {
+      // Fallback: sem cta_1_url, usar filtro
+      const resinIds = resins.map(r => r.id).join(',');
+      navigate(`/?resins=${resinIds}`);
+    }
   };
 
   // Skeleton durante loading
@@ -126,7 +143,7 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
             variant="default"
             className="shrink-0"
           >
-            Ver Parâmetros
+            SAIBA MAIS
             <ArrowRight className="ml-2 h-3 w-3" />
           </Button>
         </div>
