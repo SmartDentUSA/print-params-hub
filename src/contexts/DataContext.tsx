@@ -1,5 +1,5 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useSupabaseData, Brand, Model, Resin, ParameterSet } from '@/hooks/useSupabaseData';
+import { useSupabaseData, Brand, Model, Resin, ParameterSet, StatsData, BrandDistribution } from '@/hooks/useSupabaseData';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { useRealtimeUpdates } from '@/hooks/useRealtimeUpdates';
 import { RealParameterSet } from '@/data/realData';
@@ -16,6 +16,8 @@ interface DataContextType {
   getModelsByBrand: (brandSlug: string) => Promise<any[]>;
   getResinsByModel: (modelSlug: string) => Promise<any[]>;
   syncResinsFromParameters: () => Promise<boolean>;
+  fetchStats: () => Promise<StatsData>;
+  fetchBrandDistribution: () => Promise<BrandDistribution[]>;
   // CRUD operations
   insertBrand: (brand: Omit<Brand, 'id'>) => Promise<Brand | null>;
   updateBrand: (id: string, updates: Partial<Brand>) => Promise<Brand | null>;
@@ -78,6 +80,8 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
     getModelsByBrand: dataHook.getModelsByBrand,
     getResinsByModel: dataHook.getResinsByModel,
     syncResinsFromParameters: dataHook.syncResinsFromParameters,
+    fetchStats: dataHook.fetchStats,
+    fetchBrandDistribution: dataHook.fetchBrandDistribution,
     // CRUD operations
     insertBrand: crudHook.insertBrand,
     updateBrand: crudHook.updateBrand,

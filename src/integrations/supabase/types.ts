@@ -267,6 +267,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_brand_distribution: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          brand_name: string
+          parameter_count: number
+          percentage: number
+        }[]
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]

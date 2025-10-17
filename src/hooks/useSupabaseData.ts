@@ -61,6 +61,20 @@ export interface ParameterSet {
   active: boolean;
 }
 
+export interface StatsData {
+  totalParameters: number;
+  totalBrands: number;
+  totalModels: number;
+  totalResins: number;
+  totalUsers: number;
+}
+
+export interface BrandDistribution {
+  brand_name: string;
+  parameter_count: number;
+  percentage: number;
+}
+
 export const useSupabaseData = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -616,6 +630,43 @@ export const useSupabaseData = () => {
     }
   };
 
+  // Fetch stats for admin dashboard
+  const fetchStats = async (): Promise<StatsData> => {
+    try {
+      const [brandsResult, modelsResult, resinsResult, parametersResult, usersResult] = await Promise.all([
+        supabase.from('brands').select('id', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('models').select('id', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('resins').select('id', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('parameter_sets').select('id', { count: 'exact', head: true }).eq('active', true),
+        supabase.from('user_roles').select('user_id', { count: 'exact', head: true })
+      ]);
+
+      return {
+        totalBrands: brandsResult.count || 0,
+        totalModels: modelsResult.count || 0,
+        totalResins: resinsResult.count || 0,
+        totalParameters: parametersResult.count || 0,
+        totalUsers: usersResult.count || 0
+      };
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      throw error;
+    }
+  };
+
+  // Fetch brand distribution for admin dashboard
+  const fetchBrandDistribution = async (): Promise<BrandDistribution[]> => {
+    try {
+      const { data, error } = await supabase.rpc('get_brand_distribution');
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching brand distribution:', error);
+      throw error;
+    }
+  };
+
   return {
     loading,
     error,
@@ -628,6 +679,8 @@ export const useSupabaseData = () => {
     getModelsByBrand,
     getResinsByModel,
     syncResinsFromParameters,
+    fetchStats,
+    fetchBrandDistribution,
     clearError: () => setError(null)
   };
 };

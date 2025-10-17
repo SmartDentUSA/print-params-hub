@@ -2,14 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { BarChart3, Database, Users, Cpu } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useData } from "@/contexts/DataContext";
-
-interface StatsData {
-  totalParameters: number;
-  totalBrands: number;
-  totalModels: number;
-  totalResins: number;
-  totalUsers: number;
-}
+import { toast } from "@/hooks/use-toast";
+import type { StatsData, BrandDistribution } from "@/hooks/useSupabaseData";
 
 export function AdminStats() {
   const [stats, setStats] = useState<StatsData>({
@@ -19,35 +13,37 @@ export function AdminStats() {
     totalResins: 0,
     totalUsers: 0
   });
+  const [brandDistribution, setBrandDistribution] = useState<BrandDistribution[]>([]);
   const [loading, setLoading] = useState(true);
-  const { getUniqueBrands } = useData();
+  const { fetchStats, fetchBrandDistribution } = useData();
 
   useEffect(() => {
     const loadStats = async () => {
       try {
         setLoading(true);
         
-        // Get brands count
-        const brands = await getUniqueBrands();
+        // Fetch real stats from Supabase
+        const [statsData, distribution] = await Promise.all([
+          fetchStats(),
+          fetchBrandDistribution()
+        ]);
         
-        // For now, we'll use placeholder data for other stats
-        // In a real app, you'd fetch these from separate API calls
-        setStats({
-          totalParameters: 528, // From our query result
-          totalBrands: 13, // From our query result  
-          totalModels: 45, // Estimated
-          totalResins: 85, // Estimated
-          totalUsers: 5 // Estimated
-        });
+        setStats(statsData);
+        setBrandDistribution(distribution);
       } catch (error) {
-        // Handle error silently
+        console.error('Error loading admin stats:', error);
+        toast({
+          title: "Erro ao carregar estatísticas",
+          description: "Não foi possível carregar os dados. Tente novamente.",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
     };
 
     loadStats();
-  }, [getUniqueBrands]);
+  }, [fetchStats, fetchBrandDistribution]);
 
   if (loading) {
     return (
@@ -72,10 +68,10 @@ export function AdminStats() {
       color: "text-blue-600"
     },
     {
-      title: "Marcas",
-      value: stats.totalBrands,
+      title: "Modelos",
+      value: stats.totalModels,
       icon: Cpu,
-      description: "Fabricantes de impressoras",
+      description: "Modelos de impressoras",
       color: "text-green-600"
     },
     {
@@ -132,24 +128,22 @@ export function AdminStats() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { name: "Elegoo", count: 98, percentage: 18.5 },
-                { name: "Anycubic", count: 147, percentage: 27.8 },
-                { name: "Miicraft", count: 112, percentage: 21.2 },
-                { name: "Phrozen", count: 65, percentage: 12.3 },
-                { name: "Creality", count: 45, percentage: 8.5 }
-              ].map((brand, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span className="text-sm font-medium">{brand.name}</span>
+              {brandDistribution.length > 0 ? (
+                brandDistribution.map((brand, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="text-sm font-medium">{brand.brand_name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-muted-foreground">{brand.parameter_count}</span>
+                      <span className="text-xs text-muted-foreground">({brand.percentage}%)</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-muted-foreground">{brand.count}</span>
-                    <span className="text-xs text-muted-foreground">({brand.percentage}%)</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum dado disponível</p>
+              )}
             </div>
           </CardContent>
         </Card>
