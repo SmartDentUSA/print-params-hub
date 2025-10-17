@@ -8,7 +8,8 @@ import { Breadcrumb } from "@/components/Breadcrumb";
 import { DataStats } from "@/components/DataStats";
 import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Settings } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { MessageCircle, Settings, Search } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Link, useSearchParams } from "react-router-dom";
@@ -70,10 +71,6 @@ const UserViewSupabase = () => {
 
   const handleModelSelect = (modelSlug: string) => {
     setSelectedModel(modelSlug);
-  };
-
-  const handleSearch = (term: string) => {
-    setSearchTerm(term);
   };
 
   // Load brands
@@ -244,6 +241,21 @@ const UserViewSupabase = () => {
           <p className="text-lg text-muted-foreground mb-4">
             {t('header.subtitle')}
           </p>
+        </div>
+
+        {/* Search Field */}
+        <div className="mb-8">
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+              <Input 
+                placeholder="Buscar conteúdo..."
+                className="pl-10 bg-card border-border h-12 text-base"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Brand Selection */}
