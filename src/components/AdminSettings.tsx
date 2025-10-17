@@ -351,7 +351,7 @@ export function AdminSettings() {
       
       if (labelSuccess && urlSuccess) {
         toast({
-          title: "CTA 3 atualizado!",
+          title: "Lychee Slicer atualizado!",
           description: "As configurações do botão foram salvas com sucesso.",
         });
       } else {
@@ -431,7 +431,7 @@ export function AdminSettings() {
               </TabsTrigger>
               <TabsTrigger value="cta3" className="flex items-center gap-2">
                 <Download className="w-4 h-4" />
-                CTA 3
+                Lychee Slicer
               </TabsTrigger>
               <TabsTrigger value="data" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
@@ -855,10 +855,10 @@ export function AdminSettings() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Download className="w-5 h-5" />
-                    Configurar Botão CTA 3
+                    Configurar Botão Lychee Slicer
                   </CardTitle>
                   <CardDescription>
-                    Personalize o botão exibido na seção "Selecione a Marca"
+                    Personalize o botão de download do Lychee Slicer exibido na seção "Selecione a Marca"
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
