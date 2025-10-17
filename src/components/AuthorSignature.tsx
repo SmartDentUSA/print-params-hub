@@ -44,27 +44,27 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
         )}
         
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                 Sobre o autor
               </p>
-              <h4 className="text-lg font-extrabold uppercase text-black leading-tight">{author.name}</h4>
+              <h4 className="text-lg font-extrabold uppercase text-black leading-tight break-words">{author.name}</h4>
               {author.specialty && (
-                <p className="text-sm text-gray-500 mt-1">{author.specialty}</p>
+                <p className="text-sm text-gray-500 mt-1 break-words">{author.specialty}</p>
               )}
             </div>
             
             {/* Ícones sociais à direita */}
             {socialLinks.length > 0 && (
-              <div className="flex gap-2 flex-wrap items-start">
+              <div className="flex gap-2 flex-wrap justify-start sm:justify-end">
                 {socialLinks.map((link, idx) => (
                   <a
                     key={idx}
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`w-8 h-8 rounded-full ${socialBrandColors[link.label]} hover:opacity-90 flex items-center justify-center transition-opacity`}
+                    className={`w-8 h-8 rounded-full flex-shrink-0 ${socialBrandColors[link.label]} hover:opacity-90 flex items-center justify-center transition-opacity`}
                     aria-label={link.label}
                   >
                     {link.icon ? (

@@ -38,7 +38,7 @@ export function generateAuthorSignatureHTML(author: Author): string {
             href="${link.url}"
             target="_blank"
             rel="noopener noreferrer"
-            style="width: 32px; height: 32px; border-radius: 50%; background: ${bgColor}; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;"
+            style="width: 32px; height: 32px; border-radius: 50%; background: ${bgColor}; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; flex-shrink: 0;"
             aria-label="${link.label}"
           >
             ${link.iconSvg ? `<span style="color: #ffffff;">${link.iconSvg}</span>` : `<span style="color: #ffffff; font-weight: bold; font-size: 11px;">${link.iconText}</span>`}
@@ -67,15 +67,15 @@ export function generateAuthorSignatureHTML(author: Author): string {
     ${photoHTML}
     
     <div style="flex: 1; min-width: 0;">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;">
         <div style="flex: 1; min-width: 0;">
           <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">
             Sobre o autor
           </p>
-          <h4 style="font-size: 18px; font-weight: 800; text-transform: uppercase; color: #111111; margin: 0; line-height: 1.2;">${author.name}</h4>
-          ${author.specialty ? `<p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0;">${author.specialty}</p>` : ''}
+          <h4 style="font-size: 18px; font-weight: 800; text-transform: uppercase; color: #111111; margin: 0; line-height: 1.2; word-wrap: break-word;">${author.name}</h4>
+          ${author.specialty ? `<p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0; word-wrap: break-word;">${author.specialty}</p>` : ''}
         </div>
-        ${socialLinksHTML ? `<div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start;">${socialLinksHTML}</div>` : ''}
+        ${socialLinksHTML ? `<div style="display: flex; gap: 8px; flex-wrap: wrap;">${socialLinksHTML}</div>` : ''}
       </div>
       
       <div style="border: 2px solid #111111; border-radius: 20px; padding: 16px;">
