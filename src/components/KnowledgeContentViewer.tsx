@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Download, ExternalLink } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
+import { Link } from 'react-router-dom';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -13,7 +15,8 @@ interface KnowledgeContentViewerProps {
 
 export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps) {
   const [videos, setVideos] = useState<any[]>([]);
-  const { fetchVideosByContent } = useKnowledge();
+  const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
+  const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
 
   useEffect(() => {
     if (content?.id) {
@@ -22,10 +25,19 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         const vids = await fetchVideosByContent(content.id);
         console.log('✅ Vídeos carregados:', vids.length, vids);
         setVideos(vids);
+
+        // Carregar artigos relacionados
+        const related = await fetchRelatedContents(
+          content.id, 
+          content.category_id, 
+          content.keywords || []
+        );
+        console.log('📚 Artigos relacionados:', related.length);
+        setRelatedArticles(related);
       };
       load();
     }
-  }, [content?.id, fetchVideosByContent]);
+  }, [content?.id, fetchVideosByContent, fetchRelatedContents]);
 
   if (!content) return null;
 
@@ -115,6 +127,39 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           <AuthorSignature author={content.authors} />
         )}
       </div>
+
+      {/* Related Articles */}
+      {relatedArticles.length > 0 && (
+        <div className="mt-12 border-t border-border pt-8">
+          <h3 className="text-2xl font-bold text-foreground mb-6">📚 Artigos Relacionados</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {relatedArticles.map(article => (
+              <Link 
+                key={article.id} 
+                to={`/base-conhecimento/${article.knowledge_categories?.letter?.toLowerCase()}/${article.slug}`}
+              >
+                <Card className="hover:shadow-lg transition-shadow h-full">
+                  {article.og_image_url && (
+                    <img 
+                      src={article.og_image_url} 
+                      alt={article.title} 
+                      className="w-full h-40 object-cover rounded-t-lg"
+                    />
+                  )}
+                  <CardContent className="p-4">
+                    <h4 className="font-semibold line-clamp-2 mb-2 text-foreground">
+                      {article.title}
+                    </h4>
+                    <p className="text-sm text-muted-foreground line-clamp-3">
+                      {article.excerpt}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

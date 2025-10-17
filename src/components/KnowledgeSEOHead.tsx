@@ -152,6 +152,20 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
     ]
   };
 
+  // FAQ Schema
+  const faqSchema = content.faqs && content.faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": content.faqs.map((faq: any) => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  } : null;
+
   // Detectar tipo de Twitter Card baseado no conteúdo
   const twitterCardType = videos.length > 0 
     ? "player" 
@@ -216,6 +230,13 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
           {JSON.stringify(schema)}
         </script>
       ))}
+      
+      {/* FAQ Schema */}
+      {faqSchema && (
+        <script type="application/ld+json">
+          {JSON.stringify(faqSchema)}
+        </script>
+      )}
     </Helmet>
   );
 }

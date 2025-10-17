@@ -216,12 +216,59 @@ export function useKnowledge() {
     }
   };
 
+  const fetchRelatedContents = async (
+    contentId: string, 
+    categoryId: string | null, 
+    keywords: string[] = [], 
+    limit: number = 3
+  ) => {
+    try {
+      // Prioridade 1: Mesma categoria, excluindo o artigo atual
+      let query = supabase
+        .from('knowledge_contents')
+        .select('*, knowledge_categories(*)')
+        .eq('active', true)
+        .neq('id', contentId)
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (categoryId) {
+        query = query.eq('category_id', categoryId);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      // Se encontrou artigos suficientes na mesma categoria, retorna
+      if (data && data.length >= limit) {
+        return data;
+      }
+
+      // Fallback: buscar artigos de outras categorias mais recentes
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('knowledge_contents')
+        .select('*, knowledge_categories(*)')
+        .eq('active', true)
+        .neq('id', contentId)
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (fallbackError) throw fallbackError;
+      return fallbackData || [];
+    } catch (error) {
+      console.error('Erro ao buscar artigos relacionados:', error);
+      return [];
+    }
+  };
+
   return {
     loading,
     fetchCategories,
     fetchContentsByCategory,
     fetchContentBySlug,
     fetchVideosByContent,
+    fetchRelatedContents,
     updateCategory,
     insertContent,
     updateContent,

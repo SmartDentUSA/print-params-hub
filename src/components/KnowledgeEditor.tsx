@@ -11,6 +11,9 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface KnowledgeEditorProps {
   content: string;
@@ -22,6 +25,9 @@ interface KnowledgeEditorProps {
 export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady }: KnowledgeEditorProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [altDialogOpen, setAltDialogOpen] = useState(false);
+  const [altText, setAltText] = useState('');
+  const [pendingImageUrl, setPendingImageUrl] = useState('');
   const { toast } = useToast();
 
   const editor = useEditor({
@@ -83,11 +89,13 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
         .from('model-images')
         .getPublicUrl(path);
 
-      editor?.chain().focus().setImage({ src: data.publicUrl }).run();
+      // Ao invés de inserir direto, abrir dialog para alt text
+      setPendingImageUrl(data.publicUrl);
+      setAltDialogOpen(true);
       
       toast({ 
-        title: 'Imagem inserida', 
-        description: 'Upload concluído!' 
+        title: 'Upload concluído', 
+        description: 'Agora adicione uma descrição para acessibilidade' 
       });
     } catch (err) {
       console.error(err);
@@ -102,10 +110,36 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
     }
   };
 
+  const handleConfirmAltText = () => {
+    if (!altText.trim() || altText.trim().length < 5) {
+      toast({
+        title: 'Alt text muito curto',
+        description: 'Digite pelo menos 5 caracteres',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    editor?.chain().focus().setImage({ 
+      src: pendingImageUrl, 
+      alt: altText.trim() 
+    }).run();
+
+    toast({ 
+      title: 'Imagem inserida', 
+      description: 'Com alt text para acessibilidade!' 
+    });
+
+    setAltDialogOpen(false);
+    setAltText('');
+    setPendingImageUrl('');
+  };
+
   if (!editor) return null;
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <>
+      <div className="border border-border rounded-lg overflow-hidden">
       {/* Toolbar */}
       <div className="flex flex-wrap gap-1 p-2 border-b bg-muted/30">
         <Button
@@ -192,6 +226,52 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
         editor={editor} 
         className="prose prose-sm max-w-none p-4 min-h-[400px] focus:outline-none"
       />
-    </div>
+      </div>
+
+      {/* Alt Text Dialog */}
+      <Dialog open={altDialogOpen} onOpenChange={setAltDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Descreva esta imagem</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Alt Text (mínimo 5 caracteres)</Label>
+              <Input
+                placeholder="Ex: Impressora 3D realizando calibração automática"
+                value={altText}
+                onChange={(e) => setAltText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && altText.trim().length >= 5) {
+                    handleConfirmAltText();
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Descreva o conteúdo da imagem para melhorar acessibilidade e SEO
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleConfirmAltText}
+                disabled={altText.trim().length < 5}
+              >
+                Confirmar
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setAltDialogOpen(false);
+                  setAltText('');
+                  setPendingImageUrl('');
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

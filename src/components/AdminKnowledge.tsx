@@ -45,6 +45,7 @@ export function AdminKnowledge() {
     meta_description: '',
     og_image_url: '',
     author_id: null as string | null,
+    faqs: [] as Array<{ question: string; answer: string }>,
     order_index: 0,
     active: true
   });
@@ -110,6 +111,7 @@ export function AdminKnowledge() {
       meta_description: content.meta_description || '',
       og_image_url: content.og_image_url || '',
       author_id: content.author_id || null,
+      faqs: content.faqs || [],
       order_index: content.order_index,
       active: content.active
     });
@@ -133,6 +135,7 @@ export function AdminKnowledge() {
       meta_description: '',
       og_image_url: '',
       author_id: null,
+      faqs: [],
       order_index: contents.length,
       active: true
     });
@@ -398,9 +401,10 @@ export function AdminKnowledge() {
             </DialogHeader>
             
             <Tabs defaultValue="content">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="content">📝 Conteúdo</TabsTrigger>
                 <TabsTrigger value="seo">🔍 SEO</TabsTrigger>
+                <TabsTrigger value="faqs">❓ FAQs</TabsTrigger>
                 <TabsTrigger value="media">🎬 Mídias</TabsTrigger>
               </TabsList>
 
@@ -578,6 +582,72 @@ export function AdminKnowledge() {
                       {uploadingOg ? 'Enviando...' : 'Enviar imagem OG'}
                     </Button>
                   </div>
+                </div>
+              </TabsContent>
+
+              {/* FAQs Tab */}
+              <TabsContent value="faqs" className="space-y-4">
+                <div>
+                  <Label className="text-lg font-semibold">Perguntas Frequentes (FAQs)</Label>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Adicione FAQs para melhorar o SEO e aparecer nos Featured Snippets do Google
+                  </p>
+                  
+                  {formData.faqs.map((faq, idx) => (
+                    <div key={idx} className="p-4 border border-border rounded-lg mt-3 bg-card space-y-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm font-semibold">FAQ #{idx + 1}</Label>
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          onClick={() => {
+                            const newFaqs = formData.faqs.filter((_, i) => i !== idx);
+                            setFormData({ ...formData, faqs: newFaqs });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Pergunta</Label>
+                        <Input 
+                          placeholder="Ex: Como calibrar a impressora?"
+                          value={faq.question}
+                          onChange={(e) => {
+                            const newFaqs = [...formData.faqs];
+                            newFaqs[idx].question = e.target.value;
+                            setFormData({ ...formData, faqs: newFaqs });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Resposta</Label>
+                        <Textarea 
+                          placeholder="Passo a passo detalhado..."
+                          rows={3}
+                          value={faq.answer}
+                          onChange={(e) => {
+                            const newFaqs = [...formData.faqs];
+                            newFaqs[idx].answer = e.target.value;
+                            setFormData({ ...formData, faqs: newFaqs });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        faqs: [...formData.faqs, { question: '', answer: '' }]
+                      });
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    ADICIONAR FAQ
+                  </Button>
                 </div>
               </TabsContent>
 
