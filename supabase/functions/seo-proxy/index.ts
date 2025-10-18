@@ -65,7 +65,15 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <ul>
     ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
   </ul>
-  <script>window.location.href="/"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -109,7 +117,15 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <ul>
     ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
   </ul>
-  <script>window.location.href="/${brandSlug}"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/${brandSlug}";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -174,7 +190,15 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
       return `<li><a href="/${brandSlug}/${modelSlug}/${resinSlug}">${r.resin_name}</a></li>`;
     }).join('') || ''}
   </ul>
-  <script>window.location.href="/${brandSlug}/${modelSlug}"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/${brandSlug}/${modelSlug}";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -243,7 +267,15 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     <li><strong>Lift Speed:</strong> ${resinData.lift_speed || 3}mm/s</li>
   </ul>
   ${resinData.notes ? `<p><strong>Observações:</strong> ${resinData.notes}</p>` : ''}
-  <script>window.location.href="/${brandSlug}/${modelSlug}/${resinSlug}"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/${brandSlug}/${modelSlug}/${resinSlug}";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -282,7 +314,15 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <ul>
     ${categories?.map((c: any) => `<li><a href="/base-conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
   </ul>
-  <script>window.location.href="/base-conhecimento"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/base-conhecimento";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -321,7 +361,15 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   <ul>
     ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
   </ul>
-  <script>window.location.href="/base-conhecimento/${letter.toLowerCase()}"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/base-conhecimento/${letter.toLowerCase()}";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -375,7 +423,15 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     <p>${content.excerpt}</p>
     ${content.content_html || ''}
   </article>
-  <script>window.location.href="/base-conhecimento/${letter}/${slug}"</script>
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/base-conhecimento/${letter}/${slug}";
+    }
+  })();
+  </script>
 </body>
 </html>`;
 }
@@ -425,16 +481,17 @@ Deno.serve(async (req) => {
       html = await generateResinHTML(segments[0], segments[1], segments[2], supabase);
     }
 
-    if (!html) {
-      html = generate404();
-    }
+    const is404 = !html || html.includes('404 - Página não encontrada');
+    const finalHtml = html || generate404();
 
-    return new Response(html, {
-      status: html === generate404() ? 404 : 200,
+    return new Response(finalHtml, {
+      status: is404 ? 404 : 200,
       headers: {
         ...corsHeaders,
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': is404 
+          ? 'public, s-maxage=300, must-revalidate'
+          : 'public, s-maxage=3600, stale-while-revalidate=86400',
       },
     });
   } catch (error) {
