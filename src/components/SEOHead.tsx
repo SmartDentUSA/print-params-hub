@@ -40,6 +40,57 @@ interface SEOHeadProps {
   resins?: Resin[];
 }
 
+// Helper function to generate SEO keywords
+const generateKeywords = (
+  pageType: 'home' | 'brand' | 'model',
+  brand?: Brand | null,
+  model?: Model | null,
+  resins: Resin[] = []
+): string => {
+  const baseKeywords = [
+    'impressão 3D odontológica',
+    'resina 3D dental',
+    'parâmetros impressão 3D',
+    '405nm',
+    'Smart Dent'
+  ];
+
+  if (pageType === 'home') {
+    return [...baseKeywords, 'configurações impressora 3D', 'tempo de cura'].join(', ');
+  }
+
+  if (pageType === 'brand' && brand) {
+    return [
+      ...baseKeywords,
+      `impressora ${brand.name}`,
+      `parâmetros ${brand.name}`,
+      `configurações ${brand.name}`,
+      'altura de camada',
+      'intensidade de luz'
+    ].join(', ').substring(0, 255);
+  }
+
+  if (pageType === 'model' && brand && model) {
+    const keywords = [
+      ...baseKeywords,
+      `${model.name} ${brand.name}`,
+      `impressora ${brand.name}`,
+      `parâmetros ${model.name}`,
+      ...resins.slice(0, 5).map(r => r.name),
+      ...resins.slice(0, 3).map(r => r.manufacturer),
+      'tempo de cura',
+      'altura de camada',
+      'intensidade de luz',
+      'lift distance',
+      'lift speed'
+    ].filter(Boolean);
+
+    return keywords.join(', ').substring(0, 255);
+  }
+
+  return baseKeywords.join(', ');
+};
+
 export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) => {
   const baseUrl = 'https://parametros.smartdent.com.br';
   
@@ -48,6 +99,9 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
   let description = 'Encontre parâmetros otimizados de impressão 3D para sua impressora e resina Smart Dent. Configurações testadas para modelos odontológicos com melhor qualidade e precisão.';
   let canonical = baseUrl;
   let ogImage = 'https://smartdent.com.br/logo-og.png';
+  
+  // Generate keywords for this page
+  const keywords = generateKeywords(pageType, brand, model, resins);
 
   if (pageType === 'brand' && brand) {
     title = `Impressoras ${brand.name} - Parâmetros de Resina 3D | Smart Dent`;
@@ -168,6 +222,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         "@context": "https://schema.org",
         "@type": "Product",
         "name": resin.name,
+        "keywords": `resina ${resin.type || 'odontológica'}, ${resin.manufacturer}, ${model?.name}, ${brand?.name}, impressão 3D dental, 405nm`,
         "brand": {
           "@type": "Brand",
           "name": resin.manufacturer
@@ -231,6 +286,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
             "@type": "Product",
             "position": index + 1,
             "name": resin.name,
+            "keywords": `resina ${resin.type || 'odontológica'}, ${resin.manufacturer}, ${model?.name}, ${brand?.name}, impressão 3D dental, 405nm`,
             "brand": {
               "@type": "Brand",
               "name": resin.manufacturer
@@ -274,6 +330,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
       {/* Primary Meta Tags */}
       <title>{title}</title>
       <meta name="description" content={description} />
+      <meta name="keywords" content={keywords} />
       <link rel="canonical" href={canonical} />
 
       {/* Open Graph / Facebook */}

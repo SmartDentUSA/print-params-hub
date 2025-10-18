@@ -109,6 +109,42 @@ const extractHowToSteps = (htmlContent: string): string[] => {
   return steps;
 };
 
+// Extrai keywords do conteúdo HTML
+const extractKeywordsFromContent = (htmlContent: string): string => {
+  if (!htmlContent) return '';
+  
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  const keywords: string[] = [];
+  
+  // Termos técnicos comuns
+  const technicalTerms = [
+    'impressão 3D', 'resina', 'impressora', 'parâmetros', 'configuração',
+    '405nm', 'tempo de cura', 'altura de camada', 'lift speed', 'odontológica',
+    'dental', 'Smart Dent'
+  ];
+  
+  // Pegar headings principais
+  const headings = doc.querySelectorAll('h2, h3');
+  headings.forEach(h => {
+    const text = h.textContent?.trim() || '';
+    if (text.length > 3 && text.length < 50) {
+      keywords.push(text);
+    }
+  });
+  
+  // Adicionar termos técnicos encontrados no conteúdo
+  const contentText = doc.body.textContent?.toLowerCase() || '';
+  technicalTerms.forEach(term => {
+    if (contentText.includes(term.toLowerCase())) {
+      keywords.push(term);
+    }
+  });
+  
+  // Limitar a 10 keywords e 255 caracteres
+  return [...new Set(keywords)].slice(0, 10).join(', ').substring(0, 255);
+};
+
 export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
 
@@ -165,6 +201,7 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
     "@context": "https://schema.org",
     "@type": "Article",
     "headline": content.title,
+    "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
     "image": content.og_image_url,
     "datePublished": new Date(content.created_at).toISOString(),
@@ -283,6 +320,7 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
     <Helmet htmlAttributes={{ lang: 'pt-BR' }}>
       <title>{content.title} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
+      <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       <link rel="canonical" href={canonicalUrl} />
       
       {/* Preload OG Image */}
