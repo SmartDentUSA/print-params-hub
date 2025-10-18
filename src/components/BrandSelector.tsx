@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, BookOpen } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
+import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface Brand {
   id: string;
@@ -18,6 +20,7 @@ interface BrandSelectorProps {
 
 export function BrandSelector({ brands, selectedBrand, onBrandSelect }: BrandSelectorProps) {
   const { fetchSetting } = useData();
+  const { t } = useLanguage();
   const [cta3Label, setCta3Label] = useState<string>("Download");
   const [cta3Url, setCta3Url] = useState<string>("#");
 
@@ -38,17 +41,30 @@ export function BrandSelector({ brands, selectedBrand, onBrandSelect }: BrandSel
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h2 className="text-lg font-semibold text-foreground">Selecione a Marca</h2>
         
-        {cta3Url && cta3Url !== '#' && (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => window.open(cta3Url, '_blank')}
-            className="flex items-center justify-center gap-2 w-full sm:w-auto text-xs sm:text-sm whitespace-nowrap"
-          >
-            <Download className="w-4 h-4 flex-shrink-0" />
-            <span className="truncate">{cta3Label}</span>
-          </Button>
-        )}
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Link to="/base-conhecimento" className="w-full sm:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center justify-center gap-2 w-full text-xs sm:text-sm whitespace-nowrap"
+            >
+              <BookOpen className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{t('knowledge.knowledge_base')}</span>
+            </Button>
+          </Link>
+
+          {cta3Url && cta3Url !== '#' && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.open(cta3Url, '_blank')}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto text-xs sm:text-sm whitespace-nowrap"
+            >
+              <Download className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate">{cta3Label}</span>
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="flex flex-wrap gap-3">

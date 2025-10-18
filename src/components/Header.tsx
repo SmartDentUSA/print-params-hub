@@ -28,14 +28,6 @@ export function Header({ showAdminButton = false }: HeaderProps) {
 
         {/* Actions */}
         <div className="flex items-center gap-1 md:gap-2">
-          {!isKnowledgeBasePage && (
-            <Link to="/base-conhecimento">
-              <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                <span className="hidden md:inline">{t('knowledge.knowledge_base')}</span>
-              </Button>
-            </Link>
-          )}
           {showAdminButton && (
             <Link to="/admin">
               <Button variant="outline" size="sm" className="flex items-center gap-2">
