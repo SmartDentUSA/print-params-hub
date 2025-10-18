@@ -176,44 +176,58 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
       // Single Product Schema with Multiple Offers
       const resin = resins[0];
       
-      // Build offers array dynamically
+      // Build offers array dynamically with enriched data
       const offers = [];
+      const priceValidUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
       if (resin.cta_1_url && resin.price) {
         offers.push({
           "@type": "Offer",
           "url": resin.cta_1_url,
           "priceCurrency": "BRL",
           "price": resin.price.toString(),
+          "priceValidUntil": priceValidUntil,
           "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "description": resin.cta_1_description || `Compre ${resin.name} na loja oficial`,
           "seller": {
             "@type": "Organization",
-            "name": resin.cta_1_label || "Vendedor 1"
+            "name": resin.cta_1_label || "Vendedor",
+            "url": resin.cta_1_url ? new URL(resin.cta_1_url).origin : undefined
           }
         });
       }
-      if (resin.cta_2_url) {
+      if (resin.cta_2_url && resin.price) {
         offers.push({
           "@type": "Offer",
           "url": resin.cta_2_url,
           "priceCurrency": "BRL",
-          "price": resin.price?.toString() || "0",
+          "price": resin.price.toString(),
+          "priceValidUntil": priceValidUntil,
           "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "description": resin.cta_2_description || `Compre ${resin.name} na loja oficial`,
           "seller": {
             "@type": "Organization",
-            "name": resin.cta_2_label || "Vendedor 2"
+            "name": resin.cta_2_label || "Vendedor",
+            "url": resin.cta_2_url ? new URL(resin.cta_2_url).origin : undefined
           }
         });
       }
-      if (resin.cta_3_url) {
+      if (resin.cta_3_url && resin.price) {
         offers.push({
           "@type": "Offer",
           "url": resin.cta_3_url,
           "priceCurrency": "BRL",
-          "price": resin.price?.toString() || "0",
+          "price": resin.price.toString(),
+          "priceValidUntil": priceValidUntil,
           "availability": "https://schema.org/InStock",
+          "itemCondition": "https://schema.org/NewCondition",
+          "description": resin.cta_3_description || `Compre ${resin.name} na loja oficial`,
           "seller": {
             "@type": "Organization",
-            "name": resin.cta_3_label || "Vendedor 3"
+            "name": resin.cta_3_label || "Vendedor",
+            "url": resin.cta_3_url ? new URL(resin.cta_3_url).origin : undefined
           }
         });
       }
@@ -222,15 +236,36 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         "@context": "https://schema.org",
         "@type": "Product",
         "name": resin.name,
+        "sku": resin.id,
+        "gtin": resin.id,
+        "mpn": resin.name.replace(/\s+/g, '-').toUpperCase(),
         "keywords": `resina ${resin.type || 'odontológica'}, ${resin.manufacturer}, ${model?.name}, ${brand?.name}, impressão 3D dental, 405nm`,
         "brand": {
           "@type": "Brand",
           "name": resin.manufacturer
         },
         "description": resin.description || `Resina ${resin.name} para impressão 3D odontológica`,
+        "material": "Resina fotopolimerizável 405nm",
         ...(resin.image_url && { "image": resin.image_url }),
         ...(resin.color && { "color": resin.color }),
         ...(resin.type && { "category": resin.type }),
+        "additionalProperty": [
+          {
+            "@type": "PropertyValue",
+            "name": "Comprimento de onda",
+            "value": "405 nm"
+          },
+          ...(resin.type ? [{
+            "@type": "PropertyValue",
+            "name": "Tipo",
+            "value": resin.type
+          }] : []),
+          ...(resin.color ? [{
+            "@type": "PropertyValue",
+            "name": "Cor",
+            "value": resin.color
+          }] : [])
+        ],
         ...(offers.length > 0 && { 
           "offers": offers.length === 1 ? offers[0] : offers 
         })
@@ -240,44 +275,58 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
       const items = resins
         .filter(resin => resin.cta_1_url || resin.cta_2_url || resin.cta_3_url)
         .map((resin, index) => {
-          // Build offers array for each resin
+          // Build offers array for each resin with enriched data
           const offers = [];
+          const priceValidUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          
           if (resin.cta_1_url && resin.price) {
             offers.push({
               "@type": "Offer",
               "url": resin.cta_1_url,
               "priceCurrency": "BRL",
               "price": resin.price.toString(),
+              "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
+              "itemCondition": "https://schema.org/NewCondition",
+              "description": resin.cta_1_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
-                "name": resin.cta_1_label || "Vendedor 1"
+                "name": resin.cta_1_label || "Vendedor",
+                "url": resin.cta_1_url ? new URL(resin.cta_1_url).origin : undefined
               }
             });
           }
-          if (resin.cta_2_url) {
+          if (resin.cta_2_url && resin.price) {
             offers.push({
               "@type": "Offer",
               "url": resin.cta_2_url,
               "priceCurrency": "BRL",
-              "price": resin.price?.toString() || "0",
+              "price": resin.price.toString(),
+              "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
+              "itemCondition": "https://schema.org/NewCondition",
+              "description": resin.cta_2_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
-                "name": resin.cta_2_label || "Vendedor 2"
+                "name": resin.cta_2_label || "Vendedor",
+                "url": resin.cta_2_url ? new URL(resin.cta_2_url).origin : undefined
               }
             });
           }
-          if (resin.cta_3_url) {
+          if (resin.cta_3_url && resin.price) {
             offers.push({
               "@type": "Offer",
               "url": resin.cta_3_url,
               "priceCurrency": "BRL",
-              "price": resin.price?.toString() || "0",
+              "price": resin.price.toString(),
+              "priceValidUntil": priceValidUntil,
               "availability": "https://schema.org/InStock",
+              "itemCondition": "https://schema.org/NewCondition",
+              "description": resin.cta_3_description || `Compre ${resin.name} na loja oficial`,
               "seller": {
                 "@type": "Organization",
-                "name": resin.cta_3_label || "Vendedor 3"
+                "name": resin.cta_3_label || "Vendedor",
+                "url": resin.cta_3_url ? new URL(resin.cta_3_url).origin : undefined
               }
             });
           }
@@ -286,15 +335,36 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
             "@type": "Product",
             "position": index + 1,
             "name": resin.name,
+            "sku": resin.id,
+            "gtin": resin.id,
+            "mpn": resin.name.replace(/\s+/g, '-').toUpperCase(),
             "keywords": `resina ${resin.type || 'odontológica'}, ${resin.manufacturer}, ${model?.name}, ${brand?.name}, impressão 3D dental, 405nm`,
             "brand": {
               "@type": "Brand",
               "name": resin.manufacturer
             },
             "description": resin.description || `Resina ${resin.name} para impressão 3D odontológica`,
+            "material": "Resina fotopolimerizável 405nm",
             ...(resin.image_url && { "image": resin.image_url }),
             ...(resin.color && { "color": resin.color }),
             ...(resin.type && { "category": resin.type }),
+            "additionalProperty": [
+              {
+                "@type": "PropertyValue",
+                "name": "Comprimento de onda",
+                "value": "405 nm"
+              },
+              ...(resin.type ? [{
+                "@type": "PropertyValue",
+                "name": "Tipo",
+                "value": resin.type
+              }] : []),
+              ...(resin.color ? [{
+                "@type": "PropertyValue",
+                "name": "Cor",
+                "value": resin.color
+              }] : [])
+            ],
             ...(offers.length > 0 && { 
               "offers": offers.length === 1 ? offers[0] : offers 
             })
