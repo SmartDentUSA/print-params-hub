@@ -106,13 +106,13 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
   if (pageType === 'brand' && brand) {
     title = `Impressoras ${brand.name} - Parâmetros de Resina 3D | Smart Dent`;
     description = `Configurações testadas para impressoras ${brand.name}. Parâmetros otimizados para resinas odontológicas Smart Dent.`;
-    canonical = `${baseUrl}?brand=${brand.slug}`;
+    canonical = `${baseUrl}/${brand.slug}`;
     if (brand.logo_url) ogImage = brand.logo_url;
   } else if (pageType === 'model' && brand && model) {
     const resinCount = resins.length;
     title = `${model.name} ${brand.name} - Configurações de Resina para Impressão 3D | Smart Dent`;
     description = `Parâmetros completos para ${model.name} ${brand.name}. ${resinCount} ${resinCount === 1 ? 'resina testada' : 'resinas testadas'} com tempo de cura, altura de camada e intensidade de luz otimizadas.`;
-    canonical = `${baseUrl}?brand=${brand.slug}&model=${model.slug}`;
+    canonical = `${baseUrl}/${brand.slug}/${model.slug}`;
     if (model.image_url) ogImage = model.image_url;
   }
 
@@ -149,7 +149,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         "@type": "ListItem",
         "position": 2,
         "name": brand.name,
-        "item": `${baseUrl}?brand=${brand.slug}`
+        "item": `${baseUrl}/${brand.slug}`
       });
     }
 
@@ -158,7 +158,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         "@type": "ListItem",
         "position": 3,
         "name": model.name,
-        "item": `${baseUrl}?brand=${brand.slug}&model=${model.slug}`
+        "item": `${baseUrl}/${brand.slug}/${model.slug}`
       });
     }
 

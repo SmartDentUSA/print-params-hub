@@ -11,9 +11,10 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle, Settings } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { LegacyRedirect } from "@/components/LegacyRedirect";
 
 const UserViewSupabase = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -22,6 +23,8 @@ const UserViewSupabase = () => {
   const { getUniqueBrands, getModelsByBrand, getResinsByModel, loading } = useData();
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
+  const params = useParams();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [brands, setBrands] = useState<any[]>([]);
@@ -66,15 +69,33 @@ const UserViewSupabase = () => {
   const handleBrandSelect = (brandSlug: string) => {
     setSelectedBrand(brandSlug);
     setSelectedModel("");
+    navigate(`/${brandSlug}`);
   };
 
   const handleModelSelect = (modelSlug: string) => {
     setSelectedModel(modelSlug);
+    if (selectedBrand) {
+      navigate(`/${selectedBrand}/${modelSlug}`);
+    }
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
   };
+
+  // Sync URL params to state
+  useEffect(() => {
+    if (params.brandSlug && params.brandSlug !== selectedBrand) {
+      setSelectedBrand(params.brandSlug);
+    }
+    if (params.modelSlug && params.modelSlug !== selectedModel) {
+      setSelectedModel(params.modelSlug);
+    }
+    if (!params.brandSlug && selectedBrand) {
+      setSelectedBrand("");
+      setSelectedModel("");
+    }
+  }, [params.brandSlug, params.modelSlug]);
 
   // Load brands
   useEffect(() => {
@@ -227,6 +248,7 @@ const UserViewSupabase = () => {
 
   return (
     <div className="min-h-screen bg-gradient-surface">
+      <LegacyRedirect />
       <SEOHead 
         pageType={pageType}
         brand={selectedBrandData}

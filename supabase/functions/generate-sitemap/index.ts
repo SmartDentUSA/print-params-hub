@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
         sitemap += `
   <!-- Brand: ${brand.slug} -->
   <url>
-    <loc>${baseUrl}?brand=${brand.slug}</loc>
+    <loc>${baseUrl}/${brand.slug}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <lastmod>${lastmod}</lastmod>
@@ -82,9 +82,9 @@ Deno.serve(async (req) => {
         sitemap += `
   <!-- Model: ${model.slug} -->
   <url>
-    <loc>${baseUrl}?brand=${brandSlug}&amp;model=${model.slug}</loc>
+    <loc>${baseUrl}/${brandSlug}/${model.slug}</loc>
     <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.9</priority>
     <lastmod>${lastmod}</lastmod>
   </url>
 `;

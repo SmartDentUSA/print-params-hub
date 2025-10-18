@@ -7,6 +7,9 @@ import NotFound from "./pages/NotFound";
 const App = () => (
   <Routes>
     <Route path="/" element={<Index />} />
+    <Route path="/:brandSlug" element={<Index />} />
+    <Route path="/:brandSlug/:modelSlug" element={<Index />} />
+    <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
     <Route path="/admin" element={<AdminViewSecure />} />
     <Route path="/base-conhecimento" element={<KnowledgeBase />} />
     <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase />} />
