@@ -1,0 +1,15 @@
+{
+  "rewrites": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(bot|crawler|spider|Googlebot|bingbot|slurp|DuckDuckBot|facebookexternalhit).*"
+        }
+      ],
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy/:path*"
+    }
+  ]
+}

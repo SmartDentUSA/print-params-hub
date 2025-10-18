@@ -91,6 +91,94 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Fetch resins (unique combinations)
+    const { data: resins, error: resinsError } = await supabase
+      .from('parameter_sets')
+      .select('brand_slug, model_slug, resin_name, resin_manufacturer')
+      .eq('active', true);
+
+    if (resinsError) {
+      console.error('Error fetching resins:', resinsError);
+    } else if (resins && resins.length > 0) {
+      const uniqueResins = [...new Map(resins.map((r: any) => [
+        `${r.brand_slug}-${r.model_slug}-${r.resin_manufacturer}-${r.resin_name}`,
+        r
+      ])).values()];
+
+      for (const resin of uniqueResins) {
+        const resinSlug = `${resin.resin_manufacturer}-${resin.resin_name}`
+          .toLowerCase()
+          .replace(/\s+/g, '-')
+          .replace(/[^\w-]/g, '');
+        
+        sitemap += `
+  <!-- Resin: ${resin.resin_name} -->
+  <url>
+    <loc>${baseUrl}/${resin.brand_slug}/${resin.model_slug}/${resinSlug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+      }
+    }
+
+    // Knowledge Base
+    const { data: categories } = await supabase
+      .from('knowledge_categories')
+      .select('id, letter')
+      .eq('enabled', true)
+      .order('order_index');
+
+    sitemap += `
+  <!-- Knowledge Hub -->
+  <url>
+    <loc>${baseUrl}/base-conhecimento</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+
+    if (categories && categories.length > 0) {
+      for (const cat of categories) {
+        const letter = cat.letter.toLowerCase();
+        sitemap += `
+  <!-- Knowledge Category: ${cat.letter} -->
+  <url>
+    <loc>${baseUrl}/base-conhecimento/${letter}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>${now}</lastmod>
+  </url>
+`;
+
+        const { data: contents } = await supabase
+          .from('knowledge_contents')
+          .select('slug, updated_at')
+          .eq('category_id', cat.id)
+          .eq('active', true);
+
+        if (contents && contents.length > 0) {
+          for (const content of contents) {
+            const lastmod = content.updated_at 
+              ? new Date(content.updated_at).toISOString().split('T')[0] 
+              : now;
+            
+            sitemap += `
+  <!-- Article: ${content.slug} -->
+  <url>
+    <loc>${baseUrl}/base-conhecimento/${letter}/${content.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>
+`;
+          }
+        }
+      }
+    }
+
     sitemap += `
 </urlset>`;
 
