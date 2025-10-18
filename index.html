@@ -70,6 +70,40 @@
       <p><strong>Este site requer JavaScript para funcionar corretamente.</strong> Por favor, habilite JavaScript no seu navegador para acessar todos os recursos.</p>
     </noscript>
     
+    <!-- BOT SSR MIDDLEWARE (FASE 1) -->
+    <script>
+    (function() {
+      try {
+        var ua = (navigator.userAgent || '').toLowerCase();
+        var isBot = /(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|crawler|spider)/i.test(ua) 
+          || navigator.webdriver === true;
+        
+        if (!isBot) return; // Humano: continua no SPA
+        
+        var seoUrl = 'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy' + window.location.pathname + window.location.search;
+        
+        fetch(seoUrl, { 
+          credentials: 'omit', 
+          cache: 'no-store',
+          headers: { 'User-Agent': navigator.userAgent }
+        })
+          .then(function(res) { return res.text(); })
+          .then(function(html) {
+            if (!html || html.length < 100) return; // Safety check
+            document.open();
+            document.write(html);
+            document.close();
+          })
+          .catch(function(err) { 
+            console.error('SSR middleware error:', err); 
+            // Fallback: deixa o SPA carregar normalmente
+          });
+      } catch (e) {
+        console.error('SSR middleware init error:', e);
+      }
+    })();
+    </script>
+    
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

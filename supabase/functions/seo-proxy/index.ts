@@ -23,13 +23,44 @@ function generate404(): string {
 </html>`;
 }
 
+// FASE 2: Sanitização HTML
+function escapeHtml(text: string | undefined | null): string {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\r?\n/g, ' ')
+    .trim();
+}
+
+// FASE 4: Normalização de slugs
+function normalizeSlug(text: string): string {
+  return (text || '')
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
+    .replace(/\s+/g, '-') // Espaços → hífens
+    .replace(/-+/g, '-') // Remove hífens duplicados
+    .replace(/^-|-$/g, ''); // Remove hífens nas pontas
+}
+
 async function generateHomepageHTML(supabase: any): Promise<string> {
-  const { data: brands } = await supabase
+  const { data: brands, error } = await supabase
     .from('brands')
     .select('name, slug, logo_url')
     .eq('active', true)
     .order('name')
     .limit(20);
+
+  if (error) {
+    console.error('Supabase error fetching brands:', error.message);
+    return '';
+  }
 
   const baseUrl = 'https://parametros.smartdent.com.br';
 
@@ -79,14 +110,22 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
 }
 
 async function generateBrandHTML(brandSlug: string, supabase: any): Promise<string> {
-  const { data: brand } = await supabase
+  const { data: brand, error } = await supabase
     .from('brands')
     .select('*, models(name, slug, image_url)')
     .eq('slug', brandSlug)
     .eq('active', true)
     .single();
 
-  if (!brand) return '';
+  if (error) {
+    console.error('Supabase error fetching brand:', brandSlug, error.message);
+    return '';
+  }
+
+  if (!brand) {
+    console.log('Brand not found:', brandSlug);
+    return '';
+  }
 
   const modelsCount = brand.models?.length || 0;
   const baseUrl = 'https://parametros.smartdent.com.br';
@@ -94,25 +133,35 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${brand.name} - Parâmetros de Impressão 3D | Smart Dent</title>
-  <meta name="description" content="Configurações profissionais para impressoras 3D ${brand.name}. ${modelsCount} modelos disponíveis com parâmetros testados." />
+  <title>${escapeHtml(brand.name)} - Parâmetros de Impressão 3D | Smart Dent</title>
+  <meta name="description" content="Configurações profissionais para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos disponíveis com parâmetros testados." />
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
-  <meta property="og:title" content="${brand.name} - Parâmetros de Impressão 3D" />
-  <meta property="og:description" content="Configurações para ${modelsCount} modelos ${brand.name}" />
+  <meta property="og:title" content="${escapeHtml(brand.name)} - Parâmetros de Impressão 3D" />
+  <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
   <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-image.jpg`}" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": brand.name,
+    "name": escapeHtml(brand.name),
     "url": `${baseUrl}/${brandSlug}`,
     "logo": brand.logo_url
   })}
   </script>
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": escapeHtml(brand.name), "item": `${baseUrl}/${brandSlug}` }
+    ]
+  })}
+  </script>
 </head>
 <body>
-  <h1>Impressoras 3D ${brand.name}</h1>
-  <p>Parâmetros profissionais testados para impressoras 3D ${brand.name}.</p>
+  <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
+  <p>Parâmetros profissionais testados para impressoras 3D ${escapeHtml(brand.name)}.</p>
   <h2>Modelos Disponíveis (${modelsCount})</h2>
   <ul>
     ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
@@ -131,7 +180,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
 }
 
 async function generateModelHTML(brandSlug: string, modelSlug: string, supabase: any): Promise<string> {
-  const { data: model } = await supabase
+  const { data: model, error: modelError } = await supabase
     .from('models')
     .select('*, brands!inner(*)')
     .eq('slug', modelSlug)
@@ -139,14 +188,26 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
     .eq('active', true)
     .single();
 
-  if (!model) return '';
+  if (modelError) {
+    console.error('Supabase error fetching model:', modelSlug, modelError.message);
+    return '';
+  }
 
-  const { data: resins } = await supabase
+  if (!model) {
+    console.log('Model not found:', modelSlug);
+    return '';
+  }
+
+  const { data: resins, error: resinsError } = await supabase
     .from('parameter_sets')
     .select('resin_name, resin_manufacturer')
     .eq('brand_slug', brandSlug)
     .eq('model_slug', modelSlug)
     .eq('active', true);
+
+  if (resinsError) {
+    console.error('Supabase error fetching resins:', resinsError.message);
+  }
 
   const uniqueResins = [...new Map(resins?.map((r: any) => 
     [`${r.resin_manufacturer}-${r.resin_name}`, r]
@@ -158,31 +219,42 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${model.name} - Parâmetros de Impressão 3D | Smart Dent</title>
-  <meta name="description" content="Parâmetros profissionais para ${model.name}. ${resinsCount} resinas disponíveis com configurações testadas." />
+  <title>${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent</title>
+  <meta name="description" content="Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas." />
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
-  <meta property="og:title" content="${model.name} - Parâmetros de Impressão" />
-  <meta property="og:description" content="${resinsCount} resinas disponíveis para ${model.name}" />
+  <meta property="og:title" content="${escapeHtml(model.name)} - Parâmetros de Impressão" />
+  <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
   <meta property="og:image" content="${model.image_url || `${baseUrl}/og-image.jpg`}" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": model.name,
-    "description": model.notes || `Impressora 3D ${model.name}`,
+    "name": escapeHtml(model.name),
+    "description": escapeHtml(model.notes) || `Impressora 3D ${escapeHtml(model.name)}`,
     "brand": {
       "@type": "Brand",
-      "name": (model.brands as any).name
+      "name": escapeHtml((model.brands as any).name)
     },
     "image": model.image_url,
     "url": `${baseUrl}/${brandSlug}/${modelSlug}`
   })}
   </script>
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": escapeHtml((model.brands as any).name), "item": `${baseUrl}/${brandSlug}` },
+      { "@type": "ListItem", "position": 3, "name": escapeHtml(model.name), "item": `${baseUrl}/${brandSlug}/${modelSlug}` }
+    ]
+  })}
+  </script>
 </head>
 <body>
-  <h1>${model.name}</h1>
-  <p>Parâmetros profissionais testados para ${model.name}.</p>
-  ${model.notes ? `<p>${model.notes}</p>` : ''}
+  <h1>${escapeHtml(model.name)}</h1>
+  <p>Parâmetros profissionais testados para ${escapeHtml(model.name)}.</p>
+  ${model.notes ? `<p>${escapeHtml(model.notes)}</p>` : ''}
   <h2>Resinas Disponíveis (${resinsCount})</h2>
   <ul>
     ${uniqueResins.map((r: any) => {
@@ -204,7 +276,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
 }
 
 async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug: string, supabase: any): Promise<string> {
-  const { data: params } = await supabase
+  const { data: params, error } = await supabase
     .from('parameter_sets')
     .select('*')
     .eq('brand_slug', brandSlug)
@@ -212,11 +284,21 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     .eq('active', true)
     .limit(100);
 
-  if (!params || params.length === 0) return '';
+  if (error) {
+    console.error('Supabase error fetching parameters:', error.message);
+    return '';
+  }
 
+  if (!params || params.length === 0) {
+    console.log('No parameters found for:', brandSlug, modelSlug);
+    return '';
+  }
+
+  // FASE 4: Matching robusto de slugs
   const resinData = params.find((p: any) => {
-    const slug = `${p.resin_manufacturer}-${p.resin_name}`.toLowerCase().replace(/\s+/g, '-');
-    return slug === resinSlug || slug.includes(resinSlug) || resinSlug.includes(slug);
+    const paramSlug = normalizeSlug(`${p.resin_manufacturer}-${p.resin_name}`);
+    const requestSlug = normalizeSlug(resinSlug);
+    return paramSlug === requestSlug;
   }) || params[0];
 
   const baseUrl = 'https://parametros.smartdent.com.br';
@@ -224,21 +306,21 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${resinData.resin_name} para ${modelSlug} - Parâmetros | Smart Dent</title>
-  <meta name="description" content="Parâmetros profissionais testados: ${resinData.resin_name}. Layer: ${resinData.layer_height}mm, Cure: ${resinData.cure_time}s, Luz: ${resinData.light_intensity}%." />
+  <title>${escapeHtml(resinData.resin_name)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent</title>
+  <meta name="description" content="Parâmetros profissionais testados: ${escapeHtml(resinData.resin_name)}. Layer: ${resinData.layer_height}mm, Cure: ${resinData.cure_time}s, Luz: ${resinData.light_intensity}%." />
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}" />
-  <meta property="og:title" content="${resinData.resin_name} - Parâmetros de Impressão" />
-  <meta property="og:description" content="Configurações testadas para impressora ${modelSlug}" />
+  <meta property="og:title" content="${escapeHtml(resinData.resin_name)} - Parâmetros de Impressão" />
+  <meta property="og:description" content="Configurações testadas para impressora ${escapeHtml(modelSlug)}" />
   <meta property="og:image" content="${baseUrl}/og-image.jpg" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": resinData.resin_name,
-    "description": `Resina ${resinData.resin_name} com parâmetros otimizados`,
+    "name": escapeHtml(resinData.resin_name),
+    "description": `Resina ${escapeHtml(resinData.resin_name)} com parâmetros otimizados`,
     "brand": {
       "@type": "Brand",
-      "name": resinData.resin_manufacturer
+      "name": escapeHtml(resinData.resin_manufacturer)
     },
     "offers": {
       "@type": "Offer",
@@ -252,10 +334,22 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     ]
   })}
   </script>
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": escapeHtml(brandSlug), "item": `${baseUrl}/${brandSlug}` },
+      { "@type": "ListItem", "position": 3, "name": escapeHtml(modelSlug), "item": `${baseUrl}/${brandSlug}/${modelSlug}` },
+      { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinData.resin_manufacturer)} ${escapeHtml(resinData.resin_name)}`, "item": `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}` }
+    ]
+  })}
+  </script>
 </head>
 <body>
-  <h1>${resinData.resin_name}</h1>
-  <p>Parâmetros profissionais testados para ${resinData.resin_name} na impressora ${modelSlug}.</p>
+  <h1>${escapeHtml(resinData.resin_name)}</h1>
+  <p>Parâmetros profissionais testados para ${escapeHtml(resinData.resin_name)} na impressora ${escapeHtml(modelSlug)}.</p>
   <h2>Parâmetros de Impressão</h2>
   <ul>
     <li><strong>Layer Height:</strong> ${resinData.layer_height}mm</li>
@@ -266,7 +360,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     <li><strong>Lift Distance:</strong> ${resinData.lift_distance || 5}mm</li>
     <li><strong>Lift Speed:</strong> ${resinData.lift_speed || 3}mm/s</li>
   </ul>
-  ${resinData.notes ? `<p><strong>Observações:</strong> ${resinData.notes}</p>` : ''}
+  ${resinData.notes ? `<p><strong>Observações:</strong> ${escapeHtml(resinData.notes)}</p>` : ''}
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
@@ -281,11 +375,15 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
 }
 
 async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
-  const { data: categories } = await supabase
+  const { data: categories, error } = await supabase
     .from('knowledge_categories')
     .select('*, knowledge_contents(count)')
     .eq('enabled', true)
     .order('order_index');
+
+  if (error) {
+    console.error('Supabase error fetching knowledge categories:', error.message);
+  }
 
   const baseUrl = 'https://parametros.smartdent.com.br';
 
@@ -328,16 +426,24 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 }
 
 async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Promise<string> {
-  const { data: category } = await supabase
+  const { data: category, error: categoryError } = await supabase
     .from('knowledge_categories')
     .select('*')
     .eq('letter', letter.toUpperCase())
     .eq('enabled', true)
     .single();
 
-  if (!category) return '';
+  if (categoryError) {
+    console.error('Supabase error fetching category:', letter, categoryError.message);
+    return '';
+  }
 
-  const { data: contents } = await supabase
+  if (!category) {
+    console.log('Category not found:', letter);
+    return '';
+  }
+
+  const { data: contents, error: contentsError } = await supabase
     .from('knowledge_contents')
     .select('title, slug, excerpt')
     .eq('category_id', category.id)
@@ -345,18 +451,33 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
     .order('order_index')
     .limit(50);
 
+  if (contentsError) {
+    console.error('Supabase error fetching contents:', contentsError.message);
+  }
+
   const baseUrl = 'https://parametros.smartdent.com.br';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${category.letter} - ${category.name} | Base de Conhecimento</title>
-  <meta name="description" content="Artigos sobre ${category.name}. ${contents?.length || 0} conteúdos disponíveis." />
+  <title>${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento</title>
+  <meta name="description" content="Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis." />
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
-  <meta property="og:title" content="${category.name}" />
+  <meta property="og:title" content="${escapeHtml(category.name)}" />
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+      { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
+    ]
+  })}
+  </script>
 </head>
 <body>
-  <h1>${category.letter} - ${category.name}</h1>
+  <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
   <p>${contents?.length || 0} artigos disponíveis nesta categoria.</p>
   <ul>
     ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
@@ -375,14 +496,22 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
 }
 
 async function generateKnowledgeArticleHTML(letter: string, slug: string, supabase: any): Promise<string> {
-  const { data: content } = await supabase
+  const { data: content, error } = await supabase
     .from('knowledge_contents')
     .select('*, knowledge_categories(*), authors(*)')
     .eq('slug', slug)
     .eq('active', true)
     .single();
 
-  if (!content) return '';
+  if (error) {
+    console.error('Supabase error fetching article:', slug, error.message);
+    return '';
+  }
+
+  if (!content) {
+    console.log('Article not found:', slug);
+    return '';
+  }
 
   const desc = content.meta_description || content.excerpt || 
     (content.content_html?.replace(/<[^>]*>/g, '').substring(0, 160) + '...');
@@ -392,35 +521,47 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${content.title} | Base de Conhecimento Smart Dent</title>
-  <meta name="description" content="${desc}" />
+  <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
+  <meta name="description" content="${escapeHtml(desc)}" />
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
-  <meta property="og:title" content="${content.title}" />
-  <meta property="og:description" content="${content.excerpt || desc}" />
+  <meta property="og:title" content="${escapeHtml(content.title)}" />
+  <meta property="og:description" content="${escapeHtml(content.excerpt || desc)}" />
   <meta property="og:image" content="${content.og_image_url || `${baseUrl}/og-image.jpg`}" />
   <meta property="og:type" content="article" />
-  ${content.keywords ? `<meta name="keywords" content="${content.keywords.join(', ')}" />` : ''}
+  ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": content.title,
-    "description": content.excerpt || desc,
+    "headline": escapeHtml(content.title),
+    "description": escapeHtml(content.excerpt || desc),
     "image": content.og_image_url,
     "datePublished": content.created_at,
     "dateModified": content.updated_at,
     "author": content.authors ? {
       "@type": "Person",
-      "name": content.authors.name,
+      "name": escapeHtml(content.authors.name),
       "url": content.authors.website_url
     } : undefined
+  })}
+  </script>
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+      { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
+      { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/base-conhecimento/${letter}/${slug}` }
+    ]
   })}
   </script>
 </head>
 <body>
   <article>
-    <h1>${content.title}</h1>
-    <p>${content.excerpt}</p>
+    <h1>${escapeHtml(content.title)}</h1>
+    <p>${escapeHtml(content.excerpt)}</p>
     ${content.content_html || ''}
   </article>
   <script>
