@@ -276,61 +276,100 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
 }
 
 async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug: string, supabase: any): Promise<string> {
-  const { data: params, error } = await supabase
-    .from('parameter_sets')
-    .select('*')
-    .eq('brand_slug', brandSlug)
-    .eq('model_slug', modelSlug)
+  // Buscar dados da resina com JOIN em parameter_sets para obter parâmetros técnicos
+  const { data: resinWithParams, error } = await supabase
+    .from('resins')
+    .select(`
+      *,
+      parameter_sets!inner(
+        layer_height,
+        cure_time,
+        bottom_cure_time,
+        light_intensity,
+        bottom_layers,
+        lift_distance,
+        lift_speed,
+        notes
+      )
+    `)
+    .eq('parameter_sets.brand_slug', brandSlug)
+    .eq('parameter_sets.model_slug', modelSlug)
+    .eq('parameter_sets.active', true)
     .eq('active', true)
     .limit(100);
 
   if (error) {
-    console.error('Supabase error fetching parameters:', error.message);
+    console.error('Supabase error fetching resin data:', error.message);
     return '';
   }
 
-  if (!params || params.length === 0) {
-    console.log('No parameters found for:', brandSlug, modelSlug);
+  if (!resinWithParams || resinWithParams.length === 0) {
+    console.log('No resin found for:', brandSlug, modelSlug, resinSlug);
     return '';
   }
 
   // FASE 4: Matching robusto de slugs
-  const resinData = params.find((p: any) => {
-    const paramSlug = normalizeSlug(`${p.resin_manufacturer}-${p.resin_name}`);
+  const resinData = resinWithParams.find((r: any) => {
+    const dbSlug = r.slug ? normalizeSlug(r.slug) : normalizeSlug(`${r.manufacturer}-${r.name}`);
     const requestSlug = normalizeSlug(resinSlug);
-    return paramSlug === requestSlug;
-  }) || params[0];
+    return dbSlug === requestSlug;
+  }) || resinWithParams[0];
+
+  // Pegar primeiro parameter_set (pode ter múltiplos, mas usamos o primeiro)
+  const params = Array.isArray(resinData.parameter_sets) ? resinData.parameter_sets[0] : resinData.parameter_sets;
 
   const baseUrl = 'https://parametros.smartdent.com.br';
+  
+  // Usar campos SEO da tabela resins
+  const seoTitle = resinData.seo_title_override || `${escapeHtml(resinData.name)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
+  const metaDescription = resinData.meta_description || `Parâmetros profissionais testados: ${escapeHtml(resinData.name)}. Layer: ${params.layer_height}mm, Cure: ${params.cure_time}s, Luz: ${params.light_intensity}%.`;
+  const canonicalUrl = resinData.canonical_url || `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`;
+  const ogImage = resinData.og_image_url || resinData.image_url || `${baseUrl}/og-image.jpg`;
+  const keywords = resinData.keywords || [];
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${escapeHtml(resinData.resin_name)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent</title>
-  <meta name="description" content="Parâmetros profissionais testados: ${escapeHtml(resinData.resin_name)}. Layer: ${resinData.layer_height}mm, Cure: ${resinData.cure_time}s, Luz: ${resinData.light_intensity}%." />
-  <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}" />
-  <meta property="og:title" content="${escapeHtml(resinData.resin_name)} - Parâmetros de Impressão" />
-  <meta property="og:description" content="Configurações testadas para impressora ${escapeHtml(modelSlug)}" />
-  <meta property="og:image" content="${baseUrl}/og-image.jpg" />
+  <title>${seoTitle}</title>
+  <meta name="description" content="${metaDescription}" />
+  ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
+  <link rel="canonical" href="${canonicalUrl}" />
+  <meta property="og:title" content="${escapeHtml(resinData.name)} - Parâmetros de Impressão" />
+  <meta property="og:description" content="${metaDescription}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:type" content="product" />
+  <script type="application/ld+json">
+  ${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Smart Dent",
+    "url": baseUrl,
+    "logo": `${baseUrl}/og-image.jpg`,
+    "description": "Parâmetros profissionais para impressão 3D odontológica"
+  })}
+  </script>
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": escapeHtml(resinData.resin_name),
-    "description": `Resina ${escapeHtml(resinData.resin_name)} com parâmetros otimizados`,
+    "name": escapeHtml(resinData.name),
+    "description": resinData.description || `Resina ${escapeHtml(resinData.name)} com parâmetros otimizados`,
     "brand": {
       "@type": "Brand",
-      "name": escapeHtml(resinData.resin_manufacturer)
+      "name": escapeHtml(resinData.manufacturer)
     },
+    "image": ogImage,
     "offers": {
       "@type": "Offer",
       "availability": "https://schema.org/InStock",
-      "url": `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`
+      "url": canonicalUrl,
+      "price": resinData.price || undefined,
+      "priceCurrency": resinData.price ? "BRL" : undefined
     },
     "additionalProperty": [
-      { "@type": "PropertyValue", "name": "Layer Height", "value": `${resinData.layer_height}mm` },
-      { "@type": "PropertyValue", "name": "Cure Time", "value": `${resinData.cure_time}s` },
-      { "@type": "PropertyValue", "name": "Light Intensity", "value": `${resinData.light_intensity}%` }
+      { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
+      { "@type": "PropertyValue", "name": "Cure Time", "value": `${params.cure_time}s` },
+      { "@type": "PropertyValue", "name": "Light Intensity", "value": `${params.light_intensity}%` }
     ]
   })}
   </script>
@@ -342,25 +381,26 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
       { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
       { "@type": "ListItem", "position": 2, "name": escapeHtml(brandSlug), "item": `${baseUrl}/${brandSlug}` },
       { "@type": "ListItem", "position": 3, "name": escapeHtml(modelSlug), "item": `${baseUrl}/${brandSlug}/${modelSlug}` },
-      { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinData.resin_manufacturer)} ${escapeHtml(resinData.resin_name)}`, "item": `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}` }
+      { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinData.manufacturer)} ${escapeHtml(resinData.name)}`, "item": canonicalUrl }
     ]
   })}
   </script>
 </head>
 <body>
-  <h1>${escapeHtml(resinData.resin_name)}</h1>
-  <p>Parâmetros profissionais testados para ${escapeHtml(resinData.resin_name)} na impressora ${escapeHtml(modelSlug)}.</p>
+  <h1>${escapeHtml(resinData.name)}</h1>
+  <p>${resinData.description || `Parâmetros profissionais testados para ${escapeHtml(resinData.name)} na impressora ${escapeHtml(modelSlug)}.`}</p>
   <h2>Parâmetros de Impressão</h2>
   <ul>
-    <li><strong>Layer Height:</strong> ${resinData.layer_height}mm</li>
-    <li><strong>Cure Time:</strong> ${resinData.cure_time}s</li>
-    <li><strong>Bottom Cure Time:</strong> ${resinData.bottom_cure_time || 'N/A'}s</li>
-    <li><strong>Light Intensity:</strong> ${resinData.light_intensity}%</li>
-    <li><strong>Bottom Layers:</strong> ${resinData.bottom_layers || 5}</li>
-    <li><strong>Lift Distance:</strong> ${resinData.lift_distance || 5}mm</li>
-    <li><strong>Lift Speed:</strong> ${resinData.lift_speed || 3}mm/s</li>
+    <li><strong>Layer Height:</strong> ${params.layer_height}mm</li>
+    <li><strong>Cure Time:</strong> ${params.cure_time}s</li>
+    <li><strong>Bottom Cure Time:</strong> ${params.bottom_cure_time || 'N/A'}s</li>
+    <li><strong>Light Intensity:</strong> ${params.light_intensity}%</li>
+    <li><strong>Bottom Layers:</strong> ${params.bottom_layers || 5}</li>
+    <li><strong>Lift Distance:</strong> ${params.lift_distance || 5}mm</li>
+    <li><strong>Lift Speed:</strong> ${params.lift_speed || 3}mm/s</li>
   </ul>
-  ${resinData.notes ? `<p><strong>Observações:</strong> ${escapeHtml(resinData.notes)}</p>` : ''}
+  ${params.notes ? `<p><strong>Observações:</strong> ${escapeHtml(params.notes)}</p>` : ''}
+  ${resinData.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
