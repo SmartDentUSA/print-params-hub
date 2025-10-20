@@ -41,6 +41,13 @@ export function AdminAuthors() {
     loadAuthors();
   }, []);
 
+  // Sincronizar imageUrl com formData.photo_url automaticamente
+  useEffect(() => {
+    if (imageUrl && imageUrl !== formData.photo_url) {
+      setFormData(prev => ({ ...prev, photo_url: imageUrl }));
+    }
+  }, [imageUrl]);
+
   const loadAuthors = async () => {
     const data = await fetchAllAuthors();
     setAuthors(data);
@@ -103,8 +110,8 @@ export function AdminAuthors() {
     }
 
     const dataToSave = {
-      ...formData,
-      photo_url: imageUrl || formData.photo_url
+      ...formData
+      // photo_url já está sincronizado no formData via useEffect
     };
 
     if (editingAuthor) {

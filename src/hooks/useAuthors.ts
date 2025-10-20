@@ -103,6 +103,8 @@ export function useAuthors() {
   const updateAuthor = async (id: string, updates: Partial<Author>) => {
     setLoading(true);
     try {
+      console.log('🔄 Atualizando autor:', id, 'com dados:', updates);
+      
       const { data, error } = await supabase
         .from('authors')
         .update(updates)
@@ -111,9 +113,12 @@ export function useAuthors() {
         .single();
 
       if (error) throw error;
+      
+      console.log('✅ Autor atualizado com sucesso:', data);
+      
       return data;
     } catch (error) {
-      console.error('Error updating author:', error);
+      console.error('❌ Erro ao atualizar autor:', error);
       return null;
     } finally {
       setLoading(false);
