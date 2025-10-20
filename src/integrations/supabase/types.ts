@@ -398,8 +398,11 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          keywords: string[] | null
           manufacturer: string
+          meta_description: string | null
           name: string
+          og_image_url: string | null
           price: number | null
           type: Database["public"]["Enums"]["resin_type"] | null
           updated_at: string
@@ -420,8 +423,11 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          keywords?: string[] | null
           manufacturer: string
+          meta_description?: string | null
           name: string
+          og_image_url?: string | null
           price?: number | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
@@ -442,8 +448,11 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          keywords?: string[] | null
           manufacturer?: string
+          meta_description?: string | null
           name?: string
+          og_image_url?: string | null
           price?: number | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string

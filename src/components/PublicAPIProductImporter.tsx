@@ -51,12 +51,15 @@ export function PublicAPIProductImporter({
         throw new Error('Produto não encontrado');
       }
 
-      // APENAS 3 CAMPOS
-      const mappedData = {
-        image_url: result.data.image_url || null,
-        description: result.data.description || null,
-        price: result.data.price || null,
-      };
+          // 6 CAMPOS: 3 visíveis + 3 SEO invisíveis
+          const mappedData = {
+            image_url: result.data.image_url || null,
+            description: result.data.description || null,
+            price: result.data.price || null,
+            meta_description: result.data.meta_description || null,
+            og_image_url: result.data.og_image_url || null,
+            keywords: result.data.keywords || [],
+          };
 
       setPreviewData(mappedData);
       
@@ -64,7 +67,7 @@ export function PublicAPIProductImporter({
         onImportSuccess(mappedData);
       }
       
-      toast.success('✅ 3 campos importados!');
+      toast.success('✅ 6 campos importados (3 visíveis + 3 SEO)!');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao importar';

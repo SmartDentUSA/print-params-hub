@@ -287,7 +287,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         description: importedData.description || prev.description || '',
         price: parsedPrice || prev.price || 0,
         // Usar URL externa temporariamente (funciona mesmo sem upload)
-        image_url: importedData.image_url || prev.image_url || ''
+        image_url: importedData.image_url || prev.image_url || '',
+        // 🔵 Campos SEO invisíveis (enriquecem HTML automaticamente)
+        meta_description: importedData.meta_description || prev.meta_description || '',
+        og_image_url: importedData.og_image_url || prev.og_image_url || '',
+        keywords: importedData.keywords || prev.keywords || [],
       }));
 
       console.log('✅ Campos preenchidos IMEDIATAMENTE:', {
@@ -324,7 +328,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
       toast({
         title: "✅ Importação concluída!",
-        description: `Descrição, preço e imagem atualizados com sucesso`,
+        description: `6 campos importados: 3 visíveis + 3 SEO invisíveis`,
       });
 
     } catch (error) {
