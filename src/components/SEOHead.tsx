@@ -22,6 +22,10 @@ interface Resin {
   price?: number;
   color?: string;
   type?: string;
+  // 🆕 Campos SEO do Sistema A
+  meta_description?: string;
+  og_image_url?: string;
+  keywords?: string[];
   cta_1_label?: string;
   cta_1_url?: string;
   cta_1_description?: string;
@@ -71,8 +75,14 @@ const generateKeywords = (
   }
 
   if (pageType === 'model' && brand && model) {
+    // 🆕 Mesclar keywords das resinas (se existirem)
+    const resinKeywords = resins
+      .flatMap(r => r.keywords || [])
+      .slice(0, 10); // Limitar a 10 keywords adicionais
+
     const keywords = [
       ...baseKeywords,
+      ...resinKeywords, // 🆕 Keywords do Sistema A
       `${model.name} ${brand.name}`,
       `impressora ${brand.name}`,
       `parâmetros ${model.name}`,
@@ -109,11 +119,25 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
     canonical = `${baseUrl}/${brand.slug}`;
     if (brand.logo_url) ogImage = brand.logo_url;
   } else if (pageType === 'model' && brand && model) {
-    const resinCount = resins.length;
+    // 🆕 Se houver uma resina com meta_description, usar ela
+    if (resins.length > 0 && resins[0].meta_description) {
+      description = resins[0].meta_description;
+    } else {
+      const resinCount = resins.length;
+      description = `Parâmetros completos para ${model.name} ${brand.name}. ${resinCount} ${resinCount === 1 ? 'resina testada' : 'resinas testadas'} com tempo de cura, altura de camada e intensidade de luz otimizadas.`;
+    }
+    
     title = `${model.name} ${brand.name} - Configurações de Resina para Impressão 3D | Smart Dent`;
-    description = `Parâmetros completos para ${model.name} ${brand.name}. ${resinCount} ${resinCount === 1 ? 'resina testada' : 'resinas testadas'} com tempo de cura, altura de camada e intensidade de luz otimizadas.`;
     canonical = `${baseUrl}/${brand.slug}/${model.slug}`;
-    if (model.image_url) ogImage = model.image_url;
+    
+    // 🆕 Priorizar og_image_url da primeira resina (se existir)
+    if (resins.length > 0 && resins[0].og_image_url) {
+      ogImage = resins[0].og_image_url;
+    } else if (model.image_url) {
+      ogImage = model.image_url;
+    } else if (brand?.logo_url) {
+      ogImage = brand.logo_url;
+    }
   }
 
   // Organization Schema
@@ -239,7 +263,15 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         "sku": resin.id,
         "gtin": resin.id,
         "mpn": resin.name.replace(/\s+/g, '-').toUpperCase(),
-        "keywords": `resina ${resin.type || 'odontológica'}, ${resin.manufacturer}, ${model?.name}, ${brand?.name}, impressão 3D dental, 405nm`,
+        "keywords": [
+          `resina ${resin.type || 'odontológica'}`,
+          resin.manufacturer,
+          model?.name,
+          brand?.name,
+          'impressão 3D dental',
+          '405nm',
+          ...(resin.keywords || []) // 🆕 Keywords do Sistema A
+        ].filter(Boolean).join(', '),
         "brand": {
           "@type": "Brand",
           "name": resin.manufacturer
@@ -338,7 +370,15 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
             "sku": resin.id,
             "gtin": resin.id,
             "mpn": resin.name.replace(/\s+/g, '-').toUpperCase(),
-            "keywords": `resina ${resin.type || 'odontológica'}, ${resin.manufacturer}, ${model?.name}, ${brand?.name}, impressão 3D dental, 405nm`,
+            "keywords": [
+              `resina ${resin.type || 'odontológica'}`,
+              resin.manufacturer,
+              model?.name,
+              brand?.name,
+              'impressão 3D dental',
+              '405nm',
+              ...(resin.keywords || []) // 🆕 Keywords do Sistema A
+            ].filter(Boolean).join(', '),
             "brand": {
               "@type": "Brand",
               "name": resin.manufacturer

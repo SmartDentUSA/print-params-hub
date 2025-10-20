@@ -326,9 +326,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         // Não faz nada - campos já estão preenchidos com URL externa
       }
 
+      // 🆕 Indicador visual de campos enriquecidos
+      const seoFieldsImported = !!(importedData.meta_description || importedData.og_image_url || importedData.keywords?.length);
+      
       toast({
         title: "✅ Importação concluída!",
-        description: `6 campos importados: 3 visíveis + 3 SEO invisíveis`,
+        description: seoFieldsImported 
+          ? `6 campos importados: 3 visíveis + 3 SEO invisíveis do Sistema A`
+          : `3 campos importados (sem dados SEO no Sistema A)`,
       });
 
     } catch (error) {

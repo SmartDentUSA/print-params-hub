@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download } from "lucide-react";
+import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
 import { AdminModal } from "@/components/AdminModal";
@@ -412,7 +413,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -432,6 +433,10 @@ export function AdminSettings() {
               <TabsTrigger value="cta3" className="flex items-center gap-2">
                 <Download className="w-4 h-4" />
                 Atalho
+              </TabsTrigger>
+              <TabsTrigger value="seo" className="flex items-center gap-2">
+                <Search className="w-4 h-4" />
+                SEO
               </TabsTrigger>
               <TabsTrigger value="data" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
@@ -915,6 +920,10 @@ export function AdminSettings() {
                   </Button>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="seo" className="space-y-4">
+              <SEOAuditPanel />
             </TabsContent>
 
             <TabsContent value="data" className="space-y-4">
