@@ -51,13 +51,18 @@ export function PublicAPIProductImporter({
         throw new Error('Produto não encontrado');
       }
 
-          // 6 CAMPOS: 3 visíveis + 3 SEO invisíveis
+          // 9 CAMPOS: 3 visíveis + 6 SEO invisíveis
           const mappedData = {
+            // Campos visíveis (básicos)
             image_url: result.data.image_url || null,
             description: result.data.description || null,
             price: result.data.price || null,
-            meta_description: result.data.meta_description || null,
-            og_image_url: result.data.og_image_url || null,
+            // 🔵 Campos SEO invisíveis (Sistema A) - mapeamento corrigido
+            seo_title_override: result.data.seo_title_override || null,
+            meta_description: result.data.seo_description_override || null,
+            og_image_url: result.data.image_url || null,
+            canonical_url: result.data.canonical_url || null,
+            slug: result.data.slug || null,
             keywords: result.data.keywords || [],
           };
 
@@ -67,7 +72,7 @@ export function PublicAPIProductImporter({
         onImportSuccess(mappedData);
       }
       
-      toast.success('✅ 6 campos importados (3 visíveis + 3 SEO)!');
+      toast.success('✅ 9 campos importados (3 visíveis + 6 SEO)!');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao importar';

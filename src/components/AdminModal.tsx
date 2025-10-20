@@ -288,9 +288,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         price: parsedPrice || prev.price || 0,
         // Usar URL externa temporariamente (funciona mesmo sem upload)
         image_url: importedData.image_url || prev.image_url || '',
-        // 🔵 Campos SEO invisíveis (enriquecem HTML automaticamente)
+        // 🔵 Campos SEO invisíveis (Sistema A) - mapeamento corrigido
+        seo_title_override: importedData.seo_title_override || prev.seo_title_override || '',
         meta_description: importedData.meta_description || prev.meta_description || '',
         og_image_url: importedData.og_image_url || prev.og_image_url || '',
+        canonical_url: importedData.canonical_url || prev.canonical_url || '',
+        slug: importedData.slug || prev.slug || '',
         keywords: importedData.keywords || prev.keywords || [],
       }));
 

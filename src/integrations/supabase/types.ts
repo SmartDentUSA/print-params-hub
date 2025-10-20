@@ -384,6 +384,7 @@ export type Database = {
       resins: {
         Row: {
           active: boolean
+          canonical_url: string | null
           color: string | null
           created_at: string
           cta_1_description: string | null
@@ -404,11 +405,14 @@ export type Database = {
           name: string
           og_image_url: string | null
           price: number | null
+          seo_title_override: string | null
+          slug: string | null
           type: Database["public"]["Enums"]["resin_type"] | null
           updated_at: string
         }
         Insert: {
           active?: boolean
+          canonical_url?: string | null
           color?: string | null
           created_at?: string
           cta_1_description?: string | null
@@ -429,11 +433,14 @@ export type Database = {
           name: string
           og_image_url?: string | null
           price?: number | null
+          seo_title_override?: string | null
+          slug?: string | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
         }
         Update: {
           active?: boolean
+          canonical_url?: string | null
           color?: string | null
           created_at?: string
           cta_1_description?: string | null
@@ -454,6 +461,8 @@ export type Database = {
           name?: string
           og_image_url?: string | null
           price?: number | null
+          seo_title_override?: string | null
+          slug?: string | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
         }

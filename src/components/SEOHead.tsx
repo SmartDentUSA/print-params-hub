@@ -23,8 +23,11 @@ interface Resin {
   color?: string;
   type?: string;
   // 🆕 Campos SEO do Sistema A
+  seo_title_override?: string;
   meta_description?: string;
   og_image_url?: string;
+  canonical_url?: string;
+  slug?: string;
   keywords?: string[];
   cta_1_label?: string;
   cta_1_url?: string;
@@ -119,6 +122,13 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
     canonical = `${baseUrl}/${brand.slug}`;
     if (brand.logo_url) ogImage = brand.logo_url;
   } else if (pageType === 'model' && brand && model) {
+    // 🆕 Priorizar seo_title_override da primeira resina (se existir)
+    if (resins.length > 0 && resins[0].seo_title_override) {
+      title = resins[0].seo_title_override;
+    } else {
+      title = `${model.name} ${brand.name} - Configurações de Resina para Impressão 3D | Smart Dent`;
+    }
+    
     // 🆕 Se houver uma resina com meta_description, usar ela
     if (resins.length > 0 && resins[0].meta_description) {
       description = resins[0].meta_description;
@@ -127,8 +137,12 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
       description = `Parâmetros completos para ${model.name} ${brand.name}. ${resinCount} ${resinCount === 1 ? 'resina testada' : 'resinas testadas'} com tempo de cura, altura de camada e intensidade de luz otimizadas.`;
     }
     
-    title = `${model.name} ${brand.name} - Configurações de Resina para Impressão 3D | Smart Dent`;
-    canonical = `${baseUrl}/${brand.slug}/${model.slug}`;
+    // 🆕 Priorizar canonical_url da primeira resina (se existir)
+    if (resins.length > 0 && resins[0].canonical_url) {
+      canonical = resins[0].canonical_url;
+    } else {
+      canonical = `${baseUrl}/${brand.slug}/${model.slug}`;
+    }
     
     // 🆕 Priorizar og_image_url da primeira resina (se existir)
     if (resins.length > 0 && resins[0].og_image_url) {
@@ -140,20 +154,53 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
     }
   }
 
-  // Organization Schema
+  // 🆕 Organization Schema completo (autoridade do domínio)
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": "https://parametros.smartdent.com.br/#organization",
     "name": "Smart Dent",
-    "url": "https://smartdent.com.br",
-    "telephone": "+55-16-993831794",
-    "logo": "https://smartdent.com.br/logo.png",
+    "alternateName": "Smart Dent Odontologia Digital",
+    "url": "https://parametros.smartdent.com.br",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://parametros.smartdent.com.br/og-image.jpg",
+      "width": 1200,
+      "height": 630
+    },
+    "sameAs": [
+      "https://www.instagram.com/smartdent.br/",
+      "https://www.youtube.com/@smartdent",
+      "https://www.facebook.com/smartdent.br/",
+      "https://www.linkedin.com/company/smartdent/",
+      "https://loja.smartdent.com.br"
+    ],
     "contactPoint": {
       "@type": "ContactPoint",
       "telephone": "+55-16-993831794",
       "contactType": "customer service",
-      "availableLanguage": ["pt-BR"]
-    }
+      "areaServed": "BR",
+      "availableLanguage": ["Portuguese", "Spanish", "English"]
+    },
+    "address": {
+      "@type": "PostalAddress",
+      "addressCountry": "BR",
+      "addressLocality": "São Paulo"
+    },
+    "description": "Smart Dent oferece parâmetros de impressão 3D odontológica testados e validados para mais de 50 impressoras e 200+ resinas dentais.",
+    "knowsAbout": [
+      "Impressão 3D Odontológica",
+      "Resinas Dentais 3D",
+      "Parâmetros de Impressão",
+      "Odontologia Digital",
+      "Prototipagem Rápida"
+    ],
+    "founder": {
+      "@type": "Person",
+      "name": "Smart Dent Team"
+    },
+    "foundingDate": "2020",
+    "slogan": "Parâmetros precisos, impressões perfeitas"
   };
 
   // BreadcrumbList Schema (for internal pages)
