@@ -656,16 +656,29 @@ Receba o texto bruto abaixo e:
                             return;
                           }
                           
-                          // ✅ CORREÇÃO: Usar generatedHTML diretamente
+                          // ✅ CORREÇÃO: Listar apenas campos válidos do banco
                           try {
                             const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
                             
                             const contentData = {
-                              ...formData,
-                              content_html: generatedHTML, // ✅ Usar generatedHTML diretamente!
-                              ai_prompt_template: formData.aiPromptTemplate || null, // ✅ FASE 2: Salvar prompt customizado
-                              category_id: categoryId,
+                              // Campos básicos
+                              title: formData.title,
                               slug: formData.slug || generateSlug(formData.title),
+                              excerpt: formData.excerpt,
+                              content_html: generatedHTML,
+                              icon_color: formData.icon_color,
+                              meta_description: formData.meta_description,
+                              og_image_url: formData.og_image_url,
+                              canva_template_url: formData.canva_template_url,
+                              file_url: formData.file_url,
+                              file_name: formData.file_name,
+                              author_id: formData.author_id,
+                              faqs: formData.faqs,
+                              order_index: formData.order_index,
+                              active: formData.active,
+                              
+                              // Campos especiais
+                              category_id: categoryId,
                               recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
                             };
 
@@ -699,13 +712,14 @@ Receba o texto bruto abaixo e:
                             
                             // Recarregar lista
                             await loadContents();
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error('❌ Erro ao salvar:', error);
                             toast({ 
                               title: '❌ Erro ao salvar', 
-                              description: 'Tente novamente ou salve manualmente', 
+                              description: error.message || 'Verifique os campos e tente novamente', 
                               variant: 'destructive' 
                             });
+                            return; // ❌ NÃO limpar estados se falhar
                           }
                         }}
                       >
