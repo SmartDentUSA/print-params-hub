@@ -42,6 +42,19 @@ export function AdminKnowledge() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHTML, setGeneratedHTML] = useState('');
   const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  
+  // Auto-apply and auto-save states
+  const [autoApplyIA, setAutoApplyIA] = useState(() => {
+    const stored = localStorage.getItem('adminKnowledge_autoApplyIA');
+    return stored !== null ? stored === 'true' : true;
+  });
+  const [autoSaveAfterGen, setAutoSaveAfterGen] = useState(() => {
+    const stored = localStorage.getItem('adminKnowledge_autoSaveAfterGen');
+    return stored !== null ? stored === 'true' : false;
+  });
+  const [pendingAutoSave, setPendingAutoSave] = useState(false);
+  const [previousHTML, setPreviousHTML] = useState<string | null>(null);
+  
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
 Receba o texto bruto abaixo e:
@@ -123,6 +136,10 @@ Receba o texto bruto abaixo e:
     setEditingContent(content);
     setContentEditorMode('visual');
     setPromptEdited(false);
+    setGeneratedHTML('');
+    setRawTextInput('');
+    setPendingAutoSave(false);
+    setPreviousHTML(null);
     setFormData({
       title: content.title,
       slug: content.slug,
@@ -152,6 +169,10 @@ Receba o texto bruto abaixo e:
     setEditingContent(null);
     setContentEditorMode('visual');
     setPromptEdited(false);
+    setGeneratedHTML('');
+    setRawTextInput('');
+    setPendingAutoSave(false);
+    setPreviousHTML(null);
     setFormData({
       title: '',
       slug: '',
@@ -242,6 +263,7 @@ Receba o texto bruto abaixo e:
       }
       
       setPromptEdited(false);
+      setPendingAutoSave(false);
       setModalOpen(false);
       await loadContents();
     } catch (error: any) {
@@ -457,7 +479,16 @@ Receba o texto bruto abaixo e:
         </Tabs>
 
         {/* Edit Modal */}
-        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <Dialog open={modalOpen} onOpenChange={(open) => {
+          if (!open && pendingAutoSave) {
+            if (confirm('Você tem alterações não salvas. Salvar agora?')) {
+              handleSaveContent();
+            } else {
+              setPendingAutoSave(false);
+            }
+          }
+          setModalOpen(open);
+        }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
@@ -584,6 +615,73 @@ Receba o texto bruto abaixo e:
 
               {/* AI Generation Tab */}
               <TabsContent value="ai-generation" className="space-y-4">
+                {/* Auto-apply and Auto-save switches */}
+                <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auto-apply-ia">Aplicar automaticamente no editor</Label>
+                    <Switch
+                      id="auto-apply-ia"
+                      checked={autoApplyIA}
+                      onCheckedChange={(checked) => {
+                        setAutoApplyIA(checked);
+                        localStorage.setItem('adminKnowledge_autoApplyIA', String(checked));
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="auto-save-after-gen">Salvar automaticamente após gerar</Label>
+                    <Switch
+                      id="auto-save-after-gen"
+                      checked={autoSaveAfterGen}
+                      onCheckedChange={(checked) => {
+                        setAutoSaveAfterGen(checked);
+                        localStorage.setItem('adminKnowledge_autoSaveAfterGen', String(checked));
+                      }}
+                    />
+                  </div>
+                  {autoSaveAfterGen && (
+                    <p className="text-xs text-muted-foreground">
+                      ⚠️ O conteúdo será salvo automaticamente após gerar. Certifique-se de que Título e Resumo estão preenchidos.
+                    </p>
+                  )}
+                </div>
+
+                {/* Pending auto-save warning */}
+                {pendingAutoSave && (
+                  <div className="p-4 bg-orange-100 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-700 rounded-lg space-y-3">
+                    <p className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                      ⚠️ Alterações aplicadas e não salvas
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          handleSaveContent();
+                        }}
+                      >
+                        💾 Salvar agora
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (previousHTML !== null) {
+                            setFormData({ ...formData, content_html: previousHTML });
+                            if (contentEditorMode === 'visual' && editorRef.current) {
+                              editorRef.current.commands.setContent(previousHTML);
+                            }
+                          }
+                          setPendingAutoSave(false);
+                          setPreviousHTML(null);
+                          toast({ title: '↩️ Desfeito', description: 'Conteúdo anterior restaurado' });
+                        }}
+                      >
+                        ↩️ Desfazer
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Instruções visuais */}
                 <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📝 Como usar a geração por IA:</h4>
@@ -708,7 +806,71 @@ Receba o texto bruto abaixo e:
                         preview: formattedHTML.substring(0, 500) + '...'
                       });
                       
-                      toast({ title: '✅ Conteúdo gerado!', description: 'Revise o preview abaixo' });
+                      // Auto-apply to editor if enabled
+                      if (autoApplyIA) {
+                        setPreviousHTML(formData.content_html || null);
+                        setFormData(prev => ({ ...prev, content_html: formattedHTML }));
+                        if (contentEditorMode === 'visual' && editorRef.current) {
+                          editorRef.current.commands.setContent(formattedHTML);
+                        }
+                        setPendingAutoSave(true);
+                        
+                        // Auto-save if enabled and required fields are filled
+                        if (autoSaveAfterGen && formData.title && formData.excerpt) {
+                          try {
+                            const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
+                            const contentData = {
+                              title: formData.title,
+                              slug: formData.slug || generateSlug(formData.title),
+                              excerpt: formData.excerpt,
+                              content_html: formattedHTML,
+                              icon_color: formData.icon_color,
+                              meta_description: formData.meta_description,
+                              og_image_url: formData.og_image_url,
+                              content_image_url: formData.content_image_url,
+                              canva_template_url: formData.canva_template_url,
+                              file_url: formData.file_url,
+                              file_name: formData.file_name,
+                              author_id: formData.author_id,
+                              faqs: formData.faqs,
+                              order_index: formData.order_index,
+                              active: formData.active,
+                              ai_prompt_template: formData.aiPromptTemplate || null,
+                              category_id: categoryId,
+                              recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
+                            };
+
+                            if (editingContent) {
+                              await updateContent(editingContent.id, contentData);
+                            } else {
+                              const newContent = await insertContent(contentData);
+                              if (newContent) {
+                                setEditingContent(newContent);
+                              }
+                            }
+                            
+                            setPendingAutoSave(false);
+                            toast({ title: '✅ Salvo automaticamente!', description: 'Conteúdo gerado e salvo' });
+                            await loadContents();
+                          } catch (error: any) {
+                            console.error('❌ Erro ao salvar automaticamente:', error);
+                            toast({
+                              title: '❌ Erro ao salvar',
+                              description: error?.message || 'Erro ao salvar automaticamente',
+                              variant: 'destructive'
+                            });
+                          }
+                        } else {
+                          toast({ 
+                            title: '✅ Conteúdo aplicado!', 
+                            description: autoSaveAfterGen 
+                              ? 'Preencha Título e Resumo para salvar automaticamente' 
+                              : 'Clique em "Salvar agora" para persistir'
+                          });
+                        }
+                      } else {
+                        toast({ title: '✅ Conteúdo gerado!', description: 'Revise o preview abaixo' });
+                      }
                     } catch (err: any) {
                       toast({ title: '❌ Erro', description: err.message, variant: 'destructive' });
                     } finally {

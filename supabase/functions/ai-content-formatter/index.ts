@@ -324,7 +324,7 @@ ${linkInstructions}
 <h2><span class="badge badge-primary">🏆 Premium</span> Scanners de Alta Performance</h2>
 <p>Os melhores scanners do mercado <span class="badge">⚡ Novidade</span></p>
 
-✅ EXEMPLO 3 - CTA (obrigatório 1-2 por artigo):
+✅ EXEMPLO 3 - CTA (OPCIONAL - apenas se houver contexto relevante):
 <div class="cta-panel">
   <h3>💡 Quer saber mais sobre impressoras 3D?</h3>
   <p>Explore nosso guia completo sobre resinas odontológicas</p>
@@ -358,8 +358,7 @@ Ou melhor ainda (se houver contexto):
 1. SEMPRE use <div class="content-card"> para agrupar conteúdo relacionado
 2. Use <div class="grid-benefits"> para listas de benefícios (mínimo 3 cards)
 3. Use <div class="grid-3"> para dados/estatísticas (3 colunas fixas)
-4. SEMPRE adicione 1-2 <div class="cta-panel"> com <a class="btn btn-primary">
-5. Use <span class="badge"> ou <span class="badge badge-primary"> para categorização
+4. Use <span class="badge"> ou <span class="badge badge-primary"> para categorização
 6. Use <blockquote> para destacar citações importantes (terá aspas decorativas automáticas)
 7. Use <h2> para seções principais e <h3> dentro de cards
 8. Todos os parágrafos devem estar dentro de <p> tags
@@ -396,7 +395,8 @@ IMPORTANTE:
 1. **NÃO INVENTE INFORMAÇÕES**: Use APENAS dados presentes no texto bruto
 2. **NÃO REMOVA INFORMAÇÕES**: Mantenha todas as frases e dados do autor
 3. **PRESERVE LINKS ORIGINAIS**: Se o texto tiver URLs (http://, https://), converta para <a href="URL">texto</a>
-4. **NÃO ADICIONE DADOS FICTÍCIOS**: Evite estatísticas, nomes de produtos ou citações que não estão no texto original` 
+4. **NÃO ADICIONE DADOS FICTÍCIOS**: Evite estatísticas, nomes de produtos ou citações que não estão no texto original
+5. **NÃO INVENTE CHAMADAS PARA AÇÃO (CTAs)**: Apenas adicione <div class="cta-panel"> se o texto original explicitamente mencionar um produto, serviço ou guia para promover. Caso contrário, omita completamente` 
         },
         { role: 'user', content: fullPrompt }
       ],
