@@ -178,18 +178,18 @@ async function syncResins(supabase: any, products: any[]) {
       }
 
       if (existing) {
+        // ✅ ATUALIZA resina existente com dados do Sistema A
         await supabase
           .from('resins')
           .update(resinData)
           .eq('id', existing.id)
-        console.log(`✅ Resina atualizada: ${product.name}`)
+        console.log(`✅ Resina atualizada: ${product.name} (slug: ${product.slug})`)
+        count++ // Apenas conta resinas ATUALIZADAS
       } else {
-        await supabase
-          .from('resins')
-          .insert(resinData)
-        console.log(`➕ Resina inserida: ${product.name}`)
+        // ⚠️ IGNORA: Resina não existe no Sistema B
+        console.log(`⚠️ Resina "${product.name}" (slug: ${product.slug}) do Sistema A não encontrada no Sistema B - sincronização ignorada`)
+        // NÃO incrementa count nem insere dados
       }
-      count++
     } catch (err) {
       console.error(`❌ Erro ao sincronizar resina "${product.name}":`, err.message)
     }
