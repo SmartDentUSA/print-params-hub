@@ -7,15 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Função para gerar slug limpo
+// Função para gerar slug limpo (ordem corrigida para evitar perda de caracteres)
 function generateCleanSlug(text: string): string {
   return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-    .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
-    .replace(/\s+/g, '-') // Substitui espaços por hífens
-    .replace(/-+/g, '-') // Remove hífens duplicados
+    .normalize('NFD')                     // 1. Normalizar primeiro
+    .replace(/[\u0300-\u036f]/g, '')     // 2. Remover acentos
+    .toLowerCase()                        // 3. Lowercase
+    .replace(/\s+/g, '-')                // 4. Substituir espaços por hífens
+    .replace(/[^a-z0-9-]/g, '')          // 5. Remover caracteres especiais (exceto hífens)
+    .replace(/-+/g, '-')                 // 6. Limpar hífens duplicados
+    .replace(/^-|-$/g, '')               // 7. Remover hífens nas pontas
     .trim();
 }
 

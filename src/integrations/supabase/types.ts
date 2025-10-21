@@ -746,6 +746,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: boolean
       }
+      normalize_text: {
+        Args: { text_input: string }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "author"
