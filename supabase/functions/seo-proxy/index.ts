@@ -335,7 +335,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <meta name="description" content="${metaDescription}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   <link rel="canonical" href="${canonicalUrl}" />
-  <meta property="og:title" content="${escapeHtml(resinData.name)} - Parâmetros de Impressão" />
+  <meta property="og:title" content="${escapeHtml(resinData?.name || resinName)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${metaDescription}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:type" content="product" />
@@ -595,7 +595,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 <head>
   <title>Base de Conhecimento | Smart Dent</title>
   <meta name="description" content="Artigos, tutoriais e guias sobre impressão 3D odontológica. Aprenda técnicas, resolução de problemas e melhores práticas." />
-  <link rel="canonical" href="${baseUrl}/base-conhecimento" />
+  <link rel="canonical" href="${baseUrl}/conhecimento" />
   <meta property="og:title" content="Base de Conhecimento Smart Dent" />
   <meta property="og:type" content="website" />
   <script type="application/ld+json">
@@ -603,7 +603,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "Base de Conhecimento Smart Dent",
-    "url": `${baseUrl}/base-conhecimento`,
+    "url": `${baseUrl}/conhecimento`,
     "description": "Artigos e tutoriais sobre impressão 3D odontológica"
   })}
   </script>
@@ -613,14 +613,14 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <p>Artigos, tutoriais e guias sobre impressão 3D odontológica.</p>
   <h2>Categorias</h2>
   <ul>
-    ${categories?.map((c: any) => `<li><a href="/base-conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
+    ${categories?.map((c: any) => `<li><a href="/conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
   </ul>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
     var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
     if (!isBot && !navigator.webdriver) {
-      window.location.href = "/base-conhecimento";
+      window.location.href = "/conhecimento";
     }
   })();
   </script>
@@ -665,7 +665,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
 <head>
   <title>${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento</title>
   <meta name="description" content="Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis." />
-  <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
+  <link rel="canonical" href="${baseUrl}/conhecimento/${letter.toLowerCase()}" />
   <meta property="og:title" content="${escapeHtml(category.name)}" />
   <script type="application/ld+json">
   ${JSON.stringify({
@@ -673,8 +673,8 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
     "@type": "BreadcrumbList",
     "itemListElement": [
       { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
-      { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
+      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/conhecimento` },
+      { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/conhecimento/${letter.toLowerCase()}` }
     ]
   })}
   </script>
@@ -683,14 +683,14 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
   <p>${contents?.length || 0} artigos disponíveis nesta categoria.</p>
   <ul>
-    ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
+    ${contents?.map((c: any) => `<li><a href="/conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
   </ul>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
     var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
     if (!isBot && !navigator.webdriver) {
-      window.location.href = "/base-conhecimento/${letter.toLowerCase()}";
+      window.location.href = "/conhecimento/${letter.toLowerCase()}";
     }
   })();
   </script>
@@ -764,7 +764,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
 <head>
   <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
-  <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="canonical" href="${baseUrl}/conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   
   <!-- Open Graph -->
@@ -827,9 +827,9 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "@type": "BreadcrumbList",
         "itemListElement": [
           { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
-          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
-          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/base-conhecimento/${letter}/${slug}` }
+          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/conhecimento` },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/conhecimento/${letter.toLowerCase()}` },
+          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/conhecimento/${letter}/${slug}` }
         ]
       },
       ...videoSchemas,
@@ -883,7 +883,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     var ua = navigator.userAgent.toLowerCase();
     var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
     if (!isBot && !navigator.webdriver) {
-      window.location.href = "/base-conhecimento/${letter}/${slug}";
+      window.location.href = "/conhecimento/${letter}/${slug}";
     }
   })();
   </script>
@@ -910,8 +910,8 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/seo-proxy/, ''); // Remove prefixo se existir
-  const segments = path.split('/').filter(Boolean);
+  const path = url.pathname.replace(/^\/seo-proxy/, '').replace(/^\/+$/, ''); // Remove prefixo e trailing slashes
+  const segments = path.length === 0 ? [] : path.split('/').filter(Boolean);
 
   console.log('SEO Proxy:', { path, segments, userAgent });
 
