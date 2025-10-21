@@ -136,6 +136,14 @@ export function useKnowledge() {
 
   const insertContent = async (content: Omit<KnowledgeContent, 'id' | 'created_at' | 'updated_at'>) => {
     try {
+      // 🔍 DEBUG: Log antes de inserir
+      console.log('🔍 insertContent recebeu:', {
+        title: content.title,
+        excerpt: content.excerpt,
+        content_html_length: content.content_html?.length || 0,
+        has_content: !!content.content_html
+      });
+
       const { data, error } = await supabase
         .from('knowledge_contents')
         .insert(content)
@@ -143,9 +151,18 @@ export function useKnowledge() {
         .single();
       
       if (error) throw error;
+
+      // 🔍 DEBUG: Log após inserir
+      console.log('✅ insertContent salvou:', {
+        id: data.id,
+        title: data.title,
+        content_html_length: data.content_html?.length || 0
+      });
+
       toast({ title: 'Conteúdo criado!' });
       return data;
     } catch (error) {
+      console.error('❌ Erro em insertContent:', error);
       toast({ title: 'Erro ao criar conteúdo', variant: 'destructive' });
       return null;
     }
@@ -153,6 +170,14 @@ export function useKnowledge() {
 
   const updateContent = async (id: string, updates: Partial<KnowledgeContent>) => {
     try {
+      // 🔍 DEBUG: Log antes de atualizar
+      console.log('🔍 updateContent recebeu:', {
+        id,
+        title: updates.title,
+        content_html_length: updates.content_html?.length || 0,
+        has_content: !!updates.content_html
+      });
+
       const { data, error } = await supabase
         .from('knowledge_contents')
         .update(updates)
@@ -161,9 +186,18 @@ export function useKnowledge() {
         .single();
       
       if (error) throw error;
+
+      // 🔍 DEBUG: Log após atualizar
+      console.log('✅ updateContent salvou:', {
+        id: data.id,
+        title: data.title,
+        content_html_length: data.content_html?.length || 0
+      });
+
       toast({ title: 'Conteúdo atualizado!' });
       return data;
     } catch (error) {
+      console.error('❌ Erro em updateContent:', error);
       toast({ title: 'Erro ao atualizar conteúdo', variant: 'destructive' });
       return null;
     }

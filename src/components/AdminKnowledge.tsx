@@ -186,6 +186,16 @@ Receba o texto bruto abaixo e:
         recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
       };
 
+      // 🔍 DEBUG: Log antes de salvar manualmente
+      console.log('🔍 handleSaveContent:', {
+        title: contentData.title,
+        excerpt: contentData.excerpt,
+        content_html_length: contentData.content_html?.length || 0,
+        has_content: !!contentData.content_html,
+        contentEditorMode,
+        editingContent: !!editingContent
+      });
+
       if (editingContent) {
         await updateContent(editingContent.id, contentData);
         
@@ -645,20 +655,25 @@ Receba o texto bruto abaixo e:
                             return;
                           }
                           
-                          // 1. Atualizar formData com HTML gerado
-                          const updatedFormData = {...formData, content_html: generatedHTML};
-                          setFormData(updatedFormData);
-                          
-                          // 2. Salvar automaticamente
+                          // ✅ CORREÇÃO: Usar generatedHTML diretamente
                           try {
                             const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
                             
                             const contentData = {
-                              ...updatedFormData,
+                              ...formData,
+                              content_html: generatedHTML, // ✅ Usar generatedHTML diretamente!
                               category_id: categoryId,
-                              slug: updatedFormData.slug || generateSlug(updatedFormData.title),
-                              recommended_resins: updatedFormData.recommended_resins.length > 0 ? updatedFormData.recommended_resins : null
+                              slug: formData.slug || generateSlug(formData.title),
+                              recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
                             };
+
+                            // 🔍 DEBUG: Log do contentData antes de salvar
+                            console.log('🔍 Salvando contentData:', {
+                              title: contentData.title,
+                              excerpt: contentData.excerpt,
+                              content_html_length: contentData.content_html?.length || 0,
+                              has_content: !!contentData.content_html
+                            });
 
                             if (editingContent) {
                               await updateContent(editingContent.id, contentData);
@@ -669,7 +684,10 @@ Receba o texto bruto abaixo e:
                               }
                             }
                             
-                            // 3. Limpar estados
+                            // ✅ Atualizar estado DEPOIS de salvar
+                            setFormData({...formData, content_html: generatedHTML});
+                            
+                            // Limpar estados
                             setGeneratedHTML('');
                             setRawTextInput('');
                             toast({ 
@@ -677,10 +695,10 @@ Receba o texto bruto abaixo e:
                               description: 'Conteúdo gerado e salvo automaticamente' 
                             });
                             
-                            // 4. Recarregar lista
+                            // Recarregar lista
                             await loadContents();
                           } catch (error) {
-                            console.error('Erro ao salvar:', error);
+                            console.error('❌ Erro ao salvar:', error);
                             toast({ 
                               title: '❌ Erro ao salvar', 
                               description: 'Tente novamente ou salve manualmente', 
