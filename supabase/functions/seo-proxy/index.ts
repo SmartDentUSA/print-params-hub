@@ -462,9 +462,12 @@ async function generateSystemACatalogHTML(
   <meta property="og:type" content="${category === 'product' ? 'product' : 'article'}" />
   
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@smartdent" />
+  <meta name="twitter:creator" content="@smartdent" />
   <meta name="twitter:title" content="${escapeHtml(seoTitle)}" />
   <meta name="twitter:description" content="${escapeHtml(metaDescription)}" />
   <meta name="twitter:image" content="${ogImage}" />
+  <meta name="twitter:image:alt" content="${escapeHtml(item.name)}" />
   
   <script type="application/ld+json">
   ${JSON.stringify(category === 'product' ? {
@@ -478,9 +481,18 @@ async function generateSystemACatalogHTML(
       "@type": "Offer",
       "url": canonicalUrl,
       "priceCurrency": item.currency || "BRL",
-      "price": item.price || item.promo_price || undefined,
+      "price": item.promo_price || item.price || undefined,
       "availability": "https://schema.org/InStock"
     },
+    ...(item.rating && item.review_count > 0 && {
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": item.rating,
+        "reviewCount": item.review_count,
+        "bestRating": 5,
+        "worstRating": 1
+      }
+    }),
     ...(faqs.length > 0 && {
       "mainEntity": faqs.map((faq: any) => ({
         "@type": "Question",
@@ -544,8 +556,26 @@ async function generateSystemACatalogHTML(
     `).join('')}
   ` : ''}
   
-  ${item.price ? `<p><strong>Preço:</strong> R$ ${item.price}</p>` : ''}
-  ${item.promo_price ? `<p><strong>Preço promocional:</strong> R$ ${item.promo_price}</p>` : ''}
+  ${item.rating && item.review_count > 0 ? `
+    <p>
+      <strong>Avaliação:</strong> 
+      ${'⭐'.repeat(Math.round(item.rating))} 
+      ${item.rating.toFixed(1)}/5 
+      (${item.review_count} ${item.review_count === 1 ? 'avaliação' : 'avaliações'})
+    </p>
+  ` : ''}
+  
+  ${item.promo_price && item.price ? `
+    <p>
+      <strong>De:</strong> <s>R$ ${item.price.toFixed(2)}</s><br>
+      <strong>Por:</strong> <span style="color:#e74c3c;font-size:1.2em">R$ ${item.promo_price.toFixed(2)}</span>
+      <span style="color:#27ae60;font-weight:bold">
+        (${Math.round(((item.price - item.promo_price) / item.price) * 100)}% OFF)
+      </span>
+    </p>
+  ` : item.price ? `
+    <p><strong>Preço:</strong> R$ ${item.price.toFixed(2)}</p>
+  ` : ''}
   
   ${item.cta_1_url ? `
     <p>
@@ -561,6 +591,16 @@ async function generateSystemACatalogHTML(
       <a href="${escapeHtml(item.cta_2_url)}" target="_blank" rel="noopener">
         ${escapeHtml(item.cta_2_label || 'Saiba Mais')}
       </a>
+      ${item.cta_2_description ? `<br><small>${escapeHtml(item.cta_2_description)}</small>` : ''}
+    </p>
+  ` : ''}
+  
+  ${item.cta_3_url ? `
+    <p>
+      <a href="${escapeHtml(item.cta_3_url)}" target="_blank" rel="noopener">
+        ${escapeHtml(item.cta_3_label || 'Mais Informações')}
+      </a>
+      ${item.cta_3_description ? `<br><small>${escapeHtml(item.cta_3_description)}</small>` : ''}
     </p>
   ` : ''}
   
