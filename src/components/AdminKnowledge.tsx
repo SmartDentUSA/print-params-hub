@@ -34,6 +34,7 @@ export function AdminKnowledge() {
   const editorRef = useRef<Editor | null>(null);
   const ogFileRef = useRef<HTMLInputElement>(null);
   const [uploadingOg, setUploadingOg] = useState(false);
+  const [promptEdited, setPromptEdited] = useState(false);
   const { toast } = useToast();
   
   // AI Generation states
@@ -121,6 +122,7 @@ Receba o texto bruto abaixo e:
   const handleOpenEdit = async (content: any) => {
     setEditingContent(content);
     setContentEditorMode('visual');
+    setPromptEdited(false);
     setFormData({
       title: content.title,
       slug: content.slug,
@@ -149,6 +151,7 @@ Receba o texto bruto abaixo e:
   const handleOpenNew = () => {
     setEditingContent(null);
     setContentEditorMode('visual');
+    setPromptEdited(false);
     setFormData({
       title: '',
       slug: '',
@@ -238,6 +241,7 @@ Receba o texto bruto abaixo e:
         toast({ title: "✅ Conteúdo criado!" });
       }
       
+      setPromptEdited(false);
       setModalOpen(false);
       await loadContents();
     } catch (error: any) {
@@ -592,15 +596,73 @@ Receba o texto bruto abaixo e:
                   </ol>
                 </div>
 
-                <div>
-                  <Label>Prompt IA para padronização</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Prompt IA para padronização</Label>
+                    {promptEdited && (
+                      <span className="text-xs text-orange-600 dark:text-orange-400">⚠️ Prompt alterado (clique em Salvar)</span>
+                    )}
+                  </div>
                   <Textarea
                     value={formData.aiPromptTemplate || DEFAULT_AI_PROMPT}
-                    onChange={(e) => setFormData({...formData, aiPromptTemplate: e.target.value})}
+                    onChange={(e) => {
+                      setFormData({...formData, aiPromptTemplate: e.target.value});
+                      setPromptEdited(true);
+                    }}
                     rows={8}
                     placeholder="Configure como a IA deve formatar..."
                     className="font-mono text-sm"
                   />
+                  
+                  {/* Botões Salvar Prompt e Restaurar */}
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        if (!editingContent) {
+                          toast({
+                            title: '⚠️ Salve o artigo primeiro',
+                            description: 'Crie ou edite um artigo antes de salvar o prompt customizado',
+                            variant: 'destructive'
+                          });
+                          return;
+                        }
+                        
+                        try {
+                          await updateContent(editingContent.id, {
+                            ai_prompt_template: formData.aiPromptTemplate || null
+                          } as any);
+                          
+                          setPromptEdited(false);
+                          toast({
+                            title: '✅ Prompt salvo!',
+                            description: 'Será usado nas próximas gerações por IA'
+                          });
+                        } catch (error: any) {
+                          toast({
+                            title: '❌ Erro ao salvar prompt',
+                            description: error?.message || 'Tente novamente',
+                            variant: 'destructive'
+                          });
+                        }
+                      }}
+                      disabled={!promptEdited || !editingContent}
+                    >
+                      💾 Salvar Prompt
+                    </Button>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFormData({...formData, aiPromptTemplate: DEFAULT_AI_PROMPT});
+                        setPromptEdited(true);
+                      }}
+                    >
+                      🔄 Restaurar padrão
+                    </Button>
+                  </div>
                 </div>
 
                 <div>
@@ -654,8 +716,18 @@ Receba o texto bruto abaixo e:
                     }
                   }}
                   disabled={!rawTextInput || isGenerating}
+                  className="relative"
                 >
-                  {isGenerating ? '⏳ Gerando...' : '🚀 Gerar por IA'}
+                  {isGenerating ? '⏳ Gerando...' : (
+                    <>
+                      🚀 Gerar por IA
+                      {formData.aiPromptTemplate && formData.aiPromptTemplate !== DEFAULT_AI_PROMPT && (
+                        <span className="ml-2 text-xs bg-blue-600 px-2 py-0.5 rounded">
+                          Prompt customizado
+                        </span>
+                      )}
+                    </>
+                  )}
                 </Button>
 
                 {generatedHTML && (
@@ -868,23 +940,31 @@ Receba o texto bruto abaixo e:
                   <Label>Imagem Principal do Artigo (Hero)</Label>
                   <ImageUpload
                     currentImageUrl={formData.content_image_url}
-                    onImageUploaded={(url) => setFormData(prev => ({ ...prev, content_image_url: url }))}
+                    onImageUploaded={(url) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        content_image_url: url,
+                        // ✅ Se OG estiver vazia, usa a Hero automaticamente
+                        og_image_url: prev.og_image_url || url
+                      }));
+                    }}
                     modelSlug={formData.slug || 'hero-temp'}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Imagem principal exibida nos cards e no topo do artigo
+                    Imagem principal exibida nos cards e no topo do artigo.
+                    <strong> Será usada automaticamente como OG Image se você não enviar uma específica.</strong>
                   </p>
                 </div>
 
                 <div className="space-y-3">
-                  <Label>Imagem OG (Open Graph) - Redes Sociais</Label>
+                  <Label>Imagem OG (Open Graph) - Redes Sociais <span className="text-muted-foreground">(Opcional)</span></Label>
                   <Input 
                     placeholder="https://... (ou envie abaixo)" 
                     value={formData.og_image_url}
                     onChange={(e) => setFormData({...formData, og_image_url: e.target.value})}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Imagem 1200x630px para compartilhamento em redes sociais (opcional se já houver Hero)
+                    Se vazio, usaremos automaticamente a Imagem Hero. Envie apenas se quiser uma imagem diferente para redes sociais (ideal: 1200x630px).
                   </p>
                   
                   {/* Preview and Remove */}
