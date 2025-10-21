@@ -1,0 +1,263 @@
+/* ==========================================
+   TIPOGRAFIA E HIERARQUIA VISUAL
+   ========================================== */
+
+h2 {
+  color: #2c3e50;
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+  margin: 30px 0 15px 0;
+  border-left: 4px solid #007bff;
+  padding-left: 15px;
+  font-weight: 600;
+}
+
+h3 {
+  color: #34495e;
+  font-size: 1.4rem;
+  margin: 25px 0 12px 0;
+  font-weight: 600;
+}
+
+/* ==========================================
+   PARÁGRAFOS E LISTAS
+   ========================================== */
+
+.blog-content p {
+  margin-bottom: 18px;
+  text-align: justify;
+  hyphens: auto;
+}
+
+.blog-content ul,
+.blog-content ol {
+  margin: 15px 0 15px 25px;
+  padding-left: 15px;
+}
+
+.blog-content li {
+  margin-bottom: 8px;
+}
+
+.blog-content blockquote {
+  border-left: 4px solid #e0e0e0;
+  padding-left: 20px;
+  margin: 20px 0;
+  color: #666;
+  font-style: italic;
+}
+
+/* ==========================================
+   LINKS INTERATIVOS
+   ========================================== */
+
+.blog-content a {
+  color: #007bff;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-bottom-color 0.3s ease, color 0.3s ease;
+}
+
+.blog-content a:hover {
+  border-bottom-color: #007bff;
+  color: #0056b3;
+}
+
+.blog-content a:focus {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* ==========================================
+   IMAGENS E MEDIA
+   ========================================== */
+
+.blog-content img {
+  border-radius: 8px;
+  margin: 20px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.blog-content figure {
+  margin: 25px 0;
+}
+
+.blog-content figcaption {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 8px;
+}
+
+/* ==========================================
+   CODE BLOCKS
+   ========================================== */
+
+.blog-content code {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.blog-content pre {
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.blog-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* ==========================================
+   TABELAS
+   ========================================== */
+
+.blog-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+}
+
+.blog-content th,
+.blog-content td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.blog-content th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+/* ==========================================
+   FOOTERS E SEÇÕES DE EMPRESA
+   ========================================== */
+
+.company-footer-info,
+.company-info {
+  margin-top: 40px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.company-footer-info h3,
+.company-info h3 {
+  color: #2c3e50;
+  margin-bottom: 12px;
+}
+
+/* Multi-Domain Footer */
+.multi-domain-footer {
+  margin-top: 60px;
+  padding: 30px 0;
+  border-top: 1px solid #e0e0e0;
+  text-align: center;
+}
+
+.multi-domain-footer a {
+  display: inline-block;
+  margin: 0 15px;
+  color: #007bff;
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: color 0.3s ease;
+}
+
+.multi-domain-footer a:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+/* ==========================================
+   ACESSIBILIDADE
+   ========================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #007bff;
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  z-index: 100;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ==========================================
+   RESPONSIVE
+   ========================================== */
+
+@media (max-width: 768px) {
+  h2 {
+    font-size: 1.4rem;
+    margin: 20px 0 12px 0;
+  }
+  
+  h3 {
+    font-size: 1.2rem;
+  }
+  
+  .blog-content p {
+    text-align: left;
+  }
+  
+  .multi-domain-footer a {
+    display: block;
+    margin: 10px 0;
+  }
+  
+  .company-footer-info,
+  .company-info {
+    padding: 15px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .container {
+    max-width: 1400px;
+  }
+}
+
+/* ==========================================
+   PRINT STYLES
+   ========================================== */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  a {
+    text-decoration: underline;
+  }
+  
+  .institutional-links,
+  .multi-domain-footer {
+    display: none;
+  }
+}
