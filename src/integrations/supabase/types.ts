@@ -576,6 +576,123 @@ export type Database = {
         }
         Relationships: []
       }
+      system_a_catalog: {
+        Row: {
+          active: boolean | null
+          approved: boolean | null
+          canonical_url: string | null
+          category: string
+          created_at: string | null
+          cta_1_description: string | null
+          cta_1_label: string | null
+          cta_1_url: string | null
+          cta_2_description: string | null
+          cta_2_label: string | null
+          cta_2_url: string | null
+          cta_3_description: string | null
+          cta_3_label: string | null
+          cta_3_url: string | null
+          currency: string | null
+          description: string | null
+          display_order: number | null
+          external_id: string
+          extra_data: Json | null
+          id: string
+          image_url: string | null
+          keyword_ids: string[] | null
+          keywords: string[] | null
+          last_sync_at: string | null
+          meta_description: string | null
+          name: string
+          og_image_url: string | null
+          price: number | null
+          promo_price: number | null
+          rating: number | null
+          review_count: number | null
+          seo_title_override: string | null
+          slug: string | null
+          source: string
+          updated_at: string | null
+          visible_in_ui: boolean | null
+        }
+        Insert: {
+          active?: boolean | null
+          approved?: boolean | null
+          canonical_url?: string | null
+          category: string
+          created_at?: string | null
+          cta_1_description?: string | null
+          cta_1_label?: string | null
+          cta_1_url?: string | null
+          cta_2_description?: string | null
+          cta_2_label?: string | null
+          cta_2_url?: string | null
+          cta_3_description?: string | null
+          cta_3_label?: string | null
+          cta_3_url?: string | null
+          currency?: string | null
+          description?: string | null
+          display_order?: number | null
+          external_id: string
+          extra_data?: Json | null
+          id?: string
+          image_url?: string | null
+          keyword_ids?: string[] | null
+          keywords?: string[] | null
+          last_sync_at?: string | null
+          meta_description?: string | null
+          name: string
+          og_image_url?: string | null
+          price?: number | null
+          promo_price?: number | null
+          rating?: number | null
+          review_count?: number | null
+          seo_title_override?: string | null
+          slug?: string | null
+          source?: string
+          updated_at?: string | null
+          visible_in_ui?: boolean | null
+        }
+        Update: {
+          active?: boolean | null
+          approved?: boolean | null
+          canonical_url?: string | null
+          category?: string
+          created_at?: string | null
+          cta_1_description?: string | null
+          cta_1_label?: string | null
+          cta_1_url?: string | null
+          cta_2_description?: string | null
+          cta_2_label?: string | null
+          cta_2_url?: string | null
+          cta_3_description?: string | null
+          cta_3_label?: string | null
+          cta_3_url?: string | null
+          currency?: string | null
+          description?: string | null
+          display_order?: number | null
+          external_id?: string
+          extra_data?: Json | null
+          id?: string
+          image_url?: string | null
+          keyword_ids?: string[] | null
+          keywords?: string[] | null
+          last_sync_at?: string | null
+          meta_description?: string | null
+          name?: string
+          og_image_url?: string | null
+          price?: number | null
+          promo_price?: number | null
+          rating?: number | null
+          review_count?: number | null
+          seo_title_override?: string | null
+          slug?: string | null
+          source?: string
+          updated_at?: string | null
+          visible_in_ui?: boolean | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

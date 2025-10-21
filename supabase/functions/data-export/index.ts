@@ -352,6 +352,59 @@ async function fetchAuthors(supabase: any, options: any) {
   return authors;
 }
 
+async function fetchSystemACatalog(supabase: any, options: any) {
+  let query = supabase
+    .from('system_a_catalog')
+    .select('*')
+    .order('category', { ascending: true })
+    .order('display_order', { ascending: true });
+  
+  if (options.approved_only) {
+    query = query.eq('approved', true).eq('active', true);
+  }
+  
+  const { data: catalog, error } = await query;
+  if (error) throw error;
+  
+  // Group by category
+  const grouped: any = {
+    company_info: [],
+    category_config: [],
+    resin: [],
+    printer: [],
+    accessory: [],
+    product: [],
+    video_testimonial: [],
+    google_review: [],
+    kol: [],
+    landing_page: []
+  };
+  
+  for (const item of catalog) {
+    if (grouped[item.category]) {
+      grouped[item.category].push(item);
+    }
+  }
+  
+  return {
+    items: catalog,
+    grouped: grouped,
+    stats: {
+      total: catalog.length,
+      company_info: grouped.company_info.length,
+      categories: grouped.category_config.length,
+      resins: grouped.resin.length,
+      printers: grouped.printer.length,
+      accessories: grouped.accessory.length,
+      products: grouped.product.length,
+      testimonials: grouped.video_testimonial.length,
+      reviews: grouped.google_review.length,
+      kols: grouped.kol.length,
+      landing_pages: grouped.landing_page.length
+    }
+  };
+}
+
 // ===== STATS & FORMAT FUNCTIONS =====
 
 function calculateStats(data: any) {
@@ -371,6 +424,10 @@ function calculateStats(data: any) {
     knowledge_videos: videosCount,
     keywords: data.keywords?.length || 0,
     authors: data.authors?.length || 0,
+    system_a_catalog: data.system_a_catalog?.stats?.total || 0,
+    system_a_products: (data.system_a_catalog?.stats?.resins || 0) + 
+                       (data.system_a_catalog?.stats?.printers || 0) + 
+                       (data.system_a_catalog?.stats?.accessories || 0),
     total_html_size_mb: (htmlSize / 1024 / 1024).toFixed(2)
   };
 }
@@ -571,7 +628,121 @@ function formatAiReady(data: any) {
         twitter: a.twitter_url,
         tiktok: a.tiktok_url
       }
-    }))
+    })),
+    catalogo_sistema_a: data.system_a_catalog ? {
+      estatisticas: data.system_a_catalog.stats,
+      perfil_empresa: (data.system_a_catalog.grouped.company_info || []).map((item: any) => ({
+        id: item.id,
+        nome: item.name,
+        descricao: item.description,
+        imagem: item.image_url,
+        url_canonica: item.canonical_url,
+        titulo_seo: item.seo_title_override,
+        dados_completos: item.extra_data
+      })),
+      configuracoes_categorias: (data.system_a_catalog.grouped.category_config || []).map((item: any) => ({
+        id: item.id,
+        categoria: item.name,
+        subcategoria: item.description,
+        palavras_chave: item.keywords || [],
+        keyword_ids: item.keyword_ids || [],
+        dados_adicionais: item.extra_data
+      })),
+      resinas_3d: (data.system_a_catalog.grouped.resin || []).map((item: any) => ({
+        id: item.id,
+        external_id: item.external_id,
+        nome: item.name,
+        slug: item.slug,
+        descricao: item.description,
+        imagem: item.image_url,
+        preco: item.price,
+        preco_promocional: item.promo_price,
+        moeda: item.currency,
+        titulo_seo: item.seo_title_override,
+        meta_descricao: item.meta_description,
+        url_canonica: item.canonical_url,
+        imagem_og: item.og_image_url,
+        palavras_chave: item.keywords || [],
+        keyword_ids: item.keyword_ids || [],
+        ctas: {
+          cta1: item.cta_1_label ? {
+            label: item.cta_1_label,
+            url: item.cta_1_url,
+            descricao: item.cta_1_description
+          } : null,
+          cta2: item.cta_2_label ? {
+            label: item.cta_2_label,
+            url: item.cta_2_url,
+            descricao: item.cta_2_description
+          } : null,
+          cta3: item.cta_3_label ? {
+            label: item.cta_3_label,
+            url: item.cta_3_url,
+            descricao: item.cta_3_description
+          } : null
+        },
+        avaliacao: item.rating,
+        dados_completos: item.extra_data
+      })),
+      impressoras_3d: (data.system_a_catalog.grouped.printer || []).map((item: any) => ({
+        id: item.id,
+        external_id: item.external_id,
+        nome: item.name,
+        slug: item.slug,
+        descricao: item.description,
+        imagem: item.image_url,
+        preco: item.price,
+        preco_promocional: item.promo_price,
+        titulo_seo: item.seo_title_override,
+        meta_descricao: item.meta_description,
+        palavras_chave: item.keywords || [],
+        keyword_ids: item.keyword_ids || [],
+        ctas: {
+          cta1: item.cta_1_label ? { label: item.cta_1_label, url: item.cta_1_url } : null,
+          cta2: item.cta_2_label ? { label: item.cta_2_label, url: item.cta_2_url } : null,
+          cta3: item.cta_3_label ? { label: item.cta_3_label, url: item.cta_3_url } : null
+        },
+        dados_completos: item.extra_data
+      })),
+      acessorios: (data.system_a_catalog.grouped.accessory || []).map((item: any) => ({
+        id: item.id,
+        external_id: item.external_id,
+        nome: item.name,
+        slug: item.slug,
+        descricao: item.description,
+        imagem: item.image_url,
+        preco: item.price,
+        titulo_seo: item.seo_title_override,
+        palavras_chave: item.keywords || [],
+        dados_completos: item.extra_data
+      })),
+      depoimentos_video: (data.system_a_catalog.grouped.video_testimonial || []).map((item: any) => ({
+        id: item.id,
+        external_id: item.external_id,
+        cliente: item.name,
+        depoimento: item.description,
+        imagem: item.image_url,
+        avaliacao: item.rating,
+        dados_completos: item.extra_data
+      })),
+      avaliacoes_google: (data.system_a_catalog.grouped.google_review || []).map((item: any) => ({
+        id: item.id,
+        external_id: item.external_id,
+        autor: item.name,
+        avaliacao_texto: item.description,
+        foto_perfil: item.image_url,
+        nota: item.rating,
+        dados_completos: item.extra_data
+      })),
+      lideres_opiniao: (data.system_a_catalog.grouped.kol || []).map((item: any) => ({
+        id: item.id,
+        external_id: item.external_id,
+        nome: item.name,
+        mini_cv: item.description,
+        foto: item.image_url,
+        dados_completos: item.extra_data
+      }))
+    } : null
   };
 }
 
@@ -597,6 +768,7 @@ Deno.serve(async (req) => {
       include_categories: url.searchParams.get('include_categories') !== 'false',
       include_keywords: url.searchParams.get('include_keywords') !== 'false',
       include_authors: url.searchParams.get('include_authors') !== 'false',
+      include_system_a: url.searchParams.get('include_system_a') !== 'false',
       denormalize: url.searchParams.get('denormalize') !== 'false',
       extract_text: url.searchParams.get('extract_text') !== 'false',
       approved_only: url.searchParams.get('approved_only') !== 'false',
@@ -690,6 +862,14 @@ Deno.serve(async (req) => {
         fetchAuthors(supabase, options)
           .then(d => { data.authors = d; })
           .catch(err => console.error('Error fetching authors:', err))
+      );
+    }
+    
+    if (options.include_system_a) {
+      promises.push(
+        fetchSystemACatalog(supabase, options)
+          .then(d => { data.system_a_catalog = d; })
+          .catch(err => console.error('Error fetching system_a_catalog:', err))
       );
     }
     

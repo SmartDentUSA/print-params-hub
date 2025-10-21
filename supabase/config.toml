@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.ai-metadata-generator]
 verify_jwt = true
+
+[functions.sync-knowledge-base]
+verify_jwt = false
