@@ -27,7 +27,7 @@ export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
             Perguntas Frequentes
           </p>
           <h2 className="text-lg font-extrabold uppercase text-black dark:text-white m-0">
-            ❓ FAQ
+            FAQ
           </h2>
         </div>
       </div>
