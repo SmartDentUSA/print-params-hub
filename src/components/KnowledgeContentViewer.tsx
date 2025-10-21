@@ -113,10 +113,6 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             {t('knowledge.content_in_portuguese')}
           </Badge>
         )}
-        
-        <h2 className="text-2xl font-bold text-foreground mb-4 break-words">
-          {content.title}
-        </h2>
 
         {/* Videos - com skeleton durante loading */}
         {videosLoading && (
@@ -173,16 +169,16 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         )}
 
         {/* Rich Content */}
-        {content.content_html && (
-          <div className="knowledge-article blog-content font-poppins">
-            <div 
-              className="prose prose-sm sm:prose-base max-w-none break-words prose-headings:break-words prose-p:break-words prose-li:break-words"
-              dangerouslySetInnerHTML={{ 
-                __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
-              }}
-            />
-          </div>
-        )}
+          {content.content_html && (
+            <div className="knowledge-article font-poppins">
+              <div 
+                className="prose prose-sm sm:prose-base max-w-none break-words prose-headings:break-words prose-p:break-words prose-li:break-words"
+                dangerouslySetInnerHTML={{ 
+                  __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
+                }}
+              />
+            </div>
+          )}
 
         {/* Author Signature - only show if token not in content */}
         {content.authors && !/\[\[ASSINATURA_AUTOR\]\]/i.test(content.content_html || '') && (
