@@ -578,7 +578,32 @@ Receba o texto bruto abaixo e:
                     </div>
                   </div>
                   
-                  {contentEditorMode === 'visual' ? (
+                  {formData.content_html && generatedHTML ? (
+                    <div className="space-y-3">
+                      <div className="p-4 bg-muted/20 border border-border rounded-lg">
+                        <p className="text-sm font-medium mb-2">📄 HTML Salvo (gerado por IA)</p>
+                        <BlogPreviewFrame 
+                          htmlContent={formData.content_html} 
+                          deviceMode="desktop" 
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, content_html: '' }));
+                            setGeneratedHTML('');
+                            toast({ 
+                              title: '🗑️ HTML limpo', 
+                              description: 'Agora você pode editar manualmente' 
+                            });
+                          }}
+                          className="mt-3"
+                        >
+                          🗑️ Limpar e editar manualmente
+                        </Button>
+                      </div>
+                    </div>
+                  ) : contentEditorMode === 'visual' ? (
                     <KnowledgeEditor 
                       content={formData.content_html}
                       onChange={(html) => setFormData({...formData, content_html: html})}
@@ -810,9 +835,7 @@ Receba o texto bruto abaixo e:
                       if (autoApplyIA) {
                         setPreviousHTML(formData.content_html || null);
                         setFormData(prev => ({ ...prev, content_html: formattedHTML }));
-                        if (contentEditorMode === 'visual' && editorRef.current) {
-                          editorRef.current.commands.setContent(formattedHTML);
-                        }
+                        // ✅ REMOVIDO: Não sincronizar com TipTap - HTML salvo diretamente
                         setPendingAutoSave(true);
                         
                         // Auto-save if enabled and required fields are filled
