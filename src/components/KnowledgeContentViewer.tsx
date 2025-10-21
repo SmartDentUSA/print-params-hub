@@ -171,14 +171,12 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
         {/* Rich Content */}
           {content.content_html && (
-            <div className="blog-content font-poppins">
-              <div 
-                className="prose prose-sm sm:prose-base max-w-none break-words prose-headings:break-words prose-p:break-words prose-li:break-words"
-                dangerouslySetInnerHTML={{ 
-                  __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
-                }}
-              />
-            </div>
+            <div 
+              className="blog-content font-poppins"
+              dangerouslySetInnerHTML={{ 
+                __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
+              }}
+            />
           )}
 
         {/* FAQ Section - antes da assinatura do autor */}

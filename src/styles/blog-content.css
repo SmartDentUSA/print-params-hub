@@ -2,7 +2,7 @@
    TIPOGRAFIA E HIERARQUIA VISUAL
    ========================================== */
 
-h2 {
+.blog-content h2 {
   color: #2c3e50;
   font-size: clamp(1.35rem, 3vw, 1.8rem);
   margin: 30px 0 15px 0;
@@ -11,7 +11,7 @@ h2 {
   font-weight: 600;
 }
 
-h3 {
+.blog-content h3 {
   color: #34495e;
   font-size: 1.4rem;
   margin: 25px 0 12px 0;
@@ -139,8 +139,8 @@ h3 {
    FOOTERS E SEÇÕES DE EMPRESA
    ========================================== */
 
-.company-footer-info,
-.company-info {
+.blog-content .company-footer-info,
+.blog-content .company-info {
   margin-top: 40px;
   padding: 20px;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -148,21 +148,21 @@ h3 {
   border-left: 4px solid #007bff;
 }
 
-.company-footer-info h3,
-.company-info h3 {
+.blog-content .company-footer-info h3,
+.blog-content .company-info h3 {
   color: #2c3e50;
   margin-bottom: 12px;
 }
 
 /* Multi-Domain Footer */
-.multi-domain-footer {
+.blog-content .multi-domain-footer {
   margin-top: 60px;
   padding: 30px 0;
   border-top: 1px solid #e0e0e0;
   text-align: center;
 }
 
-.multi-domain-footer a {
+.blog-content .multi-domain-footer a {
   display: inline-block;
   margin: 0 15px;
   color: #007bff;
@@ -171,7 +171,7 @@ h3 {
   transition: color 0.3s ease;
 }
 
-.multi-domain-footer a:hover {
+.blog-content .multi-domain-footer a:hover {
   color: #0056b3;
   text-decoration: underline;
 }
@@ -180,7 +180,7 @@ h3 {
    ACESSIBILIDADE
    ========================================== */
 
-.sr-only {
+.blog-content .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -192,7 +192,7 @@ h3 {
   border: 0;
 }
 
-.skip-link {
+.blog-content .skip-link {
   position: absolute;
   top: -40px;
   left: 0;
@@ -203,7 +203,7 @@ h3 {
   z-index: 100;
 }
 
-.skip-link:focus {
+.blog-content .skip-link:focus {
   top: 0;
 }
 
@@ -212,12 +212,12 @@ h3 {
    ========================================== */
 
 @media (max-width: 768px) {
-  h2 {
+  .blog-content h2 {
     font-size: 1.4rem;
     margin: 20px 0 12px 0;
   }
   
-  h3 {
+  .blog-content h3 {
     font-size: 1.2rem;
   }
   
@@ -225,13 +225,13 @@ h3 {
     text-align: left;
   }
   
-  .multi-domain-footer a {
+  .blog-content .multi-domain-footer a {
     display: block;
     margin: 10px 0;
   }
   
-  .company-footer-info,
-  .company-info {
+  .blog-content .company-footer-info,
+  .blog-content .company-info {
     padding: 15px;
   }
 }
@@ -252,12 +252,12 @@ h3 {
     color: black;
   }
   
-  a {
+  .blog-content a {
     text-decoration: underline;
   }
   
-  .institutional-links,
-  .multi-domain-footer {
+  .blog-content .institutional-links,
+  .blog-content .multi-domain-footer {
     display: none;
   }
 }
