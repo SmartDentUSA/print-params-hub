@@ -31,18 +31,16 @@
 /* ============= HERO SECTION ============= */
 
 .hero {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
   margin-bottom: 32px;
 }
 
-@media (min-width: 768px) {
-  .hero {
-    grid-template-columns: 1fr 1fr;
-    gap: 40px;
-    align-items: center;
-  }
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .hero h1 {
@@ -50,7 +48,7 @@
   font-weight: 700;
   color: var(--kb-gray-900);
   line-height: 1.2;
-  margin-bottom: 16px;
+  margin: 0;
 }
 
 .hero .eyebrow {
@@ -60,27 +58,28 @@
   color: var(--kb-primary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 12px;
   padding: 4px 12px;
   background: var(--kb-card-bg);
   border-radius: 20px;
   border: 1px solid var(--kb-gray-100);
+  width: fit-content;
 }
 
-.hero .lead {
-  font-size: 18px;
-  line-height: 1.6;
-  color: var(--kb-gray-700);
-  margin-bottom: 0;
+.hero-excerpt {
+  font-size: clamp(16px, 3vw, 18px);
   font-weight: 400;
+  color: var(--kb-gray-700);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 800px;
 }
 
 .hero-image img {
   width: 100%;
-  height: auto;
+  aspect-ratio: 16/9;
+  object-fit: cover;
   border-radius: var(--kb-radius-lg);
   box-shadow: var(--kb-shadow-md);
-  object-fit: cover;
 }
 
 /* ============= HEADINGS ============= */
