@@ -543,6 +543,18 @@ Receba o texto bruto abaixo e:
 
               {/* AI Generation Tab */}
               <TabsContent value="ai-generation" className="space-y-4">
+                {/* Instruções visuais */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">📝 Como usar a geração por IA:</h4>
+                  <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-1 ml-4 list-decimal">
+                    <li>Configure o prompt abaixo (ou use o padrão)</li>
+                    <li>Cole o texto bruto (Word, Gemini, Google Docs, etc.)</li>
+                    <li>Clique em "🚀 Gerar por IA" e aguarde ~5-10 segundos</li>
+                    <li>Revise o HTML gerado no preview</li>
+                    <li>Clique em "💾 Inserir e Salvar" para aplicar automaticamente</li>
+                  </ol>
+                </div>
+
                 <div>
                   <Label>Prompt IA para padronização</Label>
                   <Textarea
@@ -583,7 +595,7 @@ Receba o texto bruto abaixo e:
                       if (error) throw error;
                       
                       setGeneratedHTML(data.formattedHTML);
-                      toast({ title: '✅ Conteúdo gerado!', description: 'Clique em "Inserir no Editor" para usar' });
+                      toast({ title: '✅ Conteúdo gerado!', description: 'Revise o preview abaixo' });
                     } catch (err: any) {
                       toast({ title: '❌ Erro', description: err.message, variant: 'destructive' });
                     } finally {
@@ -598,18 +610,88 @@ Receba o texto bruto abaixo e:
                 {generatedHTML && (
                   <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
                     <p className="text-sm font-medium">✅ Conteúdo gerado:</p>
-                    <div 
-                      dangerouslySetInnerHTML={{__html: generatedHTML}} 
-                      className="text-sm max-h-64 overflow-y-auto border rounded p-3 bg-card"
-                    />
-                    <Button onClick={() => {
-                      setFormData({...formData, content_html: generatedHTML});
-                      setGeneratedHTML('');
-                      setRawTextInput('');
-                      toast({ title: '✅ Inserido!', description: 'Conteúdo adicionado ao editor' });
-                    }}>
-                      ➕ Inserir no Editor
-                    </Button>
+                    
+                    {/* Preview COM CSS aplicado */}
+                    <div className="border rounded-lg p-6 bg-white dark:bg-card max-h-96 overflow-y-auto">
+                      <div 
+                        className="knowledge-article font-poppins"
+                        dangerouslySetInnerHTML={{__html: generatedHTML}} 
+                      />
+                    </div>
+                    
+                    {/* Botões */}
+                    <div className="flex gap-2">
+                      {/* Botão 1: Inserir sem salvar */}
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          setFormData({...formData, content_html: generatedHTML});
+                          toast({ title: '✅ Inserido!', description: 'Revise na aba "📝 Conteúdo" e salve manualmente' });
+                        }}
+                      >
+                        ➕ Inserir no Editor (sem salvar)
+                      </Button>
+                      
+                      {/* Botão 2: Inserir e salvar automaticamente */}
+                      <Button 
+                        onClick={async () => {
+                          // Validação
+                          if (!formData.title || !formData.excerpt) {
+                            toast({ 
+                              title: '⚠️ Campos obrigatórios', 
+                              description: 'Preencha Título e Resumo antes de salvar', 
+                              variant: 'destructive' 
+                            });
+                            return;
+                          }
+                          
+                          // 1. Atualizar formData com HTML gerado
+                          const updatedFormData = {...formData, content_html: generatedHTML};
+                          setFormData(updatedFormData);
+                          
+                          // 2. Salvar automaticamente
+                          try {
+                            const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
+                            
+                            const contentData = {
+                              ...updatedFormData,
+                              category_id: categoryId,
+                              slug: updatedFormData.slug || generateSlug(updatedFormData.title),
+                              recommended_resins: updatedFormData.recommended_resins.length > 0 ? updatedFormData.recommended_resins : null
+                            };
+
+                            if (editingContent) {
+                              await updateContent(editingContent.id, contentData);
+                            } else {
+                              const newContent = await insertContent(contentData);
+                              if (newContent) {
+                                setEditingContent(newContent);
+                              }
+                            }
+                            
+                            // 3. Limpar estados
+                            setGeneratedHTML('');
+                            setRawTextInput('');
+                            toast({ 
+                              title: '✅ Salvo com sucesso!', 
+                              description: 'Conteúdo gerado e salvo automaticamente' 
+                            });
+                            
+                            // 4. Recarregar lista
+                            await loadContents();
+                          } catch (error) {
+                            console.error('Erro ao salvar:', error);
+                            toast({ 
+                              title: '❌ Erro ao salvar', 
+                              description: 'Tente novamente ou salve manualmente', 
+                              variant: 'destructive' 
+                            });
+                          }
+                        }}
+                      >
+                        💾 Inserir e Salvar Automaticamente
+                      </Button>
+                    </div>
                   </div>
                 )}
               </TabsContent>

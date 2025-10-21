@@ -211,19 +211,59 @@ ${linkInstructions}
 5. Links devem ser naturais no contexto
 6. Use title="" nos links para acessibilidade
 
-📝 ESTRUTURA HTML:
-- Use <h2> para seções principais
-- Use <h3> para subseções
-- Use <p> para parágrafos (line-height: 1.7)
-- Use <ul> e <li> para listas
-- Use <blockquote> para citações importantes
-- Adicione classes CSS quando apropriado:
-  * class="content-card" para cards
-  * class="benefit-card" para cards de benefícios
-  * class="cta-panel" para CTAs
+📝 ESTRUTURA HTML COM EXEMPLOS OBRIGATÓRIOS:
+
+✅ EXEMPLO 1 - SEÇÃO COM CARD:
+<h2>Principais Benefícios</h2>
+<div class="content-card">
+  <p>A tecnologia de impressão 3D revolucionou a odontologia digital...</p>
+  <ul>
+    <li>Precisão de até 20 microns</li>
+    <li>Economia de tempo em 60%</li>
+  </ul>
+</div>
+
+✅ EXEMPLO 2 - GRID DE BENEFÍCIOS (obrigatório pelo menos 1):
+<h2>Vantagens da Impressão 3D</h2>
+<div class="grid-benefits">
+  <div class="benefit-card">
+    <h3>⚡ Velocidade</h3>
+    <p>Reduza o tempo de produção em até 60% com scanners de alta performance.</p>
+  </div>
+  <div class="benefit-card">
+    <h3>🎯 Precisão</h3>
+    <p>Alcance precisão de 5 microns com a tecnologia de ponta.</p>
+  </div>
+  <div class="benefit-card">
+    <h3>💰 Economia</h3>
+    <p>Reduza custos operacionais com fluxo digital completo.</p>
+  </div>
+</div>
+
+✅ EXEMPLO 3 - CTA (obrigatório 1-2 por artigo):
+<div class="cta-panel">
+  <h3>💡 Quer saber mais sobre impressoras 3D?</h3>
+  <p>Explore nosso guia completo sobre resinas odontológicas</p>
+  <a href="/base-conhecimento/A/resinas-3d">Acessar Guia Completo</a>
+</div>
+
+✅ EXEMPLO 4 - BLOCKQUOTE (para citações e dados importantes):
+<blockquote>
+  <p>A adoção de scanners intraorais aumentou a produtividade das clínicas em 70%, segundo estudo da ABO 2024.</p>
+</blockquote>
+
+⚠️ REGRAS OBRIGATÓRIAS:
+1. SEMPRE use <div class="content-card"> para agrupar conteúdo relacionado
+2. SEMPRE use <div class="grid-benefits"> + <div class="benefit-card"> para listas de benefícios (mínimo 3 cards)
+3. SEMPRE adicione 1-2 <div class="cta-panel"> com chamada para ação
+4. Use <blockquote> para destacar estatísticas ou citações importantes
+5. Use <h2> para seções principais e <h3> dentro de cards
+6. Todos os parágrafos devem estar dentro de <p> tags
 
 🎯 TEXTO BRUTO PARA FORMATAR:
 ${rawText}
+
+⚠️ IMPORTANTE: Retorne APENAS o HTML formatado, sem markdown, sem \`\`\`html, apenas o conteúdo puro.
 `
 
   console.log('🚀 Enviando para Lovable AI...')
@@ -239,7 +279,14 @@ ${rawText}
       messages: [
         { 
           role: 'system', 
-          content: 'Você é um especialista em SEO e HTML semântico. Formate o texto de forma profissional, inserindo links internos automaticamente.' 
+          content: `Você é um especialista em SEO e HTML semântico especializado em blogs odontológicos.
+
+IMPORTANTE:
+- Retorne APENAS HTML puro, sem markdown, sem \`\`\`html
+- SEMPRE use as classes CSS especificadas (content-card, benefit-card, cta-panel, grid-benefits)
+- Insira links internos automaticamente quando encontrar palavras-chave
+- Estruture o conteúdo de forma profissional e visualmente atraente
+- Use EXATAMENTE as estruturas HTML dos exemplos fornecidos` 
         },
         { role: 'user', content: fullPrompt }
       ],
