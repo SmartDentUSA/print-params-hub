@@ -93,6 +93,13 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
       setPendingImageUrl(data.publicUrl);
       setAltDialogOpen(true);
       
+      console.log('🖼️ Upload concluído:', {
+        url: data.publicUrl,
+        editorExists: !!editor,
+        editorIsFocused: editor?.isFocused
+      });
+      console.log('📝 Modal aberto para alt text');
+      
       toast({ 
         title: 'Upload concluído', 
         description: 'Agora adicione uma descrição para acessibilidade' 
@@ -111,6 +118,7 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
   };
 
   const handleConfirmAltText = () => {
+    // Validação 1: Alt text
     if (!altText.trim() || altText.trim().length < 5) {
       toast({
         title: 'Alt text muito curto',
@@ -120,19 +128,69 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
       return;
     }
 
-    editor?.chain().focus().setImage({ 
-      src: pendingImageUrl, 
-      alt: altText.trim() 
-    }).run();
+    // Validação 2: Editor existe
+    if (!editor) {
+      toast({
+        title: '❌ Editor não disponível',
+        description: 'Recarregue a página e tente novamente',
+        variant: 'destructive'
+      });
+      console.error('❌ Editor is null');
+      return;
+    }
 
-    toast({ 
-      title: 'Imagem inserida', 
-      description: 'Com alt text para acessibilidade!' 
-    });
+    // Validação 3: URL da imagem existe
+    if (!pendingImageUrl) {
+      toast({
+        title: '❌ URL da imagem não encontrada',
+        description: 'Faça upload novamente',
+        variant: 'destructive'
+      });
+      return;
+    }
 
-    setAltDialogOpen(false);
-    setAltText('');
-    setPendingImageUrl('');
+    try {
+      // Tentar inserir a imagem com múltiplas estratégias
+      console.log('🖼️ Tentando inserir imagem:', pendingImageUrl);
+      
+      // Estratégia 1: Com focus explícito
+      const result = editor.chain().focus().setImage({ 
+        src: pendingImageUrl, 
+        alt: altText.trim() 
+      }).run();
+
+      if (!result) {
+        // Estratégia 2: Sem focus (caso o editor já esteja focado)
+        editor.commands.setImage({ 
+          src: pendingImageUrl, 
+          alt: altText.trim() 
+        });
+      }
+
+      // Forçar atualização do conteúdo
+      const html = editor.getHTML();
+      onChange(html);
+
+      console.log('✅ Imagem inserida com sucesso');
+      console.log('📄 HTML atualizado:', html.substring(0, 200));
+
+      toast({ 
+        title: '✅ Imagem inserida', 
+        description: 'Com alt text para acessibilidade!' 
+      });
+
+      // Limpar estados
+      setAltDialogOpen(false);
+      setAltText('');
+      setPendingImageUrl('');
+    } catch (error) {
+      console.error('❌ Erro ao inserir imagem:', error);
+      toast({
+        title: '❌ Erro ao inserir imagem',
+        description: 'Tente usar o botão "🔧 HTML" e inserir manualmente: <img src="URL" alt="descrição">',
+        variant: 'destructive'
+      });
+    }
   };
 
   if (!editor) return null;
