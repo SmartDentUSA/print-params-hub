@@ -763,6 +763,17 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     .eq('content_id', content.id)
     .order('order_index');
 
+  // Buscar resinas recomendadas
+  let recommendedResins: any[] = [];
+  if (content.recommended_resins && content.recommended_resins.length > 0) {
+    const { data: resinsData } = await supabase
+      .from('resins')
+      .select('slug, name, manufacturer, image_url, price')
+      .in('slug', content.recommended_resins)
+      .eq('active', true);
+    recommendedResins = resinsData || [];
+  }
+
   const desc = content.meta_description || content.excerpt || 
     (content.content_html?.replace(/<[^>]*>/g, '').substring(0, 160) + '...');
 
@@ -819,6 +830,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta property="article:published_time" content="${content.created_at}" />
   <meta property="article:modified_time" content="${content.updated_at}" />
   ${content.authors?.name ? `<meta property="article:author" content="${escapeHtml(content.authors.name)}" />` : ''}
+  ${content.authors?.instagram_url ? `<meta property="article:author:instagram" content="${escapeHtml(content.authors.instagram_url)}" />` : ''}
+  ${content.authors?.linkedin_url ? `<meta property="article:author:linkedin" content="${escapeHtml(content.authors.linkedin_url)}" />` : ''}
   
   <!-- Twitter Card -->
   ${videos && videos.length > 0 ? `
@@ -828,9 +841,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="twitter:player:height" content="720" />` : content.og_image_url || content.content_image_url ? `
   <meta name="twitter:card" content="summary_large_image" />` : `
   <meta name="twitter:card" content="summary" />`}
+  <meta name="twitter:site" content="@smartdent" />
+  <meta name="twitter:creator" content="${content.authors?.twitter_url ? '@' + content.authors.twitter_url.split('/').pop() : '@smartdent'}" />
   <meta name="twitter:title" content="${escapeHtml(content.title)}" />
   <meta name="twitter:description" content="${escapeHtml(content.excerpt || desc)}" />
   ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image" content="${content.og_image_url || content.content_image_url}" />` : ''}
+  ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
   
   <!-- Structured Data: @graph com todos os schemas -->
   <script type="application/ld+json">
@@ -849,7 +865,19 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
           "@type": "Person",
           "name": escapeHtml(content.authors.name),
           "url": content.authors.website_url,
-          "image": content.authors.photo_url
+          "image": content.authors.photo_url,
+          "jobTitle": content.authors.specialty,
+          "description": content.authors.mini_bio,
+          "sameAs": [
+            content.authors.lattes_url,
+            content.authors.instagram_url,
+            content.authors.youtube_url,
+            content.authors.linkedin_url,
+            content.authors.facebook_url,
+            content.authors.twitter_url,
+            content.authors.tiktok_url,
+            content.authors.website_url
+          ].filter(Boolean)
         } : {
           "@type": "Organization",
           "name": "Smart Dent"
@@ -906,7 +934,37 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     />` : ''}
     <h1>${escapeHtml(content.title)}</h1>
     <p>${escapeHtml(content.excerpt)}</p>
+    
+    ${content.file_url ? `
+    <div style="background:#fff3cd;border:1px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:4px">
+      <strong>📥 Material Complementar:</strong>
+      <a href="${escapeHtml(content.file_url)}" download style="margin-left:0.5rem;color:#007bff;font-weight:bold">
+        ${escapeHtml(content.file_name || 'Baixar Arquivo')}
+      </a>
+    </div>
+    ` : ''}
+    
     ${content.content_html || ''}
+    
+    ${recommendedResins.length > 0 ? `
+    <section style="background:#f9f9f9;padding:1.5rem;margin:2rem 0;border-left:4px solid #007bff">
+      <h2>Resinas Recomendadas para Este Artigo</h2>
+      <ul style="list-style:none;padding:0">
+        ${recommendedResins.map((resin: any) => `
+          <li style="margin:1rem 0;display:flex;align-items:center;gap:1rem">
+            ${resin.image_url ? `<img src="${resin.image_url}" alt="${escapeHtml(resin.name)}" width="60" height="60" style="border-radius:4px;flex-shrink:0" />` : ''}
+            <div>
+              <a href="https://parametros.smartdent.com.br/resinas/${resin.slug}" style="font-weight:bold;color:#007bff;text-decoration:none">
+                ${escapeHtml(resin.name)}
+              </a>
+              <br><small style="color:#666">${escapeHtml(resin.manufacturer)}</small>
+              ${resin.price ? `<br><strong style="color:#007bff">R$ ${resin.price.toFixed(2)}</strong>` : ''}
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+    </section>
+    ` : ''}
     
     ${content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0 ? `
     <section>
@@ -917,6 +975,39 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         <p>${escapeHtml(faq.answer)}</p>
       </div>`).join('')}
     </section>` : ''}
+    
+    ${content.authors ? `
+    <aside style="border-top:2px solid #eee;margin-top:2rem;padding-top:2rem">
+      <h3>Sobre o Autor</h3>
+      <div style="display:flex;gap:1rem;align-items:start">
+        ${content.authors.photo_url ? `
+        <img 
+          src="${content.authors.photo_url}" 
+          alt="${escapeHtml(content.authors.name)}"
+          width="80"
+          height="80"
+          style="border-radius:50%;flex-shrink:0"
+        />
+        ` : ''}
+        <div>
+          <h4 style="margin:0">${escapeHtml(content.authors.name)}</h4>
+          ${content.authors.specialty ? `<p style="margin:0.25rem 0;color:#666"><em>${escapeHtml(content.authors.specialty)}</em></p>` : ''}
+          ${content.authors.mini_bio ? `<p style="margin:0.5rem 0">${escapeHtml(content.authors.mini_bio)}</p>` : ''}
+          
+          <div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:0.75rem">
+            ${content.authors.lattes_url ? `<a href="${escapeHtml(content.authors.lattes_url)}" target="_blank" rel="noopener" title="Currículo Lattes" style="color:#007bff;text-decoration:none">📄 Lattes</a>` : ''}
+            ${content.authors.instagram_url ? `<a href="${escapeHtml(content.authors.instagram_url)}" target="_blank" rel="noopener nofollow" style="color:#E4405F;text-decoration:none">📷 Instagram</a>` : ''}
+            ${content.authors.youtube_url ? `<a href="${escapeHtml(content.authors.youtube_url)}" target="_blank" rel="noopener nofollow" style="color:#FF0000;text-decoration:none">▶️ YouTube</a>` : ''}
+            ${content.authors.linkedin_url ? `<a href="${escapeHtml(content.authors.linkedin_url)}" target="_blank" rel="noopener nofollow" style="color:#0077B5;text-decoration:none">💼 LinkedIn</a>` : ''}
+            ${content.authors.facebook_url ? `<a href="${escapeHtml(content.authors.facebook_url)}" target="_blank" rel="noopener nofollow" style="color:#1877F2;text-decoration:none">👥 Facebook</a>` : ''}
+            ${content.authors.twitter_url ? `<a href="${escapeHtml(content.authors.twitter_url)}" target="_blank" rel="noopener nofollow" style="color:#1DA1F2;text-decoration:none">🐦 Twitter</a>` : ''}
+            ${content.authors.tiktok_url ? `<a href="${escapeHtml(content.authors.tiktok_url)}" target="_blank" rel="noopener nofollow" style="color:#000000;text-decoration:none">🎵 TikTok</a>` : ''}
+            ${content.authors.website_url ? `<a href="${escapeHtml(content.authors.website_url)}" target="_blank" rel="noopener" style="color:#007bff;text-decoration:none">🌐 Website</a>` : ''}
+          </div>
+        </div>
+      </div>
+    </aside>
+    ` : ''}
   </article>
   <script>
   (function() {
