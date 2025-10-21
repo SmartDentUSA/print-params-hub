@@ -26,3 +26,6 @@ verify_jwt = true
 
 [functions.sync-knowledge-base]
 verify_jwt = false
+
+[functions.import-system-a-json]
+verify_jwt = false
