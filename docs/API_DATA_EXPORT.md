@@ -2,7 +2,13 @@
 
 ## 📋 Visão Geral
 
-O endpoint `/data-export` exporta **todos os dados completos** do sistema (parametrização + base de conhecimento + dados sincronizados) em formato estruturado para consumo por IA de atendimento, sincronização com sistemas externos, ou análise de dados.
+O endpoint `/data-export` exporta **todos os dados completos** do **Sistema B (técnico)** e **Sistema A (comercial)** em formato estruturado para consumo por IA de atendimento, sincronização com sistemas externos, ou análise de dados.
+
+### 🔄 Integração: Sistema A + Sistema B
+
+- **Sistema B (Técnico)**: Brands, models, parameter_sets, resinas técnicas, base de conhecimento
+- **Sistema A (Comercial)**: Produtos comerciais, depoimentos, reviews, KOLs, perfil da empresa (~284 registros)
+- **API Unificada**: Um único endpoint retorna ambos sistemas em formato normalizado
 
 ---
 
@@ -22,7 +28,7 @@ O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=tru
 
 ---
 
-## 📊 Dados Exportados (9 Entidades)
+## 📊 Dados Exportados (10 Entidades)
 
 ### 1. **Brands** (Marcas de Impressoras)
 - `id`, `name`, `slug`, `logo_url`, `active`
@@ -73,6 +79,39 @@ O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=tru
 - Redes sociais: `lattes_url`, `website_url`, `instagram_url`, `youtube_url`, `facebook_url`, `linkedin_url`, `twitter_url`, `tiktok_url`
 - `articles_count` (quando `denormalize=true`)
 
+### 10. **System A Catalog** 🆕 (Catálogo Comercial)
+
+Dados sincronizados do Sistema A (plataforma comercial). Total: ~284 registros.
+
+**Categorias:**
+- `company_info`: Perfil da empresa (1 registro)
+- `category_config`: Configurações de categorias SEO (~25 registros)
+- `resin`: Resinas comerciais com preços/cupons (~5 registros)
+- `printer`: Impressoras 3D para venda
+- `accessory`: Acessórios e ferramentas
+- `video_testimonial`: Depoimentos em vídeo de clientes (~203 registros)
+- `google_review`: Avaliações do Google (~45 registros)
+- `kol`: Key Opinion Leaders (influenciadores/especialistas) (~12 registros)
+- `landing_page`: Landing pages de marketing
+
+**Campos Principais:**
+- `external_id` (ID único do Sistema A)
+- `source` (sempre 'system_a')
+- `category` (uma das categorias acima)
+- `name`, `slug`, `description`
+- `image_url`, `price`, `promo_price`, `currency`
+- `seo_title_override`, `meta_description`, `canonical_url`, `og_image_url`
+- `keywords[]`, `keyword_ids[]`
+- `cta_1/2/3_label`, `cta_1/2/3_url`, `cta_1/2/3_description`
+- `rating`, `review_count`
+- `approved`, `active`, `display_order`
+- `extra_data` (JSONB com dados detalhados: videos, depoimentos, especificações, etc.)
+
+**Separação Sistema A vs Sistema B:**
+- ✅ **Resinas do Sistema B** (`resins`): Dados técnicos/editoriais (tipo, cor, parâmetros)
+- ✅ **Resinas do Sistema A** (`system_a_catalog.resin`): Dados comerciais (preço, promoção, cupons)
+- ✅ **Ambos podem coexistir** para a mesma resina (perfil técnico + perfil comercial)
+
 ---
 
 ## 🎛️ Parâmetros Query String
@@ -88,6 +127,7 @@ O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=tru
 | `include_categories` | `boolean` | `true` | Incluir categorias KB |
 | `include_keywords` | `boolean` | `true` | Incluir keywords SEO |
 | `include_authors` | `boolean` | `true` | Incluir autores |
+| `include_system_a` | `boolean` | `true` | Incluir catálogo comercial Sistema A (~284 registros) |
 | `denormalize` | `boolean` | `true` | Expandir relacionamentos (IDs → objetos completos) |
 | `extract_text` | `boolean` | `true` | Extrair texto puro do HTML (`content_html` → `content_text`) |
 | `approved_only` | `boolean` | `true` | Apenas itens ativos/aprovados |
@@ -102,7 +142,10 @@ O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=tru
 
 Retorna **todos os dados completos** com desnormalização ativada.
 
-**Tamanho:** ~15-30 MB  
+**Tamanho:**
+- Sem Sistema A: ~15-30 MB
+- Com Sistema A: ~30-50 MB (inclui 284 registros comerciais)
+
 **Uso:** Sincronização completa, backup, análise detalhada
 
 ```json
@@ -120,6 +163,8 @@ Retorna **todos os dados completos** com desnormalização ativada.
     "knowledge_videos": 18,
     "keywords": 150,
     "authors": 3,
+    "system_a_catalog": 284,
+    "system_a_products": 5,
     "total_html_size_mb": "12.5"
   },
   "data": {
@@ -131,7 +176,26 @@ Retorna **todos os dados completos** com desnormalização ativada.
     "knowledge_contents": [...],
     "knowledge_videos": [...],
     "keywords": [...],
-    "authors": [...]
+    "authors": [...],
+    "system_a_catalog": {
+      "items": [...],
+      "grouped": {
+        "company_info": [...],
+        "category_config": [...],
+        "resin": [...],
+        "printer": [...],
+        "video_testimonial": [...],
+        "google_review": [...],
+        "kol": [...]
+      },
+      "stats": {
+        "total": 284,
+        "resins": 5,
+        "testimonials": 203,
+        "reviews": 45,
+        "kols": 12
+      }
+    }
   }
 }
 ```
@@ -192,15 +256,19 @@ Remove campos redundantes e desnormalizações para reduzir tamanho.
 
 Formata dados especificamente para consumo por LLMs (ChatGPT, Claude, etc.).
 
-**Tamanho:** ~20-50 MB (com texto extraído)  
+**Tamanho:**
+- Sem Sistema A: ~20-50 MB (com texto extraído)
+- Com Sistema A: ~35-70 MB (inclui 284 registros comerciais com `extra_data` detalhado)
+
 **Uso:** RAG (Retrieval-Augmented Generation), chatbots, assistentes virtuais
 
 **Características:**
 - ✅ Extrai texto puro de HTML (`content_text`)
-- ✅ Agrupa dados por contexto semântico
+- ✅ Agrupa dados por contexto semântico (técnico vs. comercial)
 - ✅ Traduz campos para português
 - ✅ Inclui contexto da empresa
 - ✅ Desnormaliza todos os relacionamentos
+- ✅ **NOVO**: Inclui `catalogo_sistema_a` com produtos, depoimentos, reviews, KOLs
 
 ```json
 {
@@ -306,7 +374,121 @@ Formata dados especificamente para consumo por LLMs (ChatGPT, Claude, etc.).
         }
       ]
     },
-    "autores": [...]
+    "autores": [...],
+    "catalogo_sistema_a": {
+      "estatisticas": {
+        "total": 284,
+        "resins": 5,
+        "testimonials": 203,
+        "reviews": 45,
+        "kols": 12
+      },
+      "perfil_empresa": [
+        {
+          "id": "uuid",
+          "nome": "Smart Dent",
+          "descricao": "Especialista em impressão 3D odontológica",
+          "url_canonica": "https://smartdent.com.br",
+          "dados_completos": {
+            "corporate": { "mission": "...", "vision": "..." },
+            "contact": { "email": "...", "phone": "...", "whatsapp": "..." },
+            "seo": { "competitive_advantages": [...] }
+          }
+        }
+      ],
+      "configuracoes_categorias": [
+        {
+          "categoria": "Resinas",
+          "palavras_chave": ["resina odontológica", "resina 3d"],
+          "dados_adicionais": { "market_keywords": [...] }
+        }
+      ],
+      "resinas_3d": [
+        {
+          "id": "uuid",
+          "external_id": "product_123",
+          "nome": "Resina NextDent C&B",
+          "slug": "nextdent-c-b",
+          "descricao": "Resina para coroas e pontes...",
+          "imagem": "https://...",
+          "preco": 450.00,
+          "preco_promocional": 399.00,
+          "moeda": "BRL",
+          "palavras_chave": ["resina odontológica", "c&b"],
+          "ctas": {
+            "cta1": {
+              "label": "Comprar no WhatsApp",
+              "url": "https://wa.me/...",
+              "descricao": "Fale conosco e ganhe 10% de desconto"
+            },
+            "cta2": {
+              "label": "Ver no Site",
+              "url": "https://smartdent.com.br/produto/..."
+            }
+          },
+          "dados_completos": {
+            "sales_pitch": "A melhor resina para coroas e pontes...",
+            "benefits": ["Alta precisão", "Biocompatível", "Fácil acabamento"],
+            "videos": {
+              "youtube": ["https://youtube.com/..."],
+              "testimonials": ["https://youtube.com/..."]
+            },
+            "google_merchant": {
+              "ean": "7891234567890",
+              "brand": "NextDent",
+              "availability": "in_stock"
+            },
+            "coupons": [
+              { "code": "PROMO10", "discount": 10, "type": "percentage" }
+            ]
+          }
+        }
+      ],
+      "impressoras_3d": [{ ... }],
+      "acessorios": [{ ... }],
+      "depoimentos_video": [
+        {
+          "id": "uuid",
+          "external_id": "testimonial_456",
+          "cliente": "Dr. Maria Santos",
+          "depoimento": "A resina é excelente! Uso há 2 anos e...",
+          "imagem": "https://img.youtube.com/vi/.../maxresdefault.jpg",
+          "avaliacao": 4.8,
+          "dados_completos": {
+            "client": {
+              "profession": "Dentista",
+              "specialty": "Ortodontia",
+              "location": "São Paulo, SP"
+            },
+            "media": {
+              "youtube_url": "https://youtube.com/watch?v=...",
+              "instagram_url": "https://instagram.com/p/..."
+            },
+            "ai_analysis": {
+              "sentiment_score": 0.96,
+              "keywords": ["qualidade", "precisão", "recomendo"],
+              "extracted_benefits": ["Fácil de usar", "Resultado perfeito"]
+            }
+          }
+        }
+      ],
+      "avaliacoes_google": [
+        {
+          "id": "uuid",
+          "autor": "João Silva",
+          "avaliacao_texto": "Atendimento excelente! Produto chegou rápido.",
+          "nota": 5.0
+        }
+      ],
+      "lideres_opiniao": [
+        {
+          "id": "uuid",
+          "nome": "Dr. Pedro Oliveira",
+          "mini_cv": "20 anos de experiência em odontologia digital",
+          "foto": "https://..."
+        }
+      ]
+    }
   }
 }
 ```

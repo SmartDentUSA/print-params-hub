@@ -23,19 +23,15 @@ serve(async (req) => {
     // 2. Sincronizar external_links
     const linksCount = await syncExternalLinks(supabaseClient, kbData.links || [])
 
-    // 3. Sincronizar resins com keyword_ids
-    const resinsCount = await syncResins(supabaseClient, kbData.products || [])
-
-    // 4. Sincronizar system_a_catalog (NOVO)
+    // 3. Sincronizar system_a_catalog (produtos comerciais, vídeos, etc.)
     const catalogStats = await syncSystemACatalog(supabaseClient, kbData)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Sincronização concluída',
+        message: 'Sincronização concluída com Sistema A',
         stats: {
           keywords: linksCount,
-          resins: resinsCount,
           catalog: catalogStats
         }
       }),
@@ -128,61 +124,9 @@ async function syncExternalLinks(supabase: any, links: any[]) {
   return count
 }
 
-async function syncResins(supabase: any, products: any[]) {
-  if (!products || products.length === 0) return 0
-
-  let count = 0
-
-  for (const product of products) {
-    if (!product || !product.name || !product.slug) continue
-
-    try {
-      // Verificar se resina já existe pelo slug
-      const { data: existing } = await supabase
-        .from('resins')
-        .select('id')
-        .eq('slug', product.slug)
-        .single()
-
-      const resinData = {
-        name: product.name,
-        manufacturer: product.manufacturer || product.brand || 'Desconhecido',
-        description: product.description,
-        price: product.price,
-        image_url: product.image_url,
-        slug: product.slug,
-        seo_title_override: product.seo_title_override,
-        meta_description: product.seo_description_override,
-        og_image_url: product.image_url,
-        canonical_url: product.canonical_url,
-        keywords: product.keywords || [],
-        keyword_ids: product.keyword_ids || [],
-        cta_1_label: product.resource_cta1?.label,
-        cta_1_url: product.resource_cta1?.url,
-        cta_1_description: product.resource_descriptions?.cta1,
-        cta_2_label: product.resource_cta2?.label,
-        cta_2_url: product.resource_cta2?.url,
-        cta_2_description: product.resource_descriptions?.cta2,
-        cta_3_label: product.resource_cta3?.label,
-        cta_3_url: product.resource_cta3?.url,
-        cta_3_description: product.resource_descriptions?.cta3,
-      }
-
-      if (existing) {
-        // ✅ ATUALIZA resina existente com dados do Sistema A
-        await supabase
-          .from('resins')
-          .update(resinData)
-          .eq('id', existing.id)
-        count++ // Apenas conta resinas ATUALIZADAS
-      }
-    } catch (err) {
-      console.error(`❌ Erro ao sincronizar resina "${product.name}":`, err.message)
-    }
-  }
-
-  return count
-}
+// Função syncResins() foi removida
+// Agora produtos do Sistema A vão APENAS para system_a_catalog
+// Resinas técnicas no Sistema B ficam separadas na tabela resins
 
 async function syncSystemACatalog(supabase: any, kbData: any) {
   const stats = {
