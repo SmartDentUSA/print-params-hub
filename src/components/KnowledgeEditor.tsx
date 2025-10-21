@@ -32,7 +32,10 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        // Desabilitar o link do StarterKit para evitar duplicação
+        link: false,
+      }),
       Link.configure({ openOnClick: false }),
       Image,
       Placeholder.configure({ placeholder: placeholder || 'Escreva o conteúdo aqui...' })
@@ -48,6 +51,13 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
       onEditorReady(editor);
     }
   }, [editor, onEditorReady]);
+
+  // Sincronizar o editor quando o content prop mudar externamente
+  useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
 
   const handleSelectImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
