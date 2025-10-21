@@ -45,9 +45,41 @@ export function useExternalLinks() {
     fetchApprovedKeywords();
   }, []);
 
+  const updateKeywordUrl = async (id: string, newUrl: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('external_links')
+        .update({ url: newUrl, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: '✅ URL atualizada',
+        description: 'A URL foi atualizada com sucesso',
+      });
+
+      // Atualizar estado local
+      setKeywords(prev => 
+        prev.map(kw => kw.id === id ? { ...kw, url: newUrl } : kw)
+      );
+
+      return true;
+    } catch (error: any) {
+      console.error('Error updating keyword URL:', error);
+      toast({
+        title: '❌ Erro ao atualizar URL',
+        description: error.message || 'Tente novamente',
+        variant: 'destructive'
+      });
+      return false;
+    }
+  };
+
   return {
     keywords,
     loading,
-    refresh: fetchApprovedKeywords
+    refresh: fetchApprovedKeywords,
+    updateKeywordUrl
   };
 }

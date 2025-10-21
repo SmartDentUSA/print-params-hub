@@ -60,7 +60,12 @@ export function AdminKnowledge() {
   // Metadata generation states
   const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
   const [showKeywords, setShowKeywords] = useState(false);
-  const { keywords } = useExternalLinks();
+  const { keywords, updateKeywordUrl } = useExternalLinks();
+  
+  // Keyword editing states
+  const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null);
+  const [editingUrl, setEditingUrl] = useState<string>('');
+  const [savingKeywordId, setSavingKeywordId] = useState<string | null>(null);
   
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
@@ -826,22 +831,101 @@ Receba o texto bruto abaixo e:
                       
                       <ScrollArea className="h-[200px] w-full rounded-md border border-purple-300 dark:border-purple-700 p-3 bg-white dark:bg-card">
                         <div className="space-y-2">
-                          {keywords.map((kw) => (
-                            <div key={kw.id} className="flex items-start gap-2 text-xs p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
-                              <span className="font-mono text-purple-900 dark:text-purple-100 font-semibold">
-                                {kw.name}
-                              </span>
-                              <span className="text-purple-600 dark:text-purple-400">→</span>
-                              <a 
-                                href={kw.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-purple-700 dark:text-purple-300 hover:underline truncate flex-1"
+                          {keywords.map((kw) => {
+                            const isEditing = editingKeywordId === kw.id;
+                            const isSaving = savingKeywordId === kw.id;
+                            
+                            return (
+                              <div 
+                                key={kw.id} 
+                                className="group flex items-center gap-2 text-xs p-2 bg-purple-100 dark:bg-purple-900/30 rounded hover:bg-purple-200 dark:hover:bg-purple-900/50 transition-colors"
                               >
-                                {kw.url}
-                              </a>
-                            </div>
-                          ))}
+                                <span className="font-mono text-purple-900 dark:text-purple-100 font-semibold min-w-[150px]">
+                                  {kw.name}
+                                </span>
+                                
+                                <span className="text-purple-600 dark:text-purple-400">→</span>
+                                
+                                {isEditing ? (
+                                  <>
+                                    <Input
+                                      type="url"
+                                      value={editingUrl}
+                                      onChange={(e) => setEditingUrl(e.target.value)}
+                                      className="flex-1 h-7 text-xs"
+                                      placeholder="https://exemplo.com"
+                                      autoFocus
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0"
+                                      disabled={isSaving}
+                                      onClick={async () => {
+                                        // Validar URL
+                                        try {
+                                          new URL(editingUrl);
+                                        } catch {
+                                          toast({
+                                            title: '⚠️ URL inválida',
+                                            description: 'Por favor, insira uma URL válida (ex: https://exemplo.com)',
+                                            variant: 'destructive'
+                                          });
+                                          return;
+                                        }
+                                        
+                                        setSavingKeywordId(kw.id);
+                                        const success = await updateKeywordUrl(kw.id, editingUrl);
+                                        setSavingKeywordId(null);
+                                        
+                                        if (success) {
+                                          setEditingKeywordId(null);
+                                          setEditingUrl('');
+                                        }
+                                      }}
+                                    >
+                                      {isSaving ? '⏳' : '✓'}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0"
+                                      disabled={isSaving}
+                                      onClick={() => {
+                                        setEditingKeywordId(null);
+                                        setEditingUrl('');
+                                      }}
+                                    >
+                                      ✕
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <a 
+                                      href={kw.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-purple-700 dark:text-purple-300 hover:underline truncate flex-1"
+                                      title={kw.url}
+                                    >
+                                      {kw.url}
+                                    </a>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => {
+                                        setEditingKeywordId(kw.id);
+                                        setEditingUrl(kw.url);
+                                      }}
+                                    >
+                                      ✏️
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                       

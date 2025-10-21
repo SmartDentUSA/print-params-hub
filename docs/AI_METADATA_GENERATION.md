@@ -92,6 +92,43 @@
 - **Tempo de resposta**: 3-5 segundos (slug + meta + 10 FAQs)
 - **Rate limit**: 100 requests/min por workspace
 
+## 🔗 Gerenciamento de Keywords
+
+### Visualizar Keywords Disponíveis
+
+As keywords aprovadas do sistema são exibidas na aba **"AI Generation"**:
+
+1. Ir para **Adicionar Conteúdo** → Aba **"AI Generation"**
+2. Localizar seção **"🔗 Palavras-chave disponíveis para hyperlinks"**
+3. Clicar em **"▶ Mostrar"** para expandir a lista
+
+A lista mostra todas as keywords aprovadas no sistema (`external_links` com `approved = true`) e suas URLs associadas. A IA de conteúdo usa automaticamente estas keywords para criar hyperlinks internos.
+
+### Editar URLs de Keywords
+
+As URLs das keywords podem ser editadas diretamente na interface:
+
+1. Expandir a seção **"🔗 Palavras-chave disponíveis para hyperlinks"**
+2. Passar o mouse sobre a keyword desejada
+3. Clicar no ícone **✏️** (editar) que aparece ao lado da URL
+4. Modificar a URL no campo de input
+5. Clicar em **✓** (salvar) ou **✕** (cancelar)
+
+**Validações**:
+- URLs devem ser válidas e começar com `http://` ou `https://`
+- URLs inválidas são rejeitadas automaticamente com mensagem de erro
+- Apenas usuários com role `admin` podem editar URLs (protegido por RLS)
+
+**Feedback Visual**:
+- Ícone ✏️ aparece apenas no hover
+- Durante o salvamento, o botão mostra ⏳ (loading)
+- Toast de sucesso/erro confirma a operação
+- A lista é atualizada imediatamente após salvamento
+
+**Nota Importante**: A edição de URLs **NÃO afeta conteúdos já publicados**. Apenas novos conteúdos gerados por IA após a mudança usarão as URLs atualizadas.
+
+**Alternativa para Edição Avançada**: Para editar outros campos da keyword (nome, keywords relacionados, categoria, etc.), use a página **"External Links"** no menu de administração.
+
 ## Integração com o Sistema
 
 ### Frontend (AdminKnowledge.tsx)
