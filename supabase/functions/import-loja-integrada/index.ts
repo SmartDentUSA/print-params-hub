@@ -1,10 +1,47 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+// Função para gerar slug limpo
+function generateCleanSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+    .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
+    .replace(/\s+/g, '-') // Substitui espaços por hífens
+    .replace(/-+/g, '-') // Remove hífens duplicados
+    .trim();
+}
+
+// Função para extrair keywords da descrição
+function extractKeywordsFromDescription(description: string, productName: string): string[] {
+  const keywords = new Set<string>();
+  
+  // Adicionar keywords padrão
+  keywords.add('resina 3d');
+  keywords.add('impressão 3d odontológica');
+  
+  // Adicionar nome do produto como keyword
+  const nameParts = productName.toLowerCase().split(/\s+/).filter(w => w.length >= 4);
+  nameParts.forEach(part => keywords.add(part));
+  
+  // Extrair palavras-chave do texto (palavras com 5+ caracteres)
+  const words = description
+    .toLowerCase()
+    .replace(/[^\wáàâãéèêíïóôõöúçñ\s]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length >= 5);
+  
+  words.slice(0, 5).forEach(w => keywords.add(w));
+  
+  return Array.from(keywords).slice(0, 10); // Máximo 10 keywords
+}
 
 // Função para extrair identificador do produto
 function extractProductIdentifier(input: string): { type: 'id' | 'slug', value: string } {
@@ -170,6 +207,11 @@ serve(async (req) => {
 
     const apiProduct = await response.json();
 
+    // Inicializar Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Mapear para estrutura Resin
     const resinData = {
       name: apiProduct.nome || '',
@@ -194,6 +236,51 @@ serve(async (req) => {
       has_image: !!resinData.image_url,
       gallery_count: resinData.images_gallery.length
     });
+
+    // Inserir em system_a_catalog para sincronização automática
+    const cleanSlug = generateCleanSlug(resinData.name);
+    const keywords = extractKeywordsFromDescription(resinData.description, resinData.name);
+    const metaDescription = resinData.description.substring(0, 160);
+
+    const { data: catalogItem, error: catalogError } = await supabase
+      .from('system_a_catalog')
+      .upsert({
+        source: 'loja_smartdent',
+        category: 'product',
+        external_id: apiProduct.id?.toString() || cleanSlug,
+        name: resinData.name,
+        slug: cleanSlug,
+        description: resinData.description,
+        meta_description: metaDescription,
+        og_image_url: resinData.image_url,
+        keywords: keywords,
+        image_url: resinData.image_url,
+        price: resinData.price,
+        currency: 'BRL',
+        active: true,
+        approved: true,
+        visible_in_ui: true,
+        cta_1_label: 'Ver na Loja',
+        cta_1_url: input.trim().startsWith('http') ? input.trim() : `https://loja.smartdent.com.br/${cleanSlug}`,
+        cta_1_description: 'Confira este produto na loja oficial Smart Dent',
+        extra_data: {
+          images_gallery: resinData.images_gallery,
+          imported_at: new Date().toISOString()
+        }
+      }, { 
+        onConflict: 'source,external_id' 
+      });
+
+    if (catalogError) {
+      console.error('⚠️ Erro ao inserir em system_a_catalog:', catalogError);
+      // Não falhar a importação, apenas logar
+    } else {
+      console.log('✅ Produto sincronizado com catálogo público:', {
+        slug: cleanSlug,
+        keywords_count: keywords.length,
+        has_seo: !!metaDescription && !!resinData.image_url
+      });
+    }
 
     return new Response(
       JSON.stringify({ success: true, data: resinData }),

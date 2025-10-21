@@ -335,8 +335,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       toast({
         title: "✅ Importação concluída!",
         description: seoFieldsImported 
-          ? `6 campos importados: 3 visíveis + 3 SEO invisíveis do Sistema A`
-          : `3 campos importados (sem dados SEO no Sistema A)`,
+          ? `✨ Produto sincronizado com catálogo público + SEO otimizado. Revise e salve.`
+          : `✨ Produto importado e sincronizado. Revise e salve.`,
       });
 
     } catch (error) {
