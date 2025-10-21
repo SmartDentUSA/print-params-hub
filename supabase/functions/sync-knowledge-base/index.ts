@@ -17,8 +17,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    console.log('🔄 Iniciando sincronização da Knowledge Base...')
-
     // 1. Buscar dados da Knowledge Base API (Sistema A)
     const kbData = await fetchKnowledgeBaseAPI()
 
@@ -30,16 +28,6 @@ serve(async (req) => {
 
     // 4. Sincronizar system_a_catalog (NOVO)
     const catalogStats = await syncSystemACatalog(supabaseClient, kbData)
-
-    console.log(`✅ Sincronização concluída:`)
-    console.log(`   - ${linksCount} keywords atualizadas`)
-    console.log(`   - ${resinsCount} resinas atualizadas`)
-    console.log(`   - ${catalogStats.company} perfis de empresa`)
-    console.log(`   - ${catalogStats.categories} configurações de categoria`)
-    console.log(`   - ${catalogStats.products} produtos no catálogo`)
-    console.log(`   - ${catalogStats.testimonials} depoimentos em vídeo`)
-    console.log(`   - ${catalogStats.reviews} avaliações do Google`)
-    console.log(`   - ${catalogStats.kols} líderes de opinião`)
 
     return new Response(
       JSON.stringify({ 
@@ -64,7 +52,7 @@ serve(async (req) => {
 
 async function fetchKnowledgeBaseAPI() {
   const apiUrl = new URL('https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base')
-  apiUrl.searchParams.append('format', 'json')
+  apiUrl.searchParams.set('format', 'system_b')
   apiUrl.searchParams.append('include_company', 'true')
   apiUrl.searchParams.append('include_categories', 'true')
   apiUrl.searchParams.append('include_links', 'true')
@@ -73,8 +61,6 @@ async function fetchKnowledgeBaseAPI() {
   apiUrl.searchParams.append('include_google_reviews', 'true')
   apiUrl.searchParams.append('include_kols', 'true')
   apiUrl.searchParams.append('approved_only', 'true')
-
-  console.log('📡 Buscando dados completos da API Sistema A:', apiUrl.toString())
 
   const response = await fetch(apiUrl.toString())
   
@@ -86,12 +72,8 @@ async function fetchKnowledgeBaseAPI() {
 }
 
 async function syncExternalLinks(supabase: any, links: any[]) {
-  if (!links || links.length === 0) {
-    console.log('⚠️ Nenhuma keyword para sincronizar')
-    return 0
-  }
+  if (!links || links.length === 0) return 0
 
-  console.log(`🔄 Sincronizando ${links.length} keywords...`)
   let count = 0
 
   for (const link of links) {
@@ -127,7 +109,6 @@ async function syncExternalLinks(supabase: any, links: any[]) {
           .from('external_links')
           .update(linkData)
           .eq('id', link.id)
-        console.log(`✅ Keyword atualizada: ${link.name}`)
       } else {
         // INSERT
         await supabase
@@ -137,7 +118,6 @@ async function syncExternalLinks(supabase: any, links: any[]) {
             ...linkData,
             usage_count: 0,
           })
-        console.log(`➕ Keyword inserida: ${link.name}`)
       }
       count++
     } catch (err) {
@@ -149,16 +129,12 @@ async function syncExternalLinks(supabase: any, links: any[]) {
 }
 
 async function syncResins(supabase: any, products: any[]) {
-  if (!products || products.length === 0) {
-    console.log('⚠️ Nenhum produto para sincronizar')
-    return 0
-  }
+  if (!products || products.length === 0) return 0
 
-  console.log(`🔄 Sincronizando ${products.length} produtos (resinas)...`)
   let count = 0
 
-  for (const item of products) {
-    const product = item.product || item
+  for (const product of products) {
+    if (!product || !product.name || !product.slug) continue
 
     try {
       // Verificar se resina já existe pelo slug
@@ -198,12 +174,7 @@ async function syncResins(supabase: any, products: any[]) {
           .from('resins')
           .update(resinData)
           .eq('id', existing.id)
-        console.log(`✅ Resina atualizada: ${product.name} (slug: ${product.slug})`)
         count++ // Apenas conta resinas ATUALIZADAS
-      } else {
-        // ⚠️ IGNORA: Resina não existe no Sistema B
-        console.log(`⚠️ Resina "${product.name}" (slug: ${product.slug}) do Sistema A não encontrada no Sistema B - sincronização ignorada`)
-        // NÃO incrementa count nem insere dados
       }
     } catch (err) {
       console.error(`❌ Erro ao sincronizar resina "${product.name}":`, err.message)
@@ -223,17 +194,14 @@ async function syncSystemACatalog(supabase: any, kbData: any) {
     kols: 0
   }
 
-  console.log('🔄 Sincronizando dados do Sistema A para system_a_catalog...')
-
   // 1. Company Profile
-  if (kbData.company) {
-    await syncCompanyProfile(supabase, kbData.company)
-    stats.company = 1
+  if (kbData.company_profile) {
+    stats.company = await syncCompanyProfile(supabase, kbData.company_profile)
   }
 
   // 2. Categories Config
-  if (kbData.categories && kbData.categories.length > 0) {
-    stats.categories = await syncCategoriesConfig(supabase, kbData.categories)
+  if (kbData.categories_config && kbData.categories_config.length > 0) {
+    stats.categories = await syncCategoriesConfig(supabase, kbData.categories_config)
   }
 
   // 3. Products (todos os tipos)
@@ -252,14 +220,16 @@ async function syncSystemACatalog(supabase: any, kbData: any) {
   }
 
   // 6. Key Opinion Leaders
-  if (kbData.kols && kbData.kols.length > 0) {
-    stats.kols = await syncKOLs(supabase, kbData.kols)
+  if (kbData.key_opinion_leaders && kbData.key_opinion_leaders.length > 0) {
+    stats.kols = await syncKOLs(supabase, kbData.key_opinion_leaders)
   }
 
   return stats
 }
 
 async function syncCompanyProfile(supabase: any, company: any) {
+  if (!company || !company.company_name) return 0
+
   try {
     const catalogItem = {
       external_id: `company_${company.id || 'main'}`,
@@ -306,13 +276,16 @@ async function syncCompanyProfile(supabase: any, company: any) {
       .from('system_a_catalog')
       .upsert(catalogItem, { onConflict: 'external_id' })
 
-    console.log('✅ Company profile sincronizado')
+    return 1
   } catch (err) {
     console.error('❌ Erro ao sincronizar company profile:', err.message)
+    return 0
   }
 }
 
 async function syncCategoriesConfig(supabase: any, categories: any[]) {
+  if (!categories || categories.length === 0) return 0
+
   let count = 0
   for (const cat of categories) {
     try {
@@ -340,14 +313,16 @@ async function syncCategoriesConfig(supabase: any, categories: any[]) {
       console.error(`❌ Erro ao sincronizar categoria ${cat.category}:`, err.message)
     }
   }
-  console.log(`✅ ${count} categorias sincronizadas`)
   return count
 }
 
 async function syncProductsCatalog(supabase: any, products: any[]) {
+  if (!products || products.length === 0) return 0
+
   let count = 0
-  for (const item of products) {
-    const product = item.product || item
+  for (const product of products) {
+    if (!product || !product.name || !product.slug) continue
+
     try {
       // Determinar categoria do produto
       let productCategory = 'product'
@@ -471,11 +446,12 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
       console.error(`❌ Erro ao sincronizar produto ${product.name}:`, err.message)
     }
   }
-  console.log(`✅ ${count} produtos sincronizados no catálogo`)
   return count
 }
 
 async function syncVideoTestimonials(supabase: any, testimonials: any[]) {
+  if (!testimonials || testimonials.length === 0) return 0
+
   let count = 0
   for (const testimonial of testimonials) {
     try {
@@ -518,11 +494,12 @@ async function syncVideoTestimonials(supabase: any, testimonials: any[]) {
       console.error(`❌ Erro ao sincronizar depoimento ${testimonial.client_name}:`, err.message)
     }
   }
-  console.log(`✅ ${count} depoimentos sincronizados`)
   return count
 }
 
 async function syncGoogleReviews(supabase: any, reviews: any[]) {
+  if (!reviews || reviews.length === 0) return 0
+
   let count = 0
   for (const review of reviews) {
     try {
@@ -569,11 +546,12 @@ async function syncGoogleReviews(supabase: any, reviews: any[]) {
       console.error(`❌ Erro ao sincronizar review de ${review.author_name}:`, err.message)
     }
   }
-  console.log(`✅ ${count} reviews sincronizadas`)
   return count
 }
 
 async function syncKOLs(supabase: any, kols: any[]) {
+  if (!kols || kols.length === 0) return 0
+
   let count = 0
   for (const kol of kols) {
     try {
@@ -605,6 +583,5 @@ async function syncKOLs(supabase: any, kols: any[]) {
       console.error(`❌ Erro ao sincronizar KOL ${kol.full_name}:`, err.message)
     }
   }
-  console.log(`✅ ${count} KOLs sincronizados`)
   return count
 }
