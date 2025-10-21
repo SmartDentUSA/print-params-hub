@@ -1112,7 +1112,7 @@ Receba o texto bruto abaixo e:
                     
                     {/* 🆕 FASE 5: Preview COM BlogPreviewFrame */}
                     <div className="border rounded-lg bg-white dark:bg-card" style={{ height: '500px' }}>
-                      <BlogPreviewFrame htmlContent={generatedHTML} deviceMode={deviceMode} />
+                      <BlogPreviewFrame htmlContent={formData.content_html || generatedHTML} deviceMode={deviceMode} />
                     </div>
                     
                     {/* 🆕 FASE 4: Botão de preview do código HTML */}
@@ -1121,7 +1121,7 @@ Receba o texto bruto abaixo e:
                         🔍 Ver código HTML gerado
                       </summary>
                       <pre className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded overflow-auto max-h-40 text-xs">
-                        {generatedHTML}
+                        {formData.content_html || generatedHTML}
                       </pre>
                     </details>
                     
@@ -1132,6 +1132,7 @@ Receba o texto bruto abaixo e:
                         variant="outline"
                         onClick={() => {
                           setFormData({...formData, content_html: generatedHTML});
+                          setGeneratedHTML(generatedHTML);
                           toast({ title: '✅ Inserido!', description: 'Revise na aba "📝 Conteúdo" e salve manualmente' });
                         }}
                       >
@@ -1226,6 +1227,7 @@ Receba o texto bruto abaixo e:
                                 ...prev, 
                                 content_html: finalHTML
                               }));
+                              setGeneratedHTML(finalHTML);
                               
                               toast({ 
                                 title: '✅ Salvo com sucesso!', 
