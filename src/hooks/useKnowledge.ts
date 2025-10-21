@@ -160,12 +160,14 @@ export function useKnowledge() {
         .from('knowledge_contents')
         .insert(sanitized)
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      toast({ title: 'Conteúdo criado com sucesso!' });
       return data;
     } catch (error) {
       console.error('Error inserting content:', error);
+      toast({ title: 'Erro ao criar conteúdo', variant: 'destructive' });
       throw error;
     } finally {
       setLoading(false);
@@ -176,17 +178,17 @@ export function useKnowledge() {
     setLoading(true);
     try {
       const sanitized = pickAllowed(updates) as any;
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('knowledge_contents')
         .update(sanitized)
-        .eq('id', id)
-        .select()
-        .single();
+        .eq('id', id);
 
       if (error) throw error;
-      return data;
+      toast({ title: 'Conteúdo atualizado com sucesso!' });
+      return true;
     } catch (error) {
       console.error('Error updating content:', error);
+      toast({ title: 'Erro ao atualizar conteúdo', variant: 'destructive' });
       throw error;
     } finally {
       setLoading(false);
