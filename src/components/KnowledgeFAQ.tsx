@@ -19,12 +19,17 @@ export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
   if (!faqs || faqs.length === 0) return null;
 
   return (
-    <section className="faq-section my-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl border border-blue-200 dark:border-blue-800">
+    <section className="faq-section mt-8 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-md">
       <div className="flex items-center gap-3 mb-6">
-        <HelpCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 m-0">
-          ❓ Perguntas Frequentes
-        </h2>
+        <HelpCircle className="w-6 h-6 text-black dark:text-white" />
+        <div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+            Perguntas Frequentes
+          </p>
+          <h2 className="text-lg font-extrabold uppercase text-black dark:text-white m-0">
+            ❓ FAQ
+          </h2>
+        </div>
       </div>
       
       <Accordion type="single" collapsible className="space-y-3">
@@ -32,7 +37,7 @@ export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
           <AccordionItem
             key={`faq-${index}`}
             value={`item-${index}`}
-            className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 px-4 overflow-hidden"
+            className="rounded-[20px] border-2 border-gray-200 dark:border-gray-700 px-4 overflow-hidden bg-white dark:bg-gray-900"
           >
             <AccordionTrigger className="text-left hover:no-underline py-4">
               <span className="font-semibold text-gray-900 dark:text-gray-100 pr-4">
