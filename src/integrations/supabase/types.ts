@@ -214,6 +214,7 @@ export type Database = {
           canva_template_url: string | null
           category_id: string | null
           content_html: string | null
+          content_image_alt: string | null
           content_image_url: string | null
           created_at: string | null
           excerpt: string
@@ -239,6 +240,7 @@ export type Database = {
           canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
+          content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
           excerpt: string
@@ -264,6 +266,7 @@ export type Database = {
           canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
+          content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
           excerpt?: string

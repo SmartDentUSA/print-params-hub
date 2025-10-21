@@ -76,6 +76,7 @@ Receba o texto bruto abaixo e:
     meta_description: '',
     og_image_url: '',
     content_image_url: '',
+    content_image_alt: '',
     canva_template_url: '',
     author_id: null as string | null,
     faqs: [] as Array<{ question: string; answer: string }>,
@@ -157,6 +158,7 @@ Receba o texto bruto abaixo e:
       active: content.active,
       recommended_resins: content.recommended_resins || [],
       content_image_url: (content as any).content_image_url || '',
+      content_image_alt: (content as any).content_image_alt || '',
       aiPromptTemplate: (content as any).ai_prompt_template || ''
     });
     
@@ -184,6 +186,7 @@ Receba o texto bruto abaixo e:
       meta_description: '',
       og_image_url: '',
       content_image_url: '',
+      content_image_alt: '',
       canva_template_url: '',
       author_id: null,
       faqs: [],
@@ -227,6 +230,7 @@ Receba o texto bruto abaixo e:
         meta_description: formData.meta_description,
         og_image_url: formData.og_image_url,
         content_image_url: formData.content_image_url,
+        content_image_alt: formData.content_image_alt,
         canva_template_url: formData.canva_template_url,
         file_url: formData.file_url,
         file_name: formData.file_name,
@@ -1048,7 +1052,7 @@ Receba o texto bruto abaixo e:
                             try {
                               const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
                               
-                              const contentData = {
+                const contentData = {
                                 title: formData.title,
                                 slug: formData.slug || generateSlug(formData.title),
                                 excerpt: formData.excerpt,
@@ -1057,6 +1061,7 @@ Receba o texto bruto abaixo e:
                                 meta_description: formData.meta_description,
                                 og_image_url: formData.og_image_url,
                                 content_image_url: formData.content_image_url,
+                                content_image_alt: formData.content_image_alt,
                                 canva_template_url: formData.canva_template_url,
                                 file_url: formData.file_url,
                                 file_name: formData.file_name,
@@ -1130,10 +1135,12 @@ Receba o texto bruto abaixo e:
                   <Label>Imagem Principal do Artigo (Hero)</Label>
                   <ImageUpload
                     currentImageUrl={formData.content_image_url}
-                    onImageUploaded={(url) => {
+                    currentImageAlt={formData.content_image_alt}
+                    onImageUploaded={(url, alt) => {
                       setFormData(prev => ({
                         ...prev,
                         content_image_url: url,
+                        content_image_alt: alt,
                         // ✅ Se OG estiver vazia, usa a Hero automaticamente
                         og_image_url: prev.og_image_url || url
                       }));

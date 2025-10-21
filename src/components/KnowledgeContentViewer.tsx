@@ -101,7 +101,10 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             <p className="lead">{content.excerpt}</p>
           </div>
           <div className="hero-image">
-            <img src={content.content_image_url || content.og_image_url} alt={content.title} />
+            <img 
+              src={content.content_image_url || content.og_image_url} 
+              alt={content.content_image_alt || content.title} 
+            />
           </div>
         </header>
       )}

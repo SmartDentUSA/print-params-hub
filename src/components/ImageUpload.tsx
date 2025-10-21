@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,16 +9,22 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ImageUploadProps {
   currentImageUrl?: string;
-  onImageUploaded: (imageUrl: string) => void;
+  currentImageAlt?: string;
+  onImageUploaded: (imageUrl: string, altText: string) => void;
   modelSlug: string;
   disabled?: boolean;
 }
 
-export function ImageUpload({ currentImageUrl, onImageUploaded, modelSlug, disabled }: ImageUploadProps) {
+export function ImageUpload({ currentImageUrl, currentImageAlt, onImageUploaded, modelSlug, disabled }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [altText, setAltText] = useState(currentImageAlt || '');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    setAltText(currentImageAlt || '');
+  }, [currentImageAlt]);
 
   const uploadImage = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -61,7 +67,7 @@ export function ImageUpload({ currentImageUrl, onImageUploaded, modelSlug, disab
         .getPublicUrl(filePath);
 
       console.log('Image uploaded to storage. Public URL:', data.publicUrl);
-      onImageUploaded(data.publicUrl);
+      onImageUploaded(data.publicUrl, '');
       
       toast({
         title: "Sucesso",
@@ -105,7 +111,8 @@ export function ImageUpload({ currentImageUrl, onImageUploaded, modelSlug, disab
 
   const removeImage = async () => {
     if (currentImageUrl) {
-      onImageUploaded('');
+      onImageUploaded('', '');
+      setAltText('');
       toast({
         title: "Sucesso",
         description: "Imagem removida.",
@@ -142,6 +149,24 @@ export function ImageUpload({ currentImageUrl, onImageUploaded, modelSlug, disab
               >
                 <X className="w-4 h-4" />
               </Button>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="image-alt">Texto Alternativo (Alt)</Label>
+              <Input
+                id="image-alt"
+                placeholder="Descreva a imagem para acessibilidade e SEO"
+                value={altText}
+                onChange={(e) => {
+                  const newAlt = e.target.value;
+                  setAltText(newAlt);
+                  onImageUploaded(currentImageUrl, newAlt);
+                }}
+                disabled={disabled}
+                maxLength={125}
+              />
+              <p className="text-xs text-muted-foreground">
+                Máx. 125 caracteres • Importante para SEO e acessibilidade
+              </p>
             </div>
           </div>
         ) : (
