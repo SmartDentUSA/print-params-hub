@@ -182,26 +182,38 @@ Receba o texto bruto abaixo e:
   };
 
   const handleSaveContent = async () => {
+    if (!formData.title || !formData.excerpt) {
+      toast({
+        title: "⚠️ Campos obrigatórios",
+        description: "Preencha Título e Resumo antes de salvar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
       
       const contentData = {
-        ...formData,
+        title: formData.title,
+        slug: formData.slug || generateSlug(formData.title),
+        excerpt: formData.excerpt,
+        content_html: formData.content_html,
+        icon_color: formData.icon_color,
+        meta_description: formData.meta_description,
+        og_image_url: formData.og_image_url,
+        content_image_url: formData.content_image_url,
+        canva_template_url: formData.canva_template_url,
+        file_url: formData.file_url,
+        file_name: formData.file_name,
+        author_id: formData.author_id,
+        faqs: formData.faqs,
+        order_index: formData.order_index,
+        active: formData.active,
         ai_prompt_template: formData.aiPromptTemplate || null,
         category_id: categoryId,
-        slug: formData.slug || generateSlug(formData.title),
-        recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
+        recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
       };
-
-      // 🔍 DEBUG: Log antes de salvar manualmente
-      console.log('🔍 handleSaveContent:', {
-        title: contentData.title,
-        excerpt: contentData.excerpt,
-        content_html_length: contentData.content_html?.length || 0,
-        has_content: !!contentData.content_html,
-        contentEditorMode,
-        editingContent: !!editingContent
-      });
 
       if (editingContent) {
         await updateContent(editingContent.id, contentData);
@@ -214,6 +226,8 @@ Receba o texto bruto abaixo e:
         for (const video of videos) {
           await insertVideo({ ...video, content_id: editingContent.id });
         }
+        
+        toast({ title: "✅ Conteúdo atualizado!" });
       } else {
         const newContent = await insertContent(contentData);
         if (newContent) {
@@ -221,12 +235,18 @@ Receba o texto bruto abaixo e:
             await insertVideo({ ...video, content_id: newContent.id });
           }
         }
+        toast({ title: "✅ Conteúdo criado!" });
       }
       
       setModalOpen(false);
-      loadContents();
-    } catch (error) {
-      console.error('Error saving content:', error);
+      await loadContents();
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar:', error);
+      toast({
+        title: "❌ Erro ao salvar",
+        description: error?.message || "Verifique os campos e tente novamente.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -763,74 +783,59 @@ Receba o texto bruto abaixo e:
                             }
                           }
                           
-                          // ✅ CORREÇÃO: Listar apenas campos válidos do banco
-                          try {
-                            const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
-                            
-                            const contentData = {
-                              // Campos básicos
-                              title: formData.title,
-                              slug: formData.slug || generateSlug(formData.title),
-                              excerpt: formData.excerpt,
-                              content_html: finalHTML,
-                              icon_color: formData.icon_color,
-                              meta_description: formData.meta_description,
-                              og_image_url: formData.og_image_url,
-                              content_image_url: formData.content_image_url,
-                              canva_template_url: formData.canva_template_url,
-                              file_url: formData.file_url,
-                              file_name: formData.file_name,
-                              author_id: formData.author_id,
-                              faqs: formData.faqs,
-                              order_index: formData.order_index,
-                              active: formData.active,
-                              ai_prompt_template: formData.aiPromptTemplate || null,
+                            try {
+                              const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
                               
-                              // Campos especiais
-                              category_id: categoryId,
-                              recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
-                            };
+                              const contentData = {
+                                title: formData.title,
+                                slug: formData.slug || generateSlug(formData.title),
+                                excerpt: formData.excerpt,
+                                content_html: finalHTML,
+                                icon_color: formData.icon_color,
+                                meta_description: formData.meta_description,
+                                og_image_url: formData.og_image_url,
+                                content_image_url: formData.content_image_url,
+                                canva_template_url: formData.canva_template_url,
+                                file_url: formData.file_url,
+                                file_name: formData.file_name,
+                                author_id: formData.author_id,
+                                faqs: formData.faqs,
+                                order_index: formData.order_index,
+                                active: formData.active,
+                                ai_prompt_template: formData.aiPromptTemplate || null,
+                                category_id: categoryId,
+                                recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
+                              };
 
-                            // 🔍 DEBUG: Log do contentData antes de salvar
-                            console.log('🔍 Salvando contentData:', {
-                              title: contentData.title,
-                              excerpt: contentData.excerpt,
-                              content_html_length: contentData.content_html?.length || 0,
-                              has_content: !!contentData.content_html
-                            });
-
-                            if (editingContent) {
-                              await updateContent(editingContent.id, contentData);
-                            } else {
-                              const newContent = await insertContent(contentData);
-                              if (newContent) {
-                                setEditingContent(newContent);
+                              if (editingContent) {
+                                await updateContent(editingContent.id, contentData);
+                              } else {
+                                const newContent = await insertContent(contentData);
+                                if (newContent) {
+                                  setEditingContent(newContent);
+                                }
                               }
+                              
+                              setFormData(prev => ({
+                                ...prev, 
+                                content_html: finalHTML
+                              }));
+                              
+                              toast({ 
+                                title: '✅ Salvo com sucesso!', 
+                                description: 'Conteúdo gerado e salvo automaticamente' 
+                              });
+                              
+                              await loadContents();
+                            } catch (error: any) {
+                              console.error('❌ Erro ao salvar:', error);
+                              toast({ 
+                                title: '❌ Erro ao salvar', 
+                                description: error?.message || 'Verifique os campos e tente novamente.', 
+                                variant: 'destructive' 
+                              });
+                              return;
                             }
-                            
-                            // ✅ FASE 2: Atualizar estado DEPOIS de salvar
-                            setFormData(prev => ({
-                              ...prev, 
-                              content_html: finalHTML // ✅ Atualizar com HTML mesclado
-                            }));
-                            
-                            // ✅ FASE 1: NÃO limpar generatedHTML/rawTextInput para preservar visualização
-                            toast({ 
-                              title: '✅ Salvo com sucesso!', 
-                              description: 'Conteúdo gerado e salvo automaticamente' 
-                            });
-                            
-                            // Recarregar lista
-                            await loadContents();
-                          } catch (error: any) {
-                            console.error('❌ Erro ao salvar:', error);
-                            toast({ 
-                              title: '❌ Erro ao salvar', 
-                              description: error.message || 'Verifique os campos e tente novamente', 
-                              variant: 'destructive' 
-                            });
-                            return; // ❌ NÃO limpar estados se falhar
-                          }
                         }}
                       >
                         💾 Inserir e Salvar Automaticamente
