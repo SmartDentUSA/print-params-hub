@@ -501,7 +501,44 @@ function formatAiReady(data: any) {
     parametrizacao: {
       marcas: data.brands || [],
       modelos: data.models || [],
-      parametros: data.parameter_sets || []
+      parametros: (data.parameter_sets || []).map((ps: any) => ({
+        id: ps.id,
+        marca: ps.brand_slug,
+        modelo: ps.model_slug,
+        resina_nome: ps.resin_name,
+        resina_fabricante: ps.resin_manufacturer,
+        
+        // Parâmetros de camada
+        altura_camada_mm: ps.layer_height,
+        tempo_cura_segundos: ps.cure_time,
+        tempo_cura_base_segundos: ps.bottom_cure_time,
+        camadas_base: ps.bottom_layers,
+        
+        // Parâmetros de luz
+        intensidade_luz_percentual: ps.light_intensity,
+        anti_aliasing: ps.anti_aliasing,
+        
+        // Parâmetros de movimento
+        distancia_elevacao_mm: ps.lift_distance,
+        velocidade_elevacao_mm_s: ps.lift_speed,
+        velocidade_retracao_mm_s: ps.retract_speed,
+        
+        // Ajustes dimensionais
+        ajuste_xy_x_percentual: ps.xy_adjustment_x_pct,
+        ajuste_xy_y_percentual: ps.xy_adjustment_y_pct,
+        compensacao_xy_mm: ps.xy_size_compensation,
+        
+        // Tempos de espera
+        tempo_espera_antes_cura_segundos: ps.wait_time_before_cure,
+        tempo_espera_depois_cura_segundos: ps.wait_time_after_cure,
+        tempo_espera_apos_elevacao_segundos: ps.wait_time_after_lift,
+        
+        // Metadados
+        observacoes: ps.notes,
+        ativo: ps.active,
+        criado_em: ps.created_at,
+        atualizado_em: ps.updated_at
+      }))
     },
     produtos: {
       resinas: (data.resins || []).map((r: any) => ({

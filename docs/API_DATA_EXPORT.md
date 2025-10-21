@@ -495,6 +495,80 @@ Formata dados especificamente para consumo por LLMs (ChatGPT, Claude, etc.).
 
 ---
 
+### Estrutura Completa dos Parâmetros Técnicos (formato ai_ready)
+
+Cada registro em `parametrizacao.parametros` contém **17 campos técnicos completos** com nomes em português e unidades explícitas:
+
+#### Identificação
+- `id`: UUID único do registro
+- `marca`: Slug da marca (ex: "elegoo")
+- `modelo`: Slug do modelo (ex: "mars-5-ultra")
+- `resina_nome`: Nome completo da resina (ex: "Smart Print Bio Vitality")
+- `resina_fabricante`: Fabricante da resina (ex: "Smart Dent")
+
+#### Parâmetros de Camada
+- `altura_camada_mm`: Altura de cada camada em milímetros (ex: 0.05)
+- `tempo_cura_segundos`: Tempo de exposição UV por camada em segundos (ex: 1.0)
+- `tempo_cura_base_segundos`: Tempo de exposição nas camadas iniciais de base em segundos (ex: 30.0)
+- `camadas_base`: Número de camadas de base para aderência à plataforma (ex: 8)
+
+#### Parâmetros de Luz
+- `intensidade_luz_percentual`: Potência da fonte UV em percentual (ex: 100)
+- `anti_aliasing`: Suavização de bordas (true/false)
+
+#### Parâmetros de Movimento
+- `distancia_elevacao_mm`: Altura de afastamento da resina após cura em milímetros (ex: 5.0)
+- `velocidade_elevacao_mm_s`: Velocidade ao subir a plataforma em mm/s (ex: 3.0)
+- `velocidade_retracao_mm_s`: Velocidade ao descer a plataforma em mm/s (ex: 3.0)
+
+#### Ajustes Dimensionais
+- `ajuste_xy_x_percentual`: Compensação dimensional no eixo X em percentual (ex: 100)
+- `ajuste_xy_y_percentual`: Compensação dimensional no eixo Y em percentual (ex: 100)
+- `compensacao_xy_mm`: Ajuste fino XY em milímetros (ex: 0.0)
+
+#### Tempos de Espera
+- `tempo_espera_antes_cura_segundos`: Pausa antes da exposição UV em segundos (ex: 0)
+- `tempo_espera_depois_cura_segundos`: Pausa após exposição UV em segundos (ex: 0)
+- `tempo_espera_apos_elevacao_segundos`: Pausa após movimento da plataforma em segundos (ex: 0)
+
+#### Metadados
+- `observacoes`: Notas e recomendações técnicas (texto livre)
+- `ativo`: Status do parâmetro (true/false)
+- `criado_em`: Data de criação do registro (ISO 8601)
+- `atualizado_em`: Data da última atualização (ISO 8601)
+
+**Exemplo de registro completo:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "marca": "elegoo",
+  "modelo": "mars-5-ultra",
+  "resina_nome": "Smart Print Bio Vitality",
+  "resina_fabricante": "Smart Dent",
+  "altura_camada_mm": 0.05,
+  "tempo_cura_segundos": 1.0,
+  "tempo_cura_base_segundos": 30.0,
+  "camadas_base": 8,
+  "intensidade_luz_percentual": 100,
+  "anti_aliasing": true,
+  "distancia_elevacao_mm": 5.0,
+  "velocidade_elevacao_mm_s": 3.0,
+  "velocidade_retracao_mm_s": 3.0,
+  "ajuste_xy_x_percentual": 100,
+  "ajuste_xy_y_percentual": 100,
+  "compensacao_xy_mm": 0.0,
+  "tempo_espera_antes_cura_segundos": 0,
+  "tempo_espera_depois_cura_segundos": 0,
+  "tempo_espera_apos_elevacao_segundos": 0,
+  "observacoes": "Perfil otimizado para detalhes finos em odontologia",
+  "ativo": true,
+  "criado_em": "2025-01-10T12:00:00Z",
+  "atualizado_em": "2025-01-15T14:30:00Z"
+}
+```
+
+---
+
 ## 💡 Exemplos de Uso
 
 ### Exemplo 1: Exportar TUDO para IA (uso principal)
