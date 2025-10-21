@@ -107,6 +107,37 @@
   line-height: 1.4 !important;
 }
 
+/* ============= FAQ SECTION ============= */
+
+.faq-section h2 {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  color: var(--kb-gray-900) !important;
+}
+
+.faq-section .accordion-item {
+  transition: all 0.2s ease;
+}
+
+.faq-section .accordion-item:hover {
+  box-shadow: var(--kb-shadow-sm);
+}
+
+.faq-section [data-state="open"] {
+  background: linear-gradient(to bottom, #eff6ff, #ffffff);
+}
+
+@media (max-width: 768px) {
+  .faq-section {
+    padding: 16px;
+  }
+  
+  .faq-section h2 {
+    font-size: 20px !important;
+  }
+}
+
 .knowledge-article p {
   margin-bottom: 16px;
   line-height: 1.7;

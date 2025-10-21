@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Badge } from '@/components/ui/badge';
+import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -179,6 +180,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
               />
             </div>
           )}
+
+        {/* FAQ Section - antes da assinatura do autor */}
+        {content.faqs && content.faqs.length > 0 && (
+          <KnowledgeFAQ faqs={content.faqs} />
+        )}
 
         {/* Author Signature - only show if token not in content */}
         {content.authors && !/\[\[ASSINATURA_AUTOR\]\]/i.test(content.content_html || '') && (
