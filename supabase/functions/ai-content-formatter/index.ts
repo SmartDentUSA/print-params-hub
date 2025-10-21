@@ -195,58 +195,61 @@ async function generateWithLovableAI(
     .map(([keyword, data]) => `"${keyword}" -> ${data.url} (prioridade: ${Math.round(data.priority)})`)
     .join('\n')
 
-const defaultPrompt = `Você é um ESPECIALISTA em HTML SEMÂNTICO e SEO ON-PAGE.
+const defaultPrompt = `Você é um ESPECIALISTA em HTML SEMÂNTICO com HIERARQUIA VISUAL FORTE.
 
-⚠️ OBRIGATÓRIO - ESTRUTURA VISUAL:
-- Use <div class="content-card"> para TODAS as seções principais
-- Use <div class="grid-benefits"> com MÍNIMO 3 <div class="benefit-card">
-- Use <div class="cta-panel"> pelo menos 2 vezes no artigo
-- Use <h2> para títulos de seção e <h3> dentro de cards
-- TODOS os parágrafos devem estar em <p> tags
+⚠️ ESTRUTURA OBRIGATÓRIA:
 
-⚠️ OBRIGATÓRIO - LINKS INTERNOS:
-- Insira EXATAMENTE 8-12 links internos usando as palavras-chave fornecidas
-- Formato: <a href="/url" title="descrição">palavra-chave</a>
-- Priorize keywords com maior prioridade
-- Use anchor text natural (não force)
-
-⚠️ OBRIGATÓRIO - CLASSES CSS:
-- .content-card (fundo cinza claro, padding, bordas arredondadas)
-- .grid-benefits (grid 3 colunas)
-- .benefit-card (card com ícone, título e descrição)
-- .cta-panel (destaque azul com call-to-action)
-- .badge e .badge-primary (etiquetas coloridas)
-
-⚠️ EXEMPLO OBRIGATÓRIO DE ESTRUTURA:
-<h2>Por que usar <a href="/impressoras-3d" title="Guia de impressoras 3D">impressoras 3D</a>?</h2>
-
-<div class="content-card">
-  <p>As <a href="/impressoras-resina" title="Impressoras de resina">impressoras de resina</a> revolucionaram a odontologia digital...</p>
+<section class="card">
+  <h2>🎯 Por que usar <a href="/impressoras-3d" title="Guia de impressoras 3D">impressoras 3D</a>?</h2>
+  <p>As <a href="/impressoras-resina" title="Impressoras de resina">impressoras de resina</a> revolucionaram...</p>
   <ul>
-    <li>Precisão de até 20 microns</li>
-    <li>Economia de 60% no tempo</li>
+    <li><strong>Precisão:</strong> Até 20 microns</li>
+    <li><strong>Economia:</strong> 60% no tempo</li>
   </ul>
-</div>
+</section>
 
-<div class="grid-benefits">
-  <div class="benefit-card">
-    <h3>⚡ Velocidade</h3>
-    <p>Reduza o tempo com <a href="/scanners" title="Scanners 3D">scanners de alta performance</a>.</p>
+<div class="grid-3">
+  <div class="benefit">
+    <h4>⚡ Velocidade</h4>
+    <p>Reduza o tempo com <a href="/scanners" title="Scanners 3D">scanners</a>.</p>
   </div>
-  <div class="benefit-card">
-    <h3>🎯 Precisão</h3>
-    <p>Alcance 5 microns de precisão.</p>
+  <div class="benefit">
+    <h4>🎯 Precisão</h4>
+    <p>Alcance 5 microns.</p>
   </div>
-  <div class="benefit-card">
-    <h3>💰 Economia</h3>
-    <p>Reduza custos operacionais.</p>
+  <div class="benefit">
+    <h4>💰 Economia</h4>
+    <p>Reduza custos.</p>
   </div>
 </div>
 
 <div class="cta-panel">
-  <h3>💡 Quer saber mais sobre resinas?</h3>
-  <p>Explore nosso guia completo</p>
+  <div class="ctatext">
+    <h3>💡 Quer saber mais sobre resinas?</h3>
+    <p>Explore nosso guia completo</p>
+  </div>
   <a href="/base-conhecimento/resinas" class="btn btn-primary">📖 Acessar Guia</a>
+</div>
+
+⚠️ TIPOGRAFIA:
+- H2 com border-left azul (já no CSS)
+- Links com title="" descritivo
+- Listas com <strong> nos títulos dos itens
+- Parágrafos justificados automaticamente (CSS)
+
+⚠️ LINKS INTERNOS:
+- EXATAMENTE 8-12 links por artigo
+- Formato: <a href="/url" title="descrição SEO">palavra-chave</a>
+- Priorize keywords com maior prioridade
+
+⚠️ IMAGENS:
+- Use <figure> com <figcaption> descritivo
+- Exemplo: <figure><img src="..." alt="..."><figcaption>Fonte: Smart Dent Lab</figcaption></figure>
+
+⚠️ RODAPÉ EMPRESA (OPCIONAL):
+<div class="company-footer-info">
+  <h3>🏢 Sobre a Smart Dent</h3>
+  <p>Referência em impressão 3D odontológica desde 2018...</p>
 </div>
 
 🎯 RETORNE: APENAS HTML PURO (sem markdown, sem \`\`\`html, sem explicações)
@@ -412,34 +415,30 @@ IMPORTANTE:
   const aiData = await response.json()
   let formattedHTML = aiData.choices[0].message.content
 
-  // 🆕 VALIDAÇÃO: Verificar se tem formatação mínima
-  const hasContentCard = formattedHTML.includes('content-card')
-  const hasBenefits = formattedHTML.includes('benefit-card')
-  const hasCTA = formattedHTML.includes('cta-panel')
+  // 🆕 VALIDAÇÃO: Verificar estrutura mínima
+  const hasCard = formattedHTML.includes('class="card"')
+  const hasGrid3 = formattedHTML.includes('class="grid-3"')
+  const hasBenefit = formattedHTML.includes('class="benefit"')
+  const hasCTA = formattedHTML.includes('class="cta-panel"')
   const linkCount = (formattedHTML.match(/<a href/g) || []).length
+  const h2Count = (formattedHTML.match(/<h2>/g) || []).length
+  const hasFigure = formattedHTML.includes('<figure>')
 
-  console.log('🔍 Validação de formatação:', {
-    hasContentCard,
-    hasBenefits,
+  console.log('✅ HTML validado:', {
+    hasCard,
+    hasGrid3,
+    hasBenefit,
     hasCTA,
-    linkCount
+    linkCount,
+    h2Count,
+    hasFigure
   })
 
-  if (!hasContentCard || !hasBenefits || !hasCTA || linkCount < 5) {
-    console.warn('⚠️ IA retornou HTML com formatação insuficiente:', {
-      hasContentCard,
-      hasBenefits,
-      hasCTA,
-      linkCount
-    })
-    
-    // Adicionar wrapper básico se necessário
-    if (!hasContentCard) {
-      formattedHTML = `<div class="content-card">${formattedHTML}</div>`
-    }
+  if (!hasCard || linkCount < 5 || h2Count < 2) {
+    console.warn('⚠️ HTML gerado com formatação insuficiente')
   }
 
-  console.log(`✅ HTML validado: ${linkCount} links inseridos, ${formattedHTML.length} chars`)
+  console.log(`✅ HTML final: ${linkCount} links, ${h2Count} h2, ${formattedHTML.length} chars`)
   return formattedHTML
 }
 

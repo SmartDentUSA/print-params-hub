@@ -18,6 +18,7 @@ import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/uti
 import { useToast } from '@/hooks/use-toast';
 import type { Editor } from '@tiptap/react';
 import { supabase } from '@/integrations/supabase/client';
+import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -38,6 +39,7 @@ export function AdminKnowledge() {
   const [rawTextInput, setRawTextInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHTML, setGeneratedHTML] = useState('');
+  const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
 Receba o texto bruto abaixo e:
@@ -654,12 +656,34 @@ Receba o texto bruto abaixo e:
                       </div>
                     </div>
                     
-                    {/* Preview COM CSS aplicado */}
-                    <div className="border rounded-lg p-6 bg-white dark:bg-card max-h-96 overflow-y-auto">
-                      <div 
-                        className="knowledge-article font-poppins"
-                        dangerouslySetInnerHTML={{__html: generatedHTML}} 
-                      />
+                    {/* 🆕 FASE 5: Device Mode Buttons */}
+                    <div className="flex gap-2 mb-2">
+                      <Button 
+                        size="sm" 
+                        variant={deviceMode === 'mobile' ? 'default' : 'outline'}
+                        onClick={() => setDeviceMode('mobile')}
+                      >
+                        📱 Mobile
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={deviceMode === 'tablet' ? 'default' : 'outline'}
+                        onClick={() => setDeviceMode('tablet')}
+                      >
+                        📱 Tablet
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={deviceMode === 'desktop' ? 'default' : 'outline'}
+                        onClick={() => setDeviceMode('desktop')}
+                      >
+                        💻 Desktop
+                      </Button>
+                    </div>
+                    
+                    {/* 🆕 FASE 5: Preview COM BlogPreviewFrame */}
+                    <div className="border rounded-lg bg-white dark:bg-card" style={{ height: '500px' }}>
+                      <BlogPreviewFrame htmlContent={generatedHTML} deviceMode={deviceMode} />
                     </div>
                     
                     {/* 🆕 FASE 4: Botão de preview do código HTML */}
@@ -697,8 +721,8 @@ Receba o texto bruto abaixo e:
                             });
                             return;
                           }
-
-                          // ✅ FASE 3: Validação de conteúdo gerado
+                          
+                          // ✅ Validação de conteúdo gerado
                           if (!generatedHTML || generatedHTML.trim().length === 0) {
                             toast({ 
                               title: '⚠️ Conteúdo vazio', 
@@ -708,15 +732,16 @@ Receba o texto bruto abaixo e:
                             return;
                           }
                           
-                          // ✅ FASE 1: MERGE - Extrair imagens do editor manual
-                          const editorHTML = formData.content_html || '';
+                          // 🆕 FASE 1: MERGE - Extrair imagens do editor manual
                           const extractImages = (html: string): string[] => {
                             const imgRegex = /<img[^>]+>/g;
                             return html.match(imgRegex) || [];
                           };
+                          
+                          const editorHTML = formData.content_html || '';
                           const manualImages = extractImages(editorHTML);
                           
-                          // ✅ FASE 1: MERGE - Adicionar imagens manuais ao conteúdo gerado pela IA
+                          // 🆕 FASE 1: MERGE - Adicionar imagens manuais ao conteúdo gerado pela IA
                           let finalHTML = generatedHTML;
                           if (manualImages.length > 0) {
                             console.log(`🖼️ ${manualImages.length} imagens encontradas no editor, fazendo merge...`);

@@ -158,7 +158,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
         {/* Rich Content */}
         {content.content_html && (
-          <div className="knowledge-article font-poppins">
+          <div className="knowledge-article blog-content font-poppins">
             <div 
               className="prose prose-sm sm:prose-base max-w-none break-words prose-headings:break-words prose-p:break-words prose-li:break-words"
               dangerouslySetInnerHTML={{ 
