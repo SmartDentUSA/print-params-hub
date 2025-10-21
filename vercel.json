@@ -6,7 +6,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(bot|crawler|spider|Googlebot|bingbot|slurp|DuckDuckBot|facebookexternalhit).*"
+          "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot).*"
         }
       ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy/:path*"
