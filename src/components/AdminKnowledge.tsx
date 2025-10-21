@@ -605,7 +605,21 @@ Receba o texto bruto abaixo e:
                       
                       if (error) throw error;
                       
-                      setGeneratedHTML(data.formattedHTML);
+                      const formattedHTML = data.formattedHTML;
+                      setGeneratedHTML(formattedHTML);
+                      
+                      // 🆕 FASE 4: DEBUG - Logs detalhados
+                      console.log('🤖 IA gerou HTML:', {
+                        length: formattedHTML.length,
+                        hasContentCard: formattedHTML.includes('content-card'),
+                        hasBenefits: formattedHTML.includes('benefit-card'),
+                        hasCTA: formattedHTML.includes('cta-panel'),
+                        hasGridBenefits: formattedHTML.includes('grid-benefits'),
+                        linkCount: (formattedHTML.match(/<a href/g) || []).length,
+                        h2Count: (formattedHTML.match(/<h2>/g) || []).length,
+                        preview: formattedHTML.substring(0, 500) + '...'
+                      });
+                      
                       toast({ title: '✅ Conteúdo gerado!', description: 'Revise o preview abaixo' });
                     } catch (err: any) {
                       toast({ title: '❌ Erro', description: err.message, variant: 'destructive' });
@@ -620,7 +634,25 @@ Receba o texto bruto abaixo e:
 
                 {generatedHTML && (
                   <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
-                    <p className="text-sm font-medium">✅ Conteúdo gerado:</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">✅ Conteúdo gerado:</p>
+                      
+                      {/* 🆕 FASE 4: Estatísticas visuais */}
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span className={generatedHTML.includes('content-card') ? 'text-green-600' : 'text-red-600'}>
+                          {generatedHTML.includes('content-card') ? '✅' : '⚠️'} Cards
+                        </span>
+                        <span className={generatedHTML.includes('benefit-card') ? 'text-green-600' : 'text-red-600'}>
+                          {generatedHTML.includes('benefit-card') ? '✅' : '⚠️'} Benefits
+                        </span>
+                        <span className={generatedHTML.includes('cta-panel') ? 'text-green-600' : 'text-red-600'}>
+                          {generatedHTML.includes('cta-panel') ? '✅' : '⚠️'} CTAs
+                        </span>
+                        <span className={(generatedHTML.match(/<a href/g) || []).length >= 5 ? 'text-green-600' : 'text-orange-600'}>
+                          🔗 {(generatedHTML.match(/<a href/g) || []).length} links
+                        </span>
+                      </div>
+                    </div>
                     
                     {/* Preview COM CSS aplicado */}
                     <div className="border rounded-lg p-6 bg-white dark:bg-card max-h-96 overflow-y-auto">
@@ -629,6 +661,16 @@ Receba o texto bruto abaixo e:
                         dangerouslySetInnerHTML={{__html: generatedHTML}} 
                       />
                     </div>
+                    
+                    {/* 🆕 FASE 4: Botão de preview do código HTML */}
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+                        🔍 Ver código HTML gerado
+                      </summary>
+                      <pre className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded overflow-auto max-h-40 text-xs">
+                        {generatedHTML}
+                      </pre>
+                    </details>
                     
                     {/* Botões */}
                     <div className="flex gap-2">
@@ -666,6 +708,32 @@ Receba o texto bruto abaixo e:
                             return;
                           }
                           
+                          // ✅ FASE 1: MERGE - Extrair imagens do editor manual
+                          const editorHTML = formData.content_html || '';
+                          const extractImages = (html: string): string[] => {
+                            const imgRegex = /<img[^>]+>/g;
+                            return html.match(imgRegex) || [];
+                          };
+                          const manualImages = extractImages(editorHTML);
+                          
+                          // ✅ FASE 1: MERGE - Adicionar imagens manuais ao conteúdo gerado pela IA
+                          let finalHTML = generatedHTML;
+                          if (manualImages.length > 0) {
+                            console.log(`🖼️ ${manualImages.length} imagens encontradas no editor, fazendo merge...`);
+                            // Inserir imagens no início do conteúdo (após o primeiro <h2>)
+                            const firstH2Index = finalHTML.indexOf('</h2>');
+                            if (firstH2Index !== -1) {
+                              const imageSection = manualImages
+                                .map(img => `<figure class="content-image">${img}<figcaption>Imagem ilustrativa</figcaption></figure>`)
+                                .join('\n');
+                              
+                              finalHTML = 
+                                finalHTML.substring(0, firstH2Index + 5) + 
+                                '\n' + imageSection + '\n' +
+                                finalHTML.substring(firstH2Index + 5);
+                            }
+                          }
+                          
                           // ✅ CORREÇÃO: Listar apenas campos válidos do banco
                           try {
                             const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
@@ -675,7 +743,7 @@ Receba o texto bruto abaixo e:
                               title: formData.title,
                               slug: formData.slug || generateSlug(formData.title),
                               excerpt: formData.excerpt,
-                              content_html: generatedHTML,
+                              content_html: finalHTML, // ✅ HTML mesclado (IA + imagens manuais)
                               icon_color: formData.icon_color,
                               meta_description: formData.meta_description,
                               og_image_url: formData.og_image_url,
@@ -712,7 +780,7 @@ Receba o texto bruto abaixo e:
                             // ✅ FASE 2: Atualizar estado DEPOIS de salvar
                             setFormData(prev => ({
                               ...prev, 
-                              content_html: generatedHTML
+                              content_html: finalHTML // ✅ Atualizar com HTML mesclado
                             }));
                             
                             // ✅ FASE 1: NÃO limpar generatedHTML/rawTextInput para preservar visualização

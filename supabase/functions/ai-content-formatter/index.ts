@@ -195,14 +195,61 @@ async function generateWithLovableAI(
     .map(([keyword, data]) => `"${keyword}" -> ${data.url} (prioridade: ${Math.round(data.priority)})`)
     .join('\n')
 
-  const defaultPrompt = `Você é um especialista em SEO e formatação de conteúdo.
+const defaultPrompt = `Você é um ESPECIALISTA em HTML SEMÂNTICO e SEO ON-PAGE.
 
-Receba o texto bruto abaixo e:
-1. Estruture em HTML semântico (<h2>, <h3>, <p>, <ul>, <blockquote>)
-2. Adicione classes CSS apropriadas (content-card, benefit-card, cta-panel)
-3. Otimize para SEO (use palavras-chave naturalmente)
-4. Insira links internos automaticamente quando encontrar palavras-chave relevantes
-5. Mantenha tom profissional e didático
+⚠️ OBRIGATÓRIO - ESTRUTURA VISUAL:
+- Use <div class="content-card"> para TODAS as seções principais
+- Use <div class="grid-benefits"> com MÍNIMO 3 <div class="benefit-card">
+- Use <div class="cta-panel"> pelo menos 2 vezes no artigo
+- Use <h2> para títulos de seção e <h3> dentro de cards
+- TODOS os parágrafos devem estar em <p> tags
+
+⚠️ OBRIGATÓRIO - LINKS INTERNOS:
+- Insira EXATAMENTE 8-12 links internos usando as palavras-chave fornecidas
+- Formato: <a href="/url" title="descrição">palavra-chave</a>
+- Priorize keywords com maior prioridade
+- Use anchor text natural (não force)
+
+⚠️ OBRIGATÓRIO - CLASSES CSS:
+- .content-card (fundo cinza claro, padding, bordas arredondadas)
+- .grid-benefits (grid 3 colunas)
+- .benefit-card (card com ícone, título e descrição)
+- .cta-panel (destaque azul com call-to-action)
+- .badge e .badge-primary (etiquetas coloridas)
+
+⚠️ EXEMPLO OBRIGATÓRIO DE ESTRUTURA:
+<h2>Por que usar <a href="/impressoras-3d" title="Guia de impressoras 3D">impressoras 3D</a>?</h2>
+
+<div class="content-card">
+  <p>As <a href="/impressoras-resina" title="Impressoras de resina">impressoras de resina</a> revolucionaram a odontologia digital...</p>
+  <ul>
+    <li>Precisão de até 20 microns</li>
+    <li>Economia de 60% no tempo</li>
+  </ul>
+</div>
+
+<div class="grid-benefits">
+  <div class="benefit-card">
+    <h3>⚡ Velocidade</h3>
+    <p>Reduza o tempo com <a href="/scanners" title="Scanners 3D">scanners de alta performance</a>.</p>
+  </div>
+  <div class="benefit-card">
+    <h3>🎯 Precisão</h3>
+    <p>Alcance 5 microns de precisão.</p>
+  </div>
+  <div class="benefit-card">
+    <h3>💰 Economia</h3>
+    <p>Reduza custos operacionais.</p>
+  </div>
+</div>
+
+<div class="cta-panel">
+  <h3>💡 Quer saber mais sobre resinas?</h3>
+  <p>Explore nosso guia completo</p>
+  <a href="/base-conhecimento/resinas" class="btn btn-primary">📖 Acessar Guia</a>
+</div>
+
+🎯 RETORNE: APENAS HTML PURO (sem markdown, sem \`\`\`html, sem explicações)
 6. **MANTENHA O CONTEÚDO ORIGINAL DO AUTOR**: Não insira nem retire frases, palavras ou informações que não existem no texto bruto fornecido
 7. **PRESERVE LINKS EXISTENTES**: Se houver URLs no texto bruto (ex: https://exemplo.com), mantenha-os como <a> tags no HTML final`
 
@@ -348,7 +395,7 @@ IMPORTANTE:
         { role: 'user', content: fullPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 4000
+      max_tokens: 8000
     })
   })
 
@@ -363,8 +410,36 @@ IMPORTANTE:
   }
 
   const aiData = await response.json()
-  const formattedHTML = aiData.choices[0].message.content
+  let formattedHTML = aiData.choices[0].message.content
 
+  // 🆕 VALIDAÇÃO: Verificar se tem formatação mínima
+  const hasContentCard = formattedHTML.includes('content-card')
+  const hasBenefits = formattedHTML.includes('benefit-card')
+  const hasCTA = formattedHTML.includes('cta-panel')
+  const linkCount = (formattedHTML.match(/<a href/g) || []).length
+
+  console.log('🔍 Validação de formatação:', {
+    hasContentCard,
+    hasBenefits,
+    hasCTA,
+    linkCount
+  })
+
+  if (!hasContentCard || !hasBenefits || !hasCTA || linkCount < 5) {
+    console.warn('⚠️ IA retornou HTML com formatação insuficiente:', {
+      hasContentCard,
+      hasBenefits,
+      hasCTA,
+      linkCount
+    })
+    
+    // Adicionar wrapper básico se necessário
+    if (!hasContentCard) {
+      formattedHTML = `<div class="content-card">${formattedHTML}</div>`
+    }
+  }
+
+  console.log(`✅ HTML validado: ${linkCount} links inseridos, ${formattedHTML.length} chars`)
   return formattedHTML
 }
 
