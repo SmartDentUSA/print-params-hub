@@ -107,6 +107,75 @@ export type Database = {
         }
         Relationships: []
       }
+      external_links: {
+        Row: {
+          ai_generated: boolean | null
+          approved: boolean | null
+          category: string | null
+          competition_level: string | null
+          cpc_estimate: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          keyword_type: string | null
+          last_used_at: string | null
+          monthly_searches: number | null
+          name: string
+          related_keywords: string[] | null
+          relevance_score: number | null
+          search_intent: string | null
+          source_products: string[] | null
+          subcategory: string | null
+          updated_at: string | null
+          url: string
+          usage_count: number | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          approved?: boolean | null
+          category?: string | null
+          competition_level?: string | null
+          cpc_estimate?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          keyword_type?: string | null
+          last_used_at?: string | null
+          monthly_searches?: number | null
+          name: string
+          related_keywords?: string[] | null
+          relevance_score?: number | null
+          search_intent?: string | null
+          source_products?: string[] | null
+          subcategory?: string | null
+          updated_at?: string | null
+          url: string
+          usage_count?: number | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          approved?: boolean | null
+          category?: string | null
+          competition_level?: string | null
+          cpc_estimate?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          keyword_type?: string | null
+          last_used_at?: string | null
+          monthly_searches?: number | null
+          name?: string
+          related_keywords?: string[] | null
+          relevance_score?: number | null
+          search_intent?: string | null
+          source_products?: string[] | null
+          subcategory?: string | null
+          updated_at?: string | null
+          url?: string
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       knowledge_categories: {
         Row: {
           created_at: string | null
@@ -151,6 +220,7 @@ export type Database = {
           file_url: string | null
           icon_color: string | null
           id: string
+          keyword_ids: string[] | null
           keywords: string[] | null
           meta_description: string | null
           og_image_url: string | null
@@ -173,6 +243,7 @@ export type Database = {
           file_url?: string | null
           icon_color?: string | null
           id?: string
+          keyword_ids?: string[] | null
           keywords?: string[] | null
           meta_description?: string | null
           og_image_url?: string | null
@@ -195,6 +266,7 @@ export type Database = {
           file_url?: string | null
           icon_color?: string | null
           id?: string
+          keyword_ids?: string[] | null
           keywords?: string[] | null
           meta_description?: string | null
           og_image_url?: string | null
@@ -399,6 +471,7 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          keyword_ids: string[] | null
           keywords: string[] | null
           manufacturer: string
           meta_description: string | null
@@ -427,6 +500,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          keyword_ids?: string[] | null
           keywords?: string[] | null
           manufacturer: string
           meta_description?: string | null
@@ -455,6 +529,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          keyword_ids?: string[] | null
           keywords?: string[] | null
           manufacturer?: string
           meta_description?: string | null

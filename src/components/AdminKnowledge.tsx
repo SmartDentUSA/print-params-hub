@@ -34,6 +34,19 @@ export function AdminKnowledge() {
   const [uploadingOg, setUploadingOg] = useState(false);
   const { toast } = useToast();
   
+  // AI Generation states
+  const [rawTextInput, setRawTextInput] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedHTML, setGeneratedHTML] = useState('');
+  const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
+
+Receba o texto bruto abaixo e:
+1. Estruture em HTML semântico (<h2>, <h3>, <p>, <ul>, <blockquote>)
+2. Adicione classes CSS apropriadas (content-card, benefit-card, cta-panel)
+3. Otimize para SEO (use palavras-chave naturalmente)
+4. Insira links internos automaticamente quando encontrar palavras-chave relevantes
+5. Mantenha tom profissional e didático`;
+  
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -50,7 +63,8 @@ export function AdminKnowledge() {
     faqs: [] as Array<{ question: string; answer: string }>,
     order_index: 0,
     active: true,
-    recommended_resins: [] as string[]
+    recommended_resins: [] as string[],
+    aiPromptTemplate: ''
   });
   
   const { 
@@ -118,7 +132,8 @@ export function AdminKnowledge() {
       faqs: content.faqs || [],
       order_index: content.order_index,
       active: content.active,
-      recommended_resins: content.recommended_resins || []
+      recommended_resins: content.recommended_resins || [],
+      aiPromptTemplate: ''
     });
     
     const vids = await fetchVideosByContent(content.id);
@@ -144,7 +159,8 @@ export function AdminKnowledge() {
       faqs: [],
       order_index: contents.length,
       active: true,
-      recommended_resins: []
+      recommended_resins: [],
+      aiPromptTemplate: ''
     });
     setVideos([]);
     setModalOpen(true);
@@ -409,8 +425,9 @@ export function AdminKnowledge() {
             </DialogHeader>
             
             <Tabs defaultValue="content">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="content">📝 Conteúdo</TabsTrigger>
+                <TabsTrigger value="ai-generation">🤖 IA</TabsTrigger>
                 <TabsTrigger value="seo">🔍 SEO</TabsTrigger>
                 <TabsTrigger value="faqs">❓ FAQs</TabsTrigger>
                 <TabsTrigger value="media">🎬 Mídias</TabsTrigger>
@@ -522,6 +539,79 @@ export function AdminKnowledge() {
                     </div>
                   )}
                 </div>
+              </TabsContent>
+
+              {/* AI Generation Tab */}
+              <TabsContent value="ai-generation" className="space-y-4">
+                <div>
+                  <Label>Prompt IA para padronização</Label>
+                  <Textarea
+                    value={formData.aiPromptTemplate || DEFAULT_AI_PROMPT}
+                    onChange={(e) => setFormData({...formData, aiPromptTemplate: e.target.value})}
+                    rows={8}
+                    placeholder="Configure como a IA deve formatar..."
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <Label>Cole o texto bruto aqui (Word, Gemini, Google Docs...)</Label>
+                  <Textarea
+                    value={rawTextInput}
+                    onChange={(e) => setRawTextInput(e.target.value)}
+                    rows={12}
+                    placeholder="Cole aqui o texto que deseja formatar automaticamente..."
+                  />
+                </div>
+
+                <Button 
+                  onClick={async () => {
+                    if (!rawTextInput) {
+                      toast({ title: 'Erro', description: 'Cole um texto primeiro', variant: 'destructive' });
+                      return;
+                    }
+                    setIsGenerating(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('ai-content-formatter', {
+                        body: {
+                          prompt: formData.aiPromptTemplate || DEFAULT_AI_PROMPT,
+                          rawText: rawTextInput,
+                          categoryLetter: selectedCategory
+                        }
+                      });
+                      
+                      if (error) throw error;
+                      
+                      setGeneratedHTML(data.formattedHTML);
+                      toast({ title: '✅ Conteúdo gerado!', description: 'Clique em "Inserir no Editor" para usar' });
+                    } catch (err: any) {
+                      toast({ title: '❌ Erro', description: err.message, variant: 'destructive' });
+                    } finally {
+                      setIsGenerating(false);
+                    }
+                  }}
+                  disabled={!rawTextInput || isGenerating}
+                >
+                  {isGenerating ? '⏳ Gerando...' : '🚀 Gerar por IA'}
+                </Button>
+
+                {generatedHTML && (
+                  <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                    <p className="text-sm font-medium">✅ Conteúdo gerado:</p>
+                    <div 
+                      dangerouslySetInnerHTML={{__html: generatedHTML}} 
+                      className="text-sm max-h-64 overflow-y-auto border rounded p-3 bg-card"
+                    />
+                    <Button onClick={() => {
+                      setFormData({...formData, content_html: generatedHTML});
+                      setGeneratedHTML('');
+                      setRawTextInput('');
+                      toast({ title: '✅ Inserido!', description: 'Conteúdo adicionado ao editor' });
+                    }}>
+                      ➕ Inserir no Editor
+                    </Button>
+                  </div>
+                )}
               </TabsContent>
 
               {/* SEO Tab */}

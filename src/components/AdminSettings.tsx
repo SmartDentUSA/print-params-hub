@@ -84,6 +84,7 @@ export function AdminSettings() {
   const [cta3Label, setCta3Label] = useState<string>("");
   const [cta3Url, setCta3Url] = useState<string>("");
   const [savingCta3, setSavingCta3] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const { toast } = useToast();
   const { loading: maintenanceLoading, getInactiveStats, reactivateAllInactive, reactivateInactiveSince } = useAdminMaintenance();
@@ -413,7 +414,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -441,6 +442,10 @@ export function AdminSettings() {
               <TabsTrigger value="data" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
                 Dados
+              </TabsTrigger>
+              <TabsTrigger value="kb-sync" className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4" />
+                KB Sync
               </TabsTrigger>
             </TabsList>
 
