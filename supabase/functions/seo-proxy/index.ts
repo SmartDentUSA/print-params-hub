@@ -553,10 +553,48 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     return '';
   }
 
+  // Buscar vídeos relacionados ao artigo
+  const { data: videos } = await supabase
+    .from('knowledge_videos')
+    .select('*')
+    .eq('content_id', content.id)
+    .order('order_index');
+
   const desc = content.meta_description || content.excerpt || 
     (content.content_html?.replace(/<[^>]*>/g, '').substring(0, 160) + '...');
 
   const baseUrl = 'https://parametros.smartdent.com.br';
+
+  // Gerar VideoObject schemas
+  const videoSchemas = (videos || []).map((video: any, idx: number) => {
+    const videoId = video.url.includes('youtube.com/watch?v=') 
+      ? video.url.split('v=')[1]?.split('&')[0] 
+      : video.url.split('youtu.be/')[1]?.split('?')[0];
+    
+    return {
+      "@type": "VideoObject",
+      "name": video.title || `${content.title} - Vídeo ${idx + 1}`,
+      "description": content.meta_description || content.excerpt,
+      "thumbnailUrl": videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url,
+      "uploadDate": content.created_at,
+      "contentUrl": video.url,
+      "embedUrl": video.url.replace('watch?v=', 'embed/'),
+      "duration": "PT15M"
+    };
+  });
+
+  // Gerar FAQPage schema se houver FAQs
+  const faqSchema = (content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0) ? {
+    "@type": "FAQPage",
+    "mainEntity": content.faqs.map((faq: any) => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
+      }
+    }))
+  } : null;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -564,45 +602,118 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
+  
+  <!-- Open Graph -->
   <meta property="og:title" content="${escapeHtml(content.title)}" />
   <meta property="og:description" content="${escapeHtml(content.excerpt || desc)}" />
-  <meta property="og:image" content="${content.og_image_url || `${baseUrl}/og-image.jpg`}" />
   <meta property="og:type" content="article" />
-  ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
+  ${content.og_image_url || content.content_image_url ? `
+  <meta property="og:image" content="${content.og_image_url || content.content_image_url}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
+  <meta property="article:published_time" content="${content.created_at}" />
+  <meta property="article:modified_time" content="${content.updated_at}" />
+  ${content.authors?.name ? `<meta property="article:author" content="${escapeHtml(content.authors.name)}" />` : ''}
+  
+  <!-- Twitter Card -->
+  ${videos && videos.length > 0 ? `
+  <meta name="twitter:card" content="player" />
+  <meta name="twitter:player" content="${videos[0].url.replace('watch?v=', 'embed/')}" />
+  <meta name="twitter:player:width" content="1280" />
+  <meta name="twitter:player:height" content="720" />` : content.og_image_url || content.content_image_url ? `
+  <meta name="twitter:card" content="summary_large_image" />` : `
+  <meta name="twitter:card" content="summary" />`}
+  <meta name="twitter:title" content="${escapeHtml(content.title)}" />
+  <meta name="twitter:description" content="${escapeHtml(content.excerpt || desc)}" />
+  ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image" content="${content.og_image_url || content.content_image_url}" />` : ''}
+  
+  <!-- Structured Data: @graph com todos os schemas -->
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": escapeHtml(content.title),
-    "description": escapeHtml(content.excerpt || desc),
-    "image": content.og_image_url,
-    "datePublished": content.created_at,
-    "dateModified": content.updated_at,
-    "author": content.authors ? {
-      "@type": "Person",
-      "name": escapeHtml(content.authors.name),
-      "url": content.authors.website_url
-    } : undefined
+    "@graph": [
+      {
+        "@type": "Article",
+        "headline": escapeHtml(content.title),
+        "description": escapeHtml(content.excerpt || desc),
+        "image": content.og_image_url || content.content_image_url,
+        "datePublished": content.created_at,
+        "dateModified": content.updated_at,
+        "keywords": content.keywords?.join(', ') || undefined,
+        "author": content.authors ? {
+          "@type": "Person",
+          "name": escapeHtml(content.authors.name),
+          "url": content.authors.website_url,
+          "image": content.authors.photo_url
+        } : {
+          "@type": "Organization",
+          "name": "Smart Dent"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Smart Dent",
+          "logo": {
+            "@type": "ImageObject",
+            "url": `${baseUrl}/og-image.jpg`
+          }
+        }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
+          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/base-conhecimento/${letter}/${slug}` }
+        ]
+      },
+      ...videoSchemas,
+      ...(faqSchema ? [faqSchema] : [])
+    ]
   })}
   </script>
+  
+  <!-- Organization Schema -->
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
-      { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
-      { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/base-conhecimento/${letter}/${slug}` }
+    "@type": "Organization",
+    "name": "Smart Dent",
+    "url": baseUrl,
+    "logo": `${baseUrl}/og-image.jpg`,
+    "description": "Base de conhecimento sobre impressão 3D odontológica",
+    "sameAs": [
+      "https://www.instagram.com/smartdent.br/",
+      "https://www.youtube.com/@smartdent",
+      "https://www.facebook.com/smartdent.br/"
     ]
   })}
   </script>
 </head>
 <body>
   <article>
+    ${content.content_image_url ? `
+    <img 
+      src="${content.content_image_url}" 
+      alt="${escapeHtml(content.content_image_alt || content.title)}"
+      width="1200"
+      height="630"
+    />` : ''}
     <h1>${escapeHtml(content.title)}</h1>
     <p>${escapeHtml(content.excerpt)}</p>
     ${content.content_html || ''}
+    
+    ${content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0 ? `
+    <section>
+      <h2>Perguntas Frequentes</h2>
+      ${content.faqs.map((faq: any) => `
+      <div>
+        <h3>${escapeHtml(faq.question)}</h3>
+        <p>${escapeHtml(faq.answer)}</p>
+      </div>`).join('')}
+    </section>` : ''}
   </article>
   <script>
   (function() {
