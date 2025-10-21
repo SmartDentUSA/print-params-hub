@@ -276,56 +276,57 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
 }
 
 async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug: string, supabase: any): Promise<string> {
-  // Buscar dados da resina com JOIN em parameter_sets para obter parâmetros técnicos
-  const { data: resinWithParams, error } = await supabase
-    .from('resins')
-    .select(`
-      *,
-      parameter_sets!inner(
-        layer_height,
-        cure_time,
-        bottom_cure_time,
-        light_intensity,
-        bottom_layers,
-        lift_distance,
-        lift_speed,
-        notes
-      )
-    `)
-    .eq('parameter_sets.brand_slug', brandSlug)
-    .eq('parameter_sets.model_slug', modelSlug)
-    .eq('parameter_sets.active', true)
-    .eq('active', true)
-    .limit(100);
+  // Buscar parameter_sets primeiro
+  const { data: paramSets, error: paramError } = await supabase
+    .from('parameter_sets')
+    .select('*')
+    .eq('brand_slug', brandSlug)
+    .eq('model_slug', modelSlug)
+    .eq('active', true);
 
-  if (error) {
-    console.error('Supabase error fetching resin data:', error.message);
+  if (paramError) {
+    console.error('Supabase error fetching parameter_sets:', paramError.message);
     return '';
   }
 
-  if (!resinWithParams || resinWithParams.length === 0) {
-    console.log('No resin found for:', brandSlug, modelSlug, resinSlug);
+  if (!paramSets || paramSets.length === 0) {
+    console.log('No parameter_sets found for:', brandSlug, modelSlug);
     return '';
   }
 
-  // FASE 4: Matching robusto de slugs
-  const resinData = resinWithParams.find((r: any) => {
-    const dbSlug = r.slug ? normalizeSlug(r.slug) : normalizeSlug(`${r.manufacturer}-${r.name}`);
+  // FASE 4: Matching robusto de slugs para encontrar o parameter_set correto
+  const paramData = paramSets.find((p: any) => {
+    const dbSlug = normalizeSlug(`${p.resin_manufacturer}-${p.resin_name}`);
     const requestSlug = normalizeSlug(resinSlug);
     return dbSlug === requestSlug;
-  }) || resinWithParams[0];
+  }) || paramSets[0];
 
-  // Pegar primeiro parameter_set (pode ter múltiplos, mas usamos o primeiro)
-  const params = Array.isArray(resinData.parameter_sets) ? resinData.parameter_sets[0] : resinData.parameter_sets;
+  // Buscar dados da resina separadamente
+  const { data: resinData, error: resinError } = await supabase
+    .from('resins')
+    .select('*')
+    .eq('manufacturer', paramData.resin_manufacturer)
+    .eq('name', paramData.resin_name)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (resinError) {
+    console.error('Supabase error fetching resin:', resinError.message);
+  }
+
+  // Usar parameter_set como fonte principal
+  const params = paramData;
 
   const baseUrl = 'https://parametros.smartdent.com.br';
   
-  // Usar campos SEO da tabela resins
-  const seoTitle = resinData.seo_title_override || `${escapeHtml(resinData.name)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
-  const metaDescription = resinData.meta_description || `Parâmetros profissionais testados: ${escapeHtml(resinData.name)}. Layer: ${params.layer_height}mm, Cure: ${params.cure_time}s, Luz: ${params.light_intensity}%.`;
-  const canonicalUrl = resinData.canonical_url || `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`;
-  const ogImage = resinData.og_image_url || resinData.image_url || `${baseUrl}/og-image.jpg`;
-  const keywords = resinData.keywords || [];
+  // Usar campos SEO da tabela resins se disponível
+  const resinName = params.resin_name;
+  const resinManufacturer = params.resin_manufacturer;
+  const seoTitle = resinData?.seo_title_override || `${escapeHtml(resinName)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
+  const metaDescription = resinData?.meta_description || `Parâmetros profissionais testados: ${escapeHtml(resinName)}. Layer: ${params.layer_height}mm, Cure: ${params.cure_time}s, Luz: ${params.light_intensity}%.`;
+  const canonicalUrl = resinData?.canonical_url || `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`;
+  const ogImage = resinData?.og_image_url || resinData?.image_url || `${baseUrl}/og-image.jpg`;
+  const keywords = resinData?.keywords || [];
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -352,19 +353,19 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@type": "Product",
-    "name": escapeHtml(resinData.name),
-    "description": resinData.description || `Resina ${escapeHtml(resinData.name)} com parâmetros otimizados`,
+    "name": escapeHtml(resinName),
+    "description": resinData?.description || `Resina ${escapeHtml(resinName)} com parâmetros otimizados`,
     "brand": {
       "@type": "Brand",
-      "name": escapeHtml(resinData.manufacturer)
+      "name": escapeHtml(resinManufacturer)
     },
     "image": ogImage,
     "offers": {
       "@type": "Offer",
       "availability": "https://schema.org/InStock",
       "url": canonicalUrl,
-      "price": resinData.price || undefined,
-      "priceCurrency": resinData.price ? "BRL" : undefined
+      "price": resinData?.price || undefined,
+      "priceCurrency": resinData?.price ? "BRL" : undefined
     },
     "additionalProperty": [
       { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
@@ -381,14 +382,14 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
       { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
       { "@type": "ListItem", "position": 2, "name": escapeHtml(brandSlug), "item": `${baseUrl}/${brandSlug}` },
       { "@type": "ListItem", "position": 3, "name": escapeHtml(modelSlug), "item": `${baseUrl}/${brandSlug}/${modelSlug}` },
-      { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinData.manufacturer)} ${escapeHtml(resinData.name)}`, "item": canonicalUrl }
+      { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinManufacturer)} ${escapeHtml(resinName)}`, "item": canonicalUrl }
     ]
   })}
   </script>
 </head>
 <body>
-  <h1>${escapeHtml(resinData.name)}</h1>
-  <p>${resinData.description || `Parâmetros profissionais testados para ${escapeHtml(resinData.name)} na impressora ${escapeHtml(modelSlug)}.`}</p>
+  <h1>${escapeHtml(resinName)}</h1>
+  <p>${resinData?.description || `Parâmetros profissionais testados para ${escapeHtml(resinName)} na impressora ${escapeHtml(modelSlug)}.`}</p>
   <h2>Parâmetros de Impressão</h2>
   <ul>
     <li><strong>Layer Height:</strong> ${params.layer_height}mm</li>
@@ -400,7 +401,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     <li><strong>Lift Speed:</strong> ${params.lift_speed || 3}mm/s</li>
   </ul>
   ${params.notes ? `<p><strong>Observações:</strong> ${escapeHtml(params.notes)}</p>` : ''}
-  ${resinData.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
+  ${resinData?.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
@@ -909,7 +910,7 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const url = new URL(req.url);
-  const path = url.pathname;
+  const path = url.pathname.replace(/^\/seo-proxy/, ''); // Remove prefixo se existir
   const segments = path.split('/').filter(Boolean);
 
   console.log('SEO Proxy:', { path, segments, userAgent });
@@ -923,7 +924,7 @@ Deno.serve(async (req) => {
       html = await generateSystemACatalogHTML('video_testimonial', segments[1], supabase);
     } else if (segments[0] === 'categorias' && segments.length === 2) {
       html = await generateSystemACatalogHTML('category_config', segments[1], supabase);
-    } else if (segments[0] === 'base-conhecimento') {
+    } else if (segments[0] === 'conhecimento') {
       if (segments.length === 1) {
         html = await generateKnowledgeHubHTML(supabase);
       } else if (segments.length === 2) {
