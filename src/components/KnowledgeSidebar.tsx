@@ -8,6 +8,7 @@ interface Content {
   excerpt: string;
   icon_color: string;
   og_image_url?: string;
+  content_image_url?: string;
 }
 
 interface KnowledgeSidebarProps {
@@ -38,10 +39,10 @@ export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: Kn
           onClick={() => onContentSelect(content.slug)}
         >
           {/* Imagem de destaque */}
-          {content.og_image_url && (
+          {(content.content_image_url || content.og_image_url) && (
             <div className="w-full aspect-[1.91/1] overflow-hidden">
               <img 
-                src={content.og_image_url} 
+                src={content.content_image_url || content.og_image_url} 
                 alt={content.title}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
               />

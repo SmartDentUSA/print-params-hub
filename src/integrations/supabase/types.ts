@@ -209,10 +209,12 @@ export type Database = {
       knowledge_contents: {
         Row: {
           active: boolean | null
+          ai_prompt_template: string | null
           author_id: string | null
           canva_template_url: string | null
           category_id: string | null
           content_html: string | null
+          content_image_url: string | null
           created_at: string | null
           excerpt: string
           faqs: Json | null
@@ -232,10 +234,12 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          ai_prompt_template?: string | null
           author_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
+          content_image_url?: string | null
           created_at?: string | null
           excerpt: string
           faqs?: Json | null
@@ -255,10 +259,12 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          ai_prompt_template?: string | null
           author_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
+          content_image_url?: string | null
           created_at?: string | null
           excerpt?: string
           faqs?: Json | null

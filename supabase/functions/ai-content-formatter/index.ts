@@ -100,15 +100,18 @@ async function fetchKeywordsRepository(
     }
   }
 
-  // 2. Buscar knowledge_contents
+  // 2. Buscar knowledge_contents com letra da categoria
   const { data: knowledgeContents } = await supabase
     .from('knowledge_contents')
-    .select('id, title, slug, category_id, keywords')
+    .select('id, title, slug, keywords, knowledge_categories!inner(letter)')
     .eq('active', true)
 
   if (knowledgeContents) {
     for (const content of knowledgeContents) {
-      const url = `/base-conhecimento/${content.category_id}/${content.slug}`
+      const categoryLetter = (content as any).knowledge_categories?.letter?.toLowerCase() || ''
+      if (!categoryLetter) continue
+      
+      const url = `/base-conhecimento/${categoryLetter}/${content.slug}`
       const basePriority = 50
 
       // Adicionar título

@@ -12,6 +12,7 @@ import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink } from 'lucide-
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ResinMultiSelect } from '@/components/ResinMultiSelect';
+import { ImageUpload } from '@/components/ImageUpload';
 import { useAuthors } from '@/hooks/useAuthors';
 import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -60,6 +61,7 @@ Receba o texto bruto abaixo e:
     file_name: '',
     meta_description: '',
     og_image_url: '',
+    content_image_url: '',
     canva_template_url: '',
     author_id: null as string | null,
     faqs: [] as Array<{ question: string; answer: string }>,
@@ -135,7 +137,8 @@ Receba o texto bruto abaixo e:
       order_index: content.order_index,
       active: content.active,
       recommended_resins: content.recommended_resins || [],
-      aiPromptTemplate: (content as any).ai_prompt_template || '' // ✅ FASE 2: Carregar prompt ao editar
+      content_image_url: (content as any).content_image_url || '',
+      aiPromptTemplate: (content as any).ai_prompt_template || ''
     });
     
     const vids = await fetchVideosByContent(content.id);
@@ -156,6 +159,7 @@ Receba o texto bruto abaixo e:
       file_name: '',
       meta_description: '',
       og_image_url: '',
+      content_image_url: '',
       canva_template_url: '',
       author_id: null,
       faqs: [],
@@ -183,7 +187,7 @@ Receba o texto bruto abaixo e:
       
       const contentData = {
         ...formData,
-        ai_prompt_template: formData.aiPromptTemplate || null, // ✅ FASE 2: Salvar prompt customizado
+        ai_prompt_template: formData.aiPromptTemplate || null,
         category_id: categoryId,
         slug: formData.slug || generateSlug(formData.title),
         recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
@@ -768,10 +772,11 @@ Receba o texto bruto abaixo e:
                               title: formData.title,
                               slug: formData.slug || generateSlug(formData.title),
                               excerpt: formData.excerpt,
-                              content_html: finalHTML, // ✅ HTML mesclado (IA + imagens manuais)
+                              content_html: finalHTML,
                               icon_color: formData.icon_color,
                               meta_description: formData.meta_description,
                               og_image_url: formData.og_image_url,
+                              content_image_url: formData.content_image_url,
                               canva_template_url: formData.canva_template_url,
                               file_url: formData.file_url,
                               file_name: formData.file_name,
@@ -779,6 +784,7 @@ Receba o texto bruto abaixo e:
                               faqs: formData.faqs,
                               order_index: formData.order_index,
                               active: formData.active,
+                              ai_prompt_template: formData.aiPromptTemplate || null,
                               
                               // Campos especiais
                               category_id: categoryId,
@@ -852,13 +858,29 @@ Receba o texto bruto abaixo e:
                     onChange={(e) => setFormData({...formData, meta_description: e.target.value})}
                   />
                 </div>
+                {/* Content Hero Image Upload */}
+                <div className="space-y-2">
+                  <Label>Imagem Principal do Artigo (Hero)</Label>
+                  <ImageUpload
+                    currentImageUrl={formData.content_image_url}
+                    onImageUploaded={(url) => setFormData(prev => ({ ...prev, content_image_url: url }))}
+                    modelSlug={formData.slug || 'hero-temp'}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Imagem principal exibida nos cards e no topo do artigo
+                  </p>
+                </div>
+
                 <div className="space-y-3">
-                  <Label>Imagem OG</Label>
+                  <Label>Imagem OG (Open Graph) - Redes Sociais</Label>
                   <Input 
                     placeholder="https://... (ou envie abaixo)" 
                     value={formData.og_image_url}
                     onChange={(e) => setFormData({...formData, og_image_url: e.target.value})}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Imagem 1200x630px para compartilhamento em redes sociais (opcional se já houver Hero)
+                  </p>
                   
                   {/* Preview and Remove */}
                   {formData.og_image_url && (

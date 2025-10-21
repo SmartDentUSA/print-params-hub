@@ -89,6 +89,22 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       />
       <Breadcrumb items={breadcrumbItems} />
       
+      {/* Hero Section with Category and Title */}
+      {(content.content_image_url || content.og_image_url) && (
+        <header className="hero mb-6">
+          <div>
+            {content.knowledge_categories?.name && (
+              <span className="eyebrow">{content.knowledge_categories.name}</span>
+            )}
+            <h1>{content.title}</h1>
+            <p className="lead">{content.excerpt}</p>
+          </div>
+          <div className="hero-image">
+            <img src={content.content_image_url || content.og_image_url} alt={content.title} />
+          </div>
+        </header>
+      )}
+      
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
         {/* Language Badge - only show if not PT */}
         {language !== 'pt' && (
