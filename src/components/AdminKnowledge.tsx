@@ -646,11 +646,21 @@ Receba o texto bruto abaixo e:
                       {/* Botão 2: Inserir e salvar automaticamente */}
                       <Button 
                         onClick={async () => {
-                          // Validação
+                          // Validação: Campos obrigatórios
                           if (!formData.title || !formData.excerpt) {
                             toast({ 
                               title: '⚠️ Campos obrigatórios', 
                               description: 'Preencha Título e Resumo antes de salvar', 
+                              variant: 'destructive' 
+                            });
+                            return;
+                          }
+
+                          // ✅ FASE 3: Validação de conteúdo gerado
+                          if (!generatedHTML || generatedHTML.trim().length === 0) {
+                            toast({ 
+                              title: '⚠️ Conteúdo vazio', 
+                              description: 'Gere o conteúdo com IA antes de salvar', 
                               variant: 'destructive' 
                             });
                             return;
@@ -699,12 +709,13 @@ Receba o texto bruto abaixo e:
                               }
                             }
                             
-                            // ✅ Atualizar estado DEPOIS de salvar
-                            setFormData({...formData, content_html: generatedHTML});
+                            // ✅ FASE 2: Atualizar estado DEPOIS de salvar
+                            setFormData(prev => ({
+                              ...prev, 
+                              content_html: generatedHTML
+                            }));
                             
-                            // Limpar estados
-                            setGeneratedHTML('');
-                            setRawTextInput('');
+                            // ✅ FASE 1: NÃO limpar generatedHTML/rawTextInput para preservar visualização
                             toast({ 
                               title: '✅ Salvo com sucesso!', 
                               description: 'Conteúdo gerado e salvo automaticamente' 
