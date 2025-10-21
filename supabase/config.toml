@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.test-api-viewer]
 verify_jwt = false
+
+[functions.ai-metadata-generator]
+verify_jwt = true

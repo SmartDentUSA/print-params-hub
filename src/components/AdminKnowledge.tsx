@@ -20,6 +20,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Editor } from '@tiptap/react';
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
+import { useExternalLinks } from '@/hooks/useExternalLinks';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -54,6 +56,11 @@ export function AdminKnowledge() {
   });
   const [pendingAutoSave, setPendingAutoSave] = useState(false);
   const [previousHTML, setPreviousHTML] = useState<string | null>(null);
+  
+  // Metadata generation states
+  const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
+  const [showKeywords, setShowKeywords] = useState(false);
+  const { keywords } = useExternalLinks();
   
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
@@ -743,8 +750,11 @@ Receba o texto bruto abaixo e:
                     }}
                     rows={8}
                     placeholder="Configure como a IA deve formatar..."
-                    className="font-mono text-sm"
+                     className="font-mono text-sm"
                   />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    💡 <strong>Nota:</strong> A IA recebe automaticamente as palavras-chave aprovadas listadas abaixo e as usa para criar hyperlinks no conteúdo.
+                  </p>
                   
                   {/* Botões Salvar Prompt e Restaurar */}
                   <div className="flex gap-2">
@@ -792,9 +802,54 @@ Receba o texto bruto abaixo e:
                         setPromptEdited(true);
                       }}
                     >
-                      🔄 Restaurar padrão
+                     🔄 Restaurar padrão
                     </Button>
                   </div>
+                </div>
+
+                {/* 🆕 Lista de Keywords Disponíveis */}
+                <div className="p-4 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-purple-900 dark:text-purple-100">
+                      🔗 Palavras-chave disponíveis para hyperlinks
+                    </h4>
+                    <Button size="sm" variant="ghost" onClick={() => setShowKeywords(!showKeywords)}>
+                      {showKeywords ? '▼ Ocultar' : '▶ Mostrar'}
+                    </Button>
+                  </div>
+                  
+                  {showKeywords && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-purple-800 dark:text-purple-200">
+                        A IA usará automaticamente estas palavras-chave para criar hyperlinks no conteúdo gerado:
+                      </p>
+                      
+                      <ScrollArea className="h-[200px] w-full rounded-md border border-purple-300 dark:border-purple-700 p-3 bg-white dark:bg-card">
+                        <div className="space-y-2">
+                          {keywords.map((kw) => (
+                            <div key={kw.id} className="flex items-start gap-2 text-xs p-2 bg-purple-100 dark:bg-purple-900/30 rounded">
+                              <span className="font-mono text-purple-900 dark:text-purple-100 font-semibold">
+                                {kw.name}
+                              </span>
+                              <span className="text-purple-600 dark:text-purple-400">→</span>
+                              <a 
+                                href={kw.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-purple-700 dark:text-purple-300 hover:underline truncate flex-1"
+                              >
+                                {kw.url}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                      
+                      <p className="text-xs text-purple-700 dark:text-purple-300">
+                        📊 Total: <strong>{keywords.length} keywords aprovadas</strong> no sistema
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -1114,6 +1169,144 @@ Receba o texto bruto abaixo e:
 
               {/* SEO Tab */}
               <TabsContent value="seo" className="space-y-4">
+                {/* 🆕 Botão de Geração Automática de Metadados */}
+                <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100">
+                    🪄 Geração Automática por IA
+                  </h4>
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    Gere automaticamente Slug e Meta Description baseados no título e conteúdo.
+                  </p>
+                  
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!formData.title || !formData.content_html) {
+                          toast({
+                            title: '⚠️ Campos obrigatórios',
+                            description: 'Preencha Título e Conteúdo antes de gerar metadados',
+                            variant: 'destructive'
+                          });
+                          return;
+                        }
+                        
+                        setIsGeneratingMetadata(true);
+                        
+                        try {
+                          const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
+                            body: {
+                              title: formData.title,
+                              contentHTML: formData.content_html,
+                              existingSlug: formData.slug,
+                              existingMetaDesc: formData.meta_description,
+                              existingFaqs: formData.faqs,
+                              regenerate: {
+                                slug: !formData.slug,
+                                metaDescription: !formData.meta_description,
+                                faqs: formData.faqs.length === 0
+                              }
+                            }
+                          });
+                          
+                          if (error) throw error;
+                          
+                          setFormData(prev => ({
+                            ...prev,
+                            slug: data.slug,
+                            meta_description: data.metaDescription,
+                            faqs: data.faqs
+                          }));
+                          
+                          toast({
+                            title: '✅ Metadados gerados!',
+                            description: `Slug, Meta Description e ${data.faqs.length} FAQs criados por IA`,
+                          });
+                        } catch (err: any) {
+                          console.error('❌ Erro ao gerar metadados:', err);
+                          toast({
+                            title: '❌ Erro na geração',
+                            description: err.message || 'Tente novamente',
+                            variant: 'destructive'
+                          });
+                        } finally {
+                          setIsGeneratingMetadata(false);
+                        }
+                      }}
+                      disabled={isGeneratingMetadata || !formData.title || !formData.content_html}
+                    >
+                      {isGeneratingMetadata ? '⏳ Gerando...' : '🪄 Gerar Campos Vazios'}
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="default"
+                      onClick={async () => {
+                        if (!formData.title || !formData.content_html) {
+                          toast({
+                            title: '⚠️ Campos obrigatórios',
+                            description: 'Preencha Título e Conteúdo antes de gerar metadados',
+                            variant: 'destructive'
+                          });
+                          return;
+                        }
+                        
+                        setIsGeneratingMetadata(true);
+                        
+                        try {
+                          const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
+                            body: {
+                              title: formData.title,
+                              contentHTML: formData.content_html,
+                              existingSlug: formData.slug,
+                              existingMetaDesc: formData.meta_description,
+                              existingFaqs: formData.faqs,
+                              regenerate: {
+                                slug: true,
+                                metaDescription: true,
+                                faqs: true
+                              }
+                            }
+                          });
+                          
+                          if (error) throw error;
+                          
+                          setFormData(prev => ({
+                            ...prev,
+                            slug: data.slug,
+                            meta_description: data.metaDescription,
+                            faqs: data.faqs
+                          }));
+                          
+                          toast({
+                            title: '✅ Todos os metadados regenerados!',
+                            description: `Slug, Meta Description e ${data.faqs.length} FAQs atualizados`,
+                          });
+                        } catch (err: any) {
+                          console.error('❌ Erro ao regenerar metadados:', err);
+                          toast({
+                            title: '❌ Erro na regeneração',
+                            description: err.message || 'Tente novamente',
+                            variant: 'destructive'
+                          });
+                        } finally {
+                          setIsGeneratingMetadata(false);
+                        }
+                      }}
+                      disabled={isGeneratingMetadata || !formData.title || !formData.content_html}
+                    >
+                      {isGeneratingMetadata ? '⏳ Gerando...' : '🔄 Regenerar Todos'}
+                    </Button>
+                  </div>
+                  
+                  {(!formData.title || !formData.content_html) && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400">
+                      ⚠️ Preencha Título e Conteúdo antes de gerar metadados
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <Label>Slug (URL)</Label>
                   <Input 
@@ -1249,6 +1442,83 @@ Receba o texto bruto abaixo e:
 
               {/* FAQs Tab */}
               <TabsContent value="faqs" className="space-y-4">
+                {/* 🆕 Botão de Geração Automática de FAQs */}
+                <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-green-900 dark:text-green-100">
+                        🪄 Geração Automática de FAQs
+                      </h4>
+                      <p className="text-sm text-green-800 dark:text-green-200 mt-1">
+                        Gere 10 FAQs baseadas no conteúdo do artigo
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        if (!formData.title || !formData.content_html) {
+                          toast({
+                            title: '⚠️ Campos obrigatórios',
+                            description: 'Preencha Título e Conteúdo antes de gerar FAQs',
+                            variant: 'destructive'
+                          });
+                          return;
+                        }
+                        
+                        setIsGeneratingMetadata(true);
+                        
+                        try {
+                          const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
+                            body: {
+                              title: formData.title,
+                              contentHTML: formData.content_html,
+                              existingSlug: formData.slug,
+                              existingMetaDesc: formData.meta_description,
+                              existingFaqs: formData.faqs,
+                              regenerate: {
+                                slug: false,
+                                metaDescription: false,
+                                faqs: true
+                              }
+                            }
+                          });
+                          
+                          if (error) throw error;
+                          
+                          setFormData(prev => ({
+                            ...prev,
+                            faqs: data.faqs
+                          }));
+                          
+                          toast({
+                            title: '✅ FAQs gerados!',
+                            description: `${data.faqs.length} perguntas frequentes criadas por IA`,
+                          });
+                        } catch (err: any) {
+                          console.error('❌ Erro ao gerar FAQs:', err);
+                          toast({
+                            title: '❌ Erro na geração',
+                            description: err.message || 'Tente novamente',
+                            variant: 'destructive'
+                          });
+                        } finally {
+                          setIsGeneratingMetadata(false);
+                        }
+                      }}
+                      disabled={isGeneratingMetadata || !formData.title || !formData.content_html}
+                    >
+                      {isGeneratingMetadata ? '⏳ Gerando...' : '🪄 Gerar 10 FAQs por IA'}
+                    </Button>
+                  </div>
+                  
+                  {(!formData.title || !formData.content_html) && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400">
+                      ⚠️ Preencha Título e Conteúdo antes de gerar FAQs
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <Label className="text-lg font-semibold">Perguntas Frequentes (FAQs)</Label>
                   <p className="text-sm text-muted-foreground mb-4">
