@@ -264,8 +264,13 @@ Receba o texto bruto abaixo e:
       
       setPromptEdited(false);
       setPendingAutoSave(false);
-      setModalOpen(false);
       await loadContents();
+      
+      // ✅ CORREÇÃO: Aguardar 1 tick antes de fechar o modal
+      // Garante que setPendingAutoSave(false) seja propagado antes de onOpenChange verificar
+      setTimeout(() => {
+        setModalOpen(false);
+      }, 0);
     } catch (error: any) {
       console.error('❌ Erro ao salvar:', error);
       toast({
