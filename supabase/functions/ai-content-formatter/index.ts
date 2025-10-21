@@ -183,21 +183,31 @@ async function generateWithLovableAI(
     .sort((a, b) => b[1].priority - a[1].priority)
     .slice(0, 50)
 
+  // Detectar URLs no texto bruto
+  const urlPattern = /(https?:\/\/[^\s]+)/g
+  const detectedUrls = rawText.match(urlPattern) || []
+  const urlInstructions = detectedUrls.length > 0 
+    ? `\n\n🔗 URLS DETECTADAS NO TEXTO ORIGINAL (preservar como <a> tags):\n${detectedUrls.map(url => `- ${url}`).join('\n')}\n`
+    : ''
+
   // Criar lista de links para o prompt
   const linkInstructions = sortedKeywords
     .map(([keyword, data]) => `"${keyword}" -> ${data.url} (prioridade: ${Math.round(data.priority)})`)
     .join('\n')
 
-  const defaultPrompt = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
+  const defaultPrompt = `Você é um especialista em SEO e formatação de conteúdo.
 
 Receba o texto bruto abaixo e:
 1. Estruture em HTML semântico (<h2>, <h3>, <p>, <ul>, <blockquote>)
 2. Adicione classes CSS apropriadas (content-card, benefit-card, cta-panel)
 3. Otimize para SEO (use palavras-chave naturalmente)
 4. Insira links internos automaticamente quando encontrar palavras-chave relevantes
-5. Mantenha tom profissional e didático`
+5. Mantenha tom profissional e didático
+6. **MANTENHA O CONTEÚDO ORIGINAL DO AUTOR**: Não insira nem retire frases, palavras ou informações que não existem no texto bruto fornecido
+7. **PRESERVE LINKS EXISTENTES**: Se houver URLs no texto bruto (ex: https://exemplo.com), mantenha-os como <a> tags no HTML final`
 
   const fullPrompt = `${customPrompt || defaultPrompt}
+${urlInstructions}
 
 🔗 LISTA DE LINKS INTERNOS PARA INSERIR AUTOMATICAMENTE:
 
@@ -281,6 +291,16 @@ ${linkInstructions}
   <p>A adoção de scanners intraorais aumentou a produtividade das clínicas em 70%, segundo estudo da ABO 2024.</p>
 </blockquote>
 
+✅ EXEMPLO 5 - PRESERVAR LINKS DO TEXTO ORIGINAL:
+Se o texto bruto contém:
+"Veja mais em https://exemplo.com/artigo"
+
+Deve retornar:
+<p>Veja mais em <a href="https://exemplo.com/artigo" target="_blank" rel="noopener">https://exemplo.com/artigo</a></p>
+
+Ou melhor ainda (se houver contexto):
+<p>Veja mais em <a href="https://exemplo.com/artigo" target="_blank" rel="noopener">nosso artigo completo</a></p>
+
 ⚠️ REGRAS OBRIGATÓRIAS:
 1. SEMPRE use <div class="content-card"> para agrupar conteúdo relacionado
 2. Use <div class="grid-benefits"> para listas de benefícios (mínimo 3 cards)
@@ -310,14 +330,20 @@ ${rawText}
       messages: [
         { 
           role: 'system', 
-          content: `Você é um especialista em SEO e HTML semântico especializado em blogs odontológicos.
+          content: `Você é um especialista em SEO e HTML semântico.
 
 IMPORTANTE:
 - Retorne APENAS HTML puro, sem markdown, sem \`\`\`html
 - SEMPRE use as classes CSS especificadas (content-card, benefit-card, cta-panel, grid-benefits)
 - Insira links internos automaticamente quando encontrar palavras-chave
 - Estruture o conteúdo de forma profissional e visualmente atraente
-- Use EXATAMENTE as estruturas HTML dos exemplos fornecidos` 
+- Use EXATAMENTE as estruturas HTML dos exemplos fornecidos
+
+⚠️ REGRAS CRÍTICAS DE FIDELIDADE AO CONTEÚDO:
+1. **NÃO INVENTE INFORMAÇÕES**: Use APENAS dados presentes no texto bruto
+2. **NÃO REMOVA INFORMAÇÕES**: Mantenha todas as frases e dados do autor
+3. **PRESERVE LINKS ORIGINAIS**: Se o texto tiver URLs (http://, https://), converta para <a href="URL">texto</a>
+4. **NÃO ADICIONE DADOS FICTÍCIOS**: Evite estatísticas, nomes de produtos ou citações que não estão no texto original` 
         },
         { role: 'user', content: fullPrompt }
       ],
