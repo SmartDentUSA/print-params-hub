@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Badge } from '@/components/ui/badge';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
+import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -174,10 +175,9 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
         {/* Rich Content */}
           {content.content_html && (
-            <div 
-              dangerouslySetInnerHTML={{ 
-                __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
-              }}
+            <BlogPreviewFrame
+              htmlContent={renderAuthorSignaturePlaceholders(content.content_html, content.authors)}
+              deviceMode="desktop"
             />
           )}
 
