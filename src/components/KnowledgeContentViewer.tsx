@@ -175,7 +175,6 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         {/* Rich Content */}
           {content.content_html && (
             <div 
-              className="blog-content font-poppins"
               dangerouslySetInnerHTML={{ 
                 __html: renderAuthorSignaturePlaceholders(content.content_html, content.authors)
               }}

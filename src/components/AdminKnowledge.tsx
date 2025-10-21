@@ -31,7 +31,7 @@ export function AdminKnowledge() {
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
   const [editingCategoryName, setEditingCategoryName] = useState<{[key: string]: string}>({});
-  const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('visual');
+  const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('html');
   const [authors, setAuthors] = useState<any[]>([]);
   const editorRef = useRef<Editor | null>(null);
   const ogFileRef = useRef<HTMLInputElement>(null);
@@ -148,7 +148,7 @@ Receba o texto bruto abaixo e:
 
   const handleOpenEdit = async (content: any) => {
     setEditingContent(content);
-    setContentEditorMode('visual');
+    setContentEditorMode('html');
     setPromptEdited(false);
     setGeneratedHTML('');
     setRawTextInput('');
@@ -182,7 +182,7 @@ Receba o texto bruto abaixo e:
 
   const handleOpenNew = () => {
     setEditingContent(null);
-    setContentEditorMode('visual');
+    setContentEditorMode('html');
     setPromptEdited(false);
     setGeneratedHTML('');
     setRawTextInput('');
