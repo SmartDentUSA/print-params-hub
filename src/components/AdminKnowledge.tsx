@@ -133,7 +133,7 @@ Receba o texto bruto abaixo e:
       order_index: content.order_index,
       active: content.active,
       recommended_resins: content.recommended_resins || [],
-      aiPromptTemplate: ''
+      aiPromptTemplate: (content as any).ai_prompt_template || '' // ✅ FASE 2: Carregar prompt ao editar
     });
     
     const vids = await fetchVideosByContent(content.id);
@@ -181,6 +181,7 @@ Receba o texto bruto abaixo e:
       
       const contentData = {
         ...formData,
+        ai_prompt_template: formData.aiPromptTemplate || null, // ✅ FASE 2: Salvar prompt customizado
         category_id: categoryId,
         slug: formData.slug || generateSlug(formData.title),
         recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
@@ -662,6 +663,7 @@ Receba o texto bruto abaixo e:
                             const contentData = {
                               ...formData,
                               content_html: generatedHTML, // ✅ Usar generatedHTML diretamente!
+                              ai_prompt_template: formData.aiPromptTemplate || null, // ✅ FASE 2: Salvar prompt customizado
                               category_id: categoryId,
                               slug: formData.slug || generateSlug(formData.title),
                               recommended_resins: formData.recommended_resins.length > 0 ? formData.recommended_resins : null
