@@ -240,11 +240,40 @@ ${linkInstructions}
   </div>
 </div>
 
+✅ EXEMPLO 2B - GRID 3 COLUNAS FIXAS (para dados/estatísticas):
+<h2>📊 Dados Técnicos</h2>
+<div class="grid-3">
+  <div>
+    <h3>20µm</h3>
+    <p>Precisão média</p>
+  </div>
+  <div>
+    <h3>60%</h3>
+    <p>Redução de tempo</p>
+  </div>
+  <div>
+    <h3>R$ 15k</h3>
+    <p>Economia anual</p>
+  </div>
+</div>
+
+✅ EXEMPLO 2C - BADGES (para categorização e destaque):
+<h2><span class="badge badge-primary">🏆 Premium</span> Scanners de Alta Performance</h2>
+<p>Os melhores scanners do mercado <span class="badge">⚡ Novidade</span></p>
+
 ✅ EXEMPLO 3 - CTA (obrigatório 1-2 por artigo):
 <div class="cta-panel">
   <h3>💡 Quer saber mais sobre impressoras 3D?</h3>
   <p>Explore nosso guia completo sobre resinas odontológicas</p>
   <a href="/base-conhecimento/A/resinas-3d">Acessar Guia Completo</a>
+</div>
+
+✅ EXEMPLO 3B - BOTÕES ESTILIZADOS:
+<div class="cta-panel">
+  <h3>💡 Quer saber mais?</h3>
+  <p>Explore nosso guia completo</p>
+  <a href="/guia" class="btn btn-primary">📖 Acessar Guia</a>
+  <a href="/contato" class="btn btn-outline">📞 Falar com Especialista</a>
 </div>
 
 ✅ EXEMPLO 4 - BLOCKQUOTE (para citações e dados importantes):
@@ -254,11 +283,13 @@ ${linkInstructions}
 
 ⚠️ REGRAS OBRIGATÓRIAS:
 1. SEMPRE use <div class="content-card"> para agrupar conteúdo relacionado
-2. SEMPRE use <div class="grid-benefits"> + <div class="benefit-card"> para listas de benefícios (mínimo 3 cards)
-3. SEMPRE adicione 1-2 <div class="cta-panel"> com chamada para ação
-4. Use <blockquote> para destacar estatísticas ou citações importantes
-5. Use <h2> para seções principais e <h3> dentro de cards
-6. Todos os parágrafos devem estar dentro de <p> tags
+2. Use <div class="grid-benefits"> para listas de benefícios (mínimo 3 cards)
+3. Use <div class="grid-3"> para dados/estatísticas (3 colunas fixas)
+4. SEMPRE adicione 1-2 <div class="cta-panel"> com <a class="btn btn-primary">
+5. Use <span class="badge"> ou <span class="badge badge-primary"> para categorização
+6. Use <blockquote> para destacar citações importantes (terá aspas decorativas automáticas)
+7. Use <h2> para seções principais e <h3> dentro de cards
+8. Todos os parágrafos devem estar dentro de <p> tags
 
 🎯 TEXTO BRUTO PARA FORMATAR:
 ${rawText}

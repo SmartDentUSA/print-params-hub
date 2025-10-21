@@ -4,11 +4,20 @@
   --kb-primary: #0369a1;
   --kb-primary-light: #0ea5e9;
   --kb-accent: #f59e0b;
+  --kb-accent-2: #0c4a6e;
   --kb-gray-50: #f9fafb;
   --kb-gray-100: #f3f4f6;
   --kb-gray-700: #374151;
   --kb-gray-900: #111827;
+  --kb-muted: #6b7280;
+  --kb-card-bg: #f8fafc;
   --kb-radius: 8px;
+  --kb-radius-lg: 14px;
+  
+  /* Sombras em 3 níveis */
+  --kb-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --kb-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --kb-shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 /* ============= BASE STYLING (SCOPED TO .knowledge-article) ============= */
@@ -64,13 +73,26 @@
 }
 
 .knowledge-article blockquote {
+  position: relative;
   border-left: 4px solid var(--kb-primary);
-  padding-left: 16px;
-  margin: 24px 0;
-  background: var(--kb-gray-50);
-  padding: 16px;
-  border-radius: var(--kb-radius);
+  padding: 20px 20px 20px 24px;
+  margin: 32px 0;
+  background: linear-gradient(135deg, var(--kb-gray-50) 0%, white 100%);
+  border-radius: var(--kb-radius-lg);
   font-style: italic;
+  color: var(--kb-gray-700);
+  box-shadow: var(--kb-shadow-sm);
+}
+
+.knowledge-article blockquote::before {
+  content: '"';
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 48px;
+  color: var(--kb-primary);
+  opacity: 0.2;
+  line-height: 1;
 }
 
 /* ============= CARDS ============= */
@@ -104,6 +126,97 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 20px;
   margin: 32px 0;
+}
+
+/* ============= GRID 3 COLUNAS (NOVO) ============= */
+
+.knowledge-article .grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin: 32px 0;
+}
+
+.knowledge-article .grid-3 > div {
+  background: white;
+  border: 1px solid var(--kb-gray-100);
+  border-radius: var(--kb-radius-lg);
+  padding: 24px;
+  box-shadow: var(--kb-shadow-sm);
+  transition: transform 0.2s, box-shadow 0.3s;
+  text-align: center;
+}
+
+.knowledge-article .grid-3 > div:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--kb-shadow-md);
+}
+
+/* ============= BADGES (NOVO) ============= */
+
+.knowledge-article .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--kb-card-bg);
+  color: var(--kb-accent-2);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--kb-gray-100);
+  box-shadow: var(--kb-shadow-sm);
+  margin-bottom: 8px;
+}
+
+.knowledge-article .badge-primary {
+  background: linear-gradient(135deg, var(--kb-primary), var(--kb-primary-light));
+  color: white;
+  border: none;
+}
+
+.knowledge-article .badge-accent {
+  background: var(--kb-accent);
+  color: white;
+  border: none;
+}
+
+/* ============= BUTTONS (NOVO) ============= */
+
+.knowledge-article .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: var(--kb-radius);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s;
+  cursor: pointer;
+  border: none;
+  box-shadow: var(--kb-shadow-sm);
+}
+
+.knowledge-article .btn-primary {
+  background: linear-gradient(135deg, var(--kb-primary), var(--kb-primary-light));
+  color: white;
+}
+
+.knowledge-article .btn-primary:hover {
+  box-shadow: var(--kb-shadow-md);
+  transform: translateY(-2px);
+}
+
+.knowledge-article .btn-outline {
+  background: white;
+  color: var(--kb-primary);
+  border: 2px solid var(--kb-primary);
+}
+
+.knowledge-article .btn-outline:hover {
+  background: var(--kb-primary);
+  color: white;
+  box-shadow: var(--kb-shadow-sm);
 }
 
 /* ============= CTAs ============= */
@@ -142,11 +255,19 @@
     grid-template-columns: 1fr;
   }
   
+  .knowledge-article .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  
   .knowledge-article h2 {
     font-size: 18px;
   }
   
   .knowledge-article h3 {
     font-size: 16px;
+  }
+  
+  .knowledge-article blockquote {
+    padding: 16px 16px 16px 20px;
   }
 }
