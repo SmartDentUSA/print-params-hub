@@ -1,0 +1,552 @@
+# Data Export API - Documentação Completa
+
+## 📋 Visão Geral
+
+O endpoint `/data-export` exporta **todos os dados completos** do sistema (parametrização + base de conhecimento + dados sincronizados) em formato estruturado para consumo por IA de atendimento, sincronização com sistemas externos, ou análise de dados.
+
+---
+
+## 🔗 Endpoint
+
+```
+GET https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export
+```
+
+---
+
+## 🔓 Autenticação
+
+❌ **Não requer autenticação** (endpoint público)
+
+O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=true`).
+
+---
+
+## 📊 Dados Exportados (9 Entidades)
+
+### 1. **Brands** (Marcas de Impressoras)
+- `id`, `name`, `slug`, `logo_url`, `active`
+- `models_count` (quando `denormalize=true`)
+
+### 2. **Models** (Modelos de Impressoras)
+- `id`, `name`, `slug`, `brand_id`, `image_url`, `notes`, `active`
+- `brand_name`, `brand_slug` (desnormalizado)
+
+### 3. **Parameter Sets** (Parâmetros de Impressão)
+- `id`, `brand_slug`, `model_slug`, `resin_name`, `resin_manufacturer`
+- Parâmetros técnicos: `layer_height`, `cure_time`, `bottom_cure_time`, `lift_distance`, etc.
+
+### 4. **Resins** (Resinas)
+- `id`, `name`, `manufacturer`, `slug`, `description`, `price`, `type`, `color`, `image_url`
+- SEO: `seo_title_override`, `meta_description`, `og_image_url`, `canonical_url`, `keywords[]`
+- CTAs: `cta_1_label`, `cta_1_url`, `cta_1_description` (até 3 CTAs)
+- `keyword_ids[]`, `keywords_data[]` (quando `denormalize=true`)
+- `parameter_sets_count`, `public_url` (quando `denormalize=true`)
+
+### 5. **Knowledge Categories** (Categorias A-Z)
+- `id`, `name`, `letter`, `enabled`, `order_index`
+- `contents_count` (quando `denormalize=true`)
+
+### 6. **Knowledge Contents** (Artigos)
+- `id`, `title`, `slug`, `excerpt`, `content_html`, `content_text` (quando `extract_text=true`)
+- `category_id`, `category_name`, `category_letter` (desnormalizado)
+- `author_id`, `author_name`, `author_specialty`, `author_photo_url`, `author_social_links` (quando `denormalize=true`)
+- `content_image_url`, `content_image_alt`, `meta_description`, `keywords[]`
+- `videos[]` (array de vídeos desnormalizados com `embed_url`)
+- `faqs[]` (perguntas e respostas)
+- `recommended_resins[]`, `recommended_resins_data[]` (quando `denormalize=true`)
+- `keyword_ids[]`, `keywords_data[]` (quando `denormalize=true`)
+- `file_url`, `file_name` (download)
+- `public_url`, `seo_proxy_url`
+
+### 7. **Knowledge Videos** (Vídeos)
+- `id`, `content_id`, `content_title`, `title`, `url`, `embed_url`, `order_index`
+
+### 8. **External Links** (Keywords para SEO)
+- `id`, `name`, `url`, `description`, `category`, `subcategory`
+- `keyword_type`, `search_intent`, `monthly_searches`, `cpc_estimate`, `competition_level`
+- `relevance_score`, `related_keywords[]`, `source_products[]`
+- `approved`, `ai_generated`, `usage_count`, `last_used_at`
+
+### 9. **Authors** (Autores)
+- `id`, `name`, `specialty`, `photo_url`, `mini_bio`, `full_bio`
+- Redes sociais: `lattes_url`, `website_url`, `instagram_url`, `youtube_url`, `facebook_url`, `linkedin_url`, `twitter_url`, `tiktok_url`
+- `articles_count` (quando `denormalize=true`)
+
+---
+
+## 🎛️ Parâmetros Query String
+
+| Parâmetro | Tipo | Default | Descrição |
+|-----------|------|---------|-----------|
+| `format` | `'full'` \| `'compact'` \| `'ai_ready'` | `'full'` | Formato de resposta |
+| `include_brands` | `boolean` | `true` | Incluir marcas |
+| `include_models` | `boolean` | `true` | Incluir modelos |
+| `include_parameters` | `boolean` | `true` | Incluir parâmetros de impressão |
+| `include_resins` | `boolean` | `true` | Incluir resinas |
+| `include_knowledge` | `boolean` | `true` | Incluir base de conhecimento (artigos + vídeos) |
+| `include_categories` | `boolean` | `true` | Incluir categorias KB |
+| `include_keywords` | `boolean` | `true` | Incluir keywords SEO |
+| `include_authors` | `boolean` | `true` | Incluir autores |
+| `denormalize` | `boolean` | `true` | Expandir relacionamentos (IDs → objetos completos) |
+| `extract_text` | `boolean` | `true` | Extrair texto puro do HTML (`content_html` → `content_text`) |
+| `approved_only` | `boolean` | `true` | Apenas itens ativos/aprovados |
+| `limit_contents` | `number` | `null` | Limitar quantidade de artigos (null = todos) |
+| `with_stats` | `boolean` | `true` | Incluir estatísticas agregadas |
+
+---
+
+## 📦 Formatos de Resposta
+
+### 1. `format=full` (Padrão)
+
+Retorna **todos os dados completos** com desnormalização ativada.
+
+**Tamanho:** ~15-30 MB  
+**Uso:** Sincronização completa, backup, análise detalhada
+
+```json
+{
+  "success": true,
+  "timestamp": "2025-10-21T12:00:00Z",
+  "format": "full",
+  "stats": {
+    "brands": 15,
+    "models": 45,
+    "parameter_sets": 230,
+    "resins": 85,
+    "knowledge_categories": 4,
+    "knowledge_contents": 32,
+    "knowledge_videos": 18,
+    "keywords": 150,
+    "authors": 3,
+    "total_html_size_mb": "12.5"
+  },
+  "data": {
+    "brands": [...],
+    "models": [...],
+    "parameter_sets": [...],
+    "resins": [...],
+    "knowledge_categories": [...],
+    "knowledge_contents": [...],
+    "knowledge_videos": [...],
+    "keywords": [...],
+    "authors": [...]
+  }
+}
+```
+
+---
+
+### 2. `format=compact`
+
+Remove campos redundantes e desnormalizações para reduzir tamanho.
+
+**Tamanho:** ~2-5 MB  
+**Uso:** Indexação, listagens, aplicações móveis
+
+```json
+{
+  "success": true,
+  "timestamp": "2025-10-21T12:00:00Z",
+  "format": "compact",
+  "data": {
+    "brands": [
+      {
+        "id": "uuid",
+        "name": "Anycubic",
+        "slug": "anycubic",
+        "logo_url": "https://...",
+        "active": true
+      }
+    ],
+    "models": [
+      {
+        "id": "uuid",
+        "name": "Photon M3",
+        "slug": "photon-m3",
+        "brand_id": "uuid",
+        "brand_name": "Anycubic",
+        "brand_slug": "anycubic",
+        "active": true
+      }
+    ],
+    "knowledge_contents": [
+      {
+        "id": "uuid",
+        "title": "Como Escolher Resina",
+        "slug": "como-escolher-resina",
+        "excerpt": "...",
+        "category_id": "uuid",
+        "keyword_ids": ["uuid1", "uuid2"],
+        "public_url": "https://..."
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 3. `format=ai_ready` ⭐ (Otimizado para IA)
+
+Formata dados especificamente para consumo por LLMs (ChatGPT, Claude, etc.).
+
+**Tamanho:** ~20-50 MB (com texto extraído)  
+**Uso:** RAG (Retrieval-Augmented Generation), chatbots, assistentes virtuais
+
+**Características:**
+- ✅ Extrai texto puro de HTML (`content_text`)
+- ✅ Agrupa dados por contexto semântico
+- ✅ Traduz campos para português
+- ✅ Inclui contexto da empresa
+- ✅ Desnormaliza todos os relacionamentos
+
+```json
+{
+  "success": true,
+  "timestamp": "2025-10-21T12:00:00Z",
+  "format": "ai_ready",
+  "stats": { ... },
+  "context": {
+    "company": "Smart Dent",
+    "domain": "Impressão 3D Odontológica",
+    "website": "https://parametros.smartdent.com.br",
+    "last_sync": "2025-10-21T12:00:00Z"
+  },
+  "data": {
+    "parametrizacao": {
+      "marcas": [...],
+      "modelos": [...],
+      "parametros": [...]
+    },
+    "produtos": {
+      "resinas": [
+        {
+          "id": "uuid",
+          "nome": "Smart Print Model Plus",
+          "fabricante": "Smart Dent",
+          "descricao": "...",
+          "tipo": "standard",
+          "preco": 299.90,
+          "palavras_chave": ["resina", "odontologia"],
+          "keywords_detalhadas": [
+            {
+              "id": "uuid",
+              "nome": "resina odontológica",
+              "buscas_mensais": 1200
+            }
+          ],
+          "cta_principal": {
+            "label": "Comprar Agora",
+            "url": "https://...",
+            "descricao": "Compre com 10% de desconto"
+          },
+          "url_publica": "https://parametros.smartdent.com.br/resina/smart-print-model-plus"
+        }
+      ]
+    },
+    "conhecimento": {
+      "categorias": [...],
+      "artigos": [
+        {
+          "id": "uuid",
+          "titulo": "Como Escolher a Melhor Resina para Odontologia",
+          "slug": "como-escolher-melhor-resina-odontologia",
+          "categoria": "Adesivos",
+          "categoria_letra": "A",
+          "resumo": "Guia completo para escolher resinas...",
+          "conteudo_texto": "Texto puro extraído do HTML (10-50kb)...",
+          "autor": {
+            "id": "uuid",
+            "nome": "Dr. João Silva",
+            "especialidade": "Odontologia Digital",
+            "foto": "https://...",
+            "redes_sociais": {
+              "instagram": "https://...",
+              "youtube": "https://..."
+            }
+          },
+          "videos": [
+            {
+              "id": "uuid",
+              "titulo": "Tutorial Completo",
+              "url": "https://youtube.com/watch?v=...",
+              "embed_url": "https://youtube.com/embed/..."
+            }
+          ],
+          "faqs": [
+            {
+              "question": "Qual a melhor resina para modelos?",
+              "answer": "A Smart Print Model Plus oferece..."
+            }
+          ],
+          "resinas_recomendadas": [
+            {
+              "id": "uuid",
+              "nome": "Smart Print Model Plus",
+              "fabricante": "Smart Dent",
+              "imagem": "https://...",
+              "link": "https://...",
+              "preco": 299.90
+            }
+          ],
+          "url_publica": "https://parametros.smartdent.com.br/base-conhecimento/a/como-escolher-melhor-resina"
+        }
+      ]
+    },
+    "keywords": {
+      "seo": [
+        {
+          "id": "uuid",
+          "nome": "impressão 3D odontológica",
+          "intencao_busca": "informacional",
+          "buscas_mensais": 5400,
+          "pontuacao_relevancia": 95
+        }
+      ]
+    },
+    "autores": [...]
+  }
+}
+```
+
+---
+
+## 💡 Exemplos de Uso
+
+### Exemplo 1: Exportar TUDO para IA (uso principal)
+
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=ai_ready"
+```
+
+**Retorna:**
+- ✅ ~20-50 MB de dados estruturados
+- ✅ Texto puro extraído de HTML
+- ✅ Todos os relacionamentos desnormalizados
+- ✅ Pronto para RAG (ChatGPT/Claude)
+
+---
+
+### Exemplo 2: Apenas Base de Conhecimento (compacto)
+
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=compact&include_brands=false&include_models=false&include_parameters=false&include_resins=false"
+```
+
+**Retorna:**
+- ✅ ~1-2 MB de dados
+- ✅ Apenas artigos, categorias e autores
+- ✅ Sem desnormalização
+
+---
+
+### Exemplo 3: Apenas 10 artigos mais recentes (teste)
+
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?limit_contents=10&with_stats=true"
+```
+
+**Retorna:**
+- ✅ Amostra de 10 artigos
+- ✅ Estatísticas completas do sistema
+- ✅ Útil para testes e desenvolvimento
+
+---
+
+### Exemplo 4: Apenas parâmetros técnicos (sem KB)
+
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?include_knowledge=false&include_authors=false&include_keywords=false"
+```
+
+**Retorna:**
+- ✅ Brands, Models, Parameter Sets, Resins
+- ✅ ~2-5 MB
+- ✅ Útil para sincronização de produtos
+
+---
+
+### Exemplo 5: Cache HTTP (economizar banda)
+
+```bash
+# Request inicial
+curl -i "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export"
+# Copiar valor do header ETag da resposta
+
+# Request subsequente com ETag
+curl -H 'If-None-Match: "12345678-1234567890"' "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export"
+# Retorna: 304 Not Modified (sem body, economiza banda)
+```
+
+---
+
+## 🔧 Uso com JavaScript/TypeScript
+
+```typescript
+// Fetch completo para IA
+async function fetchDataForAI() {
+  const response = await fetch(
+    'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=ai_ready'
+  );
+  
+  const data = await response.json();
+  
+  console.log('Artigos:', data.data.conhecimento.artigos.length);
+  console.log('Resinas:', data.data.produtos.resinas.length);
+  console.log('Stats:', data.stats);
+  
+  return data;
+}
+
+// Fetch com cache
+async function fetchWithCache() {
+  const cachedETag = localStorage.getItem('data-export-etag');
+  
+  const headers: Record<string, string> = {};
+  if (cachedETag) {
+    headers['If-None-Match'] = cachedETag;
+  }
+  
+  const response = await fetch(
+    'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export',
+    { headers }
+  );
+  
+  if (response.status === 304) {
+    console.log('✅ Usando cache local');
+    return JSON.parse(localStorage.getItem('data-export-data')!);
+  }
+  
+  const data = await response.json();
+  
+  // Salvar cache
+  const etag = response.headers.get('ETag');
+  if (etag) {
+    localStorage.setItem('data-export-etag', etag);
+    localStorage.setItem('data-export-data', JSON.stringify(data));
+  }
+  
+  return data;
+}
+```
+
+---
+
+## 🚀 Performance
+
+| Métrica | Valor |
+|---------|-------|
+| **Tempo de resposta (sem cache)** | 3-8 segundos |
+| **Tempo de resposta (com cache)** | <100ms (304 Not Modified) |
+| **Tamanho `compact`** | 2-5 MB |
+| **Tamanho `full`** | 15-30 MB |
+| **Tamanho `ai_ready`** | 20-50 MB |
+| **Cache-Control** | `public, max-age=3600` (1 hora) |
+| **ETag Support** | ✅ Sim |
+
+---
+
+## 🔒 Segurança
+
+### ✅ O que é exposto:
+- Apenas dados com `active=true` ou `approved=true`
+- Dados públicos do site (artigos, resinas, parâmetros)
+- Nenhum dado sensível
+
+### ❌ O que NÃO é exposto:
+- Emails de usuários
+- Senhas
+- Dados de autenticação
+- Artigos não aprovados (`active=false`)
+- Keywords não aprovadas (`approved=false`)
+
+---
+
+## ⚠️ Rate Limits e Custos
+
+### Rate Limits Recomendados:
+- **Produção:** 60 requisições/hora por IP
+- **Desenvolvimento:** 300 requisições/hora
+
+### Custos Estimados (Supabase):
+- **Edge Function:** ~8s × $0.000040/seg = $0.00032 por request
+- **Cache hit (304):** ~0.1s × $0.000040/seg = $0.000004 por request (99% mais barato!)
+- **Recomendação:** Sempre usar cache HTTP para reduzir custos
+
+---
+
+## 🎯 Casos de Uso
+
+### 1. IA de Atendimento (Principal)
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=ai_ready"
+```
+**Uso:** ChatGPT, Claude, ou IA custom fazem 1 request e obtêm 100% do conhecimento do sistema para RAG.
+
+### 2. Sincronização CRM/ERP
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=compact&include_knowledge=false"
+```
+**Uso:** Sincronizar produtos (resinas) e parâmetros com sistema externo.
+
+### 3. Indexação de Busca (Algolia/Elasticsearch)
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=full&extract_text=true"
+```
+**Uso:** Indexar todo o conteúdo para busca full-text.
+
+### 4. Backup Automatizado
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=full" > backup-$(date +%Y%m%d).json
+```
+**Uso:** Backup diário de todos os dados.
+
+### 5. Business Intelligence
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?with_stats=true" | jq '.stats'
+```
+**Uso:** Análise de métricas e KPIs do sistema.
+
+---
+
+## 📝 Changelog
+
+### v1.0 (2025-10-21)
+- ✅ Primeiro release
+- ✅ Suporte a 3 formatos (`full`, `compact`, `ai_ready`)
+- ✅ Desnormalização completa de relacionamentos
+- ✅ Extração de texto HTML
+- ✅ Cache HTTP com ETag
+- ✅ 9 entidades exportadas
+- ✅ 14 query parameters configuráveis
+
+---
+
+## 🐛 Troubleshooting
+
+### Problema: Timeout (>30s)
+**Solução:** Use `limit_contents=50` para limitar artigos, ou desabilite entidades não necessárias.
+
+### Problema: Resposta muito grande
+**Solução:** Use `format=compact` ou `extract_text=false`.
+
+### Problema: Dados desatualizados
+**Solução:** Aguarde até 1 hora (cache) ou force refresh enviando header `Cache-Control: no-cache`.
+
+### Problema: 304 Not Modified mas precisa de dados novos
+**Solução:** Remova header `If-None-Match` ou envie `Cache-Control: no-cache`.
+
+---
+
+## 📞 Suporte
+
+Para dúvidas ou problemas:
+- 📧 Email: suporte@smartdent.com.br
+- 🔗 Website: https://parametros.smartdent.com.br
+- 📚 Docs: https://docs.smartdent.com.br
+
+---
+
+**Desenvolvido com ❤️ pela equipe Smart Dent**
