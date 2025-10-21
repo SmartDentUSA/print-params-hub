@@ -370,6 +370,43 @@ export function AdminSettings() {
     }
   };
 
+  const handleKbSync = async () => {
+    try {
+      setSyncLoading(true);
+      
+      toast({
+        title: "🔄 Sincronização iniciada",
+        description: "Buscando dados da Knowledge Base API (Sistema A)...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('sync-knowledge-base', {
+        body: {}
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "✅ Sincronização concluída!",
+        description: `${data.stats.keywords} keywords e ${data.stats.resins} resinas foram sincronizadas com sucesso.`,
+      });
+      
+      // Recarregar dados para refletir mudanças
+      await loadData();
+      
+    } catch (error) {
+      console.error('❌ Erro na sincronização:', error);
+      toast({
+        title: "❌ Erro na sincronização",
+        description: error instanceof Error ? error.message : "Erro desconhecido ao sincronizar dados",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
   // Filter functions
   const filteredBrands = brands.filter(brand =>
     brand.name.toLowerCase().includes(brandSearch.toLowerCase())
@@ -1091,6 +1128,100 @@ export function AdminSettings() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            <TabsContent value="kb-sync" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <RefreshCw className="w-5 h-5" />
+                    Sincronização Knowledge Base
+                  </CardTitle>
+                  <CardDescription>
+                    Sincronize keywords e resinas com a API externa da Knowledge Base (Sistema A)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Descrição do que será sincronizado */}
+                  <div className="bg-muted/50 p-4 rounded-lg border space-y-3">
+                    <p className="text-sm font-semibold">📊 Dados que serão sincronizados:</p>
+                    
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-primary">1. Keywords (external_links):</p>
+                      <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside ml-2">
+                        <li>Nome, URL, descrição</li>
+                        <li>Categoria, subcategoria, tipo</li>
+                        <li>Intenção de busca (informacional, transacional, navegacional)</li>
+                        <li>Volume de buscas mensais, CPC estimado, nível de competição</li>
+                        <li>Score de relevância (1-100)</li>
+                        <li>Keywords relacionadas, produtos de origem</li>
+                        <li>Status de aprovação e geração por IA</li>
+                      </ul>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-primary">2. Resinas (resins):</p>
+                      <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside ml-2">
+                        <li><strong>Básico:</strong> nome, fabricante, descrição, preço, imagem, slug</li>
+                        <li><strong>SEO:</strong> title override, meta description, OG image, canonical URL</li>
+                        <li><strong>Keywords:</strong> array de keywords + array de keyword_ids (relacionamento automático)</li>
+                        <li><strong>CTAs:</strong> 3 botões com label, URL e descrição personalizada</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Botão de sincronização */}
+                  {syncLoading ? (
+                    <div className="text-center py-8 space-y-3">
+                      <RefreshCw className="w-10 h-10 animate-spin mx-auto text-primary" />
+                      <div>
+                        <p className="text-sm font-medium">Sincronizando dados...</p>
+                        <p className="text-xs text-muted-foreground">Isso pode levar alguns segundos</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button 
+                      onClick={handleKbSync}
+                      className="w-full flex items-center justify-center gap-2"
+                      size="lg"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Sincronizar Knowledge Base Agora
+                    </Button>
+                  )}
+
+                  {/* Avisos importantes */}
+                  <div className="space-y-2">
+                    <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-xs text-blue-900 dark:text-blue-100">
+                        <strong>ℹ️ Comportamento:</strong> Dados existentes serão atualizados. 
+                        Para keywords, os campos <code>usage_count</code> e <code>last_used_at</code> são preservados.
+                      </p>
+                    </div>
+
+                    <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs text-amber-900 dark:text-amber-100">
+                        <strong>⚠️ Origem dos dados:</strong> Sistema A (Knowledge Base API externo) → Sistema B (este sistema)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Endpoint da API */}
+                  <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded border text-xs font-mono">
+                    <p className="text-muted-foreground mb-1">Endpoint:</p>
+                    <p className="text-primary break-all">
+                      https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base
+                    </p>
+                    <p className="text-muted-foreground mt-2">Parâmetros:</p>
+                    <ul className="text-xs space-y-0.5 mt-1">
+                      <li>• format=system_b</li>
+                      <li>• include_links=true</li>
+                      <li>• include_products=true</li>
+                      <li>• approved_only=true</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </CardContent>
