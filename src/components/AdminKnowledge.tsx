@@ -66,6 +66,7 @@ export function AdminKnowledge() {
   const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState<string>('');
   const [savingKeywordId, setSavingKeywordId] = useState<string | null>(null);
+  const [savingPrompt, setSavingPrompt] = useState(false);
   
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
@@ -767,15 +768,9 @@ Receba o texto bruto abaixo e:
                       variant="outline"
                       size="sm"
                       onClick={async () => {
-                        if (!editingContent) {
-                          toast({
-                            title: '⚠️ Salve o artigo primeiro',
-                            description: 'Crie ou edite um artigo antes de salvar o prompt customizado',
-                            variant: 'destructive'
-                          });
-                          return;
-                        }
+                        if (!editingContent) return;
                         
+                        setSavingPrompt(true);
                         try {
                           await updateContent(editingContent.id, {
                             ai_prompt_template: formData.aiPromptTemplate || null
@@ -788,15 +783,17 @@ Receba o texto bruto abaixo e:
                           });
                         } catch (error: any) {
                           toast({
-                            title: '❌ Erro ao salvar prompt',
+                            title: '❌ Erro ao salvar',
                             description: error?.message || 'Tente novamente',
                             variant: 'destructive'
                           });
+                        } finally {
+                          setSavingPrompt(false);
                         }
                       }}
-                      disabled={!promptEdited || !editingContent}
+                      disabled={!promptEdited || !editingContent || savingPrompt}
                     >
-                      💾 Salvar Prompt
+                      {savingPrompt ? '⏳' : '💾'} Salvar Prompt
                     </Button>
                     
                     <Button
