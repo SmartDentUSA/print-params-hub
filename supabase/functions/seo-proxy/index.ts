@@ -414,6 +414,168 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
 </html>`;
 }
 
+async function generateSystemACatalogHTML(
+  category: string, 
+  slug: string, 
+  supabase: any
+): Promise<string> {
+  const { data: item, error } = await supabase
+    .from('system_a_catalog')
+    .select('*')
+    .eq('category', category)
+    .eq('slug', slug)
+    .eq('active', true)
+    .eq('approved', true)
+    .maybeSingle();
+
+  if (error || !item) return generate404();
+
+  const baseUrl = 'https://parametros.smartdent.com.br';
+  const seoTitle = item.seo_title_override || `${item.name} | Smart Dent`;
+  const metaDescription = item.meta_description || item.description || '';
+  const categoryPath = category === 'product' ? 'produtos' : 
+                       category === 'video_testimonial' ? 'depoimentos' : 'categorias';
+  const canonicalUrl = item.canonical_url || `${baseUrl}/${categoryPath}/${slug}`;
+  const ogImage = item.og_image_url || item.image_url || `${baseUrl}/og-image.jpg`;
+  const keywords = item.keywords || [];
+
+  const extraData = item.extra_data || {};
+  const variations = extraData.variations || [];
+  const benefits = extraData.benefits || [];
+  const features = extraData.features || [];
+  const faqs = extraData.faqs || [];
+  const videos = extraData.videos || [];
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <title>${escapeHtml(seoTitle)}</title>
+  <meta name="description" content="${escapeHtml(metaDescription)}" />
+  ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
+  <link rel="canonical" href="${canonicalUrl}" />
+  
+  <meta property="og:title" content="${escapeHtml(seoTitle)}" />
+  <meta property="og:description" content="${escapeHtml(metaDescription)}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:url" content="${canonicalUrl}" />
+  <meta property="og:type" content="${category === 'product' ? 'product' : 'article'}" />
+  
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(seoTitle)}" />
+  <meta name="twitter:description" content="${escapeHtml(metaDescription)}" />
+  <meta name="twitter:image" content="${ogImage}" />
+  
+  <script type="application/ld+json">
+  ${JSON.stringify(category === 'product' ? {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": item.name,
+    "description": item.description,
+    "image": ogImage,
+    "brand": { "@type": "Brand", "name": "Smart Dent" },
+    "offers": {
+      "@type": "Offer",
+      "url": canonicalUrl,
+      "priceCurrency": item.currency || "BRL",
+      "price": item.price || item.promo_price || undefined,
+      "availability": "https://schema.org/InStock"
+    },
+    ...(faqs.length > 0 && {
+      "mainEntity": faqs.map((faq: any) => ({
+        "@type": "Question",
+        "name": faq.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": faq.answer
+        }
+      }))
+    })
+  } : {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": item.name,
+    "description": item.description,
+    "image": ogImage,
+    "author": { "@type": "Organization", "name": "Smart Dent" },
+    "publisher": { "@type": "Organization", "name": "Smart Dent" }
+  })}
+  </script>
+</head>
+<body>
+  <h1>${escapeHtml(item.name)}</h1>
+  ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}
+  
+  ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" />` : ''}
+  
+  ${benefits.length > 0 ? `
+    <h2>Benefícios</h2>
+    <ul>${benefits.map((b: string) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
+  ` : ''}
+  
+  ${features.length > 0 ? `
+    <h2>Características</h2>
+    <ul>${features.map((f: string) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
+  ` : ''}
+  
+  ${variations.length > 0 ? `
+    <h2>Opções Disponíveis</h2>
+    <ul>${variations.map((v: any) => `
+      <li>
+        <strong>${escapeHtml(v.name)}</strong>
+        ${v.price ? ` - R$ ${v.price}` : ''}
+        ${v.description ? `<br>${escapeHtml(v.description)}` : ''}
+      </li>
+    `).join('')}</ul>
+  ` : ''}
+  
+  ${videos.length > 0 ? `
+    <h2>Vídeos</h2>
+    <ul>${videos.map((video: any) => `<li><a href="${escapeHtml(video.url)}">${escapeHtml(video.title || 'Assistir vídeo')}</a></li>`).join('')}</ul>
+  ` : ''}
+  
+  ${faqs.length > 0 ? `
+    <h2>Perguntas Frequentes</h2>
+    ${faqs.map((faq: any) => `
+      <div>
+        <h3>${escapeHtml(faq.question)}</h3>
+        <p>${escapeHtml(faq.answer)}</p>
+      </div>
+    `).join('')}
+  ` : ''}
+  
+  ${item.price ? `<p><strong>Preço:</strong> R$ ${item.price}</p>` : ''}
+  ${item.promo_price ? `<p><strong>Preço promocional:</strong> R$ ${item.promo_price}</p>` : ''}
+  
+  ${item.cta_1_url ? `
+    <p>
+      <a href="${escapeHtml(item.cta_1_url)}" target="_blank" rel="noopener">
+        ${escapeHtml(item.cta_1_label || 'Ver na Loja')}
+      </a>
+      ${item.cta_1_description ? `<br><small>${escapeHtml(item.cta_1_description)}</small>` : ''}
+    </p>
+  ` : ''}
+  
+  ${item.cta_2_url ? `
+    <p>
+      <a href="${escapeHtml(item.cta_2_url)}" target="_blank" rel="noopener">
+        ${escapeHtml(item.cta_2_label || 'Saiba Mais')}
+      </a>
+    </p>
+  ` : ''}
+  
+  <script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "/${categoryPath}/${slug}";
+    }
+  })();
+  </script>
+</body>
+</html>`;
+}
+
 async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   const { data: categories, error } = await supabase
     .from('knowledge_categories')
@@ -755,7 +917,13 @@ Deno.serve(async (req) => {
   let html = '';
 
   try {
-    if (segments[0] === 'base-conhecimento') {
+    if (segments[0] === 'produtos' && segments.length === 2) {
+      html = await generateSystemACatalogHTML('product', segments[1], supabase);
+    } else if (segments[0] === 'depoimentos' && segments.length === 2) {
+      html = await generateSystemACatalogHTML('video_testimonial', segments[1], supabase);
+    } else if (segments[0] === 'categorias' && segments.length === 2) {
+      html = await generateSystemACatalogHTML('category_config', segments[1], supabase);
+    } else if (segments[0] === 'base-conhecimento') {
       if (segments.length === 1) {
         html = await generateKnowledgeHubHTML(supabase);
       } else if (segments.length === 2) {

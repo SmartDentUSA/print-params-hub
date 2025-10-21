@@ -179,6 +179,87 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Sistema A - Produtos Comerciais
+    const { data: products } = await supabase
+      .from('system_a_catalog')
+      .select('slug, updated_at, name')
+      .eq('category', 'product')
+      .eq('active', true)
+      .eq('approved', true)
+      .order('name');
+
+    if (products && products.length > 0) {
+      for (const product of products) {
+        const lastmod = product.updated_at 
+          ? new Date(product.updated_at).toISOString().split('T')[0] 
+          : now;
+        
+        sitemap += `
+  <!-- Produto: ${product.name} -->
+  <url>
+    <loc>${baseUrl}/produtos/${product.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>
+`;
+      }
+    }
+
+    // Sistema A - Depoimentos em Vídeo (limitar aos 50 mais recentes)
+    const { data: videos } = await supabase
+      .from('system_a_catalog')
+      .select('slug, updated_at, name')
+      .eq('category', 'video_testimonial')
+      .eq('active', true)
+      .eq('approved', true)
+      .order('updated_at', { ascending: false })
+      .limit(50);
+
+    if (videos && videos.length > 0) {
+      for (const video of videos) {
+        const lastmod = video.updated_at 
+          ? new Date(video.updated_at).toISOString().split('T')[0] 
+          : now;
+        
+        sitemap += `
+  <!-- Depoimento: ${video.name} -->
+  <url>
+    <loc>${baseUrl}/depoimentos/${video.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>
+`;
+      }
+    }
+
+    // Sistema A - Configurações de Categoria
+    const { data: configs } = await supabase
+      .from('system_a_catalog')
+      .select('slug, updated_at, name')
+      .eq('category', 'category_config')
+      .eq('active', true)
+      .eq('approved', true);
+
+    if (configs && configs.length > 0) {
+      for (const config of configs) {
+        const lastmod = config.updated_at 
+          ? new Date(config.updated_at).toISOString().split('T')[0] 
+          : now;
+        
+        sitemap += `
+  <!-- Configuração: ${config.name} -->
+  <url>
+    <loc>${baseUrl}/categorias/${config.slug}</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+    <lastmod>${lastmod}</lastmod>
+  </url>
+`;
+      }
+    }
+
     sitemap += `
 </urlset>`;
 

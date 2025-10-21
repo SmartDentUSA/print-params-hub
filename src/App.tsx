@@ -2,6 +2,9 @@ import { Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import AdminViewSecure from "./pages/AdminViewSecure";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import ProductPage from "./pages/ProductPage";
+import TestimonialPage from "./pages/TestimonialPage";
+import CategoryPage from "./pages/CategoryPage";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -14,6 +17,9 @@ const App = () => (
     <Route path="/base-conhecimento" element={<KnowledgeBase />} />
     <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase />} />
     <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase />} />
+    <Route path="/produtos/:slug" element={<ProductPage />} />
+    <Route path="/depoimentos/:slug" element={<TestimonialPage />} />
+    <Route path="/categorias/:slug" element={<CategoryPage />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
