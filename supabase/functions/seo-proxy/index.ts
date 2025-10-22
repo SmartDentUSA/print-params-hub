@@ -90,6 +90,19 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   </script>
 </head>
 <body>
+  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      <img 
+        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        alt="Smart Dent Logo"
+        onerror="this.style.display='none'"
+        style="height:48px;max-height:48px;width:auto;object-fit:contain"
+        loading="lazy"
+      />
+      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+    </a>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>
   <h1>Parâmetros de Impressão 3D Odontológica</h1>
   <p>Base de dados profissional com parâmetros testados para impressoras e resinas Smart Dent.</p>
   <h2>Marcas Disponíveis</h2>
@@ -160,6 +173,19 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   </script>
 </head>
 <body>
+  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      <img 
+        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        alt="Smart Dent Logo"
+        onerror="this.style.display='none'"
+        style="height:48px;max-height:48px;width:auto;object-fit:contain"
+        loading="lazy"
+      />
+      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+    </a>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>
   <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
   <p>Parâmetros profissionais testados para impressoras 3D ${escapeHtml(brand.name)}.</p>
   <h2>Modelos Disponíveis (${modelsCount})</h2>
@@ -252,6 +278,19 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   </script>
 </head>
 <body>
+  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      <img 
+        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        alt="Smart Dent Logo"
+        onerror="this.style.display='none'"
+        style="height:48px;max-height:48px;width:auto;object-fit:contain"
+        loading="lazy"
+      />
+      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+    </a>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>
   <h1>${escapeHtml(model.name)}</h1>
   <p>Parâmetros profissionais testados para ${escapeHtml(model.name)}.</p>
   ${model.notes ? `<p>${escapeHtml(model.notes)}</p>` : ''}
@@ -388,6 +427,19 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   </script>
 </head>
 <body>
+  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      <img 
+        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        alt="Smart Dent Logo"
+        onerror="this.style.display='none'"
+        style="height:48px;max-height:48px;width:auto;object-fit:contain"
+        loading="lazy"
+      />
+      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+    </a>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>
   <h1>${escapeHtml(resinName)}</h1>
   <p>${resinData?.description || `Parâmetros profissionais testados para ${escapeHtml(resinName)} na impressora ${escapeHtml(modelSlug)}.`}</p>
   <h2>Parâmetros de Impressão</h2>
@@ -515,6 +567,19 @@ async function generateSystemACatalogHTML(
   </script>
 </head>
 <body>
+  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      <img 
+        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        alt="Smart Dent Logo"
+        onerror="this.style.display='none'"
+        style="height:48px;max-height:48px;width:auto;object-fit:contain"
+        loading="lazy"
+      />
+      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+    </a>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>
   <h1>${escapeHtml(item.name)}</h1>
   ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}
   
@@ -924,6 +989,19 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   </script>
 </head>
 <body>
+  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
+      <img 
+        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        alt="Smart Dent Logo"
+        onerror="this.style.display='none'"
+        style="height:48px;max-height:48px;width:auto;object-fit:contain"
+        loading="lazy"
+      />
+      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+    </a>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>
   <article>
     ${content.content_image_url ? `
     <img 
@@ -959,6 +1037,16 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         max-width: 80px !important;
       }
     </style>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var links = document.querySelectorAll('article a[href^="http"]');
+        links.forEach(function(link) {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener noreferrer');
+        });
+      });
+    </script>
     
     ${content.content_html || ''}
     
