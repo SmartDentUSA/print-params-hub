@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guia de Otimização de Imagens - BLZ Dental</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+      background: #f5f5f5;
+    }
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    h1 { color: #1a73e8; border-bottom: 3px solid #1a73e8; padding-bottom: 10px; }
+    h2 { color: #34a853; margin-top: 30px; }
+    .before-after {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin: 20px 0;
+    }
+    .code-block {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .before { border-left: 4px solid #ea4335; padding-left: 15px; }
+    .after { border-left: 4px solid #34a853; padding-left: 15px; }
+    .tag { 
+      background: #1a73e8; 
+      color: white; 
+      padding: 2px 8px; 
+      border-radius: 4px; 
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .impact {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 4px;
+    }
+    ul { padding-left: 25px; }
+    li { margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚀 Guia de Otimização de Imagens - BLZ Dental</h1>
+    <p><strong>Objetivo:</strong> Melhorar performance e alcançar nota <span class="tag">10/10 SEO</span></p>
+  </div>
+
+  <!-- FASE 2: OTIMIZAÇÃO DE IMAGENS -->
+  <div class="card">
+    <h2>📸 FASE 2: Otimização de Performance de Imagens</h2>
+    
+    <div class="impact">
+      <strong>💡 Impacto esperado:</strong> +0.5 pontos | Melhora significativa no tempo de carregamento
+    </div>
+
+    <h3>🔧 Modificações Necessárias</h3>
+
+    <div class="before-after">
+      <div class="before">
+        <h4>❌ ANTES (Linha ~400+)</h4>
+        <div class="code-block">&lt;img src="banner-produto.jpg" 
+     alt="Banner BLZ INO200"&gt;
+
+&lt;img src="galeria-1.jpg" 
+     alt="Produto vista frontal"&gt;
+
+&lt;img src="galeria-2.jpg" 
+     alt="Produto vista lateral"&gt;</div>
+      </div>
+
+      <div class="after">
+        <h4>✅ DEPOIS (Otimizado)</h4>
+        <div class="code-block">&lt;img src="banner-produto.jpg" 
+     alt="Banner BLZ INO200"
+     <strong style="color: #34a853;">loading="lazy"</strong>
+     <strong style="color: #34a853;">decoding="async"</strong>&gt;
+
+&lt;img src="galeria-1.jpg" 
+     alt="Produto vista frontal"
+     <strong style="color: #34a853;">loading="lazy"</strong>
+     <strong style="color: #34a853;">decoding="async"</strong>&gt;
+
+&lt;img src="galeria-2.jpg" 
+     alt="Produto vista lateral"
+     <strong style="color: #34a853;">loading="lazy"</strong>
+     <strong style="color: #34a853;">decoding="async"</strong>&gt;</div>
+      </div>
+    </div>
+
+    <h3>📋 Regras de Aplicação</h3>
+    <ul>
+      <li><strong>loading="lazy"</strong> → Aplicar em TODAS as imagens <strong>abaixo da dobra</strong> (após ~linha 400)</li>
+      <li><strong>decoding="async"</strong> → Aplicar em TODAS as imagens não críticas</li>
+      <li><strong>EXCEÇÃO:</strong> Logo e banner principal (acima da dobra) → manter <code>loading="eager"</code></li>
+    </ul>
+
+    <h3>🎯 Exemplo Completo: Hero Section</h3>
+    <div class="code-block">&lt;!-- HERO: Manter eager (crítico) --&gt;
+&lt;img src="hero-banner.jpg" 
+     alt="BLZ INO200 - Impressora 3D Odontológica"
+     class="hero-image"
+     loading="eager"&gt;
+
+&lt;!-- GALERIA: Otimizar com lazy --&gt;
+&lt;img src="galeria-1.jpg" 
+     alt="BLZ INO200 - Vista frontal"
+     loading="lazy"
+     decoding="async"&gt;
+
+&lt;img src="galeria-2.jpg" 
+     alt="BLZ INO200 - Vista lateral"
+     loading="lazy"
+     decoding="async"&gt;
+
+&lt;!-- THUMBNAILS: Otimizar + srcset (opcional) --&gt;
+&lt;img srcset="thumb-small.jpg 300w,
+             thumb-medium.jpg 600w,
+             thumb-large.jpg 1200w"
+     sizes="(max-width: 600px) 300px,
+            (max-width: 1200px) 600px,
+            1200px"
+     src="thumb-medium.jpg"
+     alt="Miniatura do produto"
+     loading="lazy"
+     decoding="async"&gt;</div>
+
+    <h3>⚡ Benefícios Esperados</h3>
+    <ul>
+      <li>✅ Redução de 40-60% no tempo de carregamento inicial</li>
+      <li>✅ Menor consumo de dados móveis</li>
+      <li>✅ Melhor Core Web Vitals (LCP, CLS)</li>
+      <li>✅ Experiência mais fluida no scroll</li>
+    </ul>
+  </div>
+
+  <!-- CHECKLIST DE IMPLEMENTAÇÃO -->
+  <div class="card">
+    <h2>✅ Checklist de Implementação</h2>
+    
+    <h3>Passo 1: JavaScript SEO</h3>
+    <ul>
+      <li>☐ Copiar código de <code>blzdental-seo-optimized.js</code></li>
+      <li>☐ Inserir após linha 57 (função getCookie)</li>
+      <li>☐ Verificar console: "✅ SEO dinâmico carregado com sucesso"</li>
+    </ul>
+
+    <h3>Passo 2: Otimização de Imagens</h3>
+    <ul>
+      <li>☐ Identificar imagens abaixo da dobra (~linha 400+)</li>
+      <li>☐ Adicionar <code>loading="lazy"</code> em TODAS</li>
+      <li>☐ Adicionar <code>decoding="async"</code> em imagens não críticas</li>
+      <li>☐ Manter <code>loading="eager"</code> apenas no hero/logo</li>
+    </ul>
+
+    <h3>Passo 3: Verificação Final</h3>
+    <ul>
+      <li>☐ Testar no <a href="https://search.google.com/test/rich-results" target="_blank">Google Rich Results Test</a></li>
+      <li>☐ Verificar Open Graph no <a href="https://www.opengraph.xyz/" target="_blank">OpenGraph.xyz</a></li>
+      <li>☐ Testar Twitter Card no <a href="https://cards-dev.twitter.com/validator" target="_blank">Twitter Card Validator</a></li>
+      <li>☐ Conferir performance no <a href="https://pagespeed.web.dev/" target="_blank">PageSpeed Insights</a></li>
+      <li>☐ Validar canonical: <code>view-source:https://blzdental.com.br/blz-ino200</code></li>
+    </ul>
+  </div>
+
+  <!-- FASE 3: SITEMAP E ROBOTS.TXT -->
+  <div class="card">
+    <h2>🗺️ FASE 3: Sitemap e Robots.txt</h2>
+    
+    <div class="impact">
+      <strong>⚙️ Configuração no Sellflux:</strong> Essa fase requer acesso ao painel Sellflux
+    </div>
+
+    <h3>Verificações Necessárias</h3>
+    <ol>
+      <li>Acessar: <a href="https://blzdental.com.br/sitemap.xml" target="_blank">https://blzdental.com.br/sitemap.xml</a></li>
+      <li>Confirmar que retorna XML válido (não erro 404)</li>
+      <li>Acessar: <a href="https://blzdental.com.br/robots.txt" target="_blank">https://blzdental.com.br/robots.txt</a></li>
+      <li>Verificar conteúdo mínimo do robots.txt:</li>
+    </ol>
+
+    <div class="code-block">User-agent: *
+Allow: /
+
+Sitemap: https://blzdental.com.br/sitemap.xml</div>
+
+    <h3>🔧 Onde Configurar</h3>
+    <ul>
+      <li><strong>Sellflux:</strong> Configurações → SEO → Sitemap/Robots.txt</li>
+      <li>Se não disponível, solicitar suporte Sellflux</li>
+      <li>Alternativa: Adicionar via CDN/servidor</li>
+    </ul>
+  </div>
+
+  <!-- RESULTADO ESPERADO -->
+  <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+    <h2 style="color: white; border-color: white;">🎯 Resultado Esperado</h2>
+    <h1 style="font-size: 48px; margin: 20px 0; text-align: center; color: white; border: none;">
+      10/10 SEO
+    </h1>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 30px;">
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <strong>✅ Open Graph</strong><br>
+        Completo com og:type, og:locale
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <strong>✅ Twitter Cards</strong><br>
+        Summary Large Image
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <strong>✅ Performance</strong><br>
+        Lazy loading implementado
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <strong>✅ Schema.org</strong><br>
+        Product + Organization
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <strong>✅ Canonical</strong><br>
+        URL explícita definida
+      </div>
+      <div style="background: rgba(255,255,255,0.2); padding: 15px; border-radius: 8px;">
+        <strong>✅ Mobile</strong><br>
+        Totalmente responsivo
+      </div>
+    </div>
+  </div>
+
+  <!-- SUPORTE -->
+  <div class="card">
+    <h2>💬 Suporte e Dúvidas</h2>
+    <p><strong>Encontrou algum problema?</strong></p>
+    <ul>
+      <li>Verificar console do navegador (F12 → Console)</li>
+      <li>Procurar por "✅ SEO dinâmico carregado com sucesso"</li>
+      <li>Se houver erro, compartilhar mensagem completa</li>
+    </ul>
+    
+    <p><strong>Ferramentas de validação:</strong></p>
+    <ul>
+      <li>🔍 <a href="https://search.google.com/test/rich-results" target="_blank">Google Rich Results Test</a></li>
+      <li>📱 <a href="https://www.opengraph.xyz/" target="_blank">OpenGraph.xyz</a></li>
+      <li>🐦 <a href="https://cards-dev.twitter.com/validator" target="_blank">Twitter Card Validator</a></li>
+      <li>⚡ <a href="https://pagespeed.web.dev/" target="_blank">PageSpeed Insights</a></li>
+      <li>📊 <a href="https://validator.schema.org/" target="_blank">Schema.org Validator</a></li>
+    </ul>
+  </div>
+</body>
+</html>
