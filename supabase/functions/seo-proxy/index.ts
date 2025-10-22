@@ -929,8 +929,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     <img 
       src="${content.content_image_url}" 
       alt="${escapeHtml(content.content_image_alt || content.title)}"
-      width="1200"
-      height="630"
+      style="width: 100%; max-width: 1200px; height: auto; border-radius: 12px; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block;"
     />` : ''}
     <h1>${escapeHtml(content.title)}</h1>
     <p>${escapeHtml(content.excerpt)}</p>
@@ -943,6 +942,23 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       </a>
     </div>
     ` : ''}
+    
+    <style>
+      article img {
+        width: 100% !important;
+        max-width: 1200px !important;
+        height: auto !important;
+        border-radius: 8px;
+        margin: 20px auto;
+        display: block;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+      article img[width="60"],
+      article img[width="80"] {
+        width: auto !important;
+        max-width: 80px !important;
+      }
+    </style>
     
     ${content.content_html || ''}
     

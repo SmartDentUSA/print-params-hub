@@ -219,7 +219,8 @@ blockquote {
 
 .hero-image img {
   width: 100%;
-  max-width: 300px;
+  max-width: 800px;
+  height: auto;
   border-radius: 12px;
   box-shadow: 0 8px 30px rgba(2,6,23,0.06);
   border: 1px solid rgba(2,6,23,0.03);
