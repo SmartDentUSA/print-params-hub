@@ -157,8 +157,7 @@ export function AdminSettings() {
         .from('parameter_sets')
         .select('*')
         .eq('active', true)
-        .order('brand_slug, model_slug, resin_name')
-        .limit(100); // Limit to avoid too much data
+        .order('created_at', { ascending: false }); // Mostrar mais recentes primeiro
       setParameters(parametersData || []);
       
       // Load CTA 3 settings
