@@ -18,12 +18,20 @@ export function Header({ showAdminButton = false }: HeaderProps) {
       <div className="container mx-auto px-3 md:px-4 h-14 md:h-16 flex items-center justify-between gap-2 md:gap-4">
         {/* Logo */}
         <div className="flex items-center flex-shrink-0">
-          <img 
-            src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
-            alt="Smart Dent Logo"
-            className="h-8 md:h-12 w-auto object-contain"
-            loading="eager"
-          />
+          <a 
+            href="https://smartdent.com.br" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="transition-opacity hover:opacity-70"
+            aria-label="Ir para Smart Dent"
+          >
+            <img 
+              src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+              alt="Smart Dent Logo"
+              className="h-8 md:h-12 w-auto object-contain cursor-pointer"
+              loading="eager"
+            />
+          </a>
         </div>
 
         {/* Actions */}

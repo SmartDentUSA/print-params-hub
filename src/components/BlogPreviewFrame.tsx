@@ -44,6 +44,37 @@ export const BlogPreviewFrame: React.FC<BlogPreviewFrameProps> = ({
     };
   }, [htmlContent]);
 
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    const processExternalLinks = () => {
+      try {
+        const doc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!doc) return;
+
+        // Adicionar target="_blank" apenas em links externos
+        const externalLinks = doc.querySelectorAll('a[href^="http"]');
+        externalLinks.forEach((link) => {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener noreferrer');
+        });
+      } catch (e) {
+        console.error('Erro ao processar links externos:', e);
+      }
+    };
+
+    iframe.addEventListener('load', processExternalLinks);
+    
+    // Processar também após um delay (garantir que conteúdo foi renderizado)
+    const timer = setTimeout(processExternalLinks, 100);
+
+    return () => {
+      iframe.removeEventListener('load', processExternalLinks);
+      clearTimeout(timer);
+    };
+  }, [htmlContent]);
+
   const fullDocument = `
     <!DOCTYPE html>
     <html>
