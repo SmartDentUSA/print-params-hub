@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.import-system-a-json]
 verify_jwt = false
+
+[functions.export-parametros-ia]
+verify_jwt = false

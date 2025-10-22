@@ -1,0 +1,20 @@
+🤖 JSON DE PARÂMETROS PARA IA DE ATENDIMENTO
+================================================
+
+📍 ACESSAR JSON ATUALIZADO:
+https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/export-parametros-ia
+
+📊 TOTAL: 258 parâmetros de impressão
+📦 FORMATO: JSON estruturado com campos normalizados para busca
+
+🎯 FLUXO CONVERSACIONAL:
+1. Identificar resina (ex: Vitality, Clear Guide)
+2. Perguntar marca (ex: Anycubic, Elegoo)
+3. Perguntar modelo (ex: Mono X, Mars 3)
+4. Buscar usando campos *_normalizada
+5. Retornar campo resposta_formatada
+
+📚 DOCUMENTAÇÃO COMPLETA:
+Ver arquivo: parametros-ia-README.md
+
+✅ PRONTO PARA USO NA SUA IA!
