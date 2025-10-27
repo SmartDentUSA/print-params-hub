@@ -74,7 +74,7 @@ export const KnowledgeFeed = () => {
     );
   }
 
-  if (articles.length === 0) {
+  if (articles.length === 0 || articles.length < 3) {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
@@ -123,7 +123,7 @@ export const KnowledgeFeed = () => {
             return (
               <CarouselItem 
                 key={article.id} 
-                className="pl-2 md:pl-4 basis-1/3 md:basis-1/6"
+                className="pl-2 md:pl-4 basis-1/3 md:basis-1/6 max-w-[280px]"
               >
                 <Link
                   to={articleUrl}
