@@ -137,7 +137,9 @@ serve(async (req) => {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=3600', // 1 hora
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       });
     }
@@ -177,7 +179,9 @@ serve(async (req) => {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/rss+xml; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       });
     }
@@ -220,7 +224,9 @@ serve(async (req) => {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/atom+xml; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0',
         },
       });
     }
