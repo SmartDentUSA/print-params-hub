@@ -22,7 +22,7 @@ interface UseLatestKnowledgeArticlesReturn {
   error: string | null;
 }
 
-export const useLatestKnowledgeArticles = (limit: number = 6): UseLatestKnowledgeArticlesReturn => {
+export const useLatestKnowledgeArticles = (limit: number = 12): UseLatestKnowledgeArticlesReturn => {
   const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
