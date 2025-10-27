@@ -59,7 +59,21 @@ serve(async (req) => {
         created_at,
         updated_at,
         keywords,
-        knowledge_categories(name, letter)
+        knowledge_categories(name, letter),
+        authors(
+          id,
+          name,
+          specialty,
+          photo_url,
+          mini_bio,
+          lattes_url,
+          instagram_url,
+          linkedin_url,
+          facebook_url,
+          youtube_url,
+          twitter_url,
+          website_url
+        )
       `)
       .in('category_id', categoryIds)
       .eq('active', true)
@@ -72,6 +86,7 @@ serve(async (req) => {
     }
 
     console.log(`[knowledge-feed] Found ${contents?.length || 0} articles`);
+    console.log(`[knowledge-feed] Articles with authors: ${contents?.filter((c: any) => c.authors).length || 0}/${contents?.length || 0}`);
 
     const baseUrl = 'https://smartdent.com.br';
 
@@ -99,6 +114,22 @@ serve(async (req) => {
           published_at: item.created_at,
           updated_at: item.updated_at,
           keywords: item.keywords || [],
+          author: item.authors ? {
+            id: item.authors.id,
+            name: item.authors.name,
+            specialty: item.authors.specialty,
+            photo_url: item.authors.photo_url,
+            mini_bio: item.authors.mini_bio,
+            lattes_url: item.authors.lattes_url,
+            social_links: {
+              instagram: item.authors.instagram_url,
+              linkedin: item.authors.linkedin_url,
+              facebook: item.authors.facebook_url,
+              youtube: item.authors.youtube_url,
+              twitter: item.authors.twitter_url,
+              website: item.authors.website_url,
+            },
+          } : null,
         })) || [],
       };
 
@@ -126,11 +157,12 @@ serve(async (req) => {
       <guid isPermaLink="false">${item.id}</guid>
       <category>${item.knowledge_categories?.name || 'Sem categoria'}</category>
       ${item.og_image_url ? `<enclosure url="${item.og_image_url}" type="image/jpeg" />` : ''}
+      ${item.authors ? `<dc:creator><![CDATA[${item.authors.name}]]></dc:creator>` : ''}
     </item>`;
       }).join('') || '';
 
       const rssFeed = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
     <title>Base de Conhecimento - Smart Dent (C, D, E)</title>
     <link>${baseUrl}/base-conhecimento</link>
@@ -166,6 +198,11 @@ serve(async (req) => {
     <published>${published}</published>
     <summary type="html"><![CDATA[${item.excerpt}]]></summary>
     <category term="${item.knowledge_categories?.name || 'Sem categoria'}" />
+    ${item.authors ? `
+    <author>
+      <name>${item.authors.name}</name>
+      ${item.authors.website_url ? `<uri>${item.authors.website_url}</uri>` : ''}
+    </author>` : ''}
   </entry>`;
       }).join('') || '';
 
