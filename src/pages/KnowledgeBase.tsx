@@ -6,6 +6,7 @@ import { KnowledgeCategoryPills } from "@/components/KnowledgeCategoryPills";
 import { KnowledgeSidebar } from "@/components/KnowledgeSidebar";
 import { KnowledgeContentViewer } from "@/components/KnowledgeContentViewer";
 import { KnowledgeSEOHead } from "@/components/KnowledgeSEOHead";
+import { KnowledgeFeed } from "@/components/KnowledgeFeed";
 import { useKnowledge } from "@/hooks/useKnowledge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -183,6 +184,9 @@ export default function KnowledgeBase() {
             </div>
           </div>
         )}
+
+        {/* Knowledge Feed - Always visible */}
+        <KnowledgeFeed />
 
         {/* Help Section */}
         <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
