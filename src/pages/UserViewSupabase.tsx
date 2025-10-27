@@ -338,8 +338,8 @@ const UserViewSupabase = () => {
           </div>
         )}
 
-        {/* Knowledge Feed - Show when model is selected */}
-        {selectedModel && <KnowledgeFeed />}
+        {/* Knowledge Feed - Always visible */}
+        <KnowledgeFeed />
 
         {/* Help Section - Always visible */}
         <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">

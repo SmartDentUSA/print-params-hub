@@ -64,7 +64,30 @@ export const KnowledgeFeed = () => {
   }
 
   if (articles.length === 0) {
-    return null;
+    return (
+      <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
+        <div className="flex items-center gap-2 mb-2">
+          <BookOpen className="w-6 h-6 text-primary" />
+          <h2 className="text-2xl font-bold text-foreground">
+            📚 Base de Conhecimento
+          </h2>
+        </div>
+        <div className="text-center py-8">
+          <p className="text-muted-foreground text-lg mb-4">
+            🚀 Em breve, novos artigos serão publicados!
+          </p>
+          <p className="text-sm text-muted-foreground mb-6">
+            Estamos preparando conteúdo exclusivo sobre impressão 3D odontológica, 
+            configurações de impressoras, guias de resinas e muito mais.
+          </p>
+          <Button variant="outline" asChild>
+            <Link to="/base-conhecimento">
+              Explorar Base de Conhecimento
+            </Link>
+          </Button>
+        </div>
+      </section>
+    );
   }
 
   return (
