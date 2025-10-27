@@ -88,7 +88,7 @@ serve(async (req) => {
     console.log(`[knowledge-feed] Found ${contents?.length || 0} articles`);
     console.log(`[knowledge-feed] Articles with authors: ${contents?.filter((c: any) => c.authors).length || 0}/${contents?.length || 0}`);
 
-    const baseUrl = 'https://smartdent.com.br';
+    const baseUrl = 'https://parametros.smartdent.com.br';
 
     // JSON Format
     if (format === 'json') {
