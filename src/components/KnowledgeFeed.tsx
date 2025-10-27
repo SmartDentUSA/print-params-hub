@@ -45,9 +45,9 @@ export const KnowledgeFeed = () => {
         </h2>
         
         <Carousel opts={{ align: "start" }} className="w-full">
-          <CarouselContent className="-ml-2 md:-ml-4">
+          <CarouselContent className="-ml-1 md:-ml-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <CarouselItem key={i} className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6">
+              <CarouselItem key={i} className="pl-1 md:pl-4 basis-[92%] sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6">
                 <div className="space-y-3">
                   <Skeleton className="aspect-video w-full rounded-lg" />
                   <Skeleton className="h-4 w-16" />
@@ -99,7 +99,7 @@ export const KnowledgeFeed = () => {
   }
 
   return (
-    <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
+    <section className="mt-12 bg-gradient-card rounded-xl p-4 sm:p-8 border border-border shadow-medium">
       <h2 className="text-lg font-semibold text-foreground mb-4">
         Últimas Publicações
       </h2>
@@ -112,7 +112,7 @@ export const KnowledgeFeed = () => {
         plugins={[plugin.current]}
         className="w-full"
       >
-        <CarouselContent className="-ml-2 md:-ml-4">
+        <CarouselContent className="-ml-1 md:-ml-4">
           {articles.map((article) => {
             const imageUrl = article.og_image_url || article.content_image_url || '/placeholder.svg';
             const imageAlt = article.content_image_alt || article.title;
@@ -123,11 +123,11 @@ export const KnowledgeFeed = () => {
             return (
               <CarouselItem 
                 key={article.id} 
-                className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6"
+                className="pl-1 md:pl-4 basis-[92%] sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6"
               >
                 <Link
                   to={articleUrl}
-                  className="group bg-card hover:bg-accent/50 rounded-lg border border-border overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] block h-full"
+                  className="group bg-card hover:bg-accent/50 rounded-lg border border-border overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02] block h-full min-h-[320px] sm:min-h-0"
                 >
                   <div className="aspect-video overflow-hidden bg-muted">
                     <img
@@ -138,7 +138,7 @@ export const KnowledgeFeed = () => {
                     />
                   </div>
                   
-                  <div className="p-4 space-y-2.5">
+                  <div className="p-5 sm:p-4 space-y-3">
                     <Badge 
                       className={`${getCategoryColor(categoryLetter)} text-white text-xs`}
                       variant="default"
@@ -146,11 +146,11 @@ export const KnowledgeFeed = () => {
                       {categoryName}
                     </Badge>
                     
-                    <h3 className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                    <h3 className="text-sm sm:text-xs font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
                       {article.title}
                     </h3>
                     
-                    <p className="text-xs text-muted-foreground line-clamp-2">
+                    <p className="text-sm sm:text-xs text-muted-foreground line-clamp-2">
                       {article.excerpt}
                     </p>
                     
