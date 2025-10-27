@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.export-parametros-ia]
 verify_jwt = false
+
+[functions.knowledge-feed]
+verify_jwt = false

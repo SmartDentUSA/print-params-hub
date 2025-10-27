@@ -15,6 +15,7 @@ import { Link, useSearchParams, useParams, useNavigate } from "react-router-dom"
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LegacyRedirect } from "@/components/LegacyRedirect";
+import { KnowledgeFeed } from "@/components/KnowledgeFeed";
 
 const UserViewSupabase = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -336,6 +337,9 @@ const UserViewSupabase = () => {
             </div>
           </div>
         )}
+
+        {/* Knowledge Feed - Show when model is selected */}
+        {selectedModel && <KnowledgeFeed />}
 
         {/* Help Section - Always visible */}
         <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">

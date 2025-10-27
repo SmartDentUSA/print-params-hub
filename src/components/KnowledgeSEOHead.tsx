@@ -156,6 +156,10 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
         <meta name="description" content="Tutoriais, guias e dicas sobre impressão 3D para odontologia. Aprenda a configurar impressoras, escolher resinas e resolver problemas." />
         <link rel="canonical" href={`${baseUrl}/base-conhecimento`} />
         
+        {/* RSS/Atom Feed Auto-discovery (Categorias C, D, E) */}
+        <link rel="alternate" type="application/rss+xml" title="Base de Conhecimento - RSS (C, D, E)" href="https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=rss" />
+        <link rel="alternate" type="application/atom+xml" title="Base de Conhecimento - Atom (C, D, E)" href="https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=atom" />
+        
         {/* Open Graph */}
         <meta property="og:type" content="website" />
         <meta property="og:title" content="Base de Conhecimento - Impressão 3D Odontológica" />
