@@ -41,7 +41,7 @@ export const KnowledgeFeed = () => {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          📚 Últimas Publicações
+          Últimas Publicações
         </h2>
         
         <Carousel opts={{ align: "start" }} className="w-full">
@@ -67,7 +67,7 @@ export const KnowledgeFeed = () => {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          📚 Base de Conhecimento
+          Base de Conhecimento
         </h2>
         <p className="text-muted-foreground">{error}</p>
       </section>
@@ -78,7 +78,7 @@ export const KnowledgeFeed = () => {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          📚 Base de Conhecimento
+          Base de Conhecimento
         </h2>
         <div className="text-center py-8">
           <p className="text-muted-foreground text-lg mb-4">
@@ -101,7 +101,7 @@ export const KnowledgeFeed = () => {
   return (
     <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
       <h2 className="text-lg font-semibold text-foreground mb-4">
-        📚 Últimas Publicações
+        Últimas Publicações
       </h2>
 
       <Carousel
