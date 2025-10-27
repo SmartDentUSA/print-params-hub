@@ -47,7 +47,7 @@ export const KnowledgeFeed = () => {
         <Carousel opts={{ align: "start" }} className="w-full">
           <CarouselContent className="-ml-2 md:-ml-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <CarouselItem key={i} className="pl-2 md:pl-4 basis-1/3 md:basis-1/6">
+              <CarouselItem key={i} className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6">
                 <div className="space-y-3">
                   <Skeleton className="aspect-video w-full rounded-lg" />
                   <Skeleton className="h-4 w-16" />
@@ -123,7 +123,7 @@ export const KnowledgeFeed = () => {
             return (
               <CarouselItem 
                 key={article.id} 
-                className="pl-2 md:pl-4 basis-1/3 md:basis-1/6 max-w-[280px]"
+                className="pl-2 md:pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/6"
               >
                 <Link
                   to={articleUrl}
@@ -138,7 +138,7 @@ export const KnowledgeFeed = () => {
                     />
                   </div>
                   
-                  <div className="p-3 space-y-2">
+                  <div className="p-4 space-y-2.5">
                     <Badge 
                       className={`${getCategoryColor(categoryLetter)} text-white text-xs`}
                       variant="default"
@@ -146,7 +146,7 @@ export const KnowledgeFeed = () => {
                       {categoryName}
                     </Badge>
                     
-                    <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                    <h3 className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
                       {article.title}
                     </h3>
                     
