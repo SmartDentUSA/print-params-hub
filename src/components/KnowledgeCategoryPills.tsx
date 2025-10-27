@@ -25,6 +25,10 @@ export function KnowledgeCategoryPills({
   
   return (
     <div className="bg-card/80 rounded-lg p-3 md:p-4 border border-border">
+      <h3 className="text-sm font-medium text-muted-foreground mb-3">
+        {t('knowledge.select_content')}
+      </h3>
+      
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         {/* Left: Pills */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 flex-1">
