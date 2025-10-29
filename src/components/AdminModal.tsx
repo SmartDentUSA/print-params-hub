@@ -155,6 +155,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           price: 0, 
           active: true,
           cta_1_enabled: true,
+          cta_2_source_type: 'manual',
+          cta_3_source_type: 'manual',
           cta_4_source_type: 'manual'
         };
       case 'parameter':
@@ -556,6 +558,96 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     });
   };
 
+  // 🆕 Handlers para CTA 2
+  const handleCTA2SourceChange = (sourceType: string) => {
+    setFormData({
+      ...formData,
+      cta_2_source_type: sourceType,
+      cta_2_source_id: null,
+      cta_2_url: '',
+      cta_2_label: ''
+    });
+  };
+
+  const handleCTA2ResourceSelect = (resourceId: string) => {
+    const sourceType = formData.cta_2_source_type;
+    let selectedResource: any = null;
+    let generatedLabel = '';
+    let generatedUrl = '';
+    
+    if (sourceType === 'document') {
+      selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = 'Baixar ' + selectedResource.document_name;
+        generatedUrl = selectedResource.file_url;
+      }
+    } else if (sourceType === 'external_link') {
+      selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = selectedResource.name;
+        generatedUrl = selectedResource.url;
+      }
+    } else if (sourceType === 'knowledge') {
+      selectedResource = systemResources.knowledgeArticles.find((a: any) => a.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = 'Leia: ' + selectedResource.title;
+        generatedUrl = `https://parametros.smartdent.com.br/base-de-conhecimento/${selectedResource.slug}`;
+      }
+    }
+    
+    setFormData({
+      ...formData,
+      cta_2_source_id: resourceId,
+      cta_2_url: generatedUrl,
+      cta_2_label: generatedLabel
+    });
+  };
+
+  // 🆕 Handlers para CTA 3
+  const handleCTA3SourceChange = (sourceType: string) => {
+    setFormData({
+      ...formData,
+      cta_3_source_type: sourceType,
+      cta_3_source_id: null,
+      cta_3_url: '',
+      cta_3_label: ''
+    });
+  };
+
+  const handleCTA3ResourceSelect = (resourceId: string) => {
+    const sourceType = formData.cta_3_source_type;
+    let selectedResource: any = null;
+    let generatedLabel = '';
+    let generatedUrl = '';
+    
+    if (sourceType === 'document') {
+      selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = 'Baixar ' + selectedResource.document_name;
+        generatedUrl = selectedResource.file_url;
+      }
+    } else if (sourceType === 'external_link') {
+      selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = selectedResource.name;
+        generatedUrl = selectedResource.url;
+      }
+    } else if (sourceType === 'knowledge') {
+      selectedResource = systemResources.knowledgeArticles.find((a: any) => a.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = 'Leia: ' + selectedResource.title;
+        generatedUrl = `https://parametros.smartdent.com.br/base-de-conhecimento/${selectedResource.slug}`;
+      }
+    }
+    
+    setFormData({
+      ...formData,
+      cta_3_source_id: resourceId,
+      cta_3_url: generatedUrl,
+      cta_3_label: generatedLabel
+    });
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -882,30 +974,183 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <AccordionItem value="cta-2">
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center gap-2">
-                        <ExternalLink className="w-4 h-4" />
-                        <span>CTA 2</span>
+                        <Sparkles className="w-4 h-4" />
+                        <span>CTA 2 - Seletor Inteligente</span>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="space-y-3 pt-2">
+                    <AccordionContent className="space-y-4 pt-2">
+                      {/* Seletor de Tipo de Fonte */}
                       <div>
-                        <Label htmlFor="cta_2_label">Nome do Botão</Label>
-                        <Input
-                          id="cta_2_label"
-                          value={formData.cta_2_label || ''}
-                          onChange={(e) => handleInputChange('cta_2_label', e.target.value)}
-                          placeholder="Ex: Ficha Técnica"
-                        />
+                        <Label className="mb-2 block">Tipo de Conteúdo</Label>
+                        <RadioGroup 
+                          value={formData.cta_2_source_type || 'manual'} 
+                          onValueChange={handleCTA2SourceChange}
+                          className="space-y-2"
+                        >
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="manual" id="cta2-manual" />
+                            <Label htmlFor="cta2-manual" className="flex-1 cursor-pointer">
+                              <div className="font-medium">URL Manual</div>
+                              <p className="text-xs text-muted-foreground">Digite um link customizado</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="document" id="cta2-document" />
+                            <Label htmlFor="cta2-document" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Documento Técnico</div>
+                              <p className="text-xs text-muted-foreground">Vincular PDF cadastrado no sistema</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="external_link" id="cta2-external" />
+                            <Label htmlFor="cta2-external" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Link Externo Aprovado</div>
+                              <p className="text-xs text-muted-foreground">Usar link da base de externos</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="knowledge" id="cta2-knowledge" />
+                            <Label htmlFor="cta2-knowledge" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Artigo da Base de Conhecimento</div>
+                              <p className="text-xs text-muted-foreground">Landing page interna</p>
+                            </Label>
+                          </div>
+                        </RadioGroup>
                       </div>
-                      <div>
-                        <Label htmlFor="cta_2_url">URL</Label>
-                        <Input
-                          id="cta_2_url"
-                          type="url"
-                          value={formData.cta_2_url || ''}
-                          onChange={(e) => handleInputChange('cta_2_url', e.target.value)}
-                          placeholder="https://..."
-                        />
-                      </div>
+                      
+                      {/* MANUAL: Input de URL customizada */}
+                      {formData.cta_2_source_type === 'manual' && (
+                        <>
+                          <div>
+                            <Label htmlFor="cta_2_label">Nome do Botão</Label>
+                            <Input
+                              id="cta_2_label"
+                              value={formData.cta_2_label || ''}
+                              onChange={(e) => handleInputChange('cta_2_label', e.target.value)}
+                              placeholder="Ex: Ficha Técnica"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="cta_2_url">URL</Label>
+                            <Input
+                              id="cta_2_url"
+                              type="url"
+                              value={formData.cta_2_url || ''}
+                              onChange={(e) => handleInputChange('cta_2_url', e.target.value)}
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      {/* DOCUMENT: Seletor de documentos técnicos */}
+                      {formData.cta_2_source_type === 'document' && (
+                        <div>
+                          <Label htmlFor="cta_2_doc_select">Selecionar Documento</Label>
+                          <Select 
+                            value={formData.cta_2_source_id || ''} 
+                            onValueChange={handleCTA2ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um documento técnico..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.documents.map((doc: any) => (
+                                <SelectItem key={doc.id} value={doc.id}>
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    <div>
+                                      <div className="font-medium">{doc.document_name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {doc.resins.name} - {doc.resins.manufacturer}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_2_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_2_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_2_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_2_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* EXTERNAL_LINK: Seletor de links externos */}
+                      {formData.cta_2_source_type === 'external_link' && (
+                        <div>
+                          <Label htmlFor="cta_2_link_select">Selecionar Link Externo</Label>
+                          <Select 
+                            value={formData.cta_2_source_id || ''} 
+                            onValueChange={handleCTA2ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um link aprovado..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.externalLinks.map((link: any) => (
+                                <SelectItem key={link.id} value={link.id}>
+                                  <div className="flex items-center gap-2">
+                                    <ExternalLink className="w-4 h-4" />
+                                    <div>
+                                      <div className="font-medium">{link.name}</div>
+                                      <div className="text-xs text-muted-foreground">{link.category}</div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_2_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_2_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_2_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_2_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* KNOWLEDGE: Seletor de artigos */}
+                      {formData.cta_2_source_type === 'knowledge' && (
+                        <div>
+                          <Label htmlFor="cta_2_article_select">Selecionar Artigo</Label>
+                          <Select 
+                            value={formData.cta_2_source_id || ''} 
+                            onValueChange={handleCTA2ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um artigo da base..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.knowledgeArticles.map((article: any) => (
+                                <SelectItem key={article.id} value={article.id}>
+                                  <div className="flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4" />
+                                    <div className="font-medium">{article.title}</div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_2_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_2_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_2_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_2_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Descrição SEO (comum para todos os tipos) */}
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Label htmlFor="cta_2_description">Descrição SEO</Label>
@@ -924,7 +1169,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           id="cta_2_description"
                           value={formData.cta_2_description || ''}
                           onChange={(e) => handleInputChange('cta_2_description', e.target.value)}
-                          placeholder="Ex: Acesse dados técnicos completos da resina Smart Print Model Ocre"
+                          placeholder="Ex: Acesse dados técnicos completos da resina"
                           maxLength={200}
                           className="resize-none"
                           rows={3}
@@ -939,30 +1184,183 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <AccordionItem value="cta-3">
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center gap-2">
-                        <ExternalLink className="w-4 h-4" />
-                        <span>CTA 3</span>
+                        <Sparkles className="w-4 h-4" />
+                        <span>CTA 3 - Seletor Inteligente</span>
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent className="space-y-3 pt-2">
+                    <AccordionContent className="space-y-4 pt-2">
+                      {/* Seletor de Tipo de Fonte */}
                       <div>
-                        <Label htmlFor="cta_3_label">Nome do Botão</Label>
-                        <Input
-                          id="cta_3_label"
-                          value={formData.cta_3_label || ''}
-                          onChange={(e) => handleInputChange('cta_3_label', e.target.value)}
-                          placeholder="Ex: Suporte"
-                        />
+                        <Label className="mb-2 block">Tipo de Conteúdo</Label>
+                        <RadioGroup 
+                          value={formData.cta_3_source_type || 'manual'} 
+                          onValueChange={handleCTA3SourceChange}
+                          className="space-y-2"
+                        >
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="manual" id="cta3-manual" />
+                            <Label htmlFor="cta3-manual" className="flex-1 cursor-pointer">
+                              <div className="font-medium">URL Manual</div>
+                              <p className="text-xs text-muted-foreground">Digite um link customizado</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="document" id="cta3-document" />
+                            <Label htmlFor="cta3-document" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Documento Técnico</div>
+                              <p className="text-xs text-muted-foreground">Vincular PDF cadastrado no sistema</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="external_link" id="cta3-external" />
+                            <Label htmlFor="cta3-external" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Link Externo Aprovado</div>
+                              <p className="text-xs text-muted-foreground">Usar link da base de externos</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="knowledge" id="cta3-knowledge" />
+                            <Label htmlFor="cta3-knowledge" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Artigo da Base de Conhecimento</div>
+                              <p className="text-xs text-muted-foreground">Landing page interna</p>
+                            </Label>
+                          </div>
+                        </RadioGroup>
                       </div>
-                      <div>
-                        <Label htmlFor="cta_3_url">URL</Label>
-                        <Input
-                          id="cta_3_url"
-                          type="url"
-                          value={formData.cta_3_url || ''}
-                          onChange={(e) => handleInputChange('cta_3_url', e.target.value)}
-                          placeholder="https://..."
-                        />
-                      </div>
+                      
+                      {/* MANUAL: Input de URL customizada */}
+                      {formData.cta_3_source_type === 'manual' && (
+                        <>
+                          <div>
+                            <Label htmlFor="cta_3_label">Nome do Botão</Label>
+                            <Input
+                              id="cta_3_label"
+                              value={formData.cta_3_label || ''}
+                              onChange={(e) => handleInputChange('cta_3_label', e.target.value)}
+                              placeholder="Ex: Suporte"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="cta_3_url">URL</Label>
+                            <Input
+                              id="cta_3_url"
+                              type="url"
+                              value={formData.cta_3_url || ''}
+                              onChange={(e) => handleInputChange('cta_3_url', e.target.value)}
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      {/* DOCUMENT: Seletor de documentos técnicos */}
+                      {formData.cta_3_source_type === 'document' && (
+                        <div>
+                          <Label htmlFor="cta_3_doc_select">Selecionar Documento</Label>
+                          <Select 
+                            value={formData.cta_3_source_id || ''} 
+                            onValueChange={handleCTA3ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um documento técnico..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.documents.map((doc: any) => (
+                                <SelectItem key={doc.id} value={doc.id}>
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    <div>
+                                      <div className="font-medium">{doc.document_name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {doc.resins.name} - {doc.resins.manufacturer}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_3_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_3_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_3_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_3_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* EXTERNAL_LINK: Seletor de links externos */}
+                      {formData.cta_3_source_type === 'external_link' && (
+                        <div>
+                          <Label htmlFor="cta_3_link_select">Selecionar Link Externo</Label>
+                          <Select 
+                            value={formData.cta_3_source_id || ''} 
+                            onValueChange={handleCTA3ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um link aprovado..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.externalLinks.map((link: any) => (
+                                <SelectItem key={link.id} value={link.id}>
+                                  <div className="flex items-center gap-2">
+                                    <ExternalLink className="w-4 h-4" />
+                                    <div>
+                                      <div className="font-medium">{link.name}</div>
+                                      <div className="text-xs text-muted-foreground">{link.category}</div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_3_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_3_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_3_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_3_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* KNOWLEDGE: Seletor de artigos */}
+                      {formData.cta_3_source_type === 'knowledge' && (
+                        <div>
+                          <Label htmlFor="cta_3_article_select">Selecionar Artigo</Label>
+                          <Select 
+                            value={formData.cta_3_source_id || ''} 
+                            onValueChange={handleCTA3ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um artigo da base..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.knowledgeArticles.map((article: any) => (
+                                <SelectItem key={article.id} value={article.id}>
+                                  <div className="flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4" />
+                                    <div className="font-medium">{article.title}</div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_3_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_3_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_3_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_3_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Descrição SEO (comum para todos os tipos) */}
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <Label htmlFor="cta_3_description">Descrição SEO</Label>
@@ -981,7 +1379,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           id="cta_3_description"
                           value={formData.cta_3_description || ''}
                           onChange={(e) => handleInputChange('cta_3_description', e.target.value)}
-                          placeholder="Ex: Baixe manual e e-book gratuito sobre impressão 3D com Smart Print"
+                          placeholder="Ex: Baixe manual e e-book gratuito sobre impressão 3D"
                           maxLength={200}
                           className="resize-none"
                           rows={3}

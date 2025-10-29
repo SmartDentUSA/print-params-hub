@@ -524,9 +524,13 @@ export type Database = {
           cta_1_url: string | null
           cta_2_description: string | null
           cta_2_label: string | null
+          cta_2_source_id: string | null
+          cta_2_source_type: string | null
           cta_2_url: string | null
           cta_3_description: string | null
           cta_3_label: string | null
+          cta_3_source_id: string | null
+          cta_3_source_type: string | null
           cta_3_url: string | null
           cta_4_description: string | null
           cta_4_label: string | null
@@ -559,9 +563,13 @@ export type Database = {
           cta_1_url?: string | null
           cta_2_description?: string | null
           cta_2_label?: string | null
+          cta_2_source_id?: string | null
+          cta_2_source_type?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
           cta_3_label?: string | null
+          cta_3_source_id?: string | null
+          cta_3_source_type?: string | null
           cta_3_url?: string | null
           cta_4_description?: string | null
           cta_4_label?: string | null
@@ -594,9 +602,13 @@ export type Database = {
           cta_1_url?: string | null
           cta_2_description?: string | null
           cta_2_label?: string | null
+          cta_2_source_id?: string | null
+          cta_2_source_type?: string | null
           cta_2_url?: string | null
           cta_3_description?: string | null
           cta_3_label?: string | null
+          cta_3_source_id?: string | null
+          cta_3_source_type?: string | null
           cta_3_url?: string | null
           cta_4_description?: string | null
           cta_4_label?: string | null

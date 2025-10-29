@@ -11,8 +11,21 @@ export interface ExternalLink {
   monthly_searches?: number;
 }
 
+export interface ProductCTA {
+  id: string;
+  resin_id: string;
+  resin_name: string;
+  manufacturer: string;
+  slug: string;
+  cta_label: string;
+  cta_url: string;
+  cta_type: string;
+  cta_position: number;
+}
+
 export function useExternalLinks() {
   const [keywords, setKeywords] = useState<ExternalLink[]>([]);
+  const [productCTAs, setProductCTAs] = useState<ProductCTA[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -41,8 +54,95 @@ export function useExternalLinks() {
     }
   };
 
+  const fetchProductCTAs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resins')
+        .select(`
+          id, name, manufacturer, slug, 
+          cta_1_enabled, cta_1_label, cta_1_url, 
+          cta_2_label, cta_2_url, cta_2_source_type,
+          cta_3_label, cta_3_url, cta_3_source_type,
+          cta_4_label, cta_4_url, cta_4_source_type
+        `)
+        .eq('active', true);
+
+      if (error) throw error;
+
+      // Transformar em array de CTAs (flatten)
+      const ctaList: ProductCTA[] = [];
+      
+      data?.forEach(resin => {
+        // CTA 1 (E-commerce)
+        if (resin.cta_1_enabled && resin.cta_1_url) {
+          ctaList.push({
+            id: `${resin.id}_cta1`,
+            resin_id: resin.id,
+            resin_name: resin.name,
+            manufacturer: resin.manufacturer,
+            slug: resin.slug,
+            cta_label: resin.cta_1_label,
+            cta_url: resin.cta_1_url,
+            cta_type: 'E-commerce',
+            cta_position: 1
+          });
+        }
+        
+        // CTA 2 (Inteligente)
+        if (resin.cta_2_url) {
+          ctaList.push({
+            id: `${resin.id}_cta2`,
+            resin_id: resin.id,
+            resin_name: resin.name,
+            manufacturer: resin.manufacturer,
+            slug: resin.slug,
+            cta_label: resin.cta_2_label,
+            cta_url: resin.cta_2_url,
+            cta_type: `CTA 2 (${resin.cta_2_source_type || 'manual'})`,
+            cta_position: 2
+          });
+        }
+        
+        // CTA 3 (Inteligente)
+        if (resin.cta_3_url) {
+          ctaList.push({
+            id: `${resin.id}_cta3`,
+            resin_id: resin.id,
+            resin_name: resin.name,
+            manufacturer: resin.manufacturer,
+            slug: resin.slug,
+            cta_label: resin.cta_3_label,
+            cta_url: resin.cta_3_url,
+            cta_type: `CTA 3 (${resin.cta_3_source_type || 'manual'})`,
+            cta_position: 3
+          });
+        }
+        
+        // CTA 4 (Inteligente)
+        if (resin.cta_4_url) {
+          ctaList.push({
+            id: `${resin.id}_cta4`,
+            resin_id: resin.id,
+            resin_name: resin.name,
+            manufacturer: resin.manufacturer,
+            slug: resin.slug,
+            cta_label: resin.cta_4_label,
+            cta_url: resin.cta_4_url,
+            cta_type: `CTA 4 (${resin.cta_4_source_type || 'manual'})`,
+            cta_position: 4
+          });
+        }
+      });
+      
+      setProductCTAs(ctaList);
+    } catch (error: any) {
+      console.error('Error fetching product CTAs:', error);
+    }
+  };
+
   useEffect(() => {
     fetchApprovedKeywords();
+    fetchProductCTAs();
   }, []);
 
   const updateKeywordUrl = async (id: string, newUrl: string): Promise<boolean> => {
@@ -78,8 +178,10 @@ export function useExternalLinks() {
 
   return {
     keywords,
+    productCTAs,
     loading,
     refresh: fetchApprovedKeywords,
+    refreshProductCTAs: fetchProductCTAs,
     updateKeywordUrl
   };
 }

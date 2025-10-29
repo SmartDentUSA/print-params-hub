@@ -238,7 +238,13 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
       if (content.recommended_resins && content.recommended_resins.length > 0) {
         const { data: resins } = await supabase
           .from('resins')
-          .select('id, name, manufacturer, image_url, cta_1_url, price')
+          .select(`
+            id, name, manufacturer, image_url, price, slug,
+            cta_1_enabled, cta_1_label, cta_1_url, cta_1_description,
+            cta_2_label, cta_2_url, cta_2_description, cta_2_source_type, cta_2_source_id,
+            cta_3_label, cta_3_url, cta_3_description, cta_3_source_type, cta_3_source_id,
+            cta_4_label, cta_4_url, cta_4_description, cta_4_source_type, cta_4_source_id
+          `)
           .in('id', content.recommended_resins);
         
         content.recommended_resins_data = resins || [];
@@ -468,7 +474,19 @@ function formatCompact(data: any) {
       slug: r.slug,
       type: r.type,
       keyword_ids: r.keyword_ids,
-      active: r.active
+      active: r.active,
+      cta_1_enabled: r.cta_1_enabled,
+      cta_1_label: r.cta_1_label,
+      cta_1_url: r.cta_1_url,
+      cta_2_source_type: r.cta_2_source_type,
+      cta_2_label: r.cta_2_label,
+      cta_2_url: r.cta_2_url,
+      cta_3_source_type: r.cta_3_source_type,
+      cta_3_label: r.cta_3_label,
+      cta_3_url: r.cta_3_url,
+      cta_4_source_type: r.cta_4_source_type,
+      cta_4_label: r.cta_4_label,
+      cta_4_url: r.cta_4_url
     })),
     knowledge_categories: data.knowledge_categories,
     knowledge_contents: data.knowledge_contents?.map((c: any) => ({
