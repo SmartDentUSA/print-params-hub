@@ -6,32 +6,27 @@ const DocumentProxyRoute = () => {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    const redirectToDocument = async () => {
-      if (!filename) {
-        setError(true);
-        return;
-      }
+    if (!filename) {
+      setError(true);
+      return;
+    }
 
-      // Em preview (lovableproject.com), redirecionar para a Edge Function
-      if (window.location.hostname.includes('lovableproject.com')) {
-        const edgeFunctionUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
-        
-        // Verificar se o documento existe antes de redirecionar
-        try {
-          const response = await fetch(edgeFunctionUrl, { method: 'HEAD' });
-          if (response.ok) {
-            window.location.replace(edgeFunctionUrl);
-          } else {
-            setError(true);
-          }
-        } catch (err) {
-          setError(true);
-        }
-      }
-      // Em produção, o vercel.json cuida do rewrite
-    };
+    // Em preview (lovableproject.com), redirecionar DIRETAMENTE para a Edge Function
+    if (window.location.hostname.includes('lovableproject.com')) {
+      const edgeFunctionUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
+      
+      // Redirect imediato sem validação prévia
+      window.location.replace(edgeFunctionUrl);
+      return;
+    }
+    
+    // Em produção, o vercel.json cuida do rewrite (não faz nada aqui)
+    // Timeout de segurança caso o redirect não aconteça
+    const timeout = setTimeout(() => {
+      setError(true);
+    }, 2000);
 
-    redirectToDocument();
+    return () => clearTimeout(timeout);
   }, [filename]);
 
   if (error) {
