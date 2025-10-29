@@ -92,6 +92,7 @@ Receba o texto bruto abaixo e:
     content_image_alt: '',
     canva_template_url: '',
     author_id: null as string | null,
+    keywords: [] as string[],
     faqs: [] as Array<{ question: string; answer: string }>,
     order_index: 0,
     active: true,
@@ -166,6 +167,7 @@ Receba o texto bruto abaixo e:
       og_image_url: content.og_image_url || '',
       canva_template_url: content.canva_template_url || '',
       author_id: content.author_id || null,
+      keywords: content.keywords || [],
       faqs: content.faqs || [],
       order_index: content.order_index,
       active: content.active,
@@ -202,6 +204,7 @@ Receba o texto bruto abaixo e:
       content_image_alt: '',
       canva_template_url: '',
       author_id: null,
+      keywords: [],
       faqs: [],
       order_index: contents.length,
       active: true,
@@ -248,6 +251,7 @@ Receba o texto bruto abaixo e:
         file_url: formData.file_url,
         file_name: formData.file_name,
         author_id: formData.author_id,
+        keywords: formData.keywords?.length > 0 ? formData.keywords : null,
         faqs: formData.faqs,
         order_index: formData.order_index,
         active: formData.active,
@@ -1299,12 +1303,13 @@ Receba o texto bruto abaixo e:
                             ...prev,
                             slug: data.slug,
                             meta_description: data.metaDescription,
+                            keywords: data.keywords || [],
                             faqs: data.faqs
                           }));
                           
                           toast({
                             title: '✅ Metadados gerados!',
-                            description: `Slug, Meta Description e ${data.faqs.length} FAQs criados por IA`,
+                            description: `Slug, Meta Description, ${data.keywords?.length || 0} Keywords e ${data.faqs.length} FAQs criados por IA`,
                           });
                         } catch (err: any) {
                           console.error('❌ Erro ao gerar metadados:', err);
@@ -1359,12 +1364,13 @@ Receba o texto bruto abaixo e:
                             ...prev,
                             slug: data.slug,
                             meta_description: data.metaDescription,
+                            keywords: data.keywords || [],
                             faqs: data.faqs
                           }));
                           
                           toast({
                             title: '✅ Todos os metadados regenerados!',
-                            description: `Slug, Meta Description e ${data.faqs.length} FAQs atualizados`,
+                            description: `Slug, Meta Description, ${data.keywords?.length || 0} Keywords e ${data.faqs.length} FAQs atualizados`,
                           });
                         } catch (err: any) {
                           console.error('❌ Erro ao regenerar metadados:', err);

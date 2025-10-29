@@ -22,6 +22,7 @@ interface MetadataRequest {
 interface MetadataResponse {
   slug: string;
   metaDescription: string;
+  keywords: string[];
   faqs: Array<{
     question: string;
     answer: string;
@@ -73,6 +74,10 @@ serve(async (req) => {
       console.log('✅ Generated meta description:', metaDescription);
     }
 
+    // ===== KEYWORDS GENERATION =====
+    const keywords = await generateKeywords(lovableApiKey, title, contentHTML);
+    console.log('✅ Generated keywords:', keywords);
+
     // ===== FAQS GENERATION =====
     let faqs = existingFaqs || [];
     if (!existingFaqs || existingFaqs.length === 0 || regenerate.faqs) {
@@ -83,6 +88,7 @@ serve(async (req) => {
     const response: MetadataResponse = {
       slug,
       metaDescription,
+      keywords,
       faqs
     };
 
@@ -189,6 +195,80 @@ Retorne APENAS a meta description, sem aspas ou formatação adicional.`;
   }
 
   return metaDesc;
+}
+
+async function generateKeywords(
+  apiKey: string,
+  title: string,
+  contentHTML: string
+): Promise<string[]> {
+  const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const contentPreview = stripTags(contentHTML).substring(0, 1000);
+
+  const prompt = `Você é um especialista em SEO. Extraia 8-12 palavras-chave relevantes para o seguinte conteúdo:
+
+Título: ${title}
+Conteúdo: ${contentPreview}
+
+Regras:
+- Palavras-chave relacionadas ao tema principal
+- Inclua termos técnicos e específicos da área odontológica
+- Misture palavras-chave de cauda curta e longa
+- Sem repetições
+- Apenas palavras-chave em português
+- Formato: array de strings simples`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [{ role: 'user', content: prompt }],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'extract_keywords',
+            description: 'Extract relevant SEO keywords',
+            parameters: {
+              type: 'object',
+              properties: {
+                keywords: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  minItems: 8,
+                  maxItems: 12
+                }
+              },
+              required: ['keywords']
+            }
+          }
+        }
+      ],
+      tool_choice: { type: 'function', function: { name: 'extract_keywords' } }
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ AI API error for keywords:', errorText);
+    // Fallback: retornar array vazio se falhar
+    return [];
+  }
+
+  const data = await response.json();
+  const toolCall = data.choices[0]?.message?.tool_calls?.[0];
+
+  if (!toolCall || toolCall.function.name !== 'extract_keywords') {
+    console.warn('⚠️ Unexpected AI response for keywords, using empty array');
+    return [];
+  }
+
+  const parsedArgs = JSON.parse(toolCall.function.arguments);
+  return parsedArgs.keywords || [];
 }
 
 async function generateFAQs(

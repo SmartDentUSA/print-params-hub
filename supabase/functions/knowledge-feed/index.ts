@@ -54,8 +54,11 @@ serve(async (req) => {
         title,
         slug,
         excerpt,
+        meta_description,
         og_image_url,
         content_image_url,
+        content_image_alt,
+        faqs,
         created_at,
         updated_at,
         keywords,
@@ -105,15 +108,18 @@ serve(async (req) => {
           title: item.title,
           slug: item.slug,
           excerpt: item.excerpt,
+          meta_description: item.meta_description || item.excerpt,
           category: {
             name: item.knowledge_categories?.name || 'Sem categoria',
             letter: item.knowledge_categories?.letter || 'A',
           },
           url: `${baseUrl}/base-conhecimento/${item.knowledge_categories?.letter?.toLowerCase() || 'a'}/${item.slug}`,
           image_url: item.og_image_url || item.content_image_url || '',
+          image_alt: item.content_image_alt || item.title,
           published_at: item.created_at,
           updated_at: item.updated_at,
           keywords: item.keywords || [],
+          faqs: item.faqs || [],
           author: item.authors ? {
             id: item.authors.id,
             name: item.authors.name,
@@ -154,7 +160,7 @@ serve(async (req) => {
     <item>
       <title><![CDATA[${item.title}]]></title>
       <link>${link}</link>
-      <description><![CDATA[${item.excerpt}]]></description>
+      <description><![CDATA[${item.meta_description || item.excerpt}]]></description>
       <pubDate>${pubDate}</pubDate>
       <guid isPermaLink="false">${item.id}</guid>
       <category>${item.knowledge_categories?.name || 'Sem categoria'}</category>
@@ -200,7 +206,7 @@ serve(async (req) => {
     <id>urn:uuid:${item.id}</id>
     <updated>${updated}</updated>
     <published>${published}</published>
-    <summary type="html"><![CDATA[${item.excerpt}]]></summary>
+    <summary type="html"><![CDATA[${item.meta_description || item.excerpt}]]></summary>
     <category term="${item.knowledge_categories?.name || 'Sem categoria'}" />
     ${item.authors ? `
     <author>
