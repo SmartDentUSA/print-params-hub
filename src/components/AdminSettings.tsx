@@ -191,7 +191,76 @@ export function AdminSettings() {
     setSelectedItem(null);
   };
 
-  const handleSave = async (data: any) => {
+  // 🆕 Salvar documentos técnicos no banco
+  const saveResinDocuments = async (resinId: string, documents: any[]) => {
+    try {
+      console.log(`💾 Salvando ${documents.length} documentos para resina ${resinId}`);
+      
+      for (const doc of documents) {
+        // Pular documentos sem file_url (não foram feitos upload)
+        if (!doc.file_url || !doc.file_url.trim()) {
+          console.warn('⚠️ Documento sem file_url, pulando:', doc);
+          continue;
+        }
+        
+        // Se já tem ID, significa que já existe no banco (apenas atualizar)
+        if (doc.id) {
+          const { error } = await supabase
+            .from('resin_documents')
+            .update({
+              document_name: doc.document_name,
+              document_description: doc.document_description,
+              order_index: doc.order_index || 0,
+              active: doc.active !== undefined ? doc.active : true
+            })
+            .eq('id', doc.id);
+          
+          if (error) {
+            console.error('❌ Erro ao atualizar documento:', error);
+            throw error;
+          }
+          console.log('✅ Documento atualizado:', doc.document_name);
+        } else {
+          // Criar novo documento
+          const { data, error } = await supabase
+            .from('resin_documents')
+            .insert({
+              resin_id: resinId,
+              document_name: doc.document_name,
+              document_description: doc.document_description || '',
+              file_url: doc.file_url,
+              file_name: doc.file_name,
+              file_size: doc.file_size || 0,
+              order_index: doc.order_index || 0,
+              active: true
+            })
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('❌ Erro ao inserir documento:', error);
+            throw error;
+          }
+          console.log('✅ Documento criado:', data);
+        }
+      }
+      
+      toast({
+        title: "Documentos salvos!",
+        description: `${documents.length} documento(s) técnico(s) salvo(s) com sucesso`
+      });
+    } catch (error) {
+      console.error('❌ Erro ao salvar documentos:', error);
+      toast({
+        title: "Erro ao salvar documentos",
+        description: error instanceof Error ? error.message : "Erro desconhecido",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  const handleSave = async (data: any, documents?: any[]) => {
     try {
       let result = null;
       
@@ -234,11 +303,21 @@ export function AdminSettings() {
           result = await updateResin(selectedItem.id, data);
           if (result) {
             setResins(resins.map(r => r.id === selectedItem.id ? result : r));
+            
+            // 🆕 Processar documentos após salvar resina
+            if (documents && documents.length > 0) {
+              await saveResinDocuments(result.id, documents);
+            }
           }
         } else {
           result = await insertResin(data);
           if (result) {
             setResins([...resins, result]);
+            
+            // 🆕 Processar documentos após criar resina
+            if (documents && documents.length > 0) {
+              await saveResinDocuments(result.id, documents);
+            }
           }
         }
       } else if (modalType === 'parameter') {

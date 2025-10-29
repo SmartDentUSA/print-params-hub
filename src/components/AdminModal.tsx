@@ -113,7 +113,7 @@ interface AdminModalProps {
   brands?: Brand[];
   models?: Model[];
   resins?: Resin[];
-  onSave: (data: any) => void;
+  onSave: (data: any, documents?: any[]) => Promise<void>;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({ 
@@ -256,7 +256,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         }
       }
       
-      await onSave(formData);
+      await onSave(formData, documents);
       // Don't close here - let parent component close on success
     } catch (error) {
       // Error will be handled by parent
