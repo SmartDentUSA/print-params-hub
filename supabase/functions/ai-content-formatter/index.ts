@@ -232,8 +232,14 @@ async function generateWithLovableAI(
     : ''
 
   // Criar lista de links para o prompt
-  const linkInstructions = sortedKeywords
+  const externalLinks = sortedKeywords
+    .filter(([_, data]) => data.source === 'external' || data.source === 'knowledge')
     .map(([keyword, data]) => `"${keyword}" -> ${data.url} (prioridade: ${Math.round(data.priority)})`)
+    .join('\n')
+
+  const documentLinks = sortedKeywords
+    .filter(([_, data]) => data.source === 'document')
+    .map(([keyword, data]) => `"${keyword}" -> ${data.url} [DOCUMENTO PDF] (prioridade: ${Math.round(data.priority)})`)
     .join('\n')
 
 const defaultPrompt = `Você é um ESPECIALISTA em HTML SEMÂNTICO com HIERARQUIA VISUAL FORTE.
@@ -302,15 +308,21 @@ ${urlInstructions}
 
 🔗 LISTA DE LINKS INTERNOS PARA INSERIR AUTOMATICAMENTE:
 
-${linkInstructions}
+${externalLinks}
+
+📄 DOCUMENTOS TÉCNICOS (PDFs) DISPONÍVEIS:
+
+${documentLinks}
 
 ⚠️ REGRAS DE INSERÇÃO DE LINKS:
 1. Insira <a href="URL">palavra-chave</a> quando encontrar as palavras-chave acima
-2. MÁXIMO 1 link por palavra-chave (primeira ocorrência apenas)
-3. MÁXIMO 10-15 links internos por artigo
-4. Priorize keywords com maior score de prioridade
-5. Links devem ser naturais no contexto
-6. Use title="" nos links para acessibilidade
+2. Para documentos PDF, use descrições como "veja o documento técnico", "confira o PDF", "download do guia"
+3. MÁXIMO 1 link por palavra-chave (primeira ocorrência apenas)
+4. MÁXIMO 10-15 links internos por artigo
+5. Priorize keywords com maior score de prioridade
+6. Links devem ser naturais no contexto
+7. Use title="" nos links para acessibilidade
+8. Links para PDFs devem abrir em nova aba com target="_blank" rel="noopener"
 
 📝 ESTRUTURA HTML COM EXEMPLOS OBRIGATÓRIOS:
 

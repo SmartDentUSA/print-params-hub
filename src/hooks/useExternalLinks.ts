@@ -23,9 +23,20 @@ export interface ProductCTA {
   cta_position: number;
 }
 
+export interface TechnicalDocument {
+  id: string;
+  document_name: string;
+  document_description: string | null;
+  file_url: string;
+  resin_name: string;
+  manufacturer: string;
+  active: boolean;
+}
+
 export function useExternalLinks() {
   const [keywords, setKeywords] = useState<ExternalLink[]>([]);
   const [productCTAs, setProductCTAs] = useState<ProductCTA[]>([]);
+  const [documents, setDocuments] = useState<TechnicalDocument[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -140,9 +151,43 @@ export function useExternalLinks() {
     }
   };
 
+  const fetchDocuments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('resin_documents')
+        .select(`
+          id,
+          document_name,
+          document_description,
+          file_url,
+          active,
+          resins!inner(name, manufacturer)
+        `)
+        .eq('active', true)
+        .order('document_name');
+
+      if (error) throw error;
+
+      const docList: TechnicalDocument[] = data?.map((doc: any) => ({
+        id: doc.id,
+        document_name: doc.document_name,
+        document_description: doc.document_description,
+        file_url: doc.file_url,
+        resin_name: doc.resins.name,
+        manufacturer: doc.resins.manufacturer,
+        active: doc.active
+      })) || [];
+
+      setDocuments(docList);
+    } catch (error: any) {
+      console.error('Error fetching documents:', error);
+    }
+  };
+
   useEffect(() => {
     fetchApprovedKeywords();
     fetchProductCTAs();
+    fetchDocuments();
   }, []);
 
   const updateKeywordUrl = async (id: string, newUrl: string): Promise<boolean> => {
@@ -179,9 +224,11 @@ export function useExternalLinks() {
   return {
     keywords,
     productCTAs,
+    documents,
     loading,
     refresh: fetchApprovedKeywords,
     refreshProductCTAs: fetchProductCTAs,
+    refreshDocuments: fetchDocuments,
     updateKeywordUrl
   };
 }

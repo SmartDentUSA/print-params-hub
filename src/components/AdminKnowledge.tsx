@@ -60,7 +60,8 @@ export function AdminKnowledge() {
   // Metadata generation states
   const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
   const [showKeywords, setShowKeywords] = useState(false);
-  const { keywords, updateKeywordUrl } = useExternalLinks();
+  const [showDocuments, setShowDocuments] = useState(false);
+  const { keywords, documents, updateKeywordUrl } = useExternalLinks();
   
   // Keyword editing states
   const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null);
@@ -932,6 +933,86 @@ Receba o texto bruto abaixo e:
                       
                       <p className="text-xs text-purple-700 dark:text-purple-300">
                         📊 Total: <strong>{keywords.length} keywords aprovadas</strong> no sistema
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Technical Documents Section */}
+                <div className="border border-amber-200 dark:border-amber-900 rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">📄</span>
+                      <span className="font-semibold text-amber-900 dark:text-amber-100">
+                        Documentos Técnicos Disponíveis
+                      </span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowDocuments(!showDocuments)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {showDocuments ? '▼' : '▶'}
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
+                    A IA usará automaticamente estes PDFs para criar hyperlinks no conteúdo gerado
+                  </p>
+                  
+                  {showDocuments && (
+                    <div className="space-y-2">
+                      <ScrollArea className="h-[300px] w-full rounded-md border border-amber-200 dark:border-amber-800 bg-white dark:bg-amber-950/30 p-3">
+                        <div className="space-y-3">
+                          {documents.map((doc) => {
+                            return (
+                              <div 
+                                key={doc.id} 
+                                className="group p-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20 hover:bg-amber-100/50 dark:hover:bg-amber-900/40 transition-colors"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-lg">📋</span>
+                                      <span className="font-medium text-amber-900 dark:text-amber-100 truncate">
+                                        {doc.document_name}
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">Resina:</span>
+                                        <span>{doc.resin_name} ({doc.manufacturer})</span>
+                                      </div>
+                                      {doc.document_description && (
+                                        <div className="text-amber-600 dark:text-amber-400 italic">
+                                          {doc.document_description}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <a
+                                      href={doc.file_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1 px-2 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors"
+                                    >
+                                      👁️ Ver
+                                    </a>
+                                  </div>
+                                </div>
+                                <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded truncate">
+                                  {doc.file_url}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                      
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        📊 Total: <strong>{documents.length} documentos técnicos</strong> ativos
                       </p>
                     </div>
                   )}
