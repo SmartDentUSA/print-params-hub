@@ -84,7 +84,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between w-full gap-4">
                   {/* Seção Imagem + Texto */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex items-start gap-3 flex-1 min-w-0 order-1">
                     {resin.image_url && (
                       <img 
                         src={resin.image_url} 
@@ -125,11 +125,12 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                   </div>
 
                   {/* Botões CTA - Abaixo da imagem no mobile */}
-                  <div className="grid grid-cols-4 md:flex md:gap-2 gap-1 w-full md:w-auto">
+                  <div className="order-2 w-full grid grid-cols-4 gap-1 mt-2 md:order-none md:flex md:gap-2 md:w-auto md:mt-0">
                     {resin.cta_1_enabled !== false && resin.cta_1_label && resin.cta_1_url && (
                       <Button 
                         size="sm" 
                         variant="outline"
+                        className="w-full text-xs px-2 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
@@ -156,6 +157,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
+                        className="w-full text-xs px-2 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
@@ -172,6 +174,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
+                        className="w-full text-xs px-2 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
@@ -188,6 +191,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
+                        className="w-full text-xs px-2 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_4_url, '_blank', 'noopener,noreferrer');
@@ -214,7 +218,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                   {/* Badge Isolado à Direita */}
                   <Badge 
                     variant="secondary" 
-                    className="self-start md:self-center flex-shrink-0"
+                    className="order-3 md:order-none self-start md:self-center flex-shrink-0"
                   >
                     {resin.parameterSets.length} variação{resin.parameterSets.length !== 1 ? 'ões' : ''}
                   </Badge>
