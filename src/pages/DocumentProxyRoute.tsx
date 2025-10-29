@@ -11,22 +11,14 @@ const DocumentProxyRoute = () => {
       return;
     }
 
-    // Em preview (lovableproject.com), redirecionar DIRETAMENTE para a Edge Function
-    if (window.location.hostname.includes('lovableproject.com')) {
-      const edgeFunctionUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
-      
-      // Redirect imediato sem validação prévia
-      window.location.replace(edgeFunctionUrl);
-      return;
-    }
+    // Redirecionar SEMPRE para a Edge Function pública
+    // Funciona para usuários logados E não logados
+    const edgeFunctionUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
     
-    // Em produção, o vercel.json cuida do rewrite (não faz nada aqui)
-    // Timeout de segurança caso o redirect não aconteça
-    const timeout = setTimeout(() => {
-      setError(true);
-    }, 2000);
-
-    return () => clearTimeout(timeout);
+    console.log('[DocumentProxyRoute] Redirecting to:', edgeFunctionUrl);
+    
+    // Redirect imediato
+    window.location.replace(edgeFunctionUrl);
   }, [filename]);
 
   if (error) {

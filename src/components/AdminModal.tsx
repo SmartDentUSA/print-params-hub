@@ -534,8 +534,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Baixar ' + selectedResource.document_name;
-        const filename = selectedResource.file_url.split('/').pop();
-        generatedUrl = `/docs/${filename}`;
+        const filename = selectedResource.file_url.split('/').pop() || '';
+        generatedUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
       }
     } else if (sourceType === 'external_link') {
       selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
@@ -580,8 +580,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Baixar ' + selectedResource.document_name;
-        const filename = selectedResource.file_url.split('/').pop();
-        generatedUrl = `/docs/${filename}`;
+        const filename = selectedResource.file_url.split('/').pop() || '';
+        generatedUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
       }
     } else if (sourceType === 'external_link') {
       selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
@@ -626,8 +626,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Baixar ' + selectedResource.document_name;
-        const filename = selectedResource.file_url.split('/').pop();
-        generatedUrl = `/docs/${filename}`;
+        const filename = selectedResource.file_url.split('/').pop() || '';
+        generatedUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
       }
     } else if (sourceType === 'external_link') {
       selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
