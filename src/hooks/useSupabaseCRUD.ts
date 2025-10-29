@@ -248,6 +248,71 @@ export const useSupabaseCRUD = () => {
     }
   };
 
+  // Resin Document CRUD operations
+  const fetchResinDocuments = async (resinId: string): Promise<any[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('resin_documents')
+        .select('*')
+        .eq('resin_id', resinId)
+        .eq('active', true)
+        .order('order_index', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao buscar documentos');
+      return [];
+    }
+  };
+
+  const insertResinDocument = async (doc: any): Promise<any | null> => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('resin_documents')
+        .insert(doc)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar documento');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteResinDocument = async (id: string, fileUrl: string): Promise<boolean> => {
+    try {
+      setLoading(true);
+      
+      // Deletar arquivo do storage
+      const fileName = fileUrl.split('/').pop();
+      if (fileName) {
+        await supabase.storage
+          .from('resin-documents')
+          .remove([fileName]);
+      }
+      
+      // Deletar registro do banco
+      const { error } = await supabase
+        .from('resin_documents')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao deletar documento');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     error,
@@ -263,6 +328,9 @@ export const useSupabaseCRUD = () => {
     insertParameterSet,
     updateParameterSet,
     deleteParameterSet,
+    fetchResinDocuments,
+    insertResinDocument,
+    deleteResinDocument,
     clearError: () => setError(null)
   };
 };

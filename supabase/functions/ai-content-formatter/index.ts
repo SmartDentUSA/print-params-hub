@@ -10,7 +10,7 @@ interface LinkMapItem {
   id: string
   url: string
   priority: number
-  source: 'external' | 'knowledge'
+  source: 'external' | 'knowledge' | 'document'
 }
 
 serve(async (req) => {
@@ -136,6 +136,44 @@ async function fetchKeywordsRepository(
             })
           }
         }
+      }
+    }
+  }
+
+  // 3. Buscar resin_documents (documentos técnicos)
+  const { data: resinDocuments } = await supabase
+    .from('resin_documents')
+    .select(`
+      *,
+      resins!inner(name, manufacturer, slug)
+    `)
+    .eq('active', true)
+
+  if (resinDocuments) {
+    for (const doc of resinDocuments) {
+      const resin = (doc as any).resins
+      const priority = 70 // Prioridade alta para documentos técnicos
+      
+      // Usar nome do documento como keyword
+      const keywordText = doc.document_name.toLowerCase()
+      if (!linkMap.has(keywordText)) {
+        linkMap.set(keywordText, {
+          id: doc.id,
+          url: doc.file_url,
+          priority,
+          source: 'document'
+        })
+      }
+      
+      // Adicionar variações com nome da resina
+      const fullKeyword = `${doc.document_name} ${resin.name}`.toLowerCase()
+      if (!linkMap.has(fullKeyword)) {
+        linkMap.set(fullKeyword, {
+          id: doc.id,
+          url: doc.file_url,
+          priority: priority * 0.9,
+          source: 'document'
+        })
       }
     }
   }

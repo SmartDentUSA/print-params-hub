@@ -462,6 +462,56 @@ export type Database = {
         }
         Relationships: []
       }
+      resin_documents: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          document_description: string | null
+          document_name: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          order_index: number | null
+          resin_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          document_description?: string | null
+          document_name: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          order_index?: number | null
+          resin_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          document_description?: string | null
+          document_name?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          order_index?: number | null
+          resin_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resin_documents_resin_id_fkey"
+            columns: ["resin_id"]
+            isOneToOne: false
+            referencedRelation: "resins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resins: {
         Row: {
           active: boolean
@@ -723,7 +773,7 @@ export type Database = {
     }
     Functions: {
       get_brand_distribution: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           brand_name: string
           parameter_count: number
@@ -734,22 +784,10 @@ export type Database = {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
-      has_panel_access: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
-      is_admin: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
-      is_author: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
-      normalize_text: {
-        Args: { text_input: string }
-        Returns: string
-      }
+      has_panel_access: { Args: { user_id: string }; Returns: boolean }
+      is_admin: { Args: { user_id: string }; Returns: boolean }
+      is_author: { Args: { user_id: string }; Returns: boolean }
+      normalize_text: { Args: { text_input: string }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user" | "author"

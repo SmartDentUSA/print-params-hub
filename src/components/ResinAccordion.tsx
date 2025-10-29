@@ -1,7 +1,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink } from "lucide-react";
+import { FileText, ExternalLink } from "lucide-react";
 import { ParameterTable } from "./ParameterTable";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +30,7 @@ interface Resin {
   description?: string;
   price?: number;
   parameterSets: ParameterSet[];
+  documents?: any[]; // Adicionar documentos
   cta_1_label?: string;
   cta_1_url?: string;
   cta_1_description?: string;
@@ -190,6 +191,42 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
               )}
               <AccordionContent className="px-6 pb-6">
                 <div className="space-y-4">
+                  {/* NOVA SEÇÃO: Documentos Técnicos */}
+                  {resin.documents && resin.documents.length > 0 && (
+                    <div className="mt-4 p-4 bg-muted/30 rounded-lg border">
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <FileText className="w-4 h-4" />
+                        Documentos Técnicos
+                      </h4>
+                      <div className="space-y-2">
+                        {resin.documents.map((doc: any) => (
+                          <a
+                            key={doc.id}
+                            href={doc.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-between p-3 bg-card rounded border hover:border-primary transition-colors group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="w-5 h-5 text-primary" />
+                              <div>
+                                <p className="text-sm font-medium group-hover:text-primary">
+                                  {doc.document_name}
+                                </p>
+                                {doc.document_description && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {doc.document_description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   {resin.parameterSets.map((paramSet) => (
                     <Accordion key={paramSet.id} type="single" collapsible>
                       <AccordionItem value={paramSet.id} className="border border-border rounded-lg">

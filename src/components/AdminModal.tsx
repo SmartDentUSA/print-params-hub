@@ -6,14 +6,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2 } from 'lucide-react';
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
 import { PublicAPIProductImporter } from '@/components/PublicAPIProductImporter';
 import { uploadExternalImage } from '@/utils/uploadExternalImage';
+import { supabase } from '@/integrations/supabase/client';
+import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 
 interface Brand {
   id: string;
@@ -167,10 +170,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   };
 
   const [formData, setFormData] = useState<any>(getInitialFormData);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const { fetchResinDocuments, insertResinDocument, deleteResinDocument } = useSupabaseCRUD();
 
   // Update form data when item or type changes
   useEffect(() => {
     setFormData(getInitialFormData());
+    
+    // Carregar documentos se for tipo resin e tiver ID
+    if (type === 'resin' && item && 'id' in item) {
+      fetchResinDocuments(item.id).then(docs => setDocuments(docs));
+    } else {
+      setDocuments([]);
+    }
   }, [item, type, isOpen]);
 
   // Filter models based on selected brand for parameter form
@@ -347,6 +359,100 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         variant: "destructive"
       });
     }
+  };
+
+  // Funções de gerenciamento de documentos
+  const handleAddDocument = () => {
+    setDocuments([...documents, {
+      document_name: '',
+      document_description: '',
+      file_url: '',
+      file_name: '',
+      file_size: 0,
+      order_index: documents.length
+    }]);
+  };
+
+  const handleDocumentChange = (index: number, field: string, value: any) => {
+    const updatedDocs = [...documents];
+    updatedDocs[index] = { ...updatedDocs[index], [field]: value };
+    setDocuments(updatedDocs);
+  };
+
+  const handleDocumentUpload = async (index: number, file: File | undefined) => {
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "PDFs devem ter no máximo 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      const fileExt = 'pdf';
+      const fileName = `${formData.slug || 'resin'}-${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('resin-documents')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('resin-documents')
+        .getPublicUrl(fileName);
+      
+      const updatedDocs = [...documents];
+      updatedDocs[index] = {
+        ...updatedDocs[index],
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size
+      };
+      setDocuments(updatedDocs);
+      
+      toast({
+        title: "Upload concluído!",
+        description: `${file.name} foi enviado com sucesso`
+      });
+    } catch (error) {
+      toast({
+        title: "Erro no upload",
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteDocument = async (docId?: string, fileUrl?: string) => {
+    if (docId) {
+      const success = await deleteResinDocument(docId, fileUrl || '');
+      if (success) {
+        setDocuments(documents.filter(doc => doc.id !== docId));
+        toast({
+          title: "Documento removido",
+          description: "Documento técnico foi removido com sucesso"
+        });
+      }
+    } else {
+      // Remover documento não salvo ainda
+      const index = documents.findIndex(doc => doc.file_url === fileUrl);
+      if (index !== -1) {
+        setDocuments(documents.filter((_, i) => i !== index));
+      }
+    }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const getModalTitle = () => {
@@ -751,6 +857,86 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
+              </div>
+              
+              {/* NOVA SEÇÃO: Documentos Técnicos */}
+              <div className="space-y-4 mt-6">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  📄 Documentos Técnicos
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  PDFs que serão hospedados no sistema e disponibilizados para hyperlinks da IA
+                </p>
+                
+                {/* Lista de documentos existentes */}
+                {documents.map((doc, idx) => (
+                  <div key={idx} className="p-4 border rounded-lg space-y-3 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Documento #{idx + 1}</Label>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleDeleteDocument(doc.id, doc.file_url)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor={`doc_name_${idx}`}>Nome do Documento</Label>
+                      <Input
+                        id={`doc_name_${idx}`}
+                        value={doc.document_name}
+                        onChange={(e) => handleDocumentChange(idx, 'document_name', e.target.value)}
+                        placeholder="Ex: Ficha Técnica Smart Print Model Ocre"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor={`doc_desc_${idx}`}>Descrição SEO</Label>
+                      <Textarea
+                        id={`doc_desc_${idx}`}
+                        value={doc.document_description}
+                        onChange={(e) => handleDocumentChange(idx, 'document_description', e.target.value)}
+                        placeholder="Ex: Ficha técnica completa da resina Smart Print Model Ocre com dados técnicos de cura e impressão"
+                        rows={2}
+                      />
+                    </div>
+                    
+                    {doc.file_url ? (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-500" />
+                        <a 
+                          href={doc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {doc.file_name}
+                        </a>
+                        <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
+                      </div>
+                    ) : (
+                      <div>
+                        <Label>Upload PDF</Label>
+                        <Input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(e) => handleDocumentUpload(idx, e.target.files?.[0])}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                <Button 
+                  variant="outline"
+                  onClick={handleAddDocument}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  ADICIONAR DOCUMENTO
+                </Button>
               </div>
               
               <div className="flex items-center space-x-2">
