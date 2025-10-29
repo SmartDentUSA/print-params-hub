@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.generate-documents-sitemap]
 verify_jwt = false
+
+[functions.document-proxy]
+verify_jwt = false

@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/docs/:path*",
-      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/:path*"
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/:path*"
     },
     {
       "source": "/:path*",
