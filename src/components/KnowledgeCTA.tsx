@@ -18,6 +18,7 @@ interface Resin {
   manufacturer: string;
   image_url?: string;
   cta_1_url?: string;
+  cta_1_enabled?: boolean;
 }
 
 export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins: preFetchedResins }: KnowledgeCTAProps) {
@@ -48,7 +49,7 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
     const fetchResins = async () => {
       const { data } = await supabase
         .from('resins')
-        .select('id, name, manufacturer, image_url, cta_1_url')
+        .select('id, name, manufacturer, image_url, cta_1_url, cta_1_enabled')
         .in('id', recommendedResins)
         .eq('active', true);
 
@@ -82,22 +83,22 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
       });
     }
 
-    // Redirecionar para cta_1_url
-    if (resins.length === 1 && resins[0].cta_1_url) {
-      // Uma resina com CTA1 → redirect direto
+    // Redirecionar para cta_1_url (se habilitado)
+    if (resins.length === 1 && resins[0].cta_1_enabled !== false && resins[0].cta_1_url) {
+      // Uma resina com CTA1 habilitado → redirect direto
       window.open(resins[0].cta_1_url, '_blank', 'noopener,noreferrer');
     } else if (resins.length > 1) {
-      // Múltiplas resinas → pegar primeira com cta_1_url
-      const firstResinWithCta = resins.find(r => r.cta_1_url);
+      // Múltiplas resinas → pegar primeira com cta_1_url habilitado
+      const firstResinWithCta = resins.find(r => r.cta_1_enabled !== false && r.cta_1_url);
       if (firstResinWithCta?.cta_1_url) {
         window.open(firstResinWithCta.cta_1_url, '_blank', 'noopener,noreferrer');
       } else {
-        // Fallback: se nenhuma tem CTA1, usar comportamento antigo
+        // Fallback: se nenhuma tem CTA1 habilitado, usar comportamento antigo
         const resinIds = resins.map(r => r.id).join(',');
         navigate(`/?resins=${resinIds}`);
       }
     } else {
-      // Fallback: sem cta_1_url, usar filtro
+      // Fallback: sem cta_1_url ou desabilitado, usar filtro
       const resinIds = resins.map(r => r.id).join(',');
       navigate(`/?resins=${resinIds}`);
     }

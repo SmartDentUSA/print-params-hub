@@ -1,7 +1,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink, ShoppingCart } from "lucide-react";
 import { ParameterTable } from "./ParameterTable";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,10 @@ interface Resin {
   cta_3_label?: string;
   cta_3_url?: string;
   cta_3_description?: string;
+  cta_1_enabled?: boolean;
+  cta_4_label?: string;
+  cta_4_url?: string;
+  cta_4_description?: string;
 }
 
 interface ResinAccordionProps {
@@ -120,18 +124,28 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
 
                       {/* Botões CTA - NOVA POSIÇÃO */}
                       <div className="flex items-center gap-2 mt-3 flex-wrap">
-                        {resin.cta_1_label && resin.cta_1_url && (
+                        {resin.cta_1_enabled !== false && resin.cta_1_label && resin.cta_1_url && (
                           <Button 
                             size="sm" 
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
                               window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
+                              
+                              if (typeof (window as any).gtag === 'function') {
+                                (window as any).gtag('event', 'cta_click', {
+                                  event_category: 'cta',
+                                  event_label: resin.cta_1_label,
+                                  resin_name: resin.name,
+                                  cta_position: 1
+                                });
+                              }
                             }}
                             aria-label={resin.cta_1_description || resin.cta_1_label}
                             title={resin.cta_1_description || resin.cta_1_label}
                             data-seo-description={resin.cta_1_description}
                           >
+                            <ShoppingCart className="w-3 h-3 mr-1" />
                             {resin.cta_1_label}
                             <ExternalLink className="w-3 h-3 ml-1" />
                           </Button>
@@ -168,6 +182,31 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                             <ExternalLink className="w-3 h-3 ml-1" />
                           </Button>
                         )}
+                        {resin.cta_4_label && resin.cta_4_url && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(resin.cta_4_url, '_blank', 'noopener,noreferrer');
+                              
+                              if (typeof (window as any).gtag === 'function') {
+                                (window as any).gtag('event', 'cta_click', {
+                                  event_category: 'cta',
+                                  event_label: resin.cta_4_label,
+                                  resin_name: resin.name,
+                                  cta_position: 4
+                                });
+                              }
+                            }}
+                            aria-label={resin.cta_4_description || resin.cta_4_label}
+                            title={resin.cta_4_description || resin.cta_4_label}
+                            data-seo-description={resin.cta_4_description}
+                          >
+                            {resin.cta_4_label}
+                            <ExternalLink className="w-3 h-3 ml-1" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -182,11 +221,12 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                 </div>
               </AccordionTrigger>
               {/* SEO Hidden Content for Crawlers */}
-              {(resin.cta_1_description || resin.cta_2_description || resin.cta_3_description) && (
+              {(resin.cta_1_description || resin.cta_2_description || resin.cta_3_description || resin.cta_4_description) && (
                 <div className="sr-only px-6">
                   {resin.cta_1_description && <p>{resin.cta_1_description}</p>}
                   {resin.cta_2_description && <p>{resin.cta_2_description}</p>}
                   {resin.cta_3_description && <p>{resin.cta_3_description}</p>}
+                  {resin.cta_4_description && <p>{resin.cta_4_description}</p>}
                 </div>
               )}
               <AccordionContent className="px-6 pb-6">

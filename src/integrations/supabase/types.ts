@@ -519,6 +519,7 @@ export type Database = {
           color: string | null
           created_at: string
           cta_1_description: string | null
+          cta_1_enabled: boolean | null
           cta_1_label: string | null
           cta_1_url: string | null
           cta_2_description: string | null
@@ -527,6 +528,11 @@ export type Database = {
           cta_3_description: string | null
           cta_3_label: string | null
           cta_3_url: string | null
+          cta_4_description: string | null
+          cta_4_label: string | null
+          cta_4_source_id: string | null
+          cta_4_source_type: string | null
+          cta_4_url: string | null
           description: string | null
           id: string
           image_url: string | null
@@ -548,6 +554,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           cta_1_description?: string | null
+          cta_1_enabled?: boolean | null
           cta_1_label?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
@@ -556,6 +563,11 @@ export type Database = {
           cta_3_description?: string | null
           cta_3_label?: string | null
           cta_3_url?: string | null
+          cta_4_description?: string | null
+          cta_4_label?: string | null
+          cta_4_source_id?: string | null
+          cta_4_source_type?: string | null
+          cta_4_url?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
@@ -577,6 +589,7 @@ export type Database = {
           color?: string | null
           created_at?: string
           cta_1_description?: string | null
+          cta_1_enabled?: boolean | null
           cta_1_label?: string | null
           cta_1_url?: string | null
           cta_2_description?: string | null
@@ -585,6 +598,11 @@ export type Database = {
           cta_3_description?: string | null
           cta_3_label?: string | null
           cta_3_url?: string | null
+          cta_4_description?: string | null
+          cta_4_label?: string | null
+          cta_4_source_id?: string | null
+          cta_4_source_type?: string | null
+          cta_4_url?: string | null
           description?: string | null
           id?: string
           image_url?: string | null

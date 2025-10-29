@@ -9,7 +9,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2 } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/ImageUpload';
@@ -55,6 +56,12 @@ interface Resin {
   cta_3_label?: string;
   cta_3_url?: string;
   cta_3_description?: string;
+  cta_1_enabled?: boolean;
+  cta_4_label?: string;
+  cta_4_url?: string;
+  cta_4_description?: string;
+  cta_4_source_type?: string;
+  cta_4_source_id?: string;
 }
 
 interface ParameterSet {
@@ -139,7 +146,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       case 'model':
         return { name: '', brand_id: '', image_url: '', notes: '', active: true };
       case 'resin':
-        return { name: '', manufacturer: '', color: '', type: 'standard', description: '', price: 0, active: true };
+        return { 
+          name: '', 
+          manufacturer: '', 
+          color: '', 
+          type: 'standard', 
+          description: '', 
+          price: 0, 
+          active: true,
+          cta_1_enabled: true,
+          cta_4_source_type: 'manual'
+        };
       case 'parameter':
         return {
           brand_slug: '',
@@ -172,16 +189,60 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [formData, setFormData] = useState<any>(getInitialFormData);
   const [documents, setDocuments] = useState<any[]>([]);
   const { fetchResinDocuments, insertResinDocument, deleteResinDocument } = useSupabaseCRUD();
+  
+  // 🆕 Recursos do sistema para CTA4
+  const [systemResources, setSystemResources] = useState<{
+    documents: any[];
+    externalLinks: any[];
+    knowledgeArticles: any[];
+  }>({
+    documents: [],
+    externalLinks: [],
+    knowledgeArticles: []
+  });
 
   // Update form data when item or type changes
   useEffect(() => {
     setFormData(getInitialFormData());
     
-    // Carregar documentos se for tipo resin e tiver ID
-    if (type === 'resin' && item && 'id' in item) {
-      fetchResinDocuments(item.id).then(docs => setDocuments(docs));
-    } else {
-      setDocuments([]);
+    // Carregar documentos e recursos do sistema se for tipo resin
+    if (type === 'resin' && isOpen) {
+      const fetchData = async () => {
+        // Carregar documentos da resina se tiver ID
+        if (item && 'id' in item) {
+          const docs = await fetchResinDocuments(item.id);
+          setDocuments(docs);
+        } else {
+          setDocuments([]);
+        }
+        
+        // 🆕 Buscar recursos do sistema para CTA4
+        const { data: allDocs } = await supabase
+          .from('resin_documents')
+          .select('id, document_name, file_url, resins!inner(name, manufacturer)')
+          .eq('active', true)
+          .order('document_name');
+        
+        const { data: links } = await supabase
+          .from('external_links')
+          .select('id, name, url, category')
+          .eq('approved', true)
+          .order('name');
+        
+        const { data: articles } = await supabase
+          .from('knowledge_contents')
+          .select('id, title, slug')
+          .eq('active', true)
+          .order('title');
+        
+        setSystemResources({
+          documents: allDocs || [],
+          externalLinks: links || [],
+          knowledgeArticles: articles || []
+        });
+      };
+      
+      fetchData();
     }
   }, [item, type, isOpen]);
 
@@ -449,6 +510,52 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // 🆕 Handler para mudar tipo de fonte do CTA4
+  const handleCTA4SourceChange = (sourceType: string) => {
+    setFormData({
+      ...formData,
+      cta_4_source_type: sourceType,
+      cta_4_source_id: null,
+      cta_4_url: '',
+      cta_4_label: ''
+    });
+  };
+
+  // 🆕 Handler para selecionar recurso do sistema
+  const handleCTA4ResourceSelect = (resourceId: string) => {
+    const sourceType = formData.cta_4_source_type;
+    let selectedResource: any = null;
+    let generatedLabel = '';
+    let generatedUrl = '';
+    
+    if (sourceType === 'document') {
+      selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = 'Baixar ' + selectedResource.document_name;
+        generatedUrl = selectedResource.file_url;
+      }
+    } else if (sourceType === 'external_link') {
+      selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = selectedResource.name;
+        generatedUrl = selectedResource.url;
+      }
+    } else if (sourceType === 'knowledge') {
+      selectedResource = systemResources.knowledgeArticles.find((a: any) => a.id === resourceId);
+      if (selectedResource) {
+        generatedLabel = 'Leia: ' + selectedResource.title;
+        generatedUrl = `https://parametros.smartdent.com.br/base-de-conhecimento/${selectedResource.slug}`;
+      }
+    }
+    
+    setFormData({
+      ...formData,
+      cta_4_source_id: resourceId,
+      cta_4_url: generatedUrl,
+      cta_4_label: generatedLabel
+    });
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -689,13 +796,40 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   <AccordionItem value="cta-1">
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center gap-2">
-                        <ExternalLink className="w-4 h-4" />
-                        <span>CTA 1</span>
+                        <ShoppingCart className="w-4 h-4" />
+                        <span>CTA 1 - E-commerce</span>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="space-y-3 pt-2">
-                      <div>
-                        <Label htmlFor="cta_1_label">Nome do Botão</Label>
+                      {/* 🆕 Toggle Ativar/Desativar */}
+                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded">
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="cta_1_enabled" className="cursor-pointer">
+                            Ativar botão E-commerce
+                          </Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-sm">Desative para ocultar o botão de compra</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Switch
+                          id="cta_1_enabled"
+                          checked={formData.cta_1_enabled !== false}
+                          onCheckedChange={(checked) => handleInputChange('cta_1_enabled', checked)}
+                        />
+                      </div>
+                      
+                      {/* Campos só aparecem se ativado */}
+                      {formData.cta_1_enabled !== false && (
+                        <>
+                          <div>
+                            <Label htmlFor="cta_1_label">Nome do Botão</Label>
                         <Input
                           id="cta_1_label"
                           value={formData.cta_1_label || ''}
@@ -736,10 +870,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           className="resize-none"
                           rows={3}
                         />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {(formData.cta_1_description || '').length}/200 caracteres
-                        </p>
-                      </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {(formData.cta_1_description || '').length}/200 caracteres
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                   
@@ -852,6 +988,215 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         />
                         <p className="text-xs text-muted-foreground mt-1">
                           {(formData.cta_3_description || '').length}/200 caracteres
+                        </p>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                  
+                  {/* 🆕 CTA 4 - Seletor Inteligente */}
+                  <AccordionItem value="cta-4">
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" />
+                        <span>CTA 4 - Seletor Inteligente</span>
+                        <Badge variant="secondary" className="ml-2">NOVO</Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4 pt-2">
+                      {/* Seletor de Tipo de Fonte */}
+                      <div>
+                        <Label className="mb-2 block">Tipo de Conteúdo</Label>
+                        <RadioGroup 
+                          value={formData.cta_4_source_type || 'manual'} 
+                          onValueChange={handleCTA4SourceChange}
+                          className="space-y-2"
+                        >
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="manual" id="cta4-manual" />
+                            <Label htmlFor="cta4-manual" className="flex-1 cursor-pointer">
+                              <div className="font-medium">URL Manual</div>
+                              <p className="text-xs text-muted-foreground">Digite um link customizado</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="document" id="cta4-document" />
+                            <Label htmlFor="cta4-document" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Documento Técnico</div>
+                              <p className="text-xs text-muted-foreground">Vincular PDF cadastrado no sistema</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="external_link" id="cta4-external" />
+                            <Label htmlFor="cta4-external" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Link Externo Aprovado</div>
+                              <p className="text-xs text-muted-foreground">Usar link da base de externos</p>
+                            </Label>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 p-3 border rounded hover:bg-muted/30 cursor-pointer">
+                            <RadioGroupItem value="knowledge" id="cta4-knowledge" />
+                            <Label htmlFor="cta4-knowledge" className="flex-1 cursor-pointer">
+                              <div className="font-medium">Artigo da Base de Conhecimento</div>
+                              <p className="text-xs text-muted-foreground">Landing page interna</p>
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      
+                      {/* Campos condicionais baseados no tipo */}
+                      {formData.cta_4_source_type === 'manual' && (
+                        <>
+                          <div>
+                            <Label htmlFor="cta_4_label">Nome do Botão</Label>
+                            <Input
+                              id="cta_4_label"
+                              value={formData.cta_4_label || ''}
+                              onChange={(e) => handleInputChange('cta_4_label', e.target.value)}
+                              placeholder="Ex: Solicitar Orçamento"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="cta_4_url">URL</Label>
+                            <Input
+                              id="cta_4_url"
+                              type="url"
+                              value={formData.cta_4_url || ''}
+                              onChange={(e) => handleInputChange('cta_4_url', e.target.value)}
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </>
+                      )}
+                      
+                      {formData.cta_4_source_type === 'document' && (
+                        <div>
+                          <Label htmlFor="cta_4_doc_select">Selecionar Documento</Label>
+                          <Select 
+                            value={formData.cta_4_source_id || ''} 
+                            onValueChange={handleCTA4ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um documento técnico..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.documents.map((doc: any) => (
+                                <SelectItem key={doc.id} value={doc.id}>
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="w-4 h-4" />
+                                    <div>
+                                      <div className="font-medium">{doc.document_name}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {doc.resins.name} - {doc.resins.manufacturer}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_4_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_4_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_4_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_4_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {formData.cta_4_source_type === 'external_link' && (
+                        <div>
+                          <Label htmlFor="cta_4_link_select">Selecionar Link Externo</Label>
+                          <Select 
+                            value={formData.cta_4_source_id || ''} 
+                            onValueChange={handleCTA4ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um link aprovado..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.externalLinks.map((link: any) => (
+                                <SelectItem key={link.id} value={link.id}>
+                                  <div className="flex items-center gap-2">
+                                    <ExternalLink className="w-4 h-4" />
+                                    <div>
+                                      <div className="font-medium">{link.name}</div>
+                                      <div className="text-xs text-muted-foreground">{link.category}</div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_4_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_4_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_4_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_4_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {formData.cta_4_source_type === 'knowledge' && (
+                        <div>
+                          <Label htmlFor="cta_4_article_select">Selecionar Artigo</Label>
+                          <Select 
+                            value={formData.cta_4_source_id || ''} 
+                            onValueChange={handleCTA4ResourceSelect}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Escolha um artigo da base..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {systemResources.knowledgeArticles.map((article: any) => (
+                                <SelectItem key={article.id} value={article.id}>
+                                  <div className="flex items-center gap-2">
+                                    <BookOpen className="w-4 h-4" />
+                                    <div className="font-medium">{article.title}</div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          
+                          {formData.cta_4_url && (
+                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                              <strong>Label gerado:</strong> {formData.cta_4_label}<br/>
+                              <strong>URL:</strong> <a href={formData.cta_4_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_4_url}</a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Descrição SEO (comum para todos) */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Label htmlFor="cta_4_description">Descrição SEO</Label>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">Descrição invisível para usuários, usada para SEO e acessibilidade. Máx: 200 caracteres.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <Textarea
+                          id="cta_4_description"
+                          value={formData.cta_4_description || ''}
+                          onChange={(e) => handleInputChange('cta_4_description', e.target.value)}
+                          placeholder="Ex: Solicite orçamento personalizado para sua clínica"
+                          maxLength={200}
+                          className="resize-none"
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {(formData.cta_4_description || '').length}/200 caracteres
                         </p>
                       </div>
                     </AccordionContent>
