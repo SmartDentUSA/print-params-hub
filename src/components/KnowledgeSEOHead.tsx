@@ -4,6 +4,16 @@ interface KnowledgeSEOHeadProps {
   content?: any;
   category?: any;
   videos?: any[];
+  relatedDocuments?: {
+    id: string;
+    document_name: string;
+    document_description: string | null;
+    file_url: string;
+    file_size: number | null;
+    updated_at: string;
+    resin_name: string;
+    resin_manufacturer: string;
+  }[];
 }
 
 const extractVideoId = (url: string): string => {
@@ -145,7 +155,7 @@ const extractKeywordsFromContent = (htmlContent: string): string => {
   return [...new Set(keywords)].slice(0, 10).join(', ').substring(0, 255);
 };
 
-export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSEOHeadProps) {
+export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [] }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
 
   // Página inicial da Base de Conhecimento
@@ -226,7 +236,24 @@ export function KnowledgeSEOHead({ content, category, videos = [] }: KnowledgeSE
         "@type": "ImageObject",
         "url": "https://smartdent.com.br/logo.png"
       }
-    }
+    },
+    // 🆕 Documentos Técnicos Relacionados
+    ...(relatedDocuments && relatedDocuments.length > 0 && {
+      "associatedMedia": relatedDocuments.map(doc => ({
+        "@type": "DigitalDocument",
+        "name": doc.document_name,
+        "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
+        "encodingFormat": "application/pdf",
+        "contentUrl": doc.file_url,
+        "dateModified": new Date(doc.updated_at).toISOString(),
+        "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
+        "inLanguage": "pt-BR",
+        "about": {
+          "@type": "Product",
+          "name": `${doc.resin_name} - ${doc.resin_manufacturer}`
+        }
+      }))
+    })
   };
 
   // VideoObject Schema para cada vídeo

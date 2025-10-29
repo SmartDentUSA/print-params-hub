@@ -24,14 +24,15 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   const [videos, setVideos] = useState<any[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [ctaResins, setCtaResins] = useState<any[]>([]);
+  const [relatedDocuments, setRelatedDocuments] = useState<any[]>([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
 
   useEffect(() => {
     if (content?.id) {
       const load = async () => {
-        // Fetch paralelo: videos + artigos relacionados + resinas CTA
-        const [vids, related, resinsData] = await Promise.all([
+        // Fetch paralelo: videos + artigos relacionados + resinas CTA + documentos relacionados
+        const [vids, related, resinsData, documentsData] = await Promise.all([
           fetchVideosByContent(content.id),
           fetchRelatedContents(
             content.id, 
@@ -48,12 +49,38 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   .eq('active', true);
                 return data || [];
               })()
+            : Promise.resolve([]),
+          // 🆕 Fetch documentos relacionados às resinas recomendadas
+          content.recommended_resins?.length > 0
+            ? (async () => {
+                const { data } = await supabase
+                  .from('resin_documents')
+                  .select(`
+                    id,
+                    document_name,
+                    document_description,
+                    file_url,
+                    file_size,
+                    updated_at,
+                    resins!inner(name, manufacturer)
+                  `)
+                  .in('resin_id', content.recommended_resins)
+                  .eq('active', true)
+                  .limit(5);
+                
+                return data ? data.map((doc: any) => ({
+                  ...doc,
+                  resin_name: doc.resins.name,
+                  resin_manufacturer: doc.resins.manufacturer
+                })) : [];
+              })()
             : Promise.resolve([])
         ]);
 
         setVideos(vids);
         setRelatedArticles(related);
         setCtaResins(resinsData);
+        setRelatedDocuments(documentsData);
         setVideosLoading(false);
       };
       load();
@@ -88,6 +115,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         content={content}
         category={content.knowledge_categories}
         videos={videos}
+        relatedDocuments={relatedDocuments}
       />
       <Breadcrumb items={breadcrumbItems} />
       

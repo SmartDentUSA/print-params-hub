@@ -43,7 +43,18 @@ const ProductPage = () => {
       try {
         const { data, error } = await supabase
           .from("system_a_catalog")
-          .select("*")
+          .select(`
+            *,
+            documents:resin_documents(
+              id,
+              document_name,
+              document_description,
+              file_url,
+              file_name,
+              file_size,
+              updated_at
+            )
+          `)
           .eq("category", "product")
           .eq("slug", slug)
           .eq("active", true)
@@ -101,6 +112,37 @@ const ProductPage = () => {
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:type" content="product" />
+
+        {/* 🆕 Schema JSON-LD para Documentos Técnicos */}
+        {(product as any).documents && (product as any).documents.length > 0 && (
+          <script type="application/ld+json">
+            {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              "name": `Documentos Técnicos - ${product.name}`,
+              "numberOfItems": (product as any).documents.length,
+              "itemListElement": (product as any).documents.map((doc: any, idx: number) => ({
+                "@type": "DigitalDocument",
+                "position": idx + 1,
+                "name": doc.document_name,
+                "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
+                "encodingFormat": "application/pdf",
+                "contentUrl": doc.file_url,
+                "dateModified": new Date(doc.updated_at).toISOString(),
+                "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
+                "inLanguage": "pt-BR",
+                "about": {
+                  "@type": "Product",
+                  "name": product.name,
+                  "manufacturer": {
+                    "@type": "Organization",
+                    "name": product.name.split(' ')[0]
+                  }
+                }
+              }))
+            })}
+          </script>
+        )}
       </Helmet>
 
       <div className="min-h-screen bg-background">

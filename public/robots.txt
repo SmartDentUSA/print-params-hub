@@ -12,6 +12,8 @@ Allow: /
 
 User-agent: *
 Allow: /
+Allow: /*.pdf$
 
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap
+Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap

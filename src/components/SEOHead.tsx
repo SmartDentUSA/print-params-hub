@@ -38,6 +38,16 @@ interface Resin {
   cta_3_label?: string;
   cta_3_url?: string;
   cta_3_description?: string;
+  // 🆕 Documentos técnicos
+  documents?: {
+    id: string;
+    document_name: string;
+    document_description: string | null;
+    file_url: string;
+    file_name: string;
+    file_size: number | null;
+    updated_at: string;
+  }[];
 }
 
 interface SEOHeadProps {
@@ -83,9 +93,19 @@ const generateKeywords = (
       .flatMap(r => r.keywords || [])
       .slice(0, 10); // Limitar a 10 keywords adicionais
 
+    // 🆕 Keywords dos documentos técnicos
+    const documentKeywords = resins
+      .flatMap(r => r.documents || [])
+      .flatMap(doc => [
+        doc.document_name,
+        ...(doc.document_description ? [doc.document_description.substring(0, 50)] : [])
+      ])
+      .slice(0, 5); // Limitar a 5 keywords de documentos
+
     const keywords = [
       ...baseKeywords,
       ...resinKeywords, // 🆕 Keywords do Sistema A
+      ...documentKeywords, // 🆕 Adicionar keywords de documentos
       `${model.name} ${brand.name}`,
       `impressora ${brand.name}`,
       `parâmetros ${model.name}`,
@@ -328,6 +348,27 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
         ...(resin.image_url && { "image": resin.image_url }),
         ...(resin.color && { "color": resin.color }),
         ...(resin.type && { "category": resin.type }),
+        // 🆕 Documentos Técnicos como associatedMedia
+        ...(resin.documents && resin.documents.length > 0 && {
+          "associatedMedia": resin.documents.map(doc => ({
+            "@type": "DigitalDocument",
+            "name": doc.document_name,
+            "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
+            "encodingFormat": "application/pdf",
+            "contentUrl": doc.file_url,
+            "dateModified": new Date(doc.updated_at).toISOString(),
+            "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
+            "inLanguage": "pt-BR",
+            "about": {
+              "@type": "Product",
+              "name": resin.name,
+              "manufacturer": {
+                "@type": "Organization",
+                "name": resin.manufacturer
+              }
+            }
+          }))
+        }),
         "additionalProperty": [
           {
             "@type": "PropertyValue",
@@ -435,6 +476,27 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
             ...(resin.image_url && { "image": resin.image_url }),
             ...(resin.color && { "color": resin.color }),
             ...(resin.type && { "category": resin.type }),
+            // 🆕 Documentos Técnicos como associatedMedia
+            ...(resin.documents && resin.documents.length > 0 && {
+              "associatedMedia": resin.documents.map(doc => ({
+                "@type": "DigitalDocument",
+                "name": doc.document_name,
+                "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
+                "encodingFormat": "application/pdf",
+                "contentUrl": doc.file_url,
+                "dateModified": new Date(doc.updated_at).toISOString(),
+                "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
+                "inLanguage": "pt-BR",
+                "about": {
+                  "@type": "Product",
+                  "name": resin.name,
+                  "manufacturer": {
+                    "@type": "Organization",
+                    "name": resin.manufacturer
+                  }
+                }
+              }))
+            }),
             "additionalProperty": [
               {
                 "@type": "PropertyValue",

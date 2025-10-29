@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.knowledge-feed]
 verify_jwt = false
+
+[functions.generate-documents-sitemap]
+verify_jwt = false
