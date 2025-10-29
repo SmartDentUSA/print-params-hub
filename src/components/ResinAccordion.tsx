@@ -83,7 +83,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
             <AccordionItem value={resin.id} className="border-0">
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between w-full gap-4">
-                  {/* Seção Imagem + Texto + Botões */}
+                  {/* Seção Imagem + Texto */}
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     {resin.image_url && (
                       <img 
@@ -121,94 +121,94 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                           R$ {resin.price.toFixed(2).replace('.', ',')}
                         </p>
                       )}
-
-                      {/* Botões CTA - NOVA POSIÇÃO */}
-                      <div className="grid grid-cols-4 gap-1 mt-3">
-                        {resin.cta_1_enabled !== false && resin.cta_1_label && resin.cta_1_url && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
-                              
-                              if (typeof (window as any).gtag === 'function') {
-                                (window as any).gtag('event', 'cta_click', {
-                                  event_category: 'cta',
-                                  event_label: resin.cta_1_label,
-                                  resin_name: resin.name,
-                                  cta_position: 1
-                                });
-                              }
-                            }}
-                            aria-label={resin.cta_1_description || resin.cta_1_label}
-                            title={resin.cta_1_description || resin.cta_1_label}
-                            data-seo-description={resin.cta_1_description}
-                          >
-                            <ShoppingCart className="w-3 h-3 mr-1" />
-                            {resin.cta_1_label}
-                            <ExternalLink className="w-3 h-3 ml-1" />
-                          </Button>
-                        )}
-                        {resin.cta_2_label && resin.cta_2_url && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
-                            }}
-                            aria-label={resin.cta_2_description || resin.cta_2_label}
-                            title={resin.cta_2_description || resin.cta_2_label}
-                            data-seo-description={resin.cta_2_description}
-                          >
-                            {resin.cta_2_label}
-                            <ExternalLink className="w-3 h-3 ml-1" />
-                          </Button>
-                        )}
-                        {resin.cta_3_label && resin.cta_3_url && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
-                            }}
-                            aria-label={resin.cta_3_description || resin.cta_3_label}
-                            title={resin.cta_3_description || resin.cta_3_label}
-                            data-seo-description={resin.cta_3_description}
-                          >
-                            {resin.cta_3_label}
-                            <ExternalLink className="w-3 h-3 ml-1" />
-                          </Button>
-                        )}
-                        {resin.cta_4_label && resin.cta_4_url && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.open(resin.cta_4_url, '_blank', 'noopener,noreferrer');
-                              
-                              if (typeof (window as any).gtag === 'function') {
-                                (window as any).gtag('event', 'cta_click', {
-                                  event_category: 'cta',
-                                  event_label: resin.cta_4_label,
-                                  resin_name: resin.name,
-                                  cta_position: 4
-                                });
-                              }
-                            }}
-                            aria-label={resin.cta_4_description || resin.cta_4_label}
-                            title={resin.cta_4_description || resin.cta_4_label}
-                            data-seo-description={resin.cta_4_description}
-                          >
-                            {resin.cta_4_label}
-                            <ExternalLink className="w-3 h-3 ml-1" />
-                          </Button>
-                        )}
-                      </div>
                     </div>
+                  </div>
+
+                  {/* Botões CTA - Abaixo da imagem no mobile */}
+                  <div className="grid grid-cols-4 md:flex md:gap-2 gap-1 w-full md:w-auto">
+                    {resin.cta_1_enabled !== false && resin.cta_1_label && resin.cta_1_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
+                          
+                          if (typeof (window as any).gtag === 'function') {
+                            (window as any).gtag('event', 'cta_click', {
+                              event_category: 'cta',
+                              event_label: resin.cta_1_label,
+                              resin_name: resin.name,
+                              cta_position: 1
+                            });
+                          }
+                        }}
+                        aria-label={resin.cta_1_description || resin.cta_1_label}
+                        title={resin.cta_1_description || resin.cta_1_label}
+                        data-seo-description={resin.cta_1_description}
+                      >
+                        <ShoppingCart className="w-3 h-3 mr-1" />
+                        {resin.cta_1_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    {resin.cta_2_label && resin.cta_2_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
+                        }}
+                        aria-label={resin.cta_2_description || resin.cta_2_label}
+                        title={resin.cta_2_description || resin.cta_2_label}
+                        data-seo-description={resin.cta_2_description}
+                      >
+                        {resin.cta_2_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    {resin.cta_3_label && resin.cta_3_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
+                        }}
+                        aria-label={resin.cta_3_description || resin.cta_3_label}
+                        title={resin.cta_3_description || resin.cta_3_label}
+                        data-seo-description={resin.cta_3_description}
+                      >
+                        {resin.cta_3_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
+                    {resin.cta_4_label && resin.cta_4_url && (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.open(resin.cta_4_url, '_blank', 'noopener,noreferrer');
+                          
+                          if (typeof (window as any).gtag === 'function') {
+                            (window as any).gtag('event', 'cta_click', {
+                              event_category: 'cta',
+                              event_label: resin.cta_4_label,
+                              resin_name: resin.name,
+                              cta_position: 4
+                            });
+                          }
+                        }}
+                        aria-label={resin.cta_4_description || resin.cta_4_label}
+                        title={resin.cta_4_description || resin.cta_4_label}
+                        data-seo-description={resin.cta_4_description}
+                      >
+                        {resin.cta_4_label}
+                        <ExternalLink className="w-3 h-3 ml-1" />
+                      </Button>
+                    )}
                   </div>
                   
                   {/* Badge Isolado à Direita */}
