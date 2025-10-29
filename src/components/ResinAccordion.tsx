@@ -84,7 +84,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
               <AccordionTrigger className="px-6 py-4 hover:no-underline">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between w-full gap-4">
                   {/* Seção Imagem + Texto */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0 order-1">
+                  <div className="flex items-start gap-3 flex-1 min-w-0 order-1 md:order-none">
                     {resin.image_url && (
                       <img 
                         src={resin.image_url} 
@@ -130,7 +130,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="w-full text-xs px-2 truncate"
+                        className="w-full md:w-auto text-xs md:text-sm px-2 md:px-4 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_1_url, '_blank', 'noopener,noreferrer');
@@ -157,7 +157,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="w-full text-xs px-2 truncate"
+                        className="w-full md:w-auto text-xs md:text-sm px-2 md:px-4 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_2_url, '_blank', 'noopener,noreferrer');
@@ -174,7 +174,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="w-full text-xs px-2 truncate"
+                        className="w-full md:w-auto text-xs md:text-sm px-2 md:px-4 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_3_url, '_blank', 'noopener,noreferrer');
@@ -191,7 +191,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       <Button 
                         size="sm" 
                         variant="outline"
-                        className="w-full text-xs px-2 truncate"
+                        className="w-full md:w-auto text-xs md:text-sm px-2 md:px-4 truncate"
                         onClick={(e) => {
                           e.stopPropagation();
                           window.open(resin.cta_4_url, '_blank', 'noopener,noreferrer');
