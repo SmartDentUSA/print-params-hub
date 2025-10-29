@@ -534,7 +534,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Baixar ' + selectedResource.document_name;
-        generatedUrl = selectedResource.file_url;
+        const filename = selectedResource.file_url.split('/').pop();
+        generatedUrl = `/docs/${filename}`;
       }
     } else if (sourceType === 'external_link') {
       selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
@@ -579,7 +580,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Baixar ' + selectedResource.document_name;
-        generatedUrl = selectedResource.file_url;
+        const filename = selectedResource.file_url.split('/').pop();
+        generatedUrl = `/docs/${filename}`;
       }
     } else if (sourceType === 'external_link') {
       selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);
@@ -624,7 +626,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
         generatedLabel = 'Baixar ' + selectedResource.document_name;
-        generatedUrl = selectedResource.file_url;
+        const filename = selectedResource.file_url.split('/').pop();
+        generatedUrl = `/docs/${filename}`;
       }
     } else if (sourceType === 'external_link') {
       selectedResource = systemResources.externalLinks.find((l: any) => l.id === resourceId);

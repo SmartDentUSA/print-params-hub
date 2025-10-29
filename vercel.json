@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/docs/:path*",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/:path*"
+    },
+    {
       "source": "/:path*",
       "has": [
         {
