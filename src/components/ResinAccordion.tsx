@@ -123,7 +123,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                       )}
 
                       {/* Botões CTA - NOVA POSIÇÃO */}
-                      <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      <div className="grid grid-cols-4 gap-1 mt-3">
                         {resin.cta_1_enabled !== false && resin.cta_1_label && resin.cta_1_url && (
                           <Button 
                             size="sm" 
