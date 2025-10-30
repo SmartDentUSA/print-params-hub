@@ -1,7 +1,7 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, ExternalLink, ShoppingCart } from "lucide-react";
+import { FileText, ExternalLink } from "lucide-react";
 import { ParameterTable } from "./ParameterTable";
 import { cn } from "@/lib/utils";
 
@@ -148,9 +148,7 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                         title={resin.cta_1_description || resin.cta_1_label}
                         data-seo-description={resin.cta_1_description}
                       >
-                        <ShoppingCart className="w-3 h-3 mr-1" />
                         {resin.cta_1_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
                       </Button>
                     )}
                     {resin.cta_2_label && resin.cta_2_url && (
@@ -167,7 +165,6 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                         data-seo-description={resin.cta_2_description}
                       >
                         {resin.cta_2_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
                       </Button>
                     )}
                     {resin.cta_3_label && resin.cta_3_url && (
@@ -184,7 +181,6 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                         data-seo-description={resin.cta_3_description}
                       >
                         {resin.cta_3_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
                       </Button>
                     )}
                     {resin.cta_4_label && resin.cta_4_url && (
@@ -210,7 +206,6 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                         data-seo-description={resin.cta_4_description}
                       >
                         {resin.cta_4_label}
-                        <ExternalLink className="w-3 h-3 ml-1" />
                       </Button>
                     )}
                   </div>
