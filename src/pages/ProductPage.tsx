@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 
 interface ProductData {
   id: string;
@@ -112,6 +113,27 @@ const ProductPage = () => {
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:type" content="product" />
+
+        {/* 🆕 FAQ Schema para Rich Snippets */}
+        {faqs.length > 0 && (
+          <script type="application/ld+json">
+            {JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              "mainEntity": faqs.map((faq: any) => ({
+                "@type": "Question",
+                "name": faq.question,
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": faq.answer
+                }
+              }))
+            })}
+          </script>
+        )}
+
+        {/* Meta tag ai:context para IA generativa */}
+        <meta name="ai:context" content={`${product.name}, produto odontológico, ${product.description || ''}, ${product.keywords?.join(', ') || ''}`} />
 
         {/* 🆕 Schema JSON-LD para Documentos Técnicos */}
         {(product as any).documents && (product as any).documents.length > 0 && (
@@ -271,23 +293,7 @@ const ProductPage = () => {
             </Card>
           )}
 
-          {faqs.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Perguntas Frequentes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {faqs.map((faq: any, index: number) => (
-                    <div key={index}>
-                      <h3 className="font-semibold mb-2">{faq.question}</h3>
-                      <p className="text-muted-foreground">{faq.answer}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {faqs.length > 0 && <KnowledgeFAQ faqs={faqs} />}
         </main>
       </div>
     </>

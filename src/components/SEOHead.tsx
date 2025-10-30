@@ -55,6 +55,7 @@ interface SEOHeadProps {
   brand?: Brand | null;
   model?: Model | null;
   resins?: Resin[];
+  faqs?: Array<{ question: string; answer: string }>; // 🆕 FAQ Schema support
 }
 
 // Helper function to generate SEO keywords
@@ -124,7 +125,29 @@ const generateKeywords = (
   return baseKeywords.join(', ');
 };
 
-export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) => {
+// Helper function to generate AI context for generative search
+const generateAIContext = (
+  pageType: 'home' | 'brand' | 'model',
+  brand?: Brand | null,
+  model?: Model | null,
+  resins: Resin[] = []
+): string => {
+  const contexts = [
+    'impressão 3D odontológica',
+    'resina fotopolimerizável',
+    'parâmetros de cura 405nm'
+  ];
+  
+  if (brand) contexts.push(`impressora ${brand.name}`);
+  if (model) contexts.push(`modelo ${model.name}`);
+  if (resins.length > 0) {
+    contexts.push(...resins.slice(0, 3).map(r => `${r.name} ${r.manufacturer}`));
+  }
+  
+  return contexts.join(', ').substring(0, 200); // Limitar a 200 caracteres
+};
+
+export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOHeadProps) => {
   const baseUrl = 'https://parametros.smartdent.com.br';
   
   // Generate dynamic title and description
@@ -531,6 +554,23 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
     }
   }
 
+  // FAQ Schema (if faqs provided)
+  let faqSchema = null;
+  if (faqs && faqs.length > 0) {
+    faqSchema = {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": faqs.map(faq => ({
+        "@type": "Question",
+        "name": faq.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": faq.answer
+        }
+      }))
+    };
+  }
+
   // WebSite Schema with search capability
   const websiteSchema = {
     "@context": "https://schema.org",
@@ -550,6 +590,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
       <title>{title}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
+      <meta name="ai:context" content={generateAIContext(pageType, brand, model, resins)} />
       <link rel="canonical" href={canonical} />
 
       {/* Open Graph / Facebook */}
@@ -580,6 +621,12 @@ export const SEOHead = ({ pageType, brand, model, resins = [] }: SEOHeadProps) =
       {productSchema && (
         <script type="application/ld+json">
           {JSON.stringify(productSchema)}
+        </script>
+      )}
+
+      {faqSchema && (
+        <script type="application/ld+json">
+          {JSON.stringify(faqSchema)}
         </script>
       )}
 
