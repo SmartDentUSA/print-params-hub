@@ -84,7 +84,7 @@ export function AdminSettings() {
   const [cta3Label, setCta3Label] = useState<string>("");
   const [cta3Url, setCta3Url] = useState<string>("");
   const [savingCta3, setSavingCta3] = useState(false);
-  const [syncLoading, setSyncLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const { toast } = useToast();
   const { loading: maintenanceLoading, getInactiveStats, reactivateAllInactive, reactivateInactiveSince } = useAdminMaintenance();
@@ -448,40 +448,64 @@ export function AdminSettings() {
     }
   };
 
-  const handleKbSync = async () => {
+  const handleAiExport = async () => {
     try {
-      setSyncLoading(true);
+      setExportLoading(true);
       
       toast({
-        title: "🔄 Sincronização iniciada",
-        description: "Buscando dados da Knowledge Base API (Sistema A)...",
+        title: "📥 Gerando exportação...",
+        description: "Coletando dados do sistema para IA...",
       });
 
-      const { data, error } = await supabase.functions.invoke('sync-knowledge-base', {
-        body: {}
+      const { data, error } = await supabase.functions.invoke('data-export', {
+        body: {
+          format: 'ai_ready',
+          include_brands: true,
+          include_models: true,
+          include_parameter_sets: true,
+          include_resins: true,
+          include_knowledge_categories: true,
+          include_knowledge_contents: true,
+          include_knowledge_videos: true,
+          include_external_links: true,
+          include_authors: true,
+          include_system_a_catalog: true,
+          denormalize: true,
+          extract_text: true,
+          approved_only: true
+        }
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
+
+      // Criar arquivo JSON para download
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const timestamp = new Date().toISOString().split('T')[0];
+      
+      link.href = url;
+      link.download = `ai-export-${timestamp}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       toast({
-        title: "✅ Sincronização concluída!",
-        description: `${data.stats.keywords} keywords e ${data.stats.resins} resinas foram sincronizadas com sucesso.`,
+        title: "✅ Exportação concluída!",
+        description: "JSON otimizado para IA foi baixado com sucesso.",
       });
-      
-      // Recarregar dados para refletir mudanças
-      await loadData();
-      
+
     } catch (error) {
-      console.error('❌ Erro na sincronização:', error);
+      console.error('❌ Erro ao exportar:', error);
       toast({
-        title: "❌ Erro na sincronização",
-        description: error instanceof Error ? error.message : "Erro desconhecido ao sincronizar dados",
+        title: "❌ Erro na exportação",
+        description: error instanceof Error ? error.message : "Erro ao gerar JSON",
         variant: "destructive",
       });
     } finally {
-      setSyncLoading(false);
+      setExportLoading(false);
     }
   };
 
@@ -529,7 +553,7 @@ export function AdminSettings() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
-            <TabsList className="grid w-full grid-cols-8">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="brands" className="flex items-center gap-2">
                 <Cpu className="w-4 h-4" />
                 Marcas
@@ -557,10 +581,6 @@ export function AdminSettings() {
               <TabsTrigger value="data" className="flex items-center gap-2">
                 <Database className="w-4 h-4" />
                 Dados
-              </TabsTrigger>
-              <TabsTrigger value="kb-sync" className="flex items-center gap-2">
-                <RefreshCw className="w-4 h-4" />
-                KB Sync
               </TabsTrigger>
             </TabsList>
 
@@ -1202,105 +1222,58 @@ export function AdminSettings() {
                         </Badge>
                         <span>Nenhum parâmetro inativo encontrado no sistema</span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="kb-sync" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <RefreshCw className="w-5 h-5" />
-                    Sincronização Knowledge Base
-                  </CardTitle>
-                  <CardDescription>
-                    Sincronize keywords e resinas com a API externa da Knowledge Base (Sistema A)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Descrição do que será sincronizado */}
-                  <div className="bg-muted/50 p-4 rounded-lg border space-y-3">
-                    <p className="text-sm font-semibold">📊 Dados que serão sincronizados:</p>
-                    
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-primary">1. Keywords (external_links):</p>
-                      <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside ml-2">
-                        <li>Nome, URL, descrição</li>
-                        <li>Categoria, subcategoria, tipo</li>
-                        <li>Intenção de busca (informacional, transacional, navegacional)</li>
-                        <li>Volume de buscas mensais, CPC estimado, nível de competição</li>
-                        <li>Score de relevância (1-100)</li>
-                        <li>Keywords relacionadas, produtos de origem</li>
-                        <li>Status de aprovação e geração por IA</li>
-                      </ul>
-                    </div>
-
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-primary">2. Resinas (resins):</p>
-                      <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside ml-2">
-                        <li><strong>Básico:</strong> nome, fabricante, descrição, preço, imagem, slug</li>
-                        <li><strong>SEO:</strong> title override, meta description, OG image, canonical URL</li>
-                        <li><strong>Keywords:</strong> array de keywords + array de keyword_ids (relacionamento automático)</li>
-                        <li><strong>CTAs:</strong> 3 botões com label, URL e descrição personalizada</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Botão de sincronização */}
-                  {syncLoading ? (
-                    <div className="text-center py-8 space-y-3">
-                      <RefreshCw className="w-10 h-10 animate-spin mx-auto text-primary" />
-                      <div>
-                        <p className="text-sm font-medium">Sincronizando dados...</p>
-                        <p className="text-xs text-muted-foreground">Isso pode levar alguns segundos</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <Button 
-                      onClick={handleKbSync}
-                      className="w-full flex items-center justify-center gap-2"
-                      size="lg"
-                    >
-                      <RefreshCw className="w-5 h-5" />
-                      Sincronizar Knowledge Base Agora
-                    </Button>
                   )}
-
-                  {/* Avisos importantes */}
-                  <div className="space-y-2">
-                    <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-xs text-blue-900 dark:text-blue-100">
-                        <strong>ℹ️ Comportamento:</strong> Dados existentes serão atualizados. 
-                        Para keywords, os campos <code>usage_count</code> e <code>last_used_at</code> são preservados.
-                      </p>
-                    </div>
-
-                    <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
-                      <p className="text-xs text-amber-900 dark:text-amber-100">
-                        <strong>⚠️ Origem dos dados:</strong> Sistema A (Knowledge Base API externo) → Sistema B (este sistema)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Endpoint da API */}
-                  <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded border text-xs font-mono">
-                    <p className="text-muted-foreground mb-1">Endpoint:</p>
-                    <p className="text-primary break-all">
-                      https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base
-                    </p>
-                    <p className="text-muted-foreground mt-2">Parâmetros:</p>
-                    <ul className="text-xs space-y-0.5 mt-1">
-                      <li>• format=system_b</li>
-                      <li>• include_links=true</li>
-                      <li>• include_products=true</li>
-                      <li>• approved_only=true</li>
-                    </ul>
-                  </div>
                 </CardContent>
               </Card>
-            </TabsContent>
+
+              {/* AI Export Card */}
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Download className="w-5 h-5" />
+                    📤 Exportar para IA
+                  </CardTitle>
+                  <CardDescription>
+                    Exporte todos os dados do sistema em formato JSON estruturado para integração com sistemas de IA de atendimento
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="bg-muted rounded-lg p-4">
+                    <div className="text-sm space-y-2">
+                      <div className="font-medium text-foreground">JSON otimizado incluirá:</div>
+                      <ul className="text-muted-foreground space-y-1">
+                        <li>• 258 parâmetros de impressão (brands, models, resins)</li>
+                        <li>• Base de conhecimento completa (artigos, vídeos, FAQs)</li>
+                        <li>• Links externos e keywords SEO</li>
+                        <li>• Catálogo de produtos comerciais</li>
+                        <li>• Autores e informações de contato</li>
+                        <li>• Texto limpo sem HTML, pronto para IA</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleAiExport} 
+                    disabled={exportLoading}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {exportLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Gerando exportação...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Exportar JSON para IA
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
           </Tabs>
         </CardContent>
       </Card>

@@ -811,26 +811,73 @@ Deno.serve(async (req) => {
   
   try {
     const url = new URL(req.url);
+    let bodyParams: any = {};
     
-    // Parse query parameters
+    // Parse POST body if present
+    if (req.method === 'POST') {
+      try {
+        bodyParams = await req.json();
+      } catch (e) {
+        console.log('No JSON body, using query params');
+      }
+    }
+    
+    // Parse query parameters (GET) or body parameters (POST), with body taking precedence
     const options = {
-      format: url.searchParams.get('format') || 'full',
-      include_brands: url.searchParams.get('include_brands') !== 'false',
-      include_models: url.searchParams.get('include_models') !== 'false',
-      include_parameters: url.searchParams.get('include_parameters') !== 'false',
-      include_resins: url.searchParams.get('include_resins') !== 'false',
-      include_knowledge: url.searchParams.get('include_knowledge') !== 'false',
-      include_categories: url.searchParams.get('include_categories') !== 'false',
-      include_keywords: url.searchParams.get('include_keywords') !== 'false',
-      include_authors: url.searchParams.get('include_authors') !== 'false',
-      include_system_a: url.searchParams.get('include_system_a') !== 'false',
-      denormalize: url.searchParams.get('denormalize') !== 'false',
-      extract_text: url.searchParams.get('extract_text') !== 'false',
-      approved_only: url.searchParams.get('approved_only') !== 'false',
-      limit_contents: url.searchParams.get('limit_contents') 
-        ? parseInt(url.searchParams.get('limit_contents')!) 
-        : null,
-      with_stats: url.searchParams.get('with_stats') !== 'false'
+      format: bodyParams.format || url.searchParams.get('format') || 'full',
+      include_brands: bodyParams.include_brands !== undefined 
+        ? bodyParams.include_brands 
+        : url.searchParams.get('include_brands') !== 'false',
+      include_models: bodyParams.include_models !== undefined 
+        ? bodyParams.include_models 
+        : url.searchParams.get('include_models') !== 'false',
+      include_parameters: bodyParams.include_parameter_sets !== undefined 
+        ? bodyParams.include_parameter_sets 
+        : bodyParams.include_parameters !== undefined
+        ? bodyParams.include_parameters
+        : url.searchParams.get('include_parameters') !== 'false',
+      include_resins: bodyParams.include_resins !== undefined 
+        ? bodyParams.include_resins 
+        : url.searchParams.get('include_resins') !== 'false',
+      include_knowledge: bodyParams.include_knowledge_contents !== undefined 
+        ? bodyParams.include_knowledge_contents 
+        : bodyParams.include_knowledge !== undefined
+        ? bodyParams.include_knowledge
+        : url.searchParams.get('include_knowledge') !== 'false',
+      include_categories: bodyParams.include_knowledge_categories !== undefined 
+        ? bodyParams.include_knowledge_categories 
+        : bodyParams.include_categories !== undefined
+        ? bodyParams.include_categories
+        : url.searchParams.get('include_categories') !== 'false',
+      include_keywords: bodyParams.include_external_links !== undefined 
+        ? bodyParams.include_external_links 
+        : bodyParams.include_keywords !== undefined
+        ? bodyParams.include_keywords
+        : url.searchParams.get('include_keywords') !== 'false',
+      include_authors: bodyParams.include_authors !== undefined 
+        ? bodyParams.include_authors 
+        : url.searchParams.get('include_authors') !== 'false',
+      include_system_a: bodyParams.include_system_a_catalog !== undefined 
+        ? bodyParams.include_system_a_catalog 
+        : bodyParams.include_system_a !== undefined
+        ? bodyParams.include_system_a
+        : url.searchParams.get('include_system_a') !== 'false',
+      denormalize: bodyParams.denormalize !== undefined 
+        ? bodyParams.denormalize 
+        : url.searchParams.get('denormalize') !== 'false',
+      extract_text: bodyParams.extract_text !== undefined 
+        ? bodyParams.extract_text 
+        : url.searchParams.get('extract_text') !== 'false',
+      approved_only: bodyParams.approved_only !== undefined 
+        ? bodyParams.approved_only 
+        : url.searchParams.get('approved_only') !== 'false',
+      limit_contents: bodyParams.limit_contents || 
+        (url.searchParams.get('limit_contents') 
+          ? parseInt(url.searchParams.get('limit_contents')!) 
+          : null),
+      with_stats: bodyParams.with_stats !== undefined 
+        ? bodyParams.with_stats 
+        : url.searchParams.get('with_stats') !== 'false'
     };
     
     // Initialize Supabase client
