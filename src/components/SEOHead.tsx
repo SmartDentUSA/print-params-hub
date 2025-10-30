@@ -227,8 +227,11 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     },
     "address": {
       "@type": "PostalAddress",
-      "addressCountry": "BR",
-      "addressLocality": "São Paulo"
+      "streetAddress": "R. Dr. Procópio de Tolêdo Malta, 62, Morada dos Deuses",
+      "addressLocality": "São Carlos",
+      "addressRegion": "SP",
+      "postalCode": "13562-291",
+      "addressCountry": "BR"
     },
     "description": "Smart Dent oferece parâmetros de impressão 3D odontológica testados e validados para mais de 50 impressoras e 200+ resinas dentais.",
     "knowsAbout": [
