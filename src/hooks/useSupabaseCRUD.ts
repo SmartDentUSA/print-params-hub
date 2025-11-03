@@ -147,6 +147,14 @@ export const useSupabaseCRUD = () => {
   const updateResin = async (id: string, updates: Partial<Resin>): Promise<Resin | null> => {
     try {
       setLoading(true);
+      
+      // 🔍 LOG: Verificar dados recebidos
+      console.log('🔍 updateResin - ID:', id);
+      console.log('🔍 updateResin - updates recebidos:', updates);
+      console.log('🔍 updateResin - external_id:', updates.external_id);
+      console.log('🔍 updateResin - system_a_product_id:', updates.system_a_product_id);
+      console.log('🔍 updateResin - system_a_product_url:', updates.system_a_product_url);
+      
       const { data, error } = await supabase
         .from('resins')
         .update(updates)
@@ -154,7 +162,13 @@ export const useSupabaseCRUD = () => {
         .select()
         .single();
       
-      if (error) throw error;
+      // 🔍 LOG: Verificar resposta do Supabase
+      console.log('✅ updateResin - data retornada:', data);
+      if (error) {
+        console.error('❌ updateResin - erro:', error);
+        throw error;
+      }
+      
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar resina');
