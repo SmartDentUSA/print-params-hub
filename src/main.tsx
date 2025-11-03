@@ -9,6 +9,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { DataProvider } from "./contexts/DataContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import { OrganizationSchema } from "./components/OrganizationSchema";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
+        <OrganizationSchema />
         <BrowserRouter>
           <TooltipProvider>
             <LanguageProvider>

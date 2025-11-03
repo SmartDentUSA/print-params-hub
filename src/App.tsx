@@ -6,6 +6,7 @@ import ProductPage from "./pages/ProductPage";
 import TestimonialPage from "./pages/TestimonialPage";
 import CategoryPage from "./pages/CategoryPage";
 import DocumentProxyRoute from "./pages/DocumentProxyRoute";
+import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -21,6 +22,7 @@ const App = () => (
     <Route path="/produtos/:slug" element={<ProductPage />} />
     <Route path="/depoimentos/:slug" element={<TestimonialPage />} />
     <Route path="/categorias/:slug" element={<CategoryPage />} />
+    <Route path="/sobre" element={<About />} />
     <Route path="/docs/:filename" element={<DocumentProxyRoute />} />
     <Route path="*" element={<NotFound />} />
   </Routes>
