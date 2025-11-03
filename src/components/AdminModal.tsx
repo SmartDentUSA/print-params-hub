@@ -386,6 +386,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         price: parsedPrice || prev.price || 0,
         // Usar URL externa temporariamente (funciona mesmo sem upload)
         image_url: importedData.image_url || prev.image_url || '',
+        
+        // 🆕 Campos de correlação entre sistemas
+        external_id: importedData.external_id || prev.external_id || '',
+        system_a_product_id: importedData.system_a_product_id || prev.system_a_product_id || '',
+        system_a_product_url: importedData.system_a_product_url || prev.system_a_product_url || '',
+        
         // 🔵 Campos SEO invisíveis (Sistema A) - mapeamento corrigido
         seo_title_override: importedData.seo_title_override || prev.seo_title_override || '',
         meta_description: importedData.meta_description || prev.meta_description || '',

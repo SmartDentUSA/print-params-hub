@@ -319,7 +319,13 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        data: resinData,
+        data: {
+          ...resinData,
+          // 🆕 Adicionar campos de correlação da tabela resins
+          external_id: apiProduct.id?.toString(),
+          system_a_product_url: apiProduct.url,
+          system_a_product_id: resinRecord?.system_a_product_id || null
+        },
         resin: resinRecord
       }),
       { 

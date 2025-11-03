@@ -13,6 +13,12 @@ interface ImportedResinData {
   description: string;
   price: number;
   image_url: string;
+  
+  // 🆕 Campos de correlação
+  external_id?: string;
+  system_a_product_id?: string;
+  system_a_product_url?: string;
+  
   images_gallery: Array<{
     url: string;
     alt: string;
