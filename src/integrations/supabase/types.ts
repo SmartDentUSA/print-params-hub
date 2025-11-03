@@ -538,6 +538,7 @@ export type Database = {
           cta_4_source_type: string | null
           cta_4_url: string | null
           description: string | null
+          external_id: string | null
           id: string
           image_url: string | null
           keyword_ids: string[] | null
@@ -549,6 +550,8 @@ export type Database = {
           price: number | null
           seo_title_override: string | null
           slug: string | null
+          system_a_product_id: string | null
+          system_a_product_url: string | null
           type: Database["public"]["Enums"]["resin_type"] | null
           updated_at: string
         }
@@ -577,6 +580,7 @@ export type Database = {
           cta_4_source_type?: string | null
           cta_4_url?: string | null
           description?: string | null
+          external_id?: string | null
           id?: string
           image_url?: string | null
           keyword_ids?: string[] | null
@@ -588,6 +592,8 @@ export type Database = {
           price?: number | null
           seo_title_override?: string | null
           slug?: string | null
+          system_a_product_id?: string | null
+          system_a_product_url?: string | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
         }
@@ -616,6 +622,7 @@ export type Database = {
           cta_4_source_type?: string | null
           cta_4_url?: string | null
           description?: string | null
+          external_id?: string | null
           id?: string
           image_url?: string | null
           keyword_ids?: string[] | null
@@ -627,6 +634,8 @@ export type Database = {
           price?: number | null
           seo_title_override?: string | null
           slug?: string | null
+          system_a_product_id?: string | null
+          system_a_product_url?: string | null
           type?: Database["public"]["Enums"]["resin_type"] | null
           updated_at?: string
         }

@@ -42,6 +42,9 @@ interface Resin {
   color?: string;
   active: boolean;
   type?: string;
+  external_id?: string;
+  system_a_product_id?: string;
+  system_a_product_url?: string;
 }
 
 interface ParameterSet {
@@ -823,6 +826,7 @@ export function AdminSettings() {
                     <TableRow>
                       <TableHead>Nome</TableHead>
                       <TableHead>Fabricante</TableHead>
+                      <TableHead>IDs Correlação</TableHead>
                       <TableHead>Cor</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Status</TableHead>
@@ -834,6 +838,23 @@ export function AdminSettings() {
                       <TableRow key={resin.id}>
                         <TableCell className="font-medium">{resin.name}</TableCell>
                         <TableCell>{resin.manufacturer}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            {resin.external_id && (
+                              <Badge variant="secondary" className="font-mono text-xs w-fit">
+                                Loja: {resin.external_id}
+                              </Badge>
+                            )}
+                            {resin.system_a_product_id && (
+                              <Badge variant="outline" className="font-mono text-xs w-fit">
+                                Sist A: {resin.system_a_product_id.slice(0, 8)}...
+                              </Badge>
+                            )}
+                            {!resin.external_id && !resin.system_a_product_id && (
+                              <span className="text-muted-foreground text-xs">Manual</span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>
                           {resin.color && (
                             <div className="flex items-center gap-2">

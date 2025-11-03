@@ -283,8 +283,45 @@ serve(async (req) => {
       });
     }
 
+    // 🆕 TAMBÉM fazer upsert na tabela resins para correlação
+    const { data: resinRecord, error: resinError } = await supabase
+      .from('resins')
+      .upsert({
+        name: resinData.name,
+        manufacturer: resinData.manufacturer,
+        external_id: apiProduct.id?.toString(),
+        system_a_product_url: apiProduct.url,
+        description: resinData.description,
+        price: resinData.price,
+        image_url: resinData.image_url,
+        keywords: keywords,
+        active: true,
+        type: 'standard',
+        slug: cleanSlug,
+        meta_description: metaDescription,
+        og_image_url: resinData.image_url
+      }, {
+        onConflict: 'external_id',
+        ignoreDuplicates: false
+      })
+      .select()
+      .single();
+
+    if (resinError) {
+      console.warn('⚠️ Erro ao upsert em resins:', resinError);
+    } else {
+      console.log('✅ Resina sincronizada com ID correlação:', {
+        name: resinData.name,
+        external_id: apiProduct.id?.toString()
+      });
+    }
+
     return new Response(
-      JSON.stringify({ success: true, data: resinData }),
+      JSON.stringify({ 
+        success: true, 
+        data: resinData,
+        resin: resinRecord
+      }),
       { 
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

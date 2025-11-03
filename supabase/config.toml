@@ -3,6 +3,9 @@ project_id = "okeogjgqijbfkudfjadz"
 [functions.import-loja-integrada]
 verify_jwt = false
 
+[functions.sync-sistema-a]
+verify_jwt = false
+
 [functions.generate-sitemap]
 verify_jwt = false
 

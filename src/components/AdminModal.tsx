@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -47,6 +47,9 @@ interface Resin {
   image_url?: string;
   description?: string;
   price?: number;
+  external_id?: string;
+  system_a_product_id?: string;
+  system_a_product_url?: string;
   cta_1_label?: string;
   cta_1_url?: string;
   cta_1_description?: string;
@@ -837,6 +840,86 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   placeholder="Ex: Smart Print"
                 />
               </div>
+              
+              {/* 🆕 Campos de Correlação de Sistemas */}
+              <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border">
+                <div className="flex items-center gap-2 mb-2">
+                  <Database className="w-4 h-4 text-primary" />
+                  <Label className="text-sm font-semibold">IDs de Correlação entre Sistemas</Label>
+                </div>
+                
+                <div>
+                  <Label htmlFor="external_id">
+                    ID Loja Integrada
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 ml-1 inline text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>ID numérico da Loja Integrada</p>
+                          <p className="text-xs text-muted-foreground">Ex: 365210617</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Input
+                    id="external_id"
+                    value={formData.external_id || ''}
+                    onChange={(e) => handleInputChange('external_id', e.target.value)}
+                    placeholder="365210617"
+                    className="font-mono"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="system_a_product_id">
+                    UUID Sistema A
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 ml-1 inline text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>UUID único do produto no Sistema A</p>
+                          <p className="text-xs text-muted-foreground">Ex: 832fa3e7-b24c-471f-966e-4ded6270fa67</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Input
+                    id="system_a_product_id"
+                    value={formData.system_a_product_id || ''}
+                    onChange={(e) => handleInputChange('system_a_product_id', e.target.value)}
+                    placeholder="832fa3e7-..."
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="system_a_product_url">
+                    URL do Produto
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-4 h-4 ml-1 inline text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>URL canônica do produto na loja</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Input
+                    id="system_a_product_url"
+                    value={formData.system_a_product_url || ''}
+                    onChange={(e) => handleInputChange('system_a_product_url', e.target.value)}
+                    placeholder="https://loja.smartdent.com.br/..."
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+              
               <div>
                 <Label htmlFor="color">Cor</Label>
                 <Input
