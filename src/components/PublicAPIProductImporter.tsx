@@ -66,7 +66,13 @@ export function PublicAPIProductImporter({
             keywords: result.data.keywords || [],
             // 🆕 Campos de correlação (Sistema A)
             system_a_product_id: result.data.id || result.data.uuid || null,
-            system_a_product_url: result.data.url || (result.data.slug ? `https://loja.smartdent.com.br/${result.data.slug}` : null),
+            system_a_product_url: (() => {
+              const urlCandidate = result.data.url || result.data.canonical_url || null;
+              if (urlCandidate) return urlCandidate;
+              const s = result.data.slug || '';
+              if (!s) return null;
+              return s.startsWith('http') ? s : `https://loja.smartdent.com.br/${s.replace(/^\/+/, '')}`;
+            })(),
             external_id: null, // Sistema A não tem ID Loja Integrada
           };
 
