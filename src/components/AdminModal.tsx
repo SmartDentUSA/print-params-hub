@@ -19,6 +19,7 @@ import { uploadExternalImage } from '@/utils/uploadExternalImage';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
 import { validateFileSize } from '@/utils/security';
+import { Progress } from '@/components/ui/progress';
 
 interface Brand {
   id: string;
@@ -194,6 +195,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   const [formData, setFormData] = useState<any>(getInitialFormData);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [uploadingDocIndex, setUploadingDocIndex] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { fetchResinDocuments, insertResinDocument, deleteResinDocument } = useSupabaseCRUD();
   
   // 🆕 Recursos do sistema para CTA4
@@ -484,6 +487,19 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       return;
     }
     
+    setUploadingDocIndex(index);
+    setUploadProgress(0);
+    
+    // Simular progresso baseado no tamanho do arquivo
+    const fileSize = file.size;
+    const estimatedTime = Math.max(3000, fileSize / 50000); // ~3s mínimo
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) return prev; // Para em 90% e espera o upload terminar
+        return prev + 10;
+      });
+    }, estimatedTime / 9);
+    
     try {
       const fileExt = 'pdf';
       const fileName = `${formData.slug || 'resin'}-${Date.now()}.${fileExt}`;
@@ -494,6 +510,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           cacheControl: '3600',
           upsert: false
         });
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
       
       if (error) throw error;
       
@@ -520,6 +539,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: "destructive"
       });
+    } finally {
+      setTimeout(() => {
+        setUploadingDocIndex(null);
+        setUploadProgress(0);
+      }, 500);
     }
   };
 
@@ -1819,13 +1843,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                         <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
                       </div>
                     ) : (
-                      <div>
-                        <Label>Upload PDF</Label>
-                        <Input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={(e) => handleDocumentUpload(idx, e.target.files?.[0])}
-                        />
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Upload PDF (até 50MB)</Label>
+                          <Input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => handleDocumentUpload(idx, e.target.files?.[0])}
+                            disabled={uploadingDocIndex === idx}
+                          />
+                        </div>
+                        
+                        {uploadingDocIndex === idx && (
+                          <div className="space-y-2">
+                            <Progress value={uploadProgress} className="h-2" />
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Enviando PDF...
+                              </span>
+                              <span className="font-semibold text-primary">
+                                {uploadProgress}%
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
