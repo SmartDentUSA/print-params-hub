@@ -291,6 +291,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
       }
       
+      // Sanitize correlation fields for resins: convert empty strings to null
+      if (type === 'resin') {
+        const correlationFields = ['external_id', 'system_a_product_id', 'system_a_product_url'] as const;
+        correlationFields.forEach(field => {
+          if (formData[field] === '' || formData[field] === undefined) {
+            formData[field] = null;
+          }
+        });
+        
+        console.log('🧹 Campos de correlação sanitizados:', {
+          external_id: formData.external_id,
+          system_a_product_id: formData.system_a_product_id,
+          system_a_product_url: formData.system_a_product_url
+        });
+      }
+      
       // For parameters, validate and convert fields
       if (type === 'parameter') {
         // Ensure we have proper slugs and manufacturer
