@@ -214,34 +214,54 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         if (item && 'id' in item) {
           const docs = await fetchResinDocuments(item.id);
           setDocuments(docs);
+          
+          // 🆕 Buscar recursos do sistema para CTA - APENAS documentos desta resina
+          const { data: allDocs } = await supabase
+            .from('resin_documents')
+            .select('id, document_name, file_url, resins!inner(name, manufacturer)')
+            .eq('active', true)
+            .eq('resin_id', item.id)
+            .order('document_name');
+          
+          const { data: links } = await supabase
+            .from('external_links')
+            .select('id, name, url, category')
+            .eq('approved', true)
+            .order('name');
+          
+          const { data: articles } = await supabase
+            .from('knowledge_contents')
+            .select('id, title, slug')
+            .eq('active', true)
+            .order('title');
+          
+          setSystemResources({
+            documents: allDocs || [],
+            externalLinks: links || [],
+            knowledgeArticles: articles || []
+          });
         } else {
+          // Resina nova: sem documentos ainda
           setDocuments([]);
+          
+          const { data: links } = await supabase
+            .from('external_links')
+            .select('id, name, url, category')
+            .eq('approved', true)
+            .order('name');
+          
+          const { data: articles } = await supabase
+            .from('knowledge_contents')
+            .select('id, title, slug')
+            .eq('active', true)
+            .order('title');
+          
+          setSystemResources({
+            documents: [],
+            externalLinks: links || [],
+            knowledgeArticles: articles || []
+          });
         }
-        
-        // 🆕 Buscar recursos do sistema para CTA4
-        const { data: allDocs } = await supabase
-          .from('resin_documents')
-          .select('id, document_name, file_url, resins!inner(name, manufacturer)')
-          .eq('active', true)
-          .order('document_name');
-        
-        const { data: links } = await supabase
-          .from('external_links')
-          .select('id, name, url, category')
-          .eq('approved', true)
-          .order('name');
-        
-        const { data: articles } = await supabase
-          .from('knowledge_contents')
-          .select('id, title, slug')
-          .eq('active', true)
-          .order('title');
-        
-        setSystemResources({
-          documents: allDocs || [],
-          externalLinks: links || [],
-          knowledgeArticles: articles || []
-        });
       };
       
       fetchData();
@@ -1053,35 +1073,50 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       {formData.cta_2_source_type === 'document' && (
                         <div>
                           <Label htmlFor="cta_2_doc_select">Selecionar Documento</Label>
-                          <Select 
-                            value={formData.cta_2_source_id || ''} 
-                            onValueChange={handleCTA2ResourceSelect}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Escolha um documento técnico..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {systemResources.documents.map((doc: any) => (
-                                <SelectItem key={doc.id} value={doc.id}>
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4" />
-                                    <div>
-                                      <div className="font-medium">{doc.document_name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {doc.resins.name} - {doc.resins.manufacturer}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           
-                          {formData.cta_2_url && (
-                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
-                              <strong>Label gerado:</strong> {formData.cta_2_label}<br/>
-                              <strong>URL:</strong> <a href={formData.cta_2_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_2_url}</a>
+                          {systemResources.documents.length === 0 ? (
+                            <div className="border rounded-lg p-4 bg-muted/50 text-center">
+                              <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                              <p className="text-sm text-muted-foreground">
+                                {!item || !('id' in item) 
+                                  ? "💡 Salve a resina primeiro para vincular documentos técnicos"
+                                  : "📄 Nenhum documento técnico cadastrado para esta resina ainda"
+                                }
+                              </p>
                             </div>
+                          ) : (
+                            <>
+                              <Select 
+                                value={formData.cta_2_source_id || ''} 
+                                onValueChange={handleCTA2ResourceSelect}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Escolha um documento técnico..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {systemResources.documents.map((doc: any) => (
+                                    <SelectItem key={doc.id} value={doc.id}>
+                                      <div className="flex items-center gap-2">
+                                        <FileText className="w-4 h-4" />
+                                        <div>
+                                          <div className="font-medium">{doc.document_name}</div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {doc.resins.name} - {doc.resins.manufacturer}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
+                              {formData.cta_2_url && (
+                                <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                                  <strong>Label gerado:</strong> {formData.cta_2_label}<br/>
+                                  <strong>URL:</strong> <a href={formData.cta_2_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_2_url}</a>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
@@ -1263,35 +1298,50 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       {formData.cta_3_source_type === 'document' && (
                         <div>
                           <Label htmlFor="cta_3_doc_select">Selecionar Documento</Label>
-                          <Select 
-                            value={formData.cta_3_source_id || ''} 
-                            onValueChange={handleCTA3ResourceSelect}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Escolha um documento técnico..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {systemResources.documents.map((doc: any) => (
-                                <SelectItem key={doc.id} value={doc.id}>
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4" />
-                                    <div>
-                                      <div className="font-medium">{doc.document_name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {doc.resins.name} - {doc.resins.manufacturer}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           
-                          {formData.cta_3_url && (
-                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
-                              <strong>Label gerado:</strong> {formData.cta_3_label}<br/>
-                              <strong>URL:</strong> <a href={formData.cta_3_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_3_url}</a>
+                          {systemResources.documents.length === 0 ? (
+                            <div className="border rounded-lg p-4 bg-muted/50 text-center">
+                              <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                              <p className="text-sm text-muted-foreground">
+                                {!item || !('id' in item) 
+                                  ? "💡 Salve a resina primeiro para vincular documentos técnicos"
+                                  : "📄 Nenhum documento técnico cadastrado para esta resina ainda"
+                                }
+                              </p>
                             </div>
+                          ) : (
+                            <>
+                              <Select 
+                                value={formData.cta_3_source_id || ''} 
+                                onValueChange={handleCTA3ResourceSelect}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Escolha um documento técnico..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {systemResources.documents.map((doc: any) => (
+                                    <SelectItem key={doc.id} value={doc.id}>
+                                      <div className="flex items-center gap-2">
+                                        <FileText className="w-4 h-4" />
+                                        <div>
+                                          <div className="font-medium">{doc.document_name}</div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {doc.resins.name} - {doc.resins.manufacturer}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
+                              {formData.cta_3_url && (
+                                <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                                  <strong>Label gerado:</strong> {formData.cta_3_label}<br/>
+                                  <strong>URL:</strong> <a href={formData.cta_3_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_3_url}</a>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
@@ -1474,35 +1524,50 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       {formData.cta_4_source_type === 'document' && (
                         <div>
                           <Label htmlFor="cta_4_doc_select">Selecionar Documento</Label>
-                          <Select 
-                            value={formData.cta_4_source_id || ''} 
-                            onValueChange={handleCTA4ResourceSelect}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Escolha um documento técnico..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {systemResources.documents.map((doc: any) => (
-                                <SelectItem key={doc.id} value={doc.id}>
-                                  <div className="flex items-center gap-2">
-                                    <FileText className="w-4 h-4" />
-                                    <div>
-                                      <div className="font-medium">{doc.document_name}</div>
-                                      <div className="text-xs text-muted-foreground">
-                                        {doc.resins.name} - {doc.resins.manufacturer}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                           
-                          {formData.cta_4_url && (
-                            <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
-                              <strong>Label gerado:</strong> {formData.cta_4_label}<br/>
-                              <strong>URL:</strong> <a href={formData.cta_4_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_4_url}</a>
+                          {systemResources.documents.length === 0 ? (
+                            <div className="border rounded-lg p-4 bg-muted/50 text-center">
+                              <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground/50" />
+                              <p className="text-sm text-muted-foreground">
+                                {!item || !('id' in item) 
+                                  ? "💡 Salve a resina primeiro para vincular documentos técnicos"
+                                  : "📄 Nenhum documento técnico cadastrado para esta resina ainda"
+                                }
+                              </p>
                             </div>
+                          ) : (
+                            <>
+                              <Select 
+                                value={formData.cta_4_source_id || ''} 
+                                onValueChange={handleCTA4ResourceSelect}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Escolha um documento técnico..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {systemResources.documents.map((doc: any) => (
+                                    <SelectItem key={doc.id} value={doc.id}>
+                                      <div className="flex items-center gap-2">
+                                        <FileText className="w-4 h-4" />
+                                        <div>
+                                          <div className="font-medium">{doc.document_name}</div>
+                                          <div className="text-xs text-muted-foreground">
+                                            {doc.resins.name} - {doc.resins.manufacturer}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              
+                              {formData.cta_4_url && (
+                                <div className="mt-2 p-2 bg-muted/30 rounded text-xs">
+                                  <strong>Label gerado:</strong> {formData.cta_4_label}<br/>
+                                  <strong>URL:</strong> <a href={formData.cta_4_url} target="_blank" rel="noopener" className="text-primary underline">{formData.cta_4_url}</a>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
