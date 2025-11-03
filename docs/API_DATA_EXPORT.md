@@ -83,6 +83,18 @@ O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=tru
 
 Dados sincronizados do Sistema A (plataforma comercial). Total: ~284 registros.
 
+### 11. **Resin Documents** 🆕 (Documentação Técnica)
+- `id`, `resin_id`, `resin_name`, `resin_manufacturer`, `resin_slug` (relacionamento desnormalizado)
+- `document_name` (nome do documento técnico)
+- `document_description` (descrição do documento)
+- `file_name` (nome do arquivo: ex. "datasheet.pdf")
+- `file_url` (URL pública para download)
+- `file_size` (tamanho em bytes)
+- `order_index` (ordem de exibição)
+- `public_document_url` (link direto para download)
+- `resin_page_url` (link para página da resina no site)
+- `active` (se o documento está ativo)
+
 **Categorias:**
 - `company_info`: Perfil da empresa (1 registro)
 - `category_config`: Configurações de categorias SEO (~25 registros)
@@ -128,6 +140,7 @@ Dados sincronizados do Sistema A (plataforma comercial). Total: ~284 registros.
 | `include_keywords` | `boolean` | `true` | Incluir keywords SEO |
 | `include_authors` | `boolean` | `true` | Incluir autores |
 | `include_system_a` | `boolean` | `true` | Incluir catálogo comercial Sistema A (~284 registros) |
+| `include_resin_documents` | `boolean` | `true` | Incluir documentos técnicos das resinas (PDFs, datasheets) |
 | `denormalize` | `boolean` | `true` | Expandir relacionamentos (IDs → objetos completos) |
 | `extract_text` | `boolean` | `true` | Extrair texto puro do HTML (`content_html` → `content_text`) |
 | `approved_only` | `boolean` | `true` | Apenas itens ativos/aprovados |
@@ -165,6 +178,7 @@ Retorna **todos os dados completos** com desnormalização ativada.
     "authors": 3,
     "system_a_catalog": 284,
     "system_a_products": 5,
+    "resin_documents": 47,
     "total_html_size_mb": "12.5"
   },
   "data": {
@@ -634,6 +648,57 @@ curl -i "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export"
 # Request subsequente com ETag
 curl -H 'If-None-Match: "12345678-1234567890"' "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export"
 # Retorna: 304 Not Modified (sem body, economiza banda)
+```
+
+---
+
+### Exemplo 6: Buscar documentos técnicos de resinas 🆕
+
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=ai_ready&include_resin_documents=true"
+```
+
+**Retorna (formato `ai_ready`):**
+```json
+{
+  "produtos": {
+    "resinas": [...],
+    "documentos_tecnicos": [
+      {
+        "id": "uuid",
+        "resina": {
+          "id": "uuid",
+          "nome": "NextDent Model 2.0",
+          "fabricante": "NextDent",
+          "slug": "nextdent-model-2-0",
+          "url_pagina": "https://parametros.smartdent.com.br/resina/nextdent-model-2-0"
+        },
+        "documento": {
+          "nome": "Datasheet Técnico",
+          "descricao": "Especificações técnicas completas da resina NextDent Model 2.0",
+          "nome_arquivo": "nextdent-model-datasheet.pdf",
+          "url_download": "https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/resin-documents/nextdent-model-datasheet.pdf",
+          "tamanho_bytes": 2450000
+        },
+        "ordem_exibicao": 1,
+        "ativo": true,
+        "criado_em": "2025-01-10T12:00:00Z",
+        "atualizado_em": "2025-01-15T14:30:00Z"
+      }
+    ]
+  }
+}
+```
+
+**Uso para IA:**
+- ✅ **Chatbot:** "Qual o datasheet da resina NextDent Model 2.0?" → Responde com link direto para download
+- ✅ **SGE:** Cita datasheets oficiais como fonte técnica
+- ✅ **Assistente virtual:** "Tem manual de uso da resina X?" → Lista todos os documentos disponíveis
+- ✅ **Sincronização:** E-commerce exibe documentação técnica nas páginas de produto
+
+**Desabilitar documentos:**
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=ai_ready&include_resin_documents=false"
 ```
 
 ---

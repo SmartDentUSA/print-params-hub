@@ -167,6 +167,51 @@ async function fetchResins(supabase: any, options: any) {
   return resins;
 }
 
+async function fetchResinDocuments(supabase: any, options: any) {
+  let query = supabase
+    .from('resin_documents')
+    .select(`
+      *,
+      resins!inner(
+        id,
+        name,
+        manufacturer,
+        slug
+      )
+    `)
+    .order('order_index');
+  
+  if (options.approved_only) {
+    query = query.eq('active', true).eq('resins.active', true);
+  }
+  
+  const { data: documents, error } = await query;
+  if (error) throw error;
+  
+  return documents.map((doc: any) => ({
+    id: doc.id,
+    resin_id: doc.resin_id,
+    resin_name: doc.resins.name,
+    resin_manufacturer: doc.resins.manufacturer,
+    resin_slug: doc.resins.slug,
+    document_name: doc.document_name,
+    document_description: doc.document_description,
+    file_name: doc.file_name,
+    file_url: doc.file_url,
+    file_size: doc.file_size,
+    order_index: doc.order_index,
+    active: doc.active,
+    created_at: doc.created_at,
+    updated_at: doc.updated_at,
+    // URL público do documento
+    public_document_url: doc.file_url,
+    // URL da página da resina
+    resin_page_url: doc.resins.slug 
+      ? `https://parametros.smartdent.com.br/resina/${doc.resins.slug}`
+      : null
+  }));
+}
+
 async function fetchKnowledgeCategories(supabase: any, options: any) {
   let query = supabase
     .from('knowledge_categories')
@@ -434,6 +479,7 @@ function calculateStats(data: any) {
     system_a_products: (data.system_a_catalog?.stats?.resins || 0) + 
                        (data.system_a_catalog?.stats?.printers || 0) + 
                        (data.system_a_catalog?.stats?.accessories || 0),
+    resin_documents: data.resin_documents?.length || 0,
     total_html_size_mb: (htmlSize / 1024 / 1024).toFixed(2)
   };
 }
@@ -487,6 +533,16 @@ function formatCompact(data: any) {
       cta_4_source_type: r.cta_4_source_type,
       cta_4_label: r.cta_4_label,
       cta_4_url: r.cta_4_url
+    })),
+    resin_documents: data.resin_documents?.map((doc: any) => ({
+      id: doc.id,
+      resin_id: doc.resin_id,
+      resin_name: doc.resin_name,
+      resin_manufacturer: doc.resin_manufacturer,
+      document_name: doc.document_name,
+      file_name: doc.file_name,
+      file_url: doc.file_url,
+      active: doc.active
     })),
     knowledge_categories: data.knowledge_categories,
     knowledge_contents: data.knowledge_contents?.map((c: any) => ({
@@ -589,6 +645,27 @@ function formatAiReady(data: any) {
         } : null,
         url_publica: r.public_url,
         quantidade_parametros: r.parameter_sets_count || 0
+      })),
+      documentos_tecnicos: (data.resin_documents || []).map((doc: any) => ({
+        id: doc.id,
+        resina: {
+          id: doc.resin_id,
+          nome: doc.resin_name,
+          fabricante: doc.resin_manufacturer,
+          slug: doc.resin_slug,
+          url_pagina: doc.resin_page_url
+        },
+        documento: {
+          nome: doc.document_name,
+          descricao: doc.document_description,
+          nome_arquivo: doc.file_name,
+          url_download: doc.file_url,
+          tamanho_bytes: doc.file_size
+        },
+        ordem_exibicao: doc.order_index,
+        ativo: doc.active,
+        criado_em: doc.created_at,
+        atualizado_em: doc.updated_at
       }))
     },
     conhecimento: {
@@ -839,7 +916,10 @@ Deno.serve(async (req) => {
       include_resins: bodyParams.include_resins !== undefined 
         ? bodyParams.include_resins 
         : url.searchParams.get('include_resins') !== 'false',
-      include_knowledge: bodyParams.include_knowledge_contents !== undefined 
+      include_resin_documents: bodyParams.include_resin_documents !== undefined 
+        ? bodyParams.include_resin_documents 
+        : url.searchParams.get('include_resin_documents') !== 'false',
+      include_knowledge: bodyParams.include_knowledge_contents !== undefined
         ? bodyParams.include_knowledge_contents 
         : bodyParams.include_knowledge !== undefined
         ? bodyParams.include_knowledge
@@ -926,6 +1006,14 @@ Deno.serve(async (req) => {
         fetchResins(supabase, options)
           .then(d => { data.resins = d; })
           .catch(err => console.error('Error fetching resins:', err))
+      );
+    }
+    
+    if (options.include_resin_documents) {
+      promises.push(
+        fetchResinDocuments(supabase, options)
+          .then(d => { data.resin_documents = d; })
+          .catch(err => console.error('Error fetching resin_documents:', err))
       );
     }
     
