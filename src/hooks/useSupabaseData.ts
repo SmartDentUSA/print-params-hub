@@ -36,6 +36,9 @@ export interface Resin {
   cta_2_url?: string;
   cta_3_label?: string;
   cta_3_url?: string;
+  external_id?: string | null;
+  system_a_product_id?: string | null;
+  system_a_product_url?: string | null;
 }
 
 export interface ParameterSet {
