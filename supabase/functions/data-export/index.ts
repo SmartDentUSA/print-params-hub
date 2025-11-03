@@ -519,20 +519,48 @@ function formatCompact(data: any) {
       manufacturer: r.manufacturer,
       slug: r.slug,
       type: r.type,
+      color: r.color,
+      image_url: r.image_url,
+      price: r.price,
+      description: r.description,
+      
+      // Campos de correlação entre sistemas
+      external_id: r.external_id,
+      system_a_product_id: r.system_a_product_id,
+      system_a_product_url: r.system_a_product_url,
+      
+      // SEO
+      seo_title_override: r.seo_title_override,
+      meta_description: r.meta_description,
+      canonical_url: r.canonical_url,
+      og_image_url: r.og_image_url,
+      keywords: r.keywords,
       keyword_ids: r.keyword_ids,
-      active: r.active,
+      
+      // CTAs
       cta_1_enabled: r.cta_1_enabled,
       cta_1_label: r.cta_1_label,
       cta_1_url: r.cta_1_url,
+      cta_1_description: r.cta_1_description,
       cta_2_source_type: r.cta_2_source_type,
+      cta_2_source_id: r.cta_2_source_id,
       cta_2_label: r.cta_2_label,
       cta_2_url: r.cta_2_url,
+      cta_2_description: r.cta_2_description,
       cta_3_source_type: r.cta_3_source_type,
+      cta_3_source_id: r.cta_3_source_id,
       cta_3_label: r.cta_3_label,
       cta_3_url: r.cta_3_url,
+      cta_3_description: r.cta_3_description,
       cta_4_source_type: r.cta_4_source_type,
+      cta_4_source_id: r.cta_4_source_id,
       cta_4_label: r.cta_4_label,
-      cta_4_url: r.cta_4_url
+      cta_4_url: r.cta_4_url,
+      cta_4_description: r.cta_4_description,
+      
+      // Metadata
+      active: r.active,
+      public_url: r.public_url
     })),
     resin_documents: data.resin_documents?.map((doc: any) => ({
       id: doc.id,
@@ -624,11 +652,26 @@ function formatAiReady(data: any) {
         cor: r.color,
         preco: r.price,
         imagem: r.image_url,
+        slug: r.slug,
+        
+        // Campos de correlação entre sistemas
+        correlacao: {
+          loja_integrada_id: r.external_id || null,
+          sistema_a_product_id: r.system_a_product_id || null,
+          sistema_a_product_url: r.system_a_product_url || null
+        },
+        
+        // SEO
         seo_titulo: r.seo_title_override,
         meta_descricao: r.meta_description,
+        url_canonica: r.canonical_url,
+        imagem_og: r.og_image_url,
         palavras_chave: r.keywords || [],
         keywords_detalhadas: r.keywords_data || [],
+        
+        // CTAs
         cta_principal: r.cta_1_label ? {
+          habilitado: r.cta_1_enabled,
           label: r.cta_1_label,
           url: r.cta_1_url,
           descricao: r.cta_1_description
@@ -636,15 +679,29 @@ function formatAiReady(data: any) {
         cta_secundario: r.cta_2_label ? {
           label: r.cta_2_label,
           url: r.cta_2_url,
-          descricao: r.cta_2_description
+          descricao: r.cta_2_description,
+          tipo_fonte: r.cta_2_source_type,
+          id_fonte: r.cta_2_source_id
         } : null,
         cta_terciario: r.cta_3_label ? {
           label: r.cta_3_label,
           url: r.cta_3_url,
-          descricao: r.cta_3_description
+          descricao: r.cta_3_description,
+          tipo_fonte: r.cta_3_source_type,
+          id_fonte: r.cta_3_source_id
         } : null,
+        cta_quaternario: r.cta_4_label ? {
+          label: r.cta_4_label,
+          url: r.cta_4_url,
+          descricao: r.cta_4_description,
+          tipo_fonte: r.cta_4_source_type,
+          id_fonte: r.cta_4_source_id
+        } : null,
+        
+        // Metadata
         url_publica: r.public_url,
-        quantidade_parametros: r.parameter_sets_count || 0
+        quantidade_parametros: r.parameter_sets_count || 0,
+        ativo: r.active
       })),
       documentos_tecnicos: (data.resin_documents || []).map((doc: any) => ({
         id: doc.id,
