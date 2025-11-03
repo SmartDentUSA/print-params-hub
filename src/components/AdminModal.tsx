@@ -562,7 +562,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (sourceType === 'document') {
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
-        generatedLabel = 'Baixar ' + selectedResource.document_name;
+        generatedLabel = selectedResource.document_name;
         const filename = selectedResource.file_url.split('/').pop() || '';
         generatedUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
       }
@@ -608,7 +608,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (sourceType === 'document') {
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
-        generatedLabel = 'Baixar ' + selectedResource.document_name;
+        generatedLabel = selectedResource.document_name;
         const filename = selectedResource.file_url.split('/').pop() || '';
         generatedUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
       }
@@ -654,7 +654,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (sourceType === 'document') {
       selectedResource = systemResources.documents.find((d: any) => d.id === resourceId);
       if (selectedResource) {
-        generatedLabel = 'Baixar ' + selectedResource.document_name;
+        generatedLabel = selectedResource.document_name;
         const filename = selectedResource.file_url.split('/').pop() || '';
         generatedUrl = `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/${filename}`;
       }
