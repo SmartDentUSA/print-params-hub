@@ -487,6 +487,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       return;
     }
     
+    // Validar que a resina foi salva primeiro
+    if (!formData.id) {
+      toast({
+        title: "Salve a resina primeiro",
+        description: "Clique em 'Salvar' antes de fazer upload de documentos",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!formData.slug || formData.slug.trim() === '') {
+      toast({
+        title: "Slug obrigatório",
+        description: "Preencha o campo 'Slug' antes de fazer upload de documentos",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setUploadingDocIndex(index);
     setUploadProgress(0);
     
@@ -520,19 +539,32 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         .from('resin-documents')
         .getPublicUrl(fileName);
       
-      const updatedDocs = [...documents];
-      updatedDocs[index] = {
-        ...updatedDocs[index],
+      // Salvar no banco de dados
+      const documentData = {
+        resin_id: formData.id,
+        document_name: documents[index].document_name || file.name.replace('.pdf', ''),
+        document_description: documents[index].document_description || '',
         file_url: publicUrl,
         file_name: file.name,
-        file_size: file.size
+        file_size: file.size,
+        order_index: index,
+        active: true
       };
-      setDocuments(updatedDocs);
-      
-      toast({
-        title: "Upload concluído!",
-        description: `${file.name} foi enviado com sucesso`
-      });
+
+      const newDocument = await insertResinDocument(documentData);
+
+      if (newDocument) {
+        const updatedDocs = [...documents];
+        updatedDocs[index] = newDocument;
+        setDocuments(updatedDocs);
+        
+        toast({
+          title: "Upload concluído!",
+          description: `${file.name} foi salvo com sucesso`
+        });
+      } else {
+        throw new Error('Falha ao salvar documento no banco de dados');
+      }
     } catch (error) {
       toast({
         title: "Erro no upload",
