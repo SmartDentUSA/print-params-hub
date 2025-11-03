@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { validateFileSize } from '@/utils/security';
 
 interface KnowledgeEditorProps {
   content: string;
@@ -72,10 +73,10 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (!validateFileSize(file, 10)) {
       toast({ 
         title: 'Imagem muito grande', 
-        description: 'Máximo 5MB.', 
+        description: 'Máximo 10MB.', 
         variant: 'destructive' 
       });
       return;

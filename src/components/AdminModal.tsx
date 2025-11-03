@@ -18,6 +18,7 @@ import { PublicAPIProductImporter } from '@/components/PublicAPIProductImporter'
 import { uploadExternalImage } from '@/utils/uploadExternalImage';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
+import { validateFileSize } from '@/utils/security';
 
 interface Brand {
   id: string;
@@ -474,10 +475,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleDocumentUpload = async (index: number, file: File | undefined) => {
     if (!file) return;
     
-    if (file.size > 5 * 1024 * 1024) {
+    if (!validateFileSize(file, 50)) {
       toast({
         title: "Arquivo muito grande",
-        description: "PDFs devem ter no máximo 5MB",
+        description: "PDFs devem ter no máximo 50MB",
         variant: "destructive"
       });
       return;

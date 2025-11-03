@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 import { useExternalLinks } from '@/hooks/useExternalLinks';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { validateFileSize } from '@/utils/security';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -354,10 +355,10 @@ Receba o texto bruto abaixo e:
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (!validateFileSize(file, 10)) {
       toast({ 
         title: 'Imagem muito grande', 
-        description: 'Máximo 5MB.', 
+        description: 'Máximo 10MB.', 
         variant: 'destructive' 
       });
       return;

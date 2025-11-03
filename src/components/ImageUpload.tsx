@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Upload, X, Image, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { validateFileSize } from "@/utils/security";
 
 interface ImageUploadProps {
   currentImageUrl?: string;
@@ -36,10 +37,10 @@ export function ImageUpload({ currentImageUrl, currentImageAlt, onImageUploaded,
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+    if (!validateFileSize(file, 10)) {
       toast({
         title: "Erro",
-        description: "A imagem deve ter no máximo 5MB.",
+        description: "A imagem deve ter no máximo 10MB.",
         variant: "destructive",
       });
       return;
@@ -128,7 +129,7 @@ export function ImageUpload({ currentImageUrl, currentImageAlt, onImageUploaded,
           Imagem do Modelo
         </CardTitle>
         <CardDescription>
-          Envie uma imagem para este modelo (máx. 5MB)
+          Envie uma imagem para este modelo (máx. 10MB)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

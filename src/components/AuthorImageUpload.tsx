@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Upload, X, UserCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { validateFileSize } from '@/utils/security';
 
 interface AuthorImageUploadProps {
   currentImageUrl?: string;
@@ -54,11 +55,11 @@ export function AuthorImageUpload({
       return;
     }
 
-    // Validar tamanho (máx 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validar tamanho (máx 10MB)
+    if (!validateFileSize(file, 10)) {
       toast({
         title: "Erro",
-        description: "A imagem deve ter no máximo 5MB",
+        description: "A imagem deve ter no máximo 10MB",
         variant: "destructive",
       });
       event.target.value = '';
@@ -168,7 +169,7 @@ export function AuthorImageUpload({
           </Button>
         </label>
         <p className="text-sm text-muted-foreground mt-2">
-          Imagem circular • Máx. 5MB
+          Imagem circular • Máx. 10MB
         </p>
       </div>
     </div>
