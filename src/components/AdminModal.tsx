@@ -291,6 +291,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         formData.slug = formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
       }
       
+      // Sanitize slug for resins: prevent URLs from being used as slugs
+      if (type === 'resin' && formData.slug) {
+        // If slug contains protocol (http:// or https://), extract only the final path
+        if (formData.slug.includes('://')) {
+          const urlParts = formData.slug.split('/');
+          const lastPart = urlParts[urlParts.length - 1] || urlParts[urlParts.length - 2] || 'resin';
+          formData.slug = lastPart.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+          
+          console.log('⚠️ Slug corrigido de URL para:', formData.slug);
+          toast({
+            title: "Slug corrigido",
+            description: `O slug foi corrigido de URL para: ${formData.slug}`,
+          });
+        }
+      }
+      
       // Sanitize correlation fields for resins: convert empty strings to null
       if (type === 'resin') {
         const correlationFields = ['external_id', 'system_a_product_id', 'system_a_product_url'] as const;
