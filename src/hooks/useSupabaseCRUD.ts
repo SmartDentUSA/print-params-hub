@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Brand, Model, Resin, ParameterSet } from '@/hooks/useSupabaseData';
+import { toast } from '@/hooks/use-toast';
 
 export const useSupabaseCRUD = () => {
   const [loading, setLoading] = useState(false);
@@ -302,25 +303,47 @@ export const useSupabaseCRUD = () => {
   const deleteResinDocument = async (id: string, fileUrl: string): Promise<boolean> => {
     try {
       setLoading(true);
-      
-      // Deletar arquivo do storage
+
+      // Extract the file path from the URL
       const fileName = fileUrl.split('/').pop();
-      if (fileName) {
-        await supabase.storage
-          .from('resin-documents')
-          .remove([fileName]);
+      if (!fileName) {
+        throw new Error('Nome de arquivo inválido');
       }
-      
-      // Deletar registro do banco
-      const { error } = await supabase
+
+      // Delete the file from storage FIRST and verify success
+      const { error: storageError } = await supabase.storage
+        .from('resin-documents')
+        .remove([fileName]);
+
+      if (storageError) {
+        console.error('Erro ao deletar arquivo do storage:', storageError);
+        throw new Error(`Falha ao remover arquivo: ${storageError.message}`);
+      }
+
+      // ONLY delete database record IF storage deletion was successful
+      const { error: dbError } = await supabase
         .from('resin_documents')
         .delete()
         .eq('id', id);
-      
-      if (error) throw error;
+
+      if (dbError) {
+        console.error('Erro ao deletar registro do banco:', dbError);
+        throw new Error(`Falha ao remover registro: ${dbError.message}`);
+      }
+
+      toast({
+        title: "Documento removido",
+        description: "O arquivo foi deletado com sucesso"
+      });
+
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao deletar documento');
+      toast({
+        title: "Erro ao deletar documento",
+        description: err instanceof Error ? err.message : 'Erro desconhecido',
+        variant: "destructive"
+      });
       return false;
     } finally {
       setLoading(false);
