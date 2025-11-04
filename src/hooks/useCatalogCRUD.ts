@@ -71,6 +71,28 @@ export interface ProductDocument {
   updated_at?: string;
 }
 
+export const ALLOWED_CATALOG_FIELDS = [
+  'name','slug','description','image_url','price','promo_price','currency',
+  'seo_title_override','meta_description','og_image_url','canonical_url','keywords',
+  'cta_1_label','cta_1_url','cta_1_description','cta_2_label','cta_2_url','cta_2_description',
+  'cta_3_label','cta_3_url',
+  'approved','active','visible_in_ui','display_order','rating','review_count','extra_data',
+  'external_id','source','category','product_category','product_subcategory'
+] as const;
+
+type AllowedCatalogField = typeof ALLOWED_CATALOG_FIELDS[number];
+
+const sanitizeCatalogProductInput = (input: Partial<CatalogProduct>) => {
+  const payload: Record<string, any> = {};
+  ALLOWED_CATALOG_FIELDS.forEach((key) => {
+    const value = input[key as keyof CatalogProduct];
+    if (value !== undefined) {
+      payload[key as AllowedCatalogField] = value;
+    }
+  });
+  return payload;
+};
+
 export const useCatalogCRUD = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,9 +126,10 @@ export const useCatalogCRUD = () => {
       setLoading(true);
       setError(null);
       
+      const payload = sanitizeCatalogProductInput(product);
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .insert([product])
+        .insert([payload as any])
         .select()
         .single();
       
@@ -152,7 +175,7 @@ export const useCatalogCRUD = () => {
       
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .update(updates)
+        .update(sanitizeCatalogProductInput(updates) as any)
         .eq('id', id)
         .select()
         .single();
