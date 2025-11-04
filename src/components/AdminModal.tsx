@@ -2141,6 +2141,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'catalog' && (
             <>
+              {/* Badge IDs de Correlação */}
+              {(formData.external_id || formData.system_a_product_id) && (
+                <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Database className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-primary">IDs de Correlação entre Sistemas</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.external_id && (
+                      <Badge variant="secondary" className="text-xs">
+                        <span className="font-semibold mr-1">Loja Integrada:</span>
+                        {formData.external_id}
+                      </Badge>
+                    )}
+                    {formData.system_a_product_id && (
+                      <Badge variant="secondary" className="text-xs">
+                        <span className="font-semibold mr-1">Sistema A ID:</span>
+                        {formData.system_a_product_id}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <AdminCatalogFormSection
                 formData={formData}
                 handleInputChange={handleInputChange}
