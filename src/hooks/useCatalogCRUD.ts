@@ -67,6 +67,8 @@ export interface ProductDocument {
   file_size?: number;
   order_index?: number;
   active?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export const useCatalogCRUD = () => {

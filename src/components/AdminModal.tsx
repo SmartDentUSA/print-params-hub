@@ -2058,17 +2058,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                     
                     {doc.file_url ? (
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-green-500" />
-                        <a 
-                          href={doc.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {doc.file_name}
-                        </a>
-                        <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-green-500" />
+                          <a 
+                            href={doc.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {doc.file_name}
+                          </a>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
+                          {doc.created_at && (
+                            <>
+                              <span>•</span>
+                              <span>
+                                Criado em {new Date(doc.created_at).toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                })} às {new Date(doc.created_at).toLocaleTimeString('pt-BR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -2174,17 +2193,36 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                     
                     {doc.file_url ? (
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-green-500" />
-                        <a 
-                          href={doc.file_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {doc.file_name}
-                        </a>
-                        <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-green-500" />
+                          <a 
+                            href={doc.file_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-sm text-primary hover:underline"
+                          >
+                            {doc.file_name}
+                          </a>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
+                          {doc.created_at && (
+                            <>
+                              <span>•</span>
+                              <span>
+                                Criado em {new Date(doc.created_at).toLocaleDateString('pt-BR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                })} às {new Date(doc.created_at).toLocaleTimeString('pt-BR', {
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-3">
