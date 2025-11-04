@@ -461,24 +461,26 @@ export function AdminSettings() {
         description: "Coletando dados do sistema para IA...",
       });
 
-      const { data, error } = await supabase.functions.invoke('data-export', {
-        body: {
-          format: 'ai_ready',
-          include_brands: true,
-          include_models: true,
-          include_parameter_sets: true,
-          include_resins: true,
-          include_knowledge_categories: true,
-          include_knowledge_contents: true,
-          include_knowledge_videos: true,
-          include_external_links: true,
-          include_authors: true,
-          include_system_a_catalog: true,
-          denormalize: true,
-          extract_text: true,
-          approved_only: true
-        }
-      });
+    const { data, error } = await supabase.functions.invoke('data-export', {
+      body: {
+        format: 'ai_ready',
+        include_brands: true,
+        include_models: true,
+        include_parameter_sets: true,
+        include_resins: true,
+        include_resin_documents: true,
+        include_catalog_documents: true,
+        include_knowledge_categories: true,
+        include_knowledge_contents: true,
+        include_knowledge_videos: true,
+        include_external_links: true,
+        include_authors: true,
+        include_system_a_catalog: true,
+        denormalize: true,
+        extract_text: true,
+        approved_only: true
+      }
+    });
 
       if (error) throw error;
 
@@ -1277,14 +1279,15 @@ export function AdminSettings() {
                   <div className="bg-muted rounded-lg p-4">
                     <div className="text-sm space-y-2">
                       <div className="font-medium text-foreground">JSON otimizado incluirá:</div>
-                      <ul className="text-muted-foreground space-y-1">
-                        <li>• 258 parâmetros de impressão (brands, models, resins)</li>
-                        <li>• Base de conhecimento completa (artigos, vídeos, FAQs)</li>
-                        <li>• Links externos e keywords SEO</li>
-                        <li>• Catálogo de produtos comerciais</li>
-                        <li>• Autores e informações de contato</li>
-                        <li>• Texto limpo sem HTML, pronto para IA</li>
-                      </ul>
+                <ul className="text-muted-foreground space-y-1">
+                  <li>• 258 parâmetros de impressão (brands, models, resins)</li>
+                  <li>• Base de conhecimento completa (artigos, vídeos, FAQs)</li>
+                  <li>• Documentos técnicos (PDFs de resinas e catálogo)</li>
+                  <li>• Links externos e keywords SEO</li>
+                  <li>• Catálogo de produtos comerciais</li>
+                  <li>• Autores e informações de contato</li>
+                  <li>• Texto limpo sem HTML, pronto para IA</li>
+                </ul>
                     </div>
                   </div>
 
