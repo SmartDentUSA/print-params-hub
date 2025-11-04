@@ -498,6 +498,13 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       console.log('📦 Dados recebidos do importador:', importedData);
 
+      // Helper para converter slug em nome legível
+      const nameFromSlug = (s?: string) => {
+        if (!s) return '';
+        const last = s.replace(/^\/+/, '').split('/').pop() || s;
+        return last.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      };
+
       // 1️⃣ PREENCHER CAMPOS IMEDIATAMENTE (ANTES do upload)
       const parsedPrice = importedData.price 
         ? parseFloat(importedData.price.toString().replace(/\./g, '').replace(',', '.')) 
@@ -505,6 +512,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       
       setFormData((prev: any) => ({
         ...prev,
+        name: importedData.name || prev.name || nameFromSlug(importedData.slug),
         description: importedData.description || prev.description || '',
         price: parsedPrice || prev.price || 0,
         // Usar URL externa temporariamente (funciona mesmo sem upload)
