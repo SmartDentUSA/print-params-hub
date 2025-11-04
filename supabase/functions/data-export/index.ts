@@ -221,7 +221,8 @@ async function fetchCatalogDocuments(supabase: any, options: any) {
         id,
         name,
         slug,
-        category
+        category,
+        external_id
       )
     `)
     .order('order_index');
@@ -239,6 +240,7 @@ async function fetchCatalogDocuments(supabase: any, options: any) {
     product_name: doc.system_a_catalog.name,
     product_slug: doc.system_a_catalog.slug,
     product_category: doc.system_a_catalog.category,
+    product_external_id: doc.system_a_catalog.external_id,
     document_name: doc.document_name,
     document_description: doc.document_description,
     file_name: doc.file_name,
@@ -622,6 +624,7 @@ function formatCompact(data: any) {
       id: doc.id,
       product_id: doc.product_id,
       product_name: doc.product_name,
+      product_external_id: doc.product_external_id,
       document_name: doc.document_name,
       file_name: doc.file_name,
       file_url: doc.file_url,
@@ -779,15 +782,16 @@ function formatAiReady(data: any) {
         criado_em: doc.created_at,
         atualizado_em: doc.updated_at
       })),
-      documentos_catalogo: (data.catalog_documents || []).map((doc: any) => ({
-        id: doc.id,
-        produto: {
-          id: doc.product_id,
-          nome: doc.product_name,
-          slug: doc.product_slug,
-          categoria: doc.product_category,
-          url_pagina: doc.product_page_url
-        },
+    documentos_catalogo: (data.catalog_documents || []).map((doc: any) => ({
+      id: doc.id,
+      produto: {
+        id: doc.product_id,
+        nome: doc.product_name,
+        slug: doc.product_slug,
+        categoria: doc.product_category,
+        external_id: doc.product_external_id,
+        url_pagina: doc.product_page_url
+      },
         documento: {
           nome: doc.document_name,
           descricao: doc.document_description,

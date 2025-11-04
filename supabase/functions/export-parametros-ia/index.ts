@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         .from('catalog_documents')
         .select(`
           *,
-          system_a_catalog!inner(name, slug, category, active)
+          system_a_catalog!inner(name, slug, category, external_id, active)
         `)
         .eq('active', true)
         .eq('system_a_catalog.active', true)
@@ -292,6 +292,11 @@ Deno.serve(async (req) => {
           '- Referenciar documentação técnica oficial',
           '- Responder perguntas sobre especificações detalhadas',
           '',
+          'Busca de documentos:',
+          '- Por nome do produto: produto.nome',
+          '- Por ID Loja Integrada: produto.external_id (ex: "365210617")',
+          '- Por slug: produto.slug',
+          '',
           'Exemplo de uso:',
           'Usuário: "Tem manual do produto X?"',
           'IA: Busca em documentos_catalogo onde produto.nome contém "X"',
@@ -304,7 +309,8 @@ Deno.serve(async (req) => {
         produto: {
           nome: doc.system_a_catalog.name,
           slug: doc.system_a_catalog.slug,
-          categoria: doc.system_a_catalog.category
+          categoria: doc.system_a_catalog.category,
+          external_id: doc.system_a_catalog.external_id
         },
         nome_documento: doc.document_name,
         descricao: doc.document_description || '',
