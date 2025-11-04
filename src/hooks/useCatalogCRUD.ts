@@ -291,6 +291,40 @@ export const useCatalogCRUD = () => {
     }
   };
 
+  const updateProductDocument = async (
+    id: string, 
+    updates: Partial<ProductDocument>
+  ): Promise<ProductDocument | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('catalog_documents')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Documento atualizado",
+        description: "Alterações salvas com sucesso"
+      });
+      
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erro ao atualizar documento';
+      toast({
+        title: "Erro ao atualizar documento",
+        description: message,
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
   // ============= Funções auxiliares para categorias =============
   
   const fetchCategories = async (): Promise<string[]> => {
@@ -353,6 +387,7 @@ export const useCatalogCRUD = () => {
     // Documentos
     fetchProductDocuments,
     insertProductDocument,
+    updateProductDocument,
     deleteProductDocument,
     
     // Categorias

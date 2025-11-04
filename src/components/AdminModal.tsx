@@ -19,6 +19,7 @@ import { PublicAPIProductImporter } from '@/components/PublicAPIProductImporter'
 import { uploadExternalImage } from '@/utils/uploadExternalImage';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupabaseCRUD } from '@/hooks/useSupabaseCRUD';
+import { useCatalogCRUD } from '@/hooks/useCatalogCRUD';
 import { validateFileSize } from '@/utils/security';
 import { Progress } from '@/components/ui/progress';
 
@@ -681,6 +682,113 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       if (index !== -1) {
         setDocuments(documents.filter((_, i) => i !== index));
       }
+    }
+  };
+
+  // 📄 Handlers para documentos do CATÁLOGO
+  const { insertProductDocument, deleteProductDocument } = useCatalogCRUD();
+
+  const handleCatalogDocumentUpload = async (index: number, file: File | undefined) => {
+    if (!file) return;
+    
+    if (!validateFileSize(file, 50)) {
+      toast({
+        title: "Arquivo muito grande",
+        description: "O tamanho máximo permitido é 50MB",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setUploadingDocIndex(index);
+    setUploadProgress(0);
+    
+    const fileSize = file.size;
+    const estimatedTime = Math.max(3000, fileSize / 50000);
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) return prev;
+        return prev + 10;
+      });
+    }, estimatedTime / 9);
+    
+    try {
+      const fileName = `${formData.slug || 'product'}-${Date.now()}.pdf`;
+      
+      const { data, error } = await supabase.storage
+        .from('catalog-documents')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      if (error) throw error;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('catalog-documents')
+        .getPublicUrl(fileName);
+      
+      // Salvar no banco de dados
+      const documentData = {
+        product_id: formData.id,
+        document_name: documents[index].document_name || file.name.replace('.pdf', ''),
+        document_description: documents[index].document_description || '',
+        file_url: publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+        order_index: index,
+        active: true
+      };
+
+      const newDocument = await insertProductDocument(documentData);
+
+      if (newDocument) {
+        const updatedDocs = [...documents];
+        updatedDocs[index] = newDocument;
+        setDocuments(updatedDocs);
+        
+        toast({
+          title: "Upload concluído!",
+          description: `${file.name} foi salvo com sucesso`
+        });
+      } else {
+        throw new Error('Falha ao salvar documento no banco de dados');
+      }
+    } catch (error) {
+      toast({
+        title: "Erro no upload",
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => {
+        setUploadingDocIndex(null);
+        setUploadProgress(0);
+      }, 500);
+    }
+  };
+
+  const handleDeleteCatalogDocument = async (docId?: string, fileUrl?: string) => {
+    if (!docId) {
+      // Remover documento não salvo
+      const index = documents.findIndex(doc => doc.file_url === fileUrl);
+      if (index !== -1) {
+        setDocuments(documents.filter((_, i) => i !== index));
+      }
+      return;
+    }
+    
+    const success = await deleteProductDocument(docId, fileUrl || '');
+    
+    if (success) {
+      setDocuments(documents.filter(doc => doc.id !== docId));
+      toast({
+        title: "Documento removido",
+        description: "Documento técnico foi removido com sucesso"
+      });
     }
   };
 
@@ -2013,11 +2121,119 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           )}
 
           {type === 'catalog' && (
-            <AdminCatalogFormSection
-              formData={formData}
-              handleInputChange={handleInputChange}
-              handleLojaIntegradaImport={handleLojaIntegradaImport}
-            />
+            <>
+              <AdminCatalogFormSection
+                formData={formData}
+                handleInputChange={handleInputChange}
+                handleLojaIntegradaImport={handleLojaIntegradaImport}
+              />
+              
+              {/* SEÇÃO: Documentos Técnicos para Catálogo */}
+              <div className="space-y-4 mt-6 pt-6 border-t">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  📄 Documentos Técnicos
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  PDFs que serão hospedados no sistema e disponibilizados para hyperlinks da IA
+                </p>
+                
+                {/* Lista de documentos */}
+                {documents.map((doc, idx) => (
+                  <div key={idx} className="p-4 border rounded-lg space-y-3 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold">Documento #{idx + 1}</Label>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => handleDeleteCatalogDocument(doc.id, doc.file_url)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor={`catalog_doc_name_${idx}`}>Nome do Documento</Label>
+                      <Input
+                        id={`catalog_doc_name_${idx}`}
+                        value={doc.document_name}
+                        onChange={(e) => handleDocumentChange(idx, 'document_name', e.target.value)}
+                        placeholder="Ex: Ficha Técnica Produto XYZ"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor={`catalog_doc_desc_${idx}`}>Descrição SEO</Label>
+                      <Textarea
+                        id={`catalog_doc_desc_${idx}`}
+                        value={doc.document_description}
+                        onChange={(e) => handleDocumentChange(idx, 'document_description', e.target.value)}
+                        placeholder="Ex: Ficha técnica completa do produto XYZ"
+                        rows={2}
+                      />
+                    </div>
+                    
+                    {doc.file_url ? (
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-500" />
+                        <a 
+                          href={doc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {doc.file_name}
+                        </a>
+                        <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Upload PDF (até 50MB)</Label>
+                          <Input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => handleCatalogDocumentUpload(idx, e.target.files?.[0])}
+                            disabled={uploadingDocIndex === idx}
+                          />
+                        </div>
+                        
+                        {uploadingDocIndex === idx && (
+                          <div className="space-y-2">
+                            <Progress value={uploadProgress} className="h-2" />
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">
+                                Enviando PDF...
+                              </span>
+                              <span className="font-semibold text-primary">
+                                {uploadProgress}%
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                
+                <Button 
+                  variant="outline"
+                  onClick={handleAddDocument}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  ADICIONAR DOCUMENTO
+                </Button>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="active"
+                  checked={formData.active}
+                  onCheckedChange={(checked) => handleInputChange('active', checked)}
+                />
+                <Label htmlFor="active">Ativo</Label>
+              </div>
+            </>
           )}
 
           {type === 'parameter' && (
