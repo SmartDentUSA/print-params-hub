@@ -121,6 +121,19 @@ export const useCatalogCRUD = () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao criar produto';
       setError(message);
+      
+      // 🆕 Log detalhado para debugging
+      console.error('❌ Erro ao inserir produto:', {
+        error: err,
+        productData: product,
+        requiredFields: {
+          name: product.name,
+          external_id: product.external_id,
+          source: product.source,
+          category: product.category
+        }
+      });
+      
       toast({
         title: "Erro ao criar produto",
         description: message,

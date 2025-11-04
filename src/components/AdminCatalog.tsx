@@ -100,7 +100,7 @@ export function AdminCatalog() {
     setIsDialogOpen(true);
   };
 
-  const handleSave = async (data: any, documents?: any[]) => {
+  const handleSave = async (data: any, documents?: any[]): Promise<boolean> => {
     try {
       if (editingProduct) {
         const updated = await updateCatalogProduct(editingProduct.id!, data);
@@ -108,17 +108,23 @@ export function AdminCatalog() {
           setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated : p));
           setIsDialogOpen(false);
           setEditingProduct(null);
+          await loadData();
+          return true; // ✅ Sucesso
         }
+        return false; // ❌ Falhou ao atualizar
       } else {
         const created = await insertCatalogProduct(data);
         if (created) {
           setProducts(prev => [...prev, created]);
           setIsDialogOpen(false);
+          await loadData();
+          return true; // ✅ Sucesso
         }
+        return false; // ❌ Falhou ao criar
       }
-      await loadData(); // Recarregar para atualizar categorias
     } catch (error) {
       console.error('Error saving product:', error);
+      return false; // ❌ Erro capturado
     }
   };
 

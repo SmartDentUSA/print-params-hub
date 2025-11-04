@@ -127,7 +127,7 @@ interface AdminModalProps {
   brands?: Brand[];
   models?: Model[];
   resins?: Resin[];
-  onSave: (data: any, documents?: any[]) => Promise<void>;
+  onSave: (data: any, documents?: any[]) => Promise<void | boolean>;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({ 
@@ -433,8 +433,40 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         }
       }
       
-      await onSave(formData, documents);
-      // Don't close here - let parent component close on success
+      // 🆕 Validação específica para produtos do catálogo
+      if (type === 'catalog') {
+        // Validar campos obrigatórios
+        if (!formData.name || formData.name.trim() === '') {
+          toast({
+            title: "Nome obrigatório",
+            description: "Preencha o nome do produto antes de salvar",
+            variant: "destructive",
+          });
+          setIsSaving(false);
+          return;
+        }
+        
+        // Garantir campos default se vazios
+        if (!formData.external_id || formData.external_id.trim() === '') {
+          formData.external_id = `manual-${Date.now()}`;
+        }
+        
+        if (!formData.source) {
+          formData.source = 'manual';
+        }
+        
+        if (!formData.category) {
+          formData.category = 'product';
+        }
+      }
+      
+      // 🆕 Aguardar resultado do onSave
+      const success = await onSave(formData, documents);
+      
+      // 🆕 Só fechar se foi bem-sucedido
+      if (success !== false) {
+        onClose();
+      }
     } catch (error) {
       // Error will be handled by parent
       console.error('Error in handleSave:', error);
