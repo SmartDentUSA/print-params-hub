@@ -11,10 +11,11 @@ import { AdminModels } from "@/components/AdminModels";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
 import { AdminAuthors } from "@/components/AdminAuthors";
+import { AdminCatalog } from "@/components/AdminCatalog";
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
@@ -183,12 +184,18 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-6' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-7' : 'grid-cols-2'}`}>
             {isAdmin && (
-              <TabsTrigger value="models" className="flex items-center gap-2">
-                <Database className="w-4 h-4" />
-                Modelos
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="models" className="flex items-center gap-2">
+                  <Database className="w-4 h-4" />
+                  Modelos
+                </TabsTrigger>
+                <TabsTrigger value="catalog" className="flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  Catálogo
+                </TabsTrigger>
+              </>
             )}
             <TabsTrigger value="knowledge" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
@@ -217,9 +224,14 @@ export default function AdminViewSecure() {
           </TabsList>
 
           {isAdmin && (
-            <TabsContent value="models" className="space-y-6">
-              <AdminModels />
-            </TabsContent>
+            <>
+              <TabsContent value="models" className="space-y-6">
+                <AdminModels />
+              </TabsContent>
+              <TabsContent value="catalog" className="space-y-6">
+                <AdminCatalog />
+              </TabsContent>
+            </>
           )}
 
           <TabsContent value="knowledge" className="space-y-6">

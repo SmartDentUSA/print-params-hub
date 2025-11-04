@@ -107,6 +107,56 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_documents: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          document_description: string | null
+          document_name: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          order_index: number | null
+          product_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          document_description?: string | null
+          document_name: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          order_index?: number | null
+          product_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          document_description?: string | null
+          document_name?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          order_index?: number | null
+          product_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_documents_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_links: {
         Row: {
           ai_generated: boolean | null
@@ -695,6 +745,8 @@ export type Database = {
           name: string
           og_image_url: string | null
           price: number | null
+          product_category: string | null
+          product_subcategory: string | null
           promo_price: number | null
           rating: number | null
           review_count: number | null
@@ -733,6 +785,8 @@ export type Database = {
           name: string
           og_image_url?: string | null
           price?: number | null
+          product_category?: string | null
+          product_subcategory?: string | null
           promo_price?: number | null
           rating?: number | null
           review_count?: number | null
@@ -771,6 +825,8 @@ export type Database = {
           name?: string
           og_image_url?: string | null
           price?: number | null
+          product_category?: string | null
+          product_subcategory?: string | null
           promo_price?: number | null
           rating?: number | null
           review_count?: number | null

@@ -51,6 +51,8 @@ function mapProducts(products: any[]): CatalogItem[] {
       external_id: String(product.id),
       name: product.name,
       slug: product.slug,
+      product_category: product.category,
+      product_subcategory: product.subcategory,
       description: product.description,
       image_url: product.image_url,
       price: product.price ? parseFloat(product.price) : undefined,

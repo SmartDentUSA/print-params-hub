@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AdminCatalogFormSection } from '@/components/AdminCatalogFormSection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -120,8 +121,8 @@ const parameterSetSchema = z.object({
 interface AdminModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'brand' | 'model' | 'resin' | 'parameter';
-  item?: Brand | Model | Resin | ParameterSet | null;
+  type: 'brand' | 'model' | 'resin' | 'parameter' | 'catalog';
+  item?: Brand | Model | Resin | ParameterSet | any | null;
   brands?: Brand[];
   models?: Model[];
   resins?: Resin[];
@@ -163,6 +164,28 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           cta_2_source_type: 'manual',
           cta_3_source_type: 'manual',
           cta_4_source_type: 'manual'
+        };
+      case 'catalog':
+        return {
+          source: 'manual',
+          category: 'product',
+          external_id: `manual-${Date.now()}`,
+          name: '',
+          slug: '',
+          description: '',
+          product_category: '',
+          product_subcategory: '',
+          price: 0,
+          image_url: '',
+          active: true,
+          approved: true,
+          visible_in_ui: false,
+          cta_1_label: '',
+          cta_1_url: '',
+          cta_2_label: '',
+          cta_2_url: '',
+          cta_3_label: '',
+          cta_3_url: ''
         };
       case 'parameter':
         return {
@@ -214,41 +237,72 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   useEffect(() => {
     setFormData(getInitialFormData());
     
-    // Carregar documentos e recursos do sistema se for tipo resin
-    if (type === 'resin' && isOpen) {
+    // Carregar documentos e recursos do sistema se for tipo resin ou catalog
+    if ((type === 'resin' || type === 'catalog') && isOpen) {
       const fetchData = async () => {
-        // Carregar documentos da resina se tiver ID
+        // Carregar documentos (resina ou catálogo)
         if (item && 'id' in item) {
-          const docs = await fetchResinDocuments(item.id);
-          setDocuments(docs);
-          
-          // 🆕 Buscar recursos do sistema para CTA - APENAS documentos desta resina
-          const { data: allDocs } = await supabase
-            .from('resin_documents')
-            .select('id, document_name, file_url, resins!inner(name, manufacturer)')
-            .eq('active', true)
-            .eq('resin_id', item.id)
-            .order('document_name');
-          
-          const { data: links } = await supabase
-            .from('external_links')
-            .select('id, name, url, category')
-            .eq('approved', true)
-            .order('name');
-          
-          const { data: articles } = await supabase
-            .from('knowledge_contents')
-            .select('id, title, slug')
-            .eq('active', true)
-            .order('title');
-          
-          setSystemResources({
-            documents: allDocs || [],
-            externalLinks: links || [],
-            knowledgeArticles: articles || []
-          });
+          if (type === 'resin') {
+            const docs = await fetchResinDocuments(item.id);
+            setDocuments(docs);
+            
+            // Buscar recursos do sistema para CTA - APENAS documentos desta resina
+            const { data: allDocs } = await supabase
+              .from('resin_documents')
+              .select('id, document_name, file_url, resins!inner(name, manufacturer)')
+              .eq('active', true)
+              .eq('resin_id', item.id)
+              .order('document_name');
+            
+            const { data: links } = await supabase
+              .from('external_links')
+              .select('id, name, url, category')
+              .eq('approved', true)
+              .order('name');
+            
+            const { data: articles } = await supabase
+              .from('knowledge_contents')
+              .select('id, title, slug')
+              .eq('active', true)
+              .order('title');
+            
+            setSystemResources({
+              documents: allDocs || [],
+              externalLinks: links || [],
+              knowledgeArticles: articles || []
+            });
+          } else if (type === 'catalog') {
+            // Carregar documentos do catálogo
+            const { data: docs } = await supabase
+              .from('catalog_documents')
+              .select('*')
+              .eq('product_id', item.id)
+              .eq('active', true)
+              .order('order_index');
+            
+            setDocuments(docs || []);
+            
+            // Recursos para CTAs
+            const { data: links } = await supabase
+              .from('external_links')
+              .select('id, name, url, category')
+              .eq('approved', true)
+              .order('name');
+            
+            const { data: articles } = await supabase
+              .from('knowledge_contents')
+              .select('id, title, slug')
+              .eq('active', true)
+              .order('title');
+            
+            setSystemResources({
+              documents: docs || [],
+              externalLinks: links || [],
+              knowledgeArticles: articles || []
+            });
+          }
         } else {
-          // Resina nova: sem documentos ainda
+          // Novo item: sem documentos ainda
           setDocuments([]);
           
           const { data: links } = await supabase
@@ -781,6 +835,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       case 'brand': return `${action} Marca`;
       case 'model': return `${action} Modelo`;
       case 'resin': return `${action} Resina`;
+      case 'catalog': return `${action} Produto`;
       case 'parameter': return `${action} Parâmetros`;
       default: return action;
     }
@@ -796,6 +851,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
             {type === 'brand' && 'Adicione ou edite informações da marca'}
             {type === 'model' && 'Adicione ou edite informações do modelo'}
             {type === 'resin' && 'Adicione ou edite informações da resina'}
+            {type === 'catalog' && 'Adicione ou edite informações do produto do catálogo'}
           </DialogDescription>
         </DialogHeader>
         
@@ -1954,6 +2010,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <Label htmlFor="active">Ativo</Label>
               </div>
             </>
+          )}
+
+          {type === 'catalog' && (
+            <AdminCatalogFormSection
+              formData={formData}
+              handleInputChange={handleInputChange}
+              handleLojaIntegradaImport={handleLojaIntegradaImport}
+            />
           )}
 
           {type === 'parameter' && (
