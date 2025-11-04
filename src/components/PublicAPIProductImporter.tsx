@@ -51,7 +51,7 @@ export function PublicAPIProductImporter({
         throw new Error('Produto não encontrado');
       }
 
-          // 12 CAMPOS: 3 visíveis + 6 SEO + 3 correlação
+          // 14 CAMPOS: 3 visíveis + 6 SEO + 3 correlação + 2 categorias
           const mappedData = {
             // Campos visíveis (básicos)
             image_url: result.data.image_url || null,
@@ -74,6 +74,9 @@ export function PublicAPIProductImporter({
               return s.startsWith('http') ? s : `https://loja.smartdent.com.br/${s.replace(/^\/+/, '')}`;
             })(),
             external_id: null, // Sistema A não tem ID Loja Integrada
+            // 🆕 Campos de categoria
+            product_category: result.data.product_category || result.data.category || null,
+            product_subcategory: result.data.product_subcategory || result.data.subcategory || null,
           };
 
       setPreviewData(mappedData);
@@ -82,7 +85,7 @@ export function PublicAPIProductImporter({
         onImportSuccess(mappedData);
       }
       
-      toast.success('✅ 12 campos importados (3 visíveis + 6 SEO + 3 correlação)!');
+      toast.success('✅ 14 campos importados (3 visíveis + 6 SEO + 3 correlação + 2 categorias)!');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao importar';

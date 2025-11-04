@@ -490,6 +490,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         canonical_url: importedData.canonical_url || prev.canonical_url || '',
         slug: importedData.slug || prev.slug || '',
         keywords: importedData.keywords || prev.keywords || [],
+        
+        // 🆕 Campos de categoria
+        product_category: importedData.product_category || prev.product_category || '',
+        product_subcategory: importedData.product_subcategory || prev.product_subcategory || '',
       }));
 
       console.log('✅ Campos preenchidos IMEDIATAMENTE:', {
