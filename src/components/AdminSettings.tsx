@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, Beaker } from "lucide-react";
 import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
@@ -45,6 +45,7 @@ interface Resin {
   external_id?: string;
   system_a_product_id?: string;
   system_a_product_url?: string;
+  image_url?: string;
 }
 
 interface ParameterSet {
@@ -824,6 +825,7 @@ export function AdminSettings() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Imagem</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Fabricante</TableHead>
                       <TableHead>IDs Correlação</TableHead>
@@ -836,6 +838,19 @@ export function AdminSettings() {
                   <TableBody>
                     {filteredResins.map((resin) => (
                       <TableRow key={resin.id}>
+                        <TableCell>
+                          {resin.image_url ? (
+                            <img 
+                              src={resin.image_url} 
+                              alt={resin.name}
+                              className="w-12 h-12 object-cover rounded border"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
+                              <Beaker className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{resin.name}</TableCell>
                         <TableCell>{resin.manufacturer}</TableCell>
                         <TableCell>
