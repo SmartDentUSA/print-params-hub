@@ -91,7 +91,16 @@ Deno.serve(async (req) => {
       supabase
         .from('resins')
         .select('id, name, manufacturer, external_id, system_a_product_id, system_a_product_url')
+        .eq('active', true),
+      supabase
+        .from('catalog_documents')
+        .select(`
+          *,
+          system_a_catalog!inner(name, slug, category, active)
+        `)
         .eq('active', true)
+        .eq('system_a_catalog.active', true)
+        .order('order_index')
     ]);
 
     if (paramsResult.error) {
@@ -118,6 +127,17 @@ Deno.serve(async (req) => {
     const brands = brandsResult.data;
     const models = modelsResult.data;
     const resins = resinsResult.data;
+    const catalogDocs = (await Promise.all([
+      supabase
+        .from('catalog_documents')
+        .select(`
+          *,
+          system_a_catalog!inner(name, slug, category, active)
+        `)
+        .eq('active', true)
+        .eq('system_a_catalog.active', true)
+        .order('order_index')
+    ]))[0]?.data || [];
 
     // Criar maps para lookup rápido
     const brandMap = new Map(brands.map(b => [b.slug, b.name]));
@@ -243,9 +263,61 @@ Deno.serve(async (req) => {
           'Se o usuário menciona "produto 832fa3e7-b24c", busque por "sistema_a_product_id"',
           'Se precisa do link da loja, use "sistema_a_product_url"',
           'Se tem o ID numérico, use "loja_integrada_id"'
+        ],
+        documentos_tecnicos: [
+          'O sistema possui 2 tipos de documentos técnicos disponíveis:',
+          '',
+          '1. Documentos de Resinas (resin_documents):',
+          '   - Fichas técnicas de segurança (FISPQ)',
+          '   - Certificados de qualidade',
+          '   - Manuais de aplicação',
+          '',
+          '2. Documentos de Catálogo (catalog_documents):',
+          '   - Manuais de produtos',
+          '   - Especificações técnicas',
+          '   - Guias de instalação/uso',
+          '   - Catálogos comerciais',
+          '',
+          'Cada documento possui os seguintes campos:',
+          '- document_name: Nome do documento para exibição',
+          '- document_description: Descrição detalhada do conteúdo',
+          '- file_url: Link direto para download do arquivo',
+          '- file_name: Nome do arquivo original',
+          '- file_size: Tamanho em bytes',
+          '- product_name/resin_name: Produto/resina associado',
+          '',
+          'Use os documentos para:',
+          '- Fornecer links de download quando usuário solicita documentação',
+          '- Indicar disponibilidade de manuais ou certificados',
+          '- Referenciar documentação técnica oficial',
+          '- Responder perguntas sobre especificações detalhadas',
+          '',
+          'Exemplo de uso:',
+          'Usuário: "Tem manual do produto X?"',
+          'IA: Busca em documentos_catalogo onde produto.nome contém "X"',
+          'Se encontrado, retorna: "Sim, aqui está o manual: [url_download]"'
         ]
       },
       parametros: parametrosFormatados,
+      documentos_catalogo: catalogDocsData.map((doc: any) => ({
+        id: doc.id,
+        produto: {
+          nome: doc.system_a_catalog.name,
+          slug: doc.system_a_catalog.slug,
+          categoria: doc.system_a_catalog.category
+        },
+        nome_documento: doc.document_name,
+        descricao: doc.document_description || '',
+        arquivo: {
+          nome: doc.file_name,
+          url_download: doc.file_url,
+          tamanho_bytes: doc.file_size || 0
+        },
+        ordem_exibicao: doc.order_index,
+        ativo: doc.active,
+        criado_em: doc.created_at,
+        atualizado_em: doc.updated_at
+      })),
       indices_busca: {
         marcas: Array.from(marcasSet).sort(),
         resinas: Array.from(resinasSet).sort(),
