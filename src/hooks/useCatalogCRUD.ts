@@ -51,6 +51,10 @@ export interface CatalogProduct {
   extra_data?: any;
   rating?: number;
   review_count?: number;
+  
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ProductDocument {

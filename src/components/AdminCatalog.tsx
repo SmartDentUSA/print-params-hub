@@ -237,7 +237,7 @@ export function AdminCatalog() {
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Subcategoria</TableHead>
-                  <TableHead>Preço</TableHead>
+                  <TableHead>Última Atualização</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
@@ -290,16 +290,21 @@ export function AdminCatalog() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {product.price ? (
-                          <div>
+                        {product.updated_at ? (
+                          <div className="text-sm">
                             <div className="font-medium">
-                              R$ {product.price.toFixed(2)}
+                              {new Date(product.updated_at).toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })}
                             </div>
-                            {product.promo_price && (
-                              <div className="text-xs text-green-600 font-semibold">
-                                R$ {product.promo_price.toFixed(2)}
-                              </div>
-                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(product.updated_at).toLocaleTimeString('pt-BR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
