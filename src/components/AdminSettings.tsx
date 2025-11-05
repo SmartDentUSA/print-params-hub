@@ -16,6 +16,7 @@ import { DataExport } from "@/components/DataExport";
 import { DataImport } from "@/components/DataImport";
 import { useAdminMaintenance, MaintenanceStats } from "@/hooks/useAdminMaintenance";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast as sonnerToast } from "sonner";
 
 interface Brand {
   id: string;
@@ -88,6 +89,7 @@ export function AdminSettings() {
   const [cta3Url, setCta3Url] = useState<string>("");
   const [savingCta3, setSavingCta3] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { toast } = useToast();
   const { loading: maintenanceLoading, getInactiveStats, reactivateAllInactive, reactivateInactiveSince } = useAdminMaintenance();
@@ -448,6 +450,25 @@ export function AdminSettings() {
       });
     } finally {
       setSavingCta3(false);
+    }
+  };
+
+  const handleSyncKnowledgeBase = async () => {
+    setIsSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-knowledge-base', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      sonnerToast.success(`✅ Sincronização concluída! ${data?.productsCount || 0} produtos processados`);
+      await loadData(); // Reload data after sync
+    } catch (error) {
+      console.error('Erro ao sincronizar:', error);
+      sonnerToast.error('❌ Erro ao sincronizar base de conhecimento');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -1244,6 +1265,39 @@ export function AdminSettings() {
                         <span>Nenhum parâmetro inativo encontrado no sistema</span>
                       </div>
                   )}
+                </CardContent>
+              </Card>
+
+              {/* Sync Knowledge Base Card */}
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <RefreshCw className="w-5 h-5" />
+                    🔄 Sincronização Sistema A
+                  </CardTitle>
+                  <CardDescription>
+                    Sincroniza produtos do Sistema A (Loja Integrada) para o catálogo. Execute manualmente quando necessário.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button 
+                    onClick={handleSyncKnowledgeBase} 
+                    disabled={isSyncing}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isSyncing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Sincronizando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Sincronizar Agora
+                      </>
+                    )}
+                  </Button>
                 </CardContent>
               </Card>
 
