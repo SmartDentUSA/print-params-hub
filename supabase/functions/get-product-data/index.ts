@@ -13,10 +13,34 @@ Deno.serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const slug = url.searchParams.get('slug');
+    const rawSlug = url.searchParams.get('slug');
     const approved = url.searchParams.get('approved') === 'true';
 
-    console.log('🔍 get-product-data invoked:', { slug, approved });
+    // Normalize slug (support full URLs, trim hyphens/slashes, decode)
+    const normalizeSlug = (input: string | null): string | null => {
+      if (!input) return null;
+      let candidate = input.trim();
+      try {
+        if (/^https?:\/\//i.test(candidate)) {
+          const u = new URL(candidate);
+          const segments = u.pathname.split('/').filter(Boolean);
+          candidate = segments[segments.length - 1] || candidate;
+        }
+      } catch {}
+      try { candidate = decodeURIComponent(candidate); } catch {}
+      candidate = candidate.toLowerCase();
+      candidate = candidate.replace(/_/g, '-');
+      candidate = candidate.replace(/\s+/g, '-');
+      candidate = candidate.replace(/-+/g, '-');
+      candidate = candidate.replace(/^[\-/]+|[\-/]+$/g, '');
+      return candidate;
+    };
+    const slug = normalizeSlug(rawSlug);
+    const spaceQuery = slug ? slug.replace(/-/g, ' ') : null;
+    const tokens = spaceQuery ? spaceQuery.split(/\s+/).filter(t => t.length > 2 && !['resina','resin','modelo','model','smart','print','3d','the','and','for'].includes(t)) : [];
+    const longestToken = tokens.sort((a,b)=>b.length-a.length)[0];
+
+    console.log('🔍 get-product-data invoked:', { rawSlug, slug, approved, spaceQuery, longestToken });
 
     if (!slug) {
       return new Response(
@@ -54,14 +78,60 @@ Deno.serve(async (req) => {
     if (error || !data) {
       console.log('⚠️ Produto não encontrado no catálogo, tentando fallback em resins:', { slug, error });
 
-      const { data: resin, error: resinError } = await supabase
-        .from('resins')
-        .select('*')
-        .or(`slug.eq.${slug},name.ilike.%${slug}%`)
-        .maybeSingle();
+      // Enhanced fallback search in resins with multiple strategies
+      let resin: any = null;
+      let resinError: any = null;
 
-      if (!resin || resinError) {
-        console.log('❌ Produto não encontrado em nenhum lugar:', { slug, error, resinError });
+      // Attempt 1: exact slug
+      if (slug) {
+        const { data: r1, error: e1 } = await supabase
+          .from('resins')
+          .select('*')
+          .eq('slug', slug)
+          .maybeSingle();
+        if (r1) {
+          resin = r1;
+        } else {
+          resinError = e1 || resinError;
+        }
+        console.log('🔎 Fallback attempt 1 (resins.slug eq):', { slug, found: !!r1, error: e1 });
+      }
+
+      // Attempt 2: slug ilike
+      if (!resin && slug) {
+        const { data: r2, error: e2 } = await supabase
+          .from('resins')
+          .select('*')
+          .ilike('slug', `%${slug}%`)
+          .maybeSingle();
+        if (r2) resin = r2; else resinError = e2 || resinError;
+        console.log('🔎 Fallback attempt 2 (resins.slug ilike):', { pattern: `%${slug}%`, found: !!r2, error: e2 });
+      }
+
+      // Attempt 3: name ilike with spaces
+      if (!resin && spaceQuery) {
+        const { data: r3, error: e3 } = await supabase
+          .from('resins')
+          .select('*')
+          .ilike('name', `%${spaceQuery}%`)
+          .maybeSingle();
+        if (r3) resin = r3; else resinError = e3 || resinError;
+        console.log('🔎 Fallback attempt 3 (resins.name ilike spaceQuery):', { spaceQuery, found: !!r3, error: e3 });
+      }
+
+      // Attempt 4: name ilike longest token
+      if (!resin && longestToken) {
+        const { data: r4, error: e4 } = await supabase
+          .from('resins')
+          .select('*')
+          .ilike('name', `%${longestToken}%`)
+          .maybeSingle();
+        if (r4) resin = r4; else resinError = e4 || resinError;
+        console.log('🔎 Fallback attempt 4 (resins.name ilike longestToken):', { longestToken, found: !!r4, error: e4 });
+      }
+
+      if (!resin) {
+        console.log('❌ Produto não encontrado em nenhum lugar:', { slug, resinError });
         return new Response(
           JSON.stringify({
             success: false,
