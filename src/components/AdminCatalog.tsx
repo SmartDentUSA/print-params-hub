@@ -38,6 +38,26 @@ export function AdminCatalog() {
   }, []);
 
   useEffect(() => {
+    const handleCatalogSync = async (event: CustomEvent) => {
+      console.log('📥 Recarregando catálogo após sincronização...', event.detail);
+      await loadData();
+      
+      if (event.detail.inserted > 0) {
+        toast({
+          title: "📦 Catálogo Atualizado",
+          description: `${event.detail.inserted} novo(s) produto(s)`,
+        });
+      }
+    };
+
+    window.addEventListener('catalog-synced', handleCatalogSync as EventListener);
+    
+    return () => {
+      window.removeEventListener('catalog-synced', handleCatalogSync as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     // Aplicar filtros
     let filtered = products;
 

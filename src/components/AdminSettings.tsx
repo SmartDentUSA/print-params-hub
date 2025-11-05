@@ -456,17 +456,34 @@ export function AdminSettings() {
   const handleSyncKnowledgeBase = async () => {
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase.functions.invoke('sync-knowledge-base', {
-        body: {}
-      });
+      const { data, error } = await supabase.functions.invoke('sync-knowledge-base');
 
       if (error) throw error;
 
-      sonnerToast.success(`✅ Sincronização concluída! ${data?.productsCount || 0} produtos processados`);
-      await loadData(); // Reload data after sync
+      const inserted = data?.stats?.catalog?.inserted || 0;
+      const skipped = data?.stats?.catalog?.skipped || 0;
+
+      if (inserted > 0) {
+        sonnerToast.success(
+          `✅ ${inserted} novo(s) produto(s) adicionado(s)!`,
+          { description: `${skipped} já existiam (total: ${inserted + skipped})` }
+        );
+      } else {
+        sonnerToast.info(
+          `ℹ️ Nenhum produto novo`,
+          { description: `${skipped} produto(s) já sincronizados` }
+        );
+      }
+
+      // Emitir evento para AdminCatalog
+      window.dispatchEvent(new CustomEvent('catalog-synced', { 
+        detail: { inserted, skipped } 
+      }));
+
+      await loadData();
     } catch (error) {
       console.error('Erro ao sincronizar:', error);
-      sonnerToast.error('❌ Erro ao sincronizar base de conhecimento');
+      sonnerToast.error('❌ Erro ao sincronizar');
     } finally {
       setIsSyncing(false);
     }

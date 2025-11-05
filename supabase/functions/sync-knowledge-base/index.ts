@@ -271,9 +271,18 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
       continue
     }
 
-    // Validar li_product_id
-    if (!product.li_product_id && !product.id) {
-      console.warn('⚠️ Produto sem li_product_id ou id, pulando:', product.name)
+    // Extrair li_product_id de original_data se disponível
+    const liProductId = product.original_data?.li_product_id || product.li_product_id;
+
+    console.log(`📦 Processando produto: "${product.name}"`, {
+      id: product.id,
+      li_product_id: liProductId,
+      has_original_data: !!product.original_data
+    });
+
+    // CRÍTICO: li_product_id é obrigatório para mapear com Loja Integrada
+    if (!liProductId) {
+      console.warn(`⚠️ BLOQUEADO: Produto "${product.name}" sem li_product_id (ID: ${product.id})`)
       continue
     }
 
@@ -284,8 +293,11 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
     }
 
     try {
+      // Garantir mapeamento external_id = li_product_id (ID Loja Integrada)
+      const externalId = String(liProductId);
+      console.log(`🔑 external_id definido: ${externalId} (fonte: ${product.original_data?.li_product_id ? 'original_data' : 'direto'})`);
+      
       // Verificar se já existe em resins (evitar duplicação conceitual)
-      const externalId = String(product.li_product_id || product.id)
       const { data: existingResin } = await supabase
         .from('resins')
         .select('id, name, external_id')
@@ -295,6 +307,18 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
       if (existingResin) {
         console.warn(`⚠️ Produto "${product.name}" já existe em resins (ID: ${externalId}), pulando sync para evitar duplicação`)
         continue
+      }
+
+      // Verificar se produto já existe em system_a_catalog
+      const { data: existingCatalog } = await supabase
+        .from('system_a_catalog')
+        .select('id, name, external_id')
+        .eq('external_id', externalId)
+        .maybeSingle();
+
+      if (existingCatalog) {
+        console.log(`ℹ️ Produto "${product.name}" (li_product_id: ${externalId}) já existe no catálogo, pulando`);
+        continue;
       }
 
       // Determinar categoria do produto
@@ -412,18 +436,34 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
         }
       }
 
-      console.log(`✅ Sincronizando produto "${product.name}" (ID: ${externalId})`)
-      
-      await supabase
-        .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'external_id' })
+      console.log(`🆕 Inserindo NOVO produto "${product.name}"`, {
+        external_id: externalId,
+        li_product_id: liProductId,
+        slug: product.slug,
+        category: product.category,
+        subcategory: product.subcategory
+      });
 
+      const { error: insertError } = await supabase
+        .from('system_a_catalog')
+        .insert([catalogItem]);
+
+      if (insertError) {
+        console.error(`❌ Erro ao inserir produto ${product.name}:`, insertError.message);
+        continue;
+      }
+
+      console.log(`✅ Produto "${product.name}" inserido com sucesso (external_id=${externalId})`);
       count++
     } catch (err) {
       console.error(`❌ Erro ao sincronizar produto ${product.name}:`, err.message)
     }
   }
-  return count
+  
+  return {
+    inserted: count,
+    skipped: products.length - count
+  };
 }
 
 async function syncVideoTestimonials(supabase: any, testimonials: any[]) {
