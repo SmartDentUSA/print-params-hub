@@ -129,9 +129,13 @@ export const useSupabaseCRUD = () => {
   const insertResin = async (resin: Omit<Resin, 'id'>): Promise<Resin | null> => {
     try {
       setLoading(true);
+      
+      // Filtrar campos calculados que não existem no banco
+      const { has_documents, ...dbResin } = resin as any;
+      
       const { data, error } = await supabase
         .from('resins')
-        .insert(resin)
+        .insert(dbResin)
         .select()
         .single();
       
@@ -149,27 +153,17 @@ export const useSupabaseCRUD = () => {
     try {
       setLoading(true);
       
-      // 🔍 LOG: Verificar dados recebidos
-      console.log('🔍 updateResin - ID:', id);
-      console.log('🔍 updateResin - updates recebidos:', updates);
-      console.log('🔍 updateResin - external_id:', updates.external_id);
-      console.log('🔍 updateResin - system_a_product_id:', updates.system_a_product_id);
-      console.log('🔍 updateResin - system_a_product_url:', updates.system_a_product_url);
+      // Filtrar campos calculados que não existem no banco
+      const { has_documents, ...dbUpdates } = updates as any;
       
       const { data, error } = await supabase
         .from('resins')
-        .update(updates)
+        .update(dbUpdates)
         .eq('id', id)
         .select()
         .single();
       
-      // 🔍 LOG: Verificar resposta do Supabase
-      console.log('✅ updateResin - data retornada:', data);
-      if (error) {
-        console.error('❌ updateResin - erro:', error);
-        throw error;
-      }
-      
+      if (error) throw error;
       return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao atualizar resina');
