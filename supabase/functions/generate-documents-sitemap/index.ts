@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
         document_name,
         file_url,
         updated_at,
-        resins!inner(name, manufacturer, slug)
+        resins!inner(name, manufacturer, slug, external_id)
       `)
       .eq('active', true)
       .order('updated_at', { ascending: false });
@@ -50,9 +50,12 @@ Deno.serve(async (req) => {
           : now;
         
         const resin = doc.resins as any;
+        const externalIdLabel = resin.external_id 
+          ? `ID Loja: ${resin.external_id}` 
+          : 'ID Loja: N/A';
         
         sitemap += `
-  <!-- Documento: ${doc.document_name} (${resin.name}) -->
+  <!-- Documento: ${doc.document_name} | Resina: ${resin.name} | ${externalIdLabel} -->
   <url>
     <loc>${doc.file_url}</loc>
     <changefreq>monthly</changefreq>
