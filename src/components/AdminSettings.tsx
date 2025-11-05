@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, FileText } from "lucide-react";
 import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
@@ -46,6 +46,7 @@ interface Resin {
   external_id?: string;
   system_a_product_id?: string;
   system_a_product_url?: string;
+  has_documents?: boolean;
 }
 
 interface ParameterSet {
@@ -155,7 +156,24 @@ export function AdminSettings() {
         .select('*')
         .eq('active', true)
         .order('name');
-      setResins(resinsData || []);
+      
+      // Verificar quais resinas têm documentos técnicos
+      const resinsWithDocs = await Promise.all(
+        (resinsData || []).map(async (resin) => {
+          const { count } = await supabase
+            .from('resin_documents')
+            .select('id', { count: 'exact', head: true })
+            .eq('resin_id', resin.id)
+            .eq('active', true);
+          
+          return {
+            ...resin,
+            has_documents: (count || 0) > 0
+          };
+        })
+      );
+      
+      setResins(resinsWithDocs);
       
       // Get parameter sets - these are public readable
       const { data: parametersData } = await supabase
@@ -874,7 +892,16 @@ export function AdminSettings() {
                   <TableBody>
                     {filteredResins.map((resin) => (
                       <TableRow key={resin.id}>
-                        <TableCell className="font-medium">{resin.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{resin.name}</span>
+                            {resin.has_documents && (
+                              <div className="flex items-center justify-center w-5 h-5 rounded-full bg-green-500/10 border border-green-500/30">
+                                <FileText className="w-3 h-3 text-green-600" />
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{resin.manufacturer}</TableCell>
                         <TableCell>
                           <div className="flex flex-col gap-1">
