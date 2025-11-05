@@ -265,9 +265,38 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
 
   let count = 0
   for (const product of products) {
-    if (!product || !product.name || !product.slug) continue
+    // Validar campos obrigatórios
+    if (!product || !product.name || !product.slug) {
+      console.warn('⚠️ Produto sem name/slug, pulando:', product)
+      continue
+    }
+
+    // Validar li_product_id
+    if (!product.li_product_id && !product.id) {
+      console.warn('⚠️ Produto sem li_product_id ou id, pulando:', product.name)
+      continue
+    }
+
+    // Validar categoria obrigatória (Sistema A)
+    if (!product.category) {
+      console.warn('⚠️ Produto sem category do Sistema A, pulando:', product.name)
+      continue
+    }
 
     try {
+      // Verificar se já existe em resins (evitar duplicação conceitual)
+      const externalId = String(product.li_product_id || product.id)
+      const { data: existingResin } = await supabase
+        .from('resins')
+        .select('id, name, external_id')
+        .eq('external_id', externalId)
+        .maybeSingle()
+
+      if (existingResin) {
+        console.warn(`⚠️ Produto "${product.name}" já existe em resins (ID: ${externalId}), pulando sync para evitar duplicação`)
+        continue
+      }
+
       // Determinar categoria do produto
       let productCategory = 'product'
       if (product.category) {
@@ -278,8 +307,10 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
       }
 
       const catalogItem = {
-        external_id: `product_${product.id || product.slug}`,
+        external_id: externalId,
         category: productCategory,
+        product_category: product.category,
+        product_subcategory: product.subcategory,
         name: product.name,
         slug: product.slug,
         description: product.description,
@@ -381,6 +412,8 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
         }
       }
 
+      console.log(`✅ Sincronizando produto "${product.name}" (ID: ${externalId})`)
+      
       await supabase
         .from('system_a_catalog')
         .upsert(catalogItem, { onConflict: 'external_id' })
