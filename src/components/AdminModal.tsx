@@ -127,7 +127,7 @@ interface AdminModalProps {
   brands?: Brand[];
   models?: Model[];
   resins?: Resin[];
-  onSave: (data: any, documents?: any[]) => Promise<void | boolean>;
+  onSave: (data: any, documents?: any[]) => Promise<void>;
 }
 
 export const AdminModal: React.FC<AdminModalProps> = ({ 
@@ -433,40 +433,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         }
       }
       
-      // 🆕 Validação específica para produtos do catálogo
-      if (type === 'catalog') {
-        // Validar campos obrigatórios
-        if (!formData.name || formData.name.trim() === '') {
-          toast({
-            title: "Nome obrigatório",
-            description: "Preencha o nome do produto antes de salvar",
-            variant: "destructive",
-          });
-          setIsSaving(false);
-          return;
-        }
-        
-        // Garantir campos default se vazios
-        if (!formData.external_id || formData.external_id.trim() === '') {
-          formData.external_id = `manual-${Date.now()}`;
-        }
-        
-        if (!formData.source) {
-          formData.source = 'manual';
-        }
-        
-        if (!formData.category) {
-          formData.category = 'product';
-        }
-      }
-      
-      // 🆕 Aguardar resultado do onSave
-      const success = await onSave(formData, documents);
-      
-      // 🆕 Só fechar se foi bem-sucedido
-      if (success !== false) {
-        onClose();
-      }
+      await onSave(formData, documents);
+      // Don't close here - let parent component close on success
     } catch (error) {
       // Error will be handled by parent
       console.error('Error in handleSave:', error);
@@ -498,13 +466,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     try {
       console.log('📦 Dados recebidos do importador:', importedData);
 
-      // Helper para converter slug em nome legível
-      const nameFromSlug = (s?: string) => {
-        if (!s) return '';
-        const last = s.replace(/^\/+/, '').split('/').pop() || s;
-        return last.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-      };
-
       // 1️⃣ PREENCHER CAMPOS IMEDIATAMENTE (ANTES do upload)
       const parsedPrice = importedData.price 
         ? parseFloat(importedData.price.toString().replace(/\./g, '').replace(',', '.')) 
@@ -512,7 +473,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       
       setFormData((prev: any) => ({
         ...prev,
-        name: importedData.name || prev.name || nameFromSlug(importedData.slug),
         description: importedData.description || prev.description || '',
         price: parsedPrice || prev.price || 0,
         // Usar URL externa temporariamente (funciona mesmo sem upload)
@@ -530,10 +490,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         canonical_url: importedData.canonical_url || prev.canonical_url || '',
         slug: importedData.slug || prev.slug || '',
         keywords: importedData.keywords || prev.keywords || [],
-        
-        // 🆕 Campos de categoria
-        product_category: importedData.product_category || prev.product_category || '',
-        product_subcategory: importedData.product_subcategory || prev.product_subcategory || '',
       }));
 
       console.log('✅ Campos preenchidos IMEDIATAMENTE:', {
@@ -2102,36 +2058,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                     
                     {doc.file_url ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-green-500" />
-                          <a 
-                            href={doc.file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            {doc.file_name}
-                          </a>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
-                          {doc.created_at && (
-                            <>
-                              <span>•</span>
-                              <span>
-                                Criado em {new Date(doc.created_at).toLocaleDateString('pt-BR', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric'
-                                })} às {new Date(doc.created_at).toLocaleTimeString('pt-BR', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-500" />
+                        <a 
+                          href={doc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {doc.file_name}
+                        </a>
+                        <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
                       </div>
                     ) : (
                       <div className="space-y-3">
@@ -2185,30 +2122,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
           {type === 'catalog' && (
             <>
-              {/* Badge IDs de Correlação */}
-              {(formData.external_id || formData.system_a_product_id) && (
-                <div className="mb-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Database className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-primary">IDs de Correlação entre Sistemas</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.external_id && (
-                      <Badge variant="secondary" className="text-xs">
-                        <span className="font-semibold mr-1">Loja Integrada:</span>
-                        {formData.external_id}
-                      </Badge>
-                    )}
-                    {formData.system_a_product_id && (
-                      <Badge variant="secondary" className="text-xs">
-                        <span className="font-semibold mr-1">Sistema A ID:</span>
-                        {formData.system_a_product_id}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )}
-
               <AdminCatalogFormSection
                 formData={formData}
                 handleInputChange={handleInputChange}
@@ -2261,36 +2174,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </div>
                     
                     {doc.file_url ? (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-green-500" />
-                          <a 
-                            href={doc.file_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-sm text-primary hover:underline"
-                          >
-                            {doc.file_name}
-                          </a>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
-                          {doc.created_at && (
-                            <>
-                              <span>•</span>
-                              <span>
-                                Criado em {new Date(doc.created_at).toLocaleDateString('pt-BR', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric'
-                                })} às {new Date(doc.created_at).toLocaleTimeString('pt-BR', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </span>
-                            </>
-                          )}
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-green-500" />
+                        <a 
+                          href={doc.file_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          {doc.file_name}
+                        </a>
+                        <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
                       </div>
                     ) : (
                       <div className="space-y-3">

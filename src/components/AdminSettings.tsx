@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, Beaker } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download } from "lucide-react";
 import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
@@ -45,7 +45,6 @@ interface Resin {
   external_id?: string;
   system_a_product_id?: string;
   system_a_product_url?: string;
-  image_url?: string;
 }
 
 interface ParameterSet {
@@ -461,26 +460,24 @@ export function AdminSettings() {
         description: "Coletando dados do sistema para IA...",
       });
 
-    const { data, error } = await supabase.functions.invoke('data-export', {
-      body: {
-        format: 'ai_ready',
-        include_brands: true,
-        include_models: true,
-        include_parameter_sets: true,
-        include_resins: true,
-        include_resin_documents: true,
-        include_catalog_documents: true,
-        include_knowledge_categories: true,
-        include_knowledge_contents: true,
-        include_knowledge_videos: true,
-        include_external_links: true,
-        include_authors: true,
-        include_system_a_catalog: true,
-        denormalize: true,
-        extract_text: true,
-        approved_only: true
-      }
-    });
+      const { data, error } = await supabase.functions.invoke('data-export', {
+        body: {
+          format: 'ai_ready',
+          include_brands: true,
+          include_models: true,
+          include_parameter_sets: true,
+          include_resins: true,
+          include_knowledge_categories: true,
+          include_knowledge_contents: true,
+          include_knowledge_videos: true,
+          include_external_links: true,
+          include_authors: true,
+          include_system_a_catalog: true,
+          denormalize: true,
+          extract_text: true,
+          approved_only: true
+        }
+      });
 
       if (error) throw error;
 
@@ -827,7 +824,6 @@ export function AdminSettings() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Imagem</TableHead>
                       <TableHead>Nome</TableHead>
                       <TableHead>Fabricante</TableHead>
                       <TableHead>IDs Correlação</TableHead>
@@ -840,19 +836,6 @@ export function AdminSettings() {
                   <TableBody>
                     {filteredResins.map((resin) => (
                       <TableRow key={resin.id}>
-                        <TableCell>
-                          {resin.image_url ? (
-                            <img 
-                              src={resin.image_url} 
-                              alt={resin.name}
-                              className="w-12 h-12 object-cover rounded border"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
-                              <Beaker className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                        </TableCell>
                         <TableCell className="font-medium">{resin.name}</TableCell>
                         <TableCell>{resin.manufacturer}</TableCell>
                         <TableCell>
@@ -1279,15 +1262,14 @@ export function AdminSettings() {
                   <div className="bg-muted rounded-lg p-4">
                     <div className="text-sm space-y-2">
                       <div className="font-medium text-foreground">JSON otimizado incluirá:</div>
-                <ul className="text-muted-foreground space-y-1">
-                  <li>• 258 parâmetros de impressão (brands, models, resins)</li>
-                  <li>• Base de conhecimento completa (artigos, vídeos, FAQs)</li>
-                  <li>• Documentos técnicos (PDFs de resinas e catálogo)</li>
-                  <li>• Links externos e keywords SEO</li>
-                  <li>• Catálogo de produtos comerciais</li>
-                  <li>• Autores e informações de contato</li>
-                  <li>• Texto limpo sem HTML, pronto para IA</li>
-                </ul>
+                      <ul className="text-muted-foreground space-y-1">
+                        <li>• 258 parâmetros de impressão (brands, models, resins)</li>
+                        <li>• Base de conhecimento completa (artigos, vídeos, FAQs)</li>
+                        <li>• Links externos e keywords SEO</li>
+                        <li>• Catálogo de produtos comerciais</li>
+                        <li>• Autores e informações de contato</li>
+                        <li>• Texto limpo sem HTML, pronto para IA</li>
+                      </ul>
                     </div>
                   </div>
 

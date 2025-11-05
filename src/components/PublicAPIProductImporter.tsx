@@ -51,51 +51,30 @@ export function PublicAPIProductImporter({
         throw new Error('Produto não encontrado');
       }
 
-      // Inferir nome do produto
-      const inferredName = 
-        result.data.name ||
-        result.data.title ||
-        result.data.product_name ||
-        result.data.nome ||
-        (() => {
-          const s = (result.data.slug || cleanSlug || '').replace(/^\/+/, '');
-          if (!s) return null;
-          const last = s.split('/').pop() || s;
-          return last
-            .replace(/-/g, ' ')
-            .replace(/\b\w/g, (c) => c.toUpperCase());
-        })();
-
-      const inferredSlug = result.data.slug || cleanSlug || null;
-
-      // 15 CAMPOS: 4 visíveis (name, image, description, price) + 6 SEO + 3 correlação + 2 categorias
-      const mappedData = {
-        // Campos visíveis (básicos)
-        name: inferredName,
-        image_url: result.data.image_url || null,
-        description: result.data.description || null,
-        price: result.data.price || null,
-        // 🔵 Campos SEO invisíveis (Sistema A) - mapeamento corrigido
-        seo_title_override: result.data.seo_title_override || null,
-        meta_description: result.data.seo_description_override || null,
-        og_image_url: result.data.image_url || null,
-        canonical_url: result.data.canonical_url || null,
-        slug: inferredSlug,
-        keywords: result.data.keywords || [],
-        // 🆕 Campos de correlação (Sistema A)
-        system_a_product_id: result.data.id || result.data.uuid || null,
-        system_a_product_url: (() => {
-          const urlCandidate = result.data.url || result.data.canonical_url || null;
-          if (urlCandidate) return urlCandidate;
-          const s = result.data.slug || '';
-          if (!s) return null;
-          return s.startsWith('http') ? s : `https://loja.smartdent.com.br/${s.replace(/^\/+/, '')}`;
-        })(),
-        external_id: null, // Sistema A não tem ID Loja Integrada
-        // 🆕 Campos de categoria
-        product_category: result.data.product_category || result.data.category || null,
-        product_subcategory: result.data.product_subcategory || result.data.subcategory || null,
-      };
+          // 12 CAMPOS: 3 visíveis + 6 SEO + 3 correlação
+          const mappedData = {
+            // Campos visíveis (básicos)
+            image_url: result.data.image_url || null,
+            description: result.data.description || null,
+            price: result.data.price || null,
+            // 🔵 Campos SEO invisíveis (Sistema A) - mapeamento corrigido
+            seo_title_override: result.data.seo_title_override || null,
+            meta_description: result.data.seo_description_override || null,
+            og_image_url: result.data.image_url || null,
+            canonical_url: result.data.canonical_url || null,
+            slug: result.data.slug || null,
+            keywords: result.data.keywords || [],
+            // 🆕 Campos de correlação (Sistema A)
+            system_a_product_id: result.data.id || result.data.uuid || null,
+            system_a_product_url: (() => {
+              const urlCandidate = result.data.url || result.data.canonical_url || null;
+              if (urlCandidate) return urlCandidate;
+              const s = result.data.slug || '';
+              if (!s) return null;
+              return s.startsWith('http') ? s : `https://loja.smartdent.com.br/${s.replace(/^\/+/, '')}`;
+            })(),
+            external_id: null, // Sistema A não tem ID Loja Integrada
+          };
 
       setPreviewData(mappedData);
       
@@ -103,7 +82,7 @@ export function PublicAPIProductImporter({
         onImportSuccess(mappedData);
       }
       
-      toast.success('✅ 15 campos importados (4 visíveis + 6 SEO + 3 correlação + 2 categorias)!');
+      toast.success('✅ 12 campos importados (3 visíveis + 6 SEO + 3 correlação)!');
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao importar';

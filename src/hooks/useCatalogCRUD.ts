@@ -67,31 +67,7 @@ export interface ProductDocument {
   file_size?: number;
   order_index?: number;
   active?: boolean;
-  created_at?: string;
-  updated_at?: string;
 }
-
-export const ALLOWED_CATALOG_FIELDS = [
-  'name','slug','description','image_url','price','promo_price','currency',
-  'seo_title_override','meta_description','og_image_url','canonical_url','keywords',
-  'cta_1_label','cta_1_url','cta_1_description','cta_2_label','cta_2_url','cta_2_description',
-  'cta_3_label','cta_3_url',
-  'approved','active','visible_in_ui','display_order','rating','review_count','extra_data',
-  'external_id','source','category','product_category','product_subcategory'
-] as const;
-
-type AllowedCatalogField = typeof ALLOWED_CATALOG_FIELDS[number];
-
-const sanitizeCatalogProductInput = (input: Partial<CatalogProduct>) => {
-  const payload: Record<string, any> = {};
-  ALLOWED_CATALOG_FIELDS.forEach((key) => {
-    const value = input[key as keyof CatalogProduct];
-    if (value !== undefined) {
-      payload[key as AllowedCatalogField] = value;
-    }
-  });
-  return payload;
-};
 
 export const useCatalogCRUD = () => {
   const [loading, setLoading] = useState(false);
@@ -126,10 +102,9 @@ export const useCatalogCRUD = () => {
       setLoading(true);
       setError(null);
       
-      const payload = sanitizeCatalogProductInput(product);
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .insert([payload as any])
+        .insert([product])
         .select()
         .single();
       
@@ -144,19 +119,6 @@ export const useCatalogCRUD = () => {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao criar produto';
       setError(message);
-      
-      // 🆕 Log detalhado para debugging
-      console.error('❌ Erro ao inserir produto:', {
-        error: err,
-        productData: product,
-        requiredFields: {
-          name: product.name,
-          external_id: product.external_id,
-          source: product.source,
-          category: product.category
-        }
-      });
-      
       toast({
         title: "Erro ao criar produto",
         description: message,
@@ -175,7 +137,7 @@ export const useCatalogCRUD = () => {
       
       const { data, error } = await supabase
         .from('system_a_catalog')
-        .update(sanitizeCatalogProductInput(updates) as any)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
