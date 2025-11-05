@@ -42,15 +42,14 @@ Deno.serve(async (req) => {
       .from('system_a_catalog')
       .select('*')
       .eq('slug', slug)
-      .eq('category', 'product')
-      .single();
+      .eq('category', 'product');
 
     // Apply approved filter if requested
     if (approved) {
       query = query.eq('approved', true);
     }
 
-    const { data, error } = await query;
+    const { data, error } = await query.single();
 
     if (error || !data) {
       console.log('❌ Produto não encontrado:', { slug, error });
