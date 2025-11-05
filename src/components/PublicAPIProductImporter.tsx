@@ -64,16 +64,12 @@ export function PublicAPIProductImporter({
             canonical_url: result.data.canonical_url || null,
             slug: result.data.slug || null,
             keywords: result.data.keywords || [],
-            // 🆕 Campos de correlação (Sistema A)
+          // 🆕 Campos de correlação (Sistema A)
             system_a_product_id: result.data.id || result.data.uuid || null,
-            system_a_product_url: (() => {
-              const urlCandidate = result.data.url || result.data.canonical_url || null;
-              if (urlCandidate) return urlCandidate;
-              const s = result.data.slug || '';
-              if (!s) return null;
-              return s.startsWith('http') ? s : `https://loja.smartdent.com.br/${s.replace(/^\/+/, '')}`;
-            })(),
-            external_id: null, // Sistema A não tem ID Loja Integrada
+            system_a_product_url: result.data.url || result.data.canonical_url || null,
+            external_id: result.data.external_id || null,
+            product_category: result.data.product_category || null,
+            product_subcategory: result.data.product_subcategory || null,
           };
 
       setPreviewData(mappedData);
