@@ -49,21 +49,61 @@ Deno.serve(async (req) => {
       query = query.eq('approved', true);
     }
 
-    const { data, error } = await query.single();
+    const { data, error } = await query.maybeSingle();
 
     if (error || !data) {
-      console.log('❌ Produto não encontrado:', { slug, error });
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Nenhum produto encontrado',
-          data: null,
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
+      console.log('⚠️ Produto não encontrado no catálogo, tentando fallback em resins:', { slug, error });
+
+      const { data: resin, error: resinError } = await supabase
+        .from('resins')
+        .select('*')
+        .or(`slug.eq.${slug},name.ilike.%${slug}%`)
+        .maybeSingle();
+
+      if (!resin || resinError) {
+        console.log('❌ Produto não encontrado em nenhum lugar:', { slug, error, resinError });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: 'Nenhum produto encontrado',
+            data: null,
+          }),
+          {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
+
+      // Map resin fallback to expected format
+      const fallbackResponse = {
+        success: true,
+        message: 'Produto encontrado (fallback resins)',
+        data: {
+          id: resin.id,
+          uuid: resin.id,
+          external_id: resin.external_id,
+          name: resin.name,
+          slug: resin.slug || slug,
+          description: resin.description,
+          image_url: resin.image_url,
+          price: resin.price,
+          promo_price: null,
+          currency: 'BRL',
+          url: resin.system_a_product_url || resin.canonical_url || `https://loja.smartdent.com.br/${slug}`,
+          canonical_url: resin.canonical_url,
+          seo_title_override: resin.seo_title_override,
+          seo_description_override: resin.meta_description,
+          keywords: resin.keywords || [],
+          product_category: null,
+          product_subcategory: null,
+        },
+      };
+
+      return new Response(JSON.stringify(fallbackResponse), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('✅ Produto encontrado:', data.name);
