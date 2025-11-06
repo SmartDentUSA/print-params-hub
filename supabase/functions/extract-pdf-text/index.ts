@@ -32,6 +32,10 @@ serve(async (req) => {
 
     console.log('Calling Lovable AI for PDF text extraction...');
 
+    // Convert base64 to binary for PDF parsing
+    const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
+    
+    // Use Lovable AI to extract text from PDF document
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -43,20 +47,12 @@ serve(async (req) => {
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Extraia TODO o texto deste PDF preservando a estrutura original. Retorne apenas o texto puro, sem formatação HTML ou Markdown. Mantenha quebras de linha e parágrafos originais. Se houver tabelas, preserve a estrutura com espaços. Se for um PDF escaneado, use OCR para extrair o texto.'
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:application/pdf;base64,${pdfBase64}`
-                }
-              }
-            ]
+            content: `Extraia TODO o texto deste documento PDF preservando a estrutura original. Retorne apenas o texto puro extraído, sem formatação HTML ou Markdown. Mantenha quebras de linha e parágrafos originais. Se houver tabelas, preserve a estrutura com espaços.
+
+PDF em base64: ${pdfBase64.substring(0, 100000)}`
           }
-        ]
+        ],
+        max_tokens: 8000
       }),
     });
 
