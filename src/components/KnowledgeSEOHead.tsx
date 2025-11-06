@@ -157,6 +157,9 @@ const extractKeywordsFromContent = (htmlContent: string): string => {
 
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [] }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
+  
+  // Default to Portuguese title if no language-specific title exists
+  const displayTitle = content?.title || '';
 
   // Página inicial da Base de Conhecimento
   if (!content && !category) {
@@ -214,7 +217,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": content.title,
+    "headline": displayTitle,
     "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
     "image": content.og_image_url,
@@ -262,7 +265,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     return {
       "@context": "https://schema.org",
       "@type": "VideoObject",
-      "name": video.title || `${content.title} - Vídeo ${idx + 1}`,
+      "name": video.title || `${displayTitle} - Vídeo ${idx + 1}`,
       "description": content.meta_description || content.excerpt,
       "thumbnailUrl": videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url,
       "uploadDate": new Date(content.created_at).toISOString(),
@@ -297,7 +300,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       {
         "@type": "ListItem",
         "position": 4,
-        "name": content.title,
+        "name": displayTitle,
         "item": canonicalUrl
       }
     ]
@@ -329,7 +332,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   const howToSchema = howToSteps.length >= 2 ? {
     "@context": "https://schema.org",
     "@type": "HowTo",
-    "name": content.title,
+    "name": displayTitle,
     "description": content.meta_description || content.excerpt,
     "image": content.og_image_url,
     "step": howToSteps.map((step, idx) => ({
@@ -349,7 +352,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   return (
     <Helmet htmlAttributes={{ lang: 'pt-BR' }}>
-      <title>{content.title} | Smart Dent</title>
+      <title>{displayTitle} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       <link rel="canonical" href={canonicalUrl} />
@@ -365,7 +368,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       
       {/* Open Graph */}
       <meta property="og:type" content="article" />
-      <meta property="og:title" content={content.title} />
+      <meta property="og:title" content={displayTitle} />
       <meta property="og:description" content={content.excerpt} />
       <meta property="og:url" content={canonicalUrl} />
       {content.og_image_url && (
@@ -373,14 +376,14 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
           <meta property="og:image" content={content.og_image_url} />
           <meta property="og:image:width" content="1200" />
           <meta property="og:image:height" content="630" />
-          <meta property="og:image:alt" content={content.title} />
+          <meta property="og:image:alt" content={displayTitle} />
           <meta property="og:image:type" content="image/png" />
         </>
       )}
       
       {/* Twitter Card */}
       <meta name="twitter:card" content={twitterCardType} />
-      <meta name="twitter:title" content={content.title} />
+      <meta name="twitter:title" content={displayTitle} />
       <meta name="twitter:description" content={content.excerpt} />
       {content.og_image_url && <meta name="twitter:image" content={content.og_image_url} />}
       {twitterCardType === "player" && videos[0] && (

@@ -270,6 +270,8 @@ export type Database = {
           content_image_url: string | null
           created_at: string | null
           excerpt: string
+          excerpt_en: string | null
+          excerpt_es: string | null
           faqs: Json | null
           faqs_en: Json | null
           faqs_es: Json | null
@@ -285,6 +287,8 @@ export type Database = {
           recommended_resins: string[] | null
           slug: string
           title: string
+          title_en: string | null
+          title_es: string | null
           updated_at: string | null
         }
         Insert: {
@@ -300,6 +304,8 @@ export type Database = {
           content_image_url?: string | null
           created_at?: string | null
           excerpt: string
+          excerpt_en?: string | null
+          excerpt_es?: string | null
           faqs?: Json | null
           faqs_en?: Json | null
           faqs_es?: Json | null
@@ -315,6 +321,8 @@ export type Database = {
           recommended_resins?: string[] | null
           slug: string
           title: string
+          title_en?: string | null
+          title_es?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -330,6 +338,8 @@ export type Database = {
           content_image_url?: string | null
           created_at?: string | null
           excerpt?: string
+          excerpt_en?: string | null
+          excerpt_es?: string | null
           faqs?: Json | null
           faqs_en?: Json | null
           faqs_es?: Json | null
@@ -345,6 +355,8 @@ export type Database = {
           recommended_resins?: string[] | null
           slug?: string
           title?: string
+          title_en?: string | null
+          title_es?: string | null
           updated_at?: string | null
         }
         Relationships: [

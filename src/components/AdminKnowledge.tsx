@@ -52,6 +52,10 @@ export function AdminKnowledge() {
   const [showEditorEN, setShowEditorEN] = useState(false);
   const [contentES, setContentES] = useState('');
   const [contentEN, setContentEN] = useState('');
+  const [titleES, setTitleES] = useState('');
+  const [titleEN, setTitleEN] = useState('');
+  const [excerptES, setExcerptES] = useState('');
+  const [excerptEN, setExcerptEN] = useState('');
   const [faqsES, setFaqsES] = useState<Array<{ question: string; answer: string }>>([]);
   const [faqsEN, setFaqsEN] = useState<Array<{ question: string; answer: string }>>([]);
   const [translating, setTranslating] = useState(false);
@@ -199,6 +203,10 @@ Receba o texto bruto abaixo e:
     // Load multilingual content
     setContentES(content.content_html_es || '');
     setContentEN(content.content_html_en || '');
+    setTitleES(content.title_es || '');
+    setTitleEN(content.title_en || '');
+    setExcerptES(content.excerpt_es || '');
+    setExcerptEN(content.excerpt_en || '');
     setFaqsES(content.faqs_es || []);
     setFaqsEN(content.faqs_en || []);
     
@@ -244,6 +252,10 @@ Receba o texto bruto abaixo e:
     // Reset multilingual states
     setContentES('');
     setContentEN('');
+    setTitleES('');
+    setTitleEN('');
+    setExcerptES('');
+    setExcerptEN('');
     setFaqsES([]);
     setFaqsEN([]);
     setShowEditorES(false);
@@ -277,8 +289,12 @@ Receba o texto bruto abaixo e:
       
       const contentData = {
         title: formData.title,
+        title_es: titleES || null,
+        title_en: titleEN || null,
         slug: formData.slug || generateSlug(formData.title),
         excerpt: formData.excerpt,
+        excerpt_es: excerptES || null,
+        excerpt_en: excerptEN || null,
         content_html: formData.content_html,
         content_html_es: contentES || null,
         content_html_en: contentEN || null,
@@ -361,6 +377,8 @@ Receba o texto bruto abaixo e:
     try {
       const { data, error } = await supabase.functions.invoke('translate-content', {
         body: {
+          title: formData.title,
+          excerpt: formData.excerpt,
           htmlContent: formData.content_html,
           faqs: formData.faqs.length > 0 ? formData.faqs : null,
           targetLanguage
@@ -373,18 +391,22 @@ Receba o texto bruto abaixo e:
       const languageName = targetLanguage === 'es' ? 'Espanhol' : 'Inglês';
       
       if (targetLanguage === 'es') {
-        setContentES(data.translatedHTML);
+        setTitleES(data.translatedTitle || '');
+        setExcerptES(data.translatedExcerpt || '');
+        setContentES(data.translatedHTML || '');
         if (data.translatedFAQs) setFaqsES(data.translatedFAQs);
         setShowEditorES(true);
       } else {
-        setContentEN(data.translatedHTML);
+        setTitleEN(data.translatedTitle || '');
+        setExcerptEN(data.translatedExcerpt || '');
+        setContentEN(data.translatedHTML || '');
         if (data.translatedFAQs) setFaqsEN(data.translatedFAQs);
         setShowEditorEN(true);
       }
       
       toast({
         title: `${languageEmoji} Tradução concluída!`,
-        description: `Conteúdo traduzido para ${languageName}. Agora você pode substituir as imagens com texto.`
+        description: `Título, resumo e conteúdo traduzidos para ${languageName}.`
       });
     } catch (error: any) {
       console.error('Translation error:', error);
@@ -779,7 +801,7 @@ Receba o texto bruto abaixo e:
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-lg font-semibold">
-                            🇪🇸 Conteúdo em Espanhol
+                            🇪🇸 Versão em Espanhol
                           </Label>
                           <Button
                             variant="ghost"
@@ -788,6 +810,31 @@ Receba o texto bruto abaixo e:
                           >
                             ▲ Recolher
                           </Button>
+                        </div>
+                        
+                        {/* Título e Resumo ES */}
+                        <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <Label className="text-sm">Título (ES)</Label>
+                            <Input
+                              value={titleES}
+                              onChange={(e) => setTitleES(e.target.value)}
+                              placeholder="Título traducido..."
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm">Resumo (ES) - max 160 chars</Label>
+                            <Textarea
+                              value={excerptES}
+                              onChange={(e) => setExcerptES(e.target.value)}
+                              maxLength={160}
+                              placeholder="Resumen traducido..."
+                              className="resize-none"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {excerptES.length}/160
+                            </p>
+                          </div>
                         </div>
                         
                         <Alert>
@@ -890,7 +937,7 @@ Receba o texto bruto abaixo e:
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <Label className="text-lg font-semibold">
-                            🇺🇸 Conteúdo em Inglês
+                            🇺🇸 Versão em Inglês
                           </Label>
                           <Button
                             variant="ghost"
@@ -899,6 +946,31 @@ Receba o texto bruto abaixo e:
                           >
                             ▲ Recolher
                           </Button>
+                        </div>
+                        
+                        {/* Título e Resumo EN */}
+                        <div className="space-y-3 p-3 bg-muted/30 rounded-lg">
+                          <div>
+                            <Label className="text-sm">Título (EN)</Label>
+                            <Input
+                              value={titleEN}
+                              onChange={(e) => setTitleEN(e.target.value)}
+                              placeholder="Translated title..."
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-sm">Resumo (EN) - max 160 chars</Label>
+                            <Textarea
+                              value={excerptEN}
+                              onChange={(e) => setExcerptEN(e.target.value)}
+                              maxLength={160}
+                              placeholder="Translated excerpt..."
+                              className="resize-none"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {excerptEN.length}/160
+                            </p>
+                          </div>
                         </div>
                         
                         <Alert>

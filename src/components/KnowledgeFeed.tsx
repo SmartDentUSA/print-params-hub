@@ -162,11 +162,19 @@ export const KnowledgeFeed = () => {
                     </Badge>
                     
                     <h3 className="text-base sm:text-xs font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                      {article.title}
+                      {language === 'es' && article.title_es 
+                        ? article.title_es 
+                        : language === 'en' && article.title_en 
+                        ? article.title_en 
+                        : article.title}
                     </h3>
                     
                     <p className="text-sm sm:text-xs text-muted-foreground line-clamp-2">
-                      {article.excerpt}
+                      {language === 'es' && article.excerpt_es 
+                        ? article.excerpt_es 
+                        : language === 'en' && article.excerpt_en 
+                        ? article.excerpt_en 
+                        : article.excerpt}
                     </p>
                     
                     <LanguageFlags size="xs" className="pt-1" />

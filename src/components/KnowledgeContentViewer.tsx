@@ -94,6 +94,18 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   // Select correct language content
   const displayContent = {
     ...content,
+    title: 
+      language === 'es' && content.title_es 
+        ? content.title_es 
+        : language === 'en' && content.title_en 
+        ? content.title_en 
+        : content.title,
+    excerpt: 
+      language === 'es' && content.excerpt_es 
+        ? content.excerpt_es 
+        : language === 'en' && content.excerpt_en 
+        ? content.excerpt_en 
+        : content.excerpt,
     content_html: 
       language === 'es' && content.content_html_es 
         ? content.content_html_es 
@@ -153,12 +165,12 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             {content.knowledge_categories?.name && (
               <span className="eyebrow">{content.knowledge_categories.name}</span>
             )}
-            <h1>{content.title}</h1>
-            {content.excerpt && (
+            <h1>{displayContent.title}</h1>
+            {displayContent.excerpt && (
               <p className="hero-excerpt">
-                {content.excerpt.length > 160 
-                  ? content.excerpt.substring(0, 160) + '...' 
-                  : content.excerpt
+                {displayContent.excerpt.length > 160 
+                  ? displayContent.excerpt.substring(0, 160) + '...' 
+                  : displayContent.excerpt
                 }
               </p>
             )}

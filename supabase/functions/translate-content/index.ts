@@ -11,11 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { htmlContent, faqs, targetLanguage } = await req.json();
+    const { title, excerpt, htmlContent, faqs, targetLanguage } = await req.json();
     
-    if (!htmlContent || !targetLanguage) {
+    if (!targetLanguage) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: htmlContent and targetLanguage' }), 
+        JSON.stringify({ error: 'Missing required field: targetLanguage' }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -48,11 +48,25 @@ serve(async (req) => {
 - Maintain exact JSON structure: [{"question": "...", "answer": "..."}]
 - Return as valid JSON array`;
 
-    let userPrompt = `Translate the following HTML content from Portuguese to ${targetLangName}:\n\n${htmlContent}`;
+    let userPrompt = `Translate the following content from Portuguese to ${targetLangName}:\n\n`;
+    
+    if (title) {
+      userPrompt += `**TITLE:**\n${title}\n\n`;
+    }
+    
+    if (excerpt) {
+      userPrompt += `**EXCERPT (max 160 chars):**\n${excerpt}\n\n`;
+    }
+    
+    if (htmlContent) {
+      userPrompt += `**HTML CONTENT:**\n${htmlContent}\n\n`;
+    }
     
     if (faqs && Array.isArray(faqs) && faqs.length > 0) {
-      userPrompt += `\n\n---\n\nAlso translate these FAQs to ${targetLangName}:\n${JSON.stringify(faqs, null, 2)}`;
+      userPrompt += `**FAQs:**\n${JSON.stringify(faqs, null, 2)}\n\n`;
     }
+    
+    userPrompt += `\nReturn ONLY a JSON object in this exact format:\n{\n  "title": "translated title here",\n  "excerpt": "translated excerpt (max 160 chars)",\n  "html": "translated HTML content",\n  "faqs": [{"question": "...", "answer": "..."}]\n}`;
 
     console.log(`Translating to ${targetLanguage}...`);
 
@@ -98,34 +112,38 @@ serve(async (req) => {
 
     console.log('Translation completed successfully');
 
-    // Split response to extract HTML and FAQs
-    let translatedHTML = fullResponse;
-    let translatedFAQs = null;
-
-    if (faqs && Array.isArray(faqs) && faqs.length > 0) {
-      // Try to extract JSON array from response
-      const jsonMatch = fullResponse.match(/\[[\s\S]*?\{[\s\S]*?"question"[\s\S]*?\}[\s\S]*?\]/);
+    // Try to parse as JSON
+    let parsedResponse: any = {};
+    
+    // Remove markdown code fences if present
+    let cleanResponse = fullResponse.trim();
+    if (cleanResponse.startsWith('```json')) {
+      cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanResponse.startsWith('```')) {
+      cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    try {
+      parsedResponse = JSON.parse(cleanResponse);
+    } catch (e) {
+      console.error('Failed to parse AI response as JSON:', e);
+      console.log('Raw response:', fullResponse);
       
-      if (jsonMatch) {
-        try {
-          translatedFAQs = JSON.parse(jsonMatch[0]);
-          // Remove FAQs JSON from HTML
-          translatedHTML = fullResponse.replace(jsonMatch[0], '').trim();
-        } catch (e) {
-          console.error('Failed to parse translated FAQs:', e);
-          // Fallback: return original FAQs
-          translatedFAQs = faqs;
-        }
-      } else {
-        // Fallback: return original FAQs if not found in response
-        translatedFAQs = faqs;
-      }
+      // Fallback: extract parts manually
+      parsedResponse = {
+        title: title || '',
+        excerpt: excerpt || '',
+        html: htmlContent || '',
+        faqs: faqs || null
+      };
     }
 
     return new Response(
       JSON.stringify({ 
-        translatedHTML: translatedHTML.trim(),
-        translatedFAQs 
+        translatedTitle: parsedResponse.title || title || '',
+        translatedExcerpt: parsedResponse.excerpt || excerpt || '',
+        translatedHTML: parsedResponse.html || htmlContent || '',
+        translatedFAQs: parsedResponse.faqs || faqs || null
       }), 
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
