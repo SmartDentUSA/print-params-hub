@@ -91,6 +91,23 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
   if (!content) return null;
 
+  // Select correct language content
+  const displayContent = {
+    ...content,
+    content_html: 
+      language === 'es' && content.content_html_es 
+        ? content.content_html_es 
+        : language === 'en' && content.content_html_en 
+        ? content.content_html_en 
+        : content.content_html,
+    faqs: 
+      language === 'es' && content.faqs_es 
+        ? content.faqs_es 
+        : language === 'en' && content.faqs_en 
+        ? content.faqs_en 
+        : content.faqs
+  };
+
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
     { label: t('knowledge.knowledge_base'), href: '/base-conhecimento' },
@@ -213,20 +230,20 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         )}
 
         {/* Rich Content */}
-          {content.content_html && (
+          {displayContent.content_html && (
             <BlogPreviewFrame
-              htmlContent={renderAuthorSignaturePlaceholders(content.content_html, content.authors)}
+              htmlContent={renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors)}
               deviceMode={isMobile ? "mobile" : "desktop"}
             />
           )}
 
         {/* FAQ Section - antes da assinatura do autor */}
-        {content.faqs && content.faqs.length > 0 && (
-          <KnowledgeFAQ faqs={content.faqs} />
+        {displayContent.faqs && displayContent.faqs.length > 0 && (
+          <KnowledgeFAQ faqs={displayContent.faqs} />
         )}
 
         {/* Author Signature - only show if token not in content */}
-        {content.authors && !/\[\[ASSINATURA_AUTOR\]\]/i.test(content.content_html || '') && (
+        {content.authors && !/\[\[ASSINATURA_AUTOR\]\]/i.test(displayContent.content_html || '') && (
           <AuthorSignature author={content.authors} />
         )}
 

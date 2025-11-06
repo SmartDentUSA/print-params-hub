@@ -48,5 +48,8 @@ verify_jwt = false
 [functions.document-proxy]
 verify_jwt = false
 
+[functions.translate-content]
+verify_jwt = false
+
 [functions.backfill-keywords]
 verify_jwt = false

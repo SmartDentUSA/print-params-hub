@@ -264,11 +264,15 @@ export type Database = {
           canva_template_url: string | null
           category_id: string | null
           content_html: string | null
+          content_html_en: string | null
+          content_html_es: string | null
           content_image_alt: string | null
           content_image_url: string | null
           created_at: string | null
           excerpt: string
           faqs: Json | null
+          faqs_en: Json | null
+          faqs_es: Json | null
           file_name: string | null
           file_url: string | null
           icon_color: string | null
@@ -290,11 +294,15 @@ export type Database = {
           canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
+          content_html_en?: string | null
+          content_html_es?: string | null
           content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
           excerpt: string
           faqs?: Json | null
+          faqs_en?: Json | null
+          faqs_es?: Json | null
           file_name?: string | null
           file_url?: string | null
           icon_color?: string | null
@@ -316,11 +324,15 @@ export type Database = {
           canva_template_url?: string | null
           category_id?: string | null
           content_html?: string | null
+          content_html_en?: string | null
+          content_html_es?: string | null
           content_image_alt?: string | null
           content_image_url?: string | null
           created_at?: string | null
           excerpt?: string
           faqs?: Json | null
+          faqs_en?: Json | null
+          faqs_es?: Json | null
           file_name?: string | null
           file_url?: string | null
           icon_color?: string | null

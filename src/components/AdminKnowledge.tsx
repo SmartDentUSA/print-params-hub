@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ResinMultiSelect } from '@/components/ResinMultiSelect';
@@ -45,6 +46,16 @@ export function AdminKnowledge() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHTML, setGeneratedHTML] = useState('');
   const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  
+  // Multilingual states
+  const [showEditorES, setShowEditorES] = useState(false);
+  const [showEditorEN, setShowEditorEN] = useState(false);
+  const [contentES, setContentES] = useState('');
+  const [contentEN, setContentEN] = useState('');
+  const [faqsES, setFaqsES] = useState<Array<{ question: string; answer: string }>>([]);
+  const [faqsEN, setFaqsEN] = useState<Array<{ question: string; answer: string }>>([]);
+  const [translating, setTranslating] = useState(false);
+  const [translatingLanguage, setTranslatingLanguage] = useState<'es' | 'en' | null>(null);
   
   // Auto-apply and auto-save states
   const [autoApplyIA, setAutoApplyIA] = useState(() => {
@@ -179,6 +190,16 @@ Receba o texto bruto abaixo e:
       aiPromptTemplate: (content as any).ai_prompt_template || ''
     });
     
+    // Load multilingual content
+    setContentES(content.content_html_es || '');
+    setContentEN(content.content_html_en || '');
+    setFaqsES(content.faqs_es || []);
+    setFaqsEN(content.faqs_en || []);
+    
+    // Expand editors if content exists
+    setShowEditorES(!!content.content_html_es);
+    setShowEditorEN(!!content.content_html_en);
+    
     const vids = await fetchVideosByContent(content.id);
     setVideos(vids);
     setModalOpen(true);
@@ -213,6 +234,15 @@ Receba o texto bruto abaixo e:
       recommended_resins: [],
       aiPromptTemplate: ''
     });
+    
+    // Reset multilingual states
+    setContentES('');
+    setContentEN('');
+    setFaqsES([]);
+    setFaqsEN([]);
+    setShowEditorES(false);
+    setShowEditorEN(false);
+    
     setVideos([]);
     setModalOpen(true);
   };
@@ -244,6 +274,8 @@ Receba o texto bruto abaixo e:
         slug: formData.slug || generateSlug(formData.title),
         excerpt: formData.excerpt,
         content_html: formData.content_html,
+        content_html_es: contentES || null,
+        content_html_en: contentEN || null,
         icon_color: formData.icon_color,
         meta_description: formData.meta_description,
         og_image_url: formData.og_image_url,
@@ -255,6 +287,8 @@ Receba o texto bruto abaixo e:
         author_id: formData.author_id,
         keywords: formData.keywords?.length > 0 ? formData.keywords : null,
         faqs: formData.faqs,
+        faqs_es: faqsES.length > 0 ? faqsES : null,
+        faqs_en: faqsEN.length > 0 ? faqsEN : null,
         order_index: formData.order_index,
         active: formData.active,
         ai_prompt_template: formData.aiPromptTemplate || null,
@@ -301,6 +335,61 @@ Receba o texto bruto abaixo e:
         description: error?.message || "Verifique os campos e tente novamente.",
         variant: "destructive"
       });
+    }
+  };
+  
+  // Translate content function
+  const translateContent = async (targetLanguage: 'es' | 'en') => {
+    if (!formData.content_html) {
+      toast({
+        title: '⚠️ Conteúdo vazio',
+        description: 'Preencha o conteúdo em português primeiro',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setTranslating(true);
+    setTranslatingLanguage(targetLanguage);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('translate-content', {
+        body: {
+          htmlContent: formData.content_html,
+          faqs: formData.faqs.length > 0 ? formData.faqs : null,
+          targetLanguage
+        }
+      });
+      
+      if (error) throw error;
+      
+      const languageEmoji = targetLanguage === 'es' ? '🇪🇸' : '🇺🇸';
+      const languageName = targetLanguage === 'es' ? 'Espanhol' : 'Inglês';
+      
+      if (targetLanguage === 'es') {
+        setContentES(data.translatedHTML);
+        if (data.translatedFAQs) setFaqsES(data.translatedFAQs);
+        setShowEditorES(true);
+      } else {
+        setContentEN(data.translatedHTML);
+        if (data.translatedFAQs) setFaqsEN(data.translatedFAQs);
+        setShowEditorEN(true);
+      }
+      
+      toast({
+        title: `${languageEmoji} Tradução concluída!`,
+        description: `Conteúdo traduzido para ${languageName}. Agora você pode substituir as imagens com texto.`
+      });
+    } catch (error: any) {
+      console.error('Translation error:', error);
+      toast({
+        title: '❌ Erro na tradução',
+        description: error.message || 'Tente novamente mais tarde',
+        variant: 'destructive'
+      });
+    } finally {
+      setTranslating(false);
+      setTranslatingLanguage(null);
     }
   };
 
@@ -663,6 +752,169 @@ Receba o texto bruto abaixo e:
                       </details>
                     </div>
                   )}
+                  
+                  {/* ========== EDITOR ESPANHOL ========== */}
+                  <div className="mt-6 border-t pt-6">
+                    {!showEditorES ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => translateContent('es')}
+                        disabled={!formData.content_html || translating}
+                        className="w-full"
+                      >
+                        {translating && translatingLanguage === 'es' ? (
+                          <>⏳ Traduzindo para Espanhol...</>
+                        ) : (
+                          <>➕ Adicionar Versão em Espanhol (ES) 🇪🇸</>
+                        )}
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-lg font-semibold">
+                            🇪🇸 Conteúdo em Espanhol
+                          </Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowEditorES(false)}
+                          >
+                            ▲ Recolher
+                          </Button>
+                        </div>
+                        
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 rounded-lg">
+                          <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                            💡 <strong>Dica:</strong> O conteúdo foi traduzido automaticamente. 
+                            Substitua apenas as imagens que contêm texto em português. 
+                            Links e formatação foram mantidos automaticamente.
+                          </p>
+                        </div>
+                        
+                        {/* Editor Visual ES */}
+                        <div className="space-y-2">
+                          <Textarea 
+                            className="font-mono text-sm min-h-[400px] bg-card"
+                            placeholder="<div>Conteúdo em espanhol...</div>"
+                            value={contentES}
+                            onChange={(e) => setContentES(e.target.value)}
+                          />
+                          
+                          {/* Preview HTML ES */}
+                          <details className="text-sm">
+                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                              👁️ Preview HTML (ES)
+                            </summary>
+                            <div className="mt-2 p-4 border border-border rounded-lg bg-card">
+                              <BlogPreviewFrame 
+                                htmlContent={contentES} 
+                                deviceMode="desktop" 
+                              />
+                            </div>
+                          </details>
+                        </div>
+                        
+                        {/* FAQs ES */}
+                        {faqsES.length > 0 && (
+                          <div className="p-3 bg-muted/30 rounded-lg">
+                            <p className="text-xs font-semibold mb-2">📋 FAQs traduzidos ({faqsES.length})</p>
+                            <div className="space-y-2 text-xs">
+                              {faqsES.map((faq, idx) => (
+                                <div key={idx} className="p-2 bg-card rounded border">
+                                  <p className="font-semibold">{faq.question}</p>
+                                  <p className="text-muted-foreground">{faq.answer}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ========== EDITOR INGLÊS ========== */}
+                  <div className="mt-6 border-t pt-6">
+                    {!showEditorEN ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => translateContent('en')}
+                        disabled={!formData.content_html || translating || !showEditorES}
+                        className="w-full"
+                      >
+                        {translating && translatingLanguage === 'en' ? (
+                          <>⏳ Traduzindo para Inglês...</>
+                        ) : (
+                          <>
+                            ➕ Adicionar Versão em Inglês (EN) 🇺🇸
+                            {!showEditorES && <span className="ml-2 text-xs">(Adicione ES primeiro)</span>}
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-lg font-semibold">
+                            🇺🇸 Conteúdo em Inglês
+                          </Label>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowEditorEN(false)}
+                          >
+                            ▲ Recolher
+                          </Button>
+                        </div>
+                        
+                        <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-900 dark:text-blue-100">
+                            💡 <strong>Tip:</strong> Content was automatically translated. 
+                            Only replace images containing Portuguese text. 
+                            Links and formatting were preserved automatically.
+                          </p>
+                        </div>
+                        
+                        {/* Editor Visual EN */}
+                        <div className="space-y-2">
+                          <Textarea 
+                            className="font-mono text-sm min-h-[400px] bg-card"
+                            placeholder="<div>Content in English...</div>"
+                            value={contentEN}
+                            onChange={(e) => setContentEN(e.target.value)}
+                          />
+                          
+                          {/* Preview HTML EN */}
+                          <details className="text-sm">
+                            <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                              👁️ Preview HTML (EN)
+                            </summary>
+                            <div className="mt-2 p-4 border border-border rounded-lg bg-card">
+                              <BlogPreviewFrame 
+                                htmlContent={contentEN} 
+                                deviceMode="desktop" 
+                              />
+                            </div>
+                          </details>
+                        </div>
+                        
+                        {/* FAQs EN */}
+                        {faqsEN.length > 0 && (
+                          <div className="p-3 bg-muted/30 rounded-lg">
+                            <p className="text-xs font-semibold mb-2">📋 Translated FAQs ({faqsEN.length})</p>
+                            <div className="space-y-2 text-xs">
+                              {faqsEN.map((faq, idx) => (
+                                <div key={idx} className="p-2 bg-card rounded border">
+                                  <p className="font-semibold">{faq.question}</p>
+                                  <p className="text-muted-foreground">{faq.answer}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </TabsContent>
 
