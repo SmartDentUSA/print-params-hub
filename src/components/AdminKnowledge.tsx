@@ -14,6 +14,7 @@ import { useKnowledge } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ResinMultiSelect } from '@/components/ResinMultiSelect';
 import { ImageUpload } from '@/components/ImageUpload';
+import { PDFTranscription } from '@/components/PDFTranscription';
 import { useAuthors } from '@/hooks/useAuthors';
 import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -1559,7 +1560,18 @@ Receba o texto bruto abaixo e:
                   />
                 </div>
 
-                <Button 
+                <PDFTranscription
+                  onTextExtracted={(text) => {
+                    setRawTextInput(text);
+                    toast({ 
+                      title: '✅ PDF transcrito!', 
+                      description: 'Revise o texto e clique em "Gerar por IA"' 
+                    });
+                  }}
+                  disabled={isGenerating}
+                />
+
+                <Button
                   onClick={async () => {
                     if (!rawTextInput) {
                       toast({ title: 'Erro', description: 'Cole um texto primeiro', variant: 'destructive' });

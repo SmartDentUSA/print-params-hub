@@ -1,5 +1,8 @@
 project_id = "okeogjgqijbfkudfjadz"
 
+[functions.extract-pdf-text]
+verify_jwt = false
+
 [functions.get-product-data]
 verify_jwt = false
 
