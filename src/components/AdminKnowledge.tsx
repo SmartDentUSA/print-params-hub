@@ -57,6 +57,12 @@ export function AdminKnowledge() {
   const [translating, setTranslating] = useState(false);
   const [translatingLanguage, setTranslatingLanguage] = useState<'es' | 'en' | null>(null);
   
+  // Editor mode states for ES/EN
+  const [contentEditorModeES, setContentEditorModeES] = useState<'visual' | 'html'>('html');
+  const [contentEditorModeEN, setContentEditorModeEN] = useState<'visual' | 'html'>('html');
+  const editorRefES = useRef<Editor | null>(null);
+  const editorRefEN = useRef<Editor | null>(null);
+  
   // Auto-apply and auto-save states
   const [autoApplyIA, setAutoApplyIA] = useState(() => {
     const stored = localStorage.getItem('adminKnowledge_autoApplyIA');
@@ -784,22 +790,50 @@ Receba o texto bruto abaixo e:
                           </Button>
                         </div>
                         
-                        <div className="p-4 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 rounded-lg">
-                          <p className="text-sm text-yellow-900 dark:text-yellow-100">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
                             💡 <strong>Dica:</strong> O conteúdo foi traduzido automaticamente. 
                             Substitua apenas as imagens que contêm texto em português. 
                             Links e formatação foram mantidos automaticamente.
-                          </p>
-                        </div>
+                          </AlertDescription>
+                        </Alert>
                         
-                        {/* Editor Visual ES */}
+                        {/* Tabs Visual/HTML - ES */}
                         <div className="space-y-2">
-                          <Textarea 
-                            className="font-mono text-sm min-h-[400px] bg-card"
-                            placeholder="<div>Conteúdo em espanhol...</div>"
-                            value={contentES}
-                            onChange={(e) => setContentES(e.target.value)}
-                          />
+                          <div className="flex gap-2 border-b border-border">
+                            <Button
+                              variant={contentEditorModeES === 'visual' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setContentEditorModeES('visual')}
+                            >
+                              📝 Visual
+                            </Button>
+                            <Button
+                              variant={contentEditorModeES === 'html' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setContentEditorModeES('html')}
+                            >
+                              🔧 HTML
+                            </Button>
+                          </div>
+                          
+                          {contentEditorModeES === 'visual' ? (
+                            <KnowledgeEditor
+                              content={contentES}
+                              onChange={setContentES}
+                              onEditorReady={(editor) => {
+                                editorRefES.current = editor;
+                              }}
+                            />
+                          ) : (
+                            <Textarea 
+                              className="font-mono text-sm min-h-[400px] bg-card"
+                              placeholder="<div>Conteúdo em espanhol...</div>"
+                              value={contentES}
+                              onChange={(e) => setContentES(e.target.value)}
+                            />
+                          )}
                           
                           {/* Preview HTML ES */}
                           <details className="text-sm">
@@ -867,22 +901,50 @@ Receba o texto bruto abaixo e:
                           </Button>
                         </div>
                         
-                        <div className="p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-900 dark:text-blue-100">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
                             💡 <strong>Tip:</strong> Content was automatically translated. 
                             Only replace images containing Portuguese text. 
                             Links and formatting were preserved automatically.
-                          </p>
-                        </div>
+                          </AlertDescription>
+                        </Alert>
                         
-                        {/* Editor Visual EN */}
+                        {/* Tabs Visual/HTML - EN */}
                         <div className="space-y-2">
-                          <Textarea 
-                            className="font-mono text-sm min-h-[400px] bg-card"
-                            placeholder="<div>Content in English...</div>"
-                            value={contentEN}
-                            onChange={(e) => setContentEN(e.target.value)}
-                          />
+                          <div className="flex gap-2 border-b border-border">
+                            <Button
+                              variant={contentEditorModeEN === 'visual' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setContentEditorModeEN('visual')}
+                            >
+                              📝 Visual
+                            </Button>
+                            <Button
+                              variant={contentEditorModeEN === 'html' ? 'default' : 'ghost'}
+                              size="sm"
+                              onClick={() => setContentEditorModeEN('html')}
+                            >
+                              🔧 HTML
+                            </Button>
+                          </div>
+                          
+                          {contentEditorModeEN === 'visual' ? (
+                            <KnowledgeEditor
+                              content={contentEN}
+                              onChange={setContentEN}
+                              onEditorReady={(editor) => {
+                                editorRefEN.current = editor;
+                              }}
+                            />
+                          ) : (
+                            <Textarea 
+                              className="font-mono text-sm min-h-[400px] bg-card"
+                              placeholder="<div>Content in English...</div>"
+                              value={contentEN}
+                              onChange={(e) => setContentEN(e.target.value)}
+                            />
+                          )}
                           
                           {/* Preview HTML EN */}
                           <details className="text-sm">

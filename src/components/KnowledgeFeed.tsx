@@ -12,6 +12,7 @@ import Autoplay from 'embla-carousel-autoplay';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useRef } from 'react';
+import { LanguageFlags } from '@/components/LanguageFlags';
 
 const getCategoryColor = (letter: string) => {
   const colors: Record<string, string> = {
@@ -154,7 +155,9 @@ export const KnowledgeFeed = () => {
                       {article.excerpt}
                     </p>
                     
-                    <p className="text-xs text-muted-foreground/70 pt-1">
+                    <LanguageFlags size="xs" className="pt-1" />
+                    
+                    <p className="text-xs text-muted-foreground/70">
                       {formatDistanceToNow(new Date(article.created_at), { 
                         addSuffix: true, 
                         locale: ptBR 

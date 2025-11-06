@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download, ExternalLink, Globe } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import { useKnowledge } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -11,10 +11,10 @@ import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Badge } from '@/components/ui/badge';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { LanguageFlags } from '@/components/LanguageFlags';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -167,14 +167,6 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       )}
       
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
-        {/* Language Badge - only show if not PT */}
-        {language !== 'pt' && (
-          <Badge variant="outline" className="mb-4 flex items-center gap-2 w-fit">
-            <Globe className="w-3 h-3" />
-            {t('knowledge.content_in_portuguese')}
-          </Badge>
-        )}
-
         {/* Videos - com skeleton durante loading */}
         {videosLoading && (
           <div className="space-y-4 mb-6">
@@ -285,9 +277,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                     <h4 className="font-semibold line-clamp-2 mb-2 text-foreground">
                       {article.title}
                     </h4>
-                    <p className="text-sm text-muted-foreground line-clamp-3">
+                    <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
                       {article.excerpt}
                     </p>
+                    
+                    <LanguageFlags size="xs" showBorder />
                   </CardContent>
                 </Card>
               </Link>
