@@ -820,32 +820,27 @@ Receba o texto bruto abaixo e:
                     </div>
                   </div>
                   
-                  {formData.content_html && generatedHTML ? (
-                    <div className="space-y-3">
-                      <div className="p-4 bg-muted/20 border border-border rounded-lg">
-                        <p className="text-sm font-medium mb-2">📄 HTML Salvo (gerado por IA)</p>
-                        <BlogPreviewFrame 
-                          htmlContent={formData.content_html} 
-                          deviceMode="desktop" 
-                        />
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, content_html: '' }));
-                            setGeneratedHTML('');
-                            toast({ 
-                              title: '🗑️ HTML limpo', 
-                              description: 'Agora você pode editar manualmente' 
-                            });
-                          }}
-                          className="mt-3"
-                        >
-                          🗑️ Limpar e editar manualmente
-                        </Button>
-                      </div>
+                  {generatedHTML && (
+                    <div className="mb-3 flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <span className="text-sm font-medium">🤖 Conteúdo gerado por IA</span>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        onClick={() => {
+                          setGeneratedHTML('');
+                          toast({ 
+                            title: '✓ Status removido', 
+                            description: 'Marcado como editado manualmente' 
+                          });
+                        }}
+                        className="ml-auto"
+                      >
+                        Marcar como editado
+                      </Button>
                     </div>
-                  ) : contentEditorMode === 'visual' ? (
+                  )}
+                  
+                  {contentEditorMode === 'visual' ? (
                     <KnowledgeEditor 
                       content={formData.content_html}
                       onChange={(html) => setFormData({...formData, content_html: html})}
