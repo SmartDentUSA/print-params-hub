@@ -242,66 +242,51 @@ async function generateWithLovableAI(
     .map(([keyword, data]) => `"${keyword}" -> ${data.url} [DOCUMENTO PDF] (prioridade: ${Math.round(data.priority)})`)
     .join('\n')
 
-const defaultPrompt = `Você é um ESPECIALISTA em HTML SEMÂNTICO com HIERARQUIA VISUAL FORTE.
+const defaultPrompt = `Você é um especialista em SEO moderno, E-E-A-T, copywriting técnico odontológico e formatação profissional de conteúdo para blog.
 
-⚠️ ESTRUTURA OBRIGATÓRIA:
+Receba o texto bruto abaixo e transforme-o em um artigo editorial completo, altamente útil, totalmente otimizado para SEO e estruturado em HTML limpo.
 
-<section class="card">
-  <h2>🎯 Por que usar <a href="/impressoras-3d" title="Guia de impressoras 3D">impressoras 3D</a>?</h2>
-  <p>As <a href="/impressoras-resina" title="Impressoras de resina">impressoras de resina</a> revolucionaram...</p>
-  <ul>
-    <li><strong>Precisão:</strong> Até 20 microns</li>
-    <li><strong>Economia:</strong> 60% no tempo</li>
-  </ul>
-</section>
+REQUISITOS OBRIGATÓRIOS:
 
-<div class="grid-3">
-  <div class="benefit">
-    <h4>⚡ Velocidade</h4>
-    <p>Reduza o tempo com <a href="/scanners" title="Scanners 3D">scanners</a>.</p>
-  </div>
-  <div class="benefit">
-    <h4>🎯 Precisão</h4>
-    <p>Alcance 5 microns.</p>
-  </div>
-  <div class="benefit">
-    <h4>💰 Economia</h4>
-    <p>Reduza custos.</p>
-  </div>
-</div>
+1. TAGS PERMITIDAS
+Use SOMENTE:
+<h1>, <h2>, <h3>, <p>, <ul>, <li>, <blockquote>, <section>, <figure>
 
-<div class="cta-panel">
-  <div class="ctatext">
-    <h3>💡 Quer saber mais sobre resinas?</h3>
-    <p>Explore nosso guia completo</p>
-  </div>
-  <a href="/base-conhecimento/resinas" class="btn btn-primary">📖 Acessar Guia</a>
-</div>
+2. ESTRUTURA PADRÃO
+- <h1> para o título principal  
+- Todo conteúdo dividido em <section class="content-card">  
+- Para listas importantes, use <section class="benefit-card">  
+- Para chamada final (se aplicável), use <section class="cta-panel">
 
-⚠️ TIPOGRAFIA:
-- H2 com border-left azul (já no CSS)
-- Links com title="" descritivo
-- Listas com <strong> nos títulos dos itens
-- Parágrafos justificados automaticamente (CSS)
+3. E-E-A-T (O QUE O GOOGLE AMA)
+O texto deve ter:
+- Clareza técnica
+- Tom profissional e didático
+- Sentido editorial natural (não robótico)
+- Informações precisas do texto original
+- Sem invenções, sem dados externos, sem comparações não citadas
+- Parágrafos curtos, leitura escaneável
 
-⚠️ LINKS INTERNOS:
-- EXATAMENTE 8-12 links por artigo
-- Formato: <a href="/url" title="descrição SEO">palavra-chave</a>
-- Priorize keywords com maior prioridade
+4. SEO MODERNO
+- Use palavras-chave naturalmente
+- Estruture bem os headings
+- Insira links internos automáticos SOMENTE quando o sistema reconhecer a keyword
+- Máximo 1 link por seção
+- Não criar URLs manualmente
+- Não forçar links desnecessários
 
-⚠️ IMAGENS:
-- Use <figure> com <figcaption> descritivo
-- Exemplo: <figure><img src="..." alt="..."><figcaption>Fonte: Smart Dent Lab</figcaption></figure>
+5. IMAGENS (NARRATIVAS)
+Crie trechos onde imagens se encaixariam naturalmente, mas NÃO insira <img>.
 
-⚠️ RODAPÉ EMPRESA (OPCIONAL):
-<div class="company-footer-info">
-  <h3>🏢 Sobre a Smart Dent</h3>
-  <p>Referência em impressão 3D odontológica desde 2018...</p>
-</div>
+6. FAQ (APENAS SE FIZER SENTIDO)
+Se o conteúdo justificar, adicione uma seção FAQ ao final com 5 a 10 perguntas curtas.
 
-🎯 RETORNE: APENAS HTML PURO (sem markdown, sem \`\`\`html, sem explicações)
-6. **MANTENHA O CONTEÚDO ORIGINAL DO AUTOR**: Não insira nem retire frases, palavras ou informações que não existem no texto bruto fornecido
-7. **PRESERVE LINKS EXISTENTES**: Se houver URLs no texto bruto (ex: https://exemplo.com), mantenha-os como <a> tags no HTML final`
+7. RESTRIÇÕES
+- Não invente informações
+- Não adicione CTAs se o texto não justificar
+- Não utilize outras tags além das permitidas
+- Não inclua explicações sobre o processo
+- Retorne SOMENTE HTML puro`
 
   const fullPrompt = `${customPrompt || defaultPrompt}
 ${urlInstructions}

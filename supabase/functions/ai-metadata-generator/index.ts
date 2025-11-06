@@ -151,19 +151,24 @@ async function generateMetaDescription(
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentPreview = stripTags(contentHTML).substring(0, 500);
 
-  const prompt = `Você é um especialista em SEO. Gere uma meta description otimizada para o seguinte conteúdo:
+  const prompt = `Você é um especialista em SEO e CTR (Click-Through Rate).
+
+Crie uma meta description altamente persuasiva para o conteúdo abaixo.
+
+Regras obrigatórias:
+- Máximo 160 caracteres
+- Incluir a palavra-chave principal (o título)
+- Responder à intenção de busca
+- Tom profissional e claro
+- Focado em benefício + propósito
+- Sem emojis
+- Frase completa, não cortada
+- Não inventar dados não presentes no título/conteúdo
 
 Título: ${title}
 Conteúdo: ${contentPreview}
 
-Regras:
-- Máximo 160 caracteres
-- Incluir palavra-chave principal (título)
-- Tom persuasivo e informativo
-- Sem emojis ou caracteres especiais
-- Terminar com frase completa
-
-Retorne APENAS a meta description, sem aspas ou formatação adicional.`;
+Retorne APENAS a meta description, sem aspas ou formatação.`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -205,18 +210,22 @@ async function generateKeywords(
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentPreview = stripTags(contentHTML).substring(0, 1000);
 
-  const prompt = `Você é um especialista em SEO. Extraia 8-12 palavras-chave relevantes para o seguinte conteúdo:
+  const prompt = `Você é um especialista em SEO e otimização semântica.
 
-Título: ${title}
-Conteúdo: ${contentPreview}
+Extraia 8 a 12 palavras-chave altamente relevantes baseadas no título e no conteúdo fornecido.
 
 Regras:
-- Palavras-chave relacionadas ao tema principal
-- Inclua termos técnicos e específicos da área odontológica
-- Misture palavras-chave de cauda curta e longa
+- SOMENTE palavras presentes no conteúdo ou semanticamente coerentes
+- Misture cauda curta, média e longa
+- Inclua termos técnicos odontológicos
 - Sem repetições
-- Apenas palavras-chave em português
-- Formato: array de strings simples`;
+- Sem palavras em inglês
+- Sem termos genéricos ("artigo", "conteúdo", "blog")
+- Apenas strings simples
+- Retorne SÓ o array de keywords
+
+Título: ${title}
+Conteúdo: ${contentPreview}`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
@@ -279,18 +288,23 @@ async function generateFAQs(
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentText = stripTags(contentHTML).substring(0, 2000);
 
-  const prompt = `Você é um especialista em SEO e conteúdo odontológico. Gere EXATAMENTE 10 FAQs (perguntas frequentes) baseadas no conteúdo abaixo:
+  const prompt = `Você é um especialista em conteúdo odontológico e SEO orientado a perguntas frequentes (People Also Ask - Google).
+
+Gere EXATAMENTE 10 FAQs (perguntas e respostas) com base no conteúdo fornecido.
+
+Regras obrigatórias:
+- Exatamente 10 perguntas
+- Cada resposta: 50 a 150 palavras
+- Perguntas naturais, como usuários perguntariam no Google
+- Ordem: das mais genéricas às mais específicas
+- Usar APENAS informações presentes no conteúdo
+- Tom profissional, claro e educativo
+- Sem inventar novos dados
+- Sem adicionar estatísticas externas
+- Entregar no formato especificado via function calling
 
 Título: ${title}
-Conteúdo: ${contentText}
-
-Regras:
-- Exatamente 10 perguntas e respostas
-- Perguntas devem ser naturais, como usuários fazem no Google
-- Respostas devem ser objetivas (50-150 palavras cada)
-- Usar informações APENAS do conteúdo fornecido
-- Ordem: das mais genéricas às mais específicas
-- Incluir variações de perguntas com palavras-chave do título`;
+Conteúdo: ${contentText}`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',

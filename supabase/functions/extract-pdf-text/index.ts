@@ -30,12 +30,8 @@ serve(async (req) => {
       );
     }
 
-    console.log('Calling Lovable AI for PDF text extraction...');
+    console.log('Etapa 1/2: Limpando e organizando texto do PDF...');
 
-    // Convert base64 to binary for PDF parsing
-    const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
-    
-    // Use Lovable AI to extract text from PDF document
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -47,12 +43,56 @@ serve(async (req) => {
         messages: [
           {
             role: 'user',
-            content: `Extraia TODO o texto deste documento PDF preservando a estrutura original. Retorne apenas o texto puro extraído, sem formatação HTML ou Markdown. Mantenha quebras de linha e parágrafos originais. Se houver tabelas, preserve a estrutura com espaços.
+            content: `Você é um modelo especializado em extração, limpeza e reconstrução de conteúdo técnico odontológico.
 
-PDF em base64: ${pdfBase64.substring(0, 100000)}`
+Você receberá o texto bruto extraído de um PDF, contendo:
+- repetições excessivas de palavras
+- termos soltos ("N", "SPLINT", sílabas quebradas)
+- erros de OCR
+- frases incompletas
+- quebras de linha desordenadas
+- trechos duplicados
+- fragmentos fora de contexto
+
+Sua tarefa:
+
+1. RECONSTRUIR O CONTEÚDO REAL DO DOCUMENTO
+- Remova ruídos, repetições, palavras soltas e linhas desconexas
+- Recombine frases quebradas
+- Reorganize blocos seguindo a lógica técnica do documento
+- Mantenha SOMENTE informações reais presentes no PDF
+- Não adicione, invente ou complete informações
+
+2. ORGANIZAR EM SEÇÕES COERENTES
+Use sempre esta ordem:
+• Descrição do produto  
+• Ação e funcionamento  
+• Indicações e aplicações  
+• Vantagens  
+• Protocolo de uso  
+• Parâmetros de fotopolimerização  
+• Testes e resultados  
+• Cuidados e contraindicações  
+• Durabilidade e desempenho  
+• Sustentabilidade e descarte  
+
+3. ESTILO DO TEXTO FINAL
+- Totalmente limpo e coerente
+- Linguagem técnica, clara e objetiva
+- Sem HTML
+- Sem Markdown
+- Sem formatação visual
+- Sem opinião ou interpretação
+- Sem resumir excessivamente
+- Apenas o conteúdo real, reconstruído e organizado
+
+Retorne SOMENTE o texto limpo e organizado, pronto para o próximo estágio.
+
+Conteúdo do PDF (transcrição bruta):
+${pdfBase64.substring(0, 100000)}`
           }
         ],
-        max_tokens: 8000
+        max_tokens: 12000
       }),
     });
 
@@ -91,7 +131,7 @@ PDF em base64: ${pdfBase64.substring(0, 100000)}`
       );
     }
 
-    console.log('PDF text extracted successfully, length:', extractedText.length);
+    console.log('Texto limpo extraído:', extractedText.length, 'caracteres');
 
     return new Response(
       JSON.stringify({ extractedText }),
