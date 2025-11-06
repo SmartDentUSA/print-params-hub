@@ -421,6 +421,102 @@ Receba o texto bruto abaixo e:
     }
   };
 
+  // Função para limpar conteúdo em Espanhol
+  const clearSpanishContent = () => {
+    if (!confirm('⚠️ Tem certeza que deseja excluir toda a versão em Espanhol?')) {
+      return;
+    }
+    
+    setTitleES('');
+    setExcerptES('');
+    setContentES('');
+    setFaqsES([]);
+    setShowEditorES(false);
+    
+    toast({
+      title: '🗑️ Versão em Espanhol removida',
+      description: 'Clique em "Salvar" para persistir as mudanças'
+    });
+  };
+
+  // Função para limpar conteúdo em Inglês
+  const clearEnglishContent = () => {
+    if (!confirm('⚠️ Are you sure you want to delete the entire English version?')) {
+      return;
+    }
+    
+    setTitleEN('');
+    setExcerptEN('');
+    setContentEN('');
+    setFaqsEN([]);
+    setShowEditorEN(false);
+    
+    toast({
+      title: '🗑️ English version removed',
+      description: 'Click "Save" to persist changes'
+    });
+  };
+
+  // Função para refazer tradução em Espanhol
+  const retranslateSpanish = async () => {
+    if (!formData.content_html) {
+      toast({
+        title: '⚠️ Conteúdo vazio',
+        description: 'Preencha o conteúdo em português primeiro',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const confirmed = confirm(
+      '🔄 Refazer tradução?\n\n' +
+      'Isso irá substituir TODA a versão em Espanhol (título, resumo, conteúdo e FAQs) ' +
+      'pela nova tradução automática.\n\n' +
+      '⚠️ As alterações manuais serão perdidas!'
+    );
+    
+    if (!confirmed) return;
+    
+    // Limpa conteúdo atual antes de retraduzir
+    setTitleES('');
+    setExcerptES('');
+    setContentES('');
+    setFaqsES([]);
+    
+    // Chama a tradução
+    await translateContent('es');
+  };
+
+  // Função para refazer tradução em Inglês
+  const retranslateEnglish = async () => {
+    if (!formData.content_html) {
+      toast({
+        title: '⚠️ Empty content',
+        description: 'Fill the Portuguese content first',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const confirmed = confirm(
+      '🔄 Retranslate content?\n\n' +
+      'This will replace the ENTIRE English version (title, excerpt, content and FAQs) ' +
+      'with a new automatic translation.\n\n' +
+      '⚠️ Manual changes will be lost!'
+    );
+    
+    if (!confirmed) return;
+    
+    // Limpa conteúdo atual antes de retraduzir
+    setTitleEN('');
+    setExcerptEN('');
+    setContentEN('');
+    setFaqsEN([]);
+    
+    // Chama a tradução
+    await translateContent('en');
+  };
+
   const handleDeleteContent = async (id: string) => {
     if (confirm('Excluir este artigo?')) {
       await deleteContent(id);
@@ -803,13 +899,37 @@ Receba o texto bruto abaixo e:
                           <Label className="text-lg font-semibold">
                             🇪🇸 Versão em Espanhol
                           </Label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowEditorES(false)}
-                          >
-                            ▲ Recolher
-                          </Button>
+                          <div className="flex gap-2">
+                            {/* Botão Refazer Tradução */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={retranslateSpanish}
+                              disabled={!formData.content_html || translating}
+                            >
+                              {translating && translatingLanguage === 'es' ? (
+                                <>⏳ Traduzindo...</>
+                              ) : (
+                                <>🔄 Refazer Tradução</>
+                              )}
+                            </Button>
+                            {/* Botão Excluir */}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={clearSpanishContent}
+                            >
+                              🗑️ Excluir
+                            </Button>
+                            {/* Botão Recolher */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowEditorES(false)}
+                            >
+                              ▲ Recolher
+                            </Button>
+                          </div>
                         </div>
                         
                         {/* Título e Resumo ES */}
@@ -939,13 +1059,37 @@ Receba o texto bruto abaixo e:
                           <Label className="text-lg font-semibold">
                             🇺🇸 Versão em Inglês
                           </Label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowEditorEN(false)}
-                          >
-                            ▲ Recolher
-                          </Button>
+                          <div className="flex gap-2">
+                            {/* Botão Refazer Tradução */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={retranslateEnglish}
+                              disabled={!formData.content_html || translating}
+                            >
+                              {translating && translatingLanguage === 'en' ? (
+                                <>⏳ Translating...</>
+                              ) : (
+                                <>🔄 Retranslate</>
+                              )}
+                            </Button>
+                            {/* Botão Excluir */}
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={clearEnglishContent}
+                            >
+                              🗑️ Delete
+                            </Button>
+                            {/* Botão Recolher */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setShowEditorEN(false)}
+                            >
+                              ▲ Collapse
+                            </Button>
+                          </div>
                         </div>
                         
                         {/* Título e Resumo EN */}
