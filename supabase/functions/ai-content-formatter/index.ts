@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -417,7 +418,13 @@ ${rawText}
       messages: [
         { 
           role: 'system', 
-          content: `Você é um especialista em SEO e HTML semântico.
+          content: SYSTEM_SUPER_PROMPT
+        },
+        { 
+          role: 'user', 
+          content: `TAREFA: Formatação HTML + SEO + Links Internos
+
+Você é um especialista em SEO e HTML semântico.
 
 IMPORTANTE:
 - Retorne APENAS HTML puro, sem markdown, sem \`\`\`html
@@ -431,9 +438,10 @@ IMPORTANTE:
 2. **NÃO REMOVA INFORMAÇÕES**: Mantenha todas as frases e dados do autor
 3. **PRESERVE LINKS ORIGINAIS**: Se o texto tiver URLs (http://, https://), converta para <a href="URL">texto</a>
 4. **NÃO ADICIONE DADOS FICTÍCIOS**: Evite estatísticas, nomes de produtos ou citações que não estão no texto original
-5. **NÃO INVENTE CHAMADAS PARA AÇÃO (CTAs)**: Apenas adicione <div class="cta-panel"> se o texto original explicitamente mencionar um produto, serviço ou guia para promover. Caso contrário, omita completamente` 
-        },
-        { role: 'user', content: fullPrompt }
+5. **NÃO INVENTE CHAMADAS PARA AÇÃO (CTAs)**: Apenas adicione <div class="cta-panel"> se o texto original explicitamente mencionar um produto, serviço ou guia para promover. Caso contrário, omita completamente
+
+${fullPrompt}` 
+        }
       ],
       temperature: 0.7,
       max_tokens: 8000

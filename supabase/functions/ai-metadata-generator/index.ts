@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -178,7 +179,10 @@ Retorne APENAS a meta description, sem aspas ou formatação.`;
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        { role: 'user', content: `TAREFA: Gerar Meta Description\n\n${prompt}` }
+      ],
       max_tokens: 200,
     }),
   });
@@ -235,7 +239,10 @@ Conteúdo: ${contentPreview}`;
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        { role: 'user', content: `TAREFA: Extrair Keywords SEO\n\n${prompt}` }
+      ],
       tools: [
         {
           type: 'function',
@@ -314,7 +321,10 @@ Conteúdo: ${contentText}`;
     },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        { role: 'user', content: `TAREFA: Gerar 10 FAQs\n\n${prompt}` }
+      ],
       tools: [
         {
           type: 'function',

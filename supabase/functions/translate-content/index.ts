@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -79,7 +80,15 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash',
         messages: [
-          { role: 'system', content: systemPrompt },
+          { 
+            role: 'system', 
+            content: `${SYSTEM_SUPER_PROMPT}
+
+---
+
+TAREFA ESPECÍFICA: Tradução Profissional
+${systemPrompt}` 
+          },
           { role: 'user', content: userPrompt }
         ],
         temperature: 0.3, // Lower temperature for more consistent translations

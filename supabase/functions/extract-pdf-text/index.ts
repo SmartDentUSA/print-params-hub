@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,8 +43,12 @@ serve(async (req) => {
         model: 'google/gemini-2.5-flash',
         messages: [
           {
+            role: 'system',
+            content: SYSTEM_SUPER_PROMPT
+          },
+          {
             role: 'user',
-            content: `Você é um modelo especializado em extração, limpeza e reconstrução de conteúdo técnico odontológico.
+            content: `TAREFA: Limpeza e reconstrução de conteúdo técnico odontológico extraído de PDF
 
 Você receberá o texto bruto extraído de um PDF, contendo:
 - repetições excessivas de palavras
