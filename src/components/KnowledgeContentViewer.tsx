@@ -14,6 +14,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Badge } from '@/components/ui/badge';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -21,6 +22,7 @@ interface KnowledgeContentViewerProps {
 
 export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps) {
   const { t, language } = useLanguage();
+  const isMobile = useIsMobile();
   const [videos, setVideos] = useState<any[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [ctaResins, setCtaResins] = useState<any[]>([]);
@@ -214,7 +216,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           {content.content_html && (
             <BlogPreviewFrame
               htmlContent={renderAuthorSignaturePlaceholders(content.content_html, content.authors)}
-              deviceMode="desktop"
+              deviceMode={isMobile ? "mobile" : "desktop"}
             />
           )}
 

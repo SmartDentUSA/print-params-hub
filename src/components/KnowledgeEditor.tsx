@@ -161,22 +161,16 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
     }
 
     try {
-      // Tentar inserir a imagem com múltiplas estratégias
+      // Inserir imagem com alt text usando insertContent para não sobrescrever imagens existentes
       console.log('🖼️ Tentando inserir imagem:', pendingImageUrl);
       
-      // Estratégia 1: Com focus explícito
-      const result = editor.chain().focus().setImage({ 
-        src: pendingImageUrl, 
-        alt: altText.trim() 
-      }).run();
-
-      if (!result) {
-        // Estratégia 2: Sem focus (caso o editor já esteja focado)
-        editor.commands.setImage({ 
-          src: pendingImageUrl, 
-          alt: altText.trim() 
-        });
-      }
+      const pos = editor.state.selection.to;
+      const chain = editor.chain().focus().setTextSelection(pos);
+      
+      chain.insertContent([
+        { type: 'image', attrs: { src: pendingImageUrl, alt: altText.trim() } },
+        { type: 'paragraph' }
+      ]).run();
 
       // Forçar atualização do conteúdo
       const html = editor.getHTML();
@@ -187,7 +181,7 @@ export function KnowledgeEditor({ content, onChange, placeholder, onEditorReady 
 
       toast({ 
         title: '✅ Imagem inserida', 
-        description: 'Com alt text para acessibilidade!' 
+        description: 'Clique no botão 🖼️ novamente para adicionar mais imagens!' 
       });
 
       // Limpar estados

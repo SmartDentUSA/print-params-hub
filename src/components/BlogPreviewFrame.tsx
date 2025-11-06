@@ -12,7 +12,7 @@ export const BlogPreviewFrame: React.FC<BlogPreviewFrameProps> = ({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
   const widths = {
-    mobile: '375px',
+    mobile: '100%',
     tablet: '768px',
     desktop: '100%'
   };
@@ -85,49 +85,56 @@ export const BlogPreviewFrame: React.FC<BlogPreviewFrameProps> = ({
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
             font-family: system-ui, -apple-system, sans-serif;
-            padding: 20px;
-            line-height: 1.6;
+            padding: ${deviceMode === 'mobile' ? '12px' : '20px'};
+            line-height: ${deviceMode === 'mobile' ? '1.7' : '1.6'};
             color: #333;
             overflow-x: hidden;
+            font-size: ${deviceMode === 'mobile' ? '16px' : '15px'};
           }
           /* GARANTIR QUE IMAGENS NUNCA EXTRAPOLEM */
           img {
             max-width: 100%;
             height: auto;
             display: block;
-            margin: 20px 0;
+            margin: ${deviceMode === 'mobile' ? '16px 0' : '20px 0'};
+            border-radius: ${deviceMode === 'mobile' ? '8px' : '4px'};
           }
           /* Links funcionais */
           a {
             color: #0066cc;
             text-decoration: underline;
+            word-break: break-word;
           }
           a:hover {
             color: #0052a3;
           }
           /* Espaçamento de headings */
           h1, h2, h3, h4, h5, h6 { 
-            margin: 20px 0 10px 0;
+            margin: ${deviceMode === 'mobile' ? '16px 0 8px 0' : '20px 0 10px 0'};
             line-height: 1.3;
+            word-break: break-word;
           }
-          h1 { font-size: 2em; }
-          h2 { font-size: 1.5em; }
-          h3 { font-size: 1.17em; }
+          h1 { font-size: ${deviceMode === 'mobile' ? '1.75em' : '2em'}; }
+          h2 { font-size: ${deviceMode === 'mobile' ? '1.4em' : '1.5em'}; }
+          h3 { font-size: ${deviceMode === 'mobile' ? '1.15em' : '1.17em'}; }
           /* Parágrafos */
-          p { margin-bottom: 15px; }
+          p { 
+            margin-bottom: ${deviceMode === 'mobile' ? '12px' : '15px'}; 
+            word-break: break-word;
+          }
           /* Listas */
           ul, ol {
-            margin: 15px 0;
-            padding-left: 30px;
+            margin: ${deviceMode === 'mobile' ? '12px 0' : '15px 0'};
+            padding-left: ${deviceMode === 'mobile' ? '20px' : '30px'};
           }
           li {
-            margin-bottom: 8px;
+            margin-bottom: ${deviceMode === 'mobile' ? '6px' : '8px'};
           }
           /* Blockquotes */
           blockquote { 
             border-left: 4px solid #ddd; 
-            padding-left: 15px; 
-            margin: 15px 0;
+            padding-left: ${deviceMode === 'mobile' ? '12px' : '15px'}; 
+            margin: ${deviceMode === 'mobile' ? '12px 0' : '15px 0'};
             color: #666;
             font-style: italic;
           }
@@ -136,16 +143,29 @@ export const BlogPreviewFrame: React.FC<BlogPreviewFrameProps> = ({
             width: 100%;
             max-width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
+            margin: ${deviceMode === 'mobile' ? '16px 0' : '20px 0'};
+            display: ${deviceMode === 'mobile' ? 'block' : 'table'};
+            overflow-x: ${deviceMode === 'mobile' ? 'auto' : 'visible'};
+            font-size: ${deviceMode === 'mobile' ? '0.9em' : '1em'};
           }
           th, td {
-            padding: 12px;
+            padding: ${deviceMode === 'mobile' ? '8px' : '12px'};
             border: 1px solid #ddd;
             text-align: left;
           }
           th {
             background-color: #f5f5f5;
             font-weight: 600;
+          }
+          /* Código */
+          code {
+            font-size: ${deviceMode === 'mobile' ? '0.85em' : '0.9em'};
+            word-break: break-word;
+          }
+          pre {
+            overflow-x: auto;
+            padding: ${deviceMode === 'mobile' ? '10px' : '12px'};
+            font-size: ${deviceMode === 'mobile' ? '0.8em' : '0.85em'};
           }
         </style>
       </head>
