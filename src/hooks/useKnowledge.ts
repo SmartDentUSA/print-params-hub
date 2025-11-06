@@ -39,7 +39,10 @@ export interface KnowledgeVideo {
 
 // Allowed columns for knowledge_contents table
 const ALLOWED_CONTENT_KEYS = [
-  'title', 'slug', 'excerpt', 'content_html', 'content_html_es', 'content_html_en',
+  'title', 'title_es', 'title_en',
+  'slug', 
+  'excerpt', 'excerpt_es', 'excerpt_en',
+  'content_html', 'content_html_es', 'content_html_en',
   'icon_color', 'file_url', 'file_name',
   'meta_description', 'og_image_url', 'content_image_url', 'content_image_alt', 'canva_template_url',
   'author_id', 'faqs', 'faqs_es', 'faqs_en', 'order_index', 'active', 'category_id', 'recommended_resins',
