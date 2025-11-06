@@ -148,6 +148,13 @@
     "content_in_portuguese": "📝 Conteúdo disponível apenas em Português",
     "back_to_parameters": "Voltar para Parametrização",
     "knowledge_base": "Base de Conhecimento",
-    "download": "Baixar"
+    "download": "Baixar",
+    "latest_articles": "Últimas Publicações",
+    "view_all_articles": "Ver Todos os Artigos",
+    "category_a": "Vídeos Tutoriais",
+    "category_b": "Falhas, como resolver",
+    "category_c": "Ciência e tecnologia",
+    "category_d": "E-books e Dicas",
+    "category_e": "Informativos"
   }
 }

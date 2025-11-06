@@ -23,6 +23,11 @@ export function KnowledgeCategoryPills({
 }: KnowledgeCategoryPillsProps) {
   const { t } = useLanguage();
   
+  const getCategoryName = (letter: string) => {
+    const key = `knowledge.category_${letter.toLowerCase()}`;
+    return t(key);
+  };
+  
   return (
     <div className="bg-card/80 rounded-lg p-3 md:p-4 border border-border">
       <h3 className="text-sm font-medium text-muted-foreground mb-3">
@@ -41,7 +46,7 @@ export function KnowledgeCategoryPills({
                 onClick={() => onCategorySelect(cat.letter)}
                 className="transition-smooth hover:shadow-soft"
               >
-                {cat.letter} • {cat.name}
+                {cat.letter} • {getCategoryName(cat.letter)}
               </Button>
             ))}
           </div>

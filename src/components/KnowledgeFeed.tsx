@@ -10,9 +10,10 @@ import {
 } from '@/components/ui/carousel';
 import Autoplay from 'embla-carousel-autoplay';
 import { formatDistanceToNow } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { ptBR, enUS, es } from 'date-fns/locale';
 import { useRef } from 'react';
 import { LanguageFlags } from '@/components/LanguageFlags';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const getCategoryColor = (letter: string) => {
   const colors: Record<string, string> = {
@@ -29,6 +30,14 @@ const getCategoryColor = (letter: string) => {
 
 export const KnowledgeFeed = () => {
   const { articles, loading, error } = useLatestKnowledgeArticles(12);
+  const { t, language } = useLanguage();
+  
+  const localeMap = {
+    pt: ptBR,
+    en: enUS,
+    es: es
+  };
+  const dateLocale = localeMap[language];
   
   const plugin = useRef(
     Autoplay({ 
@@ -42,7 +51,7 @@ export const KnowledgeFeed = () => {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Últimas Publicações
+          {t('knowledge.latest_articles')}
         </h2>
         
         <Carousel opts={{ align: "start" }} className="w-full">
@@ -68,7 +77,7 @@ export const KnowledgeFeed = () => {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Base de Conhecimento
+          {t('knowledge.knowledge_base')}
         </h2>
         <p className="text-muted-foreground">{error}</p>
       </section>
@@ -79,7 +88,7 @@ export const KnowledgeFeed = () => {
     return (
       <section className="mt-12 bg-gradient-card rounded-xl p-8 border border-border shadow-medium">
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          Base de Conhecimento
+          {t('knowledge.knowledge_base')}
         </h2>
         <div className="text-center py-8">
           <p className="text-muted-foreground text-lg mb-4">
@@ -102,7 +111,7 @@ export const KnowledgeFeed = () => {
   return (
     <section className="mt-12 bg-gradient-card rounded-xl p-4 sm:p-8 border border-border shadow-medium">
       <h2 className="text-lg font-semibold text-foreground mb-4">
-        Últimas Publicações
+        {t('knowledge.latest_articles')}
       </h2>
 
       <Carousel
@@ -160,7 +169,7 @@ export const KnowledgeFeed = () => {
                     <p className="text-xs text-muted-foreground/70">
                       {formatDistanceToNow(new Date(article.created_at), { 
                         addSuffix: true, 
-                        locale: ptBR 
+                        locale: dateLocale 
                       })}
                     </p>
                   </div>
@@ -174,7 +183,7 @@ export const KnowledgeFeed = () => {
       <div className="mt-8 text-center">
         <Button variant="outline" asChild>
           <Link to="/base-conhecimento">
-            Ver Todos os Artigos
+            {t('knowledge.view_all_articles')}
           </Link>
         </Button>
       </div>

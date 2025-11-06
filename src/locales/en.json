@@ -148,6 +148,13 @@
     "content_in_portuguese": "📝 Content available only in Portuguese",
     "back_to_parameters": "Back to Parameters",
     "knowledge_base": "Knowledge Base",
-    "download": "Download"
+    "download": "Download",
+    "latest_articles": "Latest Articles",
+    "view_all_articles": "View All Articles",
+    "category_a": "Tutorial Videos",
+    "category_b": "Troubleshooting",
+    "category_c": "Science and Technology",
+    "category_d": "E-books and Tips",
+    "category_e": "Informative Articles"
   }
 }
