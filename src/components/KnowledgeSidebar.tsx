@@ -4,8 +4,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface Content {
   id: string;
   title: string;
+  title_es?: string;
+  title_en?: string;
   slug: string;
   excerpt: string;
+  excerpt_es?: string;
+  excerpt_en?: string;
   icon_color: string;
   og_image_url?: string;
   content_image_url?: string;
@@ -18,7 +22,7 @@ interface KnowledgeSidebarProps {
 }
 
 export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: KnowledgeSidebarProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   if (contents.length === 0) {
     return (
@@ -52,10 +56,18 @@ export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: Kn
           {/* Texto abaixo da imagem */}
           <div className="p-3">
             <h3 className="font-semibold text-foreground text-sm truncate">
-              {content.title}
+              {language === 'es' && content.title_es 
+                ? content.title_es 
+                : language === 'en' && content.title_en 
+                ? content.title_en 
+                : content.title}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-              {content.excerpt}
+              {language === 'es' && content.excerpt_es 
+                ? content.excerpt_es 
+                : language === 'en' && content.excerpt_en 
+                ? content.excerpt_en 
+                : content.excerpt}
             </p>
           </div>
         </div>
