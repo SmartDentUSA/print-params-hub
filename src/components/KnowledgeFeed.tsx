@@ -32,6 +32,11 @@ export const KnowledgeFeed = () => {
   const { articles, loading, error } = useLatestKnowledgeArticles(12);
   const { t, language } = useLanguage();
   
+  const getCategoryName = (letter: string) => {
+    const key = `knowledge.category_${letter.toLowerCase()}`;
+    return t(key);
+  };
+  
   const localeMap = {
     pt: ptBR,
     en: enUS,
@@ -153,7 +158,7 @@ export const KnowledgeFeed = () => {
                       className={`${getCategoryColor(categoryLetter)} text-white text-xs`}
                       variant="default"
                     >
-                      {categoryName}
+                      {getCategoryName(categoryLetter)}
                     </Badge>
                     
                     <h3 className="text-base sm:text-xs font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
