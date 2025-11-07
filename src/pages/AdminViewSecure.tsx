@@ -8,6 +8,7 @@ import { AdminStats } from "@/components/AdminStats";
 import { AdminUsers } from "@/components/AdminUsers";
 import { AdminSettings } from "@/components/AdminSettings";
 import { AdminPandaVideoTest } from "@/components/AdminPandaVideoTest";
+import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
 import { AdminModels } from "@/components/AdminModels";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -261,6 +262,7 @@ export default function AdminViewSecure() {
               </TabsContent>
 
               <TabsContent value="pandavideo-test" className="space-y-6">
+                <AdminPandaVideoSync />
                 <AdminPandaVideoTest />
               </TabsContent>
             </>
