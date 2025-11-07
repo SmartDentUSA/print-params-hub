@@ -29,13 +29,47 @@ export interface KnowledgeContent {
   updated_at: string;
 }
 
-export interface KnowledgeVideo {
+// Discriminated union for video types
+export type KnowledgeVideo = {
   id: string;
-  content_id: string;
+  content_id: string | null;
   title: string;
-  url: string;
   order_index: number;
-}
+  created_at?: string;
+} & (
+  | {
+      video_type: 'youtube';
+      url: string;
+    }
+  | {
+      video_type: 'pandavideo';
+      pandavideo_id: string;
+      pandavideo_external_id: string | null;
+      folder_id: string | null;
+      description: string | null;
+      thumbnail_url: string | null;
+      preview_url: string | null;
+      embed_url: string | null;
+      hls_url: string | null;
+      video_duration_seconds: number | null;
+      analytics: Array<{ t: string; b: number }> | null;
+      url?: never;
+    }
+);
+
+// Helper para construir URL de embed baseado no tipo
+export const getVideoEmbedUrl = (video: KnowledgeVideo): string => {
+  if (video.video_type === 'youtube') {
+    // Extrair ID do YouTube da URL
+    const videoId = video.url?.includes('youtube.com') 
+      ? new URL(video.url).searchParams.get('v')
+      : video.url?.split('/').pop();
+    return `https://www.youtube.com/embed/${videoId}`;
+  }
+  
+  // PandaVideo: usar embed_url diretamente
+  return video.embed_url || '';
+};
 
 // Allowed columns for knowledge_contents table
 const ALLOWED_CONTENT_KEYS = [

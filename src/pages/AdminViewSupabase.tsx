@@ -2,10 +2,11 @@ import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, BarChart3, Users, Settings, ArrowLeft, Wrench } from "lucide-react";
+import { Database, Settings, ArrowLeft, Wrench } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { Link } from "react-router-dom";
 import { AdminSettings } from "@/components/AdminSettings";
+import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
 
 const AdminViewSupabase = () => {
   const dataContext = useData();
@@ -105,6 +106,12 @@ const AdminViewSupabase = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* PandaVideo Sync */}
+          <AdminPandaVideoSync />
+
+          {/* Admin Settings */}
+          <AdminSettings />
         </div>
       </main>
     </div>

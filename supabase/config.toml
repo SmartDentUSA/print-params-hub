@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.backfill-keywords]
 verify_jwt = false
+
+[functions.sync-pandavideo]
+verify_jwt = false

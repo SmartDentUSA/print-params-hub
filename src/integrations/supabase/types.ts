@@ -378,28 +378,61 @@ export type Database = {
       }
       knowledge_videos: {
         Row: {
+          analytics: Json | null
           content_id: string | null
           created_at: string | null
+          description: string | null
+          embed_url: string | null
+          folder_id: string | null
+          hls_url: string | null
           id: string
           order_index: number
+          pandavideo_external_id: string | null
+          pandavideo_id: string | null
+          preview_url: string | null
+          thumbnail_url: string | null
           title: string
-          url: string
+          url: string | null
+          video_duration_seconds: number | null
+          video_type: string
         }
         Insert: {
+          analytics?: Json | null
           content_id?: string | null
           created_at?: string | null
+          description?: string | null
+          embed_url?: string | null
+          folder_id?: string | null
+          hls_url?: string | null
           id?: string
           order_index: number
+          pandavideo_external_id?: string | null
+          pandavideo_id?: string | null
+          preview_url?: string | null
+          thumbnail_url?: string | null
           title: string
-          url: string
+          url?: string | null
+          video_duration_seconds?: number | null
+          video_type?: string
         }
         Update: {
+          analytics?: Json | null
           content_id?: string | null
           created_at?: string | null
+          description?: string | null
+          embed_url?: string | null
+          folder_id?: string | null
+          hls_url?: string | null
           id?: string
           order_index?: number
+          pandavideo_external_id?: string | null
+          pandavideo_id?: string | null
+          preview_url?: string | null
+          thumbnail_url?: string | null
           title?: string
-          url?: string
+          url?: string | null
+          video_duration_seconds?: number | null
+          video_type?: string
         }
         Relationships: [
           {
@@ -454,6 +487,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pandavideo_folders: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_sync_at: string | null
+          name: string
+          pandavideo_id: string
+          parent_folder_id: string | null
+          updated_at: string | null
+          videos_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_sync_at?: string | null
+          name: string
+          pandavideo_id: string
+          parent_folder_id?: string | null
+          updated_at?: string | null
+          videos_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_sync_at?: string | null
+          name?: string
+          pandavideo_id?: string
+          parent_folder_id?: string | null
+          updated_at?: string | null
+          videos_count?: number | null
+        }
+        Relationships: []
       }
       parameter_sets: {
         Row: {

@@ -9,30 +9,30 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 
 ### 📹 Lista de Vídeos (GET /videos)
 
-**Endpoint:** `https://api-v2.pandavideo.com.br/videos?page=1&limit=10`
+**Endpoint:** `https://api-v2.pandavideo.com.br/videos?page=1&limit=50`
 
-**Estrutura esperada:**
+**Estrutura real (validada):**
 ```json
 {
   "videos": [
     {
-      "id": "string",
+      "id": "uuid",                      // ID interno Panda
+      "video_external_id": "uuid",       // Usado para embed/HLS
       "title": "string",
       "description": "string",
-      "thumbnail": "string (URL)",
-      "duration": number (segundos),
-      "embed_url": "string (URL)",
-      "created_at": "string (ISO 8601)",
-      "folder_id": "string (opcional)"
+      "length": number,                  // Duração em segundos
+      "thumbnail": "url",
+      "preview": "url",
+      "video_player": "url",             // URL embed pronta
+      "video_hls": "url",                // URL streaming direto
+      "folder_id": "uuid"
     }
   ],
-  "total": number,
-  "page": number,
-  "limit": number
+  "total": number
 }
 ```
 
-**Status:** ⏳ Aguardando testes reais
+**Status:** ✅ Estrutura validada e simplificada
 
 ---
 
@@ -40,24 +40,23 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 
 **Endpoint:** `https://api-v2.pandavideo.com.br/videos/{videoId}`
 
-**Estrutura esperada:**
+**Estrutura real (validada):**
 ```json
 {
-  "id": "string",
+  "id": "uuid",                      // ID interno
+  "video_external_id": "uuid",       // ID externo
   "title": "string",
   "description": "string",
-  "thumbnail": "string (URL)",
-  "duration": number (segundos),
-  "embed_url": "string (URL)",
-  "created_at": "string (ISO 8601)",
-  "updated_at": "string (ISO 8601)",
-  "folder_id": "string (opcional)",
-  "views": number (opcional),
-  "status": "string (opcional)"
+  "length": number,                  // Segundos
+  "thumbnail": "url",
+  "preview": "url",
+  "video_player": "url",
+  "video_hls": "url",
+  "folder_id": "uuid"
 }
 ```
 
-**Status:** ⏳ Aguardando testes reais
+**Status:** ✅ Estrutura validada
 
 ---
 
@@ -71,20 +70,24 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 - `end_date` (string, obrigatório): Data final no formato YYYY-MM-DD
 - `type` (string, opcional): "drm" para dados específicos de DRM
 
-**Estrutura esperada:**
+**Estrutura real (validada):**
 ```json
 {
-  "total_consumed": number,
-  "average_daily_consumption": number
+  "data": [
+    {
+      "t": "YYYY-MM-DD",  // Data
+      "b": number         // Bytes consumidos
+    }
+  ]
 }
 ```
 
 **Notas:**
 - Retorna dados de consumo de banda (bandwidth) do vídeo no período especificado
-- O `video_id` deve seguir o padrão UUID v4: `^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
-- Use IDs do campo `video_external_id` da lista de vídeos, não o campo `id`
+- O `video_id` deve ser o campo `id` (interno) da lista de vídeos, NÃO o `video_external_id`
+- Formato do UUID: `^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
 
-**Status:** ✅ Endpoint corrigido
+**Status:** ✅ Endpoint validado com sucesso
 
 ---
 
@@ -92,21 +95,21 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 
 **Endpoint:** `https://api-v2.pandavideo.com.br/folders`
 
-**Estrutura esperada:**
+**Estrutura real (validada):**
 ```json
 {
   "folders": [
     {
-      "id": "string",
+      "id": "uuid",
       "name": "string",
-      "video_count": number,
-      "created_at": "string (ISO 8601)"
+      "parent_folder_id": "uuid | null",
+      "videos_count": number
     }
   ]
 }
 ```
 
-**Status:** ⏳ Aguardando testes reais
+**Status:** ✅ Estrutura validada e simplificada
 
 ---
 
@@ -135,10 +138,10 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 
 ## ✅ Endpoints Testados
 
-- [ ] **GET /videos** (Lista) - Aguardando teste
-- [ ] **GET /videos/{id}** (Detalhes) - Aguardando teste
-- [ ] **GET /videos/{id}/analytics** (Métricas) - Aguardando teste
-- [ ] **GET /folders** (Pastas) - Aguardando teste
+- [x] **GET /videos** (Lista) - ✅ Validado
+- [x] **GET /videos/{id}** (Detalhes) - ✅ Validado
+- [x] **GET /analytics/traffic** (Analytics) - ✅ Validado
+- [x] **GET /folders** (Pastas) - ✅ Validado
 
 ---
 
