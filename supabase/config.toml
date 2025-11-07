@@ -1,5 +1,8 @@
 project_id = "okeogjgqijbfkudfjadz"
 
+[functions.pandavideo-test]
+verify_jwt = false
+
 [functions.extract-pdf-text]
 verify_jwt = false
 

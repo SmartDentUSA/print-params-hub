@@ -7,6 +7,7 @@ import { DataImport } from "@/components/DataImport";
 import { AdminStats } from "@/components/AdminStats";
 import { AdminUsers } from "@/components/AdminUsers";
 import { AdminSettings } from "@/components/AdminSettings";
+import { AdminPandaVideoTest } from "@/components/AdminPandaVideoTest";
 import { AdminModels } from "@/components/AdminModels";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -184,7 +185,7 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-7' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-8' : 'grid-cols-2'}`}>
             {isAdmin && (
               <>
                 <TabsTrigger value="models" className="flex items-center gap-2">
@@ -218,6 +219,9 @@ export default function AdminViewSecure() {
                 <TabsTrigger value="settings" className="flex items-center gap-2">
                   <Settings className="w-4 h-4" />
                   Configurações
+                </TabsTrigger>
+                <TabsTrigger value="pandavideo-test">
+                  🧪 PandaVideo Test
                 </TabsTrigger>
               </>
             )}
@@ -254,6 +258,10 @@ export default function AdminViewSecure() {
 
               <TabsContent value="settings" className="space-y-6">
                 <AdminSettings />
+              </TabsContent>
+
+              <TabsContent value="pandavideo-test" className="space-y-6">
+                <AdminPandaVideoTest />
               </TabsContent>
             </>
           )}
