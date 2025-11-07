@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
 
     const baseUrl = 'https://api-v2.pandavideo.com.br';
     const headers = {
-      'Authorization': `Bearer ${pandaApiKey}`,
+      'Authorization': pandaApiKey,
       'Content-Type': 'application/json',
     };
 
@@ -32,6 +32,22 @@ Deno.serve(async (req) => {
     // 1. Sincronizar folders primeiro
     console.log('📁 Fetching folders...');
     const foldersRes = await fetch(`${baseUrl}/folders`, { headers });
+    
+    if (!foldersRes.ok) {
+      const errText = await foldersRes.text();
+      console.error(`❌ Failed to fetch folders: ${foldersRes.status} ${errText}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `PandaVideo folders error ${foldersRes.status}: ${errText}`,
+        }),
+        { 
+          status: foldersRes.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+    
     const foldersData = await foldersRes.json();
     
     let syncedFolders = 0;
@@ -66,8 +82,19 @@ Deno.serve(async (req) => {
       const videosRes = await fetch(`${baseUrl}/videos?page=${page}&limit=50`, { headers });
       
       if (!videosRes.ok) {
-        console.error(`Failed to fetch videos page ${page}: ${videosRes.status}`);
-        break;
+        const errText = await videosRes.text();
+        console.error(`❌ Failed to fetch videos page ${page}: ${videosRes.status} ${errText}`);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `PandaVideo videos error ${foldersRes.status}: ${errText}`,
+            page,
+          }),
+          { 
+            status: videosRes.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
       }
 
       const videosData = await videosRes.json();
