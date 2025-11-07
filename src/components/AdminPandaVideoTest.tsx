@@ -9,6 +9,8 @@ import { Loader2, CheckCircle, XCircle, Play, Key, Video, BarChart3, Folder } fr
 export function AdminPandaVideoTest() {
   const [loading, setLoading] = useState(false);
   const [videoId, setVideoId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [response, setResponse] = useState<any>(null);
   const [lastAction, setLastAction] = useState<string>('');
 
@@ -17,7 +19,13 @@ export function AdminPandaVideoTest() {
     setLastAction(action);
     try {
       const { data, error } = await supabase.functions.invoke('pandavideo-test', {
-        body: { action, videoId: videoId || undefined, limit: 10 }
+        body: { 
+          action, 
+          videoId: videoId || undefined, 
+          limit: 10,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined
+        }
       });
 
       if (error) throw error;
@@ -92,13 +100,35 @@ export function AdminPandaVideoTest() {
           <div className="space-y-2">
             <label className="text-sm font-medium">Video ID (opcional)</label>
             <Input
-              placeholder="Ex: panda-abc123def456 ou 12345"
+              placeholder="Ex: aed5f013-281f-49db-99cb-408fdf80376d"
               value={videoId}
               onChange={(e) => setVideoId(e.target.value)}
               className="max-w-md"
             />
             <p className="text-xs text-muted-foreground">
-              Necessário para "Detalhes do Vídeo" e "Analytics"
+              Necessário para "Detalhes do Vídeo" e "Analytics". Use o campo "video_external_id" da lista.
+            </p>
+          </div>
+
+          {/* Inputs para Analytics Date Range */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Período para Analytics (opcional)</label>
+            <div className="flex gap-2 max-w-md">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                placeholder="Data inicial"
+              />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                placeholder="Data final"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se não informado, usa últimos 30 dias
             </p>
           </div>
 
@@ -284,7 +314,7 @@ export function AdminPandaVideoTest() {
           <div>
             <strong className="text-primary">4. Analytics:</strong>
             <p className="text-muted-foreground">
-              Obtém estatísticas de visualização de um vídeo específico (views, watch time, completion rate).
+              Obtém dados de consumo de banda de um vídeo específico. Use o campo "video_external_id" da lista de vídeos. Opcionalmente, defina o período de análise.
             </p>
           </div>
           

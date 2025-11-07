@@ -61,28 +61,30 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 
 ---
 
-### 📊 Analytics (GET /videos/{id}/analytics)
+### 📊 Analytics (GET /analytics/traffic)
 
-**Endpoint:** `https://api-v2.pandavideo.com.br/videos/{videoId}/analytics`
+**Endpoint:** `https://api-v2.pandavideo.com.br/analytics/traffic`
+
+**Query Parameters:**
+- `video_id` (string, obrigatório): ID do vídeo (UUID formato v4)
+- `start_date` (string, obrigatório): Data inicial no formato YYYY-MM-DD
+- `end_date` (string, obrigatório): Data final no formato YYYY-MM-DD
+- `type` (string, opcional): "drm" para dados específicos de DRM
 
 **Estrutura esperada:**
 ```json
 {
-  "views": number,
-  "unique_views": number,
-  "watch_time": number (segundos),
-  "completion_rate": number (0-1),
-  "average_watch_time": number (segundos),
-  "drop_off_points": [
-    {
-      "time": number (segundos),
-      "percentage": number (0-100)
-    }
-  ]
+  "total_consumed": number,
+  "average_daily_consumption": number
 }
 ```
 
-**Status:** ⏳ Aguardando testes reais
+**Notas:**
+- Retorna dados de consumo de banda (bandwidth) do vídeo no período especificado
+- O `video_id` deve seguir o padrão UUID v4: `^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
+- Use IDs do campo `video_external_id` da lista de vídeos, não o campo `id`
+
+**Status:** ✅ Endpoint corrigido
 
 ---
 

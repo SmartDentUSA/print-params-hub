@@ -17,7 +17,7 @@ serve(async (req) => {
       throw new Error("❌ PANDAVIDEO_API_KEY not configured");
     }
 
-    const { action, videoId, page = 1, limit = 10 } = await req.json();
+    const { action, videoId, page = 1, limit = 10, startDate, endDate } = await req.json();
     
     const baseUrl = "https://api-v2.pandavideo.com.br";
     let url = "";
@@ -43,8 +43,14 @@ serve(async (req) => {
       
       case "get_analytics":
         if (!videoId) throw new Error("videoId required for get_analytics");
-        url = `${baseUrl}/videos/${videoId}/analytics`;
-        description = `📊 Fetching analytics: ${videoId}`;
+        
+        // Calcular datas: últimos 30 dias por padrão
+        const end = endDate || new Date().toISOString().split('T')[0];
+        const start = startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+          .toISOString().split('T')[0];
+        
+        url = `${baseUrl}/analytics/traffic?video_id=${videoId}&start_date=${start}&end_date=${end}`;
+        description = `📊 Fetching analytics: ${videoId} (${start} to ${end})`;
         break;
       
       case "list_folders":
