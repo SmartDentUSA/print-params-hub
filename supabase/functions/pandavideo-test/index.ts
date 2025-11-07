@@ -62,7 +62,7 @@ serve(async (req) => {
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${PANDAVIDEO_API_KEY}`,
+        "Authorization": PANDAVIDEO_API_KEY,
         "Content-Type": "application/json",
       },
     });
