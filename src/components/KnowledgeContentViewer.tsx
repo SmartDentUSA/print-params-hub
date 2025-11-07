@@ -3,7 +3,7 @@ import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Download, ExternalLink } from 'lucide-react';
-import { useKnowledge } from '@/hooks/useKnowledge';
+import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
@@ -130,15 +130,6 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     { label: content.title }
   ];
 
-  const getEmbedUrl = (url: string) => {
-    if (url.includes('youtube.com/watch?v=')) {
-      return url.replace('watch?v=', 'embed/');
-    }
-    if (url.includes('youtu.be/')) {
-      return url.replace('youtu.be/', 'youtube.com/embed/');
-    }
-    return url;
-  };
 
   return (
     <div className="space-y-6">
@@ -196,7 +187,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                 )}
                 <div className="aspect-video rounded-lg overflow-hidden border border-border">
                   <iframe
-                    src={getEmbedUrl(video.url)}
+                    src={getVideoEmbedUrl(video)}
                     className="w-full h-full"
                     allowFullScreen
                     title={video.title || `Vídeo ${idx + 1}`}
