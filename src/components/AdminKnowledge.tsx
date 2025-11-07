@@ -9,12 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
-import { useKnowledge } from '@/hooks/useKnowledge';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video } from 'lucide-react';
+import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ResinMultiSelect } from '@/components/ResinMultiSelect';
 import { ImageUpload } from '@/components/ImageUpload';
 import { PDFTranscription } from '@/components/PDFTranscription';
+import { Badge } from '@/components/ui/badge';
+import { VideoSelector } from '@/components/VideoSelector';
 import { useAuthors } from '@/hooks/useAuthors';
 import { generateAuthorSignatureHTML } from '@/utils/authorSignatureHTML';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -33,6 +35,7 @@ export function AdminKnowledge() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContent, setEditingContent] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
+  const [videoSelectorOpen, setVideoSelectorOpen] = useState(false);
   const [editingCategoryName, setEditingCategoryName] = useState<{[key: string]: string}>({});
   const [contentEditorMode, setContentEditorMode] = useState<'visual' | 'html'>('html');
   const [authors, setAuthors] = useState<any[]>([]);
@@ -2295,44 +2298,123 @@ Receba o texto bruto abaixo e:
               <TabsContent value="media" className="space-y-4">
                 {/* Videos */}
                 <div>
-                  <Label className="text-lg font-semibold">Vídeos</Label>
-                  {videos.map((video, idx) => (
-                    <div key={idx} className="p-4 border border-border rounded-lg mt-2 bg-card">
-                      <Input 
-                        placeholder="Título do vídeo"
-                        value={video.title}
-                        className="mb-2"
-                        onChange={(e) => {
-                          const newVids = [...videos];
-                          newVids[idx].title = e.target.value;
-                          setVideos(newVids);
-                        }}
-                      />
-                      <Input 
-                        placeholder="URL YouTube"
-                        value={video.url}
-                        onChange={(e) => {
-                          const newVids = [...videos];
-                          newVids[idx].url = e.target.value;
-                          setVideos(newVids);
-                        }}
-                      />
+                  <div className="flex items-center justify-between mb-4">
+                    <Label className="text-lg font-semibold">Vídeos</Label>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setVideoSelectorOpen(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Adicionar Vídeo
+                    </Button>
+                  </div>
+
+                  {videos.length === 0 ? (
+                    <div className="border border-dashed border-border rounded-lg p-8 text-center">
+                      <p className="text-muted-foreground mb-4">Nenhum vídeo adicionado</p>
                       <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        className="mt-2"
-                        onClick={() => setVideos(videos.filter((_, i) => i !== idx))}
+                        variant="outline"
+                        onClick={() => setVideoSelectorOpen(true)}
                       >
-                        Remover
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar Primeiro Vídeo
                       </Button>
                     </div>
-                  ))}
-                  <Button 
-                    variant="outline"
-                    onClick={() => setVideos([...videos, { title: '', url: '', order_index: videos.length }])}
-                  >
-                    + ADICIONAR VÍDEO
-                  </Button>
+                  ) : (
+                    <div className="space-y-3">
+                      {videos.map((video, idx) => (
+                        <div 
+                          key={idx} 
+                          className="p-4 border border-border rounded-lg bg-card flex items-start gap-4"
+                        >
+                          {/* Thumbnail ou ícone */}
+                          <div className="flex-shrink-0">
+                            {video.video_type === 'pandavideo' && video.thumbnail_url ? (
+                              <img 
+                                src={video.thumbnail_url} 
+                                alt={video.title}
+                                className="w-32 h-20 object-cover rounded border border-border"
+                              />
+                            ) : (
+                              <div className="w-32 h-20 bg-muted rounded border border-border flex items-center justify-center">
+                                <Video className="w-8 h-8 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <p className="font-medium truncate">{video.title || 'Sem título'}</p>
+                                {video.video_type === 'youtube' && video.url && (
+                                  <p className="text-sm text-muted-foreground truncate mt-1">
+                                    {video.url}
+                                  </p>
+                                )}
+                                {video.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+                                    {video.description}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge variant={video.video_type === 'youtube' ? 'secondary' : 'default'}>
+                                {video.video_type === 'youtube' ? 'YouTube' : 'PandaVideo'}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* Ações */}
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (idx === 0) return;
+                                const newVids = [...videos];
+                                [newVids[idx], newVids[idx - 1]] = [newVids[idx - 1], newVids[idx]];
+                                setVideos(newVids.map((v, i) => ({ ...v, order_index: i })));
+                              }}
+                              disabled={idx === 0}
+                            >
+                              ↑
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (idx === videos.length - 1) return;
+                                const newVids = [...videos];
+                                [newVids[idx], newVids[idx + 1]] = [newVids[idx + 1], newVids[idx]];
+                                setVideos(newVids.map((v, i) => ({ ...v, order_index: i })));
+                              }}
+                              disabled={idx === videos.length - 1}
+                            >
+                              ↓
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setVideos(videos.filter((_, i) => i !== idx))}
+                            >
+                              🗑️
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* VideoSelector Modal */}
+                  <VideoSelector
+                    open={videoSelectorOpen}
+                    onClose={() => setVideoSelectorOpen(false)}
+                    onSelect={(video) => {
+                      setVideos([...videos, { ...video, order_index: videos.length }]);
+                      setVideoSelectorOpen(false);
+                    }}
+                  />
                 </div>
 
                 {/* File */}
