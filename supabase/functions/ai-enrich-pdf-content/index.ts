@@ -31,56 +31,26 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ETAPA 1: Extração bruta do texto
-    console.log("📄 Step 1: Extracting raw text from PDF");
-    const extractionPrompt = `${SYSTEM_SUPER_PROMPT}
+    // ETAPA 1: Extração bruta do texto usando extract-pdf-text
+    console.log("📄 Step 1: Extracting raw text from PDF via extract-pdf-text");
 
-TAREFA ESPECÍFICA: EXTRAÇÃO PURA DE TEXTO DE PDF
-
-REGRAS ABSOLUTAS:
-1. Extraia EXATAMENTE o texto visível no PDF
-2. NÃO adicione informações que não existam no documento
-3. NÃO complete frases ou dados faltantes
-4. NÃO invente especificações técnicas
-5. Mantenha formatação e estrutura original
-6. Se houver tabelas, preserve-as em formato texto simples
-
-Retorne apenas o texto extraído, limpo e organizado.`;
-
-    const extractionResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const extractionResponse = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-text`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseKey}`,
       },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: extractionPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extraia o texto deste PDF:" },
-              {
-                type: "image_url",
-                image_url: { url: `data:application/pdf;base64,${pdfBase64}` },
-              },
-            ],
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 8000,
-      }),
+      body: JSON.stringify({ pdfBase64 }),
     });
 
     if (!extractionResponse.ok) {
       const errorText = await extractionResponse.text();
-      console.error("❌ AI extraction error:", extractionResponse.status, errorText);
-      throw new Error(`AI extraction failed: ${extractionResponse.status}`);
+      console.error("❌ PDF text extraction failed:", extractionResponse.status, errorText);
+      throw new Error(`PDF extraction failed: ${extractionResponse.status}`);
     }
 
-    const extractionData = await extractionResponse.json();
-    const rawText = extractionData.choices[0].message.content;
+    const { extractedText } = await extractionResponse.json();
+    const rawText = extractedText;
     console.log(`✅ Raw text extracted: ${rawText.length} characters`);
 
     // ETAPA 2: Identificação inteligente do produto
@@ -137,7 +107,6 @@ Se não tiver certeza, deixe o campo vazio.`;
           },
         ],
         tool_choice: { type: "function", function: { name: "identify_product" } },
-        temperature: 0.1,
       }),
     });
 
@@ -240,40 +209,42 @@ Se não tiver certeza, deixe o campo vazio.`;
 
     // ETAPA 4: Enriquecimento anti-alucinação
     console.log("✨ Step 4: Enriching content with real data");
-    const enrichmentPrompt = `${SYSTEM_SUPER_PROMPT}
+    const enrichmentPrompt = `Você é um extrator técnico de conteúdo. Sua função é enriquecer um texto extraído de PDF técnico com dados reais do banco de dados.
 
-TAREFA ESPECÍFICA: ENRIQUECIMENTO DE CONTEÚDO COM DADOS REAIS
-
-⚠️ REGRA ABSOLUTA DE NÃO-ALUCINAÇÃO:
-- Você SÓ pode usar dados fornecidos no objeto JSON abaixo
-- NÃO invente especificações técnicas
-- NÃO adicione produtos que não existem no banco
-- NÃO crie parâmetros de impressão inexistentes
-- NÃO mencione artigos que não foram fornecidos
-- Se não houver dados disponíveis para uma seção, escreva "Informação não disponível no banco de dados"
-- NUNCA adicione dados que não estejam explicitamente no JSON abaixo
+REGRAS ABSOLUTAS DE FIDELIDADE:
+- NUNCA invente dados que não estejam no JSON do banco de dados
+- NUNCA adicione especificações técnicas inexistentes
+- Se não houver dados disponíveis, escreva: "Informação não disponível no banco de dados"
+- Preserve títulos, hierarquia de seções, listas e tabelas do texto original
+- Use Markdown limpo e estruturado
 
 DADOS REAIS DO BANCO DE DADOS:
 ${JSON.stringify(databaseData, null, 2)}
 
-TEXTO EXTRAÍDO DO PDF:
+TEXTO EXTRAÍDO DO PDF (ORIGINAL):
 ${rawText}
 
 TAREFA:
-1. Mescle o texto do PDF com os dados do banco de dados
-2. Organize em seções úteis:
-   ${databaseData.products.length > 0 ? "- 🛒 Produtos Relacionados (com links e preços)" : ""}
-   ${databaseData.resins.length > 0 ? "- 🧪 Resinas Compatíveis (com fabricantes)" : ""}
-   ${databaseData.parameters.length > 0 ? "- ⚙️ Parâmetros de Impressão (com valores técnicos)" : ""}
-   ${databaseData.articles.length > 0 ? "- 📚 Artigos Recomendados (com resumos)" : ""}
-3. Adicione emojis para organização visual
-4. Mantenha tom técnico, objetivo e profissional
-5. Use APENAS dados fornecidos no JSON acima
-6. Se uma seção não tiver dados, não a crie
+1. Mescle o texto original do PDF com os dados reais do banco
+2. Organize em seções:
+   ${databaseData.products.length > 0 ? "- 🛒 Produtos Relacionados (nome, preço, descrição)" : ""}
+   ${databaseData.resins.length > 0 ? "- 🧪 Resinas Compatíveis (fabricante, tipo, cor)" : ""}
+   ${databaseData.parameters.length > 0 ? "- ⚙️ Parâmetros de Impressão (modelo, altura de camada, tempo de cura)" : ""}
+   ${databaseData.articles.length > 0 ? "- 📚 Artigos Relacionados (título, resumo)" : ""}
+3. Mantenha a estrutura Markdown original
+4. Não sumarize o texto original
+5. Apenas adicione seções com dados do banco se existirem
 
-IMPORTANTE: Se um dado não estiver no JSON, NÃO invente. É melhor ter menos informação verdadeira do que informação inventada.
+FORMATO DE SAÍDA:
+# Título Original do PDF
+[conteúdo original preservado]
 
-Retorne o texto enriquecido e organizado.`;
+---
+
+## Dados Relacionados do Banco
+[apenas se houver dados reais]
+
+IMPORTANTE: É melhor ter menos informação verdadeira do que inventar dados.`;
 
     const enrichmentResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -287,8 +258,7 @@ Retorne o texto enriquecido e organizado.`;
           { role: "system", content: enrichmentPrompt },
           { role: "user", content: "Enriqueça o conteúdo usando APENAS os dados fornecidos." },
         ],
-        temperature: 0.1,
-        max_tokens: 8000,
+        max_completion_tokens: 8000,
       }),
     });
 
