@@ -244,7 +244,7 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
             </div>
 
             {/* Grid de Vídeos */}
-            <ScrollArea className="flex-1 border rounded-lg p-4">
+            <ScrollArea className="h-[500px] border rounded-lg p-4">
               {loading ? (
                 <div className="flex items-center justify-center h-64">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
