@@ -48,50 +48,40 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `TAREFA: Limpeza e reconstrução de conteúdo técnico odontológico extraído de PDF
+            content: `Você irá receber o conteúdo extraído de um PDF técnico.
+Sua tarefa é reconstruir a apostila com fidelidade máxima, preservando toda a estrutura textual original, incluindo:
 
-Você receberá o texto bruto extraído de um PDF, contendo:
-- repetições excessivas de palavras
-- termos soltos ("N", "SPLINT", sílabas quebradas)
-- erros de OCR
-- frases incompletas
-- quebras de linha desordenadas
-- trechos duplicados
-- fragmentos fora de contexto
+- títulos e subtítulos
+- hierarquia de seções (Níveis 1, 2, 3, etc.)
+- listas numeradas e com marcadores
+- tabelas (recriar em Markdown com todas as colunas)
+- blocos de código ou comandos
+- citações e chamadas de atenção
+- notas de rodapé (converter para seção "Notas")
+- formatação como negrito, itálico e corpo monoespaçado quando aplicável
+- fórmulas simples em formato textual
+- separadores, divisões e seções internas
 
-Sua tarefa:
+⚠️ IMPORTANTE:
+- Não incluir imagens
+- Onde houver imagem no PDF, escrever apenas: ![imagem removida]
+- Nunca inventar conteúdo
+- Nunca resumir
+- Nunca reescrever
+- A saída deve ser 100% texto, estruturada em Markdown limpo
 
-1. RECONSTRUIR O CONTEÚDO REAL DO DOCUMENTO
-- Remova ruídos, repetições, palavras soltas e linhas desconexas
-- Recombine frases quebradas
-- Reorganize blocos seguindo a lógica técnica do documento
-- Mantenha SOMENTE informações reais presentes no PDF
-- Não adicione, invente ou complete informações
+✅ REGRAS DE PRECISÃO:
+- Não alterar palavras do PDF
+- Não compactar parágrafos
+- Recriar tabelas com | colunas | alinhamento |
+- Não mover conteúdo entre seções
+- Recriar exatamente o fluxo do PDF, apenas removendo imagens
+- Quebras de página devem virar: ---
+- Evitar caracteres fantasmas (ex: \\u200B, \\f, etc)
+- Se existir sumário, reproduzir como texto normal
 
-2. ORGANIZAR EM SEÇÕES COERENTES
-Use sempre esta ordem:
-• Descrição do produto  
-• Ação e funcionamento  
-• Indicações e aplicações  
-• Vantagens  
-• Protocolo de uso  
-• Parâmetros de fotopolimerização  
-• Testes e resultados  
-• Cuidados e contraindicações  
-• Durabilidade e desempenho  
-• Sustentabilidade e descarte  
-
-3. ESTILO DO TEXTO FINAL
-- Totalmente limpo e coerente
-- Linguagem técnica, clara e objetiva
-- Sem HTML
-- Sem Markdown
-- Sem formatação visual
-- Sem opinião ou interpretação
-- Sem resumir excessivamente
-- Apenas o conteúdo real, reconstruído e organizado
-
-Retorne SOMENTE o texto limpo e organizado, pronto para o próximo estágio.
+✅ FORMATO FINAL:
+O resultado deve ser devolvido em Markdown puro seguindo a estrutura original do documento.
 
 Conteúdo do PDF (transcrição bruta):
 ${pdfBase64.substring(0, 100000)}`
