@@ -48,44 +48,37 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `EXTRAÇÃO DE PDF TÉCNICO — MODO FIDELIDADE ABSOLUTA COM MARKDOWN
+            content: `**INSTRUÇÃO PRINCIPAL: EXTRAÇÃO, ESTRUTURAÇÃO E FIDELIDADE ABSOLUTA**
 
-🚫 REGRAS ANTI-ALUCINAÇÃO (ABSOLUTAS):
-- NUNCA invente dados, especificações ou valores que não estejam no PDF.
-- NUNCA complete frases ou parágrafos.
-- NUNCA adicione conhecimento prévio ou informações de contexto externo.
-- NUNCA corrija erros ortográficos do PDF original.
-- NUNCA reorganize a ordem das seções.
-- NUNCA resuma ou parafraseia o conteúdo.
-- NUNCA adicione explicações que não estejam no texto original.
-- NUNCA preencha lacunas com suposições.
-- NUNCA invente tabelas, listas ou estruturas que não existam no PDF.
+**Objetivo:** Transcrever o conteúdo integral do PDF fornecido, estruturando-o em um formato hierárquico, claro e de fácil leitura, garantindo a fidelidade completa a 100% das informações contidas no documento.
 
-✅ O QUE VOCÊ DEVE FAZER:
-1. Extraia TODO o texto visível do PDF.
-2. Preserve a estrutura original: títulos, seções, listas, tabelas.
-3. Converta para Markdown limpo mantendo hierarquia.
-4. Se encontrar texto ilegível, marque: [texto ilegível].
-5. Se houver tabelas, converta para formato Markdown table exatamente como aparecem.
-6. Preserve medidas, números, unidades e fórmulas EXATAMENTE como aparecem.
-7. Mantenha todas as quebras de linha e espaçamentos relevantes.
-8. Onde houver imagens, marque: ![imagem removida].
+**Regras Essenciais de Saída (Output Structure):**
 
-📋 ESTRUTURA DE SAÍDA (Markdown):
-- Use # para título principal
-- Use ## para seções principais
-- Use ### para subseções
-- Use listas (-) quando houver listas
-- Use tabelas Markdown (| Col1 | Col2 |) quando houver tabelas
-- Preserve parágrafos com linha em branco entre eles
-- Use --- para quebras de página
+1. **Identificação Central (Obrigatória):** Inicie a resposta identificando o produto principal e o fabricante (Ex: "O produto é X da Y").
+2. **Estrutura de Títulos:** Utilize títulos de primeiro nível (\`##\`) para replicar as seções principais do documento (Ex: "## 1. DESCRIÇÃO DO PRODUTO", "## 2. VANTAGENS DO GLAZE ON").
+3. **Formato de Lista:** Converta todas as listas (vantagens, instruções, cuidados) em **bullet points (\`*\`)**.
+4. **Formato de Tabela:** Preserve o formato de **tabela** para a seção de \`PARÂMETROS MÍNIMOS VALIDADOS DE FOTOPOLIMERIZAÇÃO\`.
+5. **Destaques:** Use **negrito (\`**...**\`)** para enfatizar termos-chave e resultados (Ex: resistência, brilho superior, 10,5% RESISTÊNCIA MPa).
+6. **Instruções Sequenciais:** Liste os passos de aplicação (Passos 7 a 11) de forma sequencial e numerada.
+7. **Restrição de Conteúdo:** Informações de contato (endereços, telefone, websites) e Adendos de Personalização/Contexto DE FORMA ALGUMA DEVEM SER INCLUÍDAS na saída final.
 
-⚠️ PRINCÍPIO FUNDAMENTAL:
-É melhor ter um texto incompleto mas fiel do que um texto completo mas inventado.
-Se não houver texto extraível no PDF, retorne vazio.
-Copie, não crie.
+**Regras Anti-Alucinação e Fidelidade (Obrigatórias):**
 
-Conteúdo do PDF (transcrição bruta):
+A. **Transcrição Literal:** Transcreva o texto de forma **literal** e **íntegra**. Não parafraseie, resuma, invente ou complete informações.
+B. **Invenção Proibida:** Se um dado estiver ambíguo ou incompleto no PDF, transcreva-o exatamente como está no PDF e **NÃO O MODIFIQUE OU DEDUZA**.
+C. **Busca Externa:** A busca na web só deve ser acionada em caso de necessidade de validar termos técnicos ou especificações de segurança. **SE ACIONADA, o resultado da busca DEVE SER APENAS USADO PARA VALIDAÇÃO INTERNA E NÃO DEVE SER INCLUÍDO NA SAÍDA FINAL**, a menos que o usuário solicite explicitamente a informação externa.
+
+**Fluxo Esperado (Garantia de Fidelidade):**
+
+* Identificação do Produto.
+* Linha horizontal (\`---\`).
+* Título principal do Ebook.
+* Seção \`## 1. DESCRIÇÃO DO PRODUTO\`.
+* Linha horizontal (\`---\`).
+* Seção \`## 2. VANTAGENS DO GLAZE ON\` (em bullet points).
+* ... (Continuação de todas as seções, Tabelas e Instruções de Aplicação, com o conteúdo fiel, SEM incluir contato ou adendos).
+
+Conteúdo do PDF (base64):
 ${pdfBase64.substring(0, 100000)}`
           }
         ],
