@@ -16,7 +16,8 @@ interface KnowledgeSEOHeadProps {
   }[];
 }
 
-const extractVideoId = (url: string): string => {
+const extractVideoId = (url: string | null | undefined): string => {
+  if (!url) return '';
   if (url.includes('youtube.com/watch?v=')) {
     return url.split('v=')[1]?.split('&')[0] || '';
   }
@@ -26,7 +27,8 @@ const extractVideoId = (url: string): string => {
   return '';
 };
 
-const getEmbedUrl = (url: string): string => {
+const getEmbedUrl = (url: string | null | undefined): string => {
+  if (!url) return '';
   if (url.includes('youtube.com/watch?v=')) {
     return url.replace('watch?v=', 'embed/');
   }
@@ -260,20 +262,22 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   };
 
   // VideoObject Schema para cada vídeo
-  const videoSchemas = videos.map((video, idx) => {
-    const videoId = extractVideoId(video.url);
-    return {
-      "@context": "https://schema.org",
-      "@type": "VideoObject",
-      "name": video.title || `${displayTitle} - Vídeo ${idx + 1}`,
-      "description": content.meta_description || content.excerpt,
-      "thumbnailUrl": videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url,
-      "uploadDate": new Date(content.created_at).toISOString(),
-      "contentUrl": video.url,
-      "embedUrl": getEmbedUrl(video.url),
-      "duration": "PT15M"
-    };
-  });
+  const videoSchemas = videos
+    .filter(video => video.url)
+    .map((video, idx) => {
+      const videoId = extractVideoId(video.url);
+      return {
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        "name": video.title || `${displayTitle} - Vídeo ${idx + 1}`,
+        "description": content.meta_description || content.excerpt,
+        "thumbnailUrl": videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url,
+        "uploadDate": new Date(content.created_at).toISOString(),
+        "contentUrl": video.url,
+        "embedUrl": getEmbedUrl(video.url),
+        "duration": "PT15M"
+      };
+    });
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
@@ -386,7 +390,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta name="twitter:title" content={displayTitle} />
       <meta name="twitter:description" content={content.excerpt} />
       {content.og_image_url && <meta name="twitter:image" content={content.og_image_url} />}
-      {twitterCardType === "player" && videos[0] && (
+      {twitterCardType === "player" && videos[0]?.url && (
         <>
           <meta name="twitter:player" content={getEmbedUrl(videos[0].url)} />
           <meta name="twitter:player:width" content="1280" />
