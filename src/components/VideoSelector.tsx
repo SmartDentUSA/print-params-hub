@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { KnowledgeVideo } from "@/hooks/useKnowledge";
 import {
@@ -37,6 +37,35 @@ const isValidYoutubeUrl = (url: string): boolean => {
   return /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/.test(url);
 };
 
+// Helper: retorna todos os IDs de subpastas (recursivo)
+const getDescendantFolderIds = (allFolders: any[], parentId: string): string[] => {
+  const byParent: Record<string, string[]> = {};
+  
+  // Construir mapa parent_id -> child_ids
+  for (const f of allFolders) {
+    const p = f.parent_folder_id || null;
+    if (p) {
+      if (!byParent[p]) byParent[p] = [];
+      byParent[p].push(String(f.pandavideo_id));
+    }
+  }
+  
+  // Busca em largura para coletar todos descendentes
+  const descendants: string[] = [];
+  const stack = [String(parentId)];
+  
+  while (stack.length) {
+    const current = stack.pop()!;
+    const children = byParent[current] || [];
+    for (const child of children) {
+      descendants.push(child);
+      stack.push(child);
+    }
+  }
+  
+  return descendants;
+};
+
 export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   const [tab, setTab] = useState<"youtube" | "pandavideo">("pandavideo");
   
@@ -51,6 +80,13 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Calcular conjunto de IDs de pastas válidas (pasta selecionada + descendentes)
+  const folderIdsToInclude = useMemo(() => {
+    if (!folderFilter || folderFilter === 'none') return null;
+    const descendants = getDescendantFolderIds(folders, folderFilter);
+    return new Set([String(folderFilter), ...descendants]);
+  }, [folderFilter, folders]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,13 +119,27 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   }, [open]);
 
   // Filtros
-  const filteredVideos = pandaVideos.filter((v) => {
-    const matchFolder = folderFilter ? v.folder_id === folderFilter : true;
-    const matchSearch = searchTerm
-      ? v.title?.toLowerCase().includes(searchTerm.toLowerCase())
-      : true;
-    return matchFolder && matchSearch;
-  });
+  const filteredVideos = useMemo(() => {
+    return pandaVideos.filter((v) => {
+      // Filtro de pasta
+      let matchFolder = true;
+      if (folderFilter === 'none') {
+        // "Sem pasta" - apenas vídeos sem folder_id
+        matchFolder = !v.folder_id;
+      } else if (folderFilter && folderIdsToInclude) {
+        // Pasta específica - incluir pasta + todas subpastas
+        matchFolder = folderIdsToInclude.has(String(v.folder_id));
+      }
+      // Se folderFilter é null/undefined = "Todas as pastas" = matchFolder permanece true
+      
+      // Filtro de busca
+      const matchSearch = searchTerm
+        ? (v.title || '').toLowerCase().includes(searchTerm.toLowerCase())
+        : true;
+      
+      return matchFolder && matchSearch;
+    });
+  }, [pandaVideos, folderFilter, folderIdsToInclude, searchTerm]);
 
   const handleAdd = () => {
     if (tab === "youtube") {
@@ -233,8 +283,9 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as pastas</SelectItem>
+                    <SelectItem value="none">Sem pasta</SelectItem>
                     {folders.map((f) => (
-                      <SelectItem key={f.id} value={f.pandavideo_id}>
+                      <SelectItem key={f.id} value={String(f.pandavideo_id)}>
                         {f.name} ({f.videos_count || 0})
                       </SelectItem>
                     ))}

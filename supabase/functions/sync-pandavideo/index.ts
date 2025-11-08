@@ -5,6 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Utility: convert duration to integer (handle decimals from PandaVideo API)
+const toIntOrNull = (val: unknown): number | null => {
+  const n = Number(val);
+  return Number.isFinite(n) ? Math.round(n) : null;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -119,7 +125,7 @@ Deno.serve(async (req) => {
           preview_url: video.preview || null,
           embed_url: video.video_player || null,
           hls_url: video.video_hls || null,
-          video_duration_seconds: video.length || 0,
+          video_duration_seconds: toIntOrNull(video.length),
           order_index: 0,
           content_id: null,
         };
