@@ -48,46 +48,48 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `Você irá receber o conteúdo extraído de um PDF técnico.
-Sua tarefa é reconstruir a apostila com fidelidade máxima, preservando toda a estrutura textual original, incluindo:
+            content: `EXTRAÇÃO DE PDF TÉCNICO — MODO FIDELIDADE ABSOLUTA COM MARKDOWN
 
-- títulos e subtítulos
-- hierarquia de seções (Níveis 1, 2, 3, etc.)
-- listas numeradas e com marcadores
-- tabelas (recriar em Markdown com todas as colunas)
-- blocos de código ou comandos
-- citações e chamadas de atenção
-- notas de rodapé (converter para seção "Notas")
-- formatação como negrito, itálico e corpo monoespaçado quando aplicável
-- fórmulas simples em formato textual
-- separadores, divisões e seções internas
+🚫 REGRAS ANTI-ALUCINAÇÃO (ABSOLUTAS):
+- NUNCA invente dados, especificações ou valores que não estejam no PDF.
+- NUNCA complete frases ou parágrafos.
+- NUNCA adicione conhecimento prévio ou informações de contexto externo.
+- NUNCA corrija erros ortográficos do PDF original.
+- NUNCA reorganize a ordem das seções.
+- NUNCA resuma ou parafraseia o conteúdo.
+- NUNCA adicione explicações que não estejam no texto original.
+- NUNCA preencha lacunas com suposições.
+- NUNCA invente tabelas, listas ou estruturas que não existam no PDF.
 
-⚠️ IMPORTANTE:
-- Não incluir imagens
-- Onde houver imagem no PDF, escrever apenas: ![imagem removida]
-- Nunca inventar conteúdo
-- Nunca resumir
-- Nunca reescrever
-- A saída deve ser 100% texto, estruturada em Markdown limpo
+✅ O QUE VOCÊ DEVE FAZER:
+1. Extraia TODO o texto visível do PDF.
+2. Preserve a estrutura original: títulos, seções, listas, tabelas.
+3. Converta para Markdown limpo mantendo hierarquia.
+4. Se encontrar texto ilegível, marque: [texto ilegível].
+5. Se houver tabelas, converta para formato Markdown table exatamente como aparecem.
+6. Preserve medidas, números, unidades e fórmulas EXATAMENTE como aparecem.
+7. Mantenha todas as quebras de linha e espaçamentos relevantes.
+8. Onde houver imagens, marque: ![imagem removida].
 
-✅ REGRAS DE PRECISÃO:
-- Não alterar palavras do PDF
-- Não compactar parágrafos
-- Recriar tabelas com | colunas | alinhamento |
-- Não mover conteúdo entre seções
-- Recriar exatamente o fluxo do PDF, apenas removendo imagens
-- Quebras de página devem virar: ---
-- Evitar caracteres fantasmas (ex: \\u200B, \\f, etc)
-- Se existir sumário, reproduzir como texto normal
+📋 ESTRUTURA DE SAÍDA (Markdown):
+- Use # para título principal
+- Use ## para seções principais
+- Use ### para subseções
+- Use listas (-) quando houver listas
+- Use tabelas Markdown (| Col1 | Col2 |) quando houver tabelas
+- Preserve parágrafos com linha em branco entre eles
+- Use --- para quebras de página
 
-✅ FORMATO FINAL:
-O resultado deve ser devolvido em Markdown puro seguindo a estrutura original do documento.
+⚠️ PRINCÍPIO FUNDAMENTAL:
+É melhor ter um texto incompleto mas fiel do que um texto completo mas inventado.
+Se não houver texto extraível no PDF, retorne vazio.
+Copie, não crie.
 
 Conteúdo do PDF (transcrição bruta):
 ${pdfBase64.substring(0, 100000)}`
           }
         ],
-        max_tokens: 12000
+        max_completion_tokens: 12000
       }),
     });
 
