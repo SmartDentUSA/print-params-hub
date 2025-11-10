@@ -81,6 +81,19 @@ serve(async (req) => {
         description = `🧾 Fetching video metadata: ${videoId}`;
         break;
 
+      case "get_subtitles_info":
+        if (!videoId) throw new Error("videoId required for get_subtitles_info");
+        url = `${baseUrl}/subtitles/${videoId}`;
+        description = `📝 Fetching subtitles info: ${videoId}`;
+        break;
+      
+      case "get_subtitle":
+        if (!videoId) throw new Error("videoId required for get_subtitle");
+        const lang = extraParams?.srclang || 'pt-BR';
+        url = `${baseUrl}/subtitles/${videoId}/${lang}`;
+        description = `📝 Fetching subtitle ${lang}: ${videoId}`;
+        break;
+
       case "raw_get":
         if (!rawPath) throw new Error("rawPath required for raw_get");
         url = `${baseUrl}/${rawPath.replace(/^\/+/, '')}`;

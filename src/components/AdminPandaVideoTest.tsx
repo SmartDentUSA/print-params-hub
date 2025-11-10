@@ -210,6 +210,56 @@ export function AdminPandaVideoTest() {
               )}
               <span className="text-sm">Listar Pastas</span>
             </Button>
+
+            <Button
+              onClick={() => callAPI('get_subtitles_info')}
+              disabled={loading || !videoId}
+              variant="outline"
+              className="h-20 flex-col gap-2"
+            >
+              {loading && lastAction === 'get_subtitles_info' ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <span className="text-2xl">📝</span>
+              )}
+              <span className="text-sm">Info Legendas</span>
+            </Button>
+          </div>
+
+          {/* Legendas por idioma */}
+          <div className="mt-6 space-y-2">
+            <label className="text-sm font-medium">Baixar Legendas por Idioma (requer Video ID)</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <Button
+                onClick={() => callAPI('get_subtitle', { extraParams: { srclang: 'pt-BR' } })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16 flex items-center gap-2"
+              >
+                🇧🇷 Português (pt-BR)
+              </Button>
+
+              <Button
+                onClick={() => callAPI('get_subtitle', { extraParams: { srclang: 'en' } })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16 flex items-center gap-2"
+              >
+                🇺🇸 English (en)
+              </Button>
+
+              <Button
+                onClick={() => callAPI('get_subtitle', { extraParams: { srclang: 'es' } })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16 flex items-center gap-2"
+              >
+                🇪🇸 Español (es)
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Retorna o conteúdo das legendas em formato VTT ou SRT. Use "Info Legendas" primeiro para ver idiomas disponíveis.
+            </p>
           </div>
 
           {/* Variações para custom_fields */}
@@ -381,6 +431,20 @@ export function AdminPandaVideoTest() {
             <strong className="text-primary">5. Listar Pastas:</strong>
             <p className="text-muted-foreground">
               Se você organiza seus vídeos em pastas no PandaVideo, este endpoint lista todas elas.
+            </p>
+          </div>
+
+          <div>
+            <strong className="text-primary">6. Info Legendas:</strong>
+            <p className="text-muted-foreground">
+              Retorna todas as legendas disponíveis para um vídeo (idiomas, labels). Use para descobrir quais idiomas estão disponíveis.
+            </p>
+          </div>
+
+          <div>
+            <strong className="text-primary">7. Baixar Legendas por Idioma:</strong>
+            <p className="text-muted-foreground">
+              Baixa o conteúdo da legenda em um idioma específico (pt-BR, en, es). Primeiro use "Info Legendas" para ver quais idiomas estão disponíveis.
             </p>
           </div>
 
