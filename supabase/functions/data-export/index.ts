@@ -461,7 +461,14 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
 async function fetchKnowledgeVideos(supabase: any) {
   const { data: videos, error } = await supabase
     .from('knowledge_videos')
-    .select('*, knowledge_contents(title)')
+    .select(`
+      id, content_id, title, url, order_index, video_type,
+      pandavideo_id, description, thumbnail_url, embed_url, hls_url,
+      video_duration_seconds, video_transcript,
+      panda_config, panda_custom_fields, panda_tags,
+      created_at, updated_at,
+      knowledge_contents(title)
+    `)
     .order('created_at', { ascending: false });
   
   if (error) throw error;

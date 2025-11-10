@@ -157,6 +157,15 @@ const extractKeywordsFromContent = (htmlContent: string): string => {
   return [...new Set(keywords)].slice(0, 10).join(', ').substring(0, 255);
 };
 
+// Remove tags HTML e retorna texto limpo
+const stripTags = (html: string): string => {
+  if (!html) return '';
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [] }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
   
@@ -216,7 +225,11 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   const canonicalUrl = `https://smartdent.com.br/base-conhecimento/${category?.letter?.toLowerCase()}/${content.slug}`;
 
-  const articleSchema = {
+  // Preparar articleBody e wordCount para E-E-A-T
+  const articleBody = stripTags(content.content_html || '');
+  const wordCount = articleBody.split(/\s+/).filter(w => w.length > 0).length;
+
+  const articleSchema: any = {
     "@context": "https://schema.org",
     "@type": "Article",
     "headline": displayTitle,
@@ -225,6 +238,9 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "image": content.og_image_url,
     "datePublished": new Date(content.created_at).toISOString(),
     "dateModified": new Date(content.updated_at).toISOString(),
+    "articleBody": articleBody,
+    "wordCount": wordCount,
+    "inLanguage": "pt-BR",
     "author": content.authors ? {
       "@type": "Person",
       "name": content.authors.name,
@@ -266,18 +282,39 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     .filter(video => video.url)
     .map((video, idx) => {
       const videoId = extractVideoId(video.url);
+      
+      // Calcular duração real em formato ISO 8601
+      const duration = video.video_duration_seconds && video.video_duration_seconds > 0
+        ? `PT${Math.floor(video.video_duration_seconds / 60)}M${video.video_duration_seconds % 60}S`
+        : undefined;
+      
+      // Preparar captions a partir de panda_config
+      const captions = video.panda_config?.subtitles?.map((sub: any) => ({
+        "@type": "AudioObject",
+        "inLanguage": sub.srclang,
+        "name": sub.label,
+        "encodingFormat": "text/vtt"
+      })) || [];
+      
       return {
         "@context": "https://schema.org",
         "@type": "VideoObject",
         "name": video.title || `${displayTitle} - Vídeo ${idx + 1}`,
-        "description": content.meta_description || content.excerpt,
-        "thumbnailUrl": videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url,
-        "uploadDate": new Date(content.created_at).toISOString(),
+        "description": video.description || content.meta_description || content.excerpt,
+        "thumbnailUrl": video.thumbnail_url || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url),
+        "uploadDate": new Date(video.created_at || content.created_at).toISOString(),
         "contentUrl": video.url,
-        "embedUrl": getEmbedUrl(video.url),
-        "duration": "PT15M"
+        "embedUrl": video.embed_url || getEmbedUrl(video.url),
+        ...(duration && { "duration": duration }),
+        ...(video.video_transcript && { "transcript": video.video_transcript }),
+        ...(captions.length > 0 && { "caption": captions })
       };
     });
+  
+  // Vincular vídeos ao artigo
+  if (videoSchemas.length > 0) {
+    articleSchema.video = videoSchemas;
+  }
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
