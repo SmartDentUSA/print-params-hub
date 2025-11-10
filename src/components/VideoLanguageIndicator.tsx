@@ -43,12 +43,12 @@ export function VideoLanguageIndicator({ audios = [], subtitles = [] }: VideoLan
   
   // Check if user's language has audio
   const hasAudioInUserLang = audios.some(
-    audio => audio.srclang === normalizedUserLang || audio.srclang.startsWith(language)
+    audio => audio.srclang === normalizedUserLang || (audio.srclang && audio.srclang.startsWith(language))
   );
 
   // Check if user's language has subtitles
   const hasSubtitlesInUserLang = subtitles.some(
-    sub => sub.srclang === normalizedUserLang || sub.srclang.startsWith(language)
+    sub => sub.srclang === normalizedUserLang || (sub.srclang && sub.srclang.startsWith(language))
   );
 
   // Determine message based on availability
