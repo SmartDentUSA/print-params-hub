@@ -58,16 +58,25 @@ export type KnowledgeVideo = {
 );
 
 // Helper para construir URL de embed baseado no tipo
-export const getVideoEmbedUrl = (video: KnowledgeVideo): string => {
+export const getVideoEmbedUrl = (video: KnowledgeVideo, language?: 'pt' | 'en' | 'es'): string => {
   if (video.video_type === 'youtube') {
     // Extrair ID do YouTube da URL
     const videoId = video.url?.includes('youtube.com') 
       ? new URL(video.url).searchParams.get('v')
       : video.url?.split('/').pop();
-    return `https://www.youtube.com/embed/${videoId}`;
+    
+    // YouTube: Ativar legendas automáticas no idioma selecionado
+    const ccLangMap: Record<string, string> = { 
+      pt: 'pt-BR', 
+      en: 'en', 
+      es: 'es' 
+    };
+    const ccLang = language ? ccLangMap[language] : 'pt-BR';
+    
+    return `https://www.youtube.com/embed/${videoId}?cc_load_policy=1&cc_lang_pref=${ccLang}&hl=${language || 'pt'}`;
   }
   
-  // PandaVideo: usar embed_url diretamente
+  // PandaVideo: sem suporte a query params para legendas/áudio
   return video.embed_url || '';
 };
 

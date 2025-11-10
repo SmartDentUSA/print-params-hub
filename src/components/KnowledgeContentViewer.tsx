@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink, Globe } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -185,9 +185,23 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                     📹 {t('knowledge.video')} {idx + 1} — {video.title}
                   </div>
                 )}
+                
+                {/* 🆕 Mensagem de legendas + dublagens (apenas PandaVideo) */}
+                {video.video_type === 'pandavideo' && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-md border border-border">
+                    <Globe className="w-4 h-4 flex-shrink-0" />
+                    <span>
+                      <strong>{t('knowledge.subtitle_available')}</strong>{' '}
+                      {language === 'es' ? '🇪🇸 Español' : language === 'en' ? '🇺🇸 English' : '🇧🇷 Português'}
+                      {' — '}
+                      <span className="opacity-75">{t('knowledge.subtitle_hint')}</span>
+                    </span>
+                  </div>
+                )}
+                
                 <div className="aspect-video rounded-lg overflow-hidden border border-border">
                   <iframe
-                    src={getVideoEmbedUrl(video)}
+                    src={getVideoEmbedUrl(video, language)}
                     className="w-full h-full"
                     allowFullScreen
                     title={video.title || `Vídeo ${idx + 1}`}

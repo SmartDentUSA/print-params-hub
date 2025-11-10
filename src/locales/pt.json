@@ -155,6 +155,8 @@
     "category_b": "Falhas, como resolver",
     "category_c": "Ciência e tecnologia",
     "category_d": "E-books e Dicas",
-    "category_e": "Informativos"
+    "category_e": "Informativos",
+    "subtitle_available": "Legendas e áudio disponíveis:",
+    "subtitle_hint": "Use os ícones CC (legendas) e ⚙️ (áudio) no player para trocar o idioma"
   }
 }

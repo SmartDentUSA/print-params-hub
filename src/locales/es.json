@@ -155,6 +155,8 @@
     "category_b": "Fallos, cómo resolverlos",
     "category_c": "Ciencia y Tecnología",
     "category_d": "E-books y Consejos",
-    "category_e": "Artículos Informativos"
+    "category_e": "Artículos Informativos",
+    "subtitle_available": "Subtítulos y audio disponibles:",
+    "subtitle_hint": "Use los íconos CC (subtítulos) y ⚙️ (audio) en el reproductor para cambiar el idioma"
   }
 }

@@ -155,6 +155,8 @@
     "category_b": "Troubleshooting",
     "category_c": "Science and Technology",
     "category_d": "E-books and Tips",
-    "category_e": "Informative Articles"
+    "category_e": "Informative Articles",
+    "subtitle_available": "Subtitles and audio available:",
+    "subtitle_hint": "Use the CC (subtitles) and ⚙️ (audio) icons in the player to change language"
   }
 }

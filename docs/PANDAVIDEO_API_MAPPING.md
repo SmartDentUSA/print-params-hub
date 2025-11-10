@@ -186,6 +186,39 @@ Aba: 🧪 PandaVideo Test
 
 ---
 
+## 🎬 Controle de Legendas e Dublagens no Player
+
+### Recursos Disponíveis
+Os vídeos PandaVideo oferecem:
+- **Legendas** (PT-BR, EN, ES) - controladas via ícone "CC"
+- **Dublagens** (múltiplas faixas de áudio) - controladas via ícone "⚙️"
+
+### Limitação da API
+A URL de embed do PandaVideo **não aceita query parameters** para controlar legendas ou áudio inicialmente. A API apenas expõe:
+
+```json
+{
+  "config": {
+    "defaultSubtitle": "pt-BR",
+    "subtitles": [
+      { "srclang": "pt-BR", "label": "Portuguese (Brazil)" },
+      { "srclang": "es", "label": "Spanish" },
+      { "srclang": "en", "label": "English" }
+    ]
+  },
+  "original_lang": "pt-BR"
+}
+```
+
+**Informações sobre dublagens NÃO são expostas pela API.**
+
+### Solução Implementada
+- ✅ **YouTube:** Legendas iniciam automaticamente no idioma do `LanguageContext`
+- 💡 **PandaVideo:** Mensagem visual orienta usuário a trocar legendas/áudio manualmente
+- 📋 **Instruções claras:** Indica quais ícones usar (CC para legendas, ⚙️ para áudio)
+
+---
+
 ## 🚀 Próximos Passos
 
 Após validação da API:
@@ -198,5 +231,5 @@ Após validação da API:
 
 ---
 
-**Última atualização:** 2025-01-07  
-**Status:** 📋 Aguardando testes iniciais da API
+**Última atualização:** 2025-01-10  
+**Status:** ✅ API validada e integração completa com suporte multilíngue
