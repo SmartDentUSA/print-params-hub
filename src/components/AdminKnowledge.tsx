@@ -325,13 +325,64 @@ Receba o texto bruto abaixo e:
       if (editingContent) {
         await updateContent(editingContent.id, contentData);
         
-        // Delete existing videos and re-add
+        // UPSERT inteligente de vídeos: atualiza órfãos ou insere novos
         const existingVids = await fetchVideosByContent(editingContent.id);
+        
+        // 1. Deletar vídeos que não estão mais na lista
         for (const vid of existingVids) {
-          await deleteVideo(vid.id);
+          const stillPresent = videos.find(v => {
+            // Type narrowing para PandaVideo
+            if (v.video_type === 'pandavideo' && vid.video_type === 'pandavideo') {
+              return v.pandavideo_id === vid.pandavideo_id;
+            }
+            // Type narrowing para YouTube
+            if (v.video_type === 'youtube' && vid.video_type === 'youtube') {
+              return v.url === vid.url;
+            }
+            // Fallback por ID
+            return v.id === vid.id;
+          });
+          if (!stillPresent) {
+            await deleteVideo(vid.id);
+          }
         }
+        
+        // 2. Inserir ou atualizar vídeos
         for (const video of videos) {
-          await insertVideo({ ...video, content_id: editingContent.id });
+          // Se o vídeo é PandaVideo, verificar se já existe no banco (pode ser órfão)
+          if (video.video_type === 'pandavideo') {
+            const { data: existingOrphan } = await supabase
+              .from('knowledge_videos')
+              .select('id, content_id')
+              .eq('pandavideo_id', video.pandavideo_id)
+              .maybeSingle();
+            
+            if (existingOrphan) {
+              // Atualizar content_id do vídeo existente (recupera órfãos)
+              const updateData: any = { 
+                content_id: editingContent.id,
+                title: video.title,
+                order_index: video.order_index
+              };
+              if (video.description) updateData.description = video.description;
+              
+              await supabase
+                .from('knowledge_videos')
+                .update(updateData)
+                .eq('id', existingOrphan.id);
+            } else {
+              // Inserir novo vídeo
+              await insertVideo({ ...video, content_id: editingContent.id });
+            }
+          } else {
+            // Vídeo YouTube: verificar se já existe por URL
+            if (video.id && existingVids.find(v => v.id === video.id)) {
+              // Já existe, não fazer nada
+              continue;
+            }
+            // Inserir novo
+            await insertVideo({ ...video, content_id: editingContent.id });
+          }
         }
         
         toast({ title: "✅ Conteúdo atualizado!" });
