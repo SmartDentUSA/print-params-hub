@@ -13,10 +13,14 @@ interface MetadataRequest {
   existingSlug?: string;
   existingMetaDesc?: string;
   existingFaqs?: Array<{ question: string; answer: string }>;
+  existingTitle?: string;
+  existingExcerpt?: string;
   regenerate?: {
     slug?: boolean;
     metaDescription?: boolean;
     faqs?: boolean;
+    title?: boolean;
+    excerpt?: boolean;
   };
 }
 
@@ -28,6 +32,8 @@ interface MetadataResponse {
     question: string;
     answer: string;
   }>;
+  title?: string;
+  excerpt?: string;
 }
 
 serve(async (req) => {
@@ -48,10 +54,21 @@ serve(async (req) => {
       existingSlug,
       existingMetaDesc,
       existingFaqs,
+      existingTitle,
+      existingExcerpt,
       regenerate = {}
     } = await req.json() as MetadataRequest;
 
-    if (!title || !contentHTML) {
+    // Para gerar título, só contentHTML é obrigatório
+    if (regenerate.title && !contentHTML) {
+      return new Response(
+        JSON.stringify({ error: 'ContentHTML is required to generate title' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Para outras operações, título e conteúdo são obrigatórios
+    if (!regenerate.title && (!title || !contentHTML)) {
       return new Response(
         JSON.stringify({ error: 'Title and contentHTML are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -60,10 +77,25 @@ serve(async (req) => {
 
     console.log('🤖 Generating metadata for:', { title, regenerate });
 
+    // ===== TITLE GENERATION =====
+    let generatedTitle = existingTitle || title || '';
+    if (regenerate.title) {
+      generatedTitle = await generateTitle(lovableApiKey, contentHTML);
+      console.log('✅ Generated title:', generatedTitle);
+    }
+
+    // ===== EXCERPT GENERATION =====
+    let excerpt = existingExcerpt || '';
+    if (regenerate.excerpt) {
+      excerpt = await generateExcerpt(lovableApiKey, generatedTitle, contentHTML);
+      console.log('✅ Generated excerpt:', excerpt);
+    }
+
     // ===== SLUG GENERATION =====
     let slug = existingSlug || '';
     if (!existingSlug || regenerate.slug) {
-      slug = generateSlug(title);
+      const titleForSlug = generatedTitle || title;
+      slug = generateSlug(titleForSlug);
       slug = await ensureUniqueSlug(supabase, slug);
       console.log('✅ Generated slug:', slug);
     }
@@ -71,18 +103,18 @@ serve(async (req) => {
     // ===== META DESCRIPTION GENERATION =====
     let metaDescription = existingMetaDesc || '';
     if (!existingMetaDesc || regenerate.metaDescription) {
-      metaDescription = await generateMetaDescription(lovableApiKey, title, contentHTML);
+      metaDescription = await generateMetaDescription(lovableApiKey, title || generatedTitle, contentHTML);
       console.log('✅ Generated meta description:', metaDescription);
     }
 
     // ===== KEYWORDS GENERATION =====
-    const keywords = await generateKeywords(lovableApiKey, title, contentHTML);
+    const keywords = await generateKeywords(lovableApiKey, title || generatedTitle, contentHTML);
     console.log('✅ Generated keywords:', keywords);
 
     // ===== FAQS GENERATION =====
     let faqs = existingFaqs || [];
     if (!existingFaqs || existingFaqs.length === 0 || regenerate.faqs) {
-      faqs = await generateFAQs(lovableApiKey, title, contentHTML);
+      faqs = await generateFAQs(lovableApiKey, title || generatedTitle, contentHTML);
       console.log('✅ Generated FAQs:', faqs.length);
     }
 
@@ -90,7 +122,9 @@ serve(async (req) => {
       slug,
       metaDescription,
       keywords,
-      faqs
+      faqs,
+      ...(regenerate.title && { title: generatedTitle }),
+      ...(regenerate.excerpt && { excerpt })
     };
 
     return new Response(
@@ -142,6 +176,128 @@ async function ensureUniqueSlug(supabase: any, baseSlug: string): Promise<string
   }
 
   return slug;
+}
+
+async function generateTitle(
+  apiKey: string,
+  contentHTML: string
+): Promise<string> {
+  const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const contentPreview = stripTags(contentHTML).substring(0, 800);
+
+  const prompt = `Você é um especialista em SEO e copywriting para conteúdo odontológico.
+
+Crie um título altamente otimizado para SEO baseado no conteúdo fornecido.
+
+Regras obrigatórias:
+- Máximo 60 caracteres
+- Incluir palavra-chave principal do conteúdo
+- Tom profissional e direto
+- Focado em benefício ou solução clara
+- Sem emojis
+- Sem pontuação excessiva (!, ?, etc)
+- Deve despertar curiosidade ou resolver dúvida
+- Não inventar dados não presentes no conteúdo
+
+Conteúdo: ${contentPreview}
+
+Retorne APENAS o título, sem aspas ou formatação.`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        { role: 'user', content: `TAREFA: Gerar Título SEO\n\n${prompt}` }
+      ],
+      max_tokens: 100,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AI API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  let titleText = data.choices[0]?.message?.content?.trim() || '';
+
+  // Remover aspas se existirem
+  titleText = titleText.replace(/^["']|["']$/g, '');
+
+  // Garantir 60 caracteres máximo
+  if (titleText.length > 60) {
+    titleText = titleText.substring(0, 57) + '...';
+  }
+
+  return titleText;
+}
+
+async function generateExcerpt(
+  apiKey: string,
+  title: string,
+  contentHTML: string
+): Promise<string> {
+  const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const contentPreview = stripTags(contentHTML).substring(0, 500);
+
+  const prompt = `Você é um especialista em SEO e copywriting para conteúdo odontológico.
+
+Crie um resumo (excerpt) altamente persuasivo baseado no título e conteúdo fornecidos.
+
+Regras obrigatórias:
+- Máximo 160 caracteres
+- Incluir palavra-chave principal do título
+- Tom profissional e claro
+- Focado em despertar interesse para leitura completa
+- Sem emojis
+- Frase completa, não cortada
+- Não inventar dados não presentes no conteúdo
+- Deve complementar o título, não repetir
+
+Título: ${title}
+Conteúdo: ${contentPreview}
+
+Retorne APENAS o resumo (excerpt), sem aspas ou formatação.`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        { role: 'user', content: `TAREFA: Gerar Resumo (Excerpt)\n\n${prompt}` }
+      ],
+      max_tokens: 200,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`AI API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  let excerptText = data.choices[0]?.message?.content?.trim() || '';
+
+  // Remover aspas se existirem
+  excerptText = excerptText.replace(/^["']|["']$/g, '');
+
+  // Garantir 160 caracteres máximo
+  if (excerptText.length > 160) {
+    excerptText = excerptText.substring(0, 157) + '...';
+  }
+
+  return excerptText;
 }
 
 async function generateMetaDescription(

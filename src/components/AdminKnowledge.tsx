@@ -278,6 +278,56 @@ Receba o texto bruto abaixo e:
       .replace(/(^-|-$)/g, '');
   };
 
+  const handleGenerateTitleAndExcerpt = async () => {
+    if (!formData.content_html) {
+      toast({
+        title: '⚠️ Campo obrigatório',
+        description: 'Preencha o Conteúdo antes de gerar Título e Resumo',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setIsGeneratingMetadata(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
+        body: {
+          title: formData.title || 'Título Temporário',
+          contentHTML: formData.content_html,
+          regenerate: {
+            title: true,
+            excerpt: true
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data.title) {
+        setFormData(prev => ({
+          ...prev,
+          title: data.title,
+          excerpt: data.excerpt || ''
+        }));
+        
+        toast({
+          title: '✅ Título + Resumo gerados!',
+          description: 'Campos atualizados com conteúdo gerado por IA',
+        });
+      }
+    } catch (err: any) {
+      console.error('❌ Erro ao gerar título e resumo:', err);
+      toast({
+        title: '❌ Erro na geração',
+        description: err.message || 'Tente novamente',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingMetadata(false);
+    }
+  };
+
   const handleSaveContent = async () => {
     if (!formData.title || !formData.excerpt) {
       toast({
@@ -820,6 +870,30 @@ Receba o texto bruto abaixo e:
                     onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
                   />
                 </div>
+                
+                {/* Botão Gerar Título + Resumo por IA */}
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateTitleAndExcerpt}
+                    disabled={isGeneratingMetadata || !formData.content_html}
+                    className="gap-2"
+                  >
+                    {isGeneratingMetadata ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        🪄 Gerar Título + Resumo por IA
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
                 <div>
                   <Label>Autor</Label>
                   <Select 
