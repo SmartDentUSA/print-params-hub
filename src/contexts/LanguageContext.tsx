@@ -23,9 +23,18 @@ const translations = {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
-    // Get language from localStorage or default to Portuguese
+    // Get language from localStorage first
     const saved = localStorage.getItem('language');
-    return (saved as Language) || 'pt';
+    if (saved) return saved as Language;
+
+    // Auto-detect browser language
+    const browserLang = navigator.language.toLowerCase();
+    if (browserLang.startsWith('es')) return 'es';
+    if (browserLang.startsWith('en')) return 'en';
+    if (browserLang.startsWith('pt')) return 'pt';
+    
+    // Default to Portuguese
+    return 'pt';
   });
 
   useEffect(() => {

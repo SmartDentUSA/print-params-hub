@@ -16,6 +16,7 @@ import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LanguageFlags } from '@/components/LanguageFlags';
+import { VideoLanguageIndicator } from '@/components/VideoLanguageIndicator';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -188,17 +189,12 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   </div>
                 )}
                 
-                {/* 🆕 Mensagem de legendas + dublagens (apenas PandaVideo) */}
-                {video.video_type === 'pandavideo' && (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 p-2 rounded-md border border-border">
-                    <Globe className="w-4 h-4 flex-shrink-0" />
-                    <span>
-                      <strong>{t('knowledge.subtitle_available')}</strong>{' '}
-                      {language === 'es' ? '🇪🇸 Español' : language === 'en' ? '🇺🇸 English' : '🇧🇷 Português'}
-                      {' — '}
-                      <span className="opacity-75">{t('knowledge.subtitle_hint')}</span>
-                    </span>
-                  </div>
+                {/* Language Indicator for PandaVideo */}
+                {video.video_type === 'pandavideo' && video.panda_config && (
+                  <VideoLanguageIndicator 
+                    audios={video.panda_config.audios}
+                    subtitles={video.panda_config.subtitles}
+                  />
                 )}
                 
                 <div className="aspect-video rounded-lg overflow-hidden border border-border">

@@ -157,6 +157,11 @@
     "category_d": "E-books e Dicas",
     "category_e": "Informativos",
     "subtitle_available": "Legendas e áudio disponíveis:",
-    "subtitle_hint": "Use os ícones CC (legendas) e ⚙️ (áudio) no player para trocar o idioma"
+    "subtitle_hint": "Use os ícones CC (legendas) e ⚙️ (áudio) no player para trocar o idioma",
+    "audio_available_your_language": "✅ Áudio disponível no seu idioma! Use o ícone ⚙️ no player para selecionar.",
+    "subtitles_only_your_language": "📝 Legendas disponíveis no seu idioma. Use o ícone CC no player.",
+    "select_language_in_player": "🌐 Use os ícones CC (legendas) e ⚙️ (áudio) no player para selecionar o idioma.",
+    "audio": "Áudio",
+    "subtitles": "Legendas"
   }
 }

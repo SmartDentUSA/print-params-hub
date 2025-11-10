@@ -157,6 +157,11 @@
     "category_d": "E-books y Consejos",
     "category_e": "Artículos Informativos",
     "subtitle_available": "Subtítulos y audio disponibles:",
-    "subtitle_hint": "Use los íconos CC (subtítulos) y ⚙️ (audio) en el reproductor para cambiar el idioma"
+    "subtitle_hint": "Use los íconos CC (subtítulos) y ⚙️ (audio) en el reproductor para cambiar el idioma",
+    "audio_available_your_language": "✅ ¡Audio disponible en tu idioma! Usa el ícono ⚙️ en el reproductor para seleccionar.",
+    "subtitles_only_your_language": "📝 Subtítulos disponibles en tu idioma. Usa el ícono CC en el reproductor.",
+    "select_language_in_player": "🌐 Usa los íconos CC (subtítulos) y ⚙️ (audio) en el reproductor para seleccionar el idioma.",
+    "audio": "Audio",
+    "subtitles": "Subtítulos"
   }
 }

@@ -157,6 +157,11 @@
     "category_d": "E-books and Tips",
     "category_e": "Informative Articles",
     "subtitle_available": "Subtitles and audio available:",
-    "subtitle_hint": "Use the CC (subtitles) and ⚙️ (audio) icons in the player to change language"
+    "subtitle_hint": "Use the CC (subtitles) and ⚙️ (audio) icons in the player to change language",
+    "audio_available_your_language": "✅ Audio available in your language! Use the ⚙️ icon in the player to select.",
+    "subtitles_only_your_language": "📝 Subtitles available in your language. Use the CC icon in the player.",
+    "select_language_in_player": "🌐 Use the CC (subtitles) and ⚙️ (audio) icons in the player to select language.",
+    "audio": "Audio",
+    "subtitles": "Subtitles"
   }
 }
