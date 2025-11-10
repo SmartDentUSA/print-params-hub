@@ -386,14 +386,25 @@ export type Database = {
           folder_id: string | null
           hls_url: string | null
           id: string
+          last_product_sync_at: string | null
           order_index: number
+          panda_custom_fields: Json | null
+          panda_tags: string[] | null
           pandavideo_external_id: string | null
           pandavideo_id: string | null
           preview_url: string | null
+          product_category: string | null
+          product_external_id: string | null
+          product_id: string | null
+          product_match_status: string | null
+          product_subcategory: string | null
+          resin_id: string | null
+          search_vector: unknown
           thumbnail_url: string | null
           title: string
           url: string | null
           video_duration_seconds: number | null
+          video_transcript: string | null
           video_type: string
         }
         Insert: {
@@ -405,14 +416,25 @@ export type Database = {
           folder_id?: string | null
           hls_url?: string | null
           id?: string
+          last_product_sync_at?: string | null
           order_index: number
+          panda_custom_fields?: Json | null
+          panda_tags?: string[] | null
           pandavideo_external_id?: string | null
           pandavideo_id?: string | null
           preview_url?: string | null
+          product_category?: string | null
+          product_external_id?: string | null
+          product_id?: string | null
+          product_match_status?: string | null
+          product_subcategory?: string | null
+          resin_id?: string | null
+          search_vector?: unknown
           thumbnail_url?: string | null
           title: string
           url?: string | null
           video_duration_seconds?: number | null
+          video_transcript?: string | null
           video_type?: string
         }
         Update: {
@@ -424,14 +446,25 @@ export type Database = {
           folder_id?: string | null
           hls_url?: string | null
           id?: string
+          last_product_sync_at?: string | null
           order_index?: number
+          panda_custom_fields?: Json | null
+          panda_tags?: string[] | null
           pandavideo_external_id?: string | null
           pandavideo_id?: string | null
           preview_url?: string | null
+          product_category?: string | null
+          product_external_id?: string | null
+          product_id?: string | null
+          product_match_status?: string | null
+          product_subcategory?: string | null
+          resin_id?: string | null
+          search_vector?: unknown
           thumbnail_url?: string | null
           title?: string
           url?: string | null
           video_duration_seconds?: number | null
+          video_transcript?: string | null
           video_type?: string
         }
         Relationships: [
@@ -440,6 +473,20 @@ export type Database = {
             columns: ["content_id"]
             isOneToOne: false
             referencedRelation: "knowledge_contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_videos_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_videos_resin_id_fkey"
+            columns: ["resin_id"]
+            isOneToOne: false
+            referencedRelation: "resins"
             referencedColumns: ["id"]
           },
         ]
@@ -973,6 +1020,22 @@ export type Database = {
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
       normalize_text: { Args: { text_input: string }; Returns: string }
+      search_knowledge_base: {
+        Args: { language_code?: string; search_query: string }
+        Returns: {
+          category_letter: string
+          category_name: string
+          content_id: string
+          content_type: string
+          excerpt: string
+          matched_field: string
+          relevance: number
+          slug: string
+          title: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "admin" | "user" | "author"

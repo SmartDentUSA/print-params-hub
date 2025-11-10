@@ -7,6 +7,7 @@ import { useData } from "@/contexts/DataContext";
 import { Link } from "react-router-dom";
 import { AdminSettings } from "@/components/AdminSettings";
 import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
+import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
 
 const AdminViewSupabase = () => {
   const dataContext = useData();
@@ -109,6 +110,9 @@ const AdminViewSupabase = () => {
 
           {/* PandaVideo Sync */}
           <AdminPandaVideoSync />
+
+          {/* Video Product Links Dashboard */}
+          <AdminVideoProductLinks />
 
           {/* Admin Settings */}
           <AdminSettings />

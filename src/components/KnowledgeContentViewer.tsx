@@ -8,6 +8,7 @@ import { AuthorSignature } from '@/components/AuthorSignature';
 import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeCTA } from '@/components/KnowledgeCTA';
+import { VideoSchema } from '@/components/VideoSchema';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -139,6 +140,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         videos={videos}
         relatedDocuments={relatedDocuments}
       />
+      <VideoSchema videos={videos} productName={displayContent.title} />
       <Breadcrumb items={breadcrumbItems} />
       
       {/* Hero Section with Category and Title */}

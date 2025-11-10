@@ -8,6 +8,7 @@ import { KnowledgeContentViewer } from "@/components/KnowledgeContentViewer";
 import { KnowledgeSEOHead } from "@/components/KnowledgeSEOHead";
 import { KnowledgeFeed } from "@/components/KnowledgeFeed";
 import { useKnowledge } from "@/hooks/useKnowledge";
+import { useKnowledgeSearch } from "@/hooks/useKnowledgeSearch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, ArrowLeft, Search } from "lucide-react";
@@ -18,7 +19,7 @@ export default function KnowledgeBase() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const contentRef = useRef<HTMLDivElement>(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [categories, setCategories] = useState<any[]>([]);
   const [contents, setContents] = useState<any[]>([]);
@@ -31,6 +32,8 @@ export default function KnowledgeBase() {
     fetchContentBySlug,
     loading
   } = useKnowledge();
+
+  const { results: searchResults, loading: searchLoading } = useKnowledgeSearch(searchTerm, language);
 
   // Load categories
   useEffect(() => {
@@ -88,10 +91,9 @@ export default function KnowledgeBase() {
     setSearchTerm(term);
   };
 
-  const filteredContents = searchTerm
-    ? contents.filter(c => 
-        c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.excerpt.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredContents = searchTerm && searchResults.length > 0
+    ? searchResults.filter(r => 
+        categoryLetter ? r.category_letter === categoryLetter.toUpperCase() : true
       )
     : contents;
 

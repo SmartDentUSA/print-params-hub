@@ -11,6 +11,94 @@ const toIntOrNull = (val: unknown): number | null => {
   return Number.isFinite(n) ? Math.round(n) : null;
 };
 
+// Fetch individual video details including custom_fields
+async function fetchVideoDetails(videoId: string, apiKey: string, baseUrl: string) {
+  const headers = {
+    'Authorization': apiKey,
+    'Content-Type': 'application/json',
+  };
+  
+  try {
+    const response = await fetch(
+      `${baseUrl}/videos/${videoId}?custom_fields=true`, 
+      { headers }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch details for video ${videoId}`);
+      return null;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching video ${videoId}:`, error);
+    return null;
+  }
+}
+
+// Link video to product using ID_Lojaintegrada
+async function linkVideoToProduct(supabase: any, customFields: any) {
+  const lojaId = customFields?.ID_Lojaintegrada;
+  
+  if (!lojaId) {
+    return {
+      product_match_status: 'not_found',
+      product_external_id: null,
+      product_id: null,
+      resin_id: null,
+      product_category: customFields?.Categoria || null,
+      product_subcategory: customFields?.Subcategoria || null,
+    };
+  }
+  
+  // 1. Buscar em system_a_catalog (prioridade)
+  const { data: catalogProduct } = await supabase
+    .from('system_a_catalog')
+    .select('id, external_id')
+    .eq('external_id', String(lojaId))
+    .maybeSingle();
+  
+  if (catalogProduct) {
+    return {
+      product_match_status: 'matched',
+      product_external_id: String(lojaId),
+      product_id: catalogProduct.id,
+      resin_id: null,
+      product_category: customFields?.Categoria || null,
+      product_subcategory: customFields?.Subcategoria || null,
+      last_product_sync_at: new Date().toISOString(),
+    };
+  }
+  
+  // 2. Fallback: buscar em resins
+  const { data: resin } = await supabase
+    .from('resins')
+    .select('id, external_id')
+    .eq('external_id', String(lojaId))
+    .maybeSingle();
+  
+  if (resin) {
+    return {
+      product_match_status: 'matched',
+      product_external_id: String(lojaId),
+      product_id: null,
+      resin_id: resin.id,
+      product_category: customFields?.Categoria || null,
+      product_subcategory: customFields?.Subcategoria || null,
+      last_product_sync_at: new Date().toISOString(),
+    };
+  }
+  
+  return {
+    product_match_status: 'not_found',
+    product_external_id: String(lojaId),
+    product_id: null,
+    resin_id: null,
+    product_category: customFields?.Categoria || null,
+    product_subcategory: customFields?.Subcategoria || null,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -114,6 +202,16 @@ Deno.serve(async (req) => {
 
       // Upsert vídeos
       for (const video of videosData.videos) {
+        // Buscar detalhes completos do vídeo
+        const videoDetails = await fetchVideoDetails(video.id, pandaApiKey, baseUrl);
+        
+        const customFields = videoDetails?.custom_fields || {};
+        const tags = videoDetails?.tags || [];
+        const transcript = videoDetails?.transcript || null;
+        
+        // Vincular produto
+        const productLink = await linkVideoToProduct(supabase, customFields);
+        
         const videoData = {
           video_type: 'pandavideo',
           pandavideo_id: video.id,
@@ -126,6 +224,22 @@ Deno.serve(async (req) => {
           embed_url: video.video_player || null,
           hls_url: video.video_hls || null,
           video_duration_seconds: toIntOrNull(video.length),
+          
+          // 🆕 ENRIQUECIMENTO
+          panda_custom_fields: customFields,
+          panda_tags: tags,
+          analytics: {
+            views: videoDetails?.views || 0,
+            watch_time_seconds: videoDetails?.watch_time || 0,
+            engagement_rate: videoDetails?.engagement_rate || 0,
+            last_viewed_at: videoDetails?.last_viewed_at || null,
+            synced_at: new Date().toISOString()
+          },
+          video_transcript: transcript,
+          
+          // 🆕 VINCULAÇÃO PRODUTO
+          ...productLink,
+          
           order_index: 0,
           content_id: null,
         };
