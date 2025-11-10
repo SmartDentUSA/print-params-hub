@@ -100,20 +100,25 @@ async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: 
   }
 }
 
-// Extract transcript from video details (no additional API call needed)
-async function extractTranscriptFromVideo(videoDetails: any) {
-  const videoId = videoDetails?.id || 'unknown';
-  
+// Extract transcript from panda_config.subtitles stored in database
+async function extractTranscriptFromVideo(supabase: any, videoId: string) {
   try {
-    // Debug: Log the structure we're receiving
-    console.log(`📦 Video ${videoId} config keys:`, Object.keys(videoDetails?.config || {}));
+    // Buscar panda_config do banco de dados (já sincronizado anteriormente)
+    const { data: existingVideo } = await supabase
+      .from('knowledge_videos')
+      .select('panda_config')
+      .eq('pandavideo_id', videoId)
+      .maybeSingle();
     
-    // Access subtitles from config object (already fetched)
-    const subtitles = videoDetails?.config?.subtitles || [];
+    // Usar subtitles do panda_config salvo no banco
+    // Pode estar em 'subtitles' (da API original) ou 'subtitles_available' (da sync anterior)
+    const subtitles = existingVideo?.panda_config?.subtitles || 
+                     existingVideo?.panda_config?.subtitles_available || 
+                     [];
     
-    console.log(`🔍 Video ${videoId}: found ${subtitles.length} subtitles`);
+    console.log(`🔍 Video ${videoId}: found ${subtitles.length} subtitles in DB`);
     if (subtitles.length > 0) {
-      console.log(`   Languages: ${subtitles.map((s: any) => s.srclang).join(', ')}`);
+      console.log(`   Languages: ${subtitles.map((s: any) => s.srclang || s.language).join(', ')}`);
     }
     
     if (subtitles.length === 0) {
@@ -358,10 +363,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Fetch details + custom_fields (2 calls) + extract transcript from details
+        // Fetch details + custom_fields (2 calls) + extract transcript from DB
         const videoDetails = await fetchVideoDetails(video.id, pandaApiKey, baseUrl);
         const customFieldsArray = await fetchVideoCustomFields(video.id, pandaApiKey, baseUrl);
-        const { subtitles_info, transcript } = await extractTranscriptFromVideo(videoDetails);
+        const { subtitles_info, transcript } = await extractTranscriptFromVideo(supabase, video.id);
         
         // Normalize custom_fields
         const customFields = normalizeCustomFields(customFieldsArray);
