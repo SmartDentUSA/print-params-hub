@@ -16,9 +16,22 @@ const App = () => (
     <Route path="/:brandSlug/:modelSlug" element={<Index />} />
     <Route path="/:brandSlug/:modelSlug/:resinSlug" element={<Index />} />
     <Route path="/admin" element={<AdminViewSecure />} />
-    <Route path="/base-conhecimento" element={<KnowledgeBase />} />
-    <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase />} />
-    <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase />} />
+    
+    {/* Portuguese routes (default) */}
+    <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
+    <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase lang="pt" />} />
+    <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="pt" />} />
+    
+    {/* English routes */}
+    <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
+    <Route path="/en/knowledge-base/:categoryLetter" element={<KnowledgeBase lang="en" />} />
+    <Route path="/en/knowledge-base/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="en" />} />
+    
+    {/* Spanish routes */}
+    <Route path="/es/base-conocimiento" element={<KnowledgeBase lang="es" />} />
+    <Route path="/es/base-conocimiento/:categoryLetter" element={<KnowledgeBase lang="es" />} />
+    <Route path="/es/base-conocimiento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="es" />} />
+    
     <Route path="/produtos/:slug" element={<ProductPage />} />
     <Route path="/depoimentos/:slug" element={<TestimonialPage />} />
     <Route path="/categorias/:slug" element={<CategoryPage />} />

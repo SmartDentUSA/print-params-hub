@@ -24,6 +24,12 @@ verify_jwt = false
 [functions.generate-knowledge-sitemap]
 verify_jwt = false
 
+[functions.generate-knowledge-sitemap-en]
+verify_jwt = false
+
+[functions.generate-knowledge-sitemap-es]
+verify_jwt = false
+
 [functions.create-user]
 verify_jwt = true
 

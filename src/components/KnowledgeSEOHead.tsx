@@ -14,6 +14,7 @@ interface KnowledgeSEOHeadProps {
     resin_name: string;
     resin_manufacturer: string;
   }[];
+  currentLang?: 'pt' | 'en' | 'es';
 }
 
 const extractVideoId = (url: string | null | undefined): string => {
@@ -166,19 +167,40 @@ const stripTags = (html: string): string => {
     .trim();
 };
 
-export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [] }: KnowledgeSEOHeadProps) {
+export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
+  
+  // Map language to hreflang format
+  const langMap = {
+    'pt': 'pt-BR',
+    'en': 'en-US',
+    'es': 'es-ES'
+  };
+  
+  const htmlLang = langMap[currentLang];
   
   // Default to Portuguese title if no language-specific title exists
   const displayTitle = content?.title || '';
 
   // Página inicial da Base de Conhecimento
   if (!content && !category) {
+    const pathByLang = {
+      'pt': '/base-conhecimento',
+      'en': '/en/knowledge-base',
+      'es': '/es/base-conocimiento'
+    };
+    
     return (
-      <Helmet htmlAttributes={{ lang: 'pt-BR' }}>
+      <Helmet htmlAttributes={{ lang: htmlLang }}>
         <title>Base de Conhecimento - Impressão 3D Odontológica | Smart Dent</title>
         <meta name="description" content="Tutoriais, guias e dicas sobre impressão 3D para odontologia. Aprenda a configurar impressoras, escolher resinas e resolver problemas." />
-        <link rel="canonical" href={`${baseUrl}/base-conhecimento`} />
+        <link rel="canonical" href={`${baseUrl}${pathByLang[currentLang]}`} />
+        
+        {/* hreflang tags for multilingual SEO */}
+        <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}`} />
+        <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}`} />
+        <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}`} />
+        <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}`} />
         
         {/* RSS/Atom Feed Auto-discovery (Categorias C, D, E) */}
         <link rel="alternate" type="application/rss+xml" title="Base de Conhecimento - RSS (C, D, E)" href="https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=rss" />
@@ -188,7 +210,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         <meta property="og:type" content="website" />
         <meta property="og:title" content="Base de Conhecimento - Impressão 3D Odontológica" />
         <meta property="og:description" content="Tutoriais, guias e dicas sobre impressão 3D para odontologia" />
-        <meta property="og:url" content={`${baseUrl}/base-conhecimento`} />
+        <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}`} />
         
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary" />
@@ -200,17 +222,29 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   // Página de categoria
   if (!content && category) {
+    const pathByLang = {
+      'pt': '/base-conhecimento',
+      'en': '/en/knowledge-base',
+      'es': '/es/base-conocimiento'
+    };
+    
     return (
-      <Helmet htmlAttributes={{ lang: 'pt-BR' }}>
+      <Helmet htmlAttributes={{ lang: htmlLang }}>
         <title>{category.name} - Base de Conhecimento | Smart Dent</title>
         <meta name="description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
-        <link rel="canonical" href={`${baseUrl}/base-conhecimento/${category.letter?.toLowerCase()}`} />
+        <link rel="canonical" href={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
+        
+        {/* hreflang tags for multilingual SEO */}
+        <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category.letter?.toLowerCase()}`} />
+        <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category.letter?.toLowerCase()}`} />
+        <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category.letter?.toLowerCase()}`} />
+        <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${category.letter?.toLowerCase()}`} />
         
         {/* Open Graph */}
         <meta property="og:type" content="website" />
         <meta property="og:title" content={`${category.name} - Base de Conhecimento`} />
         <meta property="og:description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
-        <meta property="og:url" content={`${baseUrl}/base-conhecimento/${category.letter?.toLowerCase()}`} />
+        <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
         
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary" />
@@ -223,7 +257,13 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   // Artigo individual
   if (!content) return null;
 
-  const canonicalUrl = `https://smartdent.com.br/base-conhecimento/${category?.letter?.toLowerCase()}/${content.slug}`;
+  const pathByLang = {
+    'pt': '/base-conhecimento',
+    'en': '/en/knowledge-base',
+    'es': '/es/base-conocimiento'
+  };
+
+  const canonicalUrl = `${baseUrl}${pathByLang[currentLang]}/${category?.letter?.toLowerCase()}/${content.slug}`;
 
   // Preparar articleBody e wordCount para E-E-A-T
   const articleBody = stripTags(content.content_html || '');
@@ -240,7 +280,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "dateModified": new Date(content.updated_at).toISOString(),
     "articleBody": articleBody,
     "wordCount": wordCount,
-    "inLanguage": "pt-BR",
+    "inLanguage": htmlLang,
     "author": content.authors ? {
       "@type": "Person",
       "name": content.authors.name,
@@ -288,12 +328,16 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         ? `PT${Math.floor(video.video_duration_seconds / 60)}M${video.video_duration_seconds % 60}S`
         : undefined;
       
+      // Preparar audioLanguage a partir de panda_config.audios
+      const audioLanguages = video.panda_config?.audios?.map((aud: any) => aud.srclang).filter(Boolean) || [];
+      
       // Preparar captions a partir de panda_config
       const captions = video.panda_config?.subtitles?.map((sub: any) => ({
         "@type": "AudioObject",
         "inLanguage": sub.srclang,
         "name": sub.label,
-        "encodingFormat": "text/vtt"
+        "encodingFormat": "text/vtt",
+        "contentUrl": sub.src
       })) || [];
       
       return {
@@ -305,6 +349,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "uploadDate": new Date(video.created_at || content.created_at).toISOString(),
         "contentUrl": video.url,
         "embedUrl": video.embed_url || getEmbedUrl(video.url),
+        "inLanguage": htmlLang,
+        ...(audioLanguages.length > 0 && { "audioLanguage": audioLanguages }),
         ...(duration && { "duration": duration }),
         ...(video.video_transcript && { "transcript": video.video_transcript }),
         ...(captions.length > 0 && { "caption": captions })
@@ -392,11 +438,17 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       : "summary";
 
   return (
-    <Helmet htmlAttributes={{ lang: 'pt-BR' }}>
+    <Helmet htmlAttributes={{ lang: htmlLang }}>
       <title>{displayTitle} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       <link rel="canonical" href={canonicalUrl} />
+      
+      {/* hreflang tags for multilingual SEO */}
+      <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
+      <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
+      <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
+      <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
       
       {/* Preload OG Image */}
       {content.og_image_url && (

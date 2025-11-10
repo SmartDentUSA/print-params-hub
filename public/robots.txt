@@ -16,4 +16,6 @@ Allow: /*.pdf$
 
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap
+Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-en
+Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-es
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap

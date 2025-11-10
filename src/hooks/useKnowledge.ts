@@ -36,6 +36,10 @@ export type KnowledgeVideo = {
   title: string;
   order_index: number;
   created_at?: string;
+  panda_config?: {
+    audios?: Array<{ srclang: string; label: string; src: string }>;
+    subtitles?: Array<{ srclang: string; label: string; src: string }>;
+  };
 } & (
   | {
       video_type: 'youtube';

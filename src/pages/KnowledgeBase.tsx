@@ -14,12 +14,21 @@ import { Input } from "@/components/ui/input";
 import { MessageCircle, ArrowLeft, Search } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-export default function KnowledgeBase() {
+interface KnowledgeBaseProps {
+  lang?: 'pt' | 'en' | 'es';
+}
+
+export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
   const { categoryLetter, contentSlug } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const contentRef = useRef<HTMLDivElement>(null);
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
+
+  // Set language from route on mount
+  useEffect(() => {
+    setLanguage(lang);
+  }, [lang, setLanguage]);
 
   const [categories, setCategories] = useState<any[]>([]);
   const [contents, setContents] = useState<any[]>([]);
@@ -80,11 +89,13 @@ export default function KnowledgeBase() {
   }, [selectedContent, isMobile]);
 
   const handleCategorySelect = (letter: string) => {
-    navigate(`/base-conhecimento/${letter.toLowerCase()}`);
+    const basePath = lang === 'en' ? '/en/knowledge-base' : lang === 'es' ? '/es/base-conocimiento' : '/base-conhecimento';
+    navigate(`${basePath}/${letter.toLowerCase()}`);
   };
 
   const handleContentSelect = (slug: string) => {
-    navigate(`/base-conhecimento/${categoryLetter}/${slug}`);
+    const basePath = lang === 'en' ? '/en/knowledge-base' : lang === 'es' ? '/es/base-conocimiento' : '/base-conhecimento';
+    navigate(`${basePath}/${categoryLetter}/${slug}`);
   };
 
   const handleSearch = (term: string) => {
@@ -113,6 +124,7 @@ export default function KnowledgeBase() {
       <KnowledgeSEOHead 
         content={selectedContent}
         category={categories.find(c => c.letter === categoryLetter?.toUpperCase())}
+        currentLang={lang}
       />
       
       <Header showAdminButton={true} />
