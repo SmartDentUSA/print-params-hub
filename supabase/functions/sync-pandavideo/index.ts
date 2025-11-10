@@ -294,14 +294,14 @@ Deno.serve(async (req) => {
         // Normalize custom_fields
         const customFields = normalizeCustomFields(customFieldsArray);
         
+        // Capturar config completo que a API retorna
+        const pandaConfig = videoDetails?.config || {};
+        
         // Log sample (first video of page)
         if (!sampleLogged && Object.keys(customFields).length > 0) {
           console.log(`📊 Sample custom_fields for ${video.id}:`, JSON.stringify(customFields));
           sampleLogged = true;
         }
-        
-        const tags = videoDetails?.tags || [];
-        const transcript = videoDetails?.transcript || null;
         
         // Vincular produto
         const productLink = await linkVideoToProduct(supabase, customFields);
@@ -320,15 +320,7 @@ Deno.serve(async (req) => {
           video_duration_seconds: toIntOrNull(video.length),
           
           panda_custom_fields: customFields,
-          panda_tags: tags,
-          analytics: {
-            views: videoDetails?.views || 0,
-            watch_time_seconds: videoDetails?.watch_time || 0,
-            engagement_rate: videoDetails?.engagement_rate || 0,
-            last_viewed_at: videoDetails?.last_viewed_at || null,
-            synced_at: new Date().toISOString()
-          },
-          video_transcript: transcript,
+          panda_config: pandaConfig,
           
           ...productLink,
           

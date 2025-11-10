@@ -388,6 +388,7 @@ export type Database = {
           id: string
           last_product_sync_at: string | null
           order_index: number
+          panda_config: Json | null
           panda_custom_fields: Json | null
           panda_tags: string[] | null
           pandavideo_external_id: string | null
@@ -418,6 +419,7 @@ export type Database = {
           id?: string
           last_product_sync_at?: string | null
           order_index: number
+          panda_config?: Json | null
           panda_custom_fields?: Json | null
           panda_tags?: string[] | null
           pandavideo_external_id?: string | null
@@ -448,6 +450,7 @@ export type Database = {
           id?: string
           last_product_sync_at?: string | null
           order_index?: number
+          panda_config?: Json | null
           panda_custom_fields?: Json | null
           panda_tags?: string[] | null
           pandavideo_external_id?: string | null

@@ -313,10 +313,7 @@ async function fetchProductVideos(supabase: any, options: any) {
     
     // Custom fields do PandaVideo
     panda_custom_fields: v.panda_custom_fields,
-    panda_tags: v.panda_tags,
-    
-    // Transcrição
-    video_transcript: v.video_transcript,
+    panda_config: v.panda_config,
     
     // Metadata
     folder_id: v.folder_id,
