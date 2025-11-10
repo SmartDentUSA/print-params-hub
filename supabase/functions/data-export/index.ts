@@ -259,6 +259,77 @@ async function fetchCatalogDocuments(supabase: any, options: any) {
   }));
 }
 
+async function fetchProductVideos(supabase: any, options: any) {
+  let query = supabase
+    .from('knowledge_videos')
+    .select(`
+      *,
+      system_a_catalog!knowledge_videos_product_id_fkey(
+        id,
+        name,
+        slug,
+        category,
+        external_id,
+        product_category,
+        product_subcategory
+      )
+    `)
+    .not('product_id', 'is', null)
+    .eq('product_match_status', 'matched')
+    .order('created_at', { ascending: false });
+  
+  if (options.approved_only) {
+    query = query.eq('system_a_catalog.active', true)
+                 .eq('system_a_catalog.approved', true);
+  }
+  
+  const { data: videos, error } = await query;
+  if (error) throw error;
+  
+  return (videos || []).map((v: any) => ({
+    id: v.id,
+    pandavideo_id: v.pandavideo_id,
+    pandavideo_external_id: v.pandavideo_external_id,
+    
+    // Informações do produto vinculado
+    product_id: v.product_id,
+    product_name: v.system_a_catalog?.name,
+    product_slug: v.system_a_catalog?.slug,
+    product_category: v.product_category,
+    product_subcategory: v.product_subcategory,
+    product_external_id: v.product_external_id,
+    product_match_status: v.product_match_status,
+    
+    // Dados do vídeo
+    title: v.title,
+    description: v.description,
+    video_duration_seconds: v.video_duration_seconds,
+    
+    // URLs do PandaVideo
+    embed_url: v.embed_url,
+    hls_url: v.hls_url,
+    thumbnail_url: v.thumbnail_url,
+    preview_url: v.preview_url,
+    
+    // Custom fields do PandaVideo
+    panda_custom_fields: v.panda_custom_fields,
+    panda_tags: v.panda_tags,
+    
+    // Transcrição
+    video_transcript: v.video_transcript,
+    
+    // Metadata
+    folder_id: v.folder_id,
+    order_index: v.order_index,
+    created_at: v.created_at,
+    
+    // URL da página do produto
+    product_page_url: v.system_a_catalog?.slug 
+      ? `https://parametros.smartdent.com.br/produto/${v.system_a_catalog.slug}`
+      : null
+  }));
+}
+
 async function fetchKnowledgeCategories(supabase: any, options: any) {
   let query = supabase
     .from('knowledge_categories')
@@ -528,6 +599,7 @@ function calculateStats(data: any) {
                        (data.system_a_catalog?.stats?.accessories || 0),
     resin_documents: data.resin_documents?.length || 0,
     catalog_documents: data.catalog_documents?.length || 0,
+    product_videos: data.product_videos?.length || 0,
     total_html_size_mb: (htmlSize / 1024 / 1024).toFixed(2)
   };
 }
@@ -630,6 +702,18 @@ function formatCompact(data: any) {
       file_name: doc.file_name,
       file_url: doc.file_url,
       active: doc.active
+    })),
+    product_videos: data.product_videos?.map((v: any) => ({
+      id: v.id,
+      pandavideo_id: v.pandavideo_id,
+      product_id: v.product_id,
+      product_name: v.product_name,
+      product_external_id: v.product_external_id,
+      title: v.title,
+      embed_url: v.embed_url,
+      thumbnail_url: v.thumbnail_url,
+      video_duration_seconds: v.video_duration_seconds,
+      panda_custom_fields: v.panda_custom_fields
     })),
     knowledge_categories: data.knowledge_categories,
     knowledge_contents: data.knowledge_contents?.map((c: any) => ({
@@ -805,6 +889,34 @@ function formatAiReady(data: any) {
       ativo: doc.active,
       criado_em: doc.created_at,
       atualizado_em: doc.updated_at
+    })),
+    videos_produtos: (data.product_videos || []).map((v: any) => ({
+      id: v.id,
+      pandavideo_id: v.pandavideo_id,
+      produto: {
+        id: v.product_id,
+        nome: v.product_name,
+        slug: v.product_slug,
+        categoria: v.product_category,
+        subcategoria: v.product_subcategory,
+        external_id: v.product_external_id,
+        url_pagina: v.product_page_url
+      },
+      video: {
+        titulo: v.title,
+        descricao: v.description,
+        duracao_segundos: v.video_duration_seconds,
+        embed_url: v.embed_url,
+        hls_url: v.hls_url,
+        thumbnail: v.thumbnail_url,
+        preview: v.preview_url,
+        transcricao: v.video_transcript
+      },
+      campos_personalizados: v.panda_custom_fields,
+      tags: v.panda_tags || [],
+      status_vinculo: v.product_match_status,
+      ordem_exibicao: v.order_index,
+      criado_em: v.created_at
     })),
     conhecimento: {
       categorias: (data.knowledge_categories || []).map((c: any) => ({
@@ -1060,6 +1172,9 @@ Deno.serve(async (req) => {
       include_catalog_documents: bodyParams.include_catalog_documents !== undefined 
         ? bodyParams.include_catalog_documents 
         : url.searchParams.get('include_catalog_documents') === 'true',
+      include_product_videos: bodyParams.include_product_videos !== undefined 
+        ? bodyParams.include_product_videos 
+        : url.searchParams.get('include_product_videos') === 'true',
       include_knowledge: bodyParams.include_knowledge_contents !== undefined
         ? bodyParams.include_knowledge_contents 
         : bodyParams.include_knowledge !== undefined
@@ -1163,6 +1278,14 @@ Deno.serve(async (req) => {
         fetchCatalogDocuments(supabase, options)
           .then(d => { data.catalog_documents = d; })
           .catch(err => console.error('Error fetching catalog_documents:', err))
+      );
+    }
+    
+    if (options.include_product_videos) {
+      promises.push(
+        fetchProductVideos(supabase, options)
+          .then(d => { data.product_videos = d; })
+          .catch(err => console.error('Error fetching product_videos:', err))
       );
     }
     

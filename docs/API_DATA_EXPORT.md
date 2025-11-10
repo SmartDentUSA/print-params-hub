@@ -28,7 +28,7 @@ O endpoint retorna apenas dados ativos e aprovados (`active=true`, `approved=tru
 
 ---
 
-## 📊 Dados Exportados (10 Entidades)
+## 📊 Dados Exportados (12 Entidades)
 
 ### 1. **Brands** (Marcas de Impressoras)
 - `id`, `name`, `slug`, `logo_url`, `active`
@@ -95,6 +95,17 @@ Dados sincronizados do Sistema A (plataforma comercial). Total: ~284 registros.
 - `resin_page_url` (link para página da resina no site)
 - `active` (se o documento está ativo)
 
+### 12. **Product Videos** 🆕 (Vídeos do PandaVideo Vinculados a Produtos)
+- `id`, `pandavideo_id`, `pandavideo_external_id`
+- **Produto vinculado**: `product_id`, `product_name`, `product_slug`, `product_category`, `product_subcategory`, `product_external_id`, `product_page_url`
+- **Dados do vídeo**: `title`, `description`, `video_duration_seconds`
+- **URLs PandaVideo**: `embed_url`, `hls_url`, `thumbnail_url`, `preview_url`
+- **Campos personalizados**: `panda_custom_fields` (objeto JSON com campos customizados do PandaVideo)
+- **Tags**: `panda_tags[]`
+- **Transcrição**: `video_transcript` (texto extraído do vídeo)
+- **Status**: `product_match_status` (matched/pending)
+- **Metadata**: `folder_id`, `order_index`, `created_at`
+
 **Categorias:**
 - `company_info`: Perfil da empresa (1 registro)
 - `category_config`: Configurações de categorias SEO (~25 registros)
@@ -141,6 +152,8 @@ Dados sincronizados do Sistema A (plataforma comercial). Total: ~284 registros.
 | `include_authors` | `boolean` | `true` | Incluir autores |
 | `include_system_a` | `boolean` | `true` | Incluir catálogo comercial Sistema A (~284 registros) |
 | `include_resin_documents` | `boolean` | `true` | Incluir documentos técnicos das resinas (PDFs, datasheets) |
+| `include_catalog_documents` | `boolean` | `false` | Incluir documentos dos produtos do catálogo (manuais, especificações) |
+| `include_product_videos` | `boolean` | `false` | Incluir vídeos do PandaVideo vinculados a produtos |
 | `denormalize` | `boolean` | `true` | Expandir relacionamentos (IDs → objetos completos) |
 | `extract_text` | `boolean` | `true` | Extrair texto puro do HTML (`content_html` → `content_text`) |
 | `approved_only` | `boolean` | `true` | Apenas itens ativos/aprovados |
@@ -703,7 +716,66 @@ curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=a
 
 ---
 
-## 🔧 Uso com JavaScript/TypeScript
+### Exemplo 7: Buscar vídeos do PandaVideo vinculados a produtos 🆕
+
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?format=ai_ready&include_product_videos=true"
+```
+
+**Retorna (formato `ai_ready`):**
+```json
+{
+  "videos_produtos": [
+    {
+      "id": "634b60df-e4d6-4e41-b796-3633e0c4ce4a",
+      "pandavideo_id": "634b60df-e4d6-4e41-b796-3633e0c4ce4a",
+      "produto": {
+        "id": "uuid",
+        "nome": "GLAZEON-SPLINT (Smart Dent)",
+        "slug": "glazeon-splint",
+        "categoria": "PÓS-IMPRESSÃO",
+        "subcategoria": "ACABAMENTO E FINALIZAÇÃO",
+        "external_id": "356341240",
+        "url_pagina": "https://parametros.smartdent.com.br/produto/glazeon-splint"
+      },
+      "video": {
+        "titulo": "GlazeON - Splint",
+        "descricao": "Tutorial de aplicação do GlazeON em splints",
+        "duracao_segundos": 180,
+        "embed_url": "https://player-vz-23eb8993-7f2.tv.pandavideo.com.br/embed/?v=634b60df-e4d6-4e41-b796-3633e0c4ce4a",
+        "hls_url": "https://b-vz-23eb8993-7f2.tv.pandavideo.com.br/634b60df-e4d6-4e41-b796-3633e0c4ce4a/playlist.m3u8",
+        "thumbnail": "https://b-vz-23eb8993-7f2.tv.pandavideo.com.br/634b60df-e4d6-4e41-b796-3633e0c4ce4a/thumbs/thumb_0001.jpg",
+        "preview": "https://b-vz-23eb8993-7f2.tv.pandavideo.com.br/634b60df-e4d6-4e41-b796-3633e0c4ce4a/previews/preview.mp4",
+        "transcricao": "Texto extraído do áudio do vídeo..."
+      },
+      "campos_personalizados": {
+        "ID_Lojaintegrada": "356341240",
+        "Nome_do_Produto": "GLAZEON-SPLINT (Smart Dent)",
+        "Categoria": "PÓS-IMPRESSÃO",
+        "Subcategoria": "ACABAMENTO E FINALIZAÇÃO"
+      },
+      "tags": ["tutorial", "splint", "glazeon", "pos-impressao"],
+      "status_vinculo": "matched",
+      "ordem_exibicao": 1,
+      "criado_em": "2025-01-10T12:00:00Z"
+    }
+  ]
+}
+```
+
+**Uso para IA:**
+- ✅ **Chatbot:** "Tem vídeo tutorial do produto GlazeON?" → Retorna embed do PandaVideo
+- ✅ **SGE:** Mostra vídeos relacionados aos produtos nas respostas
+- ✅ **Assistente virtual:** "Como usar o produto X?" → Lista vídeos instrucionais
+- ✅ **Sincronização:** E-commerce exibe vídeos do PandaVideo nas páginas de produto
+- ✅ **Análise:** Transcrição completa dos vídeos para busca semântica
+
+**Buscar apenas vídeos (sem outros dados):**
+```bash
+curl "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/data-export?include_product_videos=true&include_brands=false&include_models=false&include_parameters=false&include_resins=false&include_knowledge=false&include_categories=false&include_keywords=false&include_authors=false&include_system_a=false&include_resin_documents=false"
+```
+
+---
 
 ```typescript
 // Fetch completo para IA
