@@ -137,15 +137,17 @@ async function fetchVideoSubtitles(videoId: string, apiKey: string, baseUrl: str
         
         if (transcriptResponse.ok) {
           const vttContent = await transcriptResponse.text();
-          // Parse VTT to plain text (remove timestamps and WEBVTT headers)
+          // Parse VTT to plain text (remove timestamps, WEBVTT headers, and line numbers)
           const plainText = vttContent
             .split('\n')
-            .filter(line => 
-              !line.startsWith('WEBVTT') && 
-              !line.includes('-->') && 
-              !line.startsWith('X-TIMESTAMP') &&
-              line.trim() !== ''
-            )
+            .filter(line => {
+              const trimmed = line.trim();
+              return trimmed !== '' &&
+                !trimmed.startsWith('WEBVTT') && 
+                !trimmed.includes('-->') && 
+                !trimmed.startsWith('X-TIMESTAMP') &&
+                !/^\d+$/.test(trimmed); // Remove lines that are only numbers
+            })
             .join(' ')
             .replace(/\s+/g, ' ')
             .trim();
