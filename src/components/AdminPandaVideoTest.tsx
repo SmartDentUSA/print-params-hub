@@ -14,7 +14,7 @@ export function AdminPandaVideoTest() {
   const [response, setResponse] = useState<any>(null);
   const [lastAction, setLastAction] = useState<string>('');
 
-  const callAPI = async (action: string) => {
+  const callAPI = async (action: string, options?: { extraParams?: Record<string, any>, rawPath?: string }) => {
     setLoading(true);
     setLastAction(action);
     try {
@@ -24,7 +24,9 @@ export function AdminPandaVideoTest() {
           videoId: videoId || undefined, 
           limit: 10,
           startDate: startDate || undefined,
-          endDate: endDate || undefined
+          endDate: endDate || undefined,
+          extraParams: options?.extraParams,
+          rawPath: options?.rawPath,
         }
       });
 
@@ -80,6 +82,11 @@ export function AdminPandaVideoTest() {
     if (data?.folders && Array.isArray(data.folders)) {
       insights.push(`✅ ${data.folders.length} pasta(s) encontrada(s)`);
     }
+
+    // Detectar custom_fields em diferentes formatos conhecidos
+    if (data?.custom_fields) insights.push('✅ Campo "custom_fields" presente na raiz');
+    if (data?.data?.custom_fields) insights.push('✅ Campo "custom_fields" presente em data.custom_fields');
+    if (Array.isArray(data?.videos) && data.videos[0]?.custom_fields) insights.push('✅ Campo "custom_fields" presente nos itens de videos');
     
     return insights;
   };
@@ -203,6 +210,58 @@ export function AdminPandaVideoTest() {
               )}
               <span className="text-sm">Listar Pastas</span>
             </Button>
+          </div>
+
+          {/* Variações para custom_fields */}
+          <div className="mt-6 space-y-2">
+            <label className="text-sm font-medium">Variações para obter custom_fields</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <Button
+                onClick={() => callAPI('get_video_with_params', { extraParams: { custom_fields: true } })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16"
+              >
+                ?custom_fields=true
+              </Button>
+
+              <Button
+                onClick={() => callAPI('get_video_with_params', { extraParams: { include_custom_fields: true } })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16"
+              >
+                ?include_custom_fields=true
+              </Button>
+
+              <Button
+                onClick={() => callAPI('get_video_with_params', { extraParams: { expand: 'custom_fields' } })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16"
+              >
+                ?expand=custom_fields
+              </Button>
+
+              <Button
+                onClick={() => callAPI('get_video_metadata')}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16"
+              >
+                /videos/{'{'}id{'}'}/metadata
+              </Button>
+
+              <Button
+                onClick={() => callAPI('raw_get', { rawPath: `videos/${videoId}/custom-fields` })}
+                disabled={loading || !videoId}
+                variant="outline"
+                className="h-16"
+              >
+                /videos/{'{'}id{'}'}/custom-fields
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Informe um Video ID acima e teste cada variação para identificar qual retorna custom_fields.</p>
           </div>
 
           {/* Resposta */}

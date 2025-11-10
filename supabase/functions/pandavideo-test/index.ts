@@ -17,11 +17,22 @@ serve(async (req) => {
       throw new Error("❌ PANDAVIDEO_API_KEY not configured");
     }
 
-    const { action, videoId, page = 1, limit = 10, startDate, endDate } = await req.json();
+    const { action, videoId, page = 1, limit = 10, startDate, endDate, extraParams, rawPath } = await req.json();
     
     const baseUrl = "https://api-v2.pandavideo.com.br";
     let url = "";
     let description = "";
+
+    const buildQuery = (params: Record<string, any> | undefined) => {
+      if (!params || Object.keys(params).length === 0) return '';
+      const qs = new URLSearchParams(
+        Object.entries(params).reduce((acc, [k, v]) => {
+          acc[k] = typeof v === 'boolean' ? String(v) : (v ?? '').toString();
+          return acc;
+        }, {} as Record<string, string>)
+      ).toString();
+      return `?${qs}`;
+    };
 
     // Map actions to endpoints
     switch (action) {
@@ -56,6 +67,24 @@ serve(async (req) => {
       case "list_folders":
         url = `${baseUrl}/folders`;
         description = "📁 Listing folders";
+        break;
+      
+      case "get_video_with_params":
+        if (!videoId) throw new Error("videoId required for get_video_with_params");
+        url = `${baseUrl}/videos/${videoId}${buildQuery(extraParams)}`;
+        description = `🎬 Fetching video details with params: ${videoId}`;
+        break;
+
+      case "get_video_metadata":
+        if (!videoId) throw new Error("videoId required for get_video_metadata");
+        url = `${baseUrl}/videos/${videoId}/metadata`;
+        description = `🧾 Fetching video metadata: ${videoId}`;
+        break;
+
+      case "raw_get":
+        if (!rawPath) throw new Error("rawPath required for raw_get");
+        url = `${baseUrl}/${rawPath.replace(/^\/+/, '')}`;
+        description = `🔗 Raw GET: /${rawPath.replace(/^\/+/, '')}`;
         break;
       
       default:
