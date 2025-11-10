@@ -100,78 +100,77 @@ async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: 
   }
 }
 
-// Extract transcript from panda_config.subtitles stored in database
-async function extractTranscriptFromVideo(supabase: any, videoId: string) {
+// Fetch subtitles directly from PandaVideo API (documented endpoints)
+async function fetchSubtitlesFromAPI(
+  videoId: string, 
+  apiKey: string, 
+  baseUrl: string
+): Promise<{ subtitles_info: any[]; transcript: string | null }> {
+  
   try {
-    // Buscar panda_config do banco de dados (já sincronizado anteriormente)
-    const { data: existingVideo } = await supabase
-      .from('knowledge_videos')
-      .select('panda_config')
-      .eq('pandavideo_id', videoId)
-      .maybeSingle();
+    // 1️⃣ GET /subtitles/{video_id} - List available subtitles
+    const subtitlesInfoUrl = `${baseUrl}/subtitles/${videoId}`;
+    console.log(`📋 Listing subtitles for ${videoId}...`);
     
-    // Usar subtitles do panda_config salvo no banco
-    // Pode estar em 'subtitles' (da API original) ou 'subtitles_available' (da sync anterior)
-    const subtitles = existingVideo?.panda_config?.subtitles || 
-                     existingVideo?.panda_config?.subtitles_available || 
-                     [];
+    const infoResponse = await fetch(subtitlesInfoUrl, {
+      headers: { 'Authorization': apiKey }
+    });
     
-    console.log(`🔍 Video ${videoId}: found ${subtitles.length} subtitles in DB`);
-    if (subtitles.length > 0) {
-      console.log(`   Languages: ${subtitles.map((s: any) => s.srclang || s.language).join(', ')}`);
-    }
-    
-    if (subtitles.length === 0) {
+    if (!infoResponse.ok) {
+      console.log(`⚠️ Video ${videoId}: no subtitles available (${infoResponse.status})`);
       return { subtitles_info: [], transcript: null };
     }
     
-    // 2. Find pt-BR subtitle and fetch VTT directly from CDN
-    const ptBR = subtitles.find((s: any) => s.srclang === 'pt-BR');
-    if (ptBR && ptBR.url) {
-      try {
-        console.log(`📥 Fetching transcript from: ${ptBR.url.substring(0, 80)}...`);
-        
-        // Fetch directly from CDN (no auth needed for public VTT files)
-        const transcriptResponse = await fetch(ptBR.url);
-        
-        if (transcriptResponse.ok) {
-          const vttContent = await transcriptResponse.text();
-          
-          // Parse VTT to plain text
-          const plainText = vttContent
-            .split('\n')
-            .filter(line => {
-              const trimmed = line.trim();
-              return trimmed !== '' &&
-                !trimmed.startsWith('WEBVTT') && 
-                !trimmed.includes('-->') && 
-                !trimmed.startsWith('X-TIMESTAMP') &&
-                !/^\d+$/.test(trimmed);
-            })
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-          
-          if (plainText) {
-            console.log(`✅ Transcript extracted (${plainText.length} chars)`);
-          }
-          
-          return { 
-            subtitles_info: subtitles,
-            transcript: plainText || null
-          };
-        } else {
-          console.warn(`Failed to fetch VTT: ${transcriptResponse.status}`);
-        }
-      } catch (error) {
-        console.warn(`Error fetching transcript for ${videoId}:`, error);
-      }
+    const subtitlesInfo = await infoResponse.json();
+    console.log(`🔍 Video ${videoId}: found ${subtitlesInfo.length} subtitles`);
+    
+    if (subtitlesInfo.length > 0) {
+      console.log(`   Languages: ${subtitlesInfo.map((s: any) => s.srclang).join(', ')}`);
     }
     
-    return { subtitles_info: subtitles, transcript: null };
+    // 2️⃣ Find pt-BR subtitle
+    const ptBR = subtitlesInfo.find((s: any) => s.srclang === 'pt-BR');
+    if (!ptBR) {
+      console.log(`   ℹ️ No pt-BR subtitle available`);
+      return { subtitles_info: subtitlesInfo, transcript: null };
+    }
+    
+    // 3️⃣ GET /subtitles/{video_id}/pt-BR - Download VTT directly
+    const vttUrl = `${baseUrl}/subtitles/${videoId}/pt-BR`;
+    console.log(`📥 Downloading VTT...`);
+    
+    const vttResponse = await fetch(vttUrl, {
+      headers: { 'Authorization': apiKey }
+    });
+    
+    if (!vttResponse.ok) {
+      console.log(`⚠️ Failed to download VTT (${vttResponse.status})`);
+      return { subtitles_info: subtitlesInfo, transcript: null };
+    }
+    
+    const vttContent = await vttResponse.text();
+    
+    // 4️⃣ Parse VTT to plain text
+    const transcript = vttContent
+      .split('\n')
+      .filter(line => {
+        const trimmed = line.trim();
+        return trimmed !== '' &&
+          !trimmed.startsWith('WEBVTT') && 
+          !trimmed.includes('-->') && 
+          !trimmed.startsWith('X-TIMESTAMP') &&
+          !/^\d+$/.test(trimmed);
+      })
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    console.log(`✅ Transcript extracted: ${transcript.length} chars`);
+    
+    return { subtitles_info: subtitlesInfo, transcript };
     
   } catch (error) {
-    console.error(`Error in extractTranscriptFromVideo for ${videoId}:`, error);
+    console.error(`❌ Error fetching subtitles for ${videoId}:`, error);
     return { subtitles_info: [], transcript: null };
   }
 }
@@ -363,10 +362,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Fetch details + custom_fields (2 calls) + extract transcript from DB
+        // Fetch details + custom_fields + subtitles from PandaVideo API
         const videoDetails = await fetchVideoDetails(video.id, pandaApiKey, baseUrl);
         const customFieldsArray = await fetchVideoCustomFields(video.id, pandaApiKey, baseUrl);
-        const { subtitles_info, transcript } = await extractTranscriptFromVideo(supabase, video.id);
+        const { subtitles_info, transcript } = await fetchSubtitlesFromAPI(video.id, pandaApiKey, baseUrl);
         
         // Normalize custom_fields
         const customFields = normalizeCustomFields(customFieldsArray);
