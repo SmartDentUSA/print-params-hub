@@ -335,27 +335,15 @@ Deno.serve(async (req) => {
           content_id: null,
         };
 
-        // Upsert video
-        const { data: existing } = await supabase
+        // Upsert video (atomic operation, prevents duplicates)
+        const { error } = await supabase
           .from('knowledge_videos')
-          .select('id')
-          .eq('pandavideo_id', video.id)
-          .maybeSingle();
+          .upsert(videoData, { 
+            onConflict: 'pandavideo_id',
+            ignoreDuplicates: false // Always update if exists
+          });
 
-        if (existing) {
-          const { error } = await supabase
-            .from('knowledge_videos')
-            .update(videoData)
-            .eq('id', existing.id);
-
-          if (!error) updatedVideos++;
-        } else {
-          const { error } = await supabase
-            .from('knowledge_videos')
-            .insert(videoData);
-
-          if (!error) updatedVideos++;
-        }
+        if (!error) updatedVideos++;
       }
 
       // Check if there are more pages
