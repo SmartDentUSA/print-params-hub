@@ -52,6 +52,7 @@ export type KnowledgeVideo = {
       embed_url: string | null;
       hls_url: string | null;
       video_duration_seconds: number | null;
+      video_transcript: string | null;
       analytics: Array<{ t: string; b: number }> | null;
       url?: never;
     }

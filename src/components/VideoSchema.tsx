@@ -19,6 +19,7 @@ export const VideoSchema = ({ videos, productName }: VideoSchemaProps) => {
       "duration": video.video_duration_seconds ? `PT${video.video_duration_seconds}S` : undefined,
       "contentUrl": video.embed_url,
       "embedUrl": video.embed_url,
+      "transcript": video.video_transcript || undefined,
     }));
 
   if (schemas.length === 0) return null;

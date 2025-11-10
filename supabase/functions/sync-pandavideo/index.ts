@@ -100,6 +100,75 @@ async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: 
   }
 }
 
+// Fetch video subtitles info and transcript
+async function fetchVideoSubtitles(videoId: string, apiKey: string, baseUrl: string) {
+  const headers = {
+    'Authorization': apiKey,
+    'Content-Type': 'application/json',
+  };
+  
+  try {
+    // 1. Fetch available subtitles info
+    const infoResponse = await fetch(
+      `${baseUrl}/subtitles/${videoId}`, 
+      { headers }
+    );
+    
+    if (!infoResponse.ok) {
+      console.warn(`No subtitles available for video ${videoId}: ${infoResponse.status}`);
+      return { subtitles_info: [], transcript: null };
+    }
+    
+    const infoData = await infoResponse.json();
+    const subtitles = infoData.subtitles || [];
+    
+    if (subtitles.length === 0) {
+      return { subtitles_info: [], transcript: null };
+    }
+    
+    // 2. Fetch pt-BR transcript (priority)
+    const ptBR = subtitles.find((s: any) => s.srclang === 'pt-BR');
+    if (ptBR) {
+      try {
+        const transcriptResponse = await fetch(
+          `${baseUrl}/subtitles/${videoId}/pt-BR`,
+          { headers }
+        );
+        
+        if (transcriptResponse.ok) {
+          const vttContent = await transcriptResponse.text();
+          // Parse VTT to plain text (remove timestamps and WEBVTT headers)
+          const plainText = vttContent
+            .split('\n')
+            .filter(line => 
+              !line.startsWith('WEBVTT') && 
+              !line.includes('-->') && 
+              !line.startsWith('X-TIMESTAMP') &&
+              line.trim() !== ''
+            )
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          return { 
+            subtitles_info: subtitles,
+            transcript: plainText || null
+          };
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch pt-BR transcript for ${videoId}:`, error);
+      }
+    }
+    
+    // Fallback: return just info without transcript
+    return { subtitles_info: subtitles, transcript: null };
+    
+  } catch (error) {
+    console.error(`Error fetching subtitles for video ${videoId}:`, error);
+    return { subtitles_info: [], transcript: null };
+  }
+}
+
 async function linkVideoToProduct(supabase: any, customFields: any) {
   const lojaId = extractLojaId(customFields);
   
@@ -287,15 +356,21 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Fetch details + custom_fields (2 calls)
+        // Fetch details + custom_fields + subtitles (3 calls)
         const videoDetails = await fetchVideoDetails(video.id, pandaApiKey, baseUrl);
         const customFieldsArray = await fetchVideoCustomFields(video.id, pandaApiKey, baseUrl);
+        const { subtitles_info, transcript } = await fetchVideoSubtitles(video.id, pandaApiKey, baseUrl);
         
         // Normalize custom_fields
         const customFields = normalizeCustomFields(customFieldsArray);
         
-        // Capturar config completo que a API retorna
-        const pandaConfig = videoDetails?.config || {};
+        // Build panda_config with subtitles metadata
+        const pandaConfig = {
+          ...(videoDetails?.config || {}),
+          subtitles_available: subtitles_info,
+          has_transcript: !!transcript,
+          subtitles_count: subtitles_info.length,
+        };
         
         // Log sample (first video of page)
         if (!sampleLogged && Object.keys(customFields).length > 0) {
@@ -319,6 +394,7 @@ Deno.serve(async (req) => {
           hls_url: video.video_hls || null,
           video_duration_seconds: toIntOrNull(video.length),
           
+          video_transcript: transcript,
           panda_custom_fields: customFields,
           panda_config: pandaConfig,
           
