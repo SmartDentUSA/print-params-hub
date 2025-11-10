@@ -100,27 +100,21 @@ async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: 
   }
 }
 
-// Fetch video subtitles info and transcript
-async function fetchVideoSubtitles(videoId: string, apiKey: string, baseUrl: string) {
+// Extract transcript from video details (no additional API call needed)
+async function extractTranscriptFromVideo(videoDetails: any) {
+  const videoId = videoDetails?.id || 'unknown';
+  
   try {
-    // 1. Get video details with subtitles info
-    const videoResponse = await fetch(
-      `${baseUrl}/videos/${videoId}`,
-      {
-        headers: {
-          'Authorization': apiKey,
-          'Content-Type': 'application/json',
-        }
-      }
-    );
+    // Debug: Log the structure we're receiving
+    console.log(`📦 Video ${videoId} config keys:`, Object.keys(videoDetails?.config || {}));
     
-    if (!videoResponse.ok) {
-      console.warn(`Failed to fetch video ${videoId}: ${videoResponse.status}`);
-      return { subtitles_info: [], transcript: null };
+    // Access subtitles from config object (already fetched)
+    const subtitles = videoDetails?.config?.subtitles || [];
+    
+    console.log(`🔍 Video ${videoId}: found ${subtitles.length} subtitles`);
+    if (subtitles.length > 0) {
+      console.log(`   Languages: ${subtitles.map((s: any) => s.srclang).join(', ')}`);
     }
-    
-    const videoData = await videoResponse.json();
-    const subtitles = videoData.subtitles || [];
     
     if (subtitles.length === 0) {
       return { subtitles_info: [], transcript: null };
@@ -172,7 +166,7 @@ async function fetchVideoSubtitles(videoId: string, apiKey: string, baseUrl: str
     return { subtitles_info: subtitles, transcript: null };
     
   } catch (error) {
-    console.error(`Error in fetchVideoSubtitles for ${videoId}:`, error);
+    console.error(`Error in extractTranscriptFromVideo for ${videoId}:`, error);
     return { subtitles_info: [], transcript: null };
   }
 }
@@ -364,10 +358,10 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Fetch details + custom_fields + subtitles (3 calls)
+        // Fetch details + custom_fields (2 calls) + extract transcript from details
         const videoDetails = await fetchVideoDetails(video.id, pandaApiKey, baseUrl);
         const customFieldsArray = await fetchVideoCustomFields(video.id, pandaApiKey, baseUrl);
-        const { subtitles_info, transcript } = await fetchVideoSubtitles(video.id, pandaApiKey, baseUrl);
+        const { subtitles_info, transcript } = await extractTranscriptFromVideo(videoDetails);
         
         // Normalize custom_fields
         const customFields = normalizeCustomFields(customFieldsArray);
