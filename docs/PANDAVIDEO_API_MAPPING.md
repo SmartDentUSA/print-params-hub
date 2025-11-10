@@ -91,6 +91,49 @@ Este documento mapeia a estrutura de dados retornada pela API REST do PandaVideo
 
 ---
 
+## ✅ SOLUÇÃO IMPLEMENTADA: Custom Fields
+
+### Endpoint Correto
+```
+GET /videos/{id}?custom_fields=true
+```
+
+### Formato Real da Resposta
+```json
+{
+  "id": "634b60df-e4d6-4e41-b796-3633e0c4ce4a",
+  "title": "Título do vídeo",
+  "custom_fields": [
+    {
+      "key": "ID Lojaintegrada",
+      "value": "356341240"
+    },
+    {
+      "key": "Categoria",
+      "value": "Resinas"
+    },
+    {
+      "key": "Subcategoria",
+      "value": "Standard"
+    }
+  ]
+}
+```
+
+### Normalização Implementada
+1. **Array → Objeto**: `[{key, value}]` é convertido para `{ID_Lojaintegrada: "356341240", ...}`
+2. **Chaves normalizadas**: Remove acentos, trim, espaços → underscore
+   - `"ID Lojaintegrada"` → `"ID_Lojaintegrada"`
+   - `"Categoria"` → `"Categoria"`
+3. **Extração tolerante**: Busca por `ID_Lojaintegrada` ignorando case/espaços/acentos
+
+### Vinculação com Produtos
+- `ID_Lojaintegrada` → `system_a_catalog.external_id` (prioridade)
+- Fallback → `resins.external_id`
+- `Categoria` e `Subcategoria` salvos em `product_category` e `product_subcategory`
+
+---
+
 ### 📁 Pastas (GET /folders)
 
 **Endpoint:** `https://api-v2.pandavideo.com.br/folders`

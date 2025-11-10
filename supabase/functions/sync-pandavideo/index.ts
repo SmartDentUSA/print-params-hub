@@ -1,18 +1,80 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Utility: convert duration to integer (handle decimals from PandaVideo API)
-const toIntOrNull = (val: unknown): number | null => {
-  const n = Number(val);
-  return Number.isFinite(n) ? Math.round(n) : null;
-};
+interface SyncParams {
+  startPage?: number;
+  maxPages?: number;
+  limit?: number;
+  onlyMissingCustomFields?: boolean;
+}
 
-// Fetch individual video details including custom_fields
+// Normalize custom_fields array to object with cleaned keys
+function normalizeCustomFields(customFieldsArray: any[]): Record<string, any> {
+  if (!Array.isArray(customFieldsArray)) return {};
+  
+  const normalized: Record<string, any> = {};
+  
+  for (const field of customFieldsArray) {
+    if (field.key && field.value !== undefined) {
+      // Normalize key: remove accents, trim, replace spaces with underscore
+      const normalizedKey = field.key
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // remove accents
+        .trim()
+        .replace(/\s+/g, '_'); // spaces to underscore
+      
+      normalized[normalizedKey] = field.value;
+    }
+  }
+  
+  return normalized;
+}
+
+// Extract ID_Lojaintegrada with case/space/accent tolerance
+function extractLojaId(customFields: Record<string, any>): string | null {
+  // Try exact match first
+  if (customFields.ID_Lojaintegrada) return String(customFields.ID_Lojaintegrada);
+  
+  // Try variations
+  const keys = Object.keys(customFields);
+  const lojaKey = keys.find(k => 
+    k.toLowerCase().replace(/[_\s]/g, '') === 'idlojaintegrada'
+  );
+  
+  return lojaKey ? String(customFields[lojaKey]) : null;
+}
+
+// Fetch video details (basic info)
 async function fetchVideoDetails(videoId: string, apiKey: string, baseUrl: string) {
+  const headers = {
+    'Authorization': apiKey,
+    'Content-Type': 'application/json',
+  };
+  
+  try {
+    const response = await fetch(
+      `${baseUrl}/videos/${videoId}`, 
+      { headers }
+    );
+    
+    if (!response.ok) {
+      console.warn(`Failed to fetch details for video ${videoId}: ${response.status}`);
+      return null;
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching video ${videoId}:`, error);
+    return null;
+  }
+}
+
+// Fetch video custom_fields (separate call)
+async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: string) {
   const headers = {
     'Authorization': apiKey,
     'Content-Type': 'application/json',
@@ -25,20 +87,20 @@ async function fetchVideoDetails(videoId: string, apiKey: string, baseUrl: strin
     );
     
     if (!response.ok) {
-      console.warn(`Failed to fetch details for video ${videoId}`);
-      return null;
+      console.warn(`Failed to fetch custom_fields for video ${videoId}: ${response.status}`);
+      return [];
     }
     
-    return await response.json();
+    const data = await response.json();
+    return data.custom_fields || [];
   } catch (error) {
-    console.error(`Error fetching video ${videoId}:`, error);
-    return null;
+    console.error(`Error fetching custom_fields for video ${videoId}:`, error);
+    return [];
   }
 }
 
-// Link video to product using ID_Lojaintegrada
 async function linkVideoToProduct(supabase: any, customFields: any) {
-  const lojaId = customFields?.ID_Lojaintegrada;
+  const lojaId = extractLojaId(customFields);
   
   if (!lojaId) {
     return {
@@ -50,53 +112,57 @@ async function linkVideoToProduct(supabase: any, customFields: any) {
       product_subcategory: customFields?.Subcategoria || null,
     };
   }
-  
-  // 1. Buscar em system_a_catalog (prioridade)
+
+  // Try system_a_catalog first
   const { data: catalogProduct } = await supabase
     .from('system_a_catalog')
-    .select('id, external_id')
-    .eq('external_id', String(lojaId))
+    .select('id')
+    .eq('external_id', lojaId)
     .maybeSingle();
-  
+
   if (catalogProduct) {
     return {
       product_match_status: 'matched',
-      product_external_id: String(lojaId),
+      product_external_id: lojaId,
       product_id: catalogProduct.id,
       resin_id: null,
       product_category: customFields?.Categoria || null,
       product_subcategory: customFields?.Subcategoria || null,
-      last_product_sync_at: new Date().toISOString(),
     };
   }
-  
-  // 2. Fallback: buscar em resins
-  const { data: resin } = await supabase
+
+  // Fallback to resins
+  const { data: resinProduct } = await supabase
     .from('resins')
-    .select('id, external_id')
-    .eq('external_id', String(lojaId))
+    .select('id')
+    .eq('external_id', lojaId)
     .maybeSingle();
-  
-  if (resin) {
+
+  if (resinProduct) {
     return {
       product_match_status: 'matched',
-      product_external_id: String(lojaId),
+      product_external_id: lojaId,
       product_id: null,
-      resin_id: resin.id,
+      resin_id: resinProduct.id,
       product_category: customFields?.Categoria || null,
       product_subcategory: customFields?.Subcategoria || null,
-      last_product_sync_at: new Date().toISOString(),
     };
   }
-  
+
   return {
     product_match_status: 'not_found',
-    product_external_id: String(lojaId),
+    product_external_id: lojaId,
     product_id: null,
     resin_id: null,
     product_category: customFields?.Categoria || null,
     product_subcategory: customFields?.Subcategoria || null,
   };
+}
+
+function toIntOrNull(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  const parsed = parseInt(val, 10);
+  return isNaN(parsed) ? null : parsed;
 }
 
 Deno.serve(async (req) => {
@@ -105,6 +171,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Parse params from body
+    const body = await req.json().catch(() => ({}));
+    const params: SyncParams = {
+      startPage: body.startPage || 1,
+      maxPages: body.maxPages || 1,
+      limit: body.limit || 50,
+      onlyMissingCustomFields: body.onlyMissingCustomFields || false,
+    };
+
+    console.log('🚀 Starting PandaVideo sync with params:', params);
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -121,68 +198,56 @@ Deno.serve(async (req) => {
       'Content-Type': 'application/json',
     };
 
-    console.log('🚀 Starting PandaVideo sync...');
-
-    // 1. Sincronizar folders primeiro
-    console.log('📁 Fetching folders...');
-    const foldersRes = await fetch(`${baseUrl}/folders`, { headers });
-    
-    if (!foldersRes.ok) {
-      const errText = await foldersRes.text();
-      console.error(`❌ Failed to fetch folders: ${foldersRes.status} ${errText}`);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: `PandaVideo folders error ${foldersRes.status}: ${errText}`,
-        }),
-        { 
-          status: foldersRes.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-    
-    const foldersData = await foldersRes.json();
-    
+    // 1. Sincronizar folders (apenas na primeira página)
     let syncedFolders = 0;
-    if (foldersData.folders) {
-      for (const folder of foldersData.folders) {
-        const { error } = await supabase.from('pandavideo_folders').upsert({
-          pandavideo_id: folder.id,
-          name: folder.name,
-          parent_folder_id: folder.parent_folder_id || null,
-          videos_count: folder.videos_count || 0,
-          last_sync_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'pandavideo_id' });
+    if (params.startPage === 1) {
+      console.log('📁 Fetching folders...');
+      const foldersRes = await fetch(`${baseUrl}/folders`, { headers });
+      
+      if (foldersRes.ok) {
+        const foldersData = await foldersRes.json();
+        
+        if (foldersData.folders) {
+          for (const folder of foldersData.folders) {
+            const { error } = await supabase.from('pandavideo_folders').upsert({
+              pandavideo_id: folder.id,
+              name: folder.name,
+              parent_folder_id: folder.parent_folder_id || null,
+              videos_count: folder.videos_count || 0,
+              last_sync_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'pandavideo_id' });
 
-        if (!error) {
-          syncedFolders++;
-        } else {
-          console.error(`Error syncing folder ${folder.id}:`, error);
+            if (!error) syncedFolders++;
+          }
+          console.log(`✅ Synced ${syncedFolders} folders`);
         }
       }
-      console.log(`✅ Synced ${syncedFolders} folders`);
     }
 
-    // 2. Sincronizar vídeos (paginação)
-    let page = 1;
+    // 2. Sincronizar vídeos (página limitada)
+    let currentPage = params.startPage;
+    let processedVideos = 0;
+    let updatedVideos = 0;
+    let skippedVideos = 0;
     let totalVideos = 0;
-    let syncedVideos = 0;
-    let hasMore = true;
+    let pagesProcessed = 0;
 
-    while (hasMore) {
-      console.log(`📹 Fetching videos page ${page}...`);
-      const videosRes = await fetch(`${baseUrl}/videos?page=${page}&limit=50`, { headers });
+    for (let i = 0; i < params.maxPages; i++) {
+      console.log(`📹 Fetching videos page ${currentPage} (limit ${params.limit})...`);
+      const videosRes = await fetch(
+        `${baseUrl}/videos?page=${currentPage}&limit=${params.limit}`, 
+        { headers }
+      );
       
       if (!videosRes.ok) {
         const errText = await videosRes.text();
-        console.error(`❌ Failed to fetch videos page ${page}: ${videosRes.status} ${errText}`);
+        console.error(`❌ Failed to fetch videos page ${currentPage}: ${videosRes.status}`);
         return new Response(
           JSON.stringify({
             success: false,
-            error: `PandaVideo videos error ${foldersRes.status}: ${errText}`,
-            page,
+            error: `PandaVideo API error ${videosRes.status}: ${errText}`,
+            page: currentPage,
           }),
           { 
             status: videosRes.status,
@@ -192,20 +257,48 @@ Deno.serve(async (req) => {
       }
 
       const videosData = await videosRes.json();
+      totalVideos = videosData.total || 0;
 
       if (!videosData.videos || videosData.videos.length === 0) {
-        hasMore = false;
+        console.log('✅ No more videos to process');
         break;
       }
 
-      totalVideos = videosData.total || 0;
+      pagesProcessed++;
+      let sampleLogged = false;
 
-      // Upsert vídeos
+      // Process videos
       for (const video of videosData.videos) {
-        // Buscar detalhes completos do vídeo
+        processedVideos++;
+
+        // Check if already has custom_fields (opcional)
+        if (params.onlyMissingCustomFields) {
+          const { data: existing } = await supabase
+            .from('knowledge_videos')
+            .select('id, panda_custom_fields')
+            .eq('pandavideo_id', video.id)
+            .maybeSingle();
+          
+          if (existing && existing.panda_custom_fields && 
+              Object.keys(existing.panda_custom_fields).length > 0) {
+            skippedVideos++;
+            continue;
+          }
+        }
+
+        // Fetch details + custom_fields (2 calls)
         const videoDetails = await fetchVideoDetails(video.id, pandaApiKey, baseUrl);
+        const customFieldsArray = await fetchVideoCustomFields(video.id, pandaApiKey, baseUrl);
         
-        const customFields = videoDetails?.custom_fields || {};
+        // Normalize custom_fields
+        const customFields = normalizeCustomFields(customFieldsArray);
+        
+        // Log sample (first video of page)
+        if (!sampleLogged && Object.keys(customFields).length > 0) {
+          console.log(`📊 Sample custom_fields for ${video.id}:`, JSON.stringify(customFields));
+          sampleLogged = true;
+        }
+        
         const tags = videoDetails?.tags || [];
         const transcript = videoDetails?.transcript || null;
         
@@ -225,7 +318,6 @@ Deno.serve(async (req) => {
           hls_url: video.video_hls || null,
           video_duration_seconds: toIntOrNull(video.length),
           
-          // 🆕 ENRIQUECIMENTO
           panda_custom_fields: customFields,
           panda_tags: tags,
           analytics: {
@@ -237,14 +329,13 @@ Deno.serve(async (req) => {
           },
           video_transcript: transcript,
           
-          // 🆕 VINCULAÇÃO PRODUTO
           ...productLink,
           
           order_index: 0,
           content_id: null,
         };
 
-        // Check if video already exists
+        // Upsert video
         const { data: existing } = await supabase
           .from('knowledge_videos')
           .select('id')
@@ -252,47 +343,42 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existing) {
-          // Update existing
           const { error } = await supabase
             .from('knowledge_videos')
             .update(videoData)
             .eq('id', existing.id);
 
-          if (error) {
-            console.error(`Error updating video ${video.id}:`, error);
-          } else {
-            syncedVideos++;
-          }
+          if (!error) updatedVideos++;
         } else {
-          // Insert new
           const { error } = await supabase
             .from('knowledge_videos')
             .insert(videoData);
 
-          if (error) {
-            console.error(`Error inserting video ${video.id}:`, error);
-          } else {
-            syncedVideos++;
-          }
+          if (!error) updatedVideos++;
         }
       }
 
-      // Próxima página
-      if (videosData.videos.length < 50 || syncedVideos >= totalVideos) {
-        hasMore = false;
-      } else {
-        page++;
+      // Check if there are more pages
+      if (videosData.videos.length < params.limit) {
+        console.log('✅ Reached last page');
+        break;
       }
+
+      currentPage++;
     }
 
-    console.log(`✅ Synced ${syncedVideos} videos`);
+    console.log(`✅ Page processing complete: processed=${processedVideos}, updated=${updatedVideos}, skipped=${skippedVideos}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         summary: {
           folders: syncedFolders,
-          videos: syncedVideos,
+          processed: processedVideos,
+          updated: updatedVideos,
+          skipped: skippedVideos,
+          pages_processed: pagesProcessed,
+          current_page: currentPage,
           total_videos: totalVideos,
         },
         timestamp: new Date().toISOString(),
