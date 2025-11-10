@@ -102,42 +102,43 @@ async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: 
 
 // Fetch video subtitles info and transcript
 async function fetchVideoSubtitles(videoId: string, apiKey: string, baseUrl: string) {
-  const headers = {
-    'Authorization': apiKey,
-    'Content-Type': 'application/json',
-  };
-  
   try {
-    // 1. Fetch available subtitles info
-    const infoResponse = await fetch(
-      `${baseUrl}/subtitles/${videoId}`, 
-      { headers }
+    // 1. Get video details with subtitles info
+    const videoResponse = await fetch(
+      `${baseUrl}/videos/${videoId}`,
+      {
+        headers: {
+          'Authorization': apiKey,
+          'Content-Type': 'application/json',
+        }
+      }
     );
     
-    if (!infoResponse.ok) {
-      console.warn(`No subtitles available for video ${videoId}: ${infoResponse.status}`);
+    if (!videoResponse.ok) {
+      console.warn(`Failed to fetch video ${videoId}: ${videoResponse.status}`);
       return { subtitles_info: [], transcript: null };
     }
     
-    const infoData = await infoResponse.json();
-    const subtitles = infoData.subtitles || [];
+    const videoData = await videoResponse.json();
+    const subtitles = videoData.subtitles || [];
     
     if (subtitles.length === 0) {
       return { subtitles_info: [], transcript: null };
     }
     
-    // 2. Fetch pt-BR transcript (priority)
+    // 2. Find pt-BR subtitle and fetch VTT directly from CDN
     const ptBR = subtitles.find((s: any) => s.srclang === 'pt-BR');
-    if (ptBR) {
+    if (ptBR && ptBR.url) {
       try {
-        const transcriptResponse = await fetch(
-          `${baseUrl}/subtitles/${videoId}/pt-BR`,
-          { headers }
-        );
+        console.log(`📥 Fetching transcript from: ${ptBR.url.substring(0, 80)}...`);
+        
+        // Fetch directly from CDN (no auth needed for public VTT files)
+        const transcriptResponse = await fetch(ptBR.url);
         
         if (transcriptResponse.ok) {
           const vttContent = await transcriptResponse.text();
-          // Parse VTT to plain text (remove timestamps, WEBVTT headers, and line numbers)
+          
+          // Parse VTT to plain text
           const plainText = vttContent
             .split('\n')
             .filter(line => {
@@ -146,27 +147,32 @@ async function fetchVideoSubtitles(videoId: string, apiKey: string, baseUrl: str
                 !trimmed.startsWith('WEBVTT') && 
                 !trimmed.includes('-->') && 
                 !trimmed.startsWith('X-TIMESTAMP') &&
-                !/^\d+$/.test(trimmed); // Remove lines that are only numbers
+                !/^\d+$/.test(trimmed);
             })
             .join(' ')
             .replace(/\s+/g, ' ')
             .trim();
           
+          if (plainText) {
+            console.log(`✅ Transcript extracted (${plainText.length} chars)`);
+          }
+          
           return { 
             subtitles_info: subtitles,
             transcript: plainText || null
           };
+        } else {
+          console.warn(`Failed to fetch VTT: ${transcriptResponse.status}`);
         }
       } catch (error) {
-        console.warn(`Failed to fetch pt-BR transcript for ${videoId}:`, error);
+        console.warn(`Error fetching transcript for ${videoId}:`, error);
       }
     }
     
-    // Fallback: return just info without transcript
     return { subtitles_info: subtitles, transcript: null };
     
   } catch (error) {
-    console.error(`Error fetching subtitles for video ${videoId}:`, error);
+    console.error(`Error in fetchVideoSubtitles for ${videoId}:`, error);
     return { subtitles_info: [], transcript: null };
   }
 }
