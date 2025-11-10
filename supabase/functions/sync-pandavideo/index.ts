@@ -92,7 +92,8 @@ async function fetchVideoCustomFields(videoId: string, apiKey: string, baseUrl: 
     }
     
     const data = await response.json();
-    return data.custom_fields || [];
+    // A API retorna o array diretamente, não dentro de uma propriedade
+    return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error(`Error fetching custom_fields for video ${videoId}:`, error);
     return [];
