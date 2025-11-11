@@ -39,6 +39,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     localStorage.setItem('language', language);
+    
+    // Sync HTML lang attribute
+    const langMap = {
+      'pt': 'pt-BR',
+      'en': 'en-US',
+      'es': 'es-ES'
+    };
+    document.documentElement.lang = langMap[language];
   }, [language]);
 
   const setLanguage = (lang: Language) => {
