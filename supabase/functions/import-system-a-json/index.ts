@@ -39,6 +39,299 @@ interface CatalogItem {
   extra_data?: any
 }
 
+// ===== DYNAMIC PRODUCT + RESIN FETCHING =====
+async function fetchProductsForLinking(supabase: any) {
+  console.log('🔍 Fetching products and resins from database for auto-linking...')
+  
+  // Fetch products from system_a_catalog
+  const { data: products, error: prodError } = await supabase
+    .from('system_a_catalog')
+    .select('name, cta_1_url, slug, keywords, category')
+    .in('category', ['product', 'resin'])
+    .eq('active', true)
+    .eq('approved', true)
+  
+  if (prodError) {
+    console.error('❌ Error fetching products:', prodError)
+  }
+  
+  // Fetch resins from dedicated resins table
+  const { data: resins, error: resinError } = await supabase
+    .from('resins')
+    .select('name, manufacturer, slug, cta_1_url, system_a_product_url, keywords')
+    .eq('active', true)
+  
+  if (resinError) {
+    console.error('❌ Error fetching resins:', resinError)
+  }
+  
+  // Combine both sources
+  const allItems = [
+    ...(products || []),
+    ...(resins || []).map(r => ({
+      name: r.name,
+      cta_1_url: r.cta_1_url,
+      slug: r.slug,
+      keywords: r.keywords,
+      category: 'resin',
+      system_a_product_url: r.system_a_product_url
+    }))
+  ]
+  
+  console.log(`✅ Loaded ${products?.length || 0} products + ${resins?.length || 0} resins = ${allItems.length} items for auto-linking`)
+  return allItems
+}
+
+// Build product/resin URL from multiple possible fields
+function buildProductUrl(item: any): string | null {
+  // Priority 1: Use system_a_product_url (for resins from resins table)
+  if (item.system_a_product_url && item.system_a_product_url.includes('loja.smartdent.com.br')) {
+    return item.system_a_product_url
+  }
+  
+  // Priority 2: Use cta_1_url if exists and valid
+  if (item.cta_1_url && item.cta_1_url.includes('loja.smartdent.com.br')) {
+    return item.cta_1_url
+  }
+  
+  // Priority 3: If slug is already a full URL, use it
+  if (item.slug && item.slug.includes('http')) {
+    // But skip admin URLs
+    if (item.slug.includes('app.lojaintegrada.com.br/painel')) {
+      return null
+    }
+    return item.slug
+  }
+  
+  // Priority 4: Build URL from slug
+  if (item.slug) {
+    return `https://loja.smartdent.com.br/${item.slug}`
+  }
+  
+  return null
+}
+
+// Build search index with smart name variations
+function buildSearchIndex(items: any[]) {
+  const index: Array<{
+    keywords: string[]
+    url: string
+    priority: number
+    itemName: string
+    itemType: string
+  }> = []
+  
+  items.forEach(item => {
+    const url = buildProductUrl(item)
+    if (!url) {
+      console.log(`⚠️ Skipping ${item.name} - no valid URL`)
+      return
+    }
+    
+    // Build keyword list
+    const keywords: string[] = []
+    
+    // Add existing keywords (if any)
+    if (item.keywords && Array.isArray(item.keywords) && item.keywords.length > 0) {
+      keywords.push(...item.keywords.map((k: string) => k.toLowerCase().trim()))
+    }
+    
+    // Add product/resin name variations
+    const name = item.name.toLowerCase()
+    keywords.push(name)
+    
+    // For resins, add smart variations
+    if (item.category === 'resin') {
+      // Remove "Resina 3D" prefix
+      const withoutPrefix = name.replace(/^resina 3d\s+/i, '').trim()
+      if (withoutPrefix !== name) {
+        keywords.push(withoutPrefix)
+      }
+      
+      // Remove "Smart Print" to get core name
+      const withoutBrand = withoutPrefix.replace(/smart print\s+/i, '').trim()
+      if (withoutBrand !== withoutPrefix) {
+        keywords.push(withoutBrand)
+      }
+      
+      // Extract key terms (e.g., "Bio Denture", "Model Precision")
+      const keyTerms = withoutBrand.match(/\b(?:bio|model|clear|hybrid)\s+\w+/gi)
+      if (keyTerms) {
+        keywords.push(...keyTerms.map(t => t.toLowerCase().trim()))
+      }
+    }
+    
+    // Add common variations (remove special chars, extra spaces)
+    const cleanName = name
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (cleanName !== name) {
+      keywords.push(cleanName)
+    }
+    
+    // Calculate priority: items with keywords get higher priority
+    const priority = item.keywords?.length > 0 ? 10 : 5
+    
+    index.push({
+      keywords: [...new Set(keywords)], // Remove duplicates
+      url,
+      priority,
+      itemName: item.name,
+      itemType: item.category || 'product'
+    })
+    
+    console.log(`📦 Indexed: ${item.name} (${item.category || 'product'}) | ${keywords.length} keywords | priority ${priority}`)
+  })
+  
+  // Sort by priority (higher first)
+  return index.sort((a, b) => b.priority - a.priority)
+}
+
+// ===== SMART AUTO-LINKING (Most relevant only) =====
+function addSmartLinks(text: string, searchIndex: any[]): { linkedText: string; itemsMentioned: Array<{name: string, type: string}> } {
+  let linkedText = text
+  const itemsMentioned: Array<{name: string, type: string}> = []
+  
+  // Build matches with positions to select most relevant
+  const matches: Array<{
+    keyword: string
+    url: string
+    priority: number
+    position: number
+    itemName: string
+    itemType: string
+  }> = []
+  
+  // Find all potential matches
+  searchIndex.forEach(item => {
+    item.keywords.forEach((keyword: string) => {
+      // Skip very short keywords (< 4 chars) to avoid false positives
+      if (keyword.length < 4) return
+      
+      // Try exact match
+      const regexExact = new RegExp(`\\b${keyword}\\b`, 'gi')
+      let match
+      while ((match = regexExact.exec(text)) !== null) {
+        matches.push({
+          keyword,
+          url: item.url,
+          priority: item.priority,
+          position: match.index,
+          itemName: item.itemName,
+          itemType: item.itemType
+        })
+      }
+    })
+  })
+  
+  // Sort by priority (highest first), then by position (earliest first)
+  matches.sort((a, b) => {
+    if (b.priority !== a.priority) return b.priority - a.priority
+    return a.position - b.position
+  })
+  
+  // Link only the MOST relevant mention (first after sorting)
+  if (matches.length > 0) {
+    const best = matches[0]
+    const regex = new RegExp(`\\b(${best.keyword})\\b`, 'i')
+    linkedText = linkedText.replace(
+      regex,
+      `<a href="${best.url}" class="text-primary hover:underline font-medium" target="_blank" rel="noopener">$1</a>`
+    )
+    itemsMentioned.push({
+      name: best.itemName,
+      type: best.itemType
+    })
+    console.log(`🔗 Linked "${best.keyword}" → ${best.itemName} (${best.itemType})`)
+  }
+  
+  return { linkedText, itemsMentioned }
+}
+
+// ===== DATA CLEANING FUNCTIONS =====
+// Generate random video duration (30-35 seconds)
+function generateVideoDuration(): number {
+  return Math.floor(Math.random() * 6) + 30 // 30-35 seconds
+}
+
+// Extract real client name from text or use placeholder
+function extractClientName(clientName: string, testimonialText: string): string {
+  // If already has real name (not "Cliente #X"), keep it
+  if (clientName && !clientName.match(/^Cliente #\d+$/)) {
+    return clientName
+  }
+  
+  // Try to extract from pattern "🦷 Dra. Nome Sobrenome"
+  const nameMatch = testimonialText.match(/🦷\s*(Dr[a]?\.\s+[A-Z][a-zÀ-ú]+(?:\s+[A-Z][a-zÀ-ú]+)*)/i)
+  if (nameMatch) {
+    return nameMatch[1].trim()
+  }
+  
+  // Fallback: use first 50 chars of text as identifier
+  return testimonialText.substring(0, 50).trim() + '...'
+}
+
+// Clean video URL (remove placeholders, validate)
+function cleanVideoUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  
+  // Remove common placeholders
+  const placeholders = [
+    'MUITO GRANDE PARA POSTAR',
+    'Link do vídeo YOUTUBE',
+    'Link do vídeo INSTAGRAM',
+    'N/A',
+    'null',
+    'undefined'
+  ]
+  
+  for (const placeholder of placeholders) {
+    if (url.includes(placeholder)) {
+      return null
+    }
+  }
+  
+  // Validate URL format
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return null
+  }
+  
+  return url
+}
+
+// Validate testimonial text
+function isValidTestimonial(testimonial: any): boolean {
+  if (!testimonial.testimonial_text) return false
+  
+  const text = testimonial.testimonial_text.trim()
+  
+  // Must have at least 20 characters
+  if (text.length < 20) return false
+  
+  // Reject obvious placeholders
+  const invalidPatterns = [
+    /^Link do vídeo/i,
+    /^MUITO GRANDE/i,
+    /^N\/A$/i,
+    /^null$/i,
+    /^undefined$/i
+  ]
+  
+  for (const pattern of invalidPatterns) {
+    if (pattern.test(text)) {
+      return false
+    }
+  }
+  
+  // Reject if only punctuation/whitespace
+  if (text.replace(/[\s.,!?;:]+/g, '').length === 0) {
+    return false
+  }
+  
+  return true
+}
+
 // Map products to catalog items
 function mapProducts(products: any[]): CatalogItem[] {
   if (!products || !Array.isArray(products)) return []
@@ -190,21 +483,63 @@ function generateMetaDescription(name: string, description: string): string {
   return `${name} compartilha experiência com Smart Dent. ${meta}`
 }
 
-// Map video testimonials to catalog items
-function mapVideoTestimonials(videos: any[]): CatalogItem[] {
+// Map video testimonials to catalog items with smart linking and data cleaning
+function mapVideoTestimonials(videos: any[], searchIndex: any[]): CatalogItem[] {
   if (!videos || !Array.isArray(videos)) return []
   
-  return videos.map(v => {
-    // Step 1: Normalize product terms
-    const normalizedName = normalizeTerms(v.client_name)
+  console.log(`🎬 Processing ${videos.length} video testimonials...`)
+  console.log(`📚 Using search index with ${searchIndex.length} items`)
+  
+  // PHASE 1: Filter valid testimonials
+  const validTestimonials = videos.filter(v => {
+    const isValid = isValidTestimonial(v)
+    if (!isValid) {
+      console.log(`⚠️ Filtered invalid: ${v.id} (${v.testimonial_text?.substring(0, 50)})`)
+    }
+    return isValid
+  })
+  console.log(`✅ ${validTestimonials.length} valid testimonials (filtered ${videos.length - validTestimonials.length})`)
+  
+  // PHASE 2: Detect duplicates using first 100 chars as signature
+  const seenSignatures = new Set<string>()
+  const uniqueTestimonials = validTestimonials.filter(v => {
+    const signature = v.testimonial_text.substring(0, 100).trim().toLowerCase()
+    if (seenSignatures.has(signature)) {
+      console.log(`🔄 Filtered duplicate: ${v.id} (duplicate of ${signature.substring(0, 30)})`)
+      return false
+    }
+    seenSignatures.add(signature)
+    return true
+  })
+  console.log(`✅ ${uniqueTestimonials.length} unique testimonials (removed ${validTestimonials.length - uniqueTestimonials.length} duplicates)`)
+  
+  // PHASE 3: Process each testimonial
+  return uniqueTestimonials.map(v => {
+    // Step 1: Extract real client name
+    const extractedName = extractClientName(v.client_name, v.testimonial_text)
+    
+    // Step 2: Normalize product terms
+    const normalizedName = normalizeTerms(extractedName)
     const normalizedText = normalizeTerms(v.testimonial_text)
     
-    // Step 2: Add institutional footer
-    const finalDescription = addResinFooter(normalizedText)
+    // Step 3: Apply smart linking
+    const { linkedText, itemsMentioned } = addSmartLinks(normalizedText, searchIndex)
     
-    // Step 3: Generate SEO meta
+    // Step 4: Add institutional footer
+    const finalDescription = addResinFooter(linkedText)
+    
+    // Step 5: Generate SEO meta
     const seoTitle = `${normalizedName} | Depoimento Smart Dent`
     const metaDescription = generateMetaDescription(normalizedName, finalDescription)
+    
+    // Step 6: Clean video URLs
+    const cleanedYoutubeUrl = cleanVideoUrl(v.youtube_url)
+    const cleanedInstagramUrl = cleanVideoUrl(v.instagram_url)
+    
+    // Step 7: Generate video duration if missing
+    const videoDuration = v.video_duration_seconds || generateVideoDuration()
+    
+    console.log(`✨ Processed: ${normalizedName.substring(0, 50)}... | Duration: ${videoDuration}s | Links: ${itemsMentioned.length}`)
     
     return {
       source: 'system_a',
@@ -222,16 +557,18 @@ function mapVideoTestimonials(videos: any[]): CatalogItem[] {
       meta_description: metaDescription,
       
       extra_data: {
-        youtube_url: v.youtube_url,
-        instagram_url: v.instagram_url,
+        youtube_url: cleanedYoutubeUrl,
+        instagram_url: cleanedInstagramUrl,
         location: v.location,
         specialty: v.specialty,
         profession: v.profession,
         video_thumbnail: v.video_thumbnail,
-        
-        // New fields for advanced SEO
         video_transcript: v.video_transcript || null,
-        video_duration_seconds: v.video_duration_seconds || null,
+        video_duration_seconds: videoDuration,
+        original_client_name: v.client_name,
+        auto_enriched: true,
+        items_mentioned: itemsMentioned,
+        processing_timestamp: new Date().toISOString()
       }
     }
   })
@@ -311,6 +648,10 @@ Deno.serve(async (req) => {
 
     const data = jsonData.data || jsonData
 
+    // ⭐ FETCH products/resins for auto-linking BEFORE processing data
+    const items = await fetchProductsForLinking(supabase)
+    const searchIndex = buildSearchIndex(items)
+
     // Collect all catalog items
     const allCatalogItems: CatalogItem[] = []
     const stats = {
@@ -349,9 +690,9 @@ Deno.serve(async (req) => {
       console.log(`✅ Mapped ${categories.length} category configs`)
     }
 
-    // Map video testimonials
+    // Map video testimonials with smart linking
     if (data.video_testimonials) {
-      const videos = mapVideoTestimonials(data.video_testimonials)
+      const videos = mapVideoTestimonials(data.video_testimonials, searchIndex)
       allCatalogItems.push(...videos)
       stats.video_testimonial = videos.length
       console.log(`✅ Mapped ${videos.length} video testimonials`)
