@@ -16,12 +16,19 @@ export function LanguageSelector() {
   return (
     <Select value={language} onValueChange={(value: 'pt' | 'en' | 'es') => setLanguage(value)}>
       <SelectTrigger className="w-[70px] sm:w-auto border-border bg-card hover:bg-accent transition-smooth">
-        <SelectValue />
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{currentLanguage?.flag}</span>
+          <span className="hidden sm:inline text-sm">{currentLanguage?.name}</span>
+        </div>
+        <SelectValue className="sr-only" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="z-50 bg-popover border border-border">
         {languages.map((lang) => (
           <SelectItem key={lang.code} value={lang.code}>
-            {`${lang.flag} ${lang.name}`}
+            <div className="flex items-center gap-2">
+              <span>{lang.flag}</span>
+              <span>{lang.name}</span>
+            </div>
           </SelectItem>
         ))}
       </SelectContent>
