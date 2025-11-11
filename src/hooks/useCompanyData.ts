@@ -6,6 +6,34 @@ interface CompanyData {
   description: string;
   logo_url: string;
   website_url: string;
+  business?: {
+    legal_name?: string;
+    doing_business_as?: string;
+    duns_number?: string;
+    vat_id?: string;
+    tax_id?: string;
+    number_of_employees?: string;
+    annual_revenue?: string;
+  };
+  reviews_reputation?: {
+    google_rating?: number;
+    google_review_count?: number;
+    trustpilot_rating?: number;
+    bbb_rating?: string;
+    testimonial_count?: number;
+  };
+  media?: {
+    logo_variants?: any;
+    brand_colors?: string[];
+    typography?: any;
+    press_kit_url?: string;
+    media_mentions?: Array<{
+      title: string;
+      url: string;
+      publisher: string;
+      date: string;
+    }>;
+  };
   corporate: {
     mission?: string;
     vision?: string;
@@ -17,12 +45,32 @@ interface CompanyData {
     methodology?: string;
     founded_year?: number;
     team_size?: string;
+    awards?: Array<{
+      name: string;
+      year: number;
+      issuer: string;
+    }>;
+    certifications?: string[];
+    partnerships?: string[];
+    case_studies?: Array<{
+      title: string;
+      url: string;
+      summary: string;
+    }>;
+    success_stories?: any[];
   };
   contact: {
     email?: string;
     phone?: string;
     whatsapp?: string;
     address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    postal_code?: string;
+    support_hours?: string;
+    emergency_contact?: string;
+    languages_spoken?: string[];
   };
   seo: {
     market_positioning?: string;
@@ -31,6 +79,10 @@ interface CompanyData {
     service_areas?: string[];
     context_keywords?: string[];
     related_domains?: string[];
+    service_offerings?: string[];
+    price_range?: string;
+    payment_methods?: string[];
+    areas_served?: string[];
   };
   social_media: {
     instagram?: string;
@@ -74,6 +126,9 @@ export function useCompanyData() {
         description: data.description || "",
         logo_url: data.image_url || "",
         website_url: data.canonical_url || "",
+        business: extraData.business || {},
+        reviews_reputation: extraData.reviews_reputation || {},
+        media: extraData.media || {},
         corporate: extraData.corporate || {},
         contact: extraData.contact || {},
         seo: extraData.seo || {},
