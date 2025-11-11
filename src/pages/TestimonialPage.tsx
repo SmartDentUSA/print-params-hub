@@ -9,6 +9,7 @@ import { TestimonialSEOHead } from "@/components/TestimonialSEOHead";
 import { GoogleReviewsWidget } from "@/components/GoogleReviewsWidget";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
 import { RelatedTestimonials } from "@/components/RelatedTestimonials";
+import { MentionedProducts } from "@/components/MentionedProducts";
 
 interface TestimonialData {
   id: string;
@@ -151,52 +152,10 @@ const TestimonialPage = () => {
             <InstagramEmbed url={instagramUrl} />
           )}
 
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h2 className="text-2xl font-bold mb-4">Produtos Mencionados</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <a 
-                  href="/produtos/scanner-blz-ino200" 
-                  className="p-4 border rounded-lg hover:border-primary transition-colors"
-                >
-                  <h3 className="font-semibold mb-2">Scanner intraoral BLZ INO200</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Scanner de alta precisão para captura digital
-                  </p>
-                </a>
-                
-                <a 
-                  href="/resinas/bio-vitality" 
-                  className="p-4 border rounded-lg hover:border-primary transition-colors"
-                >
-                  <h3 className="font-semibold mb-2">Resina Smart Dent Bio Vitality</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Resina biocompatível para guias cirúrgicos
-                  </p>
-                </a>
-                
-                <a 
-                  href="/impressoras/rayshape-edge-mini" 
-                  className="p-4 border rounded-lg hover:border-primary transition-colors"
-                >
-                  <h3 className="font-semibold mb-2">Impressora RayShape Edge mini</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Impressora 3D de alta resolução
-                  </p>
-                </a>
-                
-                <a 
-                  href="/resinas/bite-splint-flex" 
-                  className="p-4 border rounded-lg hover:border-primary transition-colors"
-                >
-                  <h3 className="font-semibold mb-2">Resina Bite Splint +Flex</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Resina flexível para placas oclusais
-                  </p>
-                </a>
-              </div>
-          </CardContent>
-          </Card>
+          <MentionedProducts 
+            productSlugs={['asiga-cure-pos-cura-uv-365385405-nm', 'pionext-uv-02-pos-cura-uv-365385405-nm']}
+            resinSlugs={['resina-smart-print-bio-denture-translucida', 'resina-3d-smart-print-modelo-precision']}
+          />
 
           {/* Outros Depoimentos */}
           <RelatedTestimonials 
