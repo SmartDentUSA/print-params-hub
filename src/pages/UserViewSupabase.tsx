@@ -16,6 +16,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { LegacyRedirect } from "@/components/LegacyRedirect";
 import { KnowledgeFeed } from "@/components/KnowledgeFeed";
+import { GoogleReviewsBadge } from "@/components/GoogleReviewsBadge";
+import { GoogleReviewsWidget } from "@/components/GoogleReviewsWidget";
 
 const UserViewSupabase = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -267,6 +269,16 @@ const UserViewSupabase = () => {
           <p className="text-lg text-muted-foreground mb-4">
             {t('header.subtitle')}
           </p>
+          {/* Reviews Badge */}
+          <div className="flex justify-center">
+            <GoogleReviewsBadge 
+              onClick={() => {
+                document.getElementById('google-reviews-section')?.scrollIntoView({ 
+                  behavior: 'smooth' 
+                });
+              }}
+            />
+          </div>
         </div>
 
         {/* Brand Selection */}
@@ -340,6 +352,11 @@ const UserViewSupabase = () => {
 
         {/* Knowledge Feed - Always visible */}
         <KnowledgeFeed />
+
+        {/* Google Reviews Section */}
+        <div id="google-reviews-section" className="mt-16">
+          <GoogleReviewsWidget />
+        </div>
 
         {/* Help Section - Always visible */}
         <div className="mt-16 bg-gradient-card rounded-xl p-8 border border-border shadow-medium text-center">
