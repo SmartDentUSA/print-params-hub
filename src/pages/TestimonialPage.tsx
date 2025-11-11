@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { TestimonialSEOHead } from "@/components/TestimonialSEOHead";
+import { GoogleReviewsWidget } from "@/components/GoogleReviewsWidget";
 
 interface TestimonialData {
   id: string;
@@ -188,8 +189,11 @@ const TestimonialPage = () => {
                   </p>
                 </a>
               </div>
-            </CardContent>
+          </CardContent>
           </Card>
+
+          {/* Google Reviews Widget */}
+          <GoogleReviewsWidget />
 
           {instagramUrl && (
             <div className="text-center">
