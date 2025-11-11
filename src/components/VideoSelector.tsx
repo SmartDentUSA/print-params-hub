@@ -15,11 +15,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Loader2, Video } from "lucide-react";
+import { Loader2, Video, Check } from "lucide-react";
 
 interface VideoSelectorProps {
   open: boolean;
-  onSelect: (video: Partial<KnowledgeVideo>) => void;
+  onSelect: (video: Partial<KnowledgeVideo> | Partial<KnowledgeVideo>[]) => void;
   onClose: () => void;
 }
 
@@ -78,7 +78,7 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   const [folders, setFolders] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
+  const [selectedVideos, setSelectedVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Calcular conjunto de IDs de pastas válidas (pasta selecionada + descendentes)
@@ -141,6 +141,17 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
     });
   }, [pandaVideos, folderFilter, folderIdsToInclude, searchTerm]);
 
+  const toggleVideoSelection = (video: any) => {
+    setSelectedVideos(prev => {
+      const isSelected = prev.some(v => v.pandavideo_id === video.pandavideo_id);
+      if (isSelected) {
+        return prev.filter(v => v.pandavideo_id !== video.pandavideo_id);
+      } else {
+        return [...prev, video];
+      }
+    });
+  };
+
   const handleAdd = () => {
     if (tab === "youtube") {
       if (!youtubeUrl || !youtubeTitle || !isValidYoutubeUrl(youtubeUrl)) {
@@ -161,22 +172,22 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
       return;
     }
 
-    if (tab === "pandavideo" && selectedVideo) {
-      onSelect({
-        video_type: "pandavideo",
-        pandavideo_id: selectedVideo.pandavideo_id,
-        pandavideo_external_id: selectedVideo.pandavideo_external_id,
-        title: selectedVideo.title,
-        embed_url: selectedVideo.embed_url,
-        thumbnail_url: selectedVideo.thumbnail_url,
-        folder_id: selectedVideo.folder_id,
-        video_duration_seconds: selectedVideo.video_duration_seconds,
-        description: selectedVideo.description,
+    if (tab === "pandavideo" && selectedVideos.length > 0) {
+      const videosToAdd = selectedVideos.map(v => ({
+        video_type: "pandavideo" as const,
+        pandavideo_id: v.pandavideo_id,
+        pandavideo_external_id: v.pandavideo_external_id,
+        title: v.title,
+        embed_url: v.embed_url,
+        thumbnail_url: v.thumbnail_url,
+        folder_id: v.folder_id,
+        video_duration_seconds: v.video_duration_seconds,
+        description: v.description,
         order_index: 0,
-      });
+      }));
       
-      // Reset
-      setSelectedVideo(null);
+      onSelect(videosToAdd);
+      setSelectedVideos([]);
       onClose();
       return;
     }
@@ -188,7 +199,7 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
     setYoutubeTitle("");
     setSearchTerm("");
     setFolderFilter(null);
-    setSelectedVideo(null);
+    setSelectedVideos([]);
     setTab("pandavideo");
     onClose();
   };
@@ -196,7 +207,7 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   const isAddDisabled = 
     tab === "youtube" 
       ? !youtubeUrl || !youtubeTitle || !isValidYoutubeUrl(youtubeUrl)
-      : !selectedVideo;
+      : selectedVideos.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -308,69 +319,73 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-4">
-                  {filteredVideos.map((v) => (
-                    <div
-                      key={v.id}
-                      className={`border rounded-lg cursor-pointer overflow-hidden transition-all hover:shadow-lg ${
-                        selectedVideo?.pandavideo_id === v.pandavideo_id
-                          ? "ring-2 ring-primary shadow-lg"
-                          : ""
-                      }`}
-                      onClick={() => setSelectedVideo(v)}
-                    >
-                      <div className="relative">
-                        <img
-                          src={v.thumbnail_url || "/placeholder.svg"}
-                          alt={v.title}
-                          className="w-full h-36 object-cover"
-                        />
-                        {v.video_duration_seconds && (
-                          <Badge 
-                            variant="secondary" 
-                            className="absolute bottom-2 right-2 bg-black/80 text-white"
-                          >
-                            {formatDuration(v.video_duration_seconds)}
-                          </Badge>
+                  {filteredVideos.map((v) => {
+                    const isSelected = selectedVideos.some(sv => sv.pandavideo_id === v.pandavideo_id);
+                    return (
+                      <div
+                        key={v.id}
+                        className={`relative border rounded-lg cursor-pointer overflow-hidden transition-all hover:shadow-lg ${
+                          isSelected ? "ring-2 ring-primary shadow-lg" : ""
+                        }`}
+                        onClick={() => toggleVideoSelection(v)}
+                      >
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 z-10 bg-primary rounded-full p-1">
+                            <Check className="h-4 w-4 text-primary-foreground" />
+                          </div>
                         )}
+                        <div className="relative">
+                          <img
+                            src={v.thumbnail_url || "/placeholder.svg"}
+                            alt={v.title}
+                            className="w-full h-36 object-cover"
+                          />
+                          {v.video_duration_seconds && (
+                            <Badge 
+                              variant="secondary" 
+                              className="absolute bottom-2 right-2 bg-black/80 text-white"
+                            >
+                              {formatDuration(v.video_duration_seconds)}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="text-sm font-medium line-clamp-2">
+                            {v.title}
+                          </p>
+                        </div>
                       </div>
-                      <div className="p-3">
-                        <p className="text-sm font-medium line-clamp-2">
-                          {v.title}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
 
-            {/* Preview do Vídeo Selecionado */}
-            {selectedVideo && (
+            {/* Preview dos Vídeos Selecionados */}
+            {selectedVideos.length > 0 && (
               <div className="border border-primary rounded-lg p-4 bg-primary/5">
-                <p className="text-sm font-semibold mb-3 text-primary">Vídeo Selecionado:</p>
-                <div className="flex gap-4">
-                  <img
-                    src={selectedVideo.thumbnail_url || "/placeholder.svg"}
-                    alt={selectedVideo.title}
-                    className="w-32 h-20 object-cover rounded border border-border"
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium">{selectedVideo.title}</p>
-                    {selectedVideo.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                        {selectedVideo.description}
-                      </p>
-                    )}
-                    <div className="flex gap-2 mt-2">
-                      <Badge variant="secondary">PandaVideo</Badge>
-                      {selectedVideo.video_duration_seconds && (
-                        <Badge variant="outline">
-                          {formatDuration(selectedVideo.video_duration_seconds)}
-                        </Badge>
-                      )}
-                    </div>
+                <p className="text-sm font-semibold mb-3 text-primary">
+                  {selectedVideos.length} Vídeo(s) Selecionado(s):
+                </p>
+                <ScrollArea className="max-h-32">
+                  <div className="space-y-2">
+                    {selectedVideos.map(video => (
+                      <div key={video.pandavideo_id} className="flex gap-3 items-center">
+                        <img 
+                          src={video.thumbnail_url || "/placeholder.svg"} 
+                          alt={video.title}
+                          className="w-16 h-10 object-cover rounded border border-border" 
+                        />
+                        <p className="text-sm flex-1 line-clamp-1">{video.title}</p>
+                        {video.video_duration_seconds && (
+                          <Badge variant="outline" className="text-xs">
+                            {formatDuration(video.video_duration_seconds)}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                </div>
+                </ScrollArea>
               </div>
             )}
           </TabsContent>
@@ -381,7 +396,12 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
             Cancelar
           </Button>
           <Button onClick={handleAdd} disabled={isAddDisabled}>
-            Adicionar Vídeo
+            {tab === 'youtube' 
+              ? 'Adicionar Vídeo YouTube'
+              : selectedVideos.length > 0 
+                ? `Adicionar ${selectedVideos.length} Vídeo(s)` 
+                : 'Selecione pelo menos 1 vídeo'
+            }
           </Button>
         </DialogFooter>
       </DialogContent>

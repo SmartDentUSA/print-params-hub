@@ -2535,8 +2535,43 @@ Receba o texto bruto abaixo e:
                   <VideoSelector
                     open={videoSelectorOpen}
                     onClose={() => setVideoSelectorOpen(false)}
-                    onSelect={(video) => {
-                      setVideos([...videos, { ...video, order_index: videos.length }]);
+                    onSelect={(videoOrVideos) => {
+                      const videosToAdd = Array.isArray(videoOrVideos) ? videoOrVideos : [videoOrVideos];
+                      
+                      setVideos(prev => {
+                        // Filtrar duplicados
+                        const existingKeys = new Set(
+                          prev.map(v => 
+                            v.video_type === 'pandavideo' 
+                              ? `p:${v.pandavideo_id}` 
+                              : `y:${v.url}`
+                          )
+                        );
+                        
+                        const newVideos = videosToAdd.filter(v => {
+                          const key = v.video_type === 'pandavideo' 
+                            ? `p:${v.pandavideo_id}` 
+                            : `y:${v.url}`;
+                          return !existingKeys.has(key);
+                        });
+                        
+                        // Adicionar com order_index correto
+                        const nextVideos = newVideos.map((v, i) => ({
+                          ...v,
+                          order_index: prev.length + i
+                        }));
+                        
+                        return [...prev, ...nextVideos];
+                      });
+                      
+                      // Feedback visual
+                      if (videosToAdd.length > 0) {
+                        toast({ 
+                          title: `✅ ${videosToAdd.length} vídeo(s) adicionado(s)!`,
+                          description: videosToAdd.map(v => v.title).slice(0, 3).join(', ') + (videosToAdd.length > 3 ? '...' : '')
+                        });
+                      }
+                      
                       setVideoSelectorOpen(false);
                     }}
                   />
