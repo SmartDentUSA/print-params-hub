@@ -15,11 +15,13 @@ export function LanguageSelector() {
 
   return (
     <Select value={language} onValueChange={(value: 'pt' | 'en' | 'es') => setLanguage(value)}>
-    <SelectTrigger className="w-[70px] sm:w-auto border-border bg-card hover:bg-accent transition-smooth">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{currentLanguage?.flag}</span>
-          <span className="hidden sm:inline text-sm">{currentLanguage?.name}</span>
-        </div>
+      <SelectTrigger className="w-[70px] sm:w-auto border-border bg-card hover:bg-accent transition-smooth">
+        <SelectValue>
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{currentLanguage?.flag}</span>
+            <span className="hidden sm:inline text-sm">{currentLanguage?.name}</span>
+          </div>
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {languages.map((lang) => (
