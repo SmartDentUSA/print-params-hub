@@ -122,14 +122,21 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         : content.faqs
   };
 
+  // Dynamic base path based on current language
+  const basePath = language === 'en' 
+    ? '/en/knowledge-base' 
+    : language === 'es' 
+    ? '/es/base-conocimiento' 
+    : '/base-conhecimento';
+
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
-    { label: t('knowledge.knowledge_base'), href: '/base-conhecimento' },
+    { label: t('knowledge.knowledge_base'), href: basePath },
     { 
       label: content.knowledge_categories?.name || t('knowledge.categories'), 
-      href: `/base-conhecimento/${content.knowledge_categories?.letter?.toLowerCase() || 'a'}` 
+      href: `${basePath}/${content.knowledge_categories?.letter?.toLowerCase() || 'a'}` 
     },
-    { label: content.title }
+    { label: displayContent.title }
   ];
 
 
@@ -278,7 +285,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             {relatedArticles.map(article => (
               <Link 
                 key={article.id} 
-                to={`/base-conhecimento/${article.knowledge_categories?.letter?.toLowerCase()}/${article.slug}`}
+                to={`${basePath}/${article.knowledge_categories?.letter?.toLowerCase()}/${article.slug}`}
               >
                 <Card className="hover:shadow-lg transition-shadow h-full">
                   {article.og_image_url && (
