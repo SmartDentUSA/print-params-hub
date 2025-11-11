@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { TestimonialSEOHead } from "@/components/TestimonialSEOHead";
 import { GoogleReviewsWidget } from "@/components/GoogleReviewsWidget";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
+import { RelatedTestimonials } from "@/components/RelatedTestimonials";
 
 interface TestimonialData {
   id: string;
@@ -196,6 +197,12 @@ const TestimonialPage = () => {
               </div>
           </CardContent>
           </Card>
+
+          {/* Outros Depoimentos */}
+          <RelatedTestimonials 
+            currentTestimonialId={testimonial.id} 
+            limit={4}
+          />
 
           {/* Google Reviews Widget */}
           <GoogleReviewsWidget />
