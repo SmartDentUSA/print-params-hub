@@ -138,29 +138,103 @@ function mapCategoriesConfig(categories: any[]): CatalogItem[] {
   }))
 }
 
+// Normalize product/equipment terms for SEO consistency
+function normalizeTerms(text: string | null | undefined): string {
+  if (!text) return ''
+  
+  let normalized = text
+  
+  // Rule 1: BLZ Scanner variations → "Scanner intraoral BLZ INO200"
+  normalized = normalized.replace(/\bBLZ Scanner\b/gi, 'Scanner intraoral BLZ INO200')
+  normalized = normalized.replace(/\bBLZ\b(?! INO200)/gi, 'Scanner intraoral BLZ INO200')
+  
+  // Rule 2: Medit → "Scanner intraoral Medit"
+  normalized = normalized.replace(/\bMedit\b(?! Scanner)/gi, 'Scanner intraoral Medit')
+  
+  // Rule 3: Generic printer → "Impressora RayShape Edge mini"
+  normalized = normalized.replace(/\bImpressora\b(?! RayShape)/gi, 'Impressora RayShape Edge mini')
+  
+  // Rule 4: Smartdent → "Smart Dent" (with space)
+  normalized = normalized.replace(/\bSmartdent\b/gi, 'Smart Dent')
+  normalized = normalized.replace(/\bSmartDent\b/gi, 'Smart Dent')
+  
+  return normalized
+}
+
+// Add institutional footer about Smart Dent complete solution
+function addResinFooter(testimonialText: string): string {
+  if (!testimonialText) return ''
+  
+  // Avoid duplication
+  if (testimonialText.includes('solução completa')) {
+    return testimonialText
+  }
+  
+  const footer = '\n\nA Smart Dent oferece uma solução completa do escaneamento à impressão, incluindo Resina Smart Dent Bio Vitality e Resina Smart Dent Bite Splint +Flex, para fluxos digitais completos em odontologia.'
+  
+  return testimonialText + footer
+}
+
+// Generate SEO-optimized meta description
+function generateMetaDescription(name: string, description: string): string {
+  const maxLength = 155
+  
+  // Extract first sentence or truncate
+  let meta = description.split('\n\n')[0] || description
+  meta = meta.replace(/\n/g, ' ').trim()
+  
+  if (meta.length > maxLength) {
+    meta = meta.substring(0, maxLength - 3) + '...'
+  }
+  
+  return `${name} compartilha experiência com Smart Dent. ${meta}`
+}
+
 // Map video testimonials to catalog items
 function mapVideoTestimonials(videos: any[]): CatalogItem[] {
   if (!videos || !Array.isArray(videos)) return []
   
-  return videos.map(v => ({
-    source: 'system_a',
-    category: 'video_testimonial',
-    external_id: String(v.id),
-    name: v.client_name,
-    description: v.testimonial_text,
-    display_order: v.display_order || 0,
-    approved: v.approved !== false,
-    active: true,
-    visible_in_ui: false,
-    extra_data: {
-      youtube_url: v.youtube_url,
-      instagram_url: v.instagram_url,
-      location: v.location,
-      specialty: v.specialty,
-      profession: v.profession,
-      video_thumbnail: v.video_thumbnail
+  return videos.map(v => {
+    // Step 1: Normalize product terms
+    const normalizedName = normalizeTerms(v.client_name)
+    const normalizedText = normalizeTerms(v.testimonial_text)
+    
+    // Step 2: Add institutional footer
+    const finalDescription = addResinFooter(normalizedText)
+    
+    // Step 3: Generate SEO meta
+    const seoTitle = `${normalizedName} | Depoimento Smart Dent`
+    const metaDescription = generateMetaDescription(normalizedName, finalDescription)
+    
+    return {
+      source: 'system_a',
+      category: 'video_testimonial',
+      external_id: String(v.id),
+      name: normalizedName,
+      description: finalDescription,
+      display_order: v.display_order || 0,
+      approved: v.approved !== false,
+      active: true,
+      visible_in_ui: false,
+      
+      // SEO optimization
+      seo_title_override: seoTitle,
+      meta_description: metaDescription,
+      
+      extra_data: {
+        youtube_url: v.youtube_url,
+        instagram_url: v.instagram_url,
+        location: v.location,
+        specialty: v.specialty,
+        profession: v.profession,
+        video_thumbnail: v.video_thumbnail,
+        
+        // New fields for advanced SEO
+        video_transcript: v.video_transcript || null,
+        video_duration_seconds: v.video_duration_seconds || null,
+      }
     }
-  }))
+  })
 }
 
 // Map Google reviews to catalog items

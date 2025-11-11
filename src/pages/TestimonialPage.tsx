@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { TestimonialSEOHead } from "@/components/TestimonialSEOHead";
 
 interface TestimonialData {
   id: string;
@@ -81,14 +81,7 @@ const TestimonialPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>{seoTitle}</title>
-        <meta name="description" content={metaDescription} />
-        <meta property="og:title" content={seoTitle} />
-        <meta property="og:description" content={metaDescription} />
-        <meta property="og:image" content={ogImage} />
-        <meta property="og:type" content="article" />
-      </Helmet>
+      <TestimonialSEOHead testimonial={testimonial} />
 
       <div className="min-h-screen bg-background">
         <header className="border-b">
@@ -137,6 +130,66 @@ const TestimonialPage = () => {
               </CardContent>
             </Card>
           )}
+
+          {extraData.video_transcript && (
+            <Card className="mb-8">
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Transcrição do Depoimento</h2>
+                <div className="prose max-w-none">
+                  <p className="whitespace-pre-line text-muted-foreground leading-relaxed">
+                    {extraData.video_transcript}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="mb-8">
+            <CardContent className="p-6">
+              <h2 className="text-2xl font-bold mb-4">Produtos Mencionados</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <a 
+                  href="/produtos/scanner-blz-ino200" 
+                  className="p-4 border rounded-lg hover:border-primary transition-colors"
+                >
+                  <h3 className="font-semibold mb-2">Scanner intraoral BLZ INO200</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Scanner de alta precisão para captura digital
+                  </p>
+                </a>
+                
+                <a 
+                  href="/resinas/bio-vitality" 
+                  className="p-4 border rounded-lg hover:border-primary transition-colors"
+                >
+                  <h3 className="font-semibold mb-2">Resina Smart Dent Bio Vitality</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Resina biocompatível para guias cirúrgicos
+                  </p>
+                </a>
+                
+                <a 
+                  href="/impressoras/rayshape-edge-mini" 
+                  className="p-4 border rounded-lg hover:border-primary transition-colors"
+                >
+                  <h3 className="font-semibold mb-2">Impressora RayShape Edge mini</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Impressora 3D de alta resolução
+                  </p>
+                </a>
+                
+                <a 
+                  href="/resinas/bite-splint-flex" 
+                  className="p-4 border rounded-lg hover:border-primary transition-colors"
+                >
+                  <h3 className="font-semibold mb-2">Resina Bite Splint +Flex</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Resina flexível para placas oclusais
+                  </p>
+                </a>
+              </div>
+            </CardContent>
+          </Card>
 
           {instagramUrl && (
             <div className="text-center">
