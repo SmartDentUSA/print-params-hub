@@ -263,6 +263,11 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     'es': '/es/base-conocimiento'
   };
 
+  // Check which language translations are available
+  const hasTranslationEn = !!(content.title_en && content.content_html_en);
+  const hasTranslationEs = !!(content.title_es && content.content_html_es);
+  const hasTranslation = currentLang === 'pt' || (currentLang === 'en' && hasTranslationEn) || (currentLang === 'es' && hasTranslationEs);
+
   const canonicalUrl = `${baseUrl}${pathByLang[currentLang]}/${category?.letter?.toLowerCase()}/${content.slug}`;
 
   // Preparar articleBody e wordCount para E-E-A-T
@@ -444,10 +449,13 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* hreflang tags for multilingual SEO */}
+      {/* Prevent indexing if translation is missing */}
+      {!hasTranslation && <meta name="robots" content="noindex, follow" />}
+      
+      {/* hreflang tags - only for languages with actual translations */}
       <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
-      <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
-      <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
+      {hasTranslationEn && <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category?.letter?.toLowerCase()}/${content.slug}`} />}
+      {hasTranslationEs && <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category?.letter?.toLowerCase()}/${content.slug}`} />}
       <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
       
       {/* Preload OG Image */}

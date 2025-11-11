@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/uti
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { VideoSchema } from '@/components/VideoSchema';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
@@ -17,6 +17,7 @@ import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { VideoLanguageIndicator } from '@/components/VideoLanguageIndicator';
+import { toast } from 'sonner';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -25,12 +26,37 @@ interface KnowledgeContentViewerProps {
 export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps) {
   const { t, language } = useLanguage();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [videos, setVideos] = useState<any[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [ctaResins, setCtaResins] = useState<any[]>([]);
   const [relatedDocuments, setRelatedDocuments] = useState<any[]>([]);
   const [videosLoading, setVideosLoading] = useState(true);
   const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
+
+  // Check if translation exists for requested language
+  const hasTranslation = useMemo(() => {
+    if (language === 'pt') return true; // PT is always the original
+    
+    if (language === 'en') {
+      return !!(content.title_en && content.content_html_en);
+    }
+    
+    if (language === 'es') {
+      return !!(content.title_es && content.content_html_es);
+    }
+    
+    return false;
+  }, [language, content]);
+
+  // Redirect to PT version if translation doesn't exist
+  useEffect(() => {
+    if (!hasTranslation) {
+      const ptPath = `/base-conhecimento/${content.knowledge_categories?.letter?.toLowerCase()}/${content.slug}`;
+      navigate(ptPath, { replace: true });
+      toast.error(language === 'en' ? "This content is only available in Portuguese" : "Este contenido solo está disponible en portugués");
+    }
+  }, [hasTranslation, content, navigate, language]);
 
   useEffect(() => {
     if (content?.id) {
