@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { TestimonialSEOHead } from "@/components/TestimonialSEOHead";
 import { GoogleReviewsWidget } from "@/components/GoogleReviewsWidget";
+import { InstagramEmbed } from "@/components/InstagramEmbed";
 
 interface TestimonialData {
   id: string;
@@ -145,6 +146,10 @@ const TestimonialPage = () => {
             </Card>
           )}
 
+          {instagramUrl && (
+            <InstagramEmbed url={instagramUrl} />
+          )}
+
           <Card className="mb-8">
             <CardContent className="p-6">
               <h2 className="text-2xl font-bold mb-4">Produtos Mencionados</h2>
@@ -194,16 +199,6 @@ const TestimonialPage = () => {
 
           {/* Google Reviews Widget */}
           <GoogleReviewsWidget />
-
-          {instagramUrl && (
-            <div className="text-center">
-              <Button asChild>
-                <a href={instagramUrl} target="_blank" rel="noopener noreferrer">
-                  Ver no Instagram
-                </a>
-              </Button>
-            </div>
-          )}
         </main>
       </div>
     </>
