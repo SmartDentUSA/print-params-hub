@@ -272,6 +272,18 @@ async function fetchProductVideos(supabase: any, options: any) {
         external_id,
         product_category,
         product_subcategory
+      ),
+      resins!knowledge_videos_resin_id_fkey(
+        id,
+        name,
+        manufacturer,
+        slug
+      ),
+      knowledge_contents!knowledge_videos_content_id_fkey(
+        id,
+        title,
+        slug,
+        knowledge_categories(letter)
       )
     `)
     .not('product_id', 'is', null)
@@ -299,11 +311,35 @@ async function fetchProductVideos(supabase: any, options: any) {
     product_subcategory: v.product_subcategory,
     product_external_id: v.product_external_id,
     product_match_status: v.product_match_status,
+    product_page_url: v.system_a_catalog?.slug 
+      ? `https://parametros.smartdent.com.br/produto/${v.system_a_catalog.slug}`
+      : null,
+    
+    // Vínculos cruzados com resina (se existir)
+    resin_id: v.resin_id,
+    resin_name: v.resins?.name,
+    resin_manufacturer: v.resins?.manufacturer,
+    resin_slug: v.resins?.slug,
+    resin_page_url: v.resins?.slug 
+      ? `https://parametros.smartdent.com.br/resina/${v.resins.slug}`
+      : null,
+    
+    // Vínculos com artigo (se existir)
+    content_id: v.content_id,
+    content_title: v.knowledge_contents?.title,
+    content_slug: v.knowledge_contents?.slug,
+    content_category_letter: v.knowledge_contents?.knowledge_categories?.letter,
+    content_page_url: v.knowledge_contents?.slug && v.knowledge_contents?.knowledge_categories?.letter
+      ? `https://parametros.smartdent.com.br/base-conhecimento/${v.knowledge_contents.knowledge_categories.letter}/${v.knowledge_contents.slug}`
+      : null,
     
     // Dados do vídeo
     title: v.title,
     description: v.description,
+    video_type: v.video_type,
+    url: v.url,
     video_duration_seconds: v.video_duration_seconds,
+    video_transcript: v.video_transcript,
     
     // URLs do PandaVideo
     embed_url: v.embed_url,
@@ -311,19 +347,121 @@ async function fetchProductVideos(supabase: any, options: any) {
     thumbnail_url: v.thumbnail_url,
     preview_url: v.preview_url,
     
-    // Custom fields do PandaVideo
-    panda_custom_fields: v.panda_custom_fields,
+    // Configuração completa do PandaVideo
     panda_config: v.panda_config,
+    panda_custom_fields: v.panda_custom_fields,
+    panda_tags: v.panda_tags,
+    
+    // Legendas e áudios extraídos
+    subtitles: v.panda_config?.subtitles || [],
+    audios: v.panda_config?.audios || [],
+    
+    // Analytics
+    analytics: v.analytics,
+    
+    // Metadata
+    folder_id: v.folder_id,
+    order_index: v.order_index,
+    last_product_sync_at: v.last_product_sync_at,
+    created_at: v.created_at,
+    updated_at: v.updated_at
+  }));
+}
+
+async function fetchResinVideos(supabase: any, options: any) {
+  let query = supabase
+    .from('knowledge_videos')
+    .select(`
+      *,
+      resins!knowledge_videos_resin_id_fkey(
+        id,
+        name,
+        manufacturer,
+        slug
+      ),
+      system_a_catalog!knowledge_videos_product_id_fkey(
+        id,
+        name,
+        slug,
+        category,
+        external_id
+      ),
+      knowledge_contents!knowledge_videos_content_id_fkey(
+        id,
+        title,
+        slug,
+        knowledge_categories(letter)
+      )
+    `)
+    .not('resin_id', 'is', null)
+    .order('order_index');
+  
+  if (options.approved_only) {
+    query = query.eq('resins.active', true);
+  }
+  
+  const { data: videos, error } = await query;
+  if (error) throw error;
+  
+  return (videos || []).map((v: any) => ({
+    id: v.id,
+    pandavideo_id: v.pandavideo_id,
+    pandavideo_external_id: v.pandavideo_external_id,
+    
+    // Informações da resina vinculada
+    resin_id: v.resin_id,
+    resin_name: v.resins?.name,
+    resin_manufacturer: v.resins?.manufacturer,
+    resin_slug: v.resins?.slug,
+    resin_page_url: v.resins?.slug 
+      ? `https://parametros.smartdent.com.br/resina/${v.resins.slug}`
+      : null,
+    
+    // Vínculo cruzado com produto (se existir)
+    product_id: v.product_id,
+    product_name: v.system_a_catalog?.name,
+    product_slug: v.system_a_catalog?.slug,
+    product_page_url: v.system_a_catalog?.slug 
+      ? `https://parametros.smartdent.com.br/produto/${v.system_a_catalog.slug}`
+      : null,
+    
+    // Vínculo com artigo (se existir)
+    content_id: v.content_id,
+    content_title: v.knowledge_contents?.title,
+    content_slug: v.knowledge_contents?.slug,
+    content_page_url: v.knowledge_contents?.slug && v.knowledge_contents?.knowledge_categories?.letter
+      ? `https://parametros.smartdent.com.br/base-conhecimento/${v.knowledge_contents.knowledge_categories.letter}/${v.knowledge_contents.slug}`
+      : null,
+    
+    // Dados do vídeo
+    title: v.title,
+    description: v.description,
+    video_type: v.video_type,
+    url: v.url,
+    video_duration_seconds: v.video_duration_seconds,
+    video_transcript: v.video_transcript,
+    
+    // URLs do PandaVideo
+    embed_url: v.embed_url,
+    hls_url: v.hls_url,
+    thumbnail_url: v.thumbnail_url,
+    preview_url: v.preview_url,
+    
+    // Configuração completa
+    panda_config: v.panda_config,
+    panda_custom_fields: v.panda_custom_fields,
+    panda_tags: v.panda_tags,
+    subtitles: v.panda_config?.subtitles || [],
+    audios: v.panda_config?.audios || [],
+    
+    // Analytics
+    analytics: v.analytics,
     
     // Metadata
     folder_id: v.folder_id,
     order_index: v.order_index,
     created_at: v.created_at,
-    
-    // URL da página do produto
-    product_page_url: v.system_a_catalog?.slug 
-      ? `https://parametros.smartdent.com.br/produto/${v.system_a_catalog.slug}`
-      : null
+    updated_at: v.updated_at
   }));
 }
 
@@ -604,6 +742,7 @@ function calculateStats(data: any) {
     resin_documents: data.resin_documents?.length || 0,
     catalog_documents: data.catalog_documents?.length || 0,
     product_videos: data.product_videos?.length || 0,
+    resin_videos: data.resin_videos?.length || 0,
     total_html_size_mb: (htmlSize / 1024 / 1024).toFixed(2)
   };
 }
@@ -714,10 +853,33 @@ function formatCompact(data: any) {
       product_name: v.product_name,
       product_external_id: v.product_external_id,
       title: v.title,
+      description: v.description,
+      video_type: v.video_type,
+      video_duration_seconds: v.video_duration_seconds,
+      video_transcript: v.video_transcript,
       embed_url: v.embed_url,
       thumbnail_url: v.thumbnail_url,
-      video_duration_seconds: v.video_duration_seconds,
-      panda_custom_fields: v.panda_custom_fields
+      panda_tags: v.panda_tags,
+      subtitles: v.subtitles,
+      // Vínculos cruzados
+      resin_id: v.resin_id,
+      resin_name: v.resin_name,
+      content_id: v.content_id,
+      content_title: v.content_title
+    })),
+    resin_videos: data.resin_videos?.map((v: any) => ({
+      id: v.id,
+      pandavideo_id: v.pandavideo_id,
+      resin_id: v.resin_id,
+      resin_name: v.resin_name,
+      title: v.title,
+      video_transcript: v.video_transcript,
+      embed_url: v.embed_url,
+      thumbnail_url: v.thumbnail_url,
+      panda_tags: v.panda_tags,
+      // Vínculos cruzados
+      product_id: v.product_id,
+      product_name: v.product_name
     })),
     knowledge_categories: data.knowledge_categories,
     knowledge_contents: data.knowledge_contents?.map((c: any) => ({
@@ -906,7 +1068,22 @@ function formatAiReady(data: any) {
         external_id: v.product_external_id,
         url_pagina: v.product_page_url
       },
+      resina_vinculada: v.resin_id ? {
+        id: v.resin_id,
+        nome: v.resin_name,
+        fabricante: v.resin_manufacturer,
+        slug: v.resin_slug,
+        url_pagina: v.resin_page_url
+      } : null,
+      artigo_vinculado: v.content_id ? {
+        id: v.content_id,
+        titulo: v.content_title,
+        slug: v.content_slug,
+        url_pagina: v.content_page_url
+      } : null,
       video: {
+        tipo: v.video_type,
+        url_original: v.url,
         titulo: v.title,
         descricao: v.description,
         duracao_segundos: v.video_duration_seconds,
@@ -916,11 +1093,55 @@ function formatAiReady(data: any) {
         preview: v.preview_url,
         transcricao: v.video_transcript
       },
-      campos_personalizados: v.panda_custom_fields,
+      legendas: v.subtitles,
+      audios: v.audios,
       tags: v.panda_tags || [],
+      campos_personalizados: v.panda_custom_fields,
+      analytics: v.analytics,
       status_vinculo: v.product_match_status,
       ordem_exibicao: v.order_index,
-      criado_em: v.created_at
+      ultima_sincronizacao: v.last_product_sync_at,
+      criado_em: v.created_at,
+      atualizado_em: v.updated_at
+    })),
+    videos_resinas: (data.resin_videos || []).map((v: any) => ({
+      id: v.id,
+      pandavideo_id: v.pandavideo_id,
+      resina: {
+        id: v.resin_id,
+        nome: v.resin_name,
+        fabricante: v.resin_manufacturer,
+        slug: v.resin_slug,
+        url_pagina: v.resin_page_url
+      },
+      produto_vinculado: v.product_id ? {
+        id: v.product_id,
+        nome: v.product_name,
+        slug: v.product_slug,
+        url_pagina: v.product_page_url
+      } : null,
+      artigo_vinculado: v.content_id ? {
+        id: v.content_id,
+        titulo: v.content_title,
+        slug: v.content_slug,
+        url_pagina: v.content_page_url
+      } : null,
+      video: {
+        tipo: v.video_type,
+        titulo: v.title,
+        descricao: v.description,
+        duracao_segundos: v.video_duration_seconds,
+        embed_url: v.embed_url,
+        thumbnail: v.thumbnail_url,
+        transcricao: v.video_transcript
+      },
+      legendas: v.subtitles,
+      audios: v.audios,
+      tags: v.panda_tags || [],
+      campos_personalizados: v.panda_custom_fields,
+      analytics: v.analytics,
+      criado_em: v.created_at,
+      atualizado_em: v.updated_at
     })),
     conhecimento: {
       categorias: (data.knowledge_categories || []).map((c: any) => ({
@@ -1179,6 +1400,9 @@ Deno.serve(async (req) => {
       include_product_videos: bodyParams.include_product_videos !== undefined 
         ? bodyParams.include_product_videos 
         : url.searchParams.get('include_product_videos') === 'true',
+      include_resin_videos: bodyParams.include_resin_videos !== undefined 
+        ? bodyParams.include_resin_videos 
+        : url.searchParams.get('include_resin_videos') === 'true',
       include_knowledge: bodyParams.include_knowledge_contents !== undefined
         ? bodyParams.include_knowledge_contents 
         : bodyParams.include_knowledge !== undefined
@@ -1290,6 +1514,14 @@ Deno.serve(async (req) => {
         fetchProductVideos(supabase, options)
           .then(d => { data.product_videos = d; })
           .catch(err => console.error('Error fetching product_videos:', err))
+      );
+    }
+    
+    if (options.include_resin_videos) {
+      promises.push(
+        fetchResinVideos(supabase, options)
+          .then(d => { data.resin_videos = d; })
+          .catch(err => console.error('Error fetching resin_videos:', err))
       );
     }
     
