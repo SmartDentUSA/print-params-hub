@@ -8,6 +8,7 @@ import CategoryPage from "./pages/CategoryPage";
 import DocumentProxyRoute from "./pages/DocumentProxyRoute";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import ParameterPageExample from "./pages/ParameterPageExample";
 
 const App = () => (
   <Routes>
@@ -37,6 +38,10 @@ const App = () => (
     <Route path="/categorias/:slug" element={<CategoryPage />} />
     <Route path="/sobre" element={<About />} />
     <Route path="/docs/:filename" element={<DocumentProxyRoute />} />
+    
+    {/* Exemplo de página da Categoria F */}
+    <Route path="/exemplo-parametros" element={<ParameterPageExample />} />
+    
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
