@@ -21,7 +21,7 @@ export const GoogleReviewsWidget = ({
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>O que nossos clientes dizem</CardTitle>
+        <CardTitle className="text-3xl font-bold">O que nossos clientes dizem</CardTitle>
       </CardHeader>
       <CardContent>
         <div 
