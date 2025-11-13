@@ -57,6 +57,8 @@ Deno.serve(async (req) => {
     const contentsToInsert = [];
     const slugMap = new Map(); // Track unique slugs
     
+    console.log('Starting multilingual content generation...');
+    
     for (const params of parameterSets || []) {
       // Normalize slug generation
       const normalizeSlug = (text: string) => {
@@ -172,6 +174,66 @@ Deno.serve(async (req) => {
         'configuração de impressora'
       ];
 
+      // Translate content to English and Spanish
+      console.log(`Translating content for: ${title}`);
+      
+      let titleEn = null, excerptEn = null, contentHtmlEn = null, faqsEn = null, aiContextEn = null;
+      let titleEs = null, excerptEs = null, contentHtmlEs = null, faqsEs = null, aiContextEs = null;
+      
+      try {
+        // Translate to English
+        const { data: enTranslation, error: enError } = await supabase.functions.invoke('translate-content', {
+          body: {
+            content: {
+              title,
+              excerpt,
+              contentHtml,
+              faqs,
+              aiContext
+            },
+            targetLanguage: 'en'
+          }
+        });
+        
+        if (enError) {
+          console.error('Error translating to English:', enError);
+        } else if (enTranslation) {
+          titleEn = enTranslation.title;
+          excerptEn = enTranslation.excerpt;
+          contentHtmlEn = enTranslation.contentHtml;
+          faqsEn = enTranslation.faqs;
+          aiContextEn = enTranslation.aiContext;
+        }
+        
+        // Translate to Spanish
+        const { data: esTranslation, error: esError } = await supabase.functions.invoke('translate-content', {
+          body: {
+            content: {
+              title,
+              excerpt,
+              contentHtml,
+              faqs,
+              aiContext
+            },
+            targetLanguage: 'es'
+          }
+        });
+        
+        if (esError) {
+          console.error('Error translating to Spanish:', esError);
+        } else if (esTranslation) {
+          titleEs = esTranslation.title;
+          excerptEs = esTranslation.excerpt;
+          contentHtmlEs = esTranslation.contentHtml;
+          faqsEs = esTranslation.faqs;
+          aiContextEs = esTranslation.aiContext;
+        }
+        
+        console.log(`✓ Translated ${slug} to EN and ES`);
+      } catch (error) {
+        console.error(`Failed to translate ${slug}:`, error);
+      }
+
       contentsToInsert.push({
         category_id: categoryF.id,
         title,
@@ -184,12 +246,22 @@ Deno.serve(async (req) => {
         active: true,
         order_index: contentsToInsert.length,
         ai_context: aiContext,
+        title_en: titleEn,
+        title_es: titleEs,
+        excerpt_en: excerptEn,
+        excerpt_es: excerptEs,
+        content_html_en: contentHtmlEn,
+        content_html_es: contentHtmlEs,
+        faqs_en: faqsEn,
+        faqs_es: faqsEs,
+        ai_context_en: aiContextEn,
+        ai_context_es: aiContextEs,
         og_image_url: null, // Pode ser adicionado posteriormente com imagem da impressora/resina
         content_image_url: null // Pode ser adicionado posteriormente
       });
     }
 
-    console.log(`Inserting ${contentsToInsert.length} technical parameter pages...`);
+    console.log(`Inserting ${contentsToInsert.length} technical parameter pages (PT/EN/ES)...`);
 
     // Deletar conteúdos antigos da categoria F
     await supabase
@@ -205,13 +277,16 @@ Deno.serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    console.log(`Successfully created ${inserted?.length || 0} technical parameter pages`);
+    const totalIndexablePages = (inserted?.length || 0) * 3; // PT + EN + ES
+    console.log(`Successfully created ${inserted?.length || 0} parameter pages in 3 languages (${totalIndexablePages} total indexable pages)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully generated ${inserted?.length || 0} technical parameter pages`,
-        pages: inserted?.length || 0
+        message: `Successfully generated ${inserted?.length || 0} parameter pages in PT/EN/ES (${totalIndexablePages} total indexable pages)`,
+        pages: inserted?.length || 0,
+        languages: 3,
+        totalIndexablePages
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
