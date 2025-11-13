@@ -39,7 +39,7 @@ export function AdminParameterPages() {
   };
 
   return (
-    <Card>
+    <Card id="parametros-tecnicos" className="bg-gradient-card border-border shadow-medium">
       <CardHeader>
         <CardTitle>Categoria F - Páginas Técnicas de Parâmetros</CardTitle>
         <CardDescription>

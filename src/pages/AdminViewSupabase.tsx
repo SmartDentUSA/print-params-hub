@@ -2,7 +2,7 @@ import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, Settings, ArrowLeft, Wrench } from "lucide-react";
+import { Database, Settings, ArrowLeft, Wrench, Zap } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { Link } from "react-router-dom";
 import { AdminSettings } from "@/components/AdminSettings";
@@ -57,10 +57,27 @@ const AdminViewSupabase = () => {
                 Dashboard Administrativo
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Gerencie todas as configurações do sistema, incluindo marcas, modelos, resinas e parâmetros de impressão.
               </p>
+              
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => {
+                    document.getElementById('parametros-tecnicos')?.scrollIntoView({ 
+                      behavior: 'smooth',
+                      block: 'start'
+                    });
+                  }}
+                  className="w-full md:w-auto flex items-center gap-2 bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary"
+                >
+                  <Zap className="w-4 h-4" />
+                  Parâmetros Técnicos (260 páginas)
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
