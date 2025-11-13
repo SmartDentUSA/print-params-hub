@@ -13,7 +13,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
-import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
+import { PDFContentRenderer } from '@/components/PDFContentRenderer';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { VideoLanguageIndicator } from '@/components/VideoLanguageIndicator';
@@ -271,7 +271,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
         {/* Rich Content */}
           {displayContent.content_html && (
-            <BlogPreviewFrame
+            <PDFContentRenderer
               htmlContent={renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors)}
               deviceMode={isMobile ? "mobile" : "desktop"}
             />

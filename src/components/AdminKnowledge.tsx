@@ -663,6 +663,70 @@ Receba o texto bruto abaixo e:
     });
   };
 
+  const handleInsertPDFViewer = (doc: any) => {
+    if (!editorRef.current && contentEditorMode === 'visual') {
+      toast({ 
+        title: 'Erro', 
+        description: 'Editor não está pronto. Aguarde um momento.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
+    // HTML do PDF viewer embedded
+    const pdfViewerHTML = `
+    <div class="pdf-viewer-container" style="margin: 32px 0; border: 2px solid #f59e0b; border-radius: 12px; overflow: hidden; background: #fffbeb;">
+      <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 16px; color: white;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 24px;">📄</span>
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 600;">${doc.document_name}</h3>
+            <p class="pdf-subtitle" style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">
+              ${doc.resin_name} - ${doc.manufacturer}
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <iframe 
+        src="${doc.file_url}" 
+        style="width: 100%; height: 600px; border: none; display: block;"
+        title="${doc.document_name}"
+        loading="lazy"
+      ></iframe>
+      
+      <div style="padding: 12px; background: #fef3c7; border-top: 1px solid #f59e0b;">
+        <a 
+          href="${doc.file_url}" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style="display: inline-flex; align-items: center; gap: 8px; color: #92400e; text-decoration: none; font-size: 14px; font-weight: 500;"
+        >
+          <span>📥</span>
+          Baixar PDF completo
+          <span style="font-size: 12px;">→</span>
+        </a>
+      </div>
+    </div>
+  `;
+
+    if (contentEditorMode === 'visual' && editorRef.current) {
+      // Inserir no editor TipTap
+      editorRef.current.commands.insertContent(pdfViewerHTML);
+    } else {
+      // Modo HTML: concatenar ao final
+      setFormData({
+        ...formData,
+        content_html: formData.content_html + '\n\n' + pdfViewerHTML + '\n\n'
+      });
+    }
+    
+    toast({ 
+      title: '✅ PDF inserido!', 
+      description: `${doc.document_name} foi adicionado ao conteúdo` 
+    });
+  };
+
   const handleUploadOgImage = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast({ 
@@ -1655,6 +1719,14 @@ Receba o texto bruto abaixo e:
                                     >
                                       👁️ Ver
                                     </a>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex items-center gap-1 px-2 py-1 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 dark:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-950"
+                                      onClick={() => handleInsertPDFViewer(doc)}
+                                    >
+                                      📄 Inserir
+                                    </Button>
                                   </div>
                                 </div>
                                 <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded truncate">
