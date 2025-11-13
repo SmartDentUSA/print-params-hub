@@ -55,9 +55,29 @@ Deno.serve(async (req) => {
     console.log(`Found ${parameterSets?.length || 0} parameter sets`);
 
     const contentsToInsert = [];
+    const slugMap = new Map(); // Track unique slugs
     
     for (const params of parameterSets || []) {
-      const slug = `parametros-${params.brand_slug}-${params.model_slug}-${params.resin_manufacturer.toLowerCase().replace(/\s+/g, '-')}-${params.resin_name.toLowerCase().replace(/\s+/g, '-')}`;
+      // Normalize slug generation
+      const normalizeSlug = (text: string) => {
+        return text
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+          .replace(/[^\w\s-]/g, '') // Remove caracteres especiais
+          .replace(/\s+/g, '-') // Substitui espaços por hífens
+          .replace(/-+/g, '-') // Remove hífens duplicados
+          .trim();
+      };
+      
+      const baseSlug = `parametros-${normalizeSlug(params.brand_slug)}-${normalizeSlug(params.model_slug)}-${normalizeSlug(params.resin_manufacturer)}-${normalizeSlug(params.resin_name)}`;
+      
+      // Handle duplicate slugs by appending parameter ID
+      let slug = baseSlug;
+      if (slugMap.has(slug)) {
+        slug = `${baseSlug}-${params.id.substring(0, 8)}`;
+      }
+      slugMap.set(slug, true);
       
       const title = `Parâmetros ${params.brand_slug} ${params.model_slug} - ${params.resin_manufacturer} ${params.resin_name}`;
       
