@@ -270,12 +270,16 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         )}
 
         {/* Rich Content */}
-          {displayContent.content_html && (
-            <PDFContentRenderer
-              htmlContent={renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors)}
-              deviceMode={isMobile ? "mobile" : "desktop"}
-            />
-          )}
+          {displayContent.content_html && (() => {
+            const processedHTML = renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors);
+            console.log('KnowledgeContentViewer: Rendering content, has PDF?', processedHTML.includes('pdf-viewer-container'));
+            return (
+              <PDFContentRenderer
+                htmlContent={processedHTML}
+                deviceMode={isMobile ? "mobile" : "desktop"}
+              />
+            );
+          })()}
 
         {/* FAQ Section - antes da assinatura do autor */}
         {displayContent.faqs && displayContent.faqs.length > 0 && (
