@@ -63,6 +63,9 @@ Deno.serve(async (req) => {
       
       const excerpt = `Configuração técnica validada: Layer ${params.layer_height}mm, Tempo ${params.cure_time}s, Intensidade ${params.light_intensity}%`;
       
+      // AI Context para mecanismos de busca generativa
+      const aiContext = `This technical article provides validated 3D printing parameters for ${params.brand_slug} ${params.model_slug} printer using ${params.resin_manufacturer} ${params.resin_name} resin. Key specifications: Layer height ${params.layer_height}mm, Cure time ${params.cure_time}s, Light intensity ${params.light_intensity}%, Bottom layers ${params.bottom_layers}, Bottom cure time ${params.bottom_cure_time}s, Lift distance ${params.lift_distance}mm, Lift speed ${params.lift_speed}mm/min, Retract speed ${params.retract_speed}mm/min. Intended for dental professionals and advanced 3D printing users. Parameters tested in controlled environment.`;
+      
       const faqs = [
         {
           question: `Qual o tempo de exposição inicial ideal para ${params.brand_slug} ${params.model_slug} com ${params.resin_manufacturer} ${params.resin_name}?`,
@@ -83,7 +86,7 @@ Deno.serve(async (req) => {
       ];
 
       const contentHtml = `
-        <div class="technical-parameters">
+        <div class="technical-parameters" itemscope itemtype="https://schema.org/TechArticle">
           <div class="warning-banner">
             <p><strong>⚙️ Conteúdo Técnico Avançado</strong></p>
             <p>Este conteúdo é destinado a usuários experientes em impressão 3D odontológica. Os parâmetros aqui apresentados foram validados em ambiente controlado.</p>
@@ -91,8 +94,23 @@ Deno.serve(async (req) => {
 
           <h2>Especificações Técnicas</h2>
           <table class="parameters-table">
-            <tr><td><strong>Impressora:</strong></td><td>${params.brand_slug} ${params.model_slug}</td></tr>
-            <tr><td><strong>Resina:</strong></td><td>${params.resin_manufacturer} ${params.resin_name}</td></tr>
+            <tr>
+              <td><strong>Impressora:</strong></td>
+              <td>
+                <span itemprop="mentions" itemscope itemtype="https://schema.org/Product">
+                  <span itemprop="name">${params.brand_slug} ${params.model_slug}</span>
+                </span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Resina:</strong></td>
+              <td>
+                <span itemprop="mentions" itemscope itemtype="https://schema.org/Product">
+                  <span itemprop="manufacturer">${params.resin_manufacturer}</span>
+                  <span itemprop="name">${params.resin_name}</span>
+                </span>
+              </td>
+            </tr>
             <tr><td><strong>Altura da Camada:</strong></td><td>${params.layer_height}mm</td></tr>
             <tr><td><strong>Tempo de Cura Normal:</strong></td><td>${params.cure_time}s</td></tr>
             <tr><td><strong>Intensidade de Luz:</strong></td><td>${params.light_intensity}%</td></tr>
@@ -144,7 +162,10 @@ Deno.serve(async (req) => {
         keywords,
         meta_description: excerpt,
         active: true,
-        order_index: contentsToInsert.length
+        order_index: contentsToInsert.length,
+        ai_context: aiContext,
+        og_image_url: null, // Pode ser adicionado posteriormente com imagem da impressora/resina
+        content_image_url: null // Pode ser adicionado posteriormente
       });
     }
 

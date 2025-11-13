@@ -260,7 +260,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   const pathByLang = {
     'pt': '/base-conhecimento',
     'en': '/en/knowledge-base',
-    'es': '/es/base-conocimiento'
+    'es': '/es/base-conocimento'
   };
 
   // Check which language translations are available
@@ -270,13 +270,44 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   const canonicalUrl = `${baseUrl}${pathByLang[currentLang]}/${category?.letter?.toLowerCase()}/${content.slug}`;
 
+  // Check if this is a technical parameter page (Category F)
+  const isTechnicalPage = category?.letter === 'F' || content.slug?.startsWith('parametros-');
+
   // Preparar articleBody e wordCount para E-E-A-T
   const articleBody = stripTags(content.content_html || '');
   const wordCount = articleBody.split(/\s+/).filter(w => w.length > 0).length;
 
+  // Extract product mentions for technical pages
+  const productMentions = isTechnicalPage ? (() => {
+    const mentions = [];
+    const html = content.content_html || '';
+    
+    // Extract printer (brand + model) from title
+    const printerMatch = content.title?.match(/Parâmetros\s+(\w+)\s+([\w\s]+?)\s+-/);
+    if (printerMatch) {
+      mentions.push({
+        "@type": "Product",
+        "name": `${printerMatch[1]} ${printerMatch[2].trim()}`,
+        "category": "Impressora 3D"
+      });
+    }
+    
+    // Extract resin (manufacturer + name) from title
+    const resinMatch = content.title?.match(/-\s+([\w\s]+?)\s+([\w\s]+)$/);
+    if (resinMatch) {
+      mentions.push({
+        "@type": "Product",
+        "name": `${resinMatch[1].trim()} ${resinMatch[2].trim()}`,
+        "category": "Resina para Impressão 3D"
+      });
+    }
+    
+    return mentions;
+  })() : [];
+
   const articleSchema: any = {
     "@context": "https://schema.org",
-    "@type": "Article",
+    "@type": isTechnicalPage ? "TechArticle" : "Article",
     "headline": displayTitle,
     "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
@@ -303,6 +334,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "url": "https://smartdent.com.br/logo.png"
       }
     },
+    // 🆕 Product mentions for technical pages
+    ...(productMentions.length > 0 && { "mentions": productMentions }),
     // 🆕 Documentos Técnicos Relacionados
     ...(relatedDocuments && relatedDocuments.length > 0 && {
       "associatedMedia": relatedDocuments.map(doc => ({
@@ -447,6 +480,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <title>{displayTitle} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
+      {content.ai_context && <meta name="ai-context" content={content.ai_context} />}
       <link rel="canonical" href={canonicalUrl} />
       
       {/* Prevent indexing if translation is missing */}
