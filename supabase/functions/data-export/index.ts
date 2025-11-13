@@ -518,6 +518,25 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
       content.content_text = stripHtmlTags(content.content_html);
     }
     
+    // Add AI metadata for Category F (technical parameters)
+    if (content.knowledge_categories?.letter === 'F') {
+      const aiSummary = content.excerpt || '';
+      const confidenceScore = 9; // High confidence for validated parameters
+      
+      content.ai_metadata = {
+        type: 'technical_parameters',
+        ai_summary: aiSummary,
+        confidence_score: confidenceScore,
+        technical_specs: {
+          keywords: content.keywords || [],
+          faqs: content.faqs || []
+        },
+        context: 'Configurações técnicas validadas para impressão 3D odontológica',
+        seo_optimized: true,
+        featured_snippet_ready: true
+      };
+    }
+    
     // Fetch videos
     const { data: videos } = await supabase
       .from('knowledge_videos')
@@ -894,7 +913,11 @@ function formatCompact(data: any) {
       keyword_ids: c.keyword_ids,
       recommended_resins: c.recommended_resins,
       public_url: c.public_url,
-      active: c.active
+      active: c.active,
+      // Include AI metadata for Category F
+      ...(c.ai_metadata && {
+        ai_metadata: c.ai_metadata
+      })
     })),
     keywords: data.keywords,
     authors: data.authors
@@ -1166,6 +1189,10 @@ function formatAiReady(data: any) {
         palavras_chave: c.keywords || [],
         keywords_detalhadas: c.keywords_data || [],
         cor_icone: c.icon_color,
+        // AI Metadata for Category F
+        ...(c.ai_metadata && {
+          metadados_ia: c.ai_metadata
+        }),
         autor: c.author_name ? {
           id: c.author_id,
           nome: c.author_name,

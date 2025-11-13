@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import { AdminSettings } from "@/components/AdminSettings";
 import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
 import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
+import { AdminParameterPages } from "@/components/AdminParameterPages";
 
 const AdminViewSupabase = () => {
   const dataContext = useData();
@@ -107,6 +108,9 @@ const AdminViewSupabase = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Parameter Pages Generator (Category F) */}
+          <AdminParameterPages />
 
           {/* PandaVideo Sync */}
           <AdminPandaVideoSync />

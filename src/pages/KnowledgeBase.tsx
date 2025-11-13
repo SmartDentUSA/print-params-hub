@@ -44,10 +44,11 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
 
   const { results: searchResults, loading: searchLoading } = useKnowledgeSearch(searchTerm, language);
 
-  // Load categories
+  // Load categories (filter out disabled ones like Category F)
   useEffect(() => {
     const load = async () => {
       const cats = await fetchCategories();
+      // Filter out disabled categories (Category F is hidden but accessible via direct URL)
       setCategories(cats.filter(c => c.enabled));
     };
     load();

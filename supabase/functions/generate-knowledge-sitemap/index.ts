@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch all active categories
+    // Fetch enabled categories (visible in navigation)
     const { data: categories, error: categoriesError } = await supabase
       .from('knowledge_categories')
       .select('letter, name, updated_at')
@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       throw categoriesError;
     }
 
-    // Fetch all active contents with their categories
+    // Fetch ALL active contents including Category F (hidden but SEO-accessible)
     const { data: contents, error: contentsError } = await supabase
       .from('knowledge_contents')
       .select('slug, updated_at, knowledge_categories!inner(letter)')
