@@ -7,27 +7,66 @@ interface PDFContentRendererProps {
 }
 
 export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFContentRendererProps) {
-  // Regex para extrair PDFs embedded
-  const pdfPattern = /<div class="pdf-viewer-container"[^>]*>.*?<iframe\s+src="([^"]+)"[^>]*title="([^"]+)"[^>]*>.*?<\/iframe>.*?<p[^>]*class="pdf-subtitle"[^>]*>([^<]*)<\/p>.*?<\/div>/gs;
+  // Verificar se há PDFs no conteúdo
+  const hasPDFContainer = htmlContent.includes('pdf-viewer-container');
+  
+  console.log('PDFContentRenderer: Has PDF container?', hasPDFContainer);
+  
+  if (hasPDFContainer) {
+    console.log('PDFContentRenderer: HTML snippet (first 500 chars):', htmlContent.substring(0, 500));
+  }
+  
+  // Se não há PDFs, renderizar normalmente
+  if (!hasPDFContainer) {
+    console.log('PDFContentRenderer: No PDF container found, using BlogPreviewFrame');
+    return <BlogPreviewFrame htmlContent={htmlContent} deviceMode={deviceMode} />;
+  }
+
+  // Regex mais simples e robusto: procurar por iframes dentro de pdf-viewer-container
+  const containerPattern = /<div[^>]*class="pdf-viewer-container"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div[^>]*class="pdf-viewer-container"|$))/g;
   
   const parts: JSX.Element[] = [];
   let lastIndex = 0;
   let match;
   let key = 0;
 
-  while ((match = pdfPattern.exec(htmlContent)) !== null) {
-    const [fullMatch, pdfUrl, pdfTitle, pdfSubtitle] = match;
+  console.log('PDFContentRenderer: Searching for PDF containers...');
+
+  while ((match = containerPattern.exec(htmlContent)) !== null) {
+    const containerHTML = match[0];
+    const containerContent = match[1];
+    
+    // Extrair URL do iframe
+    const iframeMatch = containerContent.match(/<iframe[^>]+src="([^"]+)"[^>]*>/);
+    // Extrair title do iframe
+    const titleMatch = containerContent.match(/<iframe[^>]+title="([^"]+)"[^>]*>/) || 
+                       containerContent.match(/<h3[^>]*>([^<]+)<\/h3>/);
+    // Extrair subtitle (texto do <p> no header)
+    const subtitleMatch = containerContent.match(/<p[^>]*style="[^"]*font-size:\s*12px[^"]*"[^>]*>([^<]+)<\/p>/);
+    
+    if (!iframeMatch) {
+      console.warn('PDFContentRenderer: Found container but no iframe, skipping');
+      continue;
+    }
+    
+    const pdfUrl = iframeMatch[1];
+    const pdfTitle = titleMatch ? titleMatch[1] : 'Documento PDF';
+    const pdfSubtitle = subtitleMatch ? subtitleMatch[1].trim() : '';
+    
+    console.log('PDFContentRenderer: Found PDF:', { pdfUrl, pdfTitle, pdfSubtitle });
     
     // Conteúdo HTML antes do PDF
     if (match.index > lastIndex) {
       const htmlBefore = htmlContent.slice(lastIndex, match.index);
-      parts.push(
-        <BlogPreviewFrame 
-          key={`html-${key}`} 
-          htmlContent={htmlBefore}
-          deviceMode={deviceMode}
-        />
-      );
+      if (htmlBefore.trim()) {
+        parts.push(
+          <BlogPreviewFrame 
+            key={`html-${key}`} 
+            htmlContent={htmlBefore}
+            deviceMode={deviceMode}
+          />
+        );
+      }
     }
     
     // PDF viewer
@@ -40,26 +79,31 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
       />
     );
     
-    lastIndex = match.index + fullMatch.length;
+    lastIndex = match.index + containerHTML.length;
     key++;
   }
 
   // Conteúdo HTML após o último PDF
   if (lastIndex < htmlContent.length) {
     const htmlAfter = htmlContent.slice(lastIndex);
-    parts.push(
-      <BlogPreviewFrame 
-        key={`html-${key}`} 
-        htmlContent={htmlAfter}
-        deviceMode={deviceMode}
-      />
-    );
+    if (htmlAfter.trim()) {
+      parts.push(
+        <BlogPreviewFrame 
+          key={`html-${key}`} 
+          htmlContent={htmlAfter}
+          deviceMode={deviceMode}
+        />
+      );
+    }
   }
 
-  // Se não encontrou nenhum PDF, renderizar normalmente
+  // Se não conseguiu extrair nenhum PDF com o regex, renderizar tudo no BlogPreviewFrame
+  // (o iframe será renderizado dentro do iframe do BlogPreviewFrame)
   if (parts.length === 0) {
+    console.warn('PDFContentRenderer: Container found but regex failed, falling back to BlogPreviewFrame');
     return <BlogPreviewFrame htmlContent={htmlContent} deviceMode={deviceMode} />;
   }
 
+  console.log('PDFContentRenderer: Successfully rendered', parts.length, 'parts');
   return <>{parts}</>;
 }
