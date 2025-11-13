@@ -70,6 +70,8 @@ export function AdminKnowledge() {
   const [contentEditorModeEN, setContentEditorModeEN] = useState<'visual' | 'html'>('html');
   const editorRefES = useRef<Editor | null>(null);
   const editorRefEN = useRef<Editor | null>(null);
+  // Destino padrão para inserção de PDFs (PT, ES, EN)
+  const [insertTargetLang, setInsertTargetLang] = useState<'pt' | 'es' | 'en'>('pt');
   
   // Auto-apply and auto-save states
   const [autoApplyIA, setAutoApplyIA] = useState(() => {
@@ -666,19 +668,14 @@ Receba o texto bruto abaixo e:
   const handleInsertPDFViewer = (doc: any) => {
     console.log('📄 handleInsertPDFViewer chamado:', {
       doc: doc.document_name,
-      mode: contentEditorMode,
-      hasEditor: !!editorRef.current
+      modePT: contentEditorMode,
+      modeES: contentEditorModeES,
+      modeEN: contentEditorModeEN,
+      target: insertTargetLang,
+      hasEditorPT: !!editorRef.current,
+      hasEditorES: !!editorRefES.current,
+      hasEditorEN: !!editorRefEN.current,
     });
-
-    if (!editorRef.current && contentEditorMode === 'visual') {
-      console.error('❌ Editor não disponível no modo visual');
-      toast({ 
-        title: 'Erro', 
-        description: 'Editor não está pronto. Aguarde um momento.', 
-        variant: 'destructive' 
-      });
-      return;
-    }
 
     // HTML do PDF viewer embedded
     const pdfViewerHTML = `
@@ -719,31 +716,55 @@ Receba o texto bruto abaixo e:
 
     console.log('📄 HTML gerado (primeiros 200 chars):', pdfViewerHTML.substring(0, 200));
 
-    if (contentEditorMode === 'visual' && editorRef.current) {
-      console.log('✅ Inserindo no editor TipTap...');
-      // Inserir no editor TipTap
-      editorRef.current.commands.insertContent(pdfViewerHTML);
-      
-      toast({ 
-        title: '✅ PDF inserido!', 
-        description: `${doc.document_name} foi adicionado ao conteúdo`,
-        variant: 'default'
-      });
-    } else {
-      console.log('✅ Inserindo no modo HTML...');
-      // Modo HTML: concatenar ao final
+    const appendToPT = () => {
+      const current = formData.content_html || '';
       setFormData({
         ...formData,
-        content_html: formData.content_html + '\n\n' + pdfViewerHTML + '\n\n'
+        content_html: current + '\n\n' + pdfViewerHTML + '\n\n'
       });
-      
-      toast({ 
-        title: '✅ PDF inserido!', 
-        description: `${doc.document_name} foi adicionado ao conteúdo no modo HTML`,
-        variant: 'default'
-      });
+      if (contentEditorMode === 'visual') {
+        // Mudar para HTML para o usuário visualizar o bloco inserido
+        setContentEditorMode('html');
+        toast({ title: 'PDF inserido no PT', description: 'Mudamos para o modo HTML para você visualizar o bloco.' });
+      }
+    };
+
+    const appendToES = () => {
+      const current = contentES || '';
+      setContentES(current + '\n\n' + pdfViewerHTML + '\n\n');
+      if (contentEditorModeES === 'visual') {
+        setContentEditorModeES('html');
+        toast({ title: 'PDF inserido no ES', description: 'Mudamos para o modo HTML para você visualizar o bloco.' });
+      }
+    };
+
+    const appendToEN = () => {
+      const current = contentEN || '';
+      setContentEN(current + '\n\n' + pdfViewerHTML + '\n\n');
+      if (contentEditorModeEN === 'visual') {
+        setContentEditorModeEN('html');
+        toast({ title: 'PDF inserido no EN', description: 'Mudamos para o modo HTML para você visualizar o bloco.' });
+      }
+    };
+
+    switch (insertTargetLang) {
+      case 'pt':
+        appendToPT();
+        break;
+      case 'es':
+        appendToES();
+        break;
+      case 'en':
+        appendToEN();
+        break;
     }
-    
+
+    toast({ 
+      title: '✅ PDF inserido!', 
+      description: `${doc.document_name} foi adicionado ao conteúdo (${insertTargetLang.toUpperCase()})`,
+      variant: 'default'
+    });
+
     console.log('✅ handleInsertPDFViewer concluído');
   };
 
@@ -1696,9 +1717,29 @@ Receba o texto bruto abaixo e:
                     </Button>
                   </div>
                   
-                  <p className="text-xs text-amber-700 dark:text-amber-300 mb-3">
-                    A IA usará automaticamente estes PDFs para criar hyperlinks no conteúdo gerado
-                  </p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      A IA usará automaticamente estes PDFs para criar hyperlinks no conteúdo gerado
+                    </p>
+                    
+                    {/* Seletor de idioma destino para inserção */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Inserir em:</span>
+                      <div className="flex gap-1">
+                        {['pt', 'es', 'en'].map((lang) => (
+                          <Button
+                            key={lang}
+                            size="sm"
+                            variant={insertTargetLang === lang ? 'default' : 'outline'}
+                            onClick={() => setInsertTargetLang(lang as 'pt' | 'es' | 'en')}
+                            className="h-6 px-2 text-xs"
+                          >
+                            {lang.toUpperCase()}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                   
                   {showDocuments && (
                     <div className="space-y-2">
