@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, FileText } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, FileText, Zap } from "lucide-react";
 import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
@@ -609,6 +609,23 @@ export function AdminSettings() {
           <CardDescription>
             Gerencie marcas, modelos e resinas do sistema
           </CardDescription>
+          
+          <div className="pt-4">
+            <Button
+              variant="outline"
+              size="default"
+              onClick={() => {
+                document.getElementById('parametros-tecnicos')?.scrollIntoView({ 
+                  behavior: 'smooth',
+                  block: 'start'
+                });
+              }}
+              className="w-full md:w-auto flex items-center gap-2 bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary"
+            >
+              <Zap className="w-4 h-4" />
+              Parâmetros Técnicos (260 páginas)
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="brands">
