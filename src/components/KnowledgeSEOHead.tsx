@@ -480,7 +480,18 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <title>{displayTitle} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
-      {content.ai_context && <meta name="ai-context" content={content.ai_context} />}
+      
+      {/* AI Context for Generative Search (SGE, ChatGPT, Perplexity, etc) */}
+      {content?.ai_context && currentLang === 'pt' && (
+        <meta name="ai:context" content={content.ai_context} />
+      )}
+      {content?.ai_context_en && currentLang === 'en' && (
+        <meta name="ai:context" content={content.ai_context_en} />
+      )}
+      {content?.ai_context_es && currentLang === 'es' && (
+        <meta name="ai:context" content={content.ai_context_es} />
+      )}
+      
       <link rel="canonical" href={canonicalUrl} />
       
       {/* Prevent indexing if translation is missing */}
