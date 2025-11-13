@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,25 @@ import { AdminParameterPages } from "@/components/AdminParameterPages";
 
 const AdminViewSupabase = () => {
   const dataContext = useData();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.replace('#', '');
+    const tryScroll = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return true;
+      }
+      return false;
+    };
+
+    if (!tryScroll()) {
+      const retries = [100, 250, 500];
+      retries.forEach((delay) => setTimeout(tryScroll, delay));
+    }
+  }, [location.hash]);
 
   return (
     <div className="min-h-screen bg-gradient-surface">
@@ -69,18 +90,7 @@ const AdminViewSupabase = () => {
                   size="default"
                   className="w-full md:w-auto flex items-center gap-2 bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary"
                 >
-                  <a
-                    href="#parametros-tecnicos"
-                    onClick={(e) => {
-                      const el = document.getElementById('parametros-tecnicos');
-                      if (el) {
-                        e.preventDefault();
-                        const yOffset = -80;
-                        const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                        window.scrollTo({ top: y, behavior: 'smooth' });
-                      }
-                    }}
-                  >
+                  <a href="#parametros-tecnicos">
                     <Zap className="w-4 h-4" />
                     Parâmetros Técnicos (260 páginas)
                   </a>

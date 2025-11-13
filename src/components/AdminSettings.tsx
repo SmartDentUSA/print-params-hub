@@ -617,18 +617,7 @@ export function AdminSettings() {
               size="default"
               className="w-full md:w-auto flex items-center gap-2 bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary"
             >
-              <a
-                href="#parametros-tecnicos"
-                onClick={(e) => {
-                  const el = document.getElementById('parametros-tecnicos');
-                  if (el) {
-                    e.preventDefault();
-                    const yOffset = -80;
-                    const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
-                    window.scrollTo({ top: y, behavior: 'smooth' });
-                  }
-                }}
-              >
+              <a href="#parametros-tecnicos">
                 <Zap className="w-4 h-4" />
                 Parâmetros Técnicos (260 páginas)
               </a>

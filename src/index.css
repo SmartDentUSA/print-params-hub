@@ -161,11 +161,15 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+html {
+  scroll-behavior: smooth;
+}
 
-  body {
-    @apply bg-background text-foreground;
-  }
+* {
+  @apply border-border;
+}
+
+body {
+  @apply bg-background text-foreground;
+}
 }
