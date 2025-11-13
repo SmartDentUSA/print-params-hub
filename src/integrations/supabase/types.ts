@@ -259,6 +259,7 @@ export type Database = {
       knowledge_contents: {
         Row: {
           active: boolean | null
+          ai_context: string | null
           ai_prompt_template: string | null
           author_id: string | null
           canva_template_url: string | null
@@ -293,6 +294,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          ai_context?: string | null
           ai_prompt_template?: string | null
           author_id?: string | null
           canva_template_url?: string | null
@@ -327,6 +329,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          ai_context?: string | null
           ai_prompt_template?: string | null
           author_id?: string | null
           canva_template_url?: string | null
