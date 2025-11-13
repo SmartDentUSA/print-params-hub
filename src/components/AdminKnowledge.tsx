@@ -664,7 +664,14 @@ Receba o texto bruto abaixo e:
   };
 
   const handleInsertPDFViewer = (doc: any) => {
+    console.log('📄 handleInsertPDFViewer chamado:', {
+      doc: doc.document_name,
+      mode: contentEditorMode,
+      hasEditor: !!editorRef.current
+    });
+
     if (!editorRef.current && contentEditorMode === 'visual') {
+      console.error('❌ Editor não disponível no modo visual');
       toast({ 
         title: 'Erro', 
         description: 'Editor não está pronto. Aguarde um momento.', 
@@ -710,21 +717,34 @@ Receba o texto bruto abaixo e:
     </div>
   `;
 
+    console.log('📄 HTML gerado (primeiros 200 chars):', pdfViewerHTML.substring(0, 200));
+
     if (contentEditorMode === 'visual' && editorRef.current) {
+      console.log('✅ Inserindo no editor TipTap...');
       // Inserir no editor TipTap
       editorRef.current.commands.insertContent(pdfViewerHTML);
+      
+      toast({ 
+        title: '✅ PDF inserido!', 
+        description: `${doc.document_name} foi adicionado ao conteúdo`,
+        variant: 'default'
+      });
     } else {
+      console.log('✅ Inserindo no modo HTML...');
       // Modo HTML: concatenar ao final
       setFormData({
         ...formData,
         content_html: formData.content_html + '\n\n' + pdfViewerHTML + '\n\n'
       });
+      
+      toast({ 
+        title: '✅ PDF inserido!', 
+        description: `${doc.document_name} foi adicionado ao conteúdo no modo HTML`,
+        variant: 'default'
+      });
     }
     
-    toast({ 
-      title: '✅ PDF inserido!', 
-      description: `${doc.document_name} foi adicionado ao conteúdo` 
-    });
+    console.log('✅ handleInsertPDFViewer concluído');
   };
 
   const handleUploadOgImage = async (file: File) => {
@@ -1723,7 +1743,10 @@ Receba o texto bruto abaixo e:
                                       size="sm"
                                       variant="outline"
                                       className="flex items-center gap-1 px-2 py-1 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 dark:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-950"
-                                      onClick={() => handleInsertPDFViewer(doc)}
+                                      onClick={() => {
+                                        console.log('🔘 Botão Inserir clicado para:', doc.document_name);
+                                        handleInsertPDFViewer(doc);
+                                      }}
                                     >
                                       📄 Inserir
                                     </Button>
