@@ -30,9 +30,24 @@ serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         message: 'Sincronização concluída com Sistema A',
+        total_products_api: kbData?.products?.length || 0,
         stats: {
           keywords: linksCount,
-          catalog: catalogStats
+          catalog: {
+            inserted: catalogStats.catalog.inserted,
+            updated: catalogStats.catalog.updated,
+            skipped: catalogStats.catalog.skipped,
+            blocked_count: catalogStats.catalog.blocked_reasons.length
+          }
+        },
+        details: {
+          catalog: {
+            inserted: catalogStats.catalog.inserted,
+            updated: catalogStats.catalog.updated,
+            skipped: catalogStats.catalog.skipped,
+            blocked_count: catalogStats.catalog.blocked_reasons.length,
+            blocked_details: catalogStats.catalog.blocked_reasons.slice(0, 10)
+          }
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -132,7 +147,12 @@ async function syncSystemACatalog(supabase: any, kbData: any) {
   const stats = {
     company: 0,
     categories: 0,
-    products: 0,
+    catalog: {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      blocked_reasons: []
+    },
     testimonials: 0,
     reviews: 0,
     kols: 0
@@ -150,7 +170,9 @@ async function syncSystemACatalog(supabase: any, kbData: any) {
 
   // 3. Products (todos os tipos)
   if (kbData.products && kbData.products.length > 0) {
-    stats.products = await syncProductsCatalog(supabase, kbData.products)
+    console.log(`📦 Processando ${kbData.products.length} produtos da API...`)
+    stats.catalog = await syncProductsCatalog(supabase, kbData.products)
+    console.log(`📊 Resultado: ${stats.catalog.inserted} novos, ${stats.catalog.updated} atualizados, ${stats.catalog.skipped} bloqueados`)
   }
 
   // 4. Video Testimonials
@@ -261,13 +283,26 @@ async function syncCategoriesConfig(supabase: any, categories: any[]) {
 }
 
 async function syncProductsCatalog(supabase: any, products: any[]) {
-  if (!products || products.length === 0) return 0
+  if (!products || products.length === 0) {
+    return { inserted: 0, updated: 0, skipped: 0, blocked_reasons: [] }
+  }
 
-  let count = 0
+  const stats = {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    blocked_reasons: [] as Array<{product_name: string, reason: string}>
+  }
+
   for (const product of products) {
     // Validar campos obrigatórios
     if (!product || !product.name || !product.slug) {
-      console.warn('⚠️ Produto sem name/slug, pulando:', product)
+      console.warn('⚠️ BLOQUEADO: Produto sem name/slug:', product)
+      stats.blocked_reasons.push({
+        product_name: product?.name || 'DESCONHECIDO',
+        reason: 'Faltando name ou slug'
+      })
+      stats.skipped++
       continue
     }
 
@@ -283,12 +318,22 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
     // CRÍTICO: li_product_id é obrigatório para mapear com Loja Integrada
     if (!liProductId) {
       console.warn(`⚠️ BLOQUEADO: Produto "${product.name}" sem li_product_id (ID: ${product.id})`)
+      stats.blocked_reasons.push({
+        product_name: product.name,
+        reason: 'Faltando li_product_id (campo obrigatório para Loja Integrada)'
+      })
+      stats.skipped++
       continue
     }
 
     // Validar categoria obrigatória (Sistema A)
     if (!product.category) {
-      console.warn('⚠️ Produto sem category do Sistema A, pulando:', product.name)
+      console.warn('⚠️ BLOQUEADO: Produto "${product.name}" sem category')
+      stats.blocked_reasons.push({
+        product_name: product.name,
+        reason: 'Faltando category do Sistema A'
+      })
+      stats.skipped++
       continue
     }
 
@@ -297,29 +342,14 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
       const externalId = String(liProductId);
       console.log(`🔑 external_id definido: ${externalId} (fonte: ${product.original_data?.li_product_id ? 'original_data' : 'direto'})`);
       
-      // Verificar se já existe em resins (evitar duplicação conceitual)
-      const { data: existingResin } = await supabase
-        .from('resins')
-        .select('id, name, external_id')
-        .eq('external_id', externalId)
-        .maybeSingle()
-
-      if (existingResin) {
-        console.warn(`⚠️ Produto "${product.name}" já existe em resins (ID: ${externalId}), pulando sync para evitar duplicação`)
-        continue
-      }
-
-      // Verificar se produto já existe em system_a_catalog
+      // Verificar se produto já existe em system_a_catalog (para estatísticas apenas)
       const { data: existingCatalog } = await supabase
         .from('system_a_catalog')
-        .select('id, name, external_id')
+        .select('id')
         .eq('external_id', externalId)
         .maybeSingle();
 
-      if (existingCatalog) {
-        console.log(`ℹ️ Produto "${product.name}" (li_product_id: ${externalId}) já existe no catálogo, pulando`);
-        continue;
-      }
+      const isUpdate = !!existingCatalog;
 
       // Determinar categoria do produto
       let productCategory = 'product'
@@ -436,7 +466,7 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
         }
       }
 
-      console.log(`🆕 Inserindo NOVO produto "${product.name}"`, {
+      console.log(`${isUpdate ? '🔄 Atualizando' : '🆕 Inserindo'} produto "${product.name}"`, {
         external_id: externalId,
         li_product_id: liProductId,
         slug: product.slug,
@@ -444,26 +474,38 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
         subcategory: product.subcategory
       });
 
-      const { error: insertError } = await supabase
+      const { error: upsertError } = await supabase
         .from('system_a_catalog')
-        .insert([catalogItem]);
+        .upsert(catalogItem, { onConflict: 'external_id' });
 
-      if (insertError) {
-        console.error(`❌ Erro ao inserir produto ${product.name}:`, insertError.message);
+      if (upsertError) {
+        console.error(`❌ Erro ao sincronizar produto ${product.name}:`, upsertError.message);
+        stats.blocked_reasons.push({
+          product_name: product.name,
+          reason: `Erro de banco: ${upsertError.message}`
+        })
+        stats.skipped++
         continue;
       }
 
-      console.log(`✅ Produto "${product.name}" inserido com sucesso (external_id=${externalId})`);
-      count++
-    } catch (err) {
-      console.error(`❌ Erro ao sincronizar produto ${product.name}:`, err.message)
+      if (isUpdate) {
+        console.log(`🔄 Produto "${product.name}" (${externalId}) ATUALIZADO`);
+        stats.updated++
+      } else {
+        console.log(`✅ Produto "${product.name}" (${externalId}) INSERIDO`);
+        stats.inserted++
+      }
+    } catch (err: any) {
+      console.error(`❌ Exceção ao processar produto ${product.name}:`, err)
+      stats.blocked_reasons.push({
+        product_name: product.name,
+        reason: `Exceção: ${err.message}`
+      })
+      stats.skipped++
     }
   }
   
-  return {
-    inserted: count,
-    skipped: products.length - count
-  };
+  return stats
 }
 
 async function syncVideoTestimonials(supabase: any, testimonials: any[]) {
