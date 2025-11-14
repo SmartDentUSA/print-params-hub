@@ -1,6 +1,7 @@
-import { FileText, Download, ExternalLink } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Download, ExternalLink } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PDFViewerEmbedProps {
   url: string;
@@ -9,13 +10,18 @@ interface PDFViewerEmbedProps {
 }
 
 export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
+  const isMobile = useIsMobile();
+  const iframeSrc = isMobile
+    ? `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(url)}#zoom=page-width&spread=0`
+    : `${url}#zoom=page-width&toolbar=0&navpanes=0&scrollbar=1`;
+
   return (
     <Card className="overflow-hidden border-0 rounded-none my-0 sm:border-2 sm:rounded-lg sm:my-8 sm:border-amber-200 dark:sm:border-amber-800">
       <CardContent className="p-0">
-        <div className="w-full overflow-x-hidden">
+        <div className={`${isMobile ? 'w-screen touch-pan-y' : 'w-full'} overflow-x-hidden`}>
           <iframe
-            src={`${url}#zoom=page-width&toolbar=0&navpanes=0&scrollbar=1`}
-            className="block w-full h-[1200px] sm:h-[1400px] md:h-[900px] lg:h-[1123px] border-none"
+            src={iframeSrc}
+            className={`block w-full ${isMobile ? 'h-[1200px]' : 'h-[1200px] sm:h-[1400px] md:h-[900px] lg:h-[1123px]'} border-none`}
             title={title}
             loading="lazy"
           />
