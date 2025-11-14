@@ -10,15 +10,16 @@ interface PDFViewerEmbedProps {
 
 export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
   return (
-    <Card className="my-8 border-2 border-amber-200 dark:border-amber-800 overflow-hidden">
+    <Card className="overflow-hidden border-0 rounded-none my-0 sm:border-2 sm:rounded-lg sm:my-8 sm:border-amber-200 dark:sm:border-amber-800">
       <CardContent className="p-0">
-        {/* PDF iframe */}
-        <iframe
-          src={`${url}#zoom=page-width&toolbar=0&navpanes=0&scrollbar=1`}
-          className="w-full h-[1200px] sm:h-[1400px] md:h-[900px] lg:h-[1123px] border-none"
-          title={title}
-          loading="lazy"
-        />
+        <div className="w-full overflow-x-hidden">
+          <iframe
+            src={`${url}#zoom=page-width&toolbar=0&navpanes=0&scrollbar=1`}
+            className="block w-full h-[1200px] sm:h-[1400px] md:h-[900px] lg:h-[1123px] border-none"
+            title={title}
+            loading="lazy"
+          />
+        </div>
         
         {/* Download button */}
         <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-t border-amber-200 dark:border-amber-800">
