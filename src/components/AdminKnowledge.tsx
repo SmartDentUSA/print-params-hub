@@ -2589,11 +2589,69 @@ Receba o texto bruto abaixo e:
               </TabsContent>
 
               {/* Media Tab */}
-              <TabsContent value="media" className="space-y-4">
+              <TabsContent value="media" className="space-y-6">
+                {/* Resumo de Mídia */}
+                <Card className="bg-muted/30 border-primary/20">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      📊 Resumo de Mídia
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
+                          <Video className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{videos.length}</p>
+                          <p className="text-xs text-muted-foreground">Vídeo{videos.length !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
+                          <Upload className="w-5 h-5 text-amber-500" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{formData.file_url ? '1' : '0'}</p>
+                          <p className="text-xs text-muted-foreground">PDF</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border">
+                        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                          <AlertCircle className="w-5 h-5 text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-2xl font-bold">{videos.length + (formData.file_url ? 1 : 0)}</p>
+                          <p className="text-xs text-muted-foreground">Total</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {videos.length === 0 && !formData.file_url && (
+                      <Alert className="mt-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Nenhuma mídia adicionada. Você pode adicionar vídeos e/ou PDF para enriquecer o conteúdo.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Videos */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <Label className="text-lg font-semibold">Vídeos</Label>
+                    <div>
+                      <Label className="text-lg font-semibold">Vídeos</Label>
+                      {videos.length > 0 && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {videos.length} vídeo{videos.length !== 1 ? 's' : ''} adicionado{videos.length !== 1 ? 's' : ''}
+                        </p>
+                      )}
+                    </div>
                     <Button 
                       variant="outline"
                       onClick={() => setVideoSelectorOpen(true)}
@@ -2746,22 +2804,82 @@ Receba o texto bruto abaixo e:
                   />
                 </div>
 
-                {/* File */}
+                {/* PDF para Download */}
                 <div>
-                  <Label>Arquivo para Download (URL)</Label>
-                  <Input 
-                    placeholder="https://..." 
-                    value={formData.file_url}
-                    onChange={(e) => setFormData({...formData, file_url: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label>Nome do Arquivo</Label>
-                  <Input 
-                    placeholder="Manual.pdf" 
-                    value={formData.file_name}
-                    onChange={(e) => setFormData({...formData, file_name: e.target.value})}
-                  />
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <Label className="text-lg font-semibold">PDF para Download</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Configure um arquivo PDF que os usuários podem baixar
+                      </p>
+                    </div>
+                  </div>
+
+                  {formData.file_url ? (
+                    <Card className="bg-card border-amber-200 dark:border-amber-800">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-16 h-20 bg-amber-500/10 rounded border border-amber-200 dark:border-amber-800 flex items-center justify-center">
+                            <Upload className="w-8 h-8 text-amber-500" />
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">
+                              {formData.file_name || 'Documento.pdf'}
+                            </p>
+                            <p className="text-sm text-muted-foreground truncate mt-1">
+                              {formData.file_url}
+                            </p>
+                            
+                            <div className="flex gap-2 mt-3">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(formData.file_url, '_blank')}
+                              >
+                                <ExternalLink className="w-3 h-3 mr-1" />
+                                Visualizar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setFormData({...formData, file_url: '', file_name: ''});
+                                  toast({ title: '✅ PDF removido' });
+                                }}
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Remover
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <div className="border border-dashed border-border rounded-lg p-6">
+                      <div className="space-y-3">
+                        <div>
+                          <Label className="text-sm">URL do Arquivo</Label>
+                          <Input 
+                            placeholder="https://exemplo.com/documento.pdf" 
+                            value={formData.file_url}
+                            onChange={(e) => setFormData({...formData, file_url: e.target.value})}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-sm">Nome do Arquivo</Label>
+                          <Input 
+                            placeholder="Manual Técnico.pdf" 
+                            value={formData.file_name}
+                            onChange={(e) => setFormData({...formData, file_name: e.target.value})}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 

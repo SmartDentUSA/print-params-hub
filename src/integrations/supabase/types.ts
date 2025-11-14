@@ -260,6 +260,8 @@ export type Database = {
         Row: {
           active: boolean | null
           ai_context: string | null
+          ai_context_en: string | null
+          ai_context_es: string | null
           ai_prompt_template: string | null
           author_id: string | null
           canva_template_url: string | null
@@ -286,6 +288,9 @@ export type Database = {
           og_image_url: string | null
           order_index: number
           recommended_resins: string[] | null
+          selected_pdf_ids_en: string[] | null
+          selected_pdf_ids_es: string[] | null
+          selected_pdf_ids_pt: string[] | null
           slug: string
           title: string
           title_en: string | null
@@ -295,6 +300,8 @@ export type Database = {
         Insert: {
           active?: boolean | null
           ai_context?: string | null
+          ai_context_en?: string | null
+          ai_context_es?: string | null
           ai_prompt_template?: string | null
           author_id?: string | null
           canva_template_url?: string | null
@@ -321,6 +328,9 @@ export type Database = {
           og_image_url?: string | null
           order_index: number
           recommended_resins?: string[] | null
+          selected_pdf_ids_en?: string[] | null
+          selected_pdf_ids_es?: string[] | null
+          selected_pdf_ids_pt?: string[] | null
           slug: string
           title: string
           title_en?: string | null
@@ -330,6 +340,8 @@ export type Database = {
         Update: {
           active?: boolean | null
           ai_context?: string | null
+          ai_context_en?: string | null
+          ai_context_es?: string | null
           ai_prompt_template?: string | null
           author_id?: string | null
           canva_template_url?: string | null
@@ -356,6 +368,9 @@ export type Database = {
           og_image_url?: string | null
           order_index?: number
           recommended_resins?: string[] | null
+          selected_pdf_ids_en?: string[] | null
+          selected_pdf_ids_es?: string[] | null
+          selected_pdf_ids_pt?: string[] | null
           slug?: string
           title?: string
           title_en?: string | null
