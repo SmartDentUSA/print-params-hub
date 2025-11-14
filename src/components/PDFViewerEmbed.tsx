@@ -27,7 +27,7 @@ export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
         {/* PDF iframe */}
         <iframe
           src={url}
-          className="w-full h-[600px] border-none"
+          className="w-full h-[1123px] border-none"
           title={title}
           loading="lazy"
         />
