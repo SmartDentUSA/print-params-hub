@@ -152,6 +152,11 @@ Receba o texto bruto abaixo e:
   }, []);
 
   useEffect(() => {
+    console.log('📄 Documents loaded:', documents.length);
+    console.log('📄 Selected PDFs PT:', formData.selected_pdf_ids_pt);
+  }, [documents, formData.selected_pdf_ids_pt]);
+
+  useEffect(() => {
     if (selectedCategory) {
       loadContents();
     }
@@ -385,6 +390,12 @@ Receba o texto bruto abaixo e:
         selected_pdf_ids_es: formData.selected_pdf_ids_es || [],
         selected_pdf_ids_en: formData.selected_pdf_ids_en || [],
       };
+
+      console.log('💾 Saving content with PDFs:', {
+        pt: contentData.selected_pdf_ids_pt,
+        es: contentData.selected_pdf_ids_es,
+        en: contentData.selected_pdf_ids_en
+      });
 
       if (editingContent) {
         await updateContent(editingContent.id, contentData);
@@ -1051,6 +1062,11 @@ Receba o texto bruto abaixo e:
                   </Label>
                   <ScrollArea className="max-h-[200px] w-full">
                     <div className="space-y-2 pr-3">
+                      {documents.length === 0 && (
+                        <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
+                          Nenhum PDF disponível. Adicione documentos às resinas primeiro.
+                        </p>
+                      )}
                       {documents.map((doc) => (
                         <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
                           <input
@@ -1060,6 +1076,7 @@ Receba o texto bruto abaixo e:
                               const newIds = e.target.checked
                                 ? [...formData.selected_pdf_ids_pt, doc.id]
                                 : formData.selected_pdf_ids_pt.filter(id => id !== doc.id);
+                              console.log('📄 PDF checkbox changed:', doc.document_name, 'New IDs:', newIds);
                               setFormData({ ...formData, selected_pdf_ids_pt: newIds });
                             }}
                             className="mt-1"
