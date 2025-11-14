@@ -11,28 +11,14 @@ interface PDFViewerEmbedProps {
 export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
   return (
     <Card className="my-8 border-2 border-amber-200 dark:border-amber-800 overflow-hidden">
-      <CardHeader className="bg-gradient-to-br from-amber-500 to-amber-600 text-white">
-        <div className="flex items-center gap-3">
-          <FileText className="w-6 h-6" />
-          <div>
-            <CardTitle className="text-lg">{title}</CardTitle>
-            {subtitle && (
-              <p className="text-sm opacity-90 mt-1">{subtitle}</p>
-            )}
-          </div>
-        </div>
-      </CardHeader>
-      
       <CardContent className="p-0">
-        {/* PDF iframe with A4 aspect ratio */}
-        <div className="w-full aspect-[1/1.414]">
-          <iframe
-            src={`${url}#view=Fit&toolbar=0&navpanes=0`}
-            className="w-full h-full border-none"
-            title={title}
-            loading="lazy"
-          />
-        </div>
+        {/* PDF iframe */}
+        <iframe
+          src={`${url}#view=FitV&toolbar=0&navpanes=0&scrollbar=1`}
+          className="w-full h-[600px] sm:h-[700px] md:h-[900px] lg:h-[1123px] border-none"
+          title={title}
+          loading="lazy"
+        />
         
         {/* Download button */}
         <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-t border-amber-200 dark:border-amber-800">
