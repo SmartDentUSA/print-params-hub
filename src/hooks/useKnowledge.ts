@@ -23,6 +23,9 @@ export interface KnowledgeContent {
   meta_description?: string;
   og_image_url?: string;
   keywords?: string[];
+  selected_pdf_ids_pt?: string[];
+  selected_pdf_ids_es?: string[];
+  selected_pdf_ids_en?: string[];
   order_index: number;
   active: boolean;
   created_at: string;
@@ -94,7 +97,8 @@ const ALLOWED_CONTENT_KEYS = [
   'icon_color', 'file_url', 'file_name',
   'meta_description', 'og_image_url', 'content_image_url', 'content_image_alt', 'canva_template_url',
   'author_id', 'faqs', 'faqs_es', 'faqs_en', 'order_index', 'active', 'category_id', 'recommended_resins',
-  'ai_prompt_template', 'keywords', 'keyword_ids'
+  'ai_prompt_template', 'keywords', 'keyword_ids',
+  'selected_pdf_ids_pt', 'selected_pdf_ids_es', 'selected_pdf_ids_en'
 ];
 
 function pickAllowed<T extends Record<string, any>>(obj: T): Record<string, any> {
