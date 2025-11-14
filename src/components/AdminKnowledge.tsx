@@ -381,6 +381,9 @@ Receba o texto bruto abaixo e:
         ai_prompt_template: formData.aiPromptTemplate || null,
         category_id: categoryId,
         recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
+        selected_pdf_ids_pt: formData.selected_pdf_ids_pt || [],
+        selected_pdf_ids_es: formData.selected_pdf_ids_es || [],
+        selected_pdf_ids_en: formData.selected_pdf_ids_en || [],
       };
 
       if (editingContent) {
