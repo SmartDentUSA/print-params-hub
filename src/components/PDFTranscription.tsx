@@ -68,10 +68,21 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
 
     try {
       const pdfBase64 = await fileToBase64(file);
-      console.log('📄 PDF converted to base64, length:', pdfBase64.length);
-
+      
+      const pdfHash = pdfBase64.substring(0, 30);
+      const timestamp = new Date().toISOString();
+      console.log('🔑 PDF Hash:', pdfHash);
+      console.log('📄 PDF Size:', Math.round(pdfBase64.length / 1024), 'KB');
+      console.log('⏰ Processing at:', timestamp);
+      
       const { data, error } = await supabase.functions.invoke('ai-enrich-pdf-content', {
-        body: { pdfBase64 }
+        body: { pdfBase64 },
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'X-Request-Time': Date.now().toString(),
+          'X-PDF-Hash': pdfHash
+        }
       });
 
       if (error) {

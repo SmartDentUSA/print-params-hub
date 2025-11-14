@@ -22,6 +22,12 @@ serve(async (req) => {
       );
     }
 
+    const pdfSizeKB = Math.round(pdfBase64.length / 1024);
+    const requestId = Date.now();
+    const pdfHash = pdfBase64.substring(0, 30);
+    console.log(`[${requestId}] 🔑 PDF Hash: ${pdfHash}...`);
+    console.log(`[${requestId}] 📄 Processing PDF: ${pdfSizeKB}KB`);
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY not configured');
@@ -115,14 +121,17 @@ ${pdfBase64.substring(0, 100000)}`
     const extractedText = data.choices?.[0]?.message?.content;
 
     if (!extractedText) {
-      console.error('No text extracted from AI response');
+      console.error(`[${requestId}] ❌ No text extracted from AI response`);
       return new Response(
         JSON.stringify({ error: 'Não foi possível extrair texto do PDF' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Texto limpo extraído:', extractedText.length, 'caracteres');
+    const firstChars = extractedText.substring(0, 200).replace(/\n/g, ' ');
+    console.log(`[${requestId}] ✅ Extracted ${extractedText.length} chars`);
+    console.log(`[${requestId}] 📝 Text preview: "${firstChars}..."`);
+    console.log(`[${requestId}] Texto limpo extraído:`, extractedText.length, 'caracteres');
 
     return new Response(
       JSON.stringify({ extractedText }),

@@ -13,14 +13,19 @@ serve(async (req) => {
   }
 
   const startTime = Date.now();
-  console.log("🚀 Starting PDF enrichment process");
-
+  
   try {
     const { pdfBase64 } = await req.json();
 
     if (!pdfBase64) {
       throw new Error("pdfBase64 is required");
     }
+
+    const pdfSizeKB = Math.round(pdfBase64.length / 1024);
+    const pdfHash = pdfBase64.substring(0, 30);
+    const requestId = Date.now();
+    console.log(`[${requestId}] 🔑 PDF Hash: ${pdfHash}... (${pdfSizeKB}KB)`);
+    console.log(`[${requestId}] 🚀 Starting PDF enrichment process`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -51,10 +56,13 @@ serve(async (req) => {
 
     const { extractedText } = await extractionResponse.json();
     const rawText = extractedText;
-    console.log(`✅ Raw text extracted: ${rawText.length} characters`);
+    
+    const textPreview = rawText.substring(0, 250).replace(/\n/g, ' ');
+    console.log(`[${requestId}] ✅ Raw text extracted: ${rawText.length} characters`);
+    console.log(`[${requestId}] 📝 Raw text preview: "${textPreview}..."`);
 
     // ETAPA 2: Identificação inteligente do produto
-    console.log("🔍 Step 2: Identifying product from text");
+    console.log(`[${requestId}] 🔍 Step 2: Identifying product from text`);
     const identificationPrompt = `Analise este texto e identifique o produto principal mencionado.
 
 TEXTO:
