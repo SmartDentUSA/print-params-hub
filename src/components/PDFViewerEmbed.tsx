@@ -26,8 +26,8 @@ export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
       <CardContent className="p-0">
         {/* PDF iframe */}
         <iframe
-          src={url}
-          className="w-full h-[1123px] border-none"
+          src={`${url}#view=FitH&toolbar=0&navpanes=0`}
+          className="w-full h-[500px] md:h-[800px] lg:h-[1123px] border-none"
           title={title}
           loading="lazy"
         />
