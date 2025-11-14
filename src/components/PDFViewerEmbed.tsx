@@ -24,13 +24,15 @@ export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
       </CardHeader>
       
       <CardContent className="p-0">
-        {/* PDF iframe */}
-        <iframe
-          src={`${url}#view=FitH&toolbar=0&navpanes=0`}
-          className="w-full h-[500px] md:h-[800px] lg:h-[1123px] border-none"
-          title={title}
-          loading="lazy"
-        />
+        {/* PDF iframe with A4 aspect ratio */}
+        <div className="w-full aspect-[1/1.414]">
+          <iframe
+            src={`${url}#view=Fit&toolbar=0&navpanes=0`}
+            className="w-full h-full border-none"
+            title={title}
+            loading="lazy"
+          />
+        </div>
         
         {/* Download button */}
         <div className="p-4 bg-amber-50 dark:bg-amber-950/30 border-t border-amber-200 dark:border-amber-800">
