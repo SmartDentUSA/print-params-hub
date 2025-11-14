@@ -48,35 +48,36 @@ serve(async (req) => {
           },
           {
             role: 'user',
-            content: `**INSTRUÇÃO PRINCIPAL: EXTRAÇÃO, ESTRUTURAÇÃO E FIDELIDADE ABSOLUTA**
+      content: `**INSTRUÇÃO PRINCIPAL: EXTRAÇÃO, ESTRUTURAÇÃO E FIDELIDADE ABSOLUTA**
 
 **Objetivo:** Transcrever o conteúdo integral do PDF fornecido, estruturando-o em um formato hierárquico, claro e de fácil leitura, garantindo a fidelidade completa a 100% das informações contidas no documento.
 
 **Regras Essenciais de Saída (Output Structure):**
 
-1. **Identificação Central (Obrigatória):** Inicie a resposta identificando o produto principal e o fabricante (Ex: "O produto é X da Y").
-2. **Estrutura de Títulos:** Utilize títulos de primeiro nível (\`##\`) para replicar as seções principais do documento (Ex: "## 1. DESCRIÇÃO DO PRODUTO", "## 2. VANTAGENS DO GLAZE ON").
+1. **Identificação Central (Obrigatória):** Inicie a resposta identificando o produto principal e o fabricante (Ex: "O produto é [NOME DO PRODUTO] da [FABRICANTE]").
+2. **Estrutura de Títulos:** Utilize títulos de primeiro nível (\`##\`) para replicar as seções principais do documento exatamente como aparecem no PDF.
 3. **Formato de Lista:** Converta todas as listas (vantagens, instruções, cuidados) em **bullet points (\`*\`)**.
-4. **Formato de Tabela:** Preserve o formato de **tabela** para a seção de \`PARÂMETROS MÍNIMOS VALIDADOS DE FOTOPOLIMERIZAÇÃO\`.
-5. **Destaques:** Use **negrito (\`**...**\`)** para enfatizar termos-chave e resultados (Ex: resistência, brilho superior, 10,5% RESISTÊNCIA MPa).
-6. **Instruções Sequenciais:** Liste os passos de aplicação (Passos 7 a 11) de forma sequencial e numerada.
+4. **Formato de Tabela:** Preserve o formato de **tabela** quando o PDF apresentar dados tabulares.
+5. **Destaques:** Use **negrito (\`**...**\`)** para enfatizar termos-chave e resultados conforme aparecem no documento original.
+6. **Instruções Sequenciais:** Liste os passos ou instruções de forma sequencial e numerada, se presentes no documento.
 7. **Restrição de Conteúdo:** Informações de contato (endereços, telefone, websites) e Adendos de Personalização/Contexto DE FORMA ALGUMA DEVEM SER INCLUÍDAS na saída final.
 
-**Regras Anti-Alucinação e Fidelidade (Obrigatórias):**
+**Regras Anti-Alucinação e Fidelidade (CRÍTICAS):**
 
 A. **Transcrição Literal:** Transcreva o texto de forma **literal** e **íntegra**. Não parafraseie, resuma, invente ou complete informações.
 B. **Invenção Proibida:** Se um dado estiver ambíguo ou incompleto no PDF, transcreva-o exatamente como está no PDF e **NÃO O MODIFIQUE OU DEDUZA**.
-C. **Busca Externa:** A busca na web só deve ser acionada em caso de necessidade de validar termos técnicos ou especificações de segurança. **SE ACIONADA, o resultado da busca DEVE SER APENAS USADO PARA VALIDAÇÃO INTERNA E NÃO DEVE SER INCLUÍDO NA SAÍDA FINAL**, a menos que o usuário solicite explicitamente a informação externa.
+C. **Sem Conteúdo Externo:** NÃO adicione informações que não estejam no PDF. NÃO use conhecimento prévio sobre produtos. APENAS extraia o que está no documento.
+D. **Sem Exemplos:** NÃO use exemplos de outros produtos. Extraia APENAS o conteúdo do PDF fornecido.
 
 **Fluxo Esperado (Garantia de Fidelidade):**
 
-* Identificação do Produto.
+* Identificação do Produto conforme aparece no PDF.
 * Linha horizontal (\`---\`).
-* Título principal do Ebook.
-* Seção \`## 1. DESCRIÇÃO DO PRODUTO\`.
-* Linha horizontal (\`---\`).
-* Seção \`## 2. VANTAGENS DO GLAZE ON\` (em bullet points).
-* ... (Continuação de todas as seções, Tabelas e Instruções de Aplicação, com o conteúdo fiel, SEM incluir contato ou adendos).
+* Título principal do documento.
+* Seções principais conforme aparecem no PDF (Ex: \`## 1. DESCRIÇÃO\`, \`## 2. VANTAGENS\`, \`## 3. ESPECIFICAÇÕES\`).
+* Linha horizontal (\`---\`) entre seções principais.
+* Tabelas e instruções preservadas no formato original.
+* **IMPORTANTE:** Use APENAS o conteúdo do PDF. NÃO invente, NÃO complete, NÃO use exemplos de outros produtos.
 
 Conteúdo do PDF (base64):
 ${pdfBase64.substring(0, 100000)}`
