@@ -14,8 +14,8 @@ export function PDFViewerEmbed({ url, title, subtitle }: PDFViewerEmbedProps) {
       <CardContent className="p-0">
         {/* PDF iframe */}
         <iframe
-          src={`${url}#view=FitV&toolbar=0&navpanes=0&scrollbar=1`}
-          className="w-full h-[600px] sm:h-[700px] md:h-[900px] lg:h-[1123px] border-none"
+          src={`${url}#zoom=page-width&toolbar=0&navpanes=0&scrollbar=1`}
+          className="w-full h-[1200px] sm:h-[1400px] md:h-[900px] lg:h-[1123px] border-none"
           title={title}
           loading="lazy"
         />
