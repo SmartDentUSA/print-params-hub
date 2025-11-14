@@ -126,7 +126,10 @@ Receba o texto bruto abaixo e:
     order_index: 0,
     active: true,
     recommended_resins: [] as string[],
-    aiPromptTemplate: ''
+    aiPromptTemplate: '',
+    selected_pdf_ids_pt: [] as string[],
+    selected_pdf_ids_es: [] as string[],
+    selected_pdf_ids_en: [] as string[]
   });
   
   const { 
@@ -203,7 +206,10 @@ Receba o texto bruto abaixo e:
       recommended_resins: content.recommended_resins || [],
       content_image_url: (content as any).content_image_url || '',
       content_image_alt: (content as any).content_image_alt || '',
-      aiPromptTemplate: (content as any).ai_prompt_template || ''
+      aiPromptTemplate: (content as any).ai_prompt_template || '',
+      selected_pdf_ids_pt: content.selected_pdf_ids_pt || [],
+      selected_pdf_ids_es: content.selected_pdf_ids_es || [],
+      selected_pdf_ids_en: content.selected_pdf_ids_en || []
     });
     
     // Load multilingual content
@@ -252,7 +258,10 @@ Receba o texto bruto abaixo e:
       order_index: contents.length,
       active: true,
       recommended_resins: [],
-      aiPromptTemplate: ''
+      aiPromptTemplate: '',
+      selected_pdf_ids_pt: [],
+      selected_pdf_ids_es: [],
+      selected_pdf_ids_en: []
     });
     
     // Reset multilingual states
@@ -1030,6 +1039,45 @@ Receba o texto bruto abaixo e:
                     </Button>
                   )}
                 </div>
+
+                {/* Seleção de PDFs - PT */}
+                <div className="border border-amber-200 dark:border-amber-900 rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20">
+                  <Label className="text-sm font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2 mb-3">
+                    <span className="text-xl">📄</span>
+                    PDFs Incorporados (PT) - aparecem no topo do artigo
+                  </Label>
+                  <ScrollArea className="max-h-[200px] w-full">
+                    <div className="space-y-2 pr-3">
+                      {documents.map((doc) => (
+                        <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={formData.selected_pdf_ids_pt.includes(doc.id)}
+                            onChange={(e) => {
+                              const newIds = e.target.checked
+                                ? [...formData.selected_pdf_ids_pt, doc.id]
+                                : formData.selected_pdf_ids_pt.filter(id => id !== doc.id);
+                              setFormData({ ...formData, selected_pdf_ids_pt: newIds });
+                            }}
+                            className="mt-1"
+                          />
+                          <div className="flex-1 text-sm">
+                            <p className="font-medium text-amber-900 dark:text-amber-100">{doc.document_name}</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-300">
+                              {doc.resin_name} - {doc.manufacturer}
+                            </p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  {formData.selected_pdf_ids_pt.length > 0 && (
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                      ✓ {formData.selected_pdf_ids_pt.length} PDF(s) selecionado(s)
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <Label>Conteúdo Principal</Label>
@@ -1194,6 +1242,44 @@ Receba o texto bruto abaixo e:
                             Links e formatação foram mantidos automaticamente.
                           </AlertDescription>
                         </Alert>
+
+                        {/* Seleção de PDFs - ES */}
+                        <div className="border border-amber-200 dark:border-amber-900 rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20">
+                          <Label className="text-sm font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2 mb-3">
+                            <span className="text-xl">📄</span>
+                            PDFs Incorporados (ES) - aparecem no topo do artigo
+                          </Label>
+                          <ScrollArea className="max-h-[200px] w-full">
+                            <div className="space-y-2 pr-3">
+                              {documents.map((doc) => (
+                                <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.selected_pdf_ids_es.includes(doc.id)}
+                                    onChange={(e) => {
+                                      const newIds = e.target.checked
+                                        ? [...formData.selected_pdf_ids_es, doc.id]
+                                        : formData.selected_pdf_ids_es.filter(id => id !== doc.id);
+                                      setFormData({ ...formData, selected_pdf_ids_es: newIds });
+                                    }}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1 text-sm">
+                                    <p className="font-medium text-amber-900 dark:text-amber-100">{doc.document_name}</p>
+                                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                                      {doc.resin_name} - {doc.manufacturer}
+                                    </p>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                          {formData.selected_pdf_ids_es.length > 0 && (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                              ✓ {formData.selected_pdf_ids_es.length} PDF(s) selecionado(s)
+                            </p>
+                          )}
+                        </div>
                         
                         {/* Tabs Visual/HTML - ES */}
                         <div className="space-y-2">
@@ -1354,6 +1440,44 @@ Receba o texto bruto abaixo e:
                             Links and formatting were preserved automatically.
                           </AlertDescription>
                         </Alert>
+
+                        {/* Seleção de PDFs - EN */}
+                        <div className="border border-amber-200 dark:border-amber-900 rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20">
+                          <Label className="text-sm font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-2 mb-3">
+                            <span className="text-xl">📄</span>
+                            PDFs Incorporados (EN) - aparecem no topo do artigo
+                          </Label>
+                          <ScrollArea className="max-h-[200px] w-full">
+                            <div className="space-y-2 pr-3">
+                              {documents.map((doc) => (
+                                <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.selected_pdf_ids_en.includes(doc.id)}
+                                    onChange={(e) => {
+                                      const newIds = e.target.checked
+                                        ? [...formData.selected_pdf_ids_en, doc.id]
+                                        : formData.selected_pdf_ids_en.filter(id => id !== doc.id);
+                                      setFormData({ ...formData, selected_pdf_ids_en: newIds });
+                                    }}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1 text-sm">
+                                    <p className="font-medium text-amber-900 dark:text-amber-100">{doc.document_name}</p>
+                                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                                      {doc.resin_name} - {doc.manufacturer}
+                                    </p>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                          {formData.selected_pdf_ids_en.length > 0 && (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                              ✓ {formData.selected_pdf_ids_en.length} PDF(s) selecionado(s)
+                            </p>
+                          )}
+                        </div>
                         
                         {/* Tabs Visual/HTML - EN */}
                         <div className="space-y-2">
@@ -1693,117 +1817,6 @@ Receba o texto bruto abaixo e:
                       
                       <p className="text-xs text-purple-700 dark:text-purple-300">
                         📊 Total: <strong>{keywords.length} keywords aprovadas</strong> no sistema
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Technical Documents Section */}
-                <div className="border border-amber-200 dark:border-amber-900 rounded-lg p-4 bg-amber-50/50 dark:bg-amber-950/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">📄</span>
-                      <span className="font-semibold text-amber-900 dark:text-amber-100">
-                        Documentos Técnicos Disponíveis
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowDocuments(!showDocuments)}
-                      className="h-8 w-8 p-0"
-                    >
-                      {showDocuments ? '▼' : '▶'}
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      A IA usará automaticamente estes PDFs para criar hyperlinks no conteúdo gerado
-                    </p>
-                    
-                    {/* Seletor de idioma destino para inserção */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">Inserir em:</span>
-                      <div className="flex gap-1">
-                        {['pt', 'es', 'en'].map((lang) => (
-                          <Button
-                            key={lang}
-                            size="sm"
-                            variant={insertTargetLang === lang ? 'default' : 'outline'}
-                            onClick={() => setInsertTargetLang(lang as 'pt' | 'es' | 'en')}
-                            className="h-6 px-2 text-xs"
-                          >
-                            {lang.toUpperCase()}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {showDocuments && (
-                    <div className="space-y-2">
-                      <ScrollArea className="h-[300px] w-full rounded-md border border-amber-200 dark:border-amber-800 bg-white dark:bg-amber-950/30 p-3">
-                        <div className="space-y-3">
-                          {documents.map((doc) => {
-                            return (
-                              <div 
-                                key={doc.id} 
-                                className="group p-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/20 hover:bg-amber-100/50 dark:hover:bg-amber-900/40 transition-colors"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-lg">📋</span>
-                                      <span className="font-medium text-amber-900 dark:text-amber-100 truncate">
-                                        {doc.document_name}
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-amber-700 dark:text-amber-300 space-y-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-medium">Resina:</span>
-                                        <span>{doc.resin_name} ({doc.manufacturer})</span>
-                                      </div>
-                                      {doc.document_description && (
-                                        <div className="text-amber-600 dark:text-amber-400 italic">
-                                          {doc.document_description}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col gap-1">
-                                    <a
-                                      href={doc.file_url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1 px-2 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded transition-colors"
-                                    >
-                                      👁️ Ver
-                                    </a>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="flex items-center gap-1 px-2 py-1 text-xs border-amber-600 text-amber-700 hover:bg-amber-50 dark:border-amber-500 dark:text-amber-400 dark:hover:bg-amber-950"
-                                      onClick={() => {
-                                        console.log('🔘 Botão Inserir clicado para:', doc.document_name);
-                                        handleInsertPDFViewer(doc);
-                                      }}
-                                    >
-                                      📄 Inserir
-                                    </Button>
-                                  </div>
-                                </div>
-                                <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 font-mono bg-amber-100 dark:bg-amber-900/40 px-2 py-1 rounded truncate">
-                                  {doc.file_url}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </ScrollArea>
-                      
-                      <p className="text-xs text-amber-700 dark:text-amber-300">
-                        📊 Total: <strong>{documents.length} documentos técnicos</strong> ativos
                       </p>
                     </div>
                   )}

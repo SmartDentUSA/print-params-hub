@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { PDFContentRenderer } from '@/components/PDFContentRenderer';
+import { PDFViewerEmbed } from '@/components/PDFViewerEmbed';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { VideoLanguageIndicator } from '@/components/VideoLanguageIndicator';
@@ -32,6 +33,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   const [ctaResins, setCtaResins] = useState<any[]>([]);
   const [relatedDocuments, setRelatedDocuments] = useState<any[]>([]);
   const [videosLoading, setVideosLoading] = useState(true);
+  const [selectedPdfs, setSelectedPdfs] = useState<any[]>([]);
   const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
 
   // Check if translation exists for requested language
@@ -61,8 +63,15 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   useEffect(() => {
     if (content?.id) {
       const load = async () => {
-        // Fetch paralelo: videos + artigos relacionados + resinas CTA + documentos relacionados
-        const [vids, related, resinsData, documentsData] = await Promise.all([
+        // Determinar array de PDF IDs baseado no idioma
+        const pdfIds = language === 'es' 
+          ? content.selected_pdf_ids_es || []
+          : language === 'en'
+          ? content.selected_pdf_ids_en || []
+          : content.selected_pdf_ids_pt || [];
+
+        // Fetch paralelo: videos + artigos relacionados + resinas CTA + documentos relacionados + PDFs selecionados
+        const [vids, related, resinsData, documentsData, pdfsData] = await Promise.all([
           fetchVideosByContent(content.id),
           fetchRelatedContents(
             content.id, 
@@ -104,6 +113,28 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   resin_manufacturer: doc.resins.manufacturer
                 })) : [];
               })()
+            : Promise.resolve([]),
+          // 🆕 Fetch PDFs selecionados para o idioma atual
+          pdfIds.length > 0
+            ? (async () => {
+                const { data } = await supabase
+                  .from('resin_documents')
+                  .select(`
+                    id,
+                    document_name,
+                    document_description,
+                    file_url,
+                    resins!inner(name, manufacturer)
+                  `)
+                  .in('id', pdfIds)
+                  .eq('active', true);
+                
+                return data ? data.map((doc: any) => ({
+                  ...doc,
+                  resin_name: doc.resins.name,
+                  resin_manufacturer: doc.resins.manufacturer
+                })) : [];
+              })()
             : Promise.resolve([])
         ]);
 
@@ -111,11 +142,12 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         setRelatedArticles(related);
         setCtaResins(resinsData);
         setRelatedDocuments(documentsData);
+        setSelectedPdfs(pdfsData);
         setVideosLoading(false);
       };
       load();
     }
-  }, [content?.id, fetchVideosByContent, fetchRelatedContents]);
+  }, [content?.id, language, fetchVideosByContent, fetchRelatedContents]);
 
   if (!content) return null;
 
@@ -206,6 +238,20 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       )}
       
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
+        {/* PDFs selecionados - sempre no topo */}
+        {selectedPdfs.length > 0 && (
+          <div className="space-y-4 mb-8">
+            {selectedPdfs.map((pdf) => (
+              <PDFViewerEmbed
+                key={pdf.id}
+                url={pdf.file_url}
+                title={pdf.document_name}
+                subtitle={`${pdf.resin_name} - ${pdf.resin_manufacturer}`}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Videos - com skeleton durante loading */}
         {videosLoading && (
           <div className="space-y-4 mb-6">
