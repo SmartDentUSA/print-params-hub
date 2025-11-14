@@ -49,6 +49,8 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
   };
 
   const handleFile = async (file: File) => {
+    console.log('📄 Processing PDF:', file.name, 'Size:', file.size);
+    
     const error = validateFile(file);
     if (error) {
       toast({
@@ -66,6 +68,7 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
 
     try {
       const pdfBase64 = await fileToBase64(file);
+      console.log('📄 PDF converted to base64, length:', pdfBase64.length);
 
       const { data, error } = await supabase.functions.invoke('ai-enrich-pdf-content', {
         body: { pdfBase64 }
@@ -110,6 +113,10 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
       });
     } finally {
       setIsTranscribing(false);
+      // Limpar o input file para permitir re-upload
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -157,6 +164,10 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
       setRawText(null);
       setEnrichedText(null);
       setShowComparison(false);
+      // Limpar o input file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
       toast({
         title: '✅ Texto inserido',
         description: `${textToUse === 'enriched' ? 'Texto enriquecido' : 'Texto original'} inserido no campo.`,
