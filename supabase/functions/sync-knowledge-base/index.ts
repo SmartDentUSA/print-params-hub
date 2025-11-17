@@ -72,6 +72,10 @@ async function fetchKnowledgeBaseAPI() {
   apiUrl.searchParams.append('include_google_reviews', 'true')
   apiUrl.searchParams.append('include_kols', 'true')
   apiUrl.searchParams.append('approved_only', 'true')
+  apiUrl.searchParams.append('limit', '500')
+  apiUrl.searchParams.append('page_size', '500')
+
+  console.log('🔗 Fetching from API:', apiUrl.toString())
 
   const response = await fetch(apiUrl.toString())
   
@@ -79,7 +83,20 @@ async function fetchKnowledgeBaseAPI() {
     throw new Error(`API retornou status ${response.status}`)
   }
 
-  return await response.json()
+  const data = await response.json()
+  
+  console.log('📦 API Response Summary:')
+  console.log('  - Products:', data.products?.length || 0)
+  console.log('  - Links:', data.links?.length || 0)
+  console.log('  - Video Testimonials:', data.video_testimonials?.length || 0)
+  console.log('  - Google Reviews:', data.google_reviews?.length || 0)
+  console.log('  - KOLs:', data.kols?.length || 0)
+  
+  if (data.products?.length >= 500) {
+    console.warn('⚠️ AVISO: Limite de 500 produtos atingido. Pode haver mais produtos!')
+  }
+
+  return data
 }
 
 async function syncExternalLinks(supabase: any, links: any[]) {
