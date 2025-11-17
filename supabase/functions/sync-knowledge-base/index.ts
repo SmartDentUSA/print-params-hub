@@ -215,6 +215,7 @@ async function syncCompanyProfile(supabase: any, company: any) {
 
   try {
     const catalogItem = {
+      source: 'system_a',
       external_id: `company_${company.id || 'main'}`,
       category: 'company_info',
       name: company.company_name || 'Empresa',
@@ -257,7 +258,7 @@ async function syncCompanyProfile(supabase: any, company: any) {
 
     await supabase
       .from('system_a_catalog')
-      .upsert(catalogItem, { onConflict: 'external_id' })
+      .upsert(catalogItem, { onConflict: 'source,external_id' })
 
     return 1
   } catch (err) {
@@ -273,6 +274,7 @@ async function syncCategoriesConfig(supabase: any, categories: any[]) {
   for (const cat of categories) {
     try {
       const catalogItem = {
+        source: 'system_a',
         external_id: `category_${cat.category}_${cat.subcategory || 'main'}`,
         category: 'category_config',
         name: cat.category,
@@ -289,7 +291,7 @@ async function syncCategoriesConfig(supabase: any, categories: any[]) {
 
       await supabase
         .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'external_id' })
+        .upsert(catalogItem, { onConflict: 'source,external_id' })
 
       count++
     } catch (err) {
@@ -378,6 +380,7 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
       }
 
       const catalogItem = {
+        source: 'system_a',
         external_id: externalId,
         category: productCategory,
         product_category: product.category,
@@ -493,7 +496,7 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
 
       const { error: upsertError } = await supabase
         .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'external_id' });
+        .upsert(catalogItem, { onConflict: 'source,external_id' });
 
       if (upsertError) {
         console.error(`❌ Erro ao sincronizar produto ${product.name}:`, upsertError.message);
@@ -532,6 +535,7 @@ async function syncVideoTestimonials(supabase: any, testimonials: any[]) {
   for (const testimonial of testimonials) {
     try {
       const catalogItem = {
+        source: 'system_a',
         external_id: `testimonial_${testimonial.id}`,
         category: 'video_testimonial',
         name: testimonial.client_name,
@@ -563,7 +567,7 @@ async function syncVideoTestimonials(supabase: any, testimonials: any[]) {
 
       await supabase
         .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'external_id' })
+        .upsert(catalogItem, { onConflict: 'source,external_id' })
 
       count++
     } catch (err) {
@@ -580,6 +584,7 @@ async function syncGoogleReviews(supabase: any, reviews: any[]) {
   for (const review of reviews) {
     try {
       const catalogItem = {
+        source: 'system_a',
         external_id: `review_${review.place_id}_${review.author_name.replace(/\s+/g, '_')}`,
         category: 'google_review',
         name: review.author_name,
@@ -615,7 +620,7 @@ async function syncGoogleReviews(supabase: any, reviews: any[]) {
 
       await supabase
         .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'external_id' })
+        .upsert(catalogItem, { onConflict: 'source,external_id' })
 
       count++
     } catch (err) {
@@ -632,6 +637,7 @@ async function syncKOLs(supabase: any, kols: any[]) {
   for (const kol of kols) {
     try {
       const catalogItem = {
+        source: 'system_a',
         external_id: `kol_${kol.id || kol.full_name.replace(/\s+/g, '_')}`,
         category: 'kol',
         name: kol.full_name,
@@ -652,7 +658,7 @@ async function syncKOLs(supabase: any, kols: any[]) {
 
       await supabase
         .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'external_id' })
+        .upsert(catalogItem, { onConflict: 'source,external_id' })
 
       count++
     } catch (err) {
