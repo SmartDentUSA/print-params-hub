@@ -1060,8 +1060,8 @@ Receba o texto bruto abaixo e:
                     <span className="text-xl">📄</span>
                     PDFs Incorporados (PT) - aparecem no topo do artigo
                   </Label>
-                  <ScrollArea className="max-h-[200px] w-full">
-                    <div className="space-y-2 pr-3">
+                  <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
+                    <div className="space-y-2">
                       {documents.length === 0 && (
                         <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
                           Nenhum PDF disponível. Adicione documentos às resinas primeiro.
@@ -1090,7 +1090,7 @@ Receba o texto bruto abaixo e:
                         </label>
                       ))}
                     </div>
-                  </ScrollArea>
+                  </div>
                   {formData.selected_pdf_ids_pt.length > 0 && (
                     <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
                       ✓ {formData.selected_pdf_ids_pt.length} PDF(s) selecionado(s)
@@ -1269,8 +1269,8 @@ Receba o texto bruto abaixo e:
                             <span className="text-xl">📄</span>
                             PDFs Incorporados (ES) - aparecem no topo do artigo
                           </Label>
-                          <ScrollArea className="max-h-[200px] w-full">
-                            <div className="space-y-2 pr-3">
+                          <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
+                            <div className="space-y-2">
                               {documents.map((doc) => (
                                 <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
                                   <input
@@ -1293,7 +1293,7 @@ Receba o texto bruto abaixo e:
                                 </label>
                               ))}
                             </div>
-                          </ScrollArea>
+                          </div>
                           {formData.selected_pdf_ids_es.length > 0 && (
                             <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
                               ✓ {formData.selected_pdf_ids_es.length} PDF(s) selecionado(s)
@@ -1467,8 +1467,8 @@ Receba o texto bruto abaixo e:
                             <span className="text-xl">📄</span>
                             PDFs Incorporados (EN) - aparecem no topo do artigo
                           </Label>
-                          <ScrollArea className="max-h-[200px] w-full">
-                            <div className="space-y-2 pr-3">
+                          <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
+                            <div className="space-y-2">
                               {documents.map((doc) => (
                                 <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
                                   <input
@@ -1491,7 +1491,7 @@ Receba o texto bruto abaixo e:
                                 </label>
                               ))}
                             </div>
-                          </ScrollArea>
+                          </div>
                           {formData.selected_pdf_ids_en.length > 0 && (
                             <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
                               ✓ {formData.selected_pdf_ids_en.length} PDF(s) selecionado(s)
