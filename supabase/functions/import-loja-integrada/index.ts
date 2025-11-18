@@ -7,6 +7,19 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+// Função para sanitizar nome do produto para usar como nome de arquivo
+function sanitizeFileName(productName: string): string {
+  return productName
+    .normalize('NFD')                    // Remove acentos
+    .replace(/[\u0300-\u036f]/g, '')    
+    .replace(/[^\w\s-]/g, '')           // Remove especiais (®, ©, etc)
+    .replace(/\s+/g, '-')               // Espaços → hífens
+    .replace(/-+/g, '-')                // Remove hífens duplicados
+    .replace(/^-+|-+$/g, '')            // Remove hífens nas pontas
+    .substring(0, 100)                  // Limita a 100 caracteres
+    .trim();
+}
+
 // Função para gerar slug limpo (ordem corrigida para evitar perda de caracteres)
 function generateCleanSlug(text: string): string {
   return text
@@ -18,6 +31,71 @@ function generateCleanSlug(text: string): string {
     .replace(/-+/g, '-')                 // 6. Limpar hífens duplicados
     .replace(/^-|-$/g, '')               // 7. Remover hífens nas pontas
     .trim();
+}
+
+// Função para upload automático de imagem externa para Supabase Storage
+async function uploadImageToStorage(
+  imageUrl: string,
+  productName: string,
+  supabaseAdmin: any
+): Promise<string> {
+  try {
+    console.log(`🖼️ Baixando imagem: ${productName}`);
+    
+    // 1. Baixar imagem
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Falha ao baixar imagem: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    
+    // 2. Preparar nome baseado no produto
+    const ext = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+    const baseName = sanitizeFileName(productName);
+    let fileName = `${baseName}.${ext}`;
+    let filePath = `products/${fileName}`;
+    
+    // 3. Verificar se arquivo já existe e adicionar sufixo se necessário
+    let counter = 1;
+    while (counter < 100) { // Limite de segurança
+      const { data: existingFiles } = await supabaseAdmin.storage
+        .from('catalog-images')
+        .list('products', {
+          search: fileName
+        });
+      
+      if (!existingFiles || existingFiles.length === 0) break;
+      
+      fileName = `${baseName}-${counter}.${ext}`;
+      filePath = `products/${fileName}`;
+      counter++;
+    }
+    
+    // 4. Upload
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('catalog-images')
+      .upload(filePath, arrayBuffer, {
+        contentType: blob.type,
+        cacheControl: '31536000', // 1 ano
+        upsert: false
+      });
+    
+    if (uploadError) throw uploadError;
+    
+    // 5. Retornar URL pública
+    const { data } = supabaseAdmin.storage
+      .from('catalog-images')
+      .getPublicUrl(filePath);
+    
+    console.log(`✅ Imagem salva: ${fileName} (${(arrayBuffer.byteLength / 1024).toFixed(2)} KB)`);
+    
+    return data.publicUrl;
+  } catch (error) {
+    console.error(`❌ Erro ao fazer upload da imagem "${productName}":`, error);
+    return imageUrl; // Fallback para URL original
+  }
 }
 
 // Função para extrair keywords da descrição
@@ -214,14 +292,22 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Mapear para estrutura Resin
+    const productName = apiProduct.nome || 'produto';
+    const originalImageUrl = apiProduct.imagens?.[0]?.url || '';
+    
+    // Upload automático da imagem (se existir)
+    const finalImageUrl = originalImageUrl 
+      ? await uploadImageToStorage(originalImageUrl, productName, supabase)
+      : '';
+    
     const resinData = {
-      name: apiProduct.nome || '',
+      name: productName,
       manufacturer: apiProduct.marca?.nome || apiProduct.fornecedor || '',
       color: '', // Sempre vazio - admin preenche manualmente
       type: 'standard', // Padrão
       description: (apiProduct.descricao_completa || apiProduct.descricao || '').trim(),
       price: parseFloat(apiProduct.preco_promocional || apiProduct.preco_cheio || apiProduct.preco || 0) || 0,
-      image_url: apiProduct.imagens?.[0]?.url || '',
+      image_url: finalImageUrl,
       images_gallery: (apiProduct.imagens || []).map((img: any, index: number) => ({
         url: img.url || img.grande || img.media || '',
         alt: apiProduct.nome || 'Resina',
@@ -253,9 +339,9 @@ serve(async (req) => {
         slug: cleanSlug,
         description: resinData.description,
         meta_description: metaDescription,
-        og_image_url: resinData.image_url,
+        og_image_url: finalImageUrl,
         keywords: keywords,
-        image_url: resinData.image_url,
+        image_url: finalImageUrl,
         price: resinData.price,
         currency: 'BRL',
         active: true,
@@ -293,13 +379,13 @@ serve(async (req) => {
         system_a_product_url: apiProduct.url,
         description: resinData.description,
         price: resinData.price,
-        image_url: resinData.image_url,
+        image_url: finalImageUrl,
         keywords: keywords,
         active: true,
         type: 'standard',
         slug: cleanSlug,
         meta_description: metaDescription,
-        og_image_url: resinData.image_url
+        og_image_url: finalImageUrl
       }, {
         onConflict: 'external_id',
         ignoreDuplicates: false
