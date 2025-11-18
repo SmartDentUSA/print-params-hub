@@ -5,6 +5,80 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Função para sanitizar nome do produto para usar como nome de arquivo
+function sanitizeFileName(productName: string): string {
+  return productName
+    .normalize('NFD')                    // Remove acentos
+    .replace(/[\u0300-\u036f]/g, '')    
+    .replace(/[^\w\s-]/g, '')           // Remove especiais (®, ©, etc)
+    .replace(/\s+/g, '-')               // Espaços → hífens
+    .replace(/-+/g, '-')                // Remove hífens duplicados
+    .replace(/^-+|-+$/g, '')            // Remove hífens nas pontas
+    .substring(0, 100)                  // Limita a 100 caracteres
+    .trim();
+}
+
+// Função para upload automático de imagem externa para Supabase Storage
+async function uploadImageToStorage(
+  imageUrl: string,
+  productName: string,
+  supabaseAdmin: any
+): Promise<string> {
+  try {
+    // 1. Baixar imagem
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Falha ao baixar imagem: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    
+    // 2. Preparar nome baseado no produto
+    const ext = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+    const baseName = sanitizeFileName(productName);
+    let fileName = `${baseName}.${ext}`;
+    let filePath = `products/${fileName}`;
+    
+    // 3. Verificar se arquivo já existe e adicionar sufixo se necessário
+    let counter = 1;
+    while (counter < 100) { // Limite de segurança
+      const { data: existingFiles } = await supabaseAdmin.storage
+        .from('catalog-images')
+        .list('products', {
+          search: fileName
+        });
+      
+      if (!existingFiles || existingFiles.length === 0) break;
+      
+      fileName = `${baseName}-${counter}.${ext}`;
+      filePath = `products/${fileName}`;
+      counter++;
+    }
+    
+    // 4. Upload
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('catalog-images')
+      .upload(filePath, arrayBuffer, {
+        contentType: blob.type,
+        cacheControl: '31536000', // 1 ano
+        upsert: false
+      });
+    
+    if (uploadError) throw uploadError;
+    
+    // 5. Retornar URL pública
+    const { data } = supabaseAdmin.storage
+      .from('catalog-images')
+      .getPublicUrl(filePath);
+    
+    return data.publicUrl;
+  } catch (error) {
+    console.error(`❌ Erro ao fazer upload da imagem "${productName}":`, error);
+    return imageUrl; // Fallback para URL original
+  }
+}
+
 interface CatalogItem {
   source: string
   category: string
@@ -333,12 +407,26 @@ function isValidTestimonial(testimonial: any): boolean {
 }
 
 // Map products to catalog items
-function mapProducts(products: any[]): CatalogItem[] {
+async function mapProducts(products: any[], supabaseAdmin: any): Promise<CatalogItem[]> {
   if (!products || !Array.isArray(products)) return []
   
-  return products.map(p => {
+  const mapped: CatalogItem[] = []
+  
+  for (const p of products) {
     const product = p.product || p
-    return {
+    
+    // Upload automático da imagem (se existir e for URL externa)
+    let finalImageUrl = product.image_url
+    if (product.image_url && product.image_url.startsWith('http')) {
+      console.log(`🖼️ Processando imagem: ${product.name}`)
+      finalImageUrl = await uploadImageToStorage(
+        product.image_url,
+        product.name,
+        supabaseAdmin
+      )
+    }
+    
+    mapped.push({
       source: 'system_a',
       category: 'product',
       external_id: String(product.id),
@@ -347,7 +435,7 @@ function mapProducts(products: any[]): CatalogItem[] {
       product_category: product.category,
       product_subcategory: product.subcategory,
       description: product.description,
-      image_url: product.image_url,
+      image_url: finalImageUrl,
       price: product.price ? parseFloat(product.price) : undefined,
       promo_price: product.promo_price ? parseFloat(product.promo_price) : undefined,
       currency: 'BRL',
@@ -378,8 +466,10 @@ function mapProducts(products: any[]): CatalogItem[] {
         category: product.category,
         subcategory: product.subcategory
       }
-    }
-  })
+    })
+  }
+  
+  return mapped
 }
 
 // Map company profile to catalog item
@@ -666,7 +756,7 @@ Deno.serve(async (req) => {
 
     // Map products
     if (data.products) {
-      const products = mapProducts(data.products)
+      const products = await mapProducts(data.products, supabase)
       allCatalogItems.push(...products)
       stats.products = products.length
       console.log(`✅ Mapped ${products.length} products`)
