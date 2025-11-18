@@ -610,6 +610,13 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
 
+      {/* Favicon for SEO - Prioridade para Google */}
+      <link rel="icon" type="image/png" sizes="192x192" href="https://parametros.smartdent.com.br/favicon-192x192.png?v=4" />
+      <link rel="icon" type="image/png" sizes="512x512" href="https://parametros.smartdent.com.br/favicon-512x512.png?v=4" />
+      <link rel="shortcut icon" href="https://parametros.smartdent.com.br/favicon.ico?v=4" />
+      <link rel="apple-touch-icon" href="https://parametros.smartdent.com.br/apple-touch-icon.png?v=4" />
+      <link rel="manifest" href="https://parametros.smartdent.com.br/manifest.json" />
+
       {/* Structured Data */}
       <script type="application/ld+json">
         {JSON.stringify(organizationSchema)}
