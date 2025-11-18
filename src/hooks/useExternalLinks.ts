@@ -28,8 +28,9 @@ export interface TechnicalDocument {
   document_name: string;
   document_description: string | null;
   file_url: string;
-  resin_name: string;
-  manufacturer: string;
+  product_name: string;      // Nome da resina OU produto
+  manufacturer?: string;      // Opcional para produtos
+  source: 'resin' | 'catalog'; // Origem do documento
   active: boolean;
 }
 
@@ -173,8 +174,9 @@ export function useExternalLinks() {
         document_name: doc.document_name,
         document_description: doc.document_description,
         file_url: doc.file_url,
-        resin_name: doc.resins.name,
+        product_name: doc.resins.name,
         manufacturer: doc.resins.manufacturer,
+        source: 'resin' as const,
         active: doc.active
       })) || [];
 

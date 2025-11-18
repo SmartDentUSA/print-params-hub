@@ -287,6 +287,7 @@ export type Database = {
           meta_description: string | null
           og_image_url: string | null
           order_index: number
+          recommended_products: string[] | null
           recommended_resins: string[] | null
           selected_pdf_ids_en: string[] | null
           selected_pdf_ids_es: string[] | null
@@ -327,6 +328,7 @@ export type Database = {
           meta_description?: string | null
           og_image_url?: string | null
           order_index: number
+          recommended_products?: string[] | null
           recommended_resins?: string[] | null
           selected_pdf_ids_en?: string[] | null
           selected_pdf_ids_es?: string[] | null
@@ -367,6 +369,7 @@ export type Database = {
           meta_description?: string | null
           og_image_url?: string | null
           order_index?: number
+          recommended_products?: string[] | null
           recommended_resins?: string[] | null
           selected_pdf_ids_en?: string[] | null
           selected_pdf_ids_es?: string[] | null

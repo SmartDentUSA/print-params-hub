@@ -11,7 +11,7 @@ interface LinkMapItem {
   id: string
   url: string
   priority: number
-  source: 'external' | 'knowledge' | 'document'
+  source: 'external' | 'knowledge' | 'document' | 'catalog_product'
 }
 
 serve(async (req) => {
@@ -141,14 +141,25 @@ async function fetchKeywordsRepository(
     }
   }
 
-  // 3. Buscar resin_documents (documentos técnicos)
+  // 3. Buscar documentos técnicos de resinas
   const { data: resinDocuments } = await supabase
     .from('resin_documents')
     .select(`
-      *,
-      resins!inner(name, manufacturer, slug)
+      id,
+      document_name,
+      file_url,
+      resins!inner(name)
     `)
     .eq('active', true)
+  
+  // 4. 🆕 Buscar produtos do catálogo para criar links para e-commerce
+  const { data: catalogProducts } = await supabase
+    .from('system_a_catalog')
+    .select('id, name, slug, keywords')
+    .eq('active', true)
+    .eq('approved', true)
+    .eq('category', 'product')
+    .eq('visible_in_ui', true)
 
   if (resinDocuments) {
     for (const doc of resinDocuments) {
@@ -178,8 +189,43 @@ async function fetchKeywordsRepository(
       }
     }
   }
+  
+  // Adicionar produtos do catálogo ao mapa de links
+  if (catalogProducts) {
+    for (const product of catalogProducts) {
+      const productUrl = `/produto/${product.slug}`
+      const priority = 80 // 🔥 Prioridade ALTA (queremos links para e-commerce!)
+      
+      // Nome do produto como keyword principal
+      const productName = product.name.toLowerCase()
+      if (!linkMap.has(productName)) {
+        linkMap.set(productName, {
+          id: product.id,
+          url: productUrl,
+          priority,
+          source: 'catalog_product'
+        })
+      }
+      
+      // Keywords adicionais do produto
+      if (product.keywords && Array.isArray(product.keywords)) {
+        for (const kw of product.keywords) {
+          const kwLower = kw.toLowerCase()
+          if (!linkMap.has(kwLower)) {
+            linkMap.set(kwLower, {
+              id: product.id,
+              url: productUrl,
+              priority: priority * 0.9,
+              source: 'catalog_product'
+            })
+          }
+        }
+      }
+    }
+  }
 
-  console.log(`✅ ${linkMap.size} keywords carregadas no mapa`)
+  console.log(`✅ ${linkMap.size} keywords carregadas (incluindo produtos do catálogo)`)
+  
   return linkMap
 }
 
