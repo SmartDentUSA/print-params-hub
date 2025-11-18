@@ -1,5 +1,8 @@
 project_id = "okeogjgqijbfkudfjadz"
 
+[functions.migrate-catalog-images]
+verify_jwt = false
+
 [functions.pandavideo-test]
 verify_jwt = false
 
