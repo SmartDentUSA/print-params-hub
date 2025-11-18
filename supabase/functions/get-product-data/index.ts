@@ -76,7 +76,87 @@ Deno.serve(async (req) => {
     const { data, error } = await query.maybeSingle();
 
     if (error || !data) {
-      console.log('⚠️ Produto não encontrado no catálogo, tentando fallback em resins:', { slug, error });
+      console.log('⚠️ Produto não encontrado no catálogo com slug exato, tentando fallbacks:', { slug, error });
+
+      // Enhanced fallback search in system_a_catalog with fuzzy matching
+      let catalogProduct: any = null;
+      let catalogError: any = null;
+
+      // Catalog Attempt 1: slug ilike
+      if (slug) {
+        const { data: c1, error: e1 } = await supabase
+          .from('system_a_catalog')
+          .select('*')
+          .eq('category', 'product')
+          .ilike('slug', `%${slug}%`)
+          .maybeSingle();
+        if (c1) {
+          catalogProduct = c1;
+        } else {
+          catalogError = e1 || catalogError;
+        }
+        console.log('🔎 Fallback attempt 1 (catalog.slug ilike):', { pattern: `%${slug}%`, found: !!c1, error: e1 });
+      }
+
+      // Catalog Attempt 2: name ilike with spaces
+      if (!catalogProduct && spaceQuery) {
+        const { data: c2, error: e2 } = await supabase
+          .from('system_a_catalog')
+          .select('*')
+          .eq('category', 'product')
+          .ilike('name', `%${spaceQuery}%`)
+          .maybeSingle();
+        if (c2) catalogProduct = c2; else catalogError = e2 || catalogError;
+        console.log('🔎 Fallback attempt 2 (catalog.name ilike spaceQuery):', { spaceQuery, found: !!c2, error: e2 });
+      }
+
+      // Catalog Attempt 3: name ilike longest token
+      if (!catalogProduct && longestToken) {
+        const { data: c3, error: e3 } = await supabase
+          .from('system_a_catalog')
+          .select('*')
+          .eq('category', 'product')
+          .ilike('name', `%${longestToken}%`)
+          .maybeSingle();
+        if (c3) catalogProduct = c3; else catalogError = e3 || catalogError;
+        console.log('🔎 Fallback attempt 3 (catalog.name ilike longestToken):', { longestToken, found: !!c3, error: e3 });
+      }
+
+      // If found in catalog with fuzzy matching, return it
+      if (catalogProduct) {
+        console.log('✅ Produto encontrado via fallback no catálogo:', catalogProduct.name);
+        
+        const response = {
+          success: true,
+          message: 'Produto encontrado (fallback catalog)',
+          data: {
+            id: catalogProduct.id,
+            uuid: catalogProduct.id,
+            external_id: catalogProduct.external_id,
+            name: catalogProduct.name,
+            slug: catalogProduct.slug,
+            description: catalogProduct.description,
+            image_url: catalogProduct.image_url,
+            price: catalogProduct.price,
+            promo_price: catalogProduct.promo_price,
+            currency: catalogProduct.currency || 'BRL',
+            url: catalogProduct.canonical_url || `https://loja.smartdent.com.br/${catalogProduct.slug}`,
+            canonical_url: catalogProduct.canonical_url,
+            seo_title_override: catalogProduct.seo_title_override,
+            seo_description_override: catalogProduct.meta_description,
+            keywords: catalogProduct.keywords || [],
+            product_category: catalogProduct.product_category,
+            product_subcategory: catalogProduct.product_subcategory,
+          },
+        };
+
+        return new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log('⚠️ Produto não encontrado no catálogo, tentando fallback em resins:', { slug, catalogError });
 
       // Enhanced fallback search in resins with multiple strategies
       let resin: any = null;
