@@ -1421,15 +1421,15 @@ Deno.serve(async (req) => {
       include_resin_documents: bodyParams.include_resin_documents !== undefined 
         ? bodyParams.include_resin_documents 
         : url.searchParams.get('include_resin_documents') !== 'false',
-      include_catalog_documents: bodyParams.include_catalog_documents !== undefined 
-        ? bodyParams.include_catalog_documents 
-        : url.searchParams.get('include_catalog_documents') === 'true',
-      include_product_videos: bodyParams.include_product_videos !== undefined 
-        ? bodyParams.include_product_videos 
-        : url.searchParams.get('include_product_videos') === 'true',
-      include_resin_videos: bodyParams.include_resin_videos !== undefined 
-        ? bodyParams.include_resin_videos 
-        : url.searchParams.get('include_resin_videos') === 'true',
+    include_catalog_documents: bodyParams.include_catalog_documents !== undefined 
+      ? bodyParams.include_catalog_documents 
+      : url.searchParams.get('include_catalog_documents') !== 'false',
+    include_product_videos: bodyParams.include_product_videos !== undefined 
+      ? bodyParams.include_product_videos 
+      : url.searchParams.get('include_product_videos') !== 'false',
+    include_resin_videos: bodyParams.include_resin_videos !== undefined 
+      ? bodyParams.include_resin_videos 
+      : url.searchParams.get('include_resin_videos') !== 'false',
       include_knowledge: bodyParams.include_knowledge_contents !== undefined
         ? bodyParams.include_knowledge_contents 
         : bodyParams.include_knowledge !== undefined
