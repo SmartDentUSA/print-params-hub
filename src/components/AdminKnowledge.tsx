@@ -2784,6 +2784,13 @@ Receba o texto bruto abaixo e:
                   <VideoSelector
                     open={videoSelectorOpen}
                     onClose={() => setVideoSelectorOpen(false)}
+                    onContentExtracted={(content) => {
+                      setRawTextInput(content);
+                      toast({
+                        title: '✅ Conteúdo adicionado!',
+                        description: 'O texto do vídeo foi adicionado ao campo de entrada'
+                      });
+                    }}
                     onSelect={(videoOrVideos) => {
                       const videosToAdd = Array.isArray(videoOrVideos) ? videoOrVideos : [videoOrVideos];
                       
