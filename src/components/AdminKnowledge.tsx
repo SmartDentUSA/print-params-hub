@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
-import { ResinMultiSelect } from '@/components/ResinMultiSelect';
+import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
 import { ImageUpload } from '@/components/ImageUpload';
 import { PDFTranscription } from '@/components/PDFTranscription';
 import { Badge } from '@/components/ui/badge';
@@ -126,6 +126,7 @@ Receba o texto bruto abaixo e:
     order_index: 0,
     active: true,
     recommended_resins: [] as string[],
+    recommended_products: [] as string[],
     aiPromptTemplate: '',
     selected_pdf_ids_pt: [] as string[],
     selected_pdf_ids_es: [] as string[],
@@ -209,6 +210,7 @@ Receba o texto bruto abaixo e:
       order_index: content.order_index,
       active: content.active,
       recommended_resins: content.recommended_resins || [],
+      recommended_products: content.recommended_products || [],
       content_image_url: (content as any).content_image_url || '',
       content_image_alt: (content as any).content_image_alt || '',
       aiPromptTemplate: (content as any).ai_prompt_template || '',
@@ -263,6 +265,7 @@ Receba o texto bruto abaixo e:
       order_index: contents.length,
       active: true,
       recommended_resins: [],
+      recommended_products: [],
       aiPromptTemplate: '',
       selected_pdf_ids_pt: [],
       selected_pdf_ids_es: [],
@@ -386,6 +389,7 @@ Receba o texto bruto abaixo e:
         ai_prompt_template: formData.aiPromptTemplate || null,
         category_id: categoryId,
         recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
+        recommended_products: formData.recommended_products?.length > 0 ? formData.recommended_products : null,
         selected_pdf_ids_pt: formData.selected_pdf_ids_pt || [],
         selected_pdf_ids_es: formData.selected_pdf_ids_es || [],
         selected_pdf_ids_en: formData.selected_pdf_ids_en || [],
@@ -1082,9 +1086,15 @@ Receba o texto bruto abaixo e:
                             className="mt-1"
                           />
                           <div className="flex-1 text-sm">
-                            <p className="font-medium text-amber-900 dark:text-amber-100">{doc.document_name}</p>
+                            <p className="font-medium text-amber-900 dark:text-amber-100">
+                              {doc.document_name}
+                            </p>
                             <p className="text-xs text-amber-700 dark:text-amber-300">
-                              {doc.resin_name} - {doc.manufacturer}
+                              {doc.product_name}
+                              {doc.manufacturer && ` - ${doc.manufacturer}`}
+                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-900">
+                                {doc.source === 'resin' ? '🧪 Resina' : '📦 Catálogo'}
+                              </span>
                             </p>
                           </div>
                         </label>
@@ -1284,10 +1294,16 @@ Receba o texto bruto abaixo e:
                                     }}
                                     className="mt-1"
                                   />
-                                  <div className="flex-1 text-sm">
-                                    <p className="font-medium text-amber-900 dark:text-amber-100">{doc.document_name}</p>
+                                   <div className="flex-1 text-sm">
+                                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                                      {doc.document_name}
+                                    </p>
                                     <p className="text-xs text-amber-700 dark:text-amber-300">
-                                      {doc.resin_name} - {doc.manufacturer}
+                                      {doc.product_name}
+                                      {doc.manufacturer && ` - ${doc.manufacturer}`}
+                                      <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-900">
+                                        {doc.source === 'resin' ? '🧪 Resina' : '📦 Catálogo'}
+                                      </span>
                                     </p>
                                   </div>
                                 </label>
@@ -1483,9 +1499,15 @@ Receba o texto bruto abaixo e:
                                     className="mt-1"
                                   />
                                   <div className="flex-1 text-sm">
-                                    <p className="font-medium text-amber-900 dark:text-amber-100">{doc.document_name}</p>
+                                    <p className="font-medium text-amber-900 dark:text-amber-100">
+                                      {doc.document_name}
+                                    </p>
                                     <p className="text-xs text-amber-700 dark:text-amber-300">
-                                      {doc.resin_name} - {doc.manufacturer}
+                                      {doc.product_name}
+                                      {doc.manufacturer && ` - ${doc.manufacturer}`}
+                                      <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-900">
+                                        {doc.source === 'resin' ? '🧪 Resina' : '📦 Catálogo'}
+                                      </span>
                                     </p>
                                   </div>
                                 </label>
@@ -2888,13 +2910,24 @@ Receba o texto bruto abaixo e:
                 <div>
                   <Label className="text-lg font-semibold">💰 CTAs de Conversão</Label>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Selecione as resinas mencionadas no artigo. CTAs aparecerão automaticamente (topo, meio, final).
+                    Selecione resinas e produtos mencionados no artigo. CTAs aparecerão automaticamente (topo, meio, final).
                   </p>
                   
-                  <ResinMultiSelect 
-                    value={formData.recommended_resins}
-                    onChange={(resins) => setFormData({...formData, recommended_resins: resins})}
+                  <ProductCTAMultiSelect 
+                    resins={formData.recommended_resins}
+                    products={formData.recommended_products}
+                    onChange={(resins, products) => setFormData({
+                      ...formData, 
+                      recommended_resins: resins,
+                      recommended_products: products
+                    })}
                   />
+                  
+                  {(formData.recommended_resins.length > 0 || formData.recommended_products.length > 0) && (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      ✓ {formData.recommended_resins.length} resina(s) + {formData.recommended_products.length} produto(s) selecionado(s)
+                    </div>
+                  )}
                   
                   {/* Preview */}
                   {formData.recommended_resins.length > 0 && (
