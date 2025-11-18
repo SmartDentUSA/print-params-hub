@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { KnowledgeVideo } from "@/hooks/useKnowledge";
+import { VideoContentExtractor } from './VideoContentExtractor';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import { Loader2, Video, Check } from "lucide-react";
 interface VideoSelectorProps {
   open: boolean;
   onSelect: (video: Partial<KnowledgeVideo> | Partial<KnowledgeVideo>[]) => void;
+  onContentExtracted?: (content: string) => void;
   onClose: () => void;
 }
 
@@ -66,7 +68,7 @@ const getDescendantFolderIds = (allFolders: any[], parentId: string): string[] =
   return descendants;
 };
 
-export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
+export function VideoSelector({ open, onSelect, onContentExtracted, onClose }: VideoSelectorProps) {
   const [tab, setTab] = useState<"youtube" | "pandavideo">("pandavideo");
   
   // YouTube
@@ -80,6 +82,10 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   const [folderFilter, setFolderFilter] = useState<string | null>(null);
   const [selectedVideos, setSelectedVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Extractor state
+  const [showExtractor, setShowExtractor] = useState(false);
+  const [videoToExtract, setVideoToExtract] = useState<any>(null);
 
   // Calcular conjunto de IDs de pastas válidas (pasta selecionada + descendentes)
   const folderIdsToInclude = useMemo(() => {
@@ -158,6 +164,19 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
         return;
       }
       
+      // If callback exists, offer extraction
+      if (onContentExtracted) {
+        setVideoToExtract({
+          id: 'temp-youtube',
+          title: youtubeTitle,
+          video_type: 'youtube' as const,
+          url: youtubeUrl,
+        });
+        setShowExtractor(true);
+        return;
+      }
+      
+      // No callback, add directly
       onSelect({
         video_type: "youtube",
         url: youtubeUrl,
@@ -173,6 +192,19 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
     }
 
     if (tab === "pandavideo" && selectedVideos.length > 0) {
+      // If single video and callback exists, offer extraction
+      if (selectedVideos.length === 1 && onContentExtracted) {
+        setVideoToExtract({
+          id: selectedVideos[0].pandavideo_id,
+          title: selectedVideos[0].title,
+          video_type: 'pandavideo' as const,
+          pandavideo_id: selectedVideos[0].pandavideo_id,
+        });
+        setShowExtractor(true);
+        return;
+      }
+      
+      // Multiple videos or no callback, add directly
       const videosToAdd = selectedVideos.map(v => ({
         video_type: "pandavideo" as const,
         pandavideo_id: v.pandavideo_id,
@@ -201,7 +233,82 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
     setFolderFilter(null);
     setSelectedVideos([]);
     setTab("pandavideo");
+    setShowExtractor(false);
+    setVideoToExtract(null);
     onClose();
+  };
+  
+  const handleExtractorContentExtracted = (content: string) => {
+    if (onContentExtracted) {
+      onContentExtracted(content);
+    }
+    
+    // Add the video normally
+    if (videoToExtract) {
+      if (videoToExtract.video_type === 'youtube') {
+        onSelect({
+          video_type: "youtube",
+          url: videoToExtract.url,
+          title: videoToExtract.title,
+          order_index: 0,
+        });
+        setYoutubeUrl("");
+        setYoutubeTitle("");
+      } else {
+        const video = selectedVideos.find(v => v.pandavideo_id === videoToExtract.pandavideo_id);
+        if (video) {
+          onSelect({
+            video_type: "pandavideo" as const,
+            pandavideo_id: video.pandavideo_id,
+            pandavideo_external_id: video.pandavideo_external_id,
+            title: video.title,
+            embed_url: video.embed_url,
+            thumbnail_url: video.thumbnail_url,
+            folder_id: video.folder_id,
+            video_duration_seconds: video.video_duration_seconds,
+            description: video.description,
+            order_index: 0,
+          });
+          setSelectedVideos([]);
+        }
+      }
+    }
+    
+    handleClose();
+  };
+
+  const handleExtractorClose = () => {
+    // Skip extraction, add video normally
+    if (videoToExtract) {
+      if (videoToExtract.video_type === 'youtube') {
+        onSelect({
+          video_type: "youtube",
+          url: videoToExtract.url,
+          title: videoToExtract.title,
+          order_index: 0,
+        });
+        setYoutubeUrl("");
+        setYoutubeTitle("");
+      } else {
+        const video = selectedVideos.find(v => v.pandavideo_id === videoToExtract.pandavideo_id);
+        if (video) {
+          onSelect({
+            video_type: "pandavideo" as const,
+            pandavideo_id: video.pandavideo_id,
+            pandavideo_external_id: video.pandavideo_external_id,
+            title: video.title,
+            embed_url: video.embed_url,
+            thumbnail_url: video.thumbnail_url,
+            folder_id: video.folder_id,
+            video_duration_seconds: video.video_duration_seconds,
+            description: video.description,
+            order_index: 0,
+          });
+          setSelectedVideos([]);
+        }
+      }
+    }
+    handleClose();
   };
 
   const isAddDisabled = 
@@ -212,11 +319,13 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Selecionar Vídeo</DialogTitle>
-        </DialogHeader>
+        {!showExtractor ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Selecionar Vídeo</DialogTitle>
+            </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "youtube" | "pandavideo")} className="flex-1 flex flex-col overflow-hidden">
+            <Tabs value={tab} onValueChange={(v) => setTab(v as "youtube" | "pandavideo")} className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="youtube">YouTube</TabsTrigger>
             <TabsTrigger value="pandavideo">PandaVideo</TabsTrigger>
@@ -404,6 +513,19 @@ export function VideoSelector({ open, onSelect, onClose }: VideoSelectorProps) {
             }
           </Button>
         </DialogFooter>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Extrair Conteúdo do Vídeo</DialogTitle>
+            </DialogHeader>
+            <VideoContentExtractor
+              video={videoToExtract}
+              onContentExtracted={handleExtractorContentExtracted}
+              onClose={handleExtractorClose}
+            />
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
