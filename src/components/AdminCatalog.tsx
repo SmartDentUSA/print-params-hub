@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter } from "lucide-react";
+import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCatalogCRUD, CatalogProduct } from "@/hooks/useCatalogCRUD";
 import { AdminModal } from "./AdminModal";
+import { supabase } from "@/integrations/supabase/client";
 
 export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -19,6 +20,7 @@ export function AdminCatalog() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [migrating, setMigrating] = useState(false);
 
   const { 
     fetchCatalogProducts, 
@@ -153,6 +155,37 @@ export function AdminCatalog() {
     }
   };
 
+  const handleMigrateImages = async () => {
+    setMigrating(true);
+    try {
+      toast({
+        title: "🔄 Iniciando migração...",
+        description: "Fazendo upload das imagens para Supabase Storage",
+      });
+
+      const { data, error } = await supabase.functions.invoke('migrate-catalog-images');
+      
+      if (error) throw error;
+
+      toast({
+        title: "✅ Migração concluída!",
+        description: `${data.images_uploaded} imagens migradas com sucesso de ${data.total_products} produtos`,
+      });
+
+      // Recarregar produtos para ver as novas URLs
+      await loadData();
+    } catch (error) {
+      console.error('Error migrating images:', error);
+      toast({
+        title: "Erro na migração",
+        description: error.message || "Erro ao migrar imagens",
+        variant: "destructive",
+      });
+    } finally {
+      setMigrating(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -177,10 +210,20 @@ export function AdminCatalog() {
                 Gerencie produtos gerais (não-resinas) do Sistema A
               </CardDescription>
             </div>
-            <Button onClick={openCreateDialog}>
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Produto
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={handleMigrateImages} 
+                disabled={migrating}
+                variant="outline"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${migrating ? 'animate-spin' : ''}`} />
+                {migrating ? 'Migrando...' : 'Migrar Imagens'}
+              </Button>
+              <Button onClick={openCreateDialog}>
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Produto
+              </Button>
+            </div>
           </div>
         </CardHeader>
         
