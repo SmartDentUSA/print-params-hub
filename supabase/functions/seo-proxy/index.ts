@@ -49,6 +49,58 @@ function normalizeSlug(text: string): string {
     .replace(/^-|-$/g, ''); // Remove hífens nas pontas
 }
 
+// Universal HowTo Extractor para SEO-Proxy (bots)
+function extractHowToStepsFromHTML(htmlContent: string): string[] {
+  if (!htmlContent) return [];
+  
+  const steps: string[] = [];
+  
+  // Regex patterns para detectar passos em HTML
+  const olPattern = /<ol[^>]*>(.*?)<\/ol>/gis;
+  const liPattern = /<li[^>]*>(.*?)<\/li>/gi;
+  const headingPattern = /<h[2-4][^>]*>(passo|etapa|step)?\s*\d+[:\-\s]+(.*?)<\/h[2-4]>/gi;
+  const tablePattern = /<tr[^>]*>.*?<td[^>]*>(passo|etapa)?\s*\d+.*?<\/td>.*?<td[^>]*>(.*?)<\/td>.*?<\/tr>/gis;
+  
+  // Método 1: Listas ordenadas (prioridade máxima)
+  const olMatches = htmlContent.match(olPattern);
+  if (olMatches) {
+    olMatches.forEach(ol => {
+      const liMatches = ol.match(liPattern);
+      if (liMatches) {
+        liMatches.forEach(li => {
+          const text = li.replace(/<[^>]*>/g, '').trim();
+          if (text.length > 10) steps.push(text);
+        });
+      }
+    });
+  }
+  
+  // Método 2: Headings numerados (se lista vazia)
+  if (steps.length === 0) {
+    let match;
+    while ((match = headingPattern.exec(htmlContent)) !== null) {
+      const stepText = match[2].replace(/<[^>]*>/g, '').trim();
+      if (stepText.length > 15) {
+        const stepNumber = match[0].match(/\d+/)?.[0] || '';
+        steps.push(`${match[1] || 'Passo'} ${stepNumber}: ${stepText}`);
+      }
+    }
+  }
+  
+  // Método 3: Tabelas (se ainda vazio)
+  if (steps.length === 0) {
+    let match;
+    while ((match = tablePattern.exec(htmlContent)) !== null) {
+      const stepText = match[2].replace(/<[^>]*>/g, '').trim();
+      if (stepText.length > 15) {
+        steps.push(stepText);
+      }
+    }
+  }
+  
+  return steps.slice(0, 10); // Limitar a 10 passos (boas práticas Google)
+}
+
 async function generateHomepageHTML(supabase: any): Promise<string> {
   const { data: brands, error } = await supabase
     .from('brands')
@@ -1059,6 +1111,26 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       },
       ...videoSchemas,
       ...(faqSchema ? [faqSchema] : []),
+      // HowTo Schema - Universal Extractor
+      ...(() => {
+        const howToSteps = extractHowToStepsFromHTML(content.content_html || '');
+        if (howToSteps.length >= 3) {
+          return [{
+            "@type": "HowTo",
+            "name": `Como usar: ${escapeHtml(content.title)}`,
+            "description": escapeHtml(content.excerpt || desc),
+            "totalTime": "PT15M",
+            "step": howToSteps.map((step, idx) => ({
+              "@type": "HowToStep",
+              "position": idx + 1,
+              "name": step.substring(0, 100),
+              "text": step,
+              "url": `${baseUrl}/conhecimento/${letter}/${slug}#passo-${idx + 1}`
+            }))
+          }];
+        }
+        return [];
+      })(),
       // FASE 2: LearningResource Schema para IA Regenerativa
       {
         "@type": "LearningResource",

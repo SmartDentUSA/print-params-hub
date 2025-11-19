@@ -120,9 +120,60 @@ Este documento orienta a validação e o monitoramento das otimizações impleme
 
 ---
 
-## 3. Validação de Meta Tags de IA (FASE 3)
+## 3. Validação de HowTo Schema (UNIVERSAL EXTRACTOR)
 
-### 3.1 Verificar Meta Tag AI-Context
+### 3.1 Verificar Detecção de Passos
+O sistema agora detecta passos HowTo em **4 formatos diferentes**:
+
+1. **Lista Ordenada (`<ol><li>`)** - Formato recomendado
+2. **Headings Numerados (`<h3>Passo X</h3>`)** - Fallback primário  
+3. **Tabelas HTML** - Fallback secundário
+4. **Tabelas Markdown convertidas** - Fallback final
+
+#### Como verificar no Google Rich Results Test:
+1. Acesse: https://search.google.com/test/rich-results
+2. Insira URL do artigo (ex: artigo SMART ORTHO)
+3. Verifique se "HowTo" aparece em "Detected Structured Data"
+
+#### Teste de detecção com cURL (simular Googlebot):
+```bash
+curl -A "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" \
+  -H "Accept: text/html" \
+  "https://parametros.smartdent.com.br/seo-proxy/conhecimento/c/smart-ortho-adesivo-ortodontico" \
+  | grep -A 20 '"@type": "HowTo"'
+```
+
+#### Verificar na SPA (React):
+1. Abra DevTools (F12) → Console
+2. Execute:
+```javascript
+// Verificar se extrator detecta passos
+const parser = new DOMParser();
+const doc = parser.parseFromString(document.body.innerHTML, 'text/html');
+const orderedLists = doc.querySelectorAll('ol');
+console.log('Listas ordenadas encontradas:', orderedLists.length);
+
+// Verificar schema no head
+const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+scripts.forEach((s, i) => {
+  const json = JSON.parse(s.textContent);
+  if (json['@graph']) {
+    const howTo = json['@graph'].find(item => item['@type'] === 'HowTo');
+    console.log(`Schema ${i} - HowTo:`, howTo ? '✅ Detectado' : '❌ Não detectado');
+  }
+});
+```
+
+### 3.2 Artigos de Teste Prioritários
+- **SMART ORTHO**: Teste de detecção em tabelas HTML
+- **Artigos com `<ol><li>`**: Teste de formato recomendado
+- **Artigos com headings**: Teste de fallback primário
+
+---
+
+## 4. Validação de Meta Tags de IA (FASE 3)
+
+### 4.1 Verificar Meta Tag AI-Context
 Inspecionar elemento na página (F12 no navegador):
 
 ```html
