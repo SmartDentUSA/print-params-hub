@@ -138,6 +138,11 @@ export function AdminKnowledge() {
   const [pdfSearchES, setPdfSearchES] = useState('');
   const [pdfSearchEN, setPdfSearchEN] = useState('');
   
+  // Estados para busca/transcrição de PDFs no orquestrador
+  const [pdfSearchOrchestrator, setPdfSearchOrchestrator] = useState('');
+  const [transcribingOrchestratorPdfs, setTranscribingOrchestratorPdfs] = useState<Set<string>>(new Set());
+  const [orchestratorPdfProgress, setOrchestratorPdfProgress] = useState<{[key: string]: string}>({});
+  
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
 Receba o texto bruto abaixo e:
@@ -303,6 +308,119 @@ Receba o texto bruto abaixo e:
       setTranscribingPdfId(null);
       setTranscriptionProgress('');
     }
+  };
+
+  const handleTranscribePdfForOrchestrator = async (doc: any) => {
+    // Verificar se já está transcrito
+    if (orchestratorExtractedData.relatedPdfs.some(pdf => pdf.id === doc.id)) {
+      toast({
+        title: 'ℹ️ PDF já adicionado',
+        description: 'Este PDF já foi transcrito e está nas fontes',
+        variant: 'default'
+      });
+      return;
+    }
+
+    // Verificar se já está em transcrição
+    if (transcribingOrchestratorPdfs.has(doc.id)) {
+      toast({
+        title: '⚠️ Transcrição em andamento',
+        description: 'Aguarde o término da transcrição deste PDF',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setTranscribingOrchestratorPdfs(prev => new Set([...prev, doc.id]));
+    setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Baixando PDF...' }));
+    
+    try {
+      const pdfBase64 = await downloadPdfAsBase64(doc.file_url);
+      
+      setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Extraindo texto (até 2 min)...' }));
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 120000)
+      );
+      
+      const invokePromise = supabase.functions.invoke('ai-enrich-pdf-content', {
+        body: { pdfBase64 }
+      });
+      
+      const result = await Promise.race([invokePromise, timeoutPromise]) as any;
+      const { data, error } = result;
+      
+      if (error) throw error;
+      
+      const extractedText = data.enrichedText || data.rawText;
+      
+      if (!extractedText) {
+        throw new Error('Nenhum texto foi extraído do PDF');
+      }
+      
+      // Adicionar aos dados do orquestrador
+      setOrchestratorExtractedData(prev => ({
+        ...prev,
+        relatedPdfs: [
+          ...prev.relatedPdfs,
+          {
+            id: doc.id,
+            name: doc.document_name,
+            content: extractedText
+          }
+        ]
+      }));
+      
+      console.log('✅ PDF transcrito para orquestrador:', {
+        id: doc.id,
+        name: doc.document_name,
+        contentLength: extractedText.length
+      });
+      
+      toast({
+        title: '✅ PDF adicionado às fontes!',
+        description: `${doc.document_name} (${extractedText.length} caracteres)`,
+        duration: 5000
+      });
+      
+    } catch (error: any) {
+      console.error('Erro ao transcrever PDF:', error);
+      
+      let errorMessage = 'Verifique se o arquivo está acessível e tente novamente';
+      
+      if (error.message === 'Timeout') {
+        errorMessage = 'Tempo limite excedido (2 min). Tente um PDF menor.';
+      }
+      
+      toast({
+        title: '❌ Erro ao transcrever PDF',
+        description: error.message || errorMessage,
+        variant: 'destructive'
+      });
+    } finally {
+      setTranscribingOrchestratorPdfs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(doc.id);
+        return newSet;
+      });
+      setOrchestratorPdfProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[doc.id];
+        return newProgress;
+      });
+    }
+  };
+
+  const handleRemovePdfFromOrchestrator = (pdfId: string) => {
+    setOrchestratorExtractedData(prev => ({
+      ...prev,
+      relatedPdfs: prev.relatedPdfs.filter(pdf => pdf.id !== pdfId)
+    }));
+    
+    toast({
+      title: 'PDF removido das fontes',
+      variant: 'default'
+    });
   };
 
   useEffect(() => {
@@ -2385,329 +2503,162 @@ Receba o texto bruto abaixo e:
                       )}
                     </div>
 
-                    {/* =========== FONTE 4: PDFs JÁ EXISTENTES =========== */}
-                    <div className="border rounded-lg p-4 space-y-3 bg-background">
-                      <div className="flex items-center justify-between">
-                        <Label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={orchestratorActiveSources.relatedPdfs}
-                            onChange={(e) => {
-                              setOrchestratorActiveSources(prev => ({
-                                ...prev,
-                                relatedPdfs: e.target.checked
-                              }));
-                              if (!e.target.checked) {
-                                setOrchestratorExtractedData(prev => ({ ...prev, relatedPdfs: [] }));
-                              }
-                            }}
-                            className="w-4 h-4"
-                          />
-                          📚 PDFs da Base de Conhecimento
-                        </Label>
-                        {orchestratorActiveSources.relatedPdfs && (
-                          <Badge variant="default">✓ Ativa</Badge>
-                        )}
-                      </div>
-                      
-                      {orchestratorActiveSources.relatedPdfs && (
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">
-                            Selecione PDFs já inseridos na base para usar como fonte complementar
-                          </p>
-                          <Badge variant="outline">🚧 Em desenvolvimento - Próxima versão</Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Resumo das Fontes Selecionadas */}
-                    {Object.values(orchestratorActiveSources).some(Boolean) && (
-                      <Alert className="bg-muted/50">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>Fontes selecionadas para orquestração:</strong>
-                          <ul className="list-disc ml-4 mt-2 space-y-1">
-                            {orchestratorActiveSources.rawText && orchestratorExtractedData.rawText && (
-                              <li>📝 Texto colado ({orchestratorExtractedData.rawText.length} caracteres)</li>
-                            )}
-                            {orchestratorActiveSources.pdfTranscription && orchestratorExtractedData.pdfTranscription && (
-                              <li>📄 PDF transcrito ({orchestratorExtractedData.pdfTranscription.length} caracteres)</li>
-                            )}
-                            {orchestratorActiveSources.videoTranscription && orchestratorExtractedData.videoTranscription && (
-                              <li>🎬 Vídeo transcrito ({orchestratorExtractedData.videoTranscription.length} caracteres)</li>
-                            )}
-                            {orchestratorActiveSources.relatedPdfs && orchestratorExtractedData.relatedPdfs.length > 0 && (
-                              <li>📚 {orchestratorExtractedData.relatedPdfs.length} PDFs da base</li>
-                            )}
-                          </ul>
-                        </AlertDescription>
-                      </Alert>
+                {/* =========== FONTE 4: PDFs JÁ EXISTENTES =========== */}
+                <div className="border rounded-lg p-4 space-y-3 bg-background">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={orchestratorActiveSources.relatedPdfs}
+                        onChange={(e) => {
+                          setOrchestratorActiveSources(prev => ({
+                            ...prev,
+                            relatedPdfs: e.target.checked
+                          }));
+                          if (!e.target.checked) {
+                            setOrchestratorExtractedData(prev => ({ ...prev, relatedPdfs: [] }));
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      📚 PDFs da Base de Conhecimento
+                    </Label>
+                    {orchestratorActiveSources.relatedPdfs && (
+                      <Badge variant="default">✓ Ativa</Badge>
                     )}
                   </div>
-                )}
-
-                <Button
-                  onClick={async () => {
-                    // Validação de entrada
-                    if (!useOrchestrator && !rawTextInput) {
-                      toast({ title: 'Erro', description: 'Cole um texto primeiro', variant: 'destructive' });
-                      return;
-                    }
-                    
-                    if (useOrchestrator) {
-                      // Verificar se pelo menos uma fonte está ativa E tem conteúdo
-                      const hasActiveSourceWithContent = 
-                        (orchestratorActiveSources.rawText && orchestratorExtractedData.rawText.trim().length > 0) ||
-                        (orchestratorActiveSources.pdfTranscription && orchestratorExtractedData.pdfTranscription.trim().length > 0) ||
-                        (orchestratorActiveSources.videoTranscription && orchestratorExtractedData.videoTranscription.trim().length > 0) ||
-                        (orchestratorActiveSources.relatedPdfs && orchestratorExtractedData.relatedPdfs.length > 0);
-                      
-                      if (!hasActiveSourceWithContent) {
-                        toast({ 
-                          title: 'Erro', 
-                          description: 'Selecione pelo menos uma fonte e adicione conteúdo',
-                          variant: 'destructive' 
-                        });
-                        return;
-                      }
-                    }
-                    
-                    setIsGenerating(true);
-                    try {
-                      let formattedHTML: string;
-                      
-                      if (useOrchestrator) {
-                        // Modo orquestrador - NOVO SISTEMA com fontes automáticas
-                        console.log('🎯 Chamando orquestrador de conteúdo...');
-                        
-                        // Validar se há pelo menos uma fonte com conteúdo
-                        const hasAnyContent = 
-                          orchestratorExtractedData.rawText.length > 0 ||
-                          orchestratorExtractedData.pdfTranscription.length > 0 ||
-                          orchestratorExtractedData.videoTranscription.length > 0 ||
-                          orchestratorExtractedData.relatedPdfs.length > 0;
-
-                        if (!hasAnyContent) {
-                          toast({
-                            title: '❌ Nenhuma fonte com conteúdo',
-                            description: 'Preencha pelo menos uma fonte antes de gerar o artigo',
-                            variant: 'destructive'
-                          });
-                          setIsGenerating(false);
-                          return;
-                        }
-
-                        console.log('✅ Validação OK - Estado do orquestrador:', {
-                          activeSources: orchestratorActiveSources,
-                          extractedDataSizes: {
-                            rawText: orchestratorExtractedData.rawText.length,
-                            pdfTranscription: orchestratorExtractedData.pdfTranscription.length,
-                            videoTranscription: orchestratorExtractedData.videoTranscription.length,
-                            relatedPdfs: orchestratorExtractedData.relatedPdfs.length
-                          }
-                        });
-                        
-                        // Preparar fontes no formato esperado pelo edge function
-                        const sources = {
-                          technicalSheet: orchestratorExtractedData.pdfTranscription || '', // PDF = ficha técnica
-                          transcript: orchestratorExtractedData.videoTranscription || '',   // Vídeo = transcrição
-                          manual: orchestratorExtractedData.rawText || '',                  // Texto colado = manual
-                          testimonials: orchestratorExtractedData.relatedPdfs
-                            .map(pdf => `[${pdf.name}]\n${pdf.content}`)
-                            .join('\n\n') || ''                                             // PDFs relacionados
-                        };
-                        
-                        console.log('📊 Fontes preparadas:', {
-                          technicalSheet: sources.technicalSheet.length,
-                          transcript: sources.transcript.length,
-                          manual: sources.manual.length,
-                          testimonials: sources.testimonials.length
-                        });
-                        
-                        const { data, error } = await supabase.functions.invoke('ai-orchestrate-content', {
-                          body: {
-                            sources,
-                            productName: formData.title || undefined,
-                            language: 'pt'
-                          }
-                        });
-                        
-                        if (error) throw error;
-                        
-                        if (!data.success) {
-                          throw new Error(data.error || 'Erro ao gerar conteúdo orquestrado');
-                        }
-                        
-                        formattedHTML = data.html;
-                        
-                        console.log('✅ Conteúdo orquestrado gerado:', {
-                          length: formattedHTML.length,
-                          hasHowToSchema: data.schemas?.howTo,
-                          hasFAQSchema: data.schemas?.faqPage
-                        });
-                        
-                        // Mostrar feedback sobre schemas estruturados
-                        if (data.schemas) {
-                          const schemasFound = [];
-                          if (data.schemas.howTo) schemasFound.push('HowTo');
-                          if (data.schemas.faqPage) schemasFound.push('FAQ');
-                          
-                          if (schemasFound.length > 0) {
-                            toast({
-                              title: '✅ Schemas Estruturados Detectados!',
-                              description: `O artigo contém: ${schemasFound.join(', ')}`,
-                              duration: 5000
-                            });
-                          }
-                        }
-                        
-                      } else {
-                        // Modo tradicional (pipeline rápido)
-                        console.log('⚡ Usando pipeline rápido tradicional...');
-                        
-                        const { data, error } = await supabase.functions.invoke('ai-content-formatter', {
-                          body: {
-                            prompt: formData.aiPromptTemplate || DEFAULT_AI_PROMPT,
-                            rawText: rawTextInput,
-                            categoryLetter: selectedCategory
-                          }
-                        });
-                        
-                        if (error) throw error;
-                        formattedHTML = data.formattedHTML;
-                      }
-                      
-                      setGeneratedHTML(formattedHTML);
-                      
-                      // Debug logs
-                      console.log('🤖 IA gerou HTML:', {
-                        mode: useOrchestrator ? 'orquestrador' : 'pipeline',
-                        length: formattedHTML.length,
-                        hasContentCard: formattedHTML.includes('content-card'),
-                        hasBenefits: formattedHTML.includes('benefit-card'),
-                        hasCTA: formattedHTML.includes('cta-panel'),
-                        hasGridBenefits: formattedHTML.includes('grid-benefits'),
-                        linkCount: (formattedHTML.match(/<a href/g) || []).length,
-                        h2Count: (formattedHTML.match(/<h2>/g) || []).length,
-                        preview: formattedHTML.substring(0, 500) + '...'
-                      });
-                      
-                      // Auto-apply to editor if enabled
-                      if (autoApplyIA) {
-                        setPreviousHTML(formData.content_html || null);
-                        setFormData(prev => ({ ...prev, content_html: formattedHTML }));
-                        // ✅ REMOVIDO: Não sincronizar com TipTap - HTML salvo diretamente
-                        setPendingAutoSave(true);
-                        
-                        // Auto-save if enabled and required fields are filled
-                        if (autoSaveAfterGen && formData.title && formData.excerpt) {
-                          try {
-                            const categoryId = categories.find(c => c.letter === selectedCategory)?.id;
-                            const contentData = {
-                              title: formData.title,
-                              slug: formData.slug || generateSlug(formData.title),
-                              excerpt: formData.excerpt,
-                              content_html: formattedHTML,
-                              icon_color: formData.icon_color,
-                              meta_description: formData.meta_description,
-                              og_image_url: formData.og_image_url,
-                              content_image_url: formData.content_image_url,
-                              canva_template_url: formData.canva_template_url,
-                              file_url: formData.file_url,
-                              file_name: formData.file_name,
-                              author_id: formData.author_id,
-                              faqs: formData.faqs,
-                              order_index: formData.order_index,
-                              active: formData.active,
-                              ai_prompt_template: formData.aiPromptTemplate || null,
-                              category_id: categoryId,
-                              recommended_resins: formData.recommended_resins?.length > 0 ? formData.recommended_resins : null,
-                            };
-
-                            if (editingContent) {
-                              await updateContent(editingContent.id, contentData);
-                            } else {
-                              const newContent = await insertContent(contentData);
-                              if (newContent) {
-                                setEditingContent(newContent);
-                              }
-                            }
-                            
-                            setPendingAutoSave(false);
-                            toast({ title: '✅ Salvo automaticamente!', description: 'Conteúdo gerado e salvo' });
-                            await loadContents();
-                          } catch (error: any) {
-                            console.error('❌ Erro ao salvar automaticamente:', error);
-                            toast({
-                              title: '❌ Erro ao salvar',
-                              description: error?.message || 'Erro ao salvar automaticamente',
-                              variant: 'destructive'
-                            });
-                          }
-                        } else {
-                          toast({ 
-                            title: '✅ Conteúdo aplicado!', 
-                            description: autoSaveAfterGen 
-                              ? 'Preencha Título e Resumo para salvar automaticamente' 
-                              : 'Clique em "Salvar agora" para persistir'
-                          });
-                        }
-                      } else {
-                        toast({ title: '✅ Conteúdo gerado!', description: 'Revise o preview abaixo' });
-                      }
-                    } catch (err: any) {
-                      toast({ title: '❌ Erro', description: err.message, variant: 'destructive' });
-                    } finally {
-                      setIsGenerating(false);
-                    }
-                  }}
-                  disabled={
-                    isGenerating || 
-                    (!useOrchestrator && !rawTextInput) || 
-                    (useOrchestrator && !Object.values(orchestratorActiveSources).some(Boolean))
-                  }
-                  title={
-                    isGenerating 
-                      ? "Aguarde a geração..." 
-                      : useOrchestrator 
-                        ? `Selecione pelo menos uma fonte (${Object.values(orchestratorActiveSources).filter(Boolean).length} ativas)`
-                        : "Cole um texto primeiro"
-                  }
-                  className="relative"
-                >
-                  {isGenerating ? '⏳ Gerando...' : (
+                  
+                  {orchestratorActiveSources.relatedPdfs && (
                     <>
-                      🚀 Gerar por IA
-                      {formData.aiPromptTemplate && formData.aiPromptTemplate !== DEFAULT_AI_PROMPT && (
-                        <span className="ml-2 text-xs bg-blue-600 px-2 py-0.5 rounded">
-                          Prompt customizado
-                        </span>
+                      <p className="text-sm text-muted-foreground">
+                        Selecione PDFs já inseridos na base para usar como fonte complementar. 
+                        Cada PDF será transcrito automaticamente pela IA.
+                      </p>
+
+                      {/* Feedback de PDFs transcritos */}
+                      {orchestratorExtractedData.relatedPdfs.length > 0 && (
+                        <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                          <AlertDescription className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                                {orchestratorExtractedData.relatedPdfs.length} PDF(s) transcritos
+                              </span>
+                            </div>
+                            <div className="space-y-1 pl-6">
+                              {orchestratorExtractedData.relatedPdfs.map(pdf => (
+                                <div key={pdf.id} className="flex items-center justify-between text-xs text-green-700 dark:text-green-300">
+                                  <span>• {pdf.name} ({pdf.content.length} caracteres)</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleRemovePdfFromOrchestrator(pdf.id)}
+                                    className="h-6 px-2 text-red-600 hover:text-red-700"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {/* Campo de busca */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por nome do PDF, produto ou fabricante..."
+                          value={pdfSearchOrchestrator}
+                          onChange={(e) => setPdfSearchOrchestrator(e.target.value)}
+                          className="pl-10"
+                        />
+                      </div>
+
+                      {/* Lista de PDFs disponíveis */}
+                      <ScrollArea className="h-80 border rounded-lg">
+                        <div className="p-3 space-y-2">
+                          {loading ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                          ) : filterDocuments(pdfSearchOrchestrator).length === 0 ? (
+                            <p className="text-center text-sm text-muted-foreground py-8">
+                              Nenhum PDF encontrado
+                            </p>
+                          ) : (
+                            filterDocuments(pdfSearchOrchestrator).map(doc => {
+                              const isTranscribing = transcribingOrchestratorPdfs.has(doc.id);
+                              const isTranscribed = orchestratorExtractedData.relatedPdfs.some(pdf => pdf.id === doc.id);
+                              
+                              return (
+                                <div 
+                                  key={doc.id} 
+                                  className={`flex items-start gap-3 p-3 border rounded-lg transition-colors ${
+                                    isTranscribed 
+                                      ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' 
+                                      : 'bg-background hover:bg-accent'
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-sm font-medium truncate">
+                                        {doc.document_name}
+                                      </span>
+                                      {isTranscribed && (
+                                        <Badge variant="default" className="shrink-0 bg-green-600">
+                                          ✓ Adicionado
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {doc.product_name}
+                                      {doc.manufacturer && ` • ${doc.manufacturer}`}
+                                    </p>
+                                    {isTranscribing && (
+                                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-2 flex items-center gap-1">
+                                        <Loader2 className="w-3 h-3 animate-spin" />
+                                        {orchestratorPdfProgress[doc.id] || 'Processando...'}
+                                      </p>
+                                    )}
+                                  </div>
+                                  
+                                  <Button
+                                    size="sm"
+                                    variant={isTranscribed ? "outline" : "default"}
+                                    onClick={() => {
+                                      if (isTranscribed) {
+                                        handleRemovePdfFromOrchestrator(doc.id);
+                                      } else {
+                                        handleTranscribePdfForOrchestrator(doc);
+                                      }
+                                    }}
+                                    disabled={isTranscribing}
+                                    className="shrink-0"
+                                  >
+                                    {isTranscribing ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : isTranscribed ? (
+                                      'Remover'
+                                    ) : (
+                                      'Adicionar'
+                                    )}
+                                  </Button>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </ScrollArea>
+
+                      {documents.length > 0 && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          💡 Dica: PDFs transcritos usarão créditos de IA. Selecione apenas os mais relevantes.
+                        </p>
                       )}
                     </>
                   )}
-                </Button>
-
-                {generatedHTML && (
-                  <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">✅ Conteúdo gerado:</p>
-                      
-                      {/* 🆕 FASE 4: Estatísticas visuais */}
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span className={generatedHTML.includes('content-card') ? 'text-green-600' : 'text-red-600'}>
-                          {generatedHTML.includes('content-card') ? '✅' : '⚠️'} Cards
-                        </span>
-                        <span className={generatedHTML.includes('benefit-card') ? 'text-green-600' : 'text-red-600'}>
-                          {generatedHTML.includes('benefit-card') ? '✅' : '⚠️'} Benefits
-                        </span>
-                        <span className={generatedHTML.includes('cta-panel') ? 'text-green-600' : 'text-red-600'}>
-                          {generatedHTML.includes('cta-panel') ? '✅' : '⚠️'} CTAs
-                        </span>
-                        <span className={(generatedHTML.match(/<a href/g) || []).length >= 5 ? 'text-green-600' : 'text-orange-600'}>
-                          🔗 {(generatedHTML.match(/<a href/g) || []).length} links
-                        </span>
-                      </div>
-                    </div>
+                </div>
                     
                     {/* 🆕 FASE 5: Device Mode Buttons */}
                     <div className="flex gap-2 mb-2">
