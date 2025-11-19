@@ -190,6 +190,12 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
     <div className="space-y-3">
       <label className="text-sm font-medium">📄 Transcrição de PDF</label>
       
+      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg">
+        <p className="text-sm text-blue-900 dark:text-blue-100 flex items-center gap-2">
+          💡 <strong>Dica:</strong> Você também pode transcrever PDFs já existentes na lista de "PDFs Relacionados" acima, sem precisar fazer upload novamente!
+        </p>
+      </div>
+      
       <Card
         className={`
           relative cursor-pointer transition-all border-2 border-dashed
