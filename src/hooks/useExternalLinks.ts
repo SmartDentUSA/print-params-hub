@@ -154,7 +154,8 @@ export function useExternalLinks() {
 
   const fetchDocuments = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar documentos de resinas
+      const { data: resinDocs, error: resinError } = await supabase
         .from('resin_documents')
         .select(`
           id,
@@ -167,9 +168,26 @@ export function useExternalLinks() {
         .eq('active', true)
         .order('document_name');
 
-      if (error) throw error;
+      if (resinError) throw resinError;
 
-      const docList: TechnicalDocument[] = data?.map((doc: any) => ({
+      // Buscar documentos do catálogo
+      const { data: catalogDocs, error: catalogError } = await supabase
+        .from('catalog_documents')
+        .select(`
+          id,
+          document_name,
+          document_description,
+          file_url,
+          active,
+          system_a_catalog!inner(name)
+        `)
+        .eq('active', true)
+        .order('document_name');
+
+      if (catalogError) throw catalogError;
+
+      // Mapear documentos de resinas
+      const resinDocList: TechnicalDocument[] = resinDocs?.map((doc: any) => ({
         id: doc.id,
         document_name: doc.document_name,
         document_description: doc.document_description,
@@ -180,7 +198,23 @@ export function useExternalLinks() {
         active: doc.active
       })) || [];
 
-      setDocuments(docList);
+      // Mapear documentos do catálogo
+      const catalogDocList: TechnicalDocument[] = catalogDocs?.map((doc: any) => ({
+        id: doc.id,
+        document_name: doc.document_name,
+        document_description: doc.document_description,
+        file_url: doc.file_url,
+        product_name: doc.system_a_catalog.name,
+        source: 'catalog' as const,
+        active: doc.active
+      })) || [];
+
+      // Combinar e ordenar por nome
+      const allDocs = [...resinDocList, ...catalogDocList].sort((a, b) => 
+        a.document_name.localeCompare(b.document_name)
+      );
+
+      setDocuments(allDocs);
     } catch (error: any) {
       console.error('Error fetching documents:', error);
     }

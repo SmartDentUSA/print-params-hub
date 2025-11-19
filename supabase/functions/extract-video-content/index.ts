@@ -81,7 +81,33 @@ serve(async (req) => {
         throw new Error('PANDAVIDEO_API_KEY not configured');
       }
 
-      // Fetch video details
+      // Primeiro, tentar buscar transcrição do cache
+      if (includeTranscript) {
+        const { data: cachedVideo } = await supabase
+          .from('knowledge_videos')
+          .select('video_transcript, title, description')
+          .eq('pandavideo_id', videoId)
+          .single();
+
+        if (cachedVideo?.video_transcript) {
+          console.log('Using cached transcript from knowledge_videos');
+          
+          return new Response(
+            JSON.stringify({
+              success: true,
+              data: {
+                transcript: cachedVideo.video_transcript,
+                description: includeDescription ? (cachedVideo.description || '') : '',
+                language: preferredLanguage,
+                videoTitle: cachedVideo.title
+              }
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      // Fetch video details from API
       const videoDetailsResponse = await fetch(
         `https://api-v2.pandavideo.com.br/videos/${videoId}?custom_fields=true`,
         {
@@ -93,7 +119,9 @@ serve(async (req) => {
       );
 
       if (!videoDetailsResponse.ok) {
-        throw new Error(`Failed to fetch video details: ${videoDetailsResponse.statusText}`);
+        const errorText = await videoDetailsResponse.text();
+        console.error(`PandaVideo API error: ${videoDetailsResponse.status} - ${errorText}`);
+        throw new Error(`Failed to fetch video details: ${videoDetailsResponse.statusText}. Verifique se a PANDAVIDEO_API_KEY está configurada corretamente.`);
       }
 
       const videoDetails = await videoDetailsResponse.json();
