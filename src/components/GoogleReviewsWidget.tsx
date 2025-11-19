@@ -3,14 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Star, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Autoplay from "embla-carousel-autoplay";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
 
 interface GoogleReview {
   author_name: string;
@@ -48,6 +40,9 @@ export const GoogleReviewsWidget = () => {
   if (reviews.length === 0) {
     return null;
   }
+
+  // Duplicar reviews para criar loop infinito sem "salto"
+  const duplicatedReviews = [...reviews, ...reviews];
 
   const renderStars = (rating: number, size: 'sm' | 'lg' = 'sm') => {
     const sizeClass = size === 'lg' ? 'w-6 h-6' : 'w-4 h-4';
@@ -91,23 +86,12 @@ export const GoogleReviewsWidget = () => {
       </CardHeader>
 
       <CardContent>
-        {/* Carousel de Reviews com Autoplay */}
-        <Carousel
-          opts={{
-            align: "start",
-            loop: true,
-          }}
-          plugins={[
-            Autoplay({
-              delay: 3000,
-            })
-          ]}
-          className="w-full mb-6"
-        >
-          <CarouselContent className="-ml-2 md:-ml-4">
-            {reviews.map((review, index) => (
-              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full md:basis-1/2 lg:basis-1/3">
-                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+        {/* Marquee infinito com CSS */}
+        <div className="overflow-hidden mb-6">
+          <div className="flex gap-4 animate-marquee hover:pause-marquee">
+            {duplicatedReviews.map((review, index) => (
+              <div key={index} className="flex-shrink-0 w-80 md:w-96">
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
                   <CardContent className="p-4">
                     {/* Header da Review */}
                     <div className="flex items-start gap-3 mb-3">
@@ -132,12 +116,10 @@ export const GoogleReviewsWidget = () => {
                     </p>
                   </CardContent>
                 </Card>
-              </CarouselItem>
+              </div>
             ))}
-          </CarouselContent>
-          <CarouselPrevious className="hidden md:flex" />
-          <CarouselNext className="hidden md:flex" />
-        </Carousel>
+          </div>
+        </div>
 
         {/* Link para Google */}
         <div className="text-center">
