@@ -269,16 +269,6 @@ const UserViewSupabase = () => {
           <p className="text-lg text-muted-foreground mb-4">
             {t('header.subtitle')}
           </p>
-          {/* Reviews Badge */}
-          <div className="flex justify-center">
-            <GoogleReviewsBadge 
-              onClick={() => {
-                document.getElementById('google-reviews-section')?.scrollIntoView({ 
-                  behavior: 'smooth' 
-                });
-              }}
-            />
-          </div>
         </div>
 
         {/* Brand Selection */}
