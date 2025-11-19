@@ -28,12 +28,47 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false, autoInsert
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
   const validateFile = (file: File): string | null => {
-    if (file.type !== 'application/pdf') {
+    // Lista completa de MIME types válidos para PDF
+    const validPdfTypes = [
+      'application/pdf',           // Windows padrão
+      'application/x-pdf',         // macOS
+      'application/acrobat',       // Adobe
+      'applications/vnd.pdf',      // Variação
+      'text/pdf',                  // Alguns navegadores
+      'text/x-pdf'                 // Variação
+    ];
+    
+    // Verificar MIME type OU extensão do arquivo
+    const isPdf = validPdfTypes.includes(file.type) || 
+                  file.name.toLowerCase().endsWith('.pdf');
+    
+    if (!isPdf) {
+      console.error('❌ Tipo de arquivo inválido:', {
+        fileType: file.type,
+        fileName: file.name
+      });
       return 'Apenas arquivos PDF são permitidos';
     }
+    
+    if (file.size === 0) {
+      console.error('❌ Arquivo vazio');
+      return 'O arquivo PDF está vazio';
+    }
+    
     if (file.size > MAX_FILE_SIZE) {
+      console.error('❌ Arquivo muito grande:', {
+        fileSize: file.size,
+        maxSize: MAX_FILE_SIZE
+      });
       return 'PDF muito grande. Máximo permitido: 10MB';
     }
+    
+    console.log('✅ Validação OK:', {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: `${Math.round(file.size / 1024)}KB`
+    });
+    
     return null;
   };
 
