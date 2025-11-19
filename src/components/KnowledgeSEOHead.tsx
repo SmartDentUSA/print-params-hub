@@ -78,7 +78,7 @@ const extractFAQsFromContent = (htmlContent: string): { question: string; answer
   return faqs;
 };
 
-// Extrai passos (HowTo) do conteúdo HTML
+// Extrai passos (HowTo) do conteúdo HTML - Universal Extractor
 const extractHowToSteps = (htmlContent: string): string[] => {
   if (!htmlContent) return [];
   
@@ -86,40 +86,91 @@ const extractHowToSteps = (htmlContent: string): string[] => {
   const doc = parser.parseFromString(htmlContent, 'text/html');
   const steps: string[] = [];
   
-  // Procurar por listas ordenadas
+  // ===== MÉTODO 1: Listas Ordenadas (<ol><li>) - RECOMENDADO =====
   const orderedLists = doc.querySelectorAll('ol');
-  
   orderedLists.forEach((ol) => {
     const listItems = ol.querySelectorAll('li');
     listItems.forEach((li) => {
       const text = li.textContent?.trim();
-      if (text && text.length > 10) { // Ignorar itens muito curtos
+      if (text && text.length > 10) {
         steps.push(text);
       }
     });
   });
   
-  // Se não encontrou lista ordenada, procurar por headings numerados
+  // ===== MÉTODO 2: Headings Numerados (Fallback) =====
   if (steps.length === 0) {
     const headings = doc.querySelectorAll('h2, h3, h4');
     headings.forEach((heading) => {
       const text = heading.textContent?.trim() || '';
-      // Padrões: "1.", "Passo 1", "Etapa 1", etc.
       if (/^(\d+\.|passo \d+|etapa \d+|step \d+)/i.test(text)) {
         let stepContent = text;
         let nextElement = heading.nextElementSibling;
         
-        // Adicionar próximo parágrafo ao passo
-        if (nextElement && nextElement.tagName === 'P') {
-          stepContent += ' ' + nextElement.textContent?.trim();
+        // Adicionar próximo parágrafo ou lista ao passo
+        while (nextElement && !['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(nextElement.tagName)) {
+          if (['P', 'UL', 'OL', 'DIV'].includes(nextElement.tagName)) {
+            stepContent += ' ' + nextElement.textContent?.trim();
+          }
+          nextElement = nextElement.nextElementSibling;
+          if (nextElement && ['H1', 'H2', 'H3', 'H4'].includes(nextElement.tagName)) break;
         }
         
-        steps.push(stepContent);
+        if (stepContent.length > 15) {
+          steps.push(stepContent);
+        }
       }
     });
   }
   
-  return steps;
+  // ===== MÉTODO 3: Tabelas HTML (Fallback Terciário) =====
+  if (steps.length === 0) {
+    const tables = doc.querySelectorAll('table');
+    tables.forEach((table) => {
+      const rows = table.querySelectorAll('tr');
+      
+      rows.forEach((row, idx) => {
+        const cells = row.querySelectorAll('td, th');
+        if (cells.length >= 2) {
+          const firstCell = cells[0].textContent?.trim() || '';
+          const secondCell = cells[1].textContent?.trim() || '';
+          
+          // Detectar se primeira coluna contém "Passo X" ou numeração
+          if (/^(passo|etapa|step)?\s*\d+/i.test(firstCell) || 
+              (idx > 0 && /^(passo|ação|descrição|instrução)/i.test(firstCell))) {
+            
+            // Combinar ambas as células como um único passo
+            const stepText = `${firstCell}: ${secondCell}`.trim();
+            if (stepText.length > 15) {
+              steps.push(stepText);
+            }
+          }
+        }
+      });
+    });
+  }
+  
+  // ===== MÉTODO 4: Detectar Tabelas Markdown Convertidas (Fallback Final) =====
+  if (steps.length === 0) {
+    const paragraphs = doc.querySelectorAll('p, div');
+    const tablePattern = /^\|\s*(passo|etapa|step)?\s*\d+/i;
+    
+    paragraphs.forEach((p) => {
+      const text = p.textContent?.trim() || '';
+      if (tablePattern.test(text)) {
+        // Extrair conteúdo entre pipes |
+        const cells = text.split('|').map(c => c.trim()).filter(c => c);
+        if (cells.length >= 2) {
+          const stepText = cells.join(': ');
+          if (stepText.length > 15) {
+            steps.push(stepText);
+          }
+        }
+      }
+    });
+  }
+  
+  return steps.slice(0, 10); // Limitar a 10 passos (boas práticas Google)
 };
 
 // Extrai keywords do conteúdo HTML
