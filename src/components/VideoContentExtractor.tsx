@@ -77,11 +77,45 @@ export function VideoContentExtractor({
       
       setExtractedContent(content);
       
+      // 🆕 Avisos inteligentes baseados no conteúdo extraído
+      if (data.data.videoTitle === 'Video' || !data.data.videoTitle) {
+        toast({
+          title: '⚠️ Título Genérico',
+          description: 'Configure um título descritivo no PandaVideo para melhor organização',
+          variant: 'default'
+        });
+      }
+
+      if (includeDescription && !data.data.description) {
+        toast({
+          title: '⚠️ Descrição não disponível',
+          description: 'Este vídeo não possui descrição. Configure no PandaVideo para enriquecer o conteúdo.',
+          variant: 'default'
+        });
+      }
+
+      if (includeTranscript && !data.data.transcript) {
+        toast({
+          title: '⚠️ Transcrição não disponível',
+          description: 'Legendas não encontradas. Configure legendas no PandaVideo ou copie manualmente.',
+          variant: 'destructive'
+        });
+      }
+
+      // Toast de sucesso apenas se extraiu algo útil
       const wordCount = content.split(/\s+/).length;
-      toast({
-        title: '✅ Conteúdo extraído!',
-        description: `${wordCount} palavras capturadas com sucesso`
-      });
+      if (wordCount > 3) { // Mais que apenas "# Video"
+        toast({
+          title: '✅ Conteúdo extraído!',
+          description: `${wordCount} palavras capturadas com sucesso`
+        });
+      } else {
+        toast({
+          title: '⚠️ Conteúdo mínimo extraído',
+          description: 'Verifique se o vídeo possui descrição/legendas no PandaVideo',
+          variant: 'destructive'
+        });
+      }
     } catch (error: any) {
       console.error('Extraction error:', error);
       setError(error.message || 'Erro ao extrair conteúdo');
