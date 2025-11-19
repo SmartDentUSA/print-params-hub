@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search, Check } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
@@ -2310,21 +2310,27 @@ Receba o texto bruto abaixo e:
                         <>
                           <PDFTranscription
                             onTextExtracted={(text) => {
+                              console.log('🔍 PDF transcrito no orquestrador:', text.length, 'caracteres');
                               setOrchestratorExtractedData(prev => ({
                                 ...prev,
                                 pdfTranscription: text
                               }));
                               toast({ 
                                 title: '✅ PDF transcrito para orquestrador!', 
-                                description: 'Conteúdo adicionado às fontes' 
+                                description: `${text.length} caracteres adicionados às fontes` 
                               });
                             }}
                             disabled={isGenerating}
                           />
                           {orchestratorExtractedData.pdfTranscription && (
-                            <p className="text-xs text-muted-foreground">
-                              ✅ {orchestratorExtractedData.pdfTranscription.length} caracteres extraídos
-                            </p>
+                            <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                              <AlertDescription className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-green-600" />
+                                <span className="text-sm text-green-800 dark:text-green-200">
+                                  {orchestratorExtractedData.pdfTranscription.length} caracteres extraídos
+                                </span>
+                              </AlertDescription>
+                            </Alert>
                           )}
                         </>
                       )}
@@ -2366,9 +2372,14 @@ Receba o texto bruto abaixo e:
                             Selecionar Vídeo para Transcrever
                           </Button>
                           {orchestratorExtractedData.videoTranscription && (
-                            <p className="text-xs text-muted-foreground">
-                              ✅ {orchestratorExtractedData.videoTranscription.length} caracteres extraídos
-                            </p>
+                            <Alert className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                              <AlertDescription className="flex items-center gap-2">
+                                <Check className="w-4 h-4 text-green-600" />
+                                <span className="text-sm text-green-800 dark:text-green-200">
+                                  {orchestratorExtractedData.videoTranscription.length} caracteres extraídos
+                                </span>
+                              </AlertDescription>
+                            </Alert>
                           )}
                         </>
                       )}
@@ -2468,6 +2479,33 @@ Receba o texto bruto abaixo e:
                       if (useOrchestrator) {
                         // Modo orquestrador - NOVO SISTEMA com fontes automáticas
                         console.log('🎯 Chamando orquestrador de conteúdo...');
+                        
+                        // Validar se há pelo menos uma fonte com conteúdo
+                        const hasAnyContent = 
+                          orchestratorExtractedData.rawText.length > 0 ||
+                          orchestratorExtractedData.pdfTranscription.length > 0 ||
+                          orchestratorExtractedData.videoTranscription.length > 0 ||
+                          orchestratorExtractedData.relatedPdfs.length > 0;
+
+                        if (!hasAnyContent) {
+                          toast({
+                            title: '❌ Nenhuma fonte com conteúdo',
+                            description: 'Preencha pelo menos uma fonte antes de gerar o artigo',
+                            variant: 'destructive'
+                          });
+                          setIsGenerating(false);
+                          return;
+                        }
+
+                        console.log('✅ Validação OK - Estado do orquestrador:', {
+                          activeSources: orchestratorActiveSources,
+                          extractedDataSizes: {
+                            rawText: orchestratorExtractedData.rawText.length,
+                            pdfTranscription: orchestratorExtractedData.pdfTranscription.length,
+                            videoTranscription: orchestratorExtractedData.videoTranscription.length,
+                            relatedPdfs: orchestratorExtractedData.relatedPdfs.length
+                          }
+                        });
                         
                         // Preparar fontes no formato esperado pelo edge function
                         const sources = {
@@ -3432,11 +3470,26 @@ Receba o texto bruto abaixo e:
                     open={videoSelectorOpen}
                     onClose={() => setVideoSelectorOpen(false)}
                     onContentExtracted={(content) => {
-                      setRawTextInput(content);
-                      toast({
-                        title: '✅ Conteúdo adicionado!',
-                        description: 'O texto do vídeo foi adicionado ao campo de entrada'
-                      });
+                      console.log('🔍 VideoSelector extraiu:', { useOrchestrator, contentLength: content.length });
+                      
+                      if (useOrchestrator) {
+                        console.log('✅ Enviando para orquestrador');
+                        setOrchestratorExtractedData(prev => ({
+                          ...prev,
+                          videoTranscription: content
+                        }));
+                        toast({
+                          title: '✅ Vídeo transcrito para orquestrador!',
+                          description: `${content.length} caracteres adicionados às fontes`
+                        });
+                      } else {
+                        console.log('✅ Enviando para pipeline tradicional');
+                        setRawTextInput(content);
+                        toast({
+                          title: '✅ Conteúdo adicionado!',
+                          description: 'O texto do vídeo foi adicionado ao campo de entrada'
+                        });
+                      }
                     }}
                     onSelect={(videoOrVideos) => {
                       const videosToAdd = Array.isArray(videoOrVideos) ? videoOrVideos : [videoOrVideos];
