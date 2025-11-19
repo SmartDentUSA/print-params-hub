@@ -53,6 +53,29 @@ export function AdminKnowledge() {
   
   // Orchestrator states
   const [useOrchestrator, setUseOrchestrator] = useState(false);
+  
+  // Sistema de seleção de fontes para o orquestrador
+  const [orchestratorActiveSources, setOrchestratorActiveSources] = useState({
+    rawText: false,
+    pdfTranscription: false,
+    videoTranscription: false,
+    relatedPdfs: false
+  });
+  
+  // Dados extraídos automaticamente de cada fonte
+  const [orchestratorExtractedData, setOrchestratorExtractedData] = useState<{
+    rawText: string;
+    pdfTranscription: string;
+    videoTranscription: string;
+    relatedPdfs: Array<{ id: string; name: string; content: string }>;
+  }>({
+    rawText: '',
+    pdfTranscription: '',
+    videoTranscription: '',
+    relatedPdfs: []
+  });
+  
+  // Manter orchestratorSources por compatibilidade (deprecated)
   const [orchestratorSources, setOrchestratorSources] = useState({
     technicalSheet: '',
     transcript: '',
@@ -2142,18 +2165,24 @@ Receba o texto bruto abaixo e:
                       checked={useOrchestrator}
                       onCheckedChange={(checked) => {
                         setUseOrchestrator(checked);
-                        if (checked) {
-                          // Limpar campo único quando ativar orquestrador
-                          setRawTextInput('');
-                        } else {
-                          // Limpar fontes múltiplas quando desativar
-                          setOrchestratorSources({
-                            technicalSheet: '',
-                            transcript: '',
-                            manual: '',
-                            testimonials: ''
-                          });
-                        }
+                      if (checked) {
+                        // Limpar campo único quando ativar orquestrador
+                        setRawTextInput('');
+                      } else {
+                        // Limpar todas as fontes do orquestrador ao desativar
+                        setOrchestratorActiveSources({
+                          rawText: false,
+                          pdfTranscription: false,
+                          videoTranscription: false,
+                          relatedPdfs: false
+                        });
+                        setOrchestratorExtractedData({
+                          rawText: '',
+                          pdfTranscription: '',
+                          videoTranscription: '',
+                          relatedPdfs: []
+                        });
+                      }
                       }}
                     />
                     <div>
@@ -2197,108 +2226,212 @@ Receba o texto bruto abaixo e:
                     />
                   </>
                 ) : (
-                  // Modo orquestrador (múltiplas fontes)
+                  // Modo orquestrador (múltiplas fontes - NOVO SISTEMA)
                   <div className="space-y-4 border border-dashed border-purple-300 dark:border-purple-700 rounded-lg p-4">
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        <strong>💡 Como funciona:</strong> O orquestrador analisa todas as fontes fornecidas,
-                        identifica dados técnicos, protocolos, citações de especialistas e posicionamento comercial,
-                        depois gera um único artigo coeso com schemas estruturados (HowTo, FAQ).
+                        <strong>🎯 Orquestrador Multi-Fonte:</strong> Selecione as fontes de conteúdo abaixo. 
+                        A IA extrairá automaticamente as informações e gerará um único artigo coeso.
                         <br /><br />
-                        <strong>Dica:</strong> Preencha pelo menos uma fonte. Quanto mais fontes, melhor a qualidade!
+                        <strong>✅ Fontes ativas:</strong> {Object.values(orchestratorActiveSources).filter(Boolean).length} / 4
                       </AlertDescription>
                     </Alert>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          📄 Ficha Técnica
-                          <Badge variant="outline" className="text-xs">DADO_TECNICO</Badge>
+                    {/* =========== FONTE 1: TEXTO COLADO =========== */}
+                    <div className="border rounded-lg p-4 space-y-3 bg-background">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={orchestratorActiveSources.rawText}
+                            onChange={(e) => {
+                              setOrchestratorActiveSources(prev => ({
+                                ...prev,
+                                rawText: e.target.checked
+                              }));
+                              if (!e.target.checked) {
+                                setOrchestratorExtractedData(prev => ({ ...prev, rawText: '' }));
+                              }
+                            }}
+                            className="w-4 h-4"
+                          />
+                          📝 Texto Colado
                         </Label>
-                        <Textarea
-                          value={orchestratorSources.technicalSheet}
-                          onChange={(e) => setOrchestratorSources(prev => ({ 
-                            ...prev, 
-                            technicalSheet: e.target.value 
-                          }))}
-                          rows={6}
-                          placeholder="Exemplo: Resina XYZ - 85 MPa (ISO 4049), Carga 55%, Biocompatível Classe IIa..."
-                          className="font-mono text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Cole aqui valores técnicos: MPa, normas ISO, composição química, etc.
-                        </p>
+                        {orchestratorActiveSources.rawText && (
+                          <Badge variant="default">✓ Ativa</Badge>
+                        )}
                       </div>
-
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          🎥 Transcrição de Vídeo/Áudio
-                          <Badge variant="outline" className="text-xs">PROTOCOLO</Badge>
-                        </Label>
-                        <Textarea
-                          value={orchestratorSources.transcript}
-                          onChange={(e) => setOrchestratorSources(prev => ({ 
-                            ...prev, 
-                            transcript: e.target.value 
-                          }))}
-                          rows={6}
-                          placeholder="Exemplo: No vídeo demonstramos lavagem em IPA por 3min, depois fotopolimerizar 15min..."
-                          className="font-mono text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Cole transcrição de vídeos ou áudios com demonstrações e tutoriais.
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          📖 Manual do Fabricante
-                          <Badge variant="outline" className="text-xs">PROTOCOLO</Badge>
-                        </Label>
-                        <Textarea
-                          value={orchestratorSources.manual}
-                          onChange={(e) => setOrchestratorSources(prev => ({ 
-                            ...prev, 
-                            manual: e.target.value 
-                          }))}
-                          rows={6}
-                          placeholder="Exemplo: PROTOCOLO: 1. Exposição 2.0s/camada. 2. Temperatura 25°C. 3. Lavagem IPA 3min..."
-                          className="font-mono text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Cole instruções do manual: protocolos, tempos, especificações.
-                        </p>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          💬 Depoimentos de Especialistas
-                          <Badge variant="outline" className="text-xs">VOZ_EAT</Badge>
-                        </Label>
-                        <Textarea
-                          value={orchestratorSources.testimonials}
-                          onChange={(e) => setOrchestratorSources(prev => ({ 
-                            ...prev, 
-                            testimonials: e.target.value 
-                          }))}
-                          rows={6}
-                          placeholder='Exemplo: "Prof. Dr. Silva (USP): Taxa de sucesso de 98% em testes clínicos..."'
-                          className="font-mono text-sm"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Cole citações diretas de professores, universidades, conclusões de estudos.
-                        </p>
-                      </div>
+                      
+                      {orchestratorActiveSources.rawText && (
+                        <>
+                          <Textarea
+                            value={orchestratorExtractedData.rawText}
+                            onChange={(e) => setOrchestratorExtractedData(prev => ({
+                              ...prev,
+                              rawText: e.target.value
+                            }))}
+                            rows={6}
+                            placeholder="Cole aqui texto de Word, Gemini, Google Docs..."
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {orchestratorExtractedData.rawText.length} caracteres
+                          </p>
+                        </>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-3 rounded">
-                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                      <p>
-                        <strong>Vantagens do Orquestrador:</strong> 33% mais barato, 50% mais rápido,
-                        maior coesão narrativa, schemas estruturados nativos (HowTo + FAQ).
-                      </p>
+                    {/* =========== FONTE 2: PDF UPLOAD =========== */}
+                    <div className="border rounded-lg p-4 space-y-3 bg-background">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={orchestratorActiveSources.pdfTranscription}
+                            onChange={(e) => {
+                              setOrchestratorActiveSources(prev => ({
+                                ...prev,
+                                pdfTranscription: e.target.checked
+                              }));
+                              if (!e.target.checked) {
+                                setOrchestratorExtractedData(prev => ({ ...prev, pdfTranscription: '' }));
+                              }
+                            }}
+                            className="w-4 h-4"
+                          />
+                          📄 Upload de PDF para Transcrição
+                        </Label>
+                        {orchestratorActiveSources.pdfTranscription && (
+                          <Badge variant="default">✓ Ativa</Badge>
+                        )}
+                      </div>
+                      
+                      {orchestratorActiveSources.pdfTranscription && (
+                        <>
+                          <PDFTranscription
+                            onTextExtracted={(text) => {
+                              setOrchestratorExtractedData(prev => ({
+                                ...prev,
+                                pdfTranscription: text
+                              }));
+                              toast({ 
+                                title: '✅ PDF transcrito para orquestrador!', 
+                                description: 'Conteúdo adicionado às fontes' 
+                              });
+                            }}
+                            disabled={isGenerating}
+                          />
+                          {orchestratorExtractedData.pdfTranscription && (
+                            <p className="text-xs text-muted-foreground">
+                              ✅ {orchestratorExtractedData.pdfTranscription.length} caracteres extraídos
+                            </p>
+                          )}
+                        </>
+                      )}
                     </div>
+
+                    {/* =========== FONTE 3: TRANSCRIÇÃO DE VÍDEO =========== */}
+                    <div className="border rounded-lg p-4 space-y-3 bg-background">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={orchestratorActiveSources.videoTranscription}
+                            onChange={(e) => {
+                              setOrchestratorActiveSources(prev => ({
+                                ...prev,
+                                videoTranscription: e.target.checked
+                              }));
+                              if (!e.target.checked) {
+                                setOrchestratorExtractedData(prev => ({ ...prev, videoTranscription: '' }));
+                              }
+                            }}
+                            className="w-4 h-4"
+                          />
+                          🎬 Transcrição de Vídeo
+                        </Label>
+                        {orchestratorActiveSources.videoTranscription && (
+                          <Badge variant="default">✓ Ativa</Badge>
+                        )}
+                      </div>
+                      
+                      {orchestratorActiveSources.videoTranscription && (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => setVideoSelectorOpen(true)}
+                            className="w-full"
+                          >
+                            <Video className="w-4 h-4 mr-2" />
+                            Selecionar Vídeo para Transcrever
+                          </Button>
+                          {orchestratorExtractedData.videoTranscription && (
+                            <p className="text-xs text-muted-foreground">
+                              ✅ {orchestratorExtractedData.videoTranscription.length} caracteres extraídos
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* =========== FONTE 4: PDFs JÁ EXISTENTES =========== */}
+                    <div className="border rounded-lg p-4 space-y-3 bg-background">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={orchestratorActiveSources.relatedPdfs}
+                            onChange={(e) => {
+                              setOrchestratorActiveSources(prev => ({
+                                ...prev,
+                                relatedPdfs: e.target.checked
+                              }));
+                              if (!e.target.checked) {
+                                setOrchestratorExtractedData(prev => ({ ...prev, relatedPdfs: [] }));
+                              }
+                            }}
+                            className="w-4 h-4"
+                          />
+                          📚 PDFs da Base de Conhecimento
+                        </Label>
+                        {orchestratorActiveSources.relatedPdfs && (
+                          <Badge variant="default">✓ Ativa</Badge>
+                        )}
+                      </div>
+                      
+                      {orchestratorActiveSources.relatedPdfs && (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">
+                            Selecione PDFs já inseridos na base para usar como fonte complementar
+                          </p>
+                          <Badge variant="outline">🚧 Em desenvolvimento - Próxima versão</Badge>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Resumo das Fontes Selecionadas */}
+                    {Object.values(orchestratorActiveSources).some(Boolean) && (
+                      <Alert className="bg-muted/50">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Fontes selecionadas para orquestração:</strong>
+                          <ul className="list-disc ml-4 mt-2 space-y-1">
+                            {orchestratorActiveSources.rawText && orchestratorExtractedData.rawText && (
+                              <li>📝 Texto colado ({orchestratorExtractedData.rawText.length} caracteres)</li>
+                            )}
+                            {orchestratorActiveSources.pdfTranscription && orchestratorExtractedData.pdfTranscription && (
+                              <li>📄 PDF transcrito ({orchestratorExtractedData.pdfTranscription.length} caracteres)</li>
+                            )}
+                            {orchestratorActiveSources.videoTranscription && orchestratorExtractedData.videoTranscription && (
+                              <li>🎬 Vídeo transcrito ({orchestratorExtractedData.videoTranscription.length} caracteres)</li>
+                            )}
+                            {orchestratorActiveSources.relatedPdfs && orchestratorExtractedData.relatedPdfs.length > 0 && (
+                              <li>📚 {orchestratorExtractedData.relatedPdfs.length} PDFs da base</li>
+                            )}
+                          </ul>
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
                 )}
 
@@ -2311,14 +2444,17 @@ Receba o texto bruto abaixo e:
                     }
                     
                     if (useOrchestrator) {
-                      const hasAnySources = Object.values(orchestratorSources).some(
-                        source => source && source.trim().length > 0
-                      );
+                      // Verificar se pelo menos uma fonte está ativa E tem conteúdo
+                      const hasActiveSourceWithContent = 
+                        (orchestratorActiveSources.rawText && orchestratorExtractedData.rawText.trim().length > 0) ||
+                        (orchestratorActiveSources.pdfTranscription && orchestratorExtractedData.pdfTranscription.trim().length > 0) ||
+                        (orchestratorActiveSources.videoTranscription && orchestratorExtractedData.videoTranscription.trim().length > 0) ||
+                        (orchestratorActiveSources.relatedPdfs && orchestratorExtractedData.relatedPdfs.length > 0);
                       
-                      if (!hasAnySources) {
+                      if (!hasActiveSourceWithContent) {
                         toast({ 
                           title: 'Erro', 
-                          description: 'Preencha pelo menos uma fonte de conteúdo',
+                          description: 'Selecione pelo menos uma fonte e adicione conteúdo',
                           variant: 'destructive' 
                         });
                         return;
@@ -2330,12 +2466,29 @@ Receba o texto bruto abaixo e:
                       let formattedHTML: string;
                       
                       if (useOrchestrator) {
-                        // Modo orquestrador
+                        // Modo orquestrador - NOVO SISTEMA com fontes automáticas
                         console.log('🎯 Chamando orquestrador de conteúdo...');
+                        
+                        // Preparar fontes no formato esperado pelo edge function
+                        const sources = {
+                          technicalSheet: orchestratorExtractedData.pdfTranscription || '', // PDF = ficha técnica
+                          transcript: orchestratorExtractedData.videoTranscription || '',   // Vídeo = transcrição
+                          manual: orchestratorExtractedData.rawText || '',                  // Texto colado = manual
+                          testimonials: orchestratorExtractedData.relatedPdfs
+                            .map(pdf => `[${pdf.name}]\n${pdf.content}`)
+                            .join('\n\n') || ''                                             // PDFs relacionados
+                        };
+                        
+                        console.log('📊 Fontes preparadas:', {
+                          technicalSheet: sources.technicalSheet.length,
+                          transcript: sources.transcript.length,
+                          manual: sources.manual.length,
+                          testimonials: sources.testimonials.length
+                        });
                         
                         const { data, error } = await supabase.functions.invoke('ai-orchestrate-content', {
                           body: {
-                            sources: orchestratorSources,
+                            sources,
                             productName: formData.title || undefined,
                             language: 'pt'
                           }
@@ -2470,7 +2623,18 @@ Receba o texto bruto abaixo e:
                       setIsGenerating(false);
                     }
                   }}
-                  disabled={!rawTextInput || isGenerating}
+                  disabled={
+                    isGenerating || 
+                    (!useOrchestrator && !rawTextInput) || 
+                    (useOrchestrator && !Object.values(orchestratorActiveSources).some(Boolean))
+                  }
+                  title={
+                    isGenerating 
+                      ? "Aguarde a geração..." 
+                      : useOrchestrator 
+                        ? `Selecione pelo menos uma fonte (${Object.values(orchestratorActiveSources).filter(Boolean).length} ativas)`
+                        : "Cole um texto primeiro"
+                  }
                   className="relative"
                 >
                   {isGenerating ? '⏳ Gerando...' : (
