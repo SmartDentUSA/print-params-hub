@@ -481,6 +481,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       
+      {/* FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) */}
+      <meta 
+        name="AI-context" 
+        content={`Conteúdo técnico-científico sobre ${category?.name?.toLowerCase() || 'odontologia'}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: ${howToSteps.length >= 2 ? 'Tutorial prático' : 'Artigo técnico'}.`}
+      />
+      
       {/* AI Context for Generative Search (SGE, ChatGPT, Perplexity, etc) */}
       {content?.ai_context && currentLang === 'pt' && (
         <meta name="ai:context" content={content.ai_context} />
@@ -512,11 +518,17 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         />
       )}
       
-      {/* Open Graph */}
+      {/* FASE 3: Open Graph Otimizado para IA */}
       <meta property="og:type" content="article" />
       <meta property="og:title" content={displayTitle} />
       <meta property="og:description" content={content.excerpt} />
       <meta property="og:url" content={canonicalUrl} />
+      <meta property="article:section" content={category?.name || 'Conhecimento'} />
+      <meta property="article:published_time" content={content.created_at || new Date().toISOString()} />
+      <meta property="article:modified_time" content={content.updated_at || new Date().toISOString()} />
+      {content.keywords?.slice(0, 10).map((keyword: string, index: number) => (
+        <meta key={`article-tag-${index}`} property="article:tag" content={keyword} />
+      ))}
       {content.og_image_url && (
         <>
           <meta property="og:image" content={content.og_image_url} />
@@ -540,7 +552,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         </>
       )}
       
-      {/* JSON-LD Schemas - Agrupados em 1 único script */}
+      {/* FASE 1 & 2: JSON-LD Schemas Unificados (SPA + SEO-Proxy) */}
       <script type="application/ld+json" defer>
         {JSON.stringify({
           "@context": "https://schema.org",
@@ -549,7 +561,37 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             breadcrumbSchema,
             ...videoSchemas,
             ...(faqSchema ? [faqSchema] : []),
-            ...(howToSchema ? [howToSchema] : [])
+            ...(howToSchema ? [howToSchema] : []),
+            // FASE 2: LearningResource Schema para IA Regenerativa
+            {
+              "@type": "LearningResource",
+              "name": displayTitle,
+              "description": content.excerpt,
+              "abstract": content.meta_description || content.excerpt,
+              "learningResourceType": "Article",
+              "educationalLevel": "Expert",
+              "teaches": content.keywords?.slice(0, 5) || [],
+              "competencyRequired": "Conhecimento em odontologia e impressão 3D",
+              "audience": {
+                "@type": "EducationalAudience",
+                "educationalRole": "Professional",
+                "audienceType": "Cirurgiões-dentistas, técnicos em prótese dentária"
+              },
+              "inLanguage": currentLang === 'pt' ? 'pt-BR' : currentLang === 'en' ? 'en-US' : 'es-ES',
+              "isAccessibleForFree": true,
+              "author": {
+                "@type": "Organization",
+                "name": "Smart Dent",
+                "url": "https://smartdent.com.br"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "Smart Dent",
+                "url": "https://smartdent.com.br"
+              },
+              "datePublished": content.created_at || new Date().toISOString(),
+              "dateModified": content.updated_at || new Date().toISOString()
+            }
           ]
         })}
       </script>

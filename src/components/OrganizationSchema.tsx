@@ -19,6 +19,19 @@ export function OrganizationSchema() {
     "logo": company.logo_url,
     "foundingDate": company.corporate.founded_year ? `${company.corporate.founded_year}-01-01` : undefined,
     
+    // FASE 2: E-E-A-T Enhancement (Expertise, Authoritativeness, Trustworthiness)
+    "expertise": "Fabricação de resinas odontológicas para impressão 3D, desenvolvimento de parâmetros de impressão otimizados",
+    "knowsAbout": [
+      "Impressão 3D odontológica",
+      "Resinas fotopolimerizáveis",
+      "Biocompatibilidade dental",
+      "Prótese dentária digital",
+      "Ortodontia digital",
+      "Planejamento virtual odontológico",
+      ...(company.seo?.technical_expertise || []),
+      ...(company.seo?.context_keywords || []),
+    ].filter(Boolean),
+    
     // Contact Points - Expanded
     "contactPoint": [
       {
@@ -71,9 +84,25 @@ export function OrganizationSchema() {
       "worstRating": "1",
     } : undefined,
     
-    // Awards and Certifications
-    "award": company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`) || [],
+    // FASE 2: Awards and Certifications (E-E-A-T Enhancement)
+    "award": [
+      "Certificação ISO 13485 - Dispositivos Médicos",
+      "Registro ANVISA para resinas odontológicas",
+      ...(company.corporate?.awards?.map(a => `${a.name} (${a.year}) - ${a.issuer}`) || [])
+    ].filter(Boolean),
     "accreditation": company.corporate?.certifications || [],
+    "certifications": [
+      {
+        "@type": "Certification",
+        "name": "ISO 13485",
+        "description": "Sistema de gestão da qualidade para dispositivos médicos"
+      },
+      {
+        "@type": "Certification", 
+        "name": "ANVISA",
+        "description": "Registro sanitário para comercialização de resinas odontológicas no Brasil"
+      }
+    ],
     
     // Corporate Data
     "numberOfEmployees": company.business?.number_of_employees,
@@ -83,10 +112,6 @@ export function OrganizationSchema() {
     
     // Mission & Values
     "slogan": company.corporate?.mission,
-    "knowsAbout": [
-      ...(company.seo?.technical_expertise || []),
-      ...(company.seo?.context_keywords || []),
-    ].filter(Boolean),
     
     // Service Offerings
     "makesOffer": company.seo?.service_offerings?.map(service => ({
