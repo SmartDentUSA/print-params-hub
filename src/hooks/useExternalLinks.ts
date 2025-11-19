@@ -68,7 +68,8 @@ export function useExternalLinks() {
 
   const fetchProductCTAs = async () => {
     try {
-      const { data, error } = await supabase
+      // Buscar CTAs de resinas
+      const { data: resinData, error: resinError } = await supabase
         .from('resins')
         .select(`
           id, name, manufacturer, slug, 
@@ -79,12 +80,27 @@ export function useExternalLinks() {
         `)
         .eq('active', true);
 
-      if (error) throw error;
+      if (resinError) throw resinError;
+
+      // Buscar CTAs do catálogo
+      const { data: catalogData, error: catalogError } = await supabase
+        .from('system_a_catalog')
+        .select(`
+          id, name, slug,
+          cta_1_label, cta_1_url,
+          cta_2_label, cta_2_url,
+          cta_3_label, cta_3_url
+        `)
+        .eq('active', true)
+        .eq('approved', true);
+
+      if (catalogError) throw catalogError;
 
       // Transformar em array de CTAs (flatten)
       const ctaList: ProductCTA[] = [];
       
-      data?.forEach(resin => {
+      // Processar CTAs de resinas
+      resinData?.forEach(resin => {
         // CTA 1 (E-commerce)
         if (resin.cta_1_enabled && resin.cta_1_url) {
           ctaList.push({
@@ -144,6 +160,61 @@ export function useExternalLinks() {
             cta_position: 4
           });
         }
+      });
+
+      // Processar CTAs do catálogo
+      catalogData?.forEach(product => {
+        // CTA 1
+        if (product.cta_1_url && product.cta_1_label) {
+          ctaList.push({
+            id: `${product.id}_cta1`,
+            resin_id: product.id,
+            resin_name: product.name,
+            manufacturer: 'Catálogo',
+            slug: product.slug,
+            cta_label: product.cta_1_label,
+            cta_url: product.cta_1_url,
+            cta_type: 'Produto (Catálogo)',
+            cta_position: 1
+          });
+        }
+        
+        // CTA 2
+        if (product.cta_2_url && product.cta_2_label) {
+          ctaList.push({
+            id: `${product.id}_cta2`,
+            resin_id: product.id,
+            resin_name: product.name,
+            manufacturer: 'Catálogo',
+            slug: product.slug,
+            cta_label: product.cta_2_label,
+            cta_url: product.cta_2_url,
+            cta_type: 'Produto (Catálogo)',
+            cta_position: 2
+          });
+        }
+        
+        // CTA 3
+        if (product.cta_3_url && product.cta_3_label) {
+          ctaList.push({
+            id: `${product.id}_cta3`,
+            resin_id: product.id,
+            resin_name: product.name,
+            manufacturer: 'Catálogo',
+            slug: product.slug,
+            cta_label: product.cta_3_label,
+            cta_url: product.cta_3_url,
+            cta_type: 'Produto (Catálogo)',
+            cta_position: 3
+          });
+        }
+      });
+
+      // Ordenar por nome do produto e depois por posição do CTA
+      ctaList.sort((a, b) => {
+        const nameCompare = a.resin_name.localeCompare(b.resin_name);
+        if (nameCompare !== 0) return nameCompare;
+        return a.cta_position - b.cta_position;
       });
       
       setProductCTAs(ctaList);
