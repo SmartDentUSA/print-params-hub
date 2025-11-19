@@ -40,30 +40,62 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
   const schemas = [];
   
   // 1. VideoObject Schema (if video exists)
-  if (youtubeUrl && embedUrl) {
-    schemas.push({
-      "@context": "https://schema.org",
-      "@type": "VideoObject",
-      "name": seoTitle,
-      "description": metaDescription,
-      "thumbnailUrl": thumbnailUrl,
-      "uploadDate": new Date().toISOString(),
-      ...(videoDuration && { "duration": `PT${videoDuration}S` }),
-      "contentUrl": youtubeUrl,
-      "embedUrl": embedUrl,
-      "inLanguage": "pt-BR",
-      ...(videoTranscript && { "transcript": videoTranscript }),
-      "mentions": [
-        { "@type": "Product", "name": "Scanner intraoral BLZ INO200" },
-        { "@type": "Product", "name": "Scanner intraoral Medit" },
-        { "@type": "Product", "name": "Impressora RayShape Edge mini" },
-        { "@type": "Product", "name": "Resina Smart Dent Bio Vitality" },
-        { "@type": "Product", "name": "Resina Smart Dent Bite Splint +Flex" }
-      ]
-    });
+  const videoObject = (youtubeUrl && embedUrl) ? {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    "name": seoTitle,
+    "description": metaDescription,
+    "thumbnailUrl": thumbnailUrl,
+    "uploadDate": new Date().toISOString(),
+    ...(videoDuration && { "duration": `PT${videoDuration}S` }),
+    "contentUrl": youtubeUrl,
+    "embedUrl": embedUrl,
+    "inLanguage": "pt-BR",
+    ...(videoTranscript && { "transcript": videoTranscript }),
+    "mentions": [
+      { "@type": "Product", "name": "Scanner intraoral BLZ INO200" },
+      { "@type": "Product", "name": "Scanner intraoral Medit" },
+      { "@type": "Product", "name": "Impressora RayShape Edge mini" },
+      { "@type": "Product", "name": "Resina Smart Dent Bio Vitality" },
+      { "@type": "Product", "name": "Resina Smart Dent Bite Splint +Flex" }
+    ]
+  } : null;
+
+  if (videoObject) {
+    schemas.push(videoObject);
   }
   
-  // 2. Person Schema (E-E-A-T)
+  // 2. Review Schema - CRITICAL for testimonials SEO
+  schemas.push({
+    "@context": "https://schema.org",
+    "@type": "Review",
+    "itemReviewed": {
+      "@type": "Product",
+      "name": extraData.products_mentioned?.[0] || "Smart Dent - Produtos Odontológicos",
+      "brand": {
+        "@type": "Brand",
+        "name": "Smart Dent"
+      }
+    },
+    "reviewRating": {
+      "@type": "Rating",
+      "ratingValue": extraData.rating || 5,
+      "bestRating": 5,
+      "worstRating": 1
+    },
+    "author": {
+      "@type": "Person",
+      "name": testimonial.name,
+      ...(extraData.profession && { "jobTitle": extraData.profession }),
+      ...(extraData.specialty && { "description": extraData.specialty }),
+      ...(extraData.location && { "workLocation": extraData.location })
+    },
+    "reviewBody": testimonial.description,
+    "datePublished": new Date().toISOString(),
+    ...(videoObject && { "video": videoObject })
+  });
+  
+  // 3. Person Schema (E-E-A-T)
   schemas.push({
     "@context": "https://schema.org",
     "@type": "Person",
@@ -79,7 +111,7 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
     ...(extraData.instagram_url && { "sameAs": extraData.instagram_url })
   });
   
-  // 3. BreadcrumbList Schema
+  // 4. BreadcrumbList Schema
   schemas.push({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

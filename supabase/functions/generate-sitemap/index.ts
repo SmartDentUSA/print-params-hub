@@ -190,6 +190,16 @@ Deno.serve(async (req) => {
 
     if (products && products.length > 0) {
       for (const product of products) {
+        // Extract slug from URL if it's a complete URL
+        let productSlug = product.slug;
+        if (productSlug && productSlug.includes('http')) {
+          try {
+            productSlug = new URL(productSlug).pathname.split('/').pop() || productSlug;
+          } catch (e) {
+            console.warn(`Invalid URL in product slug: ${productSlug}`);
+          }
+        }
+        
         const lastmod = product.updated_at 
           ? new Date(product.updated_at).toISOString().split('T')[0] 
           : now;
@@ -197,7 +207,7 @@ Deno.serve(async (req) => {
         sitemap += `
   <!-- Produto: ${product.name} -->
   <url>
-    <loc>${baseUrl}/produtos/${product.slug}</loc>
+    <loc>${baseUrl}/produtos/${productSlug}</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <lastmod>${lastmod}</lastmod>
@@ -218,6 +228,16 @@ Deno.serve(async (req) => {
 
     if (videos && videos.length > 0) {
       for (const video of videos) {
+        // Extract slug from URL if it's a complete URL
+        let videoSlug = video.slug;
+        if (videoSlug && videoSlug.includes('http')) {
+          try {
+            videoSlug = new URL(videoSlug).pathname.split('/').pop() || videoSlug;
+          } catch (e) {
+            console.warn(`Invalid URL in testimonial slug: ${videoSlug}`);
+          }
+        }
+        
         const lastmod = video.updated_at 
           ? new Date(video.updated_at).toISOString().split('T')[0] 
           : now;
@@ -225,7 +245,7 @@ Deno.serve(async (req) => {
         sitemap += `
   <!-- Depoimento: ${video.name} -->
   <url>
-    <loc>${baseUrl}/depoimentos/${video.slug}</loc>
+    <loc>${baseUrl}/depoimentos/${videoSlug}</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
     <lastmod>${lastmod}</lastmod>
