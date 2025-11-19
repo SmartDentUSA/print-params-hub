@@ -43,31 +43,16 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false, autoInsert
                   file.name.toLowerCase().endsWith('.pdf');
     
     if (!isPdf) {
-      console.error('❌ Tipo de arquivo inválido:', {
-        fileType: file.type,
-        fileName: file.name
-      });
       return 'Apenas arquivos PDF são permitidos';
     }
     
     if (file.size === 0) {
-      console.error('❌ Arquivo vazio');
       return 'O arquivo PDF está vazio';
     }
     
     if (file.size > MAX_FILE_SIZE) {
-      console.error('❌ Arquivo muito grande:', {
-        fileSize: file.size,
-        maxSize: MAX_FILE_SIZE
-      });
       return 'PDF muito grande. Máximo permitido: 10MB';
     }
-    
-    console.log('✅ Validação OK:', {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: `${Math.round(file.size / 1024)}KB`
-    });
     
     return null;
   };
@@ -85,7 +70,6 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false, autoInsert
   };
 
   const handleFile = async (file: File) => {
-    console.log('📄 Processing PDF:', file.name, 'Size:', file.size);
     
     const error = validateFile(file);
     if (error) {
@@ -105,25 +89,25 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false, autoInsert
     try {
       const pdfBase64 = await fileToBase64(file);
       
-      const pdfHash = pdfBase64.substring(0, 30);
-      const timestamp = new Date().toISOString();
-      console.log('🔑 PDF Hash:', pdfHash);
-      console.log('📄 PDF Size:', Math.round(pdfBase64.length / 1024), 'KB');
-      console.log('⏰ Processing at:', timestamp);
       
-      const { data, error } = await supabase.functions.invoke('ai-enrich-pdf-content', {
-        body: { pdfBase64 },
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token || '';
+      
+      const response = await fetch('https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/ai-enrich-pdf-content', {
+        method: 'POST',
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'X-Request-Time': Date.now().toString(),
-          'X-PDF-Hash': pdfHash
-        }
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ pdfBase64 })
       });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
       }
+
+      const data = await response.json();
 
       if (!data?.rawText) {
         throw new Error('Nenhum texto foi extraído do PDF');
