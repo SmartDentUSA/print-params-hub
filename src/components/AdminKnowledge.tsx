@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
@@ -97,6 +97,11 @@ export function AdminKnowledge() {
   const [savingKeywordId, setSavingKeywordId] = useState<string | null>(null);
   const [savingPrompt, setSavingPrompt] = useState(false);
   
+  // PDF search states
+  const [pdfSearchPT, setPdfSearchPT] = useState('');
+  const [pdfSearchES, setPdfSearchES] = useState('');
+  const [pdfSearchEN, setPdfSearchEN] = useState('');
+  
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
 Receba o texto bruto abaixo e:
@@ -146,6 +151,18 @@ Receba o texto bruto abaixo e:
   } = useKnowledge();
 
   const { fetchAuthors } = useAuthors();
+
+  // Filter documents by search term
+  const filterDocuments = (searchTerm: string) => {
+    if (!searchTerm.trim()) return documents;
+    
+    const search = searchTerm.toLowerCase();
+    return documents.filter(doc => 
+      doc.document_name.toLowerCase().includes(search) ||
+      doc.product_name.toLowerCase().includes(search) ||
+      (doc.manufacturer && doc.manufacturer.toLowerCase().includes(search))
+    );
+  };
 
   useEffect(() => {
     loadCategories();
@@ -1064,6 +1081,37 @@ Receba o texto bruto abaixo e:
                     <span className="text-xl">📄</span>
                     PDFs Incorporados (PT) - aparecem no topo do artigo
                   </Label>
+                  
+                  {/* Campo de busca */}
+                  <div className="mb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-600" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar PDF por nome, produto ou fabricante..."
+                        value={pdfSearchPT}
+                        onChange={(e) => setPdfSearchPT(e.target.value)}
+                        className="pl-10 pr-10 bg-white dark:bg-gray-900 border-amber-300 focus:border-amber-500"
+                      />
+                      {pdfSearchPT && (
+                        <button
+                          onClick={() => setPdfSearchPT('')}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:bg-amber-100 dark:hover:bg-amber-900 rounded p-1"
+                          title="Limpar busca"
+                        >
+                          <X className="h-4 w-4 text-amber-600" />
+                        </button>
+                      )}
+                    </div>
+                    {pdfSearchPT && (
+                      <div className="flex items-center justify-between text-xs mt-1">
+                        <span className="text-amber-600">
+                          🔍 {filterDocuments(pdfSearchPT).length} resultado(s) encontrado(s)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
                     <div className="space-y-2">
                       {documents.length === 0 && (
@@ -1071,7 +1119,12 @@ Receba o texto bruto abaixo e:
                           Nenhum PDF disponível. Adicione documentos às resinas primeiro.
                         </p>
                       )}
-                      {documents.map((doc) => (
+                      {filterDocuments(pdfSearchPT).length === 0 && pdfSearchPT && documents.length > 0 && (
+                        <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
+                          Nenhum PDF encontrado para "{pdfSearchPT}"
+                        </p>
+                      )}
+                      {filterDocuments(pdfSearchPT).map((doc) => (
                         <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
                           <input
                             type="checkbox"
@@ -1279,9 +1332,45 @@ Receba o texto bruto abaixo e:
                             <span className="text-xl">📄</span>
                             PDFs Incorporados (ES) - aparecem no topo do artigo
                           </Label>
+                          
+                          {/* Campo de busca */}
+                          <div className="mb-3">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-600" />
+                              <Input
+                                type="text"
+                                placeholder="Buscar PDF por nombre, producto o fabricante..."
+                                value={pdfSearchES}
+                                onChange={(e) => setPdfSearchES(e.target.value)}
+                                className="pl-10 pr-10 bg-white dark:bg-gray-900 border-amber-300 focus:border-amber-500"
+                              />
+                              {pdfSearchES && (
+                                <button
+                                  onClick={() => setPdfSearchES('')}
+                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:bg-amber-100 dark:hover:bg-amber-900 rounded p-1"
+                                  title="Limpiar búsqueda"
+                                >
+                                  <X className="h-4 w-4 text-amber-600" />
+                                </button>
+                              )}
+                            </div>
+                            {pdfSearchES && (
+                              <div className="flex items-center justify-between text-xs mt-1">
+                                <span className="text-amber-600">
+                                  🔍 {filterDocuments(pdfSearchES).length} resultado(s) encontrado(s)
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
                             <div className="space-y-2">
-                              {documents.map((doc) => (
+                              {filterDocuments(pdfSearchES).length === 0 && pdfSearchES && documents.length > 0 && (
+                                <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
+                                  Ningún PDF encontrado para "{pdfSearchES}"
+                                </p>
+                              )}
+                              {filterDocuments(pdfSearchES).map((doc) => (
                                 <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
                                   <input
                                     type="checkbox"
@@ -1483,9 +1572,45 @@ Receba o texto bruto abaixo e:
                             <span className="text-xl">📄</span>
                             PDFs Incorporados (EN) - aparecem no topo do artigo
                           </Label>
+                          
+                          {/* Campo de busca */}
+                          <div className="mb-3">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-amber-600" />
+                              <Input
+                                type="text"
+                                placeholder="Search PDF by name, product or manufacturer..."
+                                value={pdfSearchEN}
+                                onChange={(e) => setPdfSearchEN(e.target.value)}
+                                className="pl-10 pr-10 bg-white dark:bg-gray-900 border-amber-300 focus:border-amber-500"
+                              />
+                              {pdfSearchEN && (
+                                <button
+                                  onClick={() => setPdfSearchEN('')}
+                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 hover:bg-amber-100 dark:hover:bg-amber-900 rounded p-1"
+                                  title="Clear search"
+                                >
+                                  <X className="h-4 w-4 text-amber-600" />
+                                </button>
+                              )}
+                            </div>
+                            {pdfSearchEN && (
+                              <div className="flex items-center justify-between text-xs mt-1">
+                                <span className="text-amber-600">
+                                  🔍 {filterDocuments(pdfSearchEN).length} result(s) found
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
                             <div className="space-y-2">
-                              {documents.map((doc) => (
+                              {filterDocuments(pdfSearchEN).length === 0 && pdfSearchEN && documents.length > 0 && (
+                                <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
+                                  No PDF found for "{pdfSearchEN}"
+                                </p>
+                              )}
+                              {filterDocuments(pdfSearchEN).map((doc) => (
                                 <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
                                   <input
                                     type="checkbox"
