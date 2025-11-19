@@ -967,7 +967,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <link rel="canonical" href="${baseUrl}/conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   
-  <!-- Open Graph -->
+  <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
+  <meta name="AI-context" content="Conteúdo técnico-científico sobre ${escapeHtml(category.name || 'odontologia')}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico." />
+  
+  <!-- FASE 3: Open Graph Otimizado para IA -->
   <meta property="og:title" content="${escapeHtml(content.title)}" />
   <meta property="og:description" content="${escapeHtml(content.excerpt || desc)}" />
   <meta property="og:type" content="article" />
@@ -976,8 +979,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
+  <meta property="article:section" content="${escapeHtml(category.name || 'Conhecimento')}" />
   <meta property="article:published_time" content="${content.created_at}" />
   <meta property="article:modified_time" content="${content.updated_at}" />
+  ${content.keywords ? content.keywords.slice(0, 10).map((kw: string) => `<meta property="article:tag" content="${escapeHtml(kw)}" />`).join('\n  ') : ''}
   ${content.authors?.name ? `<meta property="article:author" content="${escapeHtml(content.authors.name)}" />` : ''}
   ${content.authors?.instagram_url ? `<meta property="article:author:instagram" content="${escapeHtml(content.authors.instagram_url)}" />` : ''}
   ${content.authors?.linkedin_url ? `<meta property="article:author:linkedin" content="${escapeHtml(content.authors.linkedin_url)}" />` : ''}
@@ -1053,12 +1058,50 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         ]
       },
       ...videoSchemas,
-      ...(faqSchema ? [faqSchema] : [])
+      ...(faqSchema ? [faqSchema] : []),
+      // FASE 2: LearningResource Schema para IA Regenerativa
+      {
+        "@type": "LearningResource",
+        "name": escapeHtml(content.title),
+        "description": escapeHtml(content.excerpt || desc),
+        "abstract": escapeHtml(desc),
+        "learningResourceType": "Article",
+        "educationalLevel": "Expert",
+        "teaches": content.keywords?.slice(0, 5) || [],
+        "competencyRequired": "Conhecimento em odontologia e impressão 3D",
+        "audience": {
+          "@type": "EducationalAudience",
+          "educationalRole": "Professional",
+          "audienceType": "Cirurgiões-dentistas, técnicos em prótese dentária"
+        },
+        "inLanguage": "pt-BR",
+        "isAccessibleForFree": true,
+        "author": content.authors ? {
+          "@type": "Person",
+          "name": escapeHtml(content.authors.name),
+          "url": content.authors.website_url
+        } : {
+          "@type": "Organization",
+          "name": "Smart Dent",
+          "url": baseUrl
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "Smart Dent",
+          "url": baseUrl,
+          "logo": {
+            "@type": "ImageObject",
+            "url": `${baseUrl}/og-image.jpg`
+          }
+        },
+        "datePublished": content.created_at,
+        "dateModified": content.updated_at
+      }
     ]
   })}
   </script>
   
-  <!-- Organization Schema -->
+  <!-- FASE 2: Organization Schema com E-E-A-T Enhancement -->
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -1067,6 +1110,31 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     "url": baseUrl,
     "logo": `${baseUrl}/og-image.jpg`,
     "description": "Base de conhecimento sobre impressão 3D odontológica",
+    "expertise": "Fabricação de resinas odontológicas para impressão 3D, desenvolvimento de parâmetros de impressão otimizados",
+    "knowsAbout": [
+      "Impressão 3D odontológica",
+      "Resinas fotopolimerizáveis",
+      "Biocompatibilidade dental",
+      "Prótese dentária digital",
+      "Ortodontia digital",
+      "Planejamento virtual odontológico"
+    ],
+    "award": [
+      "Certificação ISO 13485 - Dispositivos Médicos",
+      "Registro ANVISA para resinas odontológicas"
+    ],
+    "certifications": [
+      {
+        "@type": "Certification",
+        "name": "ISO 13485",
+        "description": "Sistema de gestão da qualidade para dispositivos médicos"
+      },
+      {
+        "@type": "Certification",
+        "name": "ANVISA",
+        "description": "Registro sanitário para comercialização de resinas odontológicas no Brasil"
+      }
+    ],
     "sameAs": [
       "https://www.instagram.com/smartdent.br/",
       "https://www.youtube.com/@smartdent",
