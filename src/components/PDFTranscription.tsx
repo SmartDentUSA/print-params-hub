@@ -10,9 +10,10 @@ import { supabase } from '@/integrations/supabase/client';
 interface PDFTranscriptionProps {
   onTextExtracted: (extractedText: string) => void;
   disabled?: boolean;
+  autoInsert?: boolean;
 }
 
-export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTranscriptionProps) => {
+export const PDFTranscription = ({ onTextExtracted, disabled = false, autoInsert = false }: PDFTranscriptionProps) => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [rawText, setRawText] = useState<string | null>(null);
   const [enrichedText, setEnrichedText] = useState<string | null>(null);
@@ -106,6 +107,16 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
           ? `Produto detectado: ${data.detectedProduct.productName} • ${data.usedData.productsCount + data.usedData.resinsCount + data.usedData.parametersCount + data.usedData.articlesCount} dados do banco encontrados`
           : `${data.rawText.length} caracteres extraídos`,
       });
+
+      // Auto-inserção para modo orquestrador
+      if (autoInsert) {
+        onTextExtracted(data.enrichedText || data.rawText);
+        setTimeout(() => {
+          setShowComparison(false);
+          setRawText(null);
+          setEnrichedText(null);
+        }, 3000);
+      }
 
       if (data.stats?.warning) {
         toast({
@@ -317,24 +328,33 @@ export const PDFTranscription = ({ onTextExtracted, disabled = false }: PDFTrans
             </TabsContent>
           </Tabs>
 
-          {/* Botões de ação */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleInsertText('raw')}
-              className="flex-1"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Usar Original
-            </Button>
-            <Button
-              onClick={() => handleInsertText('enriched')}
-              className="flex-1"
-            >
-              <Sparkles className="w-4 h-4 mr-2" />
-              Usar Enriquecido
-            </Button>
-          </div>
+          {/* Botões de ação ou badge de sucesso */}
+          {autoInsert ? (
+            <div className="flex items-center justify-center gap-2 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+              <Check className="w-5 h-5 text-green-600" />
+              <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                Texto adicionado automaticamente às fontes
+              </span>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleInsertText('raw')}
+                className="flex-1"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Usar Original
+              </Button>
+              <Button
+                onClick={() => handleInsertText('enriched')}
+                className="flex-1"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                Usar Enriquecido
+              </Button>
+            </div>
+          )}
 
           {stats?.warning && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
