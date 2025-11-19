@@ -16,6 +16,75 @@ interface GoogleReview {
   time: number;
 }
 
+async function translateReviews(reviews: GoogleReview[], targetLanguage: 'en' | 'es'): Promise<GoogleReview[]> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+  
+  if (!LOVABLE_API_KEY || reviews.length === 0) {
+    console.log('⚠️ Skipping translation: No API key or empty reviews');
+    return reviews;
+  }
+
+  console.log(`🌐 Translating ${reviews.length} reviews to ${targetLanguage}...`);
+  
+  const prompt = `Traduza APENAS o texto e a descrição de tempo dos seguintes reviews do Google para ${targetLanguage === 'en' ? 'inglês americano' : 'espanhol'}.
+Retorne EXATAMENTE o mesmo JSON com os campos traduzidos.
+
+Reviews:
+${JSON.stringify(reviews.map(r => ({
+  text: r.text,
+  relative_time_description: r.relative_time_description
+})), null, 2)}
+
+Retorne JSON com esta estrutura exata:
+[
+  { "text": "tradução do comentário", "relative_time_description": "tradução do tempo" }
+]
+
+IMPORTANTE: Retorne APENAS o array JSON, sem explicações ou texto adicional.`;
+
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: 'Você é um tradutor especializado. Retorne APENAS JSON válido sem markdown ou explicações.' },
+          { role: 'user', content: prompt }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`❌ Translation API error: ${response.status}`);
+      return reviews; // Return original on error
+    }
+
+    const data = await response.json();
+    let content = data.choices[0].message.content;
+    
+    // Remove markdown code blocks if present
+    content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const translatedTexts = JSON.parse(content);
+
+    const translatedReviews = reviews.map((review, index) => ({
+      ...review,
+      text: translatedTexts[index]?.text || review.text,
+      relative_time_description: translatedTexts[index]?.relative_time_description || review.relative_time_description,
+    }));
+
+    console.log(`✅ Translation to ${targetLanguage} completed`);
+    return translatedReviews;
+  } catch (error) {
+    console.error(`❌ Translation error for ${targetLanguage}:`, error);
+    return reviews; // Return original reviews on error
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -67,8 +136,17 @@ serve(async (req) => {
     const reviews: GoogleReview[] = result.reviews || [];
 
     console.log(`✅ ${reviews.length} reviews obtidas`);
+    console.log('🌐 Iniciando traduções para EN e ES...');
 
-    // Atualizar banco
+    // Traduzir reviews para inglês e espanhol em paralelo
+    const [reviewsEN, reviewsES] = await Promise.all([
+      translateReviews(reviews, 'en'),
+      translateReviews(reviews, 'es'),
+    ]);
+
+    console.log('✅ Traduções concluídas para todos os idiomas');
+
+    // Atualizar banco com reviews em 3 idiomas (PT, EN, ES)
     const updatedExtraData = {
       ...companyData.extra_data,
       google_place_id: placeId,
@@ -76,7 +154,28 @@ serve(async (req) => {
         ...companyData.extra_data?.reviews_reputation,
         google_rating: result.rating,
         google_review_count: result.user_ratings_total,
-        google_reviews: reviews.map(r => ({
+        // Reviews em português (original do Google)
+        google_reviews_pt: reviews.map(r => ({
+          author_name: r.author_name,
+          author_url: r.author_url,
+          profile_photo_url: r.profile_photo_url,
+          rating: r.rating,
+          relative_time_description: r.relative_time_description,
+          text: r.text,
+          time: r.time,
+        })),
+        // Reviews traduzidos para inglês
+        google_reviews_en: reviewsEN.map(r => ({
+          author_name: r.author_name,
+          author_url: r.author_url,
+          profile_photo_url: r.profile_photo_url,
+          rating: r.rating,
+          relative_time_description: r.relative_time_description,
+          text: r.text,
+          time: r.time,
+        })),
+        // Reviews traduzidos para espanhol
+        google_reviews_es: reviewsES.map(r => ({
           author_name: r.author_name,
           author_url: r.author_url,
           profile_photo_url: r.profile_photo_url,

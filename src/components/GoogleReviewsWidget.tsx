@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Star, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/contexts/LanguageContext';
+import React from 'react';
 
 const GoogleLogo = () => (
   <svg width="16" height="16" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
@@ -25,6 +27,7 @@ interface GoogleReview {
 
 export const GoogleReviewsWidget = () => {
   const { data: company, isLoading } = useCompanyData();
+  const { language } = useLanguage();
   
   if (isLoading) {
     return (
@@ -42,7 +45,23 @@ export const GoogleReviewsWidget = () => {
     );
   }
 
-  const reviews: GoogleReview[] = (company?.reviews_reputation as any)?.google_reviews || [];
+  // Selecionar reviews baseado no idioma atual
+  const reviews: GoogleReview[] = React.useMemo(() => {
+    const reviewsData = company?.reviews_reputation as any;
+    
+    if (!reviewsData) return [];
+    
+    // Selecionar o idioma apropriado, com fallback para português
+    switch (language) {
+      case 'en':
+        return reviewsData.google_reviews_en || reviewsData.google_reviews_pt || [];
+      case 'es':
+        return reviewsData.google_reviews_es || reviewsData.google_reviews_pt || [];
+      default:
+        return reviewsData.google_reviews_pt || [];
+    }
+  }, [company, language]);
+  
   const rating = company?.reviews_reputation?.google_rating || 0;
   const count = company?.reviews_reputation?.google_review_count || 0;
 

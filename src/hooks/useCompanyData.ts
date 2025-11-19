@@ -18,6 +18,10 @@ interface CompanyData {
   reviews_reputation?: {
     google_rating?: number;
     google_review_count?: number;
+    google_reviews_pt?: any[]; // Reviews em português (original)
+    google_reviews_en?: any[]; // Reviews traduzidos para inglês
+    google_reviews_es?: any[]; // Reviews traduzidos para espanhol
+    last_synced_at?: string;
     trustpilot_rating?: number;
     bbb_rating?: string;
     testimonial_count?: number;
