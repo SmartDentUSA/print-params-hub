@@ -125,10 +125,22 @@ serve(async (req) => {
       }
 
       const videoDetails = await videoDetailsResponse.json();
+      
+      // 🆕 Logs detalhados da resposta da API
+      console.log('PandaVideo API response fields:', Object.keys(videoDetails));
+      console.log('Description field raw value:', videoDetails.description);
+      
       videoTitle = videoDetails.title || 'Video';
       description = videoDetails.description || '';
 
       console.log(`Video title: ${videoTitle}`);
+      console.log(`Video description: ${description ? `"${description.substring(0, 100)}..."` : '(empty)'}`);
+      console.log(`Description length: ${description?.length || 0} characters`);
+      
+      // 🆕 Aviso se título não é descritivo
+      if (videoTitle === 'Video' || videoTitle === '') {
+        console.warn('⚠️ Video has generic title, consider updating in PandaVideo dashboard');
+      }
 
       if (includeTranscript) {
         // Try to get transcript from panda_config if available

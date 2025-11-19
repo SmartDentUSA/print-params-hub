@@ -114,10 +114,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                 })) : [];
               })()
             : Promise.resolve([]),
-          // 🆕 Fetch PDFs selecionados para o idioma atual
+          // 🆕 Fetch PDFs selecionados de AMBAS as tabelas (resinas + catálogo)
           pdfIds.length > 0
             ? (async () => {
-                const { data } = await supabase
+                // Buscar de resin_documents
+                const { data: resinDocs } = await supabase
                   .from('resin_documents')
                   .select(`
                     id,
@@ -129,11 +130,45 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   .in('id', pdfIds)
                   .eq('active', true);
                 
-                return data ? data.map((doc: any) => ({
-                  ...doc,
+                // Buscar de catalog_documents
+                const { data: catalogDocs } = await supabase
+                  .from('catalog_documents')
+                  .select(`
+                    id,
+                    document_name,
+                    document_description,
+                    file_url,
+                    system_a_catalog!inner(name)
+                  `)
+                  .in('id', pdfIds)
+                  .eq('active', true);
+                
+                // Normalizar estrutura de resin_documents
+                const resinPdfs = resinDocs?.map((doc: any) => ({
+                  id: doc.id,
+                  document_name: doc.document_name,
+                  document_description: doc.document_description,
+                  file_url: doc.file_url,
                   resin_name: doc.resins.name,
-                  resin_manufacturer: doc.resins.manufacturer
-                })) : [];
+                  resin_manufacturer: doc.resins.manufacturer,
+                  source: 'resin' as const
+                })) || [];
+                
+                // Normalizar estrutura de catalog_documents
+                const catalogPdfs = catalogDocs?.map((doc: any) => ({
+                  id: doc.id,
+                  document_name: doc.document_name,
+                  document_description: doc.document_description,
+                  file_url: doc.file_url,
+                  resin_name: doc.system_a_catalog.name,
+                  resin_manufacturer: '',
+                  source: 'catalog' as const
+                })) || [];
+                
+                // Combinar e ordenar por nome
+                return [...resinPdfs, ...catalogPdfs].sort((a, b) => 
+                  a.document_name.localeCompare(b.document_name)
+                );
               })()
             : Promise.resolve([])
         ]);
