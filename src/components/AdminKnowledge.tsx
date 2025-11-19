@@ -51,6 +51,15 @@ export function AdminKnowledge() {
   const [generatedHTML, setGeneratedHTML] = useState('');
   const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   
+  // Orchestrator states
+  const [useOrchestrator, setUseOrchestrator] = useState(false);
+  const [orchestratorSources, setOrchestratorSources] = useState({
+    technicalSheet: '',
+    transcript: '',
+    manual: '',
+    testimonials: ''
+  });
+  
   // Multilingual states
   const [showEditorES, setShowEditorES] = useState(false);
   const [showEditorEN, setShowEditorEN] = useState(false);
@@ -2127,50 +2136,261 @@ Receba o texto bruto abaixo e:
                   )}
                 </div>
 
-                <div>
-                  <Label>Cole o texto bruto aqui (Word, Gemini, Google Docs...)</Label>
-                  <Textarea
-                    value={rawTextInput}
-                    onChange={(e) => setRawTextInput(e.target.value)}
-                    rows={12}
-                    placeholder="Cole aqui o texto que deseja formatar automaticamente..."
-                  />
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={useOrchestrator}
+                      onCheckedChange={(checked) => {
+                        setUseOrchestrator(checked);
+                        if (checked) {
+                          // Limpar campo único quando ativar orquestrador
+                          setRawTextInput('');
+                        } else {
+                          // Limpar fontes múltiplas quando desativar
+                          setOrchestratorSources({
+                            technicalSheet: '',
+                            transcript: '',
+                            manual: '',
+                            testimonials: ''
+                          });
+                        }
+                      }}
+                    />
+                    <div>
+                      <Label className="text-sm font-semibold cursor-pointer">
+                        🎯 Modo Orquestrador Multi-Fonte
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {useOrchestrator 
+                          ? '✅ Geração avançada com múltiplas fontes (ficha técnica + vídeo + manual + depoimentos)'
+                          : '📄 Geração rápida com fonte única (texto ou PDF)'}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={useOrchestrator ? "default" : "secondary"}>
+                    {useOrchestrator ? 'Orquestrador' : 'Pipeline Rápido'}
+                  </Badge>
                 </div>
 
-                <PDFTranscription
-                  onTextExtracted={(text) => {
-                    setRawTextInput(text);
-                    toast({ 
-                      title: '✅ PDF transcrito!', 
-                      description: 'Revise o texto e clique em "Gerar por IA"' 
-                    });
-                  }}
-                  disabled={isGenerating}
-                />
+                {!useOrchestrator ? (
+                  // Modo tradicional (fonte única)
+                  <>
+                    <div>
+                      <Label>Cole o texto bruto aqui (Word, Gemini, Google Docs...)</Label>
+                      <Textarea
+                        value={rawTextInput}
+                        onChange={(e) => setRawTextInput(e.target.value)}
+                        rows={12}
+                        placeholder="Cole aqui o texto que deseja formatar automaticamente..."
+                      />
+                    </div>
+
+                    <PDFTranscription
+                      onTextExtracted={(text) => {
+                        setRawTextInput(text);
+                        toast({ 
+                          title: '✅ PDF transcrito!', 
+                          description: 'Revise o texto e clique em "Gerar por IA"' 
+                        });
+                      }}
+                      disabled={isGenerating}
+                    />
+                  </>
+                ) : (
+                  // Modo orquestrador (múltiplas fontes)
+                  <div className="space-y-4 border border-dashed border-purple-300 dark:border-purple-700 rounded-lg p-4">
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>💡 Como funciona:</strong> O orquestrador analisa todas as fontes fornecidas,
+                        identifica dados técnicos, protocolos, citações de especialistas e posicionamento comercial,
+                        depois gera um único artigo coeso com schemas estruturados (HowTo, FAQ).
+                        <br /><br />
+                        <strong>Dica:</strong> Preencha pelo menos uma fonte. Quanto mais fontes, melhor a qualidade!
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          📄 Ficha Técnica
+                          <Badge variant="outline" className="text-xs">DADO_TECNICO</Badge>
+                        </Label>
+                        <Textarea
+                          value={orchestratorSources.technicalSheet}
+                          onChange={(e) => setOrchestratorSources(prev => ({ 
+                            ...prev, 
+                            technicalSheet: e.target.value 
+                          }))}
+                          rows={6}
+                          placeholder="Exemplo: Resina XYZ - 85 MPa (ISO 4049), Carga 55%, Biocompatível Classe IIa..."
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Cole aqui valores técnicos: MPa, normas ISO, composição química, etc.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          🎥 Transcrição de Vídeo/Áudio
+                          <Badge variant="outline" className="text-xs">PROTOCOLO</Badge>
+                        </Label>
+                        <Textarea
+                          value={orchestratorSources.transcript}
+                          onChange={(e) => setOrchestratorSources(prev => ({ 
+                            ...prev, 
+                            transcript: e.target.value 
+                          }))}
+                          rows={6}
+                          placeholder="Exemplo: No vídeo demonstramos lavagem em IPA por 3min, depois fotopolimerizar 15min..."
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Cole transcrição de vídeos ou áudios com demonstrações e tutoriais.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          📖 Manual do Fabricante
+                          <Badge variant="outline" className="text-xs">PROTOCOLO</Badge>
+                        </Label>
+                        <Textarea
+                          value={orchestratorSources.manual}
+                          onChange={(e) => setOrchestratorSources(prev => ({ 
+                            ...prev, 
+                            manual: e.target.value 
+                          }))}
+                          rows={6}
+                          placeholder="Exemplo: PROTOCOLO: 1. Exposição 2.0s/camada. 2. Temperatura 25°C. 3. Lavagem IPA 3min..."
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Cole instruções do manual: protocolos, tempos, especificações.
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          💬 Depoimentos de Especialistas
+                          <Badge variant="outline" className="text-xs">VOZ_EAT</Badge>
+                        </Label>
+                        <Textarea
+                          value={orchestratorSources.testimonials}
+                          onChange={(e) => setOrchestratorSources(prev => ({ 
+                            ...prev, 
+                            testimonials: e.target.value 
+                          }))}
+                          rows={6}
+                          placeholder='Exemplo: "Prof. Dr. Silva (USP): Taxa de sucesso de 98% em testes clínicos..."'
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Cole citações diretas de professores, universidades, conclusões de estudos.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-3 rounded">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <p>
+                        <strong>Vantagens do Orquestrador:</strong> 33% mais barato, 50% mais rápido,
+                        maior coesão narrativa, schemas estruturados nativos (HowTo + FAQ).
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <Button
                   onClick={async () => {
-                    if (!rawTextInput) {
+                    // Validação de entrada
+                    if (!useOrchestrator && !rawTextInput) {
                       toast({ title: 'Erro', description: 'Cole um texto primeiro', variant: 'destructive' });
                       return;
                     }
+                    
+                    if (useOrchestrator) {
+                      const hasAnySources = Object.values(orchestratorSources).some(
+                        source => source && source.trim().length > 0
+                      );
+                      
+                      if (!hasAnySources) {
+                        toast({ 
+                          title: 'Erro', 
+                          description: 'Preencha pelo menos uma fonte de conteúdo',
+                          variant: 'destructive' 
+                        });
+                        return;
+                      }
+                    }
+                    
                     setIsGenerating(true);
                     try {
-                      const { data, error } = await supabase.functions.invoke('ai-content-formatter', {
-                        body: {
-                          prompt: formData.aiPromptTemplate || DEFAULT_AI_PROMPT,
-                          rawText: rawTextInput,
-                          categoryLetter: selectedCategory
+                      let formattedHTML: string;
+                      
+                      if (useOrchestrator) {
+                        // Modo orquestrador
+                        console.log('🎯 Chamando orquestrador de conteúdo...');
+                        
+                        const { data, error } = await supabase.functions.invoke('ai-orchestrate-content', {
+                          body: {
+                            sources: orchestratorSources,
+                            productName: formData.title || undefined,
+                            language: 'pt'
+                          }
+                        });
+                        
+                        if (error) throw error;
+                        
+                        if (!data.success) {
+                          throw new Error(data.error || 'Erro ao gerar conteúdo orquestrado');
                         }
-                      });
+                        
+                        formattedHTML = data.html;
+                        
+                        console.log('✅ Conteúdo orquestrado gerado:', {
+                          length: formattedHTML.length,
+                          hasHowToSchema: data.schemas?.howTo,
+                          hasFAQSchema: data.schemas?.faqPage
+                        });
+                        
+                        // Mostrar feedback sobre schemas estruturados
+                        if (data.schemas) {
+                          const schemasFound = [];
+                          if (data.schemas.howTo) schemasFound.push('HowTo');
+                          if (data.schemas.faqPage) schemasFound.push('FAQ');
+                          
+                          if (schemasFound.length > 0) {
+                            toast({
+                              title: '✅ Schemas Estruturados Detectados!',
+                              description: `O artigo contém: ${schemasFound.join(', ')}`,
+                              duration: 5000
+                            });
+                          }
+                        }
+                        
+                      } else {
+                        // Modo tradicional (pipeline rápido)
+                        console.log('⚡ Usando pipeline rápido tradicional...');
+                        
+                        const { data, error } = await supabase.functions.invoke('ai-content-formatter', {
+                          body: {
+                            prompt: formData.aiPromptTemplate || DEFAULT_AI_PROMPT,
+                            rawText: rawTextInput,
+                            categoryLetter: selectedCategory
+                          }
+                        });
+                        
+                        if (error) throw error;
+                        formattedHTML = data.formattedHTML;
+                      }
                       
-                      if (error) throw error;
-                      
-                      const formattedHTML = data.formattedHTML;
                       setGeneratedHTML(formattedHTML);
                       
-                      // 🆕 FASE 4: DEBUG - Logs detalhados
+                      // Debug logs
                       console.log('🤖 IA gerou HTML:', {
+                        mode: useOrchestrator ? 'orquestrador' : 'pipeline',
                         length: formattedHTML.length,
                         hasContentCard: formattedHTML.includes('content-card'),
                         hasBenefits: formattedHTML.includes('benefit-card'),
