@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, FileText } from "lucide-react";
+import { Settings, Plus, Edit, Trash2, Cpu, Monitor, Palette, Search, Database, RefreshCw, AlertTriangle, Download, FileText, Star } from "lucide-react";
 import { SEOAuditPanel } from "@/components/SEOAuditPanel";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/contexts/DataContext";
@@ -92,6 +92,7 @@ export function AdminSettings() {
   const [savingCta3, setSavingCta3] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingReviews, setIsSyncingReviews] = useState(false);
 
   const { toast } = useToast();
   const { loading: maintenanceLoading, getInactiveStats, reactivateAllInactive, reactivateInactiveSince } = useAdminMaintenance();
@@ -505,6 +506,29 @@ export function AdminSettings() {
       sonnerToast.error('❌ Erro ao sincronizar');
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleSyncGoogleReviews = async () => {
+    setIsSyncingReviews(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-google-reviews');
+
+      if (error) throw error;
+
+      if (data?.success) {
+        sonnerToast.success(
+          `✅ Reviews sincronizadas!`,
+          { description: `${data.reviews_synced} avaliações - Rating: ${data.rating}/5` }
+        );
+      }
+    } catch (error: any) {
+      console.error('Erro ao sincronizar reviews:', error);
+      sonnerToast.error('❌ Erro ao sincronizar reviews', {
+        description: error.message || 'Verifique se o Place ID está configurado'
+      });
+    } finally {
+      setIsSyncingReviews(false);
     }
   };
 
@@ -1343,6 +1367,42 @@ export function AdminSettings() {
                       </>
                     )}
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* Google Reviews Sync Card */}
+              <Card className="bg-gradient-card border-border shadow-medium">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Star className="w-5 h-5 text-yellow-400" />
+                    ⭐ Google Reviews
+                  </CardTitle>
+                  <CardDescription>
+                    Sincroniza avaliações do Google usando a Places API. Configure o Place ID no banco de dados.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    onClick={handleSyncGoogleReviews} 
+                    disabled={isSyncingReviews}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isSyncingReviews ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        Sincronizando Reviews...
+                      </>
+                    ) : (
+                      <>
+                        <Star className="w-4 h-4 mr-2" />
+                        Sincronizar Reviews do Google
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Última sincronização: Em desenvolvimento
+                  </p>
                 </CardContent>
               </Card>
 
