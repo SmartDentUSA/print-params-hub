@@ -70,6 +70,10 @@ export function AdminKnowledge() {
   const [contentEditorModeEN, setContentEditorModeEN] = useState<'visual' | 'html'>('html');
   const editorRefES = useRef<Editor | null>(null);
   const editorRefEN = useRef<Editor | null>(null);
+  
+  // PDF transcription states
+  const [transcribingPdfId, setTranscribingPdfId] = useState<string | null>(null);
+  const [transcriptionProgress, setTranscriptionProgress] = useState<string>('');
   // Destino padrão para inserção de PDFs (PT, ES, EN)
   const [insertTargetLang, setInsertTargetLang] = useState<'pt' | 'es' | 'en'>('pt');
   
@@ -173,6 +177,101 @@ Receba o texto bruto abaixo e:
     console.log('📄 Documents loaded:', documents.length);
     console.log('📄 Selected PDFs PT:', formData.selected_pdf_ids_pt);
   }, [documents, formData.selected_pdf_ids_pt]);
+
+  const downloadPdfAsBase64 = async (fileUrl: string): Promise<string> => {
+    try {
+      const filePath = fileUrl.includes('supabase.co') 
+        ? fileUrl.split('/storage/v1/object/public/')[1]
+        : fileUrl;
+      
+      const bucketName = filePath.split('/')[0];
+      const fileParts = filePath.split('/').slice(1).join('/');
+      
+      const { data: fileBlob, error } = await supabase.storage
+        .from(bucketName)
+        .download(fileParts);
+      
+      if (error) throw error;
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result as string;
+          resolve(base64.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(fileBlob);
+      });
+    } catch (error) {
+      console.error('Erro ao baixar PDF:', error);
+      throw error;
+    }
+  };
+
+  const handleTranscribeExistingPdf = async (doc: any) => {
+    if (transcribingPdfId) {
+      toast({
+        title: '⚠️ Transcrição em andamento',
+        description: 'Aguarde o término da transcrição atual',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setTranscribingPdfId(doc.id);
+    setTranscriptionProgress('Baixando PDF do storage...');
+    
+    try {
+      const pdfBase64 = await downloadPdfAsBase64(doc.file_url);
+      
+      setTranscriptionProgress('Enviando para IA (pode levar até 2 min)...');
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 120000)
+      );
+      
+      const invokePromise = supabase.functions.invoke('ai-enrich-pdf-content', {
+        body: { pdfBase64 }
+      });
+      
+      const result = await Promise.race([invokePromise, timeoutPromise]) as any;
+      const { data, error } = result;
+      
+      if (error) throw error;
+      
+      const extractedText = data.enrichedText || data.rawText;
+      
+      if (!extractedText) {
+        throw new Error('Nenhum texto foi extraído do PDF');
+      }
+      
+      setRawTextInput(extractedText);
+      
+      toast({
+        title: '✅ PDF transcrito com sucesso!',
+        description: `${doc.document_name} - Revise o texto e clique em "Gerar por IA"`,
+        duration: 5000
+      });
+      
+    } catch (error: any) {
+      console.error('Erro ao transcrever PDF:', error);
+      
+      let errorMessage = 'Verifique se o arquivo está acessível e tente novamente';
+      
+      if (error.message === 'Timeout') {
+        errorMessage = 'Tempo limite excedido (2 min). Tente um PDF menor.';
+      }
+      
+      toast({
+        title: '❌ Erro ao transcrever PDF',
+        description: error.message || errorMessage,
+        variant: 'destructive'
+      });
+    } finally {
+      setTranscribingPdfId(null);
+      setTranscriptionProgress('');
+    }
+  };
 
   useEffect(() => {
     if (selectedCategory) {
@@ -1125,32 +1224,54 @@ Receba o texto bruto abaixo e:
                         </p>
                       )}
                       {filterDocuments(pdfSearchPT).map((doc) => (
-                        <label key={doc.id} className="flex items-start gap-3 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={formData.selected_pdf_ids_pt.includes(doc.id)}
-                            onChange={(e) => {
-                              const newIds = e.target.checked
-                                ? [...formData.selected_pdf_ids_pt, doc.id]
-                                : formData.selected_pdf_ids_pt.filter(id => id !== doc.id);
-                              console.log('📄 PDF checkbox changed:', doc.document_name, 'New IDs:', newIds);
-                              setFormData({ ...formData, selected_pdf_ids_pt: newIds });
-                            }}
-                            className="mt-1"
-                          />
-                          <div className="flex-1 text-sm">
-                            <p className="font-medium text-amber-900 dark:text-amber-100">
-                              {doc.document_name}
-                            </p>
-                            <p className="text-xs text-amber-700 dark:text-amber-300">
-                              {doc.product_name}
-                              {doc.manufacturer && ` - ${doc.manufacturer}`}
-                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-900">
-                                {doc.source === 'resin' ? '🧪 Resina' : '📦 Catálogo'}
-                              </span>
-                            </p>
-                          </div>
-                        </label>
+                        <div key={doc.id} className="flex items-start gap-2 p-2 rounded hover:bg-amber-100/50 dark:hover:bg-amber-900/30">
+                          <label className="flex items-start gap-3 flex-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formData.selected_pdf_ids_pt.includes(doc.id)}
+                              onChange={(e) => {
+                                const newIds = e.target.checked
+                                  ? [...formData.selected_pdf_ids_pt, doc.id]
+                                  : formData.selected_pdf_ids_pt.filter(id => id !== doc.id);
+                                console.log('📄 PDF checkbox changed:', doc.document_name, 'New IDs:', newIds);
+                                setFormData({ ...formData, selected_pdf_ids_pt: newIds });
+                              }}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 text-sm">
+                              <p className="font-medium text-amber-900 dark:text-amber-100">
+                                {doc.document_name}
+                              </p>
+                              <p className="text-xs text-amber-700 dark:text-amber-300">
+                                {doc.product_name}
+                                {doc.manufacturer && ` - ${doc.manufacturer}`}
+                                <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-900">
+                                  {doc.source === 'resin' ? '🧪 Resina' : '📦 Catálogo'}
+                                </span>
+                              </p>
+                            </div>
+                          </label>
+                          
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleTranscribeExistingPdf(doc)}
+                            disabled={transcribingPdfId === doc.id || isGenerating}
+                            className="flex-shrink-0 h-8 px-2 text-xs"
+                            title="Transcrever este PDF com IA"
+                          >
+                            {transcribingPdfId === doc.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                <span className="hidden sm:inline">Transcrevendo...</span>
+                              </>
+                            ) : (
+                              <>
+                                🤖 <span className="hidden sm:inline ml-1">Transcrever</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -1158,6 +1279,17 @@ Receba o texto bruto abaixo e:
                     <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
                       ✓ {formData.selected_pdf_ids_pt.length} PDF(s) selecionado(s)
                     </p>
+                  )}
+                  
+                  {transcribingPdfId && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg mt-3">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                        <span className="text-blue-900 dark:text-blue-100">
+                          {transcriptionProgress}
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
 

@@ -174,6 +174,25 @@ Após gerar um artigo com IA, valide:
 
 ---
 
+## 📄 Transcrição de PDFs
+
+### Opção 1: Upload de Novo PDF
+Use o componente de upload na seção "Geração de Conteúdo por IA".
+
+### Opção 2: Transcrever PDF Existente (Novo! ✨)
+1. Vá para a seção "PDFs Relacionados (Português)"
+2. Localize o PDF desejado na lista
+3. Clique no botão "🤖 Transcrever" ao lado do PDF
+4. Aguarde até 2 minutos para PDFs grandes
+5. O texto aparecerá automaticamente no campo de entrada
+
+**Vantagens**:
+- Não precisa fazer re-upload
+- Aproveita materiais já catalogados
+- Economia de tempo e largura de banda
+
+---
+
 ## 🎯 Ferramentas de Validação
 
 Após publicação, valide o schema usando:
