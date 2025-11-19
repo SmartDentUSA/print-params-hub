@@ -112,7 +112,7 @@ serve(async (req) => {
         `https://api-v2.pandavideo.com.br/videos/${videoId}?custom_fields=true`,
         {
           headers: {
-            'Authorization': `Bearer ${PANDAVIDEO_API_KEY}`,
+            'Authorization': PANDAVIDEO_API_KEY,
             'Content-Type': 'application/json',
           },
         }
