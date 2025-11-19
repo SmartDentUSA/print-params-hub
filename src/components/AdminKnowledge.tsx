@@ -2427,6 +2427,7 @@ Receba o texto bruto abaixo e:
                       {orchestratorActiveSources.pdfTranscription && (
                         <>
                           <PDFTranscription
+                            autoInsert={true}
                             onTextExtracted={(text) => {
                               console.log('🔍 PDF transcrito no orquestrador:', text.length, 'caracteres');
                               setOrchestratorExtractedData(prev => ({
