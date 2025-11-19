@@ -3,6 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Star, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Autoplay from "embla-carousel-autoplay";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 
 interface GoogleReview {
   author_name: string;
@@ -21,7 +29,7 @@ export const GoogleReviewsWidget = () => {
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold">O que nossos clientes dizem</CardTitle>
+          <CardTitle className="text-2xl font-bold">O que nossos clientes dizem</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-12">
@@ -65,17 +73,17 @@ export const GoogleReviewsWidget = () => {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle className="text-3xl font-bold">O que nossos clientes dizem</CardTitle>
+        <CardTitle className="text-2xl font-bold">O que nossos clientes dizem</CardTitle>
         
         {/* Rating Médio */}
-        <div className="flex items-center gap-4 mt-4 p-4 bg-amber-50 dark:bg-amber-950 rounded-lg">
+        <div className="flex items-center gap-2 mt-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
           <div className="text-center">
-            <div className="text-5xl font-bold text-amber-600">{rating.toFixed(1)}</div>
-            <div className="text-sm text-muted-foreground mt-1">de 5.0</div>
+            <div className="text-2xl font-bold text-amber-600">{rating.toFixed(1)}</div>
+            <div className="text-xs text-muted-foreground mt-1">de 5.0</div>
           </div>
           <div className="flex-1">
-            {renderStars(rating, 'lg')}
-            <p className="text-sm text-muted-foreground mt-2">
+            {renderStars(rating, 'sm')}
+            <p className="text-xs text-muted-foreground mt-2">
               Baseado em {count} avaliações no Google
             </p>
           </div>
@@ -83,36 +91,53 @@ export const GoogleReviewsWidget = () => {
       </CardHeader>
 
       <CardContent>
-        {/* Grid de Reviews */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {reviews.slice(0, 6).map((review, index) => (
-            <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
-              <CardContent className="p-4">
-                {/* Header da Review */}
-                <div className="flex items-start gap-3 mb-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={review.profile_photo_url} alt={review.author_name} />
-                    <AvatarFallback>{review.author_name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{review.author_name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {renderStars(review.rating)}
-                      <span className="text-xs text-muted-foreground">
-                        {review.relative_time_description}
-                      </span>
+        {/* Carousel de Reviews com Autoplay */}
+        <Carousel
+          opts={{
+            align: "start",
+            loop: true,
+          }}
+          plugins={[
+            Autoplay({
+              delay: 3000,
+            })
+          ]}
+          className="w-full mb-6"
+        >
+          <CarouselContent className="-ml-2 md:-ml-4">
+            {reviews.map((review, index) => (
+              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full md:basis-1/2 lg:basis-1/3">
+                <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+                  <CardContent className="p-4">
+                    {/* Header da Review */}
+                    <div className="flex items-start gap-3 mb-3">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={review.profile_photo_url} alt={review.author_name} />
+                        <AvatarFallback>{review.author_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">{review.author_name}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {renderStars(review.rating)}
+                          <span className="text-xs text-muted-foreground">
+                            {review.relative_time_description}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Texto da Review */}
-                <p className="text-sm text-muted-foreground line-clamp-4">
-                  {review.text}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                    {/* Texto da Review */}
+                    <p className="text-sm text-muted-foreground line-clamp-4">
+                      {review.text}
+                    </p>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious className="hidden md:flex" />
+          <CarouselNext className="hidden md:flex" />
+        </Carousel>
 
         {/* Link para Google */}
         <div className="text-center">
