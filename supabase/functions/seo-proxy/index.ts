@@ -485,8 +485,21 @@ async function generateSystemACatalogHTML(
   if (error || !item) return generate404();
 
   const baseUrl = 'https://parametros.smartdent.com.br';
-  const seoTitle = item.seo_title_override || `${item.name} | Smart Dent`;
-  const metaDescription = item.meta_description || item.description || '';
+  // SEO Meta Tags: Use product-specific data when available
+  const seoTitle = category === 'product' 
+    ? (item.seo_title_override || `${item.name} | Smart Dent - Odontologia de Precisão`)
+    : category === 'video_testimonial'
+    ? `Depoimento: ${item.name} - Experiência Real com Smart Dent`
+    : (item.seo_title_override || `${item.name} - Smart Dent`);
+  
+  const metaDescription = category === 'product'
+    ? (item.meta_description || 
+       item.description?.replace(/<[^>]*>/g, '').substring(0, 155) || 
+       `Conheça ${item.name} - Alta qualidade para sua clínica odontológica.${item.price ? ` A partir de R$ ${item.price}` : ''}`)
+    : category === 'video_testimonial'
+    ? `Confira o depoimento de ${item.name} sobre sua experiência com produtos Smart Dent. ${item.description?.substring(0, 100) || ''}`
+    : (item.meta_description || item.description || '');
+  
   const categoryPath = category === 'product' ? 'produtos' : 
                        category === 'video_testimonial' ? 'depoimentos' : 'categorias';
   const canonicalUrl = item.canonical_url || `${baseUrl}/${categoryPath}/${slug}`;
@@ -522,34 +535,54 @@ async function generateSystemACatalogHTML(
   <meta name="twitter:image" content="${ogImage}" />
   <meta name="twitter:image:alt" content="${escapeHtml(item.name)}" />
   
-  <!-- Structured Data: Product/Review Schema -->
+  <!-- Structured Data: Product/Review Schema with BreadcrumbList -->
   <script type="application/ld+json">
   ${JSON.stringify(category === 'product' ? {
     "@context": "https://schema.org",
-    "@type": "Product",
-    "name": item.name,
-    "description": item.description,
-    "image": ogImage,
-    "brand": { "@type": "Brand", "name": "Smart Dent" },
-    "offers": {
-      "@type": "Offer",
-      "url": canonicalUrl,
-      "priceCurrency": item.currency || "BRL",
-      "price": item.promo_price || item.price || undefined,
-      "availability": "https://schema.org/InStock"
-    },
-    ...(item.rating && item.review_count > 0 && {
-      "aggregateRating": {
-        "@type": "AggregateRating",
-        "ratingValue": item.rating,
-        "reviewCount": item.review_count,
-        "bestRating": 5,
-        "worstRating": 1
+    "@graph": [
+      {
+        "@type": "Product",
+        "name": item.name,
+        "description": item.description,
+        "image": ogImage,
+        "brand": { "@type": "Brand", "name": "Smart Dent" },
+        "offers": {
+          "@type": "Offer",
+          "url": canonicalUrl,
+          "priceCurrency": item.currency || "BRL",
+          "price": item.promo_price || item.price || undefined,
+          "availability": "https://schema.org/InStock"
+        },
+        ...(item.rating && item.review_count > 0 && {
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": item.rating,
+            "reviewCount": item.review_count,
+            "bestRating": 5,
+            "worstRating": 1
+          }
+        }),
+        ...(faqs.length > 0 && {
+          "mainEntity": faqs.map((faq: any) => ({
+            "@type": "Question",
+            "name": faq.question,
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": faq.answer
+            }
+          }))
+        })
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": "Produtos", "item": `${baseUrl}/produtos` },
+          { "@type": "ListItem", "position": 3, "name": item.name, "item": canonicalUrl }
+        ]
       }
-    }),
-    ...(faqs.length > 0 && {
-      "mainEntity": faqs.map((faq: any) => ({
-        "@type": "Question",
+    ]
+  }
         "name": faq.question,
         "acceptedAnswer": {
           "@type": "Answer",
