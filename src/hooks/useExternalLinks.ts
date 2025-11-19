@@ -250,9 +250,11 @@ export function useExternalLinks() {
           document_description,
           file_url,
           active,
-          system_a_catalog!inner(name)
+          system_a_catalog!inner(name, active, approved)
         `)
         .eq('active', true)
+        .eq('system_a_catalog.active', true)
+        .eq('system_a_catalog.approved', true)
         .order('document_name');
 
       if (catalogError) throw catalogError;
@@ -285,9 +287,21 @@ export function useExternalLinks() {
         a.document_name.localeCompare(b.document_name)
       );
 
+      console.log('📄 Documentos carregados:', {
+        resinDocs: resinDocList.length,
+        catalogDocs: catalogDocList.length,
+        total: allDocs.length
+      });
+
       setDocuments(allDocs);
     } catch (error: any) {
-      console.error('Error fetching documents:', error);
+      console.error('❌ Erro ao carregar documentos:', error);
+      console.error('Stack trace:', error.stack);
+      toast({
+        title: '❌ Erro ao carregar PDFs',
+        description: error.message || 'Verifique as permissões do banco',
+        variant: 'destructive'
+      });
     }
   };
 
