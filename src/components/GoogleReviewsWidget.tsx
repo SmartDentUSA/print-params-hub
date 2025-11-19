@@ -21,7 +21,7 @@ export const GoogleReviewsWidget = () => {
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">O que nossos clientes dizem</CardTitle>
+          <CardTitle className="text-xs font-bold">O que nossos clientes dizem</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center py-12">
@@ -68,7 +68,7 @@ export const GoogleReviewsWidget = () => {
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">O que nossos clientes dizem</CardTitle>
+        <CardTitle className="text-xs font-bold">O que nossos clientes dizem</CardTitle>
         
         {/* Rating Médio */}
         <div className="flex items-center gap-2 mt-2 p-3 bg-amber-50 dark:bg-amber-950 rounded-lg">
