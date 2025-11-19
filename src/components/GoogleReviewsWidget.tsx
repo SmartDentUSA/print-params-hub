@@ -1,64 +1,130 @@
-import { useEffect, useState } from 'react';
+import { useCompanyData } from '@/hooks/useCompanyData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Star, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-declare global {
-  interface Window {
-    ElfsightWidget?: {
-      process: () => void;
-    };
-    refreshElfsight?: () => void;
+interface GoogleReview {
+  author_name: string;
+  author_url: string;
+  profile_photo_url: string;
+  rating: number;
+  relative_time_description: string;
+  text: string;
+  time: number;
+}
+
+export const GoogleReviewsWidget = () => {
+  const { data: company, isLoading } = useCompanyData();
+  
+  if (isLoading) {
+    return (
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-3xl font-bold">O que nossos clientes dizem</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-3 text-muted-foreground">Carregando avaliações...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
-}
 
-interface GoogleReviewsWidgetProps {
-  widgetId?: string;
-}
+  const reviews: GoogleReview[] = (company?.reviews_reputation as any)?.google_reviews || [];
+  const rating = company?.reviews_reputation?.google_rating || 0;
+  const count = company?.reviews_reputation?.google_review_count || 0;
 
-export const GoogleReviewsWidget = ({ 
-  widgetId = "9712ee98-7bd4-4bcb-a3fb-750091c97b0a" 
-}: GoogleReviewsWidgetProps) => {
-  const [timestamp] = useState(Date.now());
+  if (reviews.length === 0) {
+    return null;
+  }
 
-  useEffect(() => {
-    const existingScript = document.querySelector('script[src*="elfsightcdn.com"]');
-    
-    if (!existingScript) {
-      const script = document.createElement('script');
-      script.src = 'https://elfsightcdn.com/platform.js';
-      script.async = true;
-      script.onload = () => {
-        if (window.ElfsightWidget) {
-          window.ElfsightWidget.process();
-        }
-      };
-      document.body.appendChild(script);
-    } else {
-      // Script já existe, forçar reprocessamento
-      if (window.ElfsightWidget) {
-        window.ElfsightWidget.process();
-      }
-    }
+  const renderStars = (rating: number, size: 'sm' | 'lg' = 'sm') => {
+    const sizeClass = size === 'lg' ? 'w-6 h-6' : 'w-4 h-4';
+    return (
+      <div className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`${sizeClass} ${
+              star <= rating
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'fill-muted text-muted'
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
 
-    // Expor função global para debug/refresh manual
-    window.refreshElfsight = () => {
-      if (window.ElfsightWidget) {
-        window.ElfsightWidget.process();
-        console.log('✅ Elfsight widgets reprocessados');
-      }
-    };
-  }, [widgetId]);
+  // Extrair URL base para o perfil do Google
+  const googlePlaceUrl = reviews[0]?.author_url?.split('/reviews')[0] || '#';
 
   return (
     <Card className="mb-8">
       <CardHeader>
         <CardTitle className="text-3xl font-bold">O que nossos clientes dizem</CardTitle>
+        
+        {/* Rating Médio */}
+        <div className="flex items-center gap-4 mt-4 p-4 bg-amber-50 dark:bg-amber-950 rounded-lg">
+          <div className="text-center">
+            <div className="text-5xl font-bold text-amber-600">{rating.toFixed(1)}</div>
+            <div className="text-sm text-muted-foreground mt-1">de 5.0</div>
+          </div>
+          <div className="flex-1">
+            {renderStars(rating, 'lg')}
+            <p className="text-sm text-muted-foreground mt-2">
+              Baseado em {count} avaliações no Google
+            </p>
+          </div>
+        </div>
       </CardHeader>
+
       <CardContent>
-        <div 
-          key={`elfsight-${widgetId}-${timestamp}`}
-          className={`elfsight-app-${widgetId}`} 
-          data-elfsight-app-lazy
-        />
+        {/* Grid de Reviews */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {reviews.slice(0, 6).map((review, index) => (
+            <Card key={index} className="overflow-hidden hover:shadow-lg transition-shadow">
+              <CardContent className="p-4">
+                {/* Header da Review */}
+                <div className="flex items-start gap-3 mb-3">
+                  <Avatar className="w-10 h-10">
+                    <AvatarImage src={review.profile_photo_url} alt={review.author_name} />
+                    <AvatarFallback>{review.author_name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{review.author_name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {renderStars(review.rating)}
+                      <span className="text-xs text-muted-foreground">
+                        {review.relative_time_description}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Texto da Review */}
+                <p className="text-sm text-muted-foreground line-clamp-4">
+                  {review.text}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Link para Google */}
+        <div className="text-center">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => window.open(googlePlaceUrl, '_blank')}
+          >
+            Ver todas as avaliações no Google
+            <ExternalLink className="w-4 h-4" />
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
