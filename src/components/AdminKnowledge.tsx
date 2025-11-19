@@ -93,7 +93,7 @@ export function AdminKnowledge() {
   const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
   const [showKeywords, setShowKeywords] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
-  const { keywords, documents, updateKeywordUrl } = useExternalLinks();
+  const { keywords, documents, updateKeywordUrl, loading } = useExternalLinks();
   
   // Keyword editing states
   const [editingKeywordId, setEditingKeywordId] = useState<string | null>(null);
@@ -1213,12 +1213,18 @@ Receba o texto bruto abaixo e:
 
                   <div className="max-h-[200px] w-full overflow-y-auto overflow-x-hidden border border-border/30 rounded p-2">
                     <div className="space-y-2">
-                      {documents.length === 0 && (
+                      {loading && (
+                        <div className="flex items-center justify-center p-4">
+                          <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+                          <span className="ml-2 text-sm text-amber-700 dark:text-amber-300">Carregando PDFs...</span>
+                        </div>
+                      )}
+                      {!loading && documents.length === 0 && (
                         <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
                           Nenhum PDF disponível. Adicione documentos às resinas primeiro.
                         </p>
                       )}
-                      {filterDocuments(pdfSearchPT).length === 0 && pdfSearchPT && documents.length > 0 && (
+                      {!loading && filterDocuments(pdfSearchPT).length === 0 && pdfSearchPT && documents.length > 0 && (
                         <p className="text-sm text-amber-700 dark:text-amber-300 p-2">
                           Nenhum PDF encontrado para "{pdfSearchPT}"
                         </p>
