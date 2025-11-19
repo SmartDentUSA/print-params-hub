@@ -472,11 +472,12 @@ async function generateSystemACatalogHTML(
   slug: string, 
   supabase: any
 ): Promise<string> {
+  // FIX: Handle both slug formats (simple slug and full URLs)
   const { data: item, error } = await supabase
     .from('system_a_catalog')
     .select('*')
     .eq('category', category)
-    .eq('slug', slug)
+    .or(`slug.eq.${slug},slug.like.%/${slug}`)
     .eq('active', true)
     .eq('approved', true)
     .maybeSingle();
@@ -521,6 +522,7 @@ async function generateSystemACatalogHTML(
   <meta name="twitter:image" content="${ogImage}" />
   <meta name="twitter:image:alt" content="${escapeHtml(item.name)}" />
   
+  <!-- Structured Data: Product/Review Schema -->
   <script type="application/ld+json">
   ${JSON.stringify(category === 'product' ? {
     "@context": "https://schema.org",
@@ -555,6 +557,55 @@ async function generateSystemACatalogHTML(
         }
       }))
     })
+  } : category === 'video_testimonial' ? {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Review",
+        "itemReviewed": {
+          "@type": "Product",
+          "name": extraData.products_mentioned?.[0] || "Smart Dent",
+          "brand": { "@type": "Brand", "name": "Smart Dent" }
+        },
+        "reviewRating": {
+          "@type": "Rating",
+          "ratingValue": extraData.rating || 5,
+          "bestRating": 5,
+          "worstRating": 1
+        },
+        "author": {
+          "@type": "Person",
+          "name": item.name,
+          "jobTitle": extraData.specialty,
+          "address": extraData.location ? {
+            "@type": "PostalAddress",
+            "addressLocality": extraData.location
+          } : undefined
+        },
+        "reviewBody": item.description,
+        "datePublished": item.created_at,
+        ...(videos.length > 0 && {
+          "video": {
+            "@type": "VideoObject",
+            "name": videos[0].title || item.name,
+            "description": item.description,
+            "thumbnailUrl": videos[0].thumbnail_url || ogImage,
+            "uploadDate": item.created_at,
+            "contentUrl": videos[0].url,
+            "embedUrl": videos[0].embed_url || videos[0].url,
+            "duration": videos[0].duration || "PT5M"
+          }
+        })
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": "Depoimentos", "item": `${baseUrl}/depoimentos` },
+          { "@type": "ListItem", "position": 3, "name": item.name, "item": canonicalUrl }
+        ]
+      }
+    ]
   } : {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -913,19 +964,22 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image" content="${content.og_image_url || content.content_image_url}" />` : ''}
   ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
   
-  <!-- Structured Data: @graph com todos os schemas -->
+  <!-- Structured Data: @graph com TechArticle/HowTo + BreadcrumbList -->
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "Article",
+        "@type": "TechArticle",
         "headline": escapeHtml(content.title),
         "description": escapeHtml(content.excerpt || desc),
         "image": content.og_image_url || content.content_image_url,
         "datePublished": content.created_at,
         "dateModified": content.updated_at,
         "keywords": content.keywords?.join(', ') || undefined,
+        "articleBody": content.content_html?.replace(/<[^>]*>/g, '').substring(0, 5000),
+        "proficiencyLevel": "Expert",
+        "dependencies": recommendedResins.length > 0 ? recommendedResins.map((r: any) => r.name).join(', ') : undefined,
         "author": content.authors ? {
           "@type": "Person",
           "name": escapeHtml(content.authors.name),
