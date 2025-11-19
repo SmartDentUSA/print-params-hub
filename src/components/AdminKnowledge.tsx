@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search, Check, Sparkles } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
@@ -307,6 +307,94 @@ Receba o texto bruto abaixo e:
     } finally {
       setTranscribingPdfId(null);
       setTranscriptionProgress('');
+    }
+  };
+
+  const handleGenerateWithOrchestrator = async () => {
+    console.log('🎯 Iniciando geração com orquestrador...');
+    
+    // Validações
+    if (!formData.title) {
+      toast({
+        title: '⚠️ Título obrigatório',
+        description: 'Preencha o título antes de gerar o conteúdo',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    const hasAnySources = Object.values(orchestratorActiveSources).some(v => v);
+    if (!hasAnySources) {
+      toast({
+        title: '⚠️ Nenhuma fonte selecionada',
+        description: 'Selecione pelo menos uma fonte de conteúdo',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    try {
+      // Preparar dados para a edge function
+      const orchestratorPayload = {
+        title: formData.title,
+        excerpt: formData.excerpt || '',
+        activeSources: orchestratorActiveSources,
+        sources: {
+          rawText: orchestratorExtractedData.rawText || null,
+          pdfTranscription: orchestratorExtractedData.pdfTranscription || null,
+          videoTranscription: orchestratorExtractedData.videoTranscription || null,
+          relatedPdfs: orchestratorExtractedData.relatedPdfs.map(pdf => ({
+            name: pdf.name,
+            content: pdf.content
+          }))
+        },
+        aiPrompt: formData.aiPromptTemplate || '' // prompt configurável
+      };
+      
+      console.log('📤 Payload para ai-orchestrate-content:', {
+        title: orchestratorPayload.title,
+        activeSources: orchestratorPayload.activeSources,
+        sourcesLength: {
+          rawText: orchestratorPayload.sources.rawText?.length || 0,
+          pdfTranscription: orchestratorPayload.sources.pdfTranscription?.length || 0,
+          videoTranscription: orchestratorPayload.sources.videoTranscription?.length || 0,
+          relatedPdfs: orchestratorPayload.sources.relatedPdfs.length,
+          relatedPdfsTotalChars: orchestratorPayload.sources.relatedPdfs.reduce((sum, pdf) => sum + pdf.content.length, 0)
+        }
+      });
+      
+      const { data, error } = await supabase.functions.invoke('ai-orchestrate-content', {
+        body: orchestratorPayload
+      });
+      
+      if (error) {
+        throw new Error(error.message || 'Erro ao chamar a edge function');
+      }
+      
+      if (!data?.html) {
+        throw new Error('Nenhum HTML foi gerado pela IA');
+      }
+      
+      console.log('✅ HTML gerado com sucesso:', data.html.length, 'caracteres');
+      
+      setGeneratedHTML(data.html);
+      
+      toast({
+        title: '✅ Conteúdo gerado!',
+        description: 'Revise o preview abaixo e clique em "Inserir e Salvar"'
+      });
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao gerar conteúdo:', error);
+      toast({
+        title: 'Erro ao gerar conteúdo',
+        description: error.message || 'Tente novamente',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -2660,9 +2748,75 @@ Receba o texto bruto abaixo e:
                     </>
                   )}
                 </div>
+
+                {/* =========== RESUMO DAS FONTES =========== */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="font-semibold mb-3">📊 Resumo das Fontes Selecionadas</h4>
+                  <div className="space-y-2 text-sm">
+                    {orchestratorExtractedData.rawText && (
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        <span>📝 Texto Colado: {orchestratorExtractedData.rawText.length} caracteres</span>
+                      </div>
+                    )}
+                    {orchestratorExtractedData.pdfTranscription && (
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        <span>📄 PDF Upload: {orchestratorExtractedData.pdfTranscription.length} caracteres</span>
+                      </div>
+                    )}
+                    {orchestratorExtractedData.videoTranscription && (
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        <span>🎬 Vídeo: {orchestratorExtractedData.videoTranscription.length} caracteres</span>
+                      </div>
+                    )}
+                    {orchestratorExtractedData.relatedPdfs.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        <span>📚 PDFs da Base: {orchestratorExtractedData.relatedPdfs.length} PDF(s) • {
+                          orchestratorExtractedData.relatedPdfs.reduce((sum, pdf) => sum + pdf.content.length, 0)
+                        } caracteres</span>
+                      </div>
+                    )}
                     
-                    {/* 🆕 FASE 5: Device Mode Buttons */}
-                    <div className="flex gap-2 mb-2">
+                    {Object.values(orchestratorActiveSources).every(v => !v) && (
+                      <p className="text-muted-foreground italic">Nenhuma fonte selecionada</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* =========== BOTÃO GERAR POR IA =========== */}
+                <Button
+                  onClick={handleGenerateWithOrchestrator}
+                  disabled={
+                    isGenerating || 
+                    Object.values(orchestratorActiveSources).every(v => !v) ||
+                    !formData.title
+                  }
+                  className="w-full mt-4"
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Gerando conteúdo...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      🚀 Gerar por IA (Orquestrador)
+                    </>
+                  )}
+                </Button>
+
+                {/* =========== PREVIEW DO HTML GERADO =========== */}
+                {generatedHTML && (
+                  <div className="border-t pt-4 mt-4 space-y-3">
+                    <h4 className="font-semibold">📱 Preview do Conteúdo Gerado</h4>
+                    
+                    {/* Device Mode Buttons */}
+                    <div className="flex gap-2">
                       <Button 
                         size="sm" 
                         variant={deviceMode === 'mobile' ? 'default' : 'outline'}
@@ -2686,36 +2840,23 @@ Receba o texto bruto abaixo e:
                       </Button>
                     </div>
                     
-                    {/* 🆕 FASE 5: Preview COM BlogPreviewFrame */}
+                    {/* Preview Frame */}
                     <div className="border rounded-lg bg-white dark:bg-card" style={{ height: '500px' }}>
-                      <BlogPreviewFrame htmlContent={formData.content_html || generatedHTML} deviceMode={deviceMode} />
+                      <BlogPreviewFrame htmlContent={generatedHTML} deviceMode={deviceMode} />
                     </div>
                     
-                    {/* 🆕 FASE 4: Botão de preview do código HTML */}
-                    <details className="text-xs">
-                      <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                        🔍 Ver código HTML gerado
-                      </summary>
-                      <pre className="mt-2 p-3 bg-gray-100 dark:bg-gray-800 rounded overflow-auto max-h-40 text-xs">
-                        {formData.content_html || generatedHTML}
-                      </pre>
-                    </details>
-                    
-                    {/* Botões */}
+                    {/* Botões de ação */}
                     <div className="flex gap-2">
-                      {/* Botão 1: Inserir sem salvar */}
                       <Button 
                         variant="outline"
                         onClick={() => {
                           setFormData({...formData, content_html: generatedHTML});
-                          setGeneratedHTML(generatedHTML);
                           toast({ title: '✅ Inserido!', description: 'Revise na aba "📝 Conteúdo" e salve manualmente' });
                         }}
                       >
                         ➕ Inserir no Editor (sem salvar)
                       </Button>
                       
-                      {/* Botão 2: Inserir e salvar automaticamente */}
                       <Button 
                         onClick={async () => {
                           // Validação: Campos obrigatórios
@@ -2827,7 +2968,9 @@ Receba o texto bruto abaixo e:
                     </div>
                   </div>
                 )}
-              </TabsContent>
+              </div>
+            )}
+          </TabsContent>
 
               {/* SEO Tab */}
               <TabsContent value="seo" className="space-y-4">
