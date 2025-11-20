@@ -9,14 +9,28 @@ const corsHeaders = {
 };
 
 interface ContentSources {
-  technicalSheet?: string;      // Ficha técnica do produto
-  transcript?: string;           // Transcrição de vídeo/áudio
-  manual?: string;               // Manual do fabricante
-  testimonials?: string;         // Depoimentos de especialistas
-  customPrompt?: string;         // Prompt customizado (opcional)
+  // Campos novos (frontend atual)
+  rawText?: string;
+  pdfTranscription?: string;
+  videoTranscription?: string;
+  relatedPdfs?: Array<{ name: string; content: string }>;
+  
+  // Campos legacy (retrocompatibilidade)
+  technicalSheet?: string;
+  transcript?: string;
+  manual?: string;
+  testimonials?: string;
+  customPrompt?: string;
 }
 
 interface OrchestrationRequest {
+  // Novos campos
+  title?: string;
+  excerpt?: string;
+  activeSources?: Record<string, boolean>;
+  aiPrompt?: string;
+  
+  // Campos legacy
   sources: ContentSources;
   productId?: string;
   productName?: string;
@@ -32,10 +46,16 @@ serve(async (req) => {
   try {
     console.log('🎯 Iniciando geração orquestrada de conteúdo...');
     
-    const { sources, productId, productName, language = 'pt' }: OrchestrationRequest = await req.json();
+    const { sources, title, excerpt, productId, productName, language = 'pt', aiPrompt }: OrchestrationRequest = await req.json();
 
-    // Validar se há pelo menos uma fonte
-    const hasAnySources = Object.values(sources).some(source => source && source.trim().length > 0);
+    // Validar se há pelo menos uma fonte (suporta ambos formatos)
+    const hasAnySources = 
+      (sources.rawText && sources.rawText.trim().length > 0) ||
+      (sources.pdfTranscription && sources.pdfTranscription.trim().length > 0) ||
+      (sources.videoTranscription && sources.videoTranscription.trim().length > 0) ||
+      (sources.relatedPdfs && sources.relatedPdfs.length > 0) ||
+      Object.values(sources).some(source => typeof source === 'string' && source && source.trim().length > 0);
+      
     if (!hasAnySources) {
       throw new Error('É necessário fornecer pelo menos uma fonte de conteúdo');
     }
@@ -108,33 +128,68 @@ serve(async (req) => {
       .join('\n');
 
     // Construir prompt orquestrador
-    const ORCHESTRATOR_PROMPT = `
-${SYSTEM_SUPER_PROMPT}
+    let ORCHESTRATOR_PROMPT = `${SYSTEM_SUPER_PROMPT}\n\n`;
 
-**FUNÇÃO CENTRAL: ORQUESTRADOR DE CONTEÚDO SEMÂNTICO MULTI-FONTE**
+    ORCHESTRATOR_PROMPT += `**FUNÇÃO CENTRAL: ORQUESTRADOR DE CONTEÚDO SEMÂNTICO MULTI-FONTE**\n\n`;
+    ORCHESTRATOR_PROMPT += `Você é o Gerente Editorial de Conteúdo da SmartDent. Sua missão é criar um único artigo técnico-comercial a partir de fontes de dados heterogêneas.\n\n`;
 
-Você é o Gerente Editorial de Conteúdo da SmartDent. Sua missão é criar um único artigo técnico-comercial a partir de fontes de dados heterogêneas.
+    if (title) {
+      ORCHESTRATOR_PROMPT += `## TÍTULO DO ARTIGO:\n${title}\n\n`;
+    }
 
-**DADOS DE ENTRADA:**
+    if (excerpt) {
+      ORCHESTRATOR_PROMPT += `## RESUMO/EXCERPT:\n${excerpt}\n\n`;
+    }
 
-${sources.technicalSheet ? `FICHA TÉCNICA:
-${sources.technicalSheet}
+    ORCHESTRATOR_PROMPT += `**DADOS DE ENTRADA:**\n\n`;
 
-` : ''}${sources.transcript ? `TRANSCRIÇÃO DE VÍDEO/ÁUDIO:
-${sources.transcript}
+    // Processar rawText (texto colado manualmente)
+    if (sources.rawText) {
+      ORCHESTRATOR_PROMPT += `### 📝 TEXTO BRUTO (colado manualmente):\n${sources.rawText}\n\n`;
+    }
 
-` : ''}${sources.manual ? `MANUAL DO FABRICANTE:
-${sources.manual}
+    // Processar pdfTranscription (PDF enviado pelo usuário)
+    if (sources.pdfTranscription) {
+      ORCHESTRATOR_PROMPT += `### 📄 TRANSCRIÇÃO DE PDF:\n${sources.pdfTranscription}\n\n`;
+    }
 
-` : ''}${sources.testimonials ? `DEPOIMENTOS DE ESPECIALISTAS:
-${sources.testimonials}
+    // Processar videoTranscription
+    if (sources.videoTranscription) {
+      ORCHESTRATOR_PROMPT += `### 🎬 TRANSCRIÇÃO DE VÍDEO:\n${sources.videoTranscription}\n\n`;
+    }
 
-` : ''}
+    // Processar relatedPdfs (PDFs da base de conhecimento)
+    if (sources.relatedPdfs && sources.relatedPdfs.length > 0) {
+      ORCHESTRATOR_PROMPT += `### 📚 PDFs DA BASE DE CONHECIMENTO:\n\n`;
+      sources.relatedPdfs.forEach((pdf, index) => {
+        ORCHESTRATOR_PROMPT += `#### PDF ${index + 1}: ${pdf.name}\n${pdf.content}\n\n`;
+      });
+    }
+
+    // Retrocompatibilidade: campos legacy
+    if (sources.technicalSheet) {
+      ORCHESTRATOR_PROMPT += `### FICHA TÉCNICA (legacy):\n${sources.technicalSheet}\n\n`;
+    }
+
+    if (sources.transcript) {
+      ORCHESTRATOR_PROMPT += `### TRANSCRIÇÃO (legacy):\n${sources.transcript}\n\n`;
+    }
+
+    if (sources.manual) {
+      ORCHESTRATOR_PROMPT += `### MANUAL DO FABRICANTE (legacy):\n${sources.manual}\n\n`;
+    }
+
+    if (sources.testimonials) {
+      ORCHESTRATOR_PROMPT += `### DEPOIMENTOS DE ESPECIALISTAS (legacy):\n${sources.testimonials}\n\n`;
+    }
+
+    ORCHESTRATOR_PROMPT += `
 DADOS DO BANCO DE DADOS (Produtos, Resinas, Parâmetros):
 ${JSON.stringify(databaseData, null, 2)}
 
 LISTA DE KEYWORDS COM URLS PARA INTERNAL LINKING:
 ${keywordsWithUrls}
+
 
 **ESTRUTURA DE RÓTULOS SEMÂNTICOS (Mapeamento Interno):**
 Antes de gerar o artigo, identifique e marque mentalmente os trechos com as seguintes tags:
@@ -221,6 +276,15 @@ Antes de gerar o artigo, identifique e marque mentalmente os trechos com as segu
   <p>Use materiais certificados e siga protocolos validados por especialistas. Invista em odontologia digital de qualidade.</p>
 </div>
 
+${aiPrompt ? `
+**INSTRUÇÕES ADICIONAIS DO USUÁRIO:**
+${aiPrompt}
+
+` : sources.customPrompt ? `
+**INSTRUÇÕES ADICIONAIS (legacy):**
+${sources.customPrompt}
+
+` : ''}
 **CRITICAL INTERNAL LINKING:**
 - Sempre que mencionar keywords da lista fornecida, adicione links internos usando: <a href="URL" class="internal-link">Texto Âncora</a>
 - Priorize 5-10 links internos naturalmente distribuídos pelo texto
