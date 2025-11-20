@@ -37,6 +37,16 @@ interface OrchestrationRequest {
   language?: 'pt' | 'en' | 'es';
 }
 
+interface OrchestratorResponse {
+  html: string;
+  faqs: Array<{ question: string; answer: string }>;
+  schemas: {
+    howTo: boolean;
+    faqPage: boolean;
+  };
+  success: boolean;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -247,24 +257,13 @@ Antes de gerar o artigo, identifique e marque mentalmente os trechos com as segu
     <li itemprop="step" itemscope itemtype="https://schema.org/HowToStep">
       <span itemprop="name"><strong>Passo 1:</strong> [Nome do passo]</span>
       <span itemprop="text">[Descrição detalhada] (Tempo: Xs)</span>
-    </li>
+  </li>
     <!-- Lista ordenada completa do [RÓTULO: PROTOCOLO] -->
   </ol>
   
   <div class="cta-panel">
     <p>⚠️ <strong>Importante:</strong> Sempre siga as recomendações do fabricante e as normas de biossegurança.</p>
   </div>
-</div>
-
-<h2 itemscope itemtype="https://schema.org/FAQPage">❓ Perguntas e Respostas com Autoridade</h2>
-<div class="content-card">
-  <div itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-    <h3 itemprop="name">Pergunta 1 relevante?</h3>
-    <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
-      <p itemprop="text">Resposta usando [RÓTULO: VOZ_EAT] e [RÓTULO: PROTOCOLO]. Cite dados técnicos quando relevante.</p>
-    </div>
-  </div>
-  <!-- Gerar exatamente 10 FAQs totais, cobrindo dúvidas técnicas, clínicas e comerciais -->
 </div>
 
 <h2>✅ Conclusão e Voz do Especialista</h2>
@@ -275,6 +274,19 @@ Antes de gerar o artigo, identifique e marque mentalmente os trechos com as segu
   <h3>💡 Proteja Sua Reputação Clínica</h3>
   <p>Use materiais certificados e siga protocolos validados por especialistas. Invista em odontologia digital de qualidade.</p>
 </div>
+
+  </article>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Título do procedimento",
+    "step": []
+  }
+  </script>
+
+[RÓTULO: CONCLUSAO_VOZ_EAT]
 
 ${aiPrompt ? `
 **INSTRUÇÕES ADICIONAIS DO USUÁRIO:**
@@ -290,9 +302,35 @@ ${sources.customPrompt}
 - Priorize 5-10 links internos naturalmente distribuídos pelo texto
 - Use variações naturais do texto âncora (não repita sempre o mesmo)
 
-**RETORNE APENAS O ARTIGO COMPLETO FORMATADO EM HTML VÁLIDO.**
-**NÃO INCLUA \`\`\`html ou qualquer marcador de código.**
-**APENAS O HTML PURO.**
+**FORMATO DE RESPOSTA OBRIGATÓRIO:**
+
+Você DEVE retornar um objeto JSON válido com esta estrutura exata:
+
+{
+  "html": "<!-- Artigo HTML completo SEM a seção de FAQs -->",
+  "faqs": [
+    {
+      "question": "Pergunta 1?",
+      "answer": "Resposta detalhada com dados técnicos..."
+    },
+    {
+      "question": "Pergunta 2?",
+      "answer": "Resposta detalhada..."
+    }
+    // Gerar exatamente 10 FAQs
+  ]
+}
+
+**REGRAS CRÍTICAS:**
+1. Retorne APENAS o JSON válido (sem \`\`\`json ou outros marcadores)
+2. O campo "html" NÃO deve conter a seção <h2>❓ Perguntas e Respostas</h2>
+3. O campo "faqs" deve conter array com exatamente 10 perguntas e respostas
+4. As FAQs devem cobrir: 5 técnicas, 3 clínicas, 2 comerciais
+5. As respostas devem usar dados técnicos quando relevante e ter entre 50-150 palavras
+6. Seja extremamente técnico nos dados do HTML (resistência, módulo, temperatura, etc.)
+7. Cite produtos e resinas do banco de dados quando relevante
+8. Use [RÓTULO] para separar blocos de conteúdo semântico no HTML
+9. Sempre termine o HTML com assinatura do autor ${AUTHOR_SIGNATURE_TOKEN}
 `;
 
     console.log('🤖 Chamando IA para gerar artigo orquestrado...');
@@ -334,22 +372,60 @@ ${sources.customPrompt}
     }
 
     const aiData = await aiResponse.json();
-    const generatedHTML = aiData.choices[0].message.content;
+    const rawContent = aiData.choices[0].message.content;
 
-    console.log('✅ Artigo orquestrado gerado com sucesso');
+    console.log('🔍 Parseando resposta da IA...');
 
-    // Extrair schemas estruturados do HTML
+    let parsedResponse: { html: string; faqs: Array<{ question: string; answer: string }> };
+
+    try {
+      // Tentar parse direto do JSON
+      parsedResponse = JSON.parse(rawContent);
+    } catch (parseError) {
+      console.error('⚠️ Erro ao parsear JSON, tentando limpeza...', parseError);
+      
+      // Limpar possíveis markers de código
+      const cleanedContent = rawContent
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+      
+      try {
+        parsedResponse = JSON.parse(cleanedContent);
+      } catch (secondError) {
+        console.error('❌ Falha total no parse do JSON:', secondError);
+        console.error('📄 Conteúdo recebido:', rawContent.substring(0, 500));
+        throw new Error('IA não retornou JSON válido. Por favor, tente novamente.');
+      }
+    }
+
+    // Validar estrutura da resposta
+    if (!parsedResponse.html || !Array.isArray(parsedResponse.faqs)) {
+      console.error('❌ Resposta inválida:', parsedResponse);
+      throw new Error('IA retornou estrutura inválida (falta html ou faqs)');
+    }
+
+    if (parsedResponse.faqs.length === 0) {
+      console.warn('⚠️ Nenhuma FAQ gerada pela IA');
+    }
+
+    const generatedHTML = parsedResponse.html;
+    const generatedFAQs = parsedResponse.faqs;
+
+    console.log(`✅ Artigo orquestrado gerado: ${generatedHTML.length} chars, ${generatedFAQs.length} FAQs\n`);
+
+    // Extrair schemas estruturados do HTML (HowTo ainda está no HTML)
     const hasHowToSchema = generatedHTML.includes('itemtype="https://schema.org/HowTo"');
-    const hasFAQSchema = generatedHTML.includes('itemtype="https://schema.org/FAQPage"');
-    
+
     const schemas = {
       howTo: hasHowToSchema,
-      faqPage: hasFAQSchema
+      faqPage: generatedFAQs.length > 0 // FAQ existe se temos FAQs separadas
     };
 
     return new Response(
       JSON.stringify({ 
         html: generatedHTML,
+        faqs: generatedFAQs,
         schemas,
         success: true
       }),
