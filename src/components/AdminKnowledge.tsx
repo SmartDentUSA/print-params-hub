@@ -431,19 +431,24 @@ Receba o texto bruto abaixo e:
     }
     
     setTranscribingOrchestratorPdfs(prev => new Set([...prev, doc.id]));
-    setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Baixando PDF...' }));
+    setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Verificando cache...' }));
     
     try {
-      const pdfBase64 = await downloadPdfAsBase64(doc.file_url);
+      // Usar nova edge function com cache
+      const documentType = doc.product_id ? 'catalog' : 'resin';
       
-      setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Extraindo texto (até 2 min)...' }));
+      setOrchestratorPdfProgress(prev => ({ ...prev, [doc.id]: 'Extraindo texto (pode usar cache)...' }));
       
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Timeout')), 120000)
       );
       
-      const invokePromise = supabase.functions.invoke('ai-enrich-pdf-content', {
-        body: { pdfBase64 }
+      const invokePromise = supabase.functions.invoke('extract-and-cache-pdf', {
+        body: { 
+          documentId: doc.id,
+          documentType,
+          forceReExtract: false
+        }
       });
       
       const result = await Promise.race([invokePromise, timeoutPromise]) as any;
@@ -451,7 +456,7 @@ Receba o texto bruto abaixo e:
       
       if (error) throw error;
       
-      const extractedText = data.enrichedText || data.rawText;
+      const extractedText = data.text;
       
       if (!extractedText) {
         throw new Error('Nenhum texto foi extraído do PDF');
@@ -465,7 +470,8 @@ Receba o texto bruto abaixo e:
           {
             id: doc.id,
             name: doc.document_name,
-            content: extractedText
+            content: extractedText,
+            cached: data.cached
           }
         ]
       }));
@@ -473,12 +479,13 @@ Receba o texto bruto abaixo e:
       console.log('✅ PDF transcrito para orquestrador:', {
         id: doc.id,
         name: doc.document_name,
-        contentLength: extractedText.length
+        contentLength: extractedText.length,
+        cached: data.cached
       });
       
       toast({
-        title: '✅ PDF adicionado às fontes!',
-        description: `${doc.document_name} (${extractedText.length} caracteres)`,
+        title: data.cached ? '⚡ PDF carregado do cache!' : '✅ PDF processado e salvo!',
+        description: `${doc.document_name} ${data.cached ? '(instantâneo)' : `(${data.tokens || 0} tokens)`}`,
         duration: 5000
       });
       
@@ -2802,8 +2809,7 @@ Receba o texto bruto abaixo e:
                   onClick={handleGenerateWithOrchestrator}
                   disabled={
                     isGenerating || 
-                    Object.values(orchestratorActiveSources).every(v => !v) ||
-                    !formData.title
+                    Object.values(orchestratorActiveSources).every(v => !v)
                   }
                   className="w-full mt-4"
                   size="lg"
