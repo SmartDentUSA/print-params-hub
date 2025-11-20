@@ -330,7 +330,6 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
 6. Seja extremamente técnico nos dados do HTML (resistência, módulo, temperatura, etc.)
 7. Cite produtos e resinas do banco de dados quando relevante
 8. Use [RÓTULO] para separar blocos de conteúdo semântico no HTML
-9. Sempre termine o HTML com assinatura do autor ${AUTHOR_SIGNATURE_TOKEN}
 `;
 
     console.log('🤖 Chamando IA para gerar artigo orquestrado...');
