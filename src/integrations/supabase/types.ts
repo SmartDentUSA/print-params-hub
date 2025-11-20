@@ -113,6 +113,13 @@ export type Database = {
           created_at: string | null
           document_description: string | null
           document_name: string
+          extracted_at: string | null
+          extracted_text: string | null
+          extraction_error: string | null
+          extraction_method: string | null
+          extraction_status: string | null
+          extraction_tokens: number | null
+          file_hash: string | null
           file_name: string
           file_size: number | null
           file_url: string
@@ -126,6 +133,13 @@ export type Database = {
           created_at?: string | null
           document_description?: string | null
           document_name: string
+          extracted_at?: string | null
+          extracted_text?: string | null
+          extraction_error?: string | null
+          extraction_method?: string | null
+          extraction_status?: string | null
+          extraction_tokens?: number | null
+          file_hash?: string | null
           file_name: string
           file_size?: number | null
           file_url: string
@@ -139,6 +153,13 @@ export type Database = {
           created_at?: string | null
           document_description?: string | null
           document_name?: string
+          extracted_at?: string | null
+          extracted_text?: string | null
+          extraction_error?: string | null
+          extraction_method?: string | null
+          extraction_status?: string | null
+          extraction_tokens?: number | null
+          file_hash?: string | null
           file_name?: string
           file_size?: number | null
           file_url?: string
@@ -679,6 +700,13 @@ export type Database = {
           created_at: string | null
           document_description: string | null
           document_name: string
+          extracted_at: string | null
+          extracted_text: string | null
+          extraction_error: string | null
+          extraction_method: string | null
+          extraction_status: string | null
+          extraction_tokens: number | null
+          file_hash: string | null
           file_name: string
           file_size: number | null
           file_url: string
@@ -692,6 +720,13 @@ export type Database = {
           created_at?: string | null
           document_description?: string | null
           document_name: string
+          extracted_at?: string | null
+          extracted_text?: string | null
+          extraction_error?: string | null
+          extraction_method?: string | null
+          extraction_status?: string | null
+          extraction_tokens?: number | null
+          file_hash?: string | null
           file_name: string
           file_size?: number | null
           file_url: string
@@ -705,6 +740,13 @@ export type Database = {
           created_at?: string | null
           document_description?: string | null
           document_name?: string
+          extracted_at?: string | null
+          extracted_text?: string | null
+          extraction_error?: string | null
+          extraction_method?: string | null
+          extraction_status?: string | null
+          extraction_tokens?: number | null
+          file_hash?: string | null
           file_name?: string
           file_size?: number | null
           file_url?: string

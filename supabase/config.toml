@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.ai-orchestrate-content]
 verify_jwt = false
+
+[functions.extract-and-cache-pdf]
+verify_jwt = false
