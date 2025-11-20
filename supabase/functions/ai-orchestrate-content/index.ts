@@ -29,6 +29,8 @@ interface OrchestrationRequest {
   excerpt?: string;
   activeSources?: Record<string, boolean>;
   aiPrompt?: string;
+  selectedResinIds?: string[];
+  selectedProductIds?: string[];
   
   // Campos legacy
   sources: ContentSources;
@@ -56,7 +58,17 @@ serve(async (req) => {
   try {
     console.log('🎯 Iniciando geração orquestrada de conteúdo...');
     
-    const { sources, title, excerpt, productId, productName, language = 'pt', aiPrompt }: OrchestrationRequest = await req.json();
+    const { 
+      sources, 
+      title, 
+      excerpt, 
+      productId, 
+      productName, 
+      language = 'pt', 
+      aiPrompt,
+      selectedResinIds = [],
+      selectedProductIds = []
+    }: OrchestrationRequest = await req.json();
 
     // Validar se há pelo menos uma fonte (suporta ambos formatos)
     const hasAnySources = 
@@ -124,6 +136,127 @@ serve(async (req) => {
     } catch (error) {
       console.error('⚠️ Erro ao buscar dados complementares:', error);
       // Continua mesmo se falhar a busca de dados complementares
+    }
+
+    // 🎯 ENRIQUECIMENTO VIA CTAs: Buscar dados detalhados dos produtos selecionados
+    let detailedProductsContext = '';
+    
+    if (selectedResinIds.length > 0 || selectedProductIds.length > 0) {
+      console.log(`🔍 Buscando dados detalhados de ${selectedResinIds.length} resinas e ${selectedProductIds.length} produtos selecionados...`);
+      
+      const detailedProducts = [];
+      
+      // Buscar resinas selecionadas com documentos
+      if (selectedResinIds.length > 0) {
+        const { data: selectedResins } = await supabase
+          .from('resins')
+          .select(`
+            id, name, manufacturer, type, description, price, color,
+            cta_1_label, cta_1_url, cta_2_label, cta_2_url,
+            system_a_product_url
+          `)
+          .in('id', selectedResinIds);
+
+        // Buscar documentos técnicos das resinas
+        for (const resin of selectedResins || []) {
+          const { data: docs } = await supabase
+            .from('resin_documents')
+            .select('extracted_text, document_name')
+            .eq('resin_id', resin.id)
+            .eq('active', true)
+            .limit(2);
+
+          detailedProducts.push({
+            type: 'resin',
+            ...resin,
+            technicalDocs: docs?.map(d => ({
+              name: d.document_name,
+              text: d.extracted_text?.substring(0, 1500)
+            }))
+          });
+        }
+      }
+
+      // Buscar produtos selecionados com documentos
+      if (selectedProductIds.length > 0) {
+        const { data: selectedProducts } = await supabase
+          .from('system_a_catalog')
+          .select(`
+            id, name, category, description, price, image_url,
+            cta_1_label, cta_1_url, cta_2_label, cta_2_url,
+            product_category, product_subcategory
+          `)
+          .in('id', selectedProductIds);
+
+        // Buscar documentos técnicos dos produtos
+        for (const product of selectedProducts || []) {
+          const { data: docs } = await supabase
+            .from('catalog_documents')
+            .select('extracted_text, document_name')
+            .eq('product_id', product.id)
+            .eq('active', true)
+            .limit(2);
+
+          // Buscar artigos relacionados
+          const { data: relatedArticles } = await supabase
+            .from('knowledge_contents')
+            .select('title, slug')
+            .contains('recommended_products', [product.id])
+            .eq('active', true)
+            .limit(3);
+
+          detailedProducts.push({
+            type: 'product',
+            ...product,
+            technicalDocs: docs?.map(d => ({
+              name: d.document_name,
+              text: d.extracted_text?.substring(0, 1500)
+            })),
+            relatedArticles: relatedArticles?.map(a => ({ title: a.title, slug: a.slug }))
+          });
+        }
+      }
+
+      // Montar contexto enriquecido
+      if (detailedProducts.length > 0) {
+        detailedProductsContext = `
+
+🎯 PRODUTOS ESPECÍFICOS SELECIONADOS PELO USUÁRIO (USE APENAS ESTES):
+
+${detailedProducts.map(item => `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📦 ${item.type === 'resin' ? 'RESINA' : 'PRODUTO'}: **${item.name}**
+${item.manufacturer ? `Fabricante: ${item.manufacturer}` : ''}
+${item.category ? `Categoria: ${item.category}` : ''}
+${item.price ? `Preço: R$ ${item.price}` : ''}
+${item.description ? `Descrição: ${item.description}` : ''}
+
+${item.technicalDocs?.length > 0 ? `
+📄 Dados Técnicos Extraídos:
+${item.technicalDocs.map(doc => `
+  • ${doc.name}:
+  ${doc.text || 'Documento sem texto extraído'}
+`).join('\n')}
+` : ''}
+
+${item.relatedArticles?.length > 0 ? `
+📚 Artigos Relacionados:
+${item.relatedArticles.map(art => `  • ${art.title} (/conhecimento/${art.slug})`).join('\n')}
+` : ''}
+
+${item.cta_1_url ? `🔗 Link Principal: ${item.cta_1_url}` : ''}
+${item.system_a_product_url ? `🔗 Sistema A: ${item.system_a_product_url}` : ''}
+`).join('\n')}
+
+⚠️ IMPORTANTE: 
+- Cite APENAS os produtos listados acima
+- Use os dados técnicos extraídos dos PDFs
+- Mencione os artigos relacionados quando relevante
+- NÃO invente produtos ou especificações que não estão aqui
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+        console.log(`✅ Contexto enriquecido gerado com ${detailedProducts.length} itens`);
+      }
     }
 
     // Buscar links externos para internal linking
@@ -194,8 +327,18 @@ serve(async (req) => {
     }
 
     ORCHESTRATOR_PROMPT += `
-DADOS DO BANCO DE DADOS (Produtos, Resinas, Parâmetros):
-${JSON.stringify(databaseData, null, 2)}
+📊 DADOS DO BANCO (use quando relevante):
+
+${detailedProductsContext || `
+Produtos disponíveis no catálogo:
+${databaseData.products?.map((p: any) => `- ${p.name} (${p.category}) - R$ ${p.price || 'Consulte'}`).join('\n') || 'Nenhum produto encontrado'}
+
+Resinas disponíveis:
+${databaseData.resins?.map((r: any) => `- ${r.name} (${r.manufacturer}) - Tipo: ${r.type}`).join('\n') || 'Nenhuma resina encontrada'}
+
+Parâmetros de impressão disponíveis:
+${databaseData.parameters?.map((p: any) => `- ${p.brand_slug} ${p.model_slug}: ${p.resin_manufacturer} ${p.resin_name} (Layer: ${p.layer_height}mm, Cure: ${p.cure_time}s, Light: ${p.light_intensity}%)`).join('\n') || 'Nenhum parâmetro encontrado'}
+`}
 
 LISTA DE KEYWORDS COM URLS PARA INTERNAL LINKING:
 ${keywordsWithUrls}
