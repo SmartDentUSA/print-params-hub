@@ -78,7 +78,7 @@ serve(async (req) => {
     const pdfBase64 = btoa(String.fromCharCode(...fileBuffer));
 
     // Calcular hash do arquivo
-    const hashBuffer = await crypto.subtle.digest('MD5', fileArrayBuffer);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', fileArrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
