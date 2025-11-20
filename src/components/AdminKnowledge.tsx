@@ -365,14 +365,25 @@ Receba o texto bruto abaixo e:
         }
       });
       
-      const { data, error } = await supabase.functions.invoke('ai-orchestrate-content', {
-        body: orchestratorPayload
-      });
-      
-      if (error) {
-        throw new Error(error.message || 'Erro ao chamar a edge function');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrate-content`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify(orchestratorPayload)
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
       }
-      
+
+      const data = await response.json();
+
       if (!data?.html) {
         throw new Error('Nenhum HTML foi gerado pela IA');
       }
