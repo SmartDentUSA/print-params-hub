@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search, Check, Sparkles } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Upload, X, ExternalLink, AlertCircle, Loader2, Video, Search, Check, Sparkles, HelpCircle } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { KnowledgeEditor } from '@/components/KnowledgeEditor';
 import { ProductCTAMultiSelect } from '@/components/ProductCTAMultiSelect';
@@ -48,7 +48,6 @@ export function AdminKnowledge() {
   // AI Generation states
   const [rawTextInput, setRawTextInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedHTML, setGeneratedHTML] = useState('');
   const [deviceMode, setDeviceMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   
   // Orchestrator states
@@ -123,6 +122,8 @@ export function AdminKnowledge() {
   
   // Metadata generation states
   const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
+  const [generatedHTML, setGeneratedHTML] = useState<string | null>(null);
+  const [generatedFAQs, setGeneratedFAQs] = useState<Array<{ question: string; answer: string }> | null>(null);
   const [showKeywords, setShowKeywords] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const { keywords, documents, updateKeywordUrl, loading } = useExternalLinks();
@@ -413,6 +414,61 @@ Receba o texto bruto abaixo e:
     }
   };
 
+  const handleInsertGeneratedHTML = async () => {
+    if (!generatedHTML) return;
+    
+    try {
+      console.log('💾 Salvando HTML + FAQs geradas...');
+      
+      // Atualizar formData com HTML + FAQs
+      const updates: any = {
+        content_html: generatedHTML,
+      };
+
+      // Salvar FAQs se foram geradas
+      if (generatedFAQs && generatedFAQs.length > 0) {
+        updates.faqs = generatedFAQs;
+      }
+      
+      setFormData(prev => ({ ...prev, ...updates }));
+      
+      // Se for edição, salvar direto no banco
+      if (editingContent?.id) {
+        const { error } = await supabase
+          .from('knowledge_contents')
+          .update(updates)
+          .eq('id', editingContent.id);
+        
+        if (error) throw error;
+        
+        toast({
+          title: '✅ Conteúdo atualizado!',
+          description: `HTML inserido + ${generatedFAQs?.length || 0} FAQs salvas`
+        });
+        
+        // Recarregar dados
+        loadContents();
+      } else {
+        toast({
+          title: '✅ HTML e FAQs inseridos!',
+          description: `Lembre-se de salvar o artigo para persistir. ${generatedFAQs?.length || 0} FAQs prontas.`
+        });
+      }
+      
+      // Limpar preview
+      setGeneratedHTML(null);
+      setGeneratedFAQs(null);
+      
+    } catch (error: any) {
+      console.error('❌ Erro ao inserir HTML:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: error.message,
+        variant: 'destructive'
+      });
+    }
+  };
+
   const handleTranscribePdfForOrchestrator = async (doc: any) => {
     // Verificar se já está transcrito
     if (orchestratorExtractedData.relatedPdfs.some(pdf => pdf.id === doc.id)) {
@@ -568,7 +624,8 @@ Receba o texto bruto abaixo e:
     setEditingContent(content);
     setContentEditorMode('html');
     setPromptEdited(false);
-    setGeneratedHTML('');
+    setGeneratedHTML(null);
+    setGeneratedFAQs(null);
     setRawTextInput('');
     setPendingAutoSave(false);
     setPreviousHTML(null);
@@ -621,7 +678,8 @@ Receba o texto bruto abaixo e:
     setEditingContent(null);
     setContentEditorMode('html');
     setPromptEdited(false);
-    setGeneratedHTML('');
+    setGeneratedHTML(null);
+    setGeneratedFAQs(null);
     setRawTextInput('');
     setPendingAutoSave(false);
     setPreviousHTML(null);
@@ -2841,6 +2899,80 @@ Receba o texto bruto abaixo e:
                     
                     {/* Device Mode Buttons */}
                     <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant={deviceMode === 'mobile' ? 'default' : 'outline'}
+                        onClick={() => setDeviceMode('mobile')}
+                      >
+                        📱 Mobile
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={deviceMode === 'tablet' ? 'default' : 'outline'}
+                        onClick={() => setDeviceMode('tablet')}
+                      >
+                        📱 Tablet
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={deviceMode === 'desktop' ? 'default' : 'outline'}
+                        onClick={() => setDeviceMode('desktop')}
+                      >
+                        💻 Desktop
+                      </Button>
+                    </div>
+                    
+                    {/* Preview Frame */}
+                    <div className="border rounded-lg bg-white dark:bg-card" style={{ height: '500px' }}>
+                      <BlogPreviewFrame htmlContent={generatedHTML || ''} deviceMode={deviceMode} />
+                    </div>
+                    
+                    {/* ✅ NOVO: Preview das FAQs separadas */}
+                    {generatedFAQs && generatedFAQs.length > 0 && (
+                      <div className="mt-4 p-4 border rounded-lg bg-muted/30">
+                        <h3 className="font-bold mb-3 flex items-center gap-2">
+                          <HelpCircle className="w-5 h-5" />
+                          📋 FAQs Geradas ({generatedFAQs.length})
+                        </h3>
+                        <ScrollArea className="h-60">
+                          <div className="space-y-2 pr-4">
+                            {generatedFAQs.map((faq, idx) => (
+                              <div key={idx} className="p-3 bg-background rounded border">
+                                <p className="font-medium text-sm mb-1">{idx + 1}. {faq.question}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-2">{faq.answer}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    )}
+                    
+                    {/* Botões de ação */}
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline"
+                        onClick={handleInsertGeneratedHTML}
+                      >
+                        ➕ Inserir HTML + FAQs
+                      </Button>
+                      
+                      <Button 
+                        onClick={() => {
+                          setGeneratedHTML(null);
+                          setGeneratedFAQs(null);
+                        }}
+                      >
+                        🗑️ Descartar Preview
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* ========== ANTIGO CÓDIGO (NÃO USADO) ========== */}
+                {false && generatedHTML && (
+                  <div className="mt-4">
+                    {/* Seletor de dispositivos */}
+                    <div className="flex gap-2 mb-2">
                       <Button 
                         size="sm" 
                         variant={deviceMode === 'mobile' ? 'default' : 'outline'}
