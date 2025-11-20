@@ -42,6 +42,14 @@ interface OrchestrationRequest {
 interface OrchestratorResponse {
   html: string;
   faqs: Array<{ question: string; answer: string }>;
+  metadata: {
+    educationalLevel: string;
+    learningResourceType: string;
+    timeRequired: string;
+    proficiencyLevel: string;
+    teaches: string[];
+    aiContext: string;
+  };
   schemas: {
     howTo: boolean;
     faqPage: boolean;
@@ -217,43 +225,63 @@ serve(async (req) => {
         }
       }
 
-      // Montar contexto enriquecido
+      // Montar contexto enriquecido com SISTEMA DE PRIORIDADE
       if (detailedProducts.length > 0) {
         detailedProductsContext = `
 
-🎯 PRODUTOS ESPECÍFICOS SELECIONADOS PELO USUÁRIO (USE APENAS ESTES):
+═══════════════════════════════════════════════════════════
+🎯 PRODUTOS PRIORITÁRIOS (SELECIONADOS PARA DESTAQUE COMERCIAL)
+═══════════════════════════════════════════════════════════
 
 ${detailedProducts.map(item => `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📦 ${item.type === 'resin' ? 'RESINA' : 'PRODUTO'}: **${item.name}**
-${item.manufacturer ? `Fabricante: ${item.manufacturer}` : ''}
-${item.category ? `Categoria: ${item.category}` : ''}
-${item.price ? `Preço: R$ ${item.price}` : ''}
-${item.description ? `Descrição: ${item.description}` : ''}
+━━━ ${item.name} (${item.manufacturer || item.category}) ━━━
+
+📋 DADOS TÉCNICOS:
+${item.description || 'Sem descrição'}
 
 ${item.technicalDocs?.length > 0 ? `
-📄 Dados Técnicos Extraídos:
+📄 ESPECIFICAÇÕES COMPLETAS:
 ${item.technicalDocs.map(doc => `
   • ${doc.name}:
   ${doc.text || 'Documento sem texto extraído'}
 `).join('\n')}
 ` : ''}
 
+💰 DADOS COMERCIAIS:
+- Preço: ${item.price ? `R$ ${item.price}` : 'Consultar'}
+- URL de compra: ${item.cta_1_url || item.system_a_product_url || 'Consultar'}
+
 ${item.relatedArticles?.length > 0 ? `
-📚 Artigos Relacionados:
-${item.relatedArticles.map(art => `  • ${art.title} (/conhecimento/${art.slug})`).join('\n')}
+🔗 ARTIGOS RELACIONADOS:
+${item.relatedArticles.map(a => `- ${a.title} (/base-conhecimento/${a.slug})`).join('\n')}
 ` : ''}
 
-${item.cta_1_url ? `🔗 Link Principal: ${item.cta_1_url}` : ''}
-${item.system_a_product_url ? `🔗 Sistema A: ${item.system_a_product_url}` : ''}
 `).join('\n')}
 
-⚠️ IMPORTANTE: 
-- Cite APENAS os produtos listados acima
-- Use os dados técnicos extraídos dos PDFs
-- Mencione os artigos relacionados quando relevante
-- NÃO invente produtos ou especificações que não estão aqui
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+═══════════════════════════════════════════════════════════
+⚠️ INSTRUÇÕES CRÍTICAS DE PRIORIZAÇÃO
+═══════════════════════════════════════════════════════════
+
+1️⃣ PRIORIDADE MÁXIMA (OBRIGATÓRIO):
+   - Criar seções dedicadas e detalhadas para cada produto acima
+   - Incluir todas as especificações técnicas listadas
+   - Mencionar preços e links de compra quando disponíveis
+   - Adicionar CTAs naturais ao longo do texto
+   - Dar mais destaque (mais texto, mais detalhes) a estes produtos
+
+2️⃣ PRIORIDADE SECUNDÁRIA (PERMITIDO):
+   - Se as fontes de conteúdo (PDFs, vídeos, textos) mencionarem outros produtos/soluções, você PODE citá-los
+   - Mas mantenha essas menções mais breves e contextuais
+   - Não forneça especificações completas de produtos não listados acima
+   - Não adicione CTAs para produtos não listados
+
+3️⃣ PROIBIDO (NUNCA FAÇA):
+   - Inventar produtos que não existem
+   - Criar especificações técnicas não fornecidas
+   - Mencionar preços de produtos não listados acima
+   - Citar estudos ou dados não presentes nas fontes
+
+OBJETIVO: Criar um artigo completo e educacional que reflete fielmente as fontes fornecidas, mas com foco comercial estratégico nos produtos prioritários listados acima.
 `;
         console.log(`✅ Contexto enriquecido gerado com ${detailedProducts.length} itens`);
       }
@@ -445,6 +473,23 @@ ${sources.customPrompt}
 - Priorize 5-10 links internos naturalmente distribuídos pelo texto
 - Use variações naturais do texto âncora (não repita sempre o mesmo)
 
+═══════════════════════════════════════════════════════════
+⚙️ SCHEMAS AVANÇADOS OBRIGATÓRIOS (SEO + IA REGENERATIVA 2025)
+═══════════════════════════════════════════════════════════
+
+1️⃣ LearningResource Schema (inclua nos metadados):
+   - educationalLevel: "professional" (para dentistas/protéticos) ou "expert" (para especialistas)
+   - learningResourceType: "how-to" (tutoriais) ou "reference" (fichas técnicas)
+   - timeRequired: estimativa em minutos de leitura (ex: "PT15M" para 15 minutos)
+
+2️⃣ TechArticle Schema:
+   - proficiencyLevel: "Expert" ou "Intermediate"
+   - teaches: lista de conceitos/habilidades ensinados
+
+3️⃣ AI-context (para ChatGPT/Perplexity):
+   - Gerar uma descrição contextual para IA regenerativa (50-100 palavras)
+   - Exemplo: "Conteúdo técnico-científico sobre impressão 3D odontológica. Público-alvo: cirurgiões-dentistas e técnicos em prótese. Nível: Expert. Tipo: Tutorial prático com protocolo clínico validado."
+
 **FORMATO DE RESPOSTA OBRIGATÓRIO:**
 
 Você DEVE retornar um objeto JSON válido com esta estrutura exata:
@@ -461,7 +506,15 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
       "answer": "Resposta detalhada..."
     }
     // Gerar exatamente 10 FAQs
-  ]
+  ],
+  "metadata": {
+    "educationalLevel": "professional",
+    "learningResourceType": "how-to",
+    "timeRequired": "PT15M",
+    "proficiencyLevel": "Expert",
+    "teaches": ["impressão 3D odontológica", "configuração de parâmetros", "workflow digital"],
+    "aiContext": "Conteúdo técnico-científico sobre impressão 3D odontológica..."
+  }
 }
 
 **REGRAS CRÍTICAS:**
@@ -471,8 +524,9 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
 4. As FAQs devem cobrir: 5 técnicas, 3 clínicas, 2 comerciais
 5. As respostas devem usar dados técnicos quando relevante e ter entre 50-150 palavras
 6. Seja extremamente técnico nos dados do HTML (resistência, módulo, temperatura, etc.)
-7. Cite produtos e resinas do banco de dados quando relevante
+7. Cite produtos e resinas prioritários do contexto enriquecido quando relevante
 8. Use [RÓTULO] para separar blocos de conteúdo semântico no HTML
+9. O campo "metadata" é OBRIGATÓRIO e deve incluir todos os campos listados acima
 `;
 
     console.log('🤖 Chamando IA para gerar artigo orquestrado...');
@@ -521,23 +575,31 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
     let parsedResponse: { html: string; faqs: Array<{ question: string; answer: string }> };
 
     try {
-      // Tentar parse direto do JSON
       parsedResponse = JSON.parse(rawContent);
     } catch (parseError) {
       console.error('⚠️ Erro ao parsear JSON, tentando limpeza...', parseError);
       
-      // Limpar possíveis markers de código
-      const cleanedContent = rawContent
+      // Limpeza progressiva
+      let cleanedContent = rawContent
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
       
+      // Extrair apenas o JSON válido
+      const jsonStart = cleanedContent.indexOf('{');
+      const jsonEnd = cleanedContent.lastIndexOf('}');
+      
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+      }
+      
       try {
         parsedResponse = JSON.parse(cleanedContent);
+        console.log('✅ JSON parseado com sucesso após limpeza');
       } catch (secondError) {
         console.error('❌ Falha total no parse do JSON:', secondError);
-        console.error('📄 Conteúdo recebido:', rawContent.substring(0, 500));
-        throw new Error('IA não retornou JSON válido. Por favor, tente novamente.');
+        console.error('📄 Primeiros 500 chars:', rawContent.substring(0, 500));
+        throw new Error('IA não retornou JSON válido. Tente novamente.');
       }
     }
 
@@ -568,6 +630,14 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
       JSON.stringify({ 
         html: generatedHTML,
         faqs: generatedFAQs,
+        metadata: parsedResponse.metadata || {
+          educationalLevel: 'professional',
+          learningResourceType: 'how-to',
+          timeRequired: 'PT10M',
+          proficiencyLevel: 'Expert',
+          teaches: [],
+          aiContext: ''
+        },
         schemas,
         success: true
       }),

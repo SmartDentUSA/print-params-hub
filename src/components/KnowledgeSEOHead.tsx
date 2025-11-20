@@ -356,6 +356,17 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     return mentions;
   })() : [];
 
+  // 🆕 Preparar sameAs links do autor
+  const authorSameAs = content.authors ? [
+    content.authors.lattes_url,
+    content.authors.linkedin_url,
+    content.authors.instagram_url,
+    content.authors.youtube_url,
+    content.authors.facebook_url,
+    content.authors.twitter_url,
+    content.authors.website_url
+  ].filter(Boolean) : [];
+
   const articleSchema: any = {
     "@context": "https://schema.org",
     "@type": isTechnicalPage ? "TechArticle" : "Article",
@@ -368,11 +379,16 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "articleBody": articleBody,
     "wordCount": wordCount,
     "inLanguage": htmlLang,
+    // 🆕 TechArticle com proficiencyLevel
+    ...(isTechnicalPage && { "proficiencyLevel": "Expert" }),
+    // 🆕 Autor com sameAs links (E-E-A-T)
     "author": content.authors ? {
       "@type": "Person",
       "name": content.authors.name,
+      "jobTitle": content.authors.specialty,
       "url": content.authors.website_url,
-      "image": content.authors.photo_url
+      "image": content.authors.photo_url,
+      ...(authorSameAs.length > 0 && { "sameAs": authorSameAs })
     } : { 
       "@type": "Organization", 
       "name": "Smart Dent" 
@@ -450,6 +466,25 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   if (videoSchemas.length > 0) {
     articleSchema.video = videoSchemas;
   }
+
+  // 🆕 LearningResource Schema (SEO + IA Regenerativa 2025)
+  const learningResourceSchema = {
+    "@context": "https://schema.org",
+    "@type": "LearningResource",
+    "name": displayTitle,
+    "description": content.meta_description || content.excerpt,
+    "educationalLevel": isTechnicalPage ? "professional" : "expert",
+    "learningResourceType": content.content_html?.includes('itemtype="https://schema.org/HowTo') ? "how-to" : "reference",
+    "timeRequired": `PT${Math.ceil(wordCount / 200)}M`, // ~200 palavras/min
+    "inLanguage": htmlLang,
+    "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
+    "author": articleSchema.author,
+    "datePublished": articleSchema.datePublished,
+    "teaches": content.keywords?.slice(0, 5) || []
+  };
+
+  // 🆕 AI-context para IA regenerativa (ChatGPT, Perplexity)
+  const aiContextMeta = `Conteúdo técnico-científico sobre impressão 3D odontológica e materiais dentais. Público-alvo: cirurgiões-dentistas, protéticos e especialistas em odontologia digital. Nível: ${isTechnicalPage ? 'Expert' : 'Profissional'}. Tipo: ${content.content_html?.includes('itemtype="https://schema.org/HowTo') ? 'Tutorial prático com protocolo clínico' : 'Artigo técnico de referência'}.`;
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
@@ -613,36 +648,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             ...videoSchemas,
             ...(faqSchema ? [faqSchema] : []),
             ...(howToSchema ? [howToSchema] : []),
-            // FASE 2: LearningResource Schema para IA Regenerativa
-            {
-              "@type": "LearningResource",
-              "name": displayTitle,
-              "description": content.excerpt,
-              "abstract": content.meta_description || content.excerpt,
-              "learningResourceType": "Article",
-              "educationalLevel": "Expert",
-              "teaches": content.keywords?.slice(0, 5) || [],
-              "competencyRequired": "Conhecimento em odontologia e impressão 3D",
-              "audience": {
-                "@type": "EducationalAudience",
-                "educationalRole": "Professional",
-                "audienceType": "Cirurgiões-dentistas, técnicos em prótese dentária"
-              },
-              "inLanguage": currentLang === 'pt' ? 'pt-BR' : currentLang === 'en' ? 'en-US' : 'es-ES',
-              "isAccessibleForFree": true,
-              "author": {
-                "@type": "Organization",
-                "name": "Smart Dent",
-                "url": "https://smartdent.com.br"
-              },
-              "publisher": {
-                "@type": "Organization",
-                "name": "Smart Dent",
-                "url": "https://smartdent.com.br"
-              },
-              "datePublished": content.created_at || new Date().toISOString(),
-              "dateModified": content.updated_at || new Date().toISOString()
-            }
+            // 🆕 FASE 3: LearningResource Schema Avançado (SEO + IA 2025)
+            learningResourceSchema
           ]
         })}
       </script>
