@@ -344,6 +344,9 @@ Receba o texto bruto abaixo e:
         title: formData.title,
         excerpt: formData.excerpt || '',
         activeSources: orchestratorActiveSources,
+        // ✅ NOVO: Enviar produtos/resinas selecionados para priorização comercial
+        selectedResinIds: formData.recommended_resins || [],
+        selectedProductIds: formData.recommended_products || [],
         sources: {
           rawText: orchestratorExtractedData.rawText || null,
           pdfTranscription: orchestratorExtractedData.pdfTranscription || null,
