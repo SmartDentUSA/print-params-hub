@@ -312,17 +312,19 @@ Receba o texto bruto abaixo e:
 
   const handleGenerateWithOrchestrator = async () => {
     console.log('🎯 Iniciando geração com orquestrador...');
+    console.log('📊 Estado atual:', {
+      temTitulo: !!formData.title,
+      temResumo: !!formData.excerpt,
+      fontesAtivas: orchestratorActiveSources,
+      dadosExtraidos: {
+        rawText: orchestratorExtractedData.rawText?.length || 0,
+        pdfTranscription: orchestratorExtractedData.pdfTranscription?.length || 0,
+        videoTranscription: orchestratorExtractedData.videoTranscription?.length || 0,
+        relatedPdfs: orchestratorExtractedData.relatedPdfs.length
+      }
+    });
     
     // Validações
-    if (!formData.title) {
-      toast({
-        title: '⚠️ Título obrigatório',
-        description: 'Preencha o título antes de gerar o conteúdo',
-        variant: 'destructive'
-      });
-      return;
-    }
-    
     const hasAnySources = Object.values(orchestratorActiveSources).some(v => v);
     if (!hasAnySources) {
       toast({
@@ -371,7 +373,7 @@ Receba o texto bruto abaixo e:
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
           },
           body: JSON.stringify(orchestratorPayload)
         }
@@ -379,12 +381,14 @@ Receba o texto bruto abaixo e:
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Erro HTTP:', response.status, errorText);
         throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
 
       if (!data?.html) {
+        console.error('❌ Resposta inválida:', data);
         throw new Error('Nenhum HTML foi gerado pela IA');
       }
       
@@ -454,7 +458,10 @@ Receba o texto bruto abaixo e:
       const result = await Promise.race([invokePromise, timeoutPromise]) as any;
       const { data, error } = result;
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erro ao chamar extract-and-cache-pdf:', error);
+        throw new Error(`Falha na extração: ${error.message || 'Função não encontrada'}`);
+      }
       
       const extractedText = data.text;
       
