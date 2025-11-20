@@ -75,7 +75,15 @@ serve(async (req) => {
     const fileBlob = await fileResponse.blob();
     const fileArrayBuffer = await fileBlob.arrayBuffer();
     const fileBuffer = new Uint8Array(fileArrayBuffer);
-    const pdfBase64 = btoa(String.fromCharCode(...fileBuffer));
+    
+    // Converter para base64 em chunks para evitar stack overflow
+    const CHUNK_SIZE = 8192; // 8KB por vez
+    let binaryString = '';
+    for (let i = 0; i < fileBuffer.length; i += CHUNK_SIZE) {
+      const chunk = fileBuffer.slice(i, i + CHUNK_SIZE);
+      binaryString += String.fromCharCode(...chunk);
+    }
+    const pdfBase64 = btoa(binaryString);
 
     // Calcular hash do arquivo
     const hashBuffer = await crypto.subtle.digest('SHA-256', fileArrayBuffer);
