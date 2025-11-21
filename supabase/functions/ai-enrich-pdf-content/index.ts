@@ -128,6 +128,26 @@ Se não tiver certeza, deixe o campo vazio.`;
     const detectedProduct = toolCall ? JSON.parse(toolCall.function.arguments) : null;
     console.log("🎯 Detected product:", detectedProduct);
 
+    // ETAPA 2.5: Buscar autor correspondente ao manufacturer
+    let authorData = null;
+    if (detectedProduct?.manufacturer) {
+      console.log(`🔍 Buscando autor para manufacturer: ${detectedProduct.manufacturer}`);
+      
+      const { data: authorMatch } = await supabase
+        .from('authors')
+        .select('id, name, lattes_url, linkedin_url, specialty, mini_bio')
+        .ilike('name', `%${detectedProduct.manufacturer}%`)
+        .eq('active', true)
+        .single();
+      
+      if (authorMatch) {
+        authorData = authorMatch;
+        console.log(`✅ Autor identificado: ${authorData.name} (${authorData.specialty})`);
+      } else {
+        console.log(`⚠️ Nenhum autor encontrado para "${detectedProduct.manufacturer}"`);
+      }
+    }
+
     // ETAPA 3: Busca de dados reais no banco
     console.log("💾 Step 3: Fetching real data from database");
     const databaseData: any = {
@@ -229,6 +249,23 @@ REGRAS ABSOLUTAS DE FIDELIDADE:
 DADOS REAIS DO BANCO DE DADOS:
 ${JSON.stringify(databaseData, null, 2)}
 
+${authorData ? `
+═══════════════════════════════════════════════════════════
+🎓 DADOS DO ESPECIALISTA/FABRICANTE IDENTIFICADO (E-E-A-T):
+═══════════════════════════════════════════════════════════
+
+**Autor/Especialista:** ${authorData.name}
+**Especialidade:** ${authorData.specialty || 'N/A'}
+**Currículo Lattes:** ${authorData.lattes_url || 'N/A'}
+**LinkedIn:** ${authorData.linkedin_url || 'N/A'}
+**Mini Bio:** ${authorData.mini_bio || 'N/A'}
+**ID do Autor (referência interna):** ${authorData.id}
+
+IMPORTANTE: Este especialista está relacionado ao fabricante "${detectedProduct.manufacturer}".
+Use essas informações para adicionar credibilidade E-E-A-T ao conteúdo enriquecido.
+
+` : ''}
+
 TEXTO EXTRAÍDO DO PDF (ORIGINAL):
 ${rawText}
 
@@ -297,6 +334,13 @@ IMPORTANTE: É melhor ter menos informação verdadeira do que inventar dados.`;
         enrichedText,
         detectedProduct,
         usedData: usedDataStats,
+        authorData: authorData ? {
+          id: authorData.id,
+          name: authorData.name,
+          specialty: authorData.specialty,
+          lattes_url: authorData.lattes_url,
+          linkedin_url: authorData.linkedin_url
+        } : null,
         stats: {
           rawLength: rawText.length,
           enrichedLength: enrichedText.length,
