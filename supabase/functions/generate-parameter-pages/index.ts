@@ -280,13 +280,50 @@ Deno.serve(async (req) => {
     const totalIndexablePages = (inserted?.length || 0) * 3; // PT + EN + ES
     console.log(`Successfully created ${inserted?.length || 0} parameter pages in 3 languages (${totalIndexablePages} total indexable pages)`);
 
+    // ✨ NOVO: Injetar cards automaticamente após inserção
+    console.log('Starting automatic product card injection...');
+    
+    let totalCardsInjected = 0;
+    const injectionReports = [];
+    const totalArticles = inserted?.length || 0;
+    
+    for (let i = 0; i < (inserted || []).length; i++) {
+      const article = inserted![i];
+      try {
+        console.log(`[${i + 1}/${totalArticles}] Injecting cards in: ${article.title}`);
+        
+        const { data: injectionResult, error: injectionError } = await supabase.functions.invoke(
+          'auto-inject-product-cards',
+          {
+            body: { articleId: article.id }
+          }
+        );
+        
+        if (injectionError) {
+          console.error(`Failed to inject cards in ${article.id}:`, injectionError);
+        } else if (injectionResult?.success) {
+          totalCardsInjected += injectionResult.report.cardsInjected;
+          injectionReports.push(injectionResult.report);
+          console.log(`✓ ${article.title}: ${injectionResult.report.cardsInjected} cards injected`);
+        }
+      } catch (error) {
+        console.error(`Exception injecting cards in ${article.id}:`, error);
+      }
+    }
+    
+    console.log(`✅ Total cards injected: ${totalCardsInjected} across ${totalArticles} pages`);
+    console.log(`📊 Average: ${(totalCardsInjected / Math.max(totalArticles, 1)).toFixed(1)} cards/page`);
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully generated ${inserted?.length || 0} parameter pages in PT/EN/ES (${totalIndexablePages} total indexable pages)`,
-        pages: inserted?.length || 0,
+        message: `Successfully generated ${totalArticles} parameter pages with ${totalCardsInjected} product cards`,
+        pages: totalArticles,
         languages: 3,
-        totalIndexablePages
+        totalIndexablePages,
+        cardsInjected: totalCardsInjected,
+        avgCardsPerPage: +(totalCardsInjected / Math.max(totalArticles, 1)).toFixed(1),
+        injectionSamples: injectionReports.slice(0, 5) // Primeiros 5 para debug
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
