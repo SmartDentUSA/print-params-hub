@@ -27,6 +27,7 @@ import { BlogPreviewFrame } from '@/components/BlogPreviewFrame';
 import { useExternalLinks } from '@/hooks/useExternalLinks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateFileSize } from '@/utils/security';
+import { AdminLinkBuildingValidator } from '@/components/AdminLinkBuildingValidator';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -1484,12 +1485,15 @@ Receba o texto bruto abaixo e:
       <CardContent>
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-2">
             {categories.map((cat) => (
               <TabsTrigger key={cat.id} value={cat.letter}>
                 {cat.letter} • {cat.name}
               </TabsTrigger>
             ))}
+            <TabsTrigger value="link-validator">
+              🔗 Validador
+            </TabsTrigger>
           </TabsList>
 
           {categories.map((cat) => (
@@ -1578,6 +1582,11 @@ Receba o texto bruto abaixo e:
               </div>
             </TabsContent>
           ))}
+          
+          {/* Link Building Validator Tab */}
+          <TabsContent value="link-validator" className="space-y-4">
+            <AdminLinkBuildingValidator />
+          </TabsContent>
         </Tabs>
 
         {/* Edit Modal */}
