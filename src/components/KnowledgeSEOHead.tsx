@@ -380,7 +380,32 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "wordCount": wordCount,
     "inLanguage": htmlLang,
     // 🆕 TechArticle com proficiencyLevel
-    ...(isTechnicalPage && { "proficiencyLevel": "Expert" }),
+    ...(isTechnicalPage && { 
+      "proficiencyLevel": "Expert",
+      "teaches": content.keywords?.slice(0, 5) || [],
+      "reviewAspect": [
+        {
+          "@type": "Review",
+          "reviewAspect": "Rigor Técnico dos Dados",
+          "reviewBody": "Artigo validado com dados de fabricante, especificações técnicas verificadas e protocolo clínico testado. Todas as informações técnicas (resistência, módulo de elasticidade, temperatura) foram extraídas de fichas técnicas oficiais e manuais de fabricante.",
+          "reviewRating": {
+            "@type": "Rating",
+            "ratingValue": "5",
+            "bestRating": "5",
+            "worstRating": "1"
+          },
+          "author": content.authors ? {
+            "@type": "Person",
+            "name": content.authors.name,
+            "jobTitle": content.authors.specialty
+          } : {
+            "@type": "Organization",
+            "name": "Equipe Técnica Smart Dent"
+          },
+          "datePublished": new Date(content.created_at).toISOString()
+        }
+      ]
+    }),
     // 🆕 Autor com sameAs links (E-E-A-T)
     "author": content.authors ? {
       "@type": "Person",

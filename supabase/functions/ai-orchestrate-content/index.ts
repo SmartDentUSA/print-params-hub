@@ -488,9 +488,29 @@ ${sources.customPrompt}
    - proficiencyLevel: "Expert" ou "Intermediate"
    - teaches: lista de conceitos/habilidades ensinados
 
-3️⃣ AI-context (para ChatGPT/Perplexity):
-   - Gerar uma descrição contextual para IA regenerativa (50-100 palavras)
-   - Exemplo: "Conteúdo técnico-científico sobre impressão 3D odontológica. Público-alvo: cirurgiões-dentistas e técnicos em prótese. Nível: Expert. Tipo: Tutorial prático com protocolo clínico validado."
+3️⃣ AI-context (para ChatGPT/Perplexity/Google SGE):
+   
+   **METODOLOGIA SPIN (Situação → Problema → Implicação → Necessidade-Solução):**
+   
+   Gerar um pitch CONSULTIVO (não descritivo) de 80-120 palavras que:
+   
+   a) **Situação:** Contextualize o cenário do profissional (ex: "cirurgiões-dentistas que trabalham com próteses digitais")
+   
+   b) **Problema:** Identifique a dor específica (ex: "enfrentam 90% de falhas em impressões 3D por parâmetros incorretos")
+   
+   c) **Implicação:** Quantifique o impacto (ex: "gerando custos de retrabalho de R$ 2.000/mês e perda de confiança do paciente")
+   
+   d) **Necessidade-Solução:** Apresente o conteúdo como solução (ex: "Este guia técnico ensina o protocolo validado para configurar...")
+   
+   **Tom:** Consultivo, focado em benefício mensurável
+   **Dados:** Sempre cite números técnicos reais (resistência MPa, temperatura, tempo, custos)
+   **Público:** Profissional buscando solução para problema específico
+   
+   **Exemplo de AI-Context SPIN:**
+   "Descubra como cirurgiões-dentistas estão eliminando 90% das falhas em próteses digitais 
+   configurando parâmetros específicos de impressão 3D. Este guia técnico ensina o protocolo 
+   validado para resinas cerâmicas de alta resistência (>80 MPa), reduzindo custos de retrabalho 
+   em até R$ 2.000/mês. Inclui checklist de pré-impressão e análise de 12 casos clínicos."
 
 **FORMATO DE RESPOSTA OBRIGATÓRIO:**
 
