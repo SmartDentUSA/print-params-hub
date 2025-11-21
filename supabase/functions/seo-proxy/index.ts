@@ -634,14 +634,6 @@ async function generateSystemACatalogHTML(
         ]
       }
     ]
-  }
-        "name": faq.question,
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": faq.answer
-        }
-      }))
-    })
   } : category === 'video_testimonial' ? {
     "@context": "https://schema.org",
     "@graph": [
