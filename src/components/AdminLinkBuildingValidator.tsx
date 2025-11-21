@@ -54,6 +54,39 @@ export function AdminLinkBuildingValidator() {
     }
   };
 
+  const createTestArticles = async () => {
+    setLoading(true);
+    try {
+      toast({
+        title: 'Criando artigos de teste...',
+        description: 'Isso pode levar alguns segundos'
+      });
+      
+      const { data, error } = await supabase.functions.invoke('create-test-articles');
+      
+      if (error) throw error;
+      
+      if (data?.success) {
+        toast({
+          title: '✅ Artigos criados',
+          description: `${data.articles.length} artigos de teste foram criados com sucesso`
+        });
+        await loadArticles();
+      } else {
+        throw new Error(data?.error || 'Erro desconhecido');
+      }
+    } catch (error: any) {
+      console.error('Erro ao criar artigos de teste:', error);
+      toast({
+        title: 'Erro ao criar artigos',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const injectPriorityLinks = async (html: string, productIds: string[]): Promise<{
     modifiedHTML: string;
     report: LinkInjectionReport[];
@@ -233,10 +266,20 @@ export function AdminLinkBuildingValidator() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ExternalLink className="h-5 w-5" />
-            Validador de Link Building (Fase 3)
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <ExternalLink className="h-5 w-5" />
+              Validador de Link Building (Fase 3)
+            </CardTitle>
+            <Button
+              onClick={createTestArticles}
+              disabled={loading}
+              variant="outline"
+              size="sm"
+            >
+              ➕ Criar Artigos de Teste
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <Alert>
