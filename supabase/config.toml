@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.extract-and-cache-pdf]
 verify_jwt = false
+
+[functions.create-test-articles]
+verify_jwt = true
