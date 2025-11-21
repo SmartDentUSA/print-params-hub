@@ -111,12 +111,8 @@ serve(async (req) => {
     const keywords = await generateKeywords(lovableApiKey, title || generatedTitle, contentHTML);
     console.log('✅ Generated keywords:', keywords);
 
-    // ===== FAQS GENERATION =====
-    let faqs = existingFaqs || [];
-    if (!existingFaqs || existingFaqs.length === 0 || regenerate.faqs) {
-      faqs = await generateFAQs(lovableApiKey, title || generatedTitle, contentHTML);
-      console.log('✅ Generated FAQs:', faqs.length);
-    }
+    // ❌ REMOVIDO: Geração de FAQs (agora é responsabilidade do ai-orchestrate-content)
+    const faqs = existingFaqs || [];
 
     const response: MetadataResponse = {
       slug,
@@ -443,96 +439,4 @@ Conteúdo: ${contentPreview}`;
   return parsedArgs.keywords || [];
 }
 
-async function generateFAQs(
-  apiKey: string,
-  title: string,
-  contentHTML: string
-): Promise<Array<{ question: string; answer: string }>> {
-  const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  const contentText = stripTags(contentHTML).substring(0, 2000);
-
-  const prompt = `Você é um especialista em conteúdo odontológico e SEO orientado a perguntas frequentes (People Also Ask - Google).
-
-Gere EXATAMENTE 10 FAQs (perguntas e respostas) com base no conteúdo fornecido.
-
-Regras obrigatórias:
-- Exatamente 10 perguntas
-- Cada resposta: 50 a 150 palavras
-- Perguntas naturais, como usuários perguntariam no Google
-- Ordem: das mais genéricas às mais específicas
-- Usar APENAS informações presentes no conteúdo
-- Tom profissional, claro e educativo
-- Sem inventar novos dados
-- Sem adicionar estatísticas externas
-- Entregar no formato especificado via function calling
-
-Título: ${title}
-Conteúdo: ${contentText}`;
-
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        { role: 'system', content: SYSTEM_SUPER_PROMPT },
-        { role: 'user', content: `TAREFA: Gerar 10 FAQs\n\n${prompt}` }
-      ],
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'generate_faqs',
-            description: 'Return 10 FAQs based on the content',
-            parameters: {
-              type: 'object',
-              properties: {
-                faqs: {
-                  type: 'array',
-                  items: {
-                    type: 'object',
-                    properties: {
-                      question: { type: 'string' },
-                      answer: { type: 'string' }
-                    },
-                    required: ['question', 'answer']
-                  },
-                  minItems: 10,
-                  maxItems: 10
-                }
-              },
-              required: ['faqs']
-            }
-          }
-        }
-      ],
-      tool_choice: { type: 'function', function: { name: 'generate_faqs' } }
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  const toolCall = data.choices[0]?.message?.tool_calls?.[0];
-
-  if (!toolCall || toolCall.function.name !== 'generate_faqs') {
-    console.error('Unexpected AI response format:', data);
-    throw new Error('AI did not return FAQs in expected format');
-  }
-
-  const parsedArgs = JSON.parse(toolCall.function.arguments);
-  const faqs = parsedArgs.faqs || [];
-
-  // Garantir exatamente 10 FAQs
-  if (faqs.length < 10) {
-    console.warn(`AI returned only ${faqs.length} FAQs, expected 10`);
-  }
-
-  return faqs.slice(0, 10);
-}
+// ❌ FUNÇÃO generateFAQs REMOVIDA: FAQs agora são geradas APENAS pelo ai-orchestrate-content para evitar duplicação

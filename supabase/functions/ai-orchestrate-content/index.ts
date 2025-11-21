@@ -31,6 +31,7 @@ interface OrchestrationRequest {
   aiPrompt?: string;
   selectedResinIds?: string[];
   selectedProductIds?: string[];
+  expansionWarning?: boolean; // ✅ NOVO: Flag para ajustar temperatura
   
   // Campos legacy
   sources: ContentSources;
@@ -75,7 +76,8 @@ serve(async (req) => {
       language = 'pt', 
       aiPrompt,
       selectedResinIds = [],
-      selectedProductIds = []
+      selectedProductIds = [],
+      expansionWarning = false // ✅ NOVO
     }: OrchestrationRequest = await req.json();
 
     // Validar se há pelo menos uma fonte (suporta ambos formatos)
@@ -549,7 +551,8 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
           { role: 'user', content: ORCHESTRATOR_PROMPT }
         ],
         max_completion_tokens: 12000,
-        temperature: 0.3,
+        // ✅ NOVO: Temperatura dinâmica baseada em expansionWarning
+        temperature: expansionWarning ? 0.1 : 0.3, // Reduz criatividade se alto risco
       }),
     });
 
