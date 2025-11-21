@@ -6,6 +6,8 @@
 
 /* 3D Printing Parameters App Design System - Technical & Professional */
 
+@import './styles/inline-product-card.css';
+
 @layer base {
   :root {
     /* Core brand colors - Deep tech blues with warm accents */
