@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { useProductReviews } from '@/hooks/useProductReviews';
 
 interface KnowledgeSEOHeadProps {
   content?: any;
@@ -221,6 +222,9 @@ const stripTags = (html: string): string => {
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
   
+  // 🆕 FASE 4: Fetch products for Review Schema
+  const { products } = useProductReviews(content?.recommended_products || []);
+  
   // Map language to hreflang format
   const langMap = {
     'pt': 'pt-BR',
@@ -406,14 +410,32 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         }
       ]
     }),
-    // 🆕 Autor com sameAs links (E-E-A-T)
+    // 🆕 Autor com sameAs links E hasCredential (E-E-A-T) - FASE 4
     "author": content.authors ? {
       "@type": "Person",
       "name": content.authors.name,
       "jobTitle": content.authors.specialty,
       "url": content.authors.website_url,
       "image": content.authors.photo_url,
-      ...(authorSameAs.length > 0 && { "sameAs": authorSameAs })
+      ...(authorSameAs.length > 0 && { "sameAs": authorSameAs }),
+      // 🆕 FASE 4: Author Credential
+      ...(content.authors.lattes_url && {
+        "hasCredential": {
+          "@type": "EducationalOccupationalCredential",
+          "credentialCategory": "Currículo Lattes",
+          "recognizedBy": {
+            "@type": "Organization",
+            "name": "CNPq - Conselho Nacional de Desenvolvimento Científico e Tecnológico"
+          },
+          "url": content.authors.lattes_url
+        }
+      }),
+      // 🆕 FASE 4: knowsAbout
+      "knowsAbout": [
+        content.authors.specialty,
+        "Impressão 3D Odontológica",
+        "Odontologia Digital"
+      ].filter(Boolean)
     } : { 
       "@type": "Organization", 
       "name": "Smart Dent" 
@@ -492,7 +514,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     articleSchema.video = videoSchemas;
   }
 
-  // 🆕 LearningResource Schema (SEO + IA Regenerativa 2025)
+  // 🆕 LearningResource Schema (SEO + IA Regenerativa 2025) - FASE 4 Enhanced
   const learningResourceSchema = {
     "@context": "https://schema.org",
     "@type": "LearningResource",
@@ -505,7 +527,15 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "author": articleSchema.author,
     "datePublished": articleSchema.datePublished,
-    "teaches": content.keywords?.slice(0, 5) || []
+    "teaches": content.keywords?.slice(0, 5) || [],
+    // 🆕 FASE 4: audience.educationalRole (Google AI Overviews Priority)
+    "audience": {
+      "@type": "EducationalAudience",
+      "educationalRole": isTechnicalPage 
+        ? ["dentist", "dental technician", "prosthodontist"] 
+        : ["dentist", "dental professional"],
+      "audienceType": "Professional"
+    }
   };
 
   // 🆕 AI-context para IA regenerativa (ChatGPT, Perplexity)
@@ -578,6 +608,38 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       "text": step
     }))
   } : null;
+
+  // 🆕 FASE 4: Product Review Schema para Produtos Recomendados
+  const productReviewSchemas = products.slice(0, 3).map((product) => ({
+    "@context": "https://schema.org",
+    "@type": "Review",
+    "itemReviewed": {
+      "@type": "Product",
+      "name": product.name,
+      "brand": { 
+        "@type": "Brand", 
+        "name": product.product_category || "Smart Dent" 
+      },
+      "sku": product.external_id,
+      "image": product.image_url,
+      "offers": {
+        "@type": "Offer",
+        "price": product.price,
+        "priceCurrency": product.currency || "BRL",
+        "availability": "https://schema.org/InStock"
+      },
+      "category": product.product_category || product.category
+    },
+    "reviewRating": {
+      "@type": "Rating",
+      "ratingValue": product.rating || 5,
+      "bestRating": 5,
+      "worstRating": 1
+    },
+    "author": articleSchema.author,
+    "reviewBody": `Produto recomendado por ${content.authors?.name || 'Smart Dent'} no contexto de ${displayTitle}. ${product.product_subcategory ? `Categoria: ${product.product_subcategory}.` : ''}`,
+    "datePublished": new Date(content.created_at).toISOString()
+  }));
 
   // Detectar tipo de Twitter Card baseado no conteúdo
   const twitterCardType = videos.length > 0 
@@ -674,7 +736,9 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             ...(faqSchema ? [faqSchema] : []),
             ...(howToSchema ? [howToSchema] : []),
             // 🆕 FASE 3: LearningResource Schema Avançado (SEO + IA 2025)
-            learningResourceSchema
+            learningResourceSchema,
+            // 🆕 FASE 4: Product Review Schemas (E-E-A-T)
+            ...productReviewSchemas
           ]
         })}
       </script>
