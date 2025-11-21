@@ -148,10 +148,29 @@ async function processArticle(
       }
     }
 
-    // Detectar resinas
+    // Detectar resinas com variações de nome
     for (const resin of resins) {
-      const nameRegex = new RegExp(escapeRegex(resin.name), 'gi');
-      if (nameRegex.test(contentHtml)) {
+      let detected = false;
+      
+      // Criar variações do nome para melhor detecção
+      const nameVariations = [
+        resin.name,
+        resin.name.replace(/\b(Bio|Pro|Plus|Max|Premium)\b/gi, '').trim(), // Remove palavras comuns
+        resin.name.split(' ').slice(0, 2).join(' '), // Primeiras 2 palavras
+      ];
+      
+      // Testar cada variação
+      for (const variation of nameVariations) {
+        if (variation.length < 3) continue; // Skip variações muito curtas
+        
+        const nameRegex = new RegExp(escapeRegex(variation), 'gi');
+        if (nameRegex.test(contentHtml)) {
+          detected = true;
+          break;
+        }
+      }
+      
+      if (detected) {
         detectedResins.push({
           id: resin.id,
           name: resin.name,

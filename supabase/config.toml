@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.create-test-articles]
 verify_jwt = true
+
+[functions.auto-inject-product-cards]
+verify_jwt = false
