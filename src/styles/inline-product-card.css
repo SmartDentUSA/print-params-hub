@@ -135,6 +135,49 @@
   }
 }
 
+/* ============= PROCESSING INSTRUCTIONS ============= */
+
+.inline-product-card .card-processing {
+  margin-top: 12px;
+  padding: 12px;
+  background: hsl(var(--accent) / 0.1);
+  border-left: 3px solid hsl(var(--primary));
+  border-radius: 6px;
+}
+
+.inline-product-card .card-processing-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: hsl(var(--primary));
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-product-card .card-processing-content {
+  font-size: 12px;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+  white-space: pre-wrap;
+}
+
+.inline-product-card .card-processing-content strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .inline-product-card .card-processing {
+    padding: 10px;
+  }
+  
+  .inline-product-card .card-processing-content {
+    font-size: 11px;
+  }
+}
+
 /* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
   .inline-product-card {

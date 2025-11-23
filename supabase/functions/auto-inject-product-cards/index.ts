@@ -16,6 +16,7 @@ interface ProductMatch {
   rating: number | null;
   description: string | null;
   shop_url: string;
+  processing_instructions?: string;
 }
 
 interface InjectionReport {
@@ -116,7 +117,7 @@ async function processArticle(
         .eq('approved', true),
       supabase
         .from('resins')
-        .select('id, name, slug, image_url, description, system_a_product_url')
+        .select('id, name, slug, image_url, description, system_a_product_url, processing_instructions')
         .eq('active', true)
     ]);
 
@@ -180,7 +181,8 @@ async function processArticle(
           currency: null,
           rating: null,
           description: resin.description,
-          shop_url: resin.system_a_product_url || `/resinas/${resin.slug}` || '#'
+          shop_url: resin.system_a_product_url || `/resinas/${resin.slug}` || '#',
+          processing_instructions: resin.processing_instructions
         });
       }
     }
@@ -274,6 +276,15 @@ function generateCardHtml(product: ProductMatch): string {
     ? `<p class="card-description">${truncate(product.description, 120)}</p>`
     : '';
 
+  const processingHtml = product.processing_instructions
+    ? `
+      <div class="card-processing">
+        <div class="card-processing-title">⚙️ Instruções de Processamento</div>
+        <div class="card-processing-content">${product.processing_instructions.replace(/\n/g, '<br>')}</div>
+      </div>
+    `
+    : '';
+
   const imageHtml = product.image_url
     ? `<img src="${product.image_url}" alt="${product.name}" loading="lazy" class="card-image" />`
     : '';
@@ -287,6 +298,7 @@ function generateCardHtml(product: ProductMatch): string {
         <div class="card-badge">📦 Produto Recomendado</div>
         <h4 class="card-title">${product.name}</h4>
         ${descriptionHtml}
+        ${processingHtml}
         <div class="card-meta">
           ${ratingHtml}
           ${priceHtml}

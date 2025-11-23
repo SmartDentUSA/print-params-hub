@@ -1,5 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { useProductReviews } from '@/hooks/useProductReviews';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface KnowledgeSEOHeadProps {
   content?: any;
@@ -219,11 +221,75 @@ const stripTags = (html: string): string => {
     .trim();
 };
 
+// Extrai instruções de processamento das resinas e cria HowTo Schema
+const extractProcessingInstructions = (instructions: string): { 
+  preSteps: string[]; 
+  postSteps: string[]; 
+  totalTime?: string;
+} => {
+  if (!instructions) return { preSteps: [], postSteps: [] };
+  
+  const preSteps: string[] = [];
+  const postSteps: string[] = [];
+  let currentSection: 'pre' | 'post' | null = null;
+  
+  // Dividir por linhas
+  const lines = instructions.split('\n').map(l => l.trim()).filter(l => l);
+  
+  for (const line of lines) {
+    // Detectar seções
+    if (/PRÉ(-|\s)?PROCESSAMENTO/i.test(line)) {
+      currentSection = 'pre';
+      continue;
+    }
+    if (/PÓS(-|\s)?PROCESSAMENTO/i.test(line)) {
+      currentSection = 'post';
+      continue;
+    }
+    
+    // Adicionar passos (linhas que começam com • ou - ou números)
+    if (/^[•\-\d]/.test(line)) {
+      const cleanStep = line.replace(/^[•\-\d.)\s]+/, '').trim();
+      if (cleanStep.length > 5) {
+        if (currentSection === 'pre') {
+          preSteps.push(cleanStep);
+        } else if (currentSection === 'post') {
+          postSteps.push(cleanStep);
+        }
+      }
+    }
+  }
+  
+  // Extrair tempo total (se mencionar minutos)
+  const timeMatch = instructions.match(/(\d+)(-(\d+))?\s*(min|minutos)/i);
+  const totalTime = timeMatch 
+    ? `PT${timeMatch[3] || timeMatch[1]}M` 
+    : undefined;
+  
+  return { preSteps, postSteps, totalTime };
+};
+
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
   
-  // 🆕 FASE 4: Fetch products for Review Schema
+  // 🆕 Fetch products for Review Schema
   const { products } = useProductReviews(content?.recommended_products || []);
+  
+  // 🆕 Fetch resins with processing instructions
+  const [resinsWithInstructions, setResinsWithInstructions] = useState<any[]>([]);
+  
+  useEffect(() => {
+    if (content?.recommended_resins && content.recommended_resins.length > 0) {
+      supabase
+        .from('resins')
+        .select('id, name, slug, manufacturer, processing_instructions')
+        .in('slug', content.recommended_resins)
+        .not('processing_instructions', 'is', null)
+        .then(({ data }) => {
+          if (data) setResinsWithInstructions(data);
+        });
+    }
+  }, [content?.recommended_resins]);
   
   // Map language to hreflang format
   const langMap = {
@@ -538,8 +604,63 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     }
   };
 
-  // 🆕 AI-context para IA regenerativa (ChatGPT, Perplexity)
-  const aiContextMeta = `Conteúdo técnico-científico sobre impressão 3D odontológica e materiais dentais. Público-alvo: cirurgiões-dentistas, protéticos e especialistas em odontologia digital. Nível: ${isTechnicalPage ? 'Expert' : 'Profissional'}. Tipo: ${content.content_html?.includes('itemtype="https://schema.org/HowTo') ? 'Tutorial prático com protocolo clínico' : 'Artigo técnico de referência'}.`;
+  // 🆕 HowTo Schemas para Instruções de Processamento de Resinas
+  const resinProcessingSchemas = resinsWithInstructions.map((resin) => {
+    const { preSteps, postSteps, totalTime } = extractProcessingInstructions(resin.processing_instructions);
+    
+    if (preSteps.length === 0 && postSteps.length === 0) return null;
+    
+    return {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": `Como processar impressões com ${resin.name}`,
+      "description": `Instruções de pré e pós processamento para resina ${resin.manufacturer} ${resin.name}`,
+      ...(totalTime && { "totalTime": totalTime }),
+      "tool": {
+        "@type": "Product",
+        "name": resin.name,
+        "brand": { "@type": "Brand", "name": resin.manufacturer }
+      },
+      "step": [
+        ...(preSteps.length > 0 ? [{
+          "@type": "HowToSection",
+          "name": "Pré-processamento",
+          "itemListElement": preSteps.map((step, idx) => ({
+            "@type": "HowToStep",
+            "position": idx + 1,
+            "itemListElement": {
+              "@type": "HowToDirection",
+              "text": step
+            }
+          }))
+        }] : []),
+        ...(postSteps.length > 0 ? [{
+          "@type": "HowToSection",
+          "name": "Pós-processamento",
+          "itemListElement": postSteps.map((step, idx) => ({
+            "@type": "HowToStep",
+            "position": preSteps.length + idx + 1,
+            "itemListElement": {
+              "@type": "HowToDirection",
+              "text": step
+            }
+          }))
+        }] : [])
+      ]
+    };
+  }).filter(Boolean);
+  
+  // 🆕 Atualizar AI-context com instruções de processamento
+  let enhancedAiContext = `Conteúdo técnico-científico sobre impressão 3D odontológica e materiais dentais. Público-alvo: cirurgiões-dentistas, protéticos e especialistas em odontologia digital. Nível: ${isTechnicalPage ? 'Expert' : 'Profissional'}. Tipo: ${content.content_html?.includes('itemtype="https://schema.org/HowTo') ? 'Tutorial prático com protocolo clínico' : 'Artigo técnico de referência'}.`;
+  
+  if (resinsWithInstructions.length > 0) {
+    const instructionsSummary = resinsWithInstructions.map((resin) => {
+      const { preSteps, postSteps } = extractProcessingInstructions(resin.processing_instructions);
+      return `${resin.name}: ${[...preSteps, ...postSteps].join('; ')}`;
+    }).join(' | ');
+    
+    enhancedAiContext += ` Instruções de processamento: ${instructionsSummary}`;
+  }
 
   const breadcrumbSchema = {
     "@context": "https://schema.org",
@@ -657,12 +778,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       {/* FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) */}
       <meta 
         name="AI-context" 
-        content={`Conteúdo técnico-científico sobre ${category?.name?.toLowerCase() || 'odontologia'}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: ${howToSteps.length >= 2 ? 'Tutorial prático' : 'Artigo técnico'}.`}
+        content={enhancedAiContext}
       />
       
       {/* AI Context for Generative Search (SGE, ChatGPT, Perplexity, etc) */}
       {content?.ai_context && currentLang === 'pt' && (
-        <meta name="ai:context" content={content.ai_context} />
+        <meta name="ai:context" content={`${content.ai_context}${resinsWithInstructions.length > 0 ? ` Instruções de processamento disponíveis para ${resinsWithInstructions.map(r => r.name).join(', ')}.` : ''}`} />
       )}
       {content?.ai_context_en && currentLang === 'en' && (
         <meta name="ai:context" content={content.ai_context_en} />
@@ -735,6 +856,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             ...videoSchemas,
             ...(faqSchema ? [faqSchema] : []),
             ...(howToSchema ? [howToSchema] : []),
+            // 🆕 HowTo Schemas para Instruções de Processamento de Resinas
+            ...resinProcessingSchemas,
             // 🆕 FASE 3: LearningResource Schema Avançado (SEO + IA 2025)
             learningResourceSchema,
             // 🆕 FASE 4: Product Review Schemas (E-E-A-T)
