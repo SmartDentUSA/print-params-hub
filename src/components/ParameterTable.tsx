@@ -27,6 +27,17 @@ interface ParameterTableProps {
   processingInstructions?: string | null;
 }
 
+interface MarkdownElement {
+  type: 'section' | 'subsection' | 'note' | 'bullet' | 'subbullet';
+  content: string;
+  level?: number; // 0 = principal, 1 = indentado, 2+ = sub-indentado
+}
+
+interface ParsedInstructions {
+  pre: MarkdownElement[];
+  post: MarkdownElement[];
+}
+
 export function ParameterTable({ parameterSet, processingInstructions }: ParameterTableProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
@@ -53,32 +64,84 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
     }
   };
 
-  const parseProcessingInstructions = (instructions: string | null | undefined) => {
+  const parseMarkdownInstructions = (instructions: string | null | undefined): ParsedInstructions => {
     if (!instructions) return { pre: [], post: [] };
     
-    const lines = instructions.split('\n').filter(l => l.trim());
-    const pre: string[] = [];
-    const post: string[] = [];
-    let section: 'pre' | 'post' | null = null;
+    const lines = instructions.split('\n');
+    const pre: MarkdownElement[] = [];
+    const post: MarkdownElement[] = [];
+    let currentSection: 'pre' | 'post' | null = null;
     
-    for (const line of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const trimmed = line.trim();
-      if (trimmed.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
-        section = 'pre';
-        continue;
-      }
-      if (trimmed.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
-        section = 'post';
+      
+      // Ignorar linhas vazias
+      if (!trimmed) continue;
+      
+      // ## Detectar seção principal
+      if (trimmed.startsWith('## ')) {
+        const sectionTitle = trimmed.replace(/^##\s*/, '');
+        
+        // Determinar seção (PRÉ ou PÓS)
+        if (sectionTitle.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
+          currentSection = 'pre';
+          pre.push({ type: 'section', content: sectionTitle });
+        } else if (sectionTitle.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
+          currentSection = 'post';
+          post.push({ type: 'section', content: sectionTitle });
+        }
         continue;
       }
       
-      if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-        const step = trimmed.replace(/^[•\-]\s*/, '');
-        if (section === 'pre') pre.push(step);
-        if (section === 'post') post.push(step);
-      } else if (trimmed && section) {
-        if (section === 'pre') pre.push(trimmed);
-        if (section === 'post') post.push(trimmed);
+      // ### Detectar subseção
+      if (trimmed.startsWith('### ')) {
+        const subsection = trimmed.replace(/^###\s*/, '');
+        if (currentSection === 'pre') pre.push({ type: 'subsection', content: subsection });
+        if (currentSection === 'post') post.push({ type: 'subsection', content: subsection });
+        continue;
+      }
+      
+      // > Detectar nota/alerta
+      if (trimmed.startsWith('> ')) {
+        const note = trimmed.replace(/^>\s*/, '');
+        if (currentSection === 'pre') pre.push({ type: 'note', content: note });
+        if (currentSection === 'post') post.push({ type: 'note', content: note });
+        continue;
+      }
+      
+      // • ou - Detectar bullet com indentação
+      if (trimmed.match(/^[•\-]\s+/)) {
+        const bullet = trimmed.replace(/^[•\-]\s+/, '');
+        
+        // Detectar indentação (2 espaços = 1 nível)
+        const indentMatch = line.match(/^(\s+)/);
+        const level = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0;
+        
+        const element: MarkdownElement = {
+          type: level > 0 ? 'subbullet' : 'bullet',
+          content: bullet,
+          level
+        };
+        
+        if (currentSection === 'pre') pre.push(element);
+        if (currentSection === 'post') post.push(element);
+        continue;
+      }
+      
+      // Texto simples (sem marcação) = bullet sem símbolo
+      if (currentSection && trimmed) {
+        const indentMatch = line.match(/^(\s+)/);
+        const level = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0;
+        
+        const element: MarkdownElement = {
+          type: level > 0 ? 'subbullet' : 'bullet',
+          content: trimmed,
+          level
+        };
+        
+        if (currentSection === 'pre') pre.push(element);
+        if (currentSection === 'post') post.push(element);
       }
     }
     
@@ -127,6 +190,67 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
       
       return <span key={idx}>{part}</span>;
     });
+  };
+
+  // Renderiza cada elemento Markdown com estilo apropriado
+  const renderMarkdownElement = (
+    element: MarkdownElement, 
+    idx: number, 
+    productMap: Map<string, any>
+  ): JSX.Element | null => {
+    const key = `element-${idx}`;
+    
+    switch (element.type) {
+      case 'section':
+        // ## Título principal (não renderizar - já está no header)
+        return null;
+        
+      case 'subsection':
+        // ### Subtítulo
+        return (
+          <h4 key={key} className="text-sm font-bold text-foreground mt-4 mb-2 flex items-center gap-2 first:mt-0">
+            <span className="text-primary">🔹</span>
+            {element.content}
+          </h4>
+        );
+        
+      case 'note':
+        // > Nota/alerta
+        return (
+          <div key={key} className="my-2 p-3 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-r">
+            <p className="text-sm text-amber-900 dark:text-amber-200 flex items-start gap-2">
+              <span className="text-lg shrink-0">⚠️</span>
+              <span className="flex-1">{linkifyProducts(element.content, productMap)}</span>
+            </p>
+          </div>
+        );
+        
+      case 'bullet':
+        // • Bullet principal (nível 0)
+        return (
+          <li key={key} className="flex items-start gap-2 text-sm text-muted-foreground">
+            <span className="text-primary mt-1 shrink-0">•</span>
+            <span className="flex-1">{linkifyProducts(element.content, productMap)}</span>
+          </li>
+        );
+        
+      case 'subbullet':
+        // Bullet indentado (nível 1+)
+        const indent = (element.level || 1) * 16; // 16px por nível
+        return (
+          <li 
+            key={key} 
+            className="flex items-start gap-2 text-sm text-muted-foreground"
+            style={{ marginLeft: `${indent}px` }}
+          >
+            <span className="text-muted-foreground/60 mt-1 shrink-0">◦</span>
+            <span className="flex-1">{linkifyProducts(element.content, productMap)}</span>
+          </li>
+        );
+        
+      default:
+        return null;
+    }
   };
 
   const normalLayersParams = [
@@ -311,7 +435,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         </div>
 
         {processingInstructions && (() => {
-          const { pre, post } = parseProcessingInstructions(processingInstructions);
+          const { pre, post } = parseMarkdownInstructions(processingInstructions);
           const hasInstructions = pre.length > 0 || post.length > 0;
           
           if (!hasInstructions) return null;
@@ -326,38 +450,28 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
                       Instruções de Pré/Pós Processamento
                     </span>
                   </AccordionTrigger>
-                  <AccordionContent className="px-0 pb-0">
+                   <AccordionContent className="px-0 pb-0">
                     <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
                       {pre.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                             <span className="text-blue-600 dark:text-blue-400">🔵</span>
                             PRÉ-PROCESSAMENTO
                           </h4>
-                          <ul className="space-y-1.5 text-sm text-muted-foreground">
-                            {pre.map((step, idx) => (
-                              <li key={`pre-${idx}`} className="flex items-start gap-2">
-                                <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
-                                <span className="flex-1">{linkifyProducts(step, products)}</span>
-                              </li>
-                            ))}
+                          <ul className="space-y-1.5">
+                            {pre.map((element, idx) => renderMarkdownElement(element, idx, products))}
                           </ul>
                         </div>
                       )}
                       
                       {post.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
                             <span className="text-green-600 dark:text-green-400">🟢</span>
                             PÓS-PROCESSAMENTO
                           </h4>
-                          <ul className="space-y-1.5 text-sm text-muted-foreground">
-                            {post.map((step, idx) => (
-                              <li key={`post-${idx}`} className="flex items-start gap-2">
-                                <span className="text-green-600 dark:text-green-400 mt-1">•</span>
-                                <span className="flex-1">{linkifyProducts(step, products)}</span>
-                              </li>
-                            ))}
+                          <ul className="space-y-1.5">
+                            {post.map((element, idx) => renderMarkdownElement(element, idx, products))}
                           </ul>
                         </div>
                       )}
