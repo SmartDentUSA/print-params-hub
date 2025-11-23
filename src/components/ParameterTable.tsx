@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Share, Check, Info } from "lucide-react";
+import { Copy, Download, Share, Check, Info, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useCatalogProducts } from "@/hooks/useCatalogProducts";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface ParameterSet {
@@ -30,6 +31,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
+  const { products } = useCatalogProducts();
 
   const formatValue = (value: number | undefined | null, type?: string): string => {
     if (value === 0 || value === null || value === undefined) {
@@ -81,6 +83,50 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
     }
     
     return { pre, post };
+  };
+
+  // Transforma texto simples em HTML com hyperlinks para produtos do catálogo
+  const linkifyProducts = (text: string, productMap: Map<string, any>): JSX.Element[] => {
+    if (!text || productMap.size === 0) {
+      return [<span key="plain">{text}</span>];
+    }
+
+    // Criar regex pattern com todos os nomes de produtos (ordenar por tamanho desc para evitar matches parciais)
+    const productNames = Array.from(productMap.keys())
+      .sort((a, b) => b.length - a.length);
+    
+    if (productNames.length === 0) {
+      return [<span key="plain">{text}</span>];
+    }
+
+    const pattern = productNames
+      .map(name => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
+    
+    const regex = new RegExp(`(${pattern})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, idx) => {
+      const normalizedPart = part.toLowerCase();
+      const product = productMap.get(normalizedPart);
+      
+      if (product) {
+        return (
+          <a
+            key={idx}
+            href={product.shopUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline decoration-dotted underline-offset-2 transition-colors"
+          >
+            {product.name}
+            <ExternalLink className="w-3 h-3 inline" />
+          </a>
+        );
+      }
+      
+      return <span key={idx}>{part}</span>;
+    });
   };
 
   const normalLayersParams = [
@@ -292,7 +338,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
                             {pre.map((step, idx) => (
                               <li key={`pre-${idx}`} className="flex items-start gap-2">
                                 <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
-                                <span className="flex-1">{step}</span>
+                                <span className="flex-1">{linkifyProducts(step, products)}</span>
                               </li>
                             ))}
                           </ul>
@@ -309,7 +355,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
                             {post.map((step, idx) => (
                               <li key={`post-${idx}`} className="flex items-start gap-2">
                                 <span className="text-green-600 dark:text-green-400 mt-1">•</span>
-                                <span className="flex-1">{step}</span>
+                                <span className="flex-1">{linkifyProducts(step, products)}</span>
                               </li>
                             ))}
                           </ul>
