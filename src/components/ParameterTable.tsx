@@ -274,13 +274,11 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
             <div className="mt-4">
               <Accordion type="single" collapsible>
                 <AccordionItem value="processing" className="border-0">
-                  <AccordionTrigger className="px-0 py-3 hover:no-underline text-left">
-                    <div className="flex items-center gap-2">
-                      <Info className="w-4 h-4 text-primary" />
-                      <span className="font-medium text-foreground">
-                        Instruções de Pré/Pós Processamento
-                      </span>
-                    </div>
+                  <AccordionTrigger className="px-0 py-3 hover:no-underline text-left flex items-center gap-2">
+                    <Info className="w-4 h-4 text-primary shrink-0" />
+                    <span className="font-medium text-foreground">
+                      Instruções de Pré/Pós Processamento
+                    </span>
                   </AccordionTrigger>
                   <AccordionContent className="px-0 pb-0">
                     <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
