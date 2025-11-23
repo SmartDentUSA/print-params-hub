@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -1216,6 +1216,62 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 />
                 <p className="text-xs text-muted-foreground">
                   💡 Este campo é preenchido automaticamente ao importar do Sistema A
+                </p>
+              </div>
+
+              {/* 🆕 Campo Processing Instructions */}
+              <div className="space-y-2 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 mb-2">
+                  <Settings className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <Label htmlFor="processing_instructions" className="text-base font-semibold text-blue-700 dark:text-blue-300">
+                    Instruções de Pré e Pós Processamento
+                  </Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-md">
+                        <p className="text-sm mb-2"><strong>Usado para:</strong></p>
+                        <ul className="text-xs space-y-1 list-disc pl-4">
+                          <li>Cards de produtos nas páginas da Categoria F</li>
+                          <li>Schema.org HowTo (SEO e IAs Generativas)</li>
+                          <li>Meta tag AI-context para ChatGPT/Perplexity</li>
+                        </ul>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                
+                <Textarea
+                  id="processing_instructions"
+                  value={formData.processing_instructions || ''}
+                  onChange={(e) => handleInputChange('processing_instructions', e.target.value)}
+                  placeholder={`Digite as instruções de processamento da resina:\n\nPRÉ-PROCESSAMENTO:\n• Agite o frasco por 2 minutos\n• Temperatura ideal: 20-25°C\n\nPÓS-PROCESSAMENTO:\n• Lave em IPA 99% por 3-5 minutos\n• Remova suportes com cuidado\n• Pós-cure UV 405nm por 10 minutos (60°C)\n• Aguarde 24h antes do acabamento`}
+                  rows={10}
+                  className="resize-none font-mono text-sm"
+                />
+                
+                <div className="flex items-start gap-2 p-3 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300 dark:border-blue-700">
+                  <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <div className="text-xs text-blue-700 dark:text-blue-300">
+                    <p className="font-semibold mb-1">💡 Dicas de formatação:</p>
+                    <ul className="space-y-0.5 list-disc pl-4">
+                      <li>Use bullets (•) para listar passos</li>
+                      <li>Separe PRÉ e PÓS com quebras de linha</li>
+                      <li>Inclua tempos específicos (ex: "3-5 minutos")</li>
+                      <li>Mencione temperaturas quando relevante (ex: "60°C")</li>
+                      <li>Máximo recomendado: 500 caracteres</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  {(formData.processing_instructions || '').length}/500 caracteres • 
+                  {formData.processing_instructions 
+                    ? ` ${formData.processing_instructions.split('\n').filter((l: string) => l.trim()).length} linhas`
+                    : ' 0 linhas'
+                  }
                 </p>
               </div>
 
