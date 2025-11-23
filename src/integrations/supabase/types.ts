@@ -801,6 +801,7 @@ export type Database = {
           name: string
           og_image_url: string | null
           price: number | null
+          processing_instructions: string | null
           seo_title_override: string | null
           slug: string | null
           system_a_product_id: string | null
@@ -843,6 +844,7 @@ export type Database = {
           name: string
           og_image_url?: string | null
           price?: number | null
+          processing_instructions?: string | null
           seo_title_override?: string | null
           slug?: string | null
           system_a_product_id?: string | null
@@ -885,6 +887,7 @@ export type Database = {
           name?: string
           og_image_url?: string | null
           price?: number | null
+          processing_instructions?: string | null
           seo_title_override?: string | null
           slug?: string | null
           system_a_product_id?: string | null
