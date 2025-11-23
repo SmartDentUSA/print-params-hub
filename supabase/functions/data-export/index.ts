@@ -43,6 +43,39 @@ function getEmbedUrl(url: string): string {
   return url;
 }
 
+function parseProcessingInstructions(instructions: string): any {
+  if (!instructions) return null;
+  
+  const lines = instructions.split('\n').filter((l: string) => l.trim());
+  const preSteps: string[] = [];
+  const postSteps: string[] = [];
+  let section: 'pre' | 'post' | null = null;
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
+      section = 'pre';
+      continue;
+    }
+    if (trimmed.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
+      section = 'post';
+      continue;
+    }
+    
+    if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+      const step = trimmed.replace(/^[•\-]\s*/, '');
+      if (section === 'pre') preSteps.push(step);
+      if (section === 'post') postSteps.push(step);
+    }
+  }
+  
+  return {
+    pre: preSteps,
+    post: postSteps,
+    raw: instructions
+  };
+}
+
 // ===== FETCH FUNCTIONS =====
 
 async function fetchBrands(supabase: any, options: any) {
@@ -161,6 +194,11 @@ async function fetchResins(supabase: any, options: any) {
       resin.public_url = resin.slug 
         ? `https://parametros.smartdent.com.br/resina/${resin.slug}`
         : null;
+      
+      // Parse processing instructions
+      if (resin.processing_instructions) {
+        resin.processing_parsed = parseProcessingInstructions(resin.processing_instructions);
+      }
     }
   }
   
@@ -560,7 +598,8 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
             cta_1_enabled, cta_1_label, cta_1_url, cta_1_description,
             cta_2_label, cta_2_url, cta_2_description, cta_2_source_type, cta_2_source_id,
             cta_3_label, cta_3_url, cta_3_description, cta_3_source_type, cta_3_source_id,
-            cta_4_label, cta_4_url, cta_4_description, cta_4_source_type, cta_4_source_id
+            cta_4_label, cta_4_url, cta_4_description, cta_4_source_type, cta_4_source_id,
+            processing_instructions
           `)
           .in('id', content.recommended_resins);
         

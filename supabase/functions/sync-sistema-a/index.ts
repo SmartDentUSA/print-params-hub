@@ -65,7 +65,11 @@ Deno.serve(async (req) => {
         onConflict: 'system_a_product_id',
         ignoreDuplicates: false
       })
-      .select()
+      .select(`
+        id, name, manufacturer, external_id, 
+        system_a_product_id, system_a_product_url,
+        processing_instructions, active, type
+      `)
       .single();
 
     if (resinError) {
@@ -90,7 +94,8 @@ Deno.serve(async (req) => {
           manufacturer: resinData.manufacturer,
           system_a_product_id: resinData.system_a_product_id,
           external_id: resinData.external_id,
-          system_a_product_url: resinData.system_a_product_url
+          system_a_product_url: resinData.system_a_product_url,
+          processing_instructions: resinData.processing_instructions || null
         }
       }),
       { 
