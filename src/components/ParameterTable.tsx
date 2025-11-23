@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, Download, Share, Check } from "lucide-react";
+import { Copy, Download, Share, Check, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface ParameterSet {
   id: string;
@@ -22,9 +23,10 @@ interface ParameterSet {
 
 interface ParameterTableProps {
   parameterSet: ParameterSet;
+  processingInstructions?: string | null;
 }
 
-export function ParameterTable({ parameterSet }: ParameterTableProps) {
+export function ParameterTable({ parameterSet, processingInstructions }: ParameterTableProps) {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { t } = useLanguage();
@@ -47,6 +49,38 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
       default:
         return value.toFixed(2); // Default 2 decimal places
     }
+  };
+
+  const parseProcessingInstructions = (instructions: string | null | undefined) => {
+    if (!instructions) return { pre: [], post: [] };
+    
+    const lines = instructions.split('\n').filter(l => l.trim());
+    const pre: string[] = [];
+    const post: string[] = [];
+    let section: 'pre' | 'post' | null = null;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
+        section = 'pre';
+        continue;
+      }
+      if (trimmed.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
+        section = 'post';
+        continue;
+      }
+      
+      if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
+        const step = trimmed.replace(/^[•\-]\s*/, '');
+        if (section === 'pre') pre.push(step);
+        if (section === 'post') post.push(step);
+      } else if (trimmed && section) {
+        if (section === 'pre') pre.push(trimmed);
+        if (section === 'post') post.push(trimmed);
+      }
+    }
+    
+    return { pre, post };
   };
 
   const normalLayersParams = [
@@ -229,6 +263,67 @@ export function ParameterTable({ parameterSet }: ParameterTableProps) {
             Compartilhar
           </Button>
         </div>
+
+        {processingInstructions && (() => {
+          const { pre, post } = parseProcessingInstructions(processingInstructions);
+          const hasInstructions = pre.length > 0 || post.length > 0;
+          
+          if (!hasInstructions) return null;
+          
+          return (
+            <div className="mt-4">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="processing" className="border-0">
+                  <AccordionTrigger className="px-0 py-3 hover:no-underline text-left">
+                    <div className="flex items-center gap-2">
+                      <Info className="w-4 h-4 text-primary" />
+                      <span className="font-medium text-foreground">
+                        Instruções de Pré/Pós Processamento
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-0 pb-0">
+                    <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
+                      {pre.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                            <span className="text-blue-600 dark:text-blue-400">🔵</span>
+                            PRÉ-PROCESSAMENTO
+                          </h4>
+                          <ul className="space-y-1.5 text-sm text-muted-foreground">
+                            {pre.map((step, idx) => (
+                              <li key={`pre-${idx}`} className="flex items-start gap-2">
+                                <span className="text-blue-600 dark:text-blue-400 mt-1">•</span>
+                                <span className="flex-1">{step}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {post.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                            <span className="text-green-600 dark:text-green-400">🟢</span>
+                            PÓS-PROCESSAMENTO
+                          </h4>
+                          <ul className="space-y-1.5 text-sm text-muted-foreground">
+                            {post.map((step, idx) => (
+                              <li key={`post-${idx}`} className="flex items-start gap-2">
+                                <span className="text-green-600 dark:text-green-400 mt-1">•</span>
+                                <span className="flex-1">{step}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

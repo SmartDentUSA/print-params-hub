@@ -44,6 +44,7 @@ interface Resin {
   cta_4_label?: string;
   cta_4_url?: string;
   cta_4_description?: string;
+  processing_instructions?: string | null;
 }
 
 interface ResinAccordionProps {
@@ -278,7 +279,10 @@ export function ResinAccordion({ resins, preSelectedResins = [] }: ResinAccordio
                           </div>
                         </AccordionTrigger>
                         <AccordionContent className="px-4 pb-4">
-                          <ParameterTable parameterSet={paramSet} />
+                          <ParameterTable 
+                            parameterSet={paramSet} 
+                            processingInstructions={resin.processing_instructions}
+                          />
                         </AccordionContent>
                       </AccordionItem>
                     </Accordion>
