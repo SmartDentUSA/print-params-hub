@@ -92,3 +92,6 @@ verify_jwt = true
 
 [functions.auto-inject-product-cards]
 verify_jwt = false
+
+[functions.export-processing-instructions]
+verify_jwt = false

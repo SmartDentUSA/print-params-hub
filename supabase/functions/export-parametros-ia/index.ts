@@ -42,8 +42,11 @@ function formatInteger(value: number | null, defaultValue: number = 0): string {
   return (value ?? defaultValue).toString();
 }
 
-function formatarResposta(param: ParameterData): string {
+function formatarResposta(param: ParameterData, processingInstructions?: string): string {
   const observacoes = param.notes ? `\n\n**Observações:** ${param.notes}` : '';
+  const instrucoes = processingInstructions 
+    ? `\n\n**INSTRUÇÕES DE PRÉ/PÓS PROCESSAMENTO:**\n${processingInstructions}` 
+    : '';
   
   return `Os parâmetros da Resina ${param.resin_name} para a impressora ${param.brand_name} ${param.model_name} são:
 
@@ -59,7 +62,7 @@ Ajuste Y (%): ${formatInteger(param.xy_adjustment_y_pct, 100)}
 **CAMADAS INFERIORES**
 Tempo de adesão (seg): ${formatNumber(param.bottom_cure_time, 0)}
 Camadas base: ${formatInteger(param.bottom_layers, 5)}
-Espera após elevação (s): ${formatInteger(param.wait_time_after_lift, 0)}${observacoes}`;
+Espera após elevação (s): ${formatInteger(param.wait_time_after_lift, 0)}${observacoes}${instrucoes}`;
 }
 
 Deno.serve(async (req) => {
@@ -90,7 +93,7 @@ Deno.serve(async (req) => {
         .eq('active', true),
       supabase
         .from('resins')
-        .select('id, name, manufacturer, external_id, system_a_product_id, system_a_product_url')
+        .select('id, name, manufacturer, external_id, system_a_product_id, system_a_product_url, processing_instructions')
         .eq('active', true)
     ]);
 
@@ -189,6 +192,9 @@ Deno.serve(async (req) => {
           sistema_a_product_url: resinData?.system_a_product_url || null,
         },
         
+        // 🆕 Instruções de processamento
+        instrucoes_processamento: resinData?.processing_instructions || null,
+        
         camadas_normais: {
           altura_camada_mm: formatNumber(param.layer_height, 0.05),
           tempo_cura_seg: formatNumber(param.cure_time, 0),
@@ -206,7 +212,7 @@ Deno.serve(async (req) => {
         },
         
         observacoes: param.notes,
-        resposta_formatada: formatarResposta(paramData)
+        resposta_formatada: formatarResposta(paramData, resinData?.processing_instructions)
       };
     }) || [];
 
@@ -243,6 +249,16 @@ Deno.serve(async (req) => {
           'Se o usuário menciona "produto 832fa3e7-b24c", busque por "sistema_a_product_id"',
           'Se precisa do link da loja, use "sistema_a_product_url"',
           'Se tem o ID numérico, use "loja_integrada_id"'
+        ],
+        uso_instrucoes_processamento: [
+          'Se o campo "instrucoes_processamento" estiver presente, use-o para orientar o usuário sobre:',
+          '1. PRÉ-PROCESSAMENTO: o que fazer ANTES de usar a resina (agitação, temperatura)',
+          '2. PÓS-PROCESSAMENTO: o que fazer DEPOIS da impressão (lavagem IPA, pós-cura UV, tempo de espera)',
+          '',
+          'Exemplo de resposta completa:',
+          '✅ Inclua os parâmetros técnicos (do campo resposta_formatada)',
+          '✅ Adicione as instruções de processamento (se disponíveis)',
+          '✅ Finalize com o link do produto (usando sistema_a_product_url)'
         ]
       },
       parametros: parametrosFormatados,
