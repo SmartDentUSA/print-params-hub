@@ -1255,13 +1255,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <div className="flex items-start gap-2 p-3 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300 dark:border-blue-700">
                   <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-700 dark:text-blue-300">
-                    <p className="font-semibold mb-1">💡 Dicas de formatação:</p>
+                    <p className="font-semibold mb-1">💡 Dicas de formatação Markdown:</p>
                     <ul className="space-y-0.5 list-disc pl-4">
-                      <li>Use bullets (•) para listar passos</li>
-                      <li>Separe PRÉ e PÓS com quebras de linha</li>
-                      <li>Inclua tempos específicos (ex: "3-5 minutos")</li>
-                      <li>Mencione temperaturas quando relevante (ex: "60°C")</li>
-                      <li>Máximo recomendado: 500 caracteres</li>
+                      <li><code className="px-1 py-0.5 bg-blue-200 dark:bg-blue-800 rounded text-[10px]">##</code> para seções principais (PRÉ-PROCESSAMENTO, PÓS-PROCESSAMENTO)</li>
+                      <li><code className="px-1 py-0.5 bg-blue-200 dark:bg-blue-800 rounded text-[10px]">###</code> para subseções (ex: "Lavagem e limpeza")</li>
+                      <li><code className="px-1 py-0.5 bg-blue-200 dark:bg-blue-800 rounded text-[10px]">&gt;</code> para notas/alertas importantes</li>
+                      <li><code className="px-1 py-0.5 bg-blue-200 dark:bg-blue-800 rounded text-[10px]">•</code> para bullets (2 espaços = sub-nível)</li>
+                      <li>Inclua tempos específicos (ex: "3-5 minutos") e temperaturas (ex: "60°C")</li>
+                      <li>Produtos mencionados viram hyperlinks automaticamente</li>
                     </ul>
                   </div>
                 </div>
