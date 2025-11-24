@@ -195,6 +195,17 @@ Receba o texto bruto abaixo e:
 
   const { fetchAuthors } = useAuthors();
 
+  // Helper function to add timeout to Supabase function calls
+  const invokeWithTimeout = async (functionName: string, body: any, timeoutMs: number = 60000) => {
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout: A geração está demorando muito. Tente novamente.')), timeoutMs)
+    );
+    
+    const invokePromise = supabase.functions.invoke(functionName, { body });
+    
+    return Promise.race([invokePromise, timeoutPromise]);
+  };
+
   // Filter documents by search term
   const filterDocuments = (searchTerm: string) => {
     if (!searchTerm.trim()) return documents;
@@ -935,16 +946,14 @@ Receba o texto bruto abaixo e:
     setIsGeneratingMetadata(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
-        body: {
-          title: formData.title || 'Título Temporário',
-          contentHTML: formData.content_html,
-          regenerate: {
-            title: true,
-            excerpt: true
-          }
+      const { data, error } = await invokeWithTimeout('ai-metadata-generator', {
+        title: formData.title || 'Título Temporário',
+        contentHTML: formData.content_html,
+        regenerate: {
+          title: true,
+          excerpt: true
         }
-      });
+      }) as any;
       
       if (error) throw error;
       
@@ -3352,20 +3361,18 @@ Receba o texto bruto abaixo e:
                         setIsGeneratingMetadata(true);
                         
                         try {
-                          const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
-                            body: {
-                              title: formData.title,
-                              contentHTML: formData.content_html,
-                              existingSlug: formData.slug,
-                              existingMetaDesc: formData.meta_description,
-                              existingFaqs: formData.faqs,
-                              regenerate: {
-                                slug: !formData.slug,
-                                metaDescription: !formData.meta_description,
-                                faqs: formData.faqs.length === 0
-                              }
+                          const { data, error } = await invokeWithTimeout('ai-metadata-generator', {
+                            title: formData.title,
+                            contentHTML: formData.content_html,
+                            existingSlug: formData.slug,
+                            existingMetaDesc: formData.meta_description,
+                            existingFaqs: formData.faqs,
+                            regenerate: {
+                              slug: !formData.slug,
+                              metaDescription: !formData.meta_description,
+                              faqs: formData.faqs.length === 0
                             }
-                          });
+                          }) as any;
                           
                           if (error) throw error;
                           
@@ -3413,20 +3420,18 @@ Receba o texto bruto abaixo e:
                         setIsGeneratingMetadata(true);
                         
                         try {
-                          const { data, error } = await supabase.functions.invoke('ai-metadata-generator', {
-                            body: {
-                              title: formData.title,
-                              contentHTML: formData.content_html,
-                              existingSlug: formData.slug,
-                              existingMetaDesc: formData.meta_description,
-                              existingFaqs: formData.faqs,
-                              regenerate: {
-                                slug: true,
-                                metaDescription: true,
-                                faqs: true
-                              }
+                          const { data, error } = await invokeWithTimeout('ai-metadata-generator', {
+                            title: formData.title,
+                            contentHTML: formData.content_html,
+                            existingSlug: formData.slug,
+                            existingMetaDesc: formData.meta_description,
+                            existingFaqs: formData.faqs,
+                            regenerate: {
+                              slug: true,
+                              metaDescription: true,
+                              faqs: true
                             }
-                          });
+                          }) as any;
                           
                           if (error) throw error;
                           

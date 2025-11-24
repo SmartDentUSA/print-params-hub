@@ -77,21 +77,64 @@ serve(async (req) => {
 
     console.log('🤖 Generating metadata for:', { title, regenerate });
 
-    // ===== TITLE GENERATION =====
-    let generatedTitle = existingTitle || title || '';
+    // ===== PARALELIZAR CHAMADAS PARA LOVABLE AI =====
+    const promises: Promise<{ type: string; value: any }>[] = [];
+
+    // Title (se necessário)
     if (regenerate.title) {
-      generatedTitle = await generateTitle(lovableApiKey, contentHTML);
-      console.log('✅ Generated title:', generatedTitle);
+      promises.push(
+        generateTitle(lovableApiKey, contentHTML).then(t => ({ type: 'title', value: t }))
+      );
     }
 
-    // ===== EXCERPT GENERATION =====
+    // Meta Description (se necessário)
+    if (!existingMetaDesc || regenerate.metaDescription) {
+      promises.push(
+        generateMetaDescription(lovableApiKey, title, contentHTML).then(m => ({ type: 'meta', value: m }))
+      );
+    }
+
+    // Keywords (sempre gera)
+    promises.push(
+      generateKeywords(lovableApiKey, title, contentHTML).then(k => ({ type: 'keywords', value: k }))
+    );
+
+    // Aguardar todas as promessas em paralelo
+    const results = await Promise.allSettled(promises);
+
+    // Processar resultados
+    let generatedTitle = existingTitle || title || '';
+    let metaDescription = existingMetaDesc || '';
+    let keywords: string[] = [];
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        const { type, value } = result.value;
+        if (type === 'title') {
+          generatedTitle = value;
+          console.log('✅ Generated title:', generatedTitle);
+        }
+        if (type === 'meta') {
+          metaDescription = value;
+          console.log('✅ Generated meta description:', metaDescription);
+        }
+        if (type === 'keywords') {
+          keywords = value;
+          console.log('✅ Generated keywords:', keywords);
+        }
+      } else {
+        console.error('❌ Promise failed:', result.reason);
+      }
+    }
+
+    // ===== EXCERPT (depende do título) =====
     let excerpt = existingExcerpt || '';
     if (regenerate.excerpt) {
       excerpt = await generateExcerpt(lovableApiKey, generatedTitle, contentHTML);
       console.log('✅ Generated excerpt:', excerpt);
     }
 
-    // ===== SLUG GENERATION =====
+    // ===== SLUG (depende do título) =====
     let slug = existingSlug || '';
     if (!existingSlug || regenerate.slug) {
       const titleForSlug = generatedTitle || title;
@@ -99,17 +142,6 @@ serve(async (req) => {
       slug = await ensureUniqueSlug(supabase, slug);
       console.log('✅ Generated slug:', slug);
     }
-
-    // ===== META DESCRIPTION GENERATION =====
-    let metaDescription = existingMetaDesc || '';
-    if (!existingMetaDesc || regenerate.metaDescription) {
-      metaDescription = await generateMetaDescription(lovableApiKey, title || generatedTitle, contentHTML);
-      console.log('✅ Generated meta description:', metaDescription);
-    }
-
-    // ===== KEYWORDS GENERATION =====
-    const keywords = await generateKeywords(lovableApiKey, title || generatedTitle, contentHTML);
-    console.log('✅ Generated keywords:', keywords);
 
     // ❌ REMOVIDO: Geração de FAQs (agora é responsabilidade do ai-orchestrate-content)
     const faqs = existingFaqs || [];
