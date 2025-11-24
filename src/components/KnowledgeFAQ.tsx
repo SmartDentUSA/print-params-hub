@@ -45,9 +45,10 @@ export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
               </span>
             </AccordionTrigger>
             <AccordionContent className="text-gray-700 dark:text-gray-300 pb-4">
-              <div className="pt-2 leading-relaxed">
-                {faq.answer}
-              </div>
+              <div 
+                className="pt-2 leading-relaxed faq-answer"
+                dangerouslySetInnerHTML={{ __html: faq.answer }}
+              />
             </AccordionContent>
           </AccordionItem>
         ))}
