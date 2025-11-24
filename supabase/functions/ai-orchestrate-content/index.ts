@@ -89,7 +89,13 @@ serve(async (req) => {
       Object.values(sources).some(source => typeof source === 'string' && source && source.trim().length > 0);
       
     if (!hasAnySources) {
-      throw new Error('É necessário fornecer pelo menos uma fonte de conteúdo');
+      console.error('❌ Nenhuma fonte de conteúdo fornecida:', {
+        rawText: sources.rawText?.length || 0,
+        pdfTranscription: sources.pdfTranscription?.length || 0,
+        videoTranscription: sources.videoTranscription?.length || 0,
+        relatedPdfs: sources.relatedPdfs?.length || 0
+      });
+      throw new Error('É necessário fornecer pelo menos uma fonte de conteúdo com dados válidos. Verifique se as fontes marcadas como ativas contêm texto.');
     }
 
     // Buscar dados complementares do banco de dados
