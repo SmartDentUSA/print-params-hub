@@ -805,27 +805,35 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
     } catch (parseError) {
       console.error('⚠️ Erro ao parsear JSON, tentando limpeza...', parseError);
       
-      // Limpeza progressiva
-      let cleanedContent = rawContent
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
+      // Limpeza agressiva de markdown e formatação
+      let cleanedContent = rawContent;
       
-      // Extrair apenas o JSON válido
+      // Remover code blocks markdown (todas as variações)
+      cleanedContent = cleanedContent
+        .replace(/```json\s*/gi, '')
+        .replace(/```javascript\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .replace(/`/g, '');
+      
+      // Encontrar o primeiro { e o último } para extrair apenas o JSON
       const jsonStart = cleanedContent.indexOf('{');
       const jsonEnd = cleanedContent.lastIndexOf('}');
       
-      if (jsonStart !== -1 && jsonEnd !== -1) {
-        cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1);
+      if (jsonStart === -1 || jsonEnd === -1 || jsonStart > jsonEnd) {
+        console.error('❌ JSON não encontrado no conteúdo');
+        console.error('📄 Primeiros 500 chars:', rawContent.substring(0, 500));
+        throw new Error('IA não retornou JSON válido. Nenhum objeto JSON encontrado.');
       }
+      
+      cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1).trim();
       
       try {
         parsedResponse = JSON.parse(cleanedContent);
         console.log('✅ JSON parseado com sucesso após limpeza');
       } catch (secondError) {
         console.error('❌ Falha total no parse do JSON:', secondError);
-        console.error('📄 Primeiros 500 chars:', rawContent.substring(0, 500));
-        throw new Error('IA não retornou JSON válido. Tente novamente.');
+        console.error('📄 JSON extraído (primeiros 500 chars):', cleanedContent.substring(0, 500));
+        throw new Error('IA não retornou JSON válido após limpeza. Tente novamente.');
       }
     }
 
