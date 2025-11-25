@@ -12,6 +12,10 @@ export interface ProductReview {
   category: string;
   product_category: string | null;
   product_subcategory: string | null;
+  description: string | null;
+  meta_description: string | null;
+  keywords: string[] | null;
+  cta_1_url: string | null;
 }
 
 export function useProductReviews(productIds: string[] = []) {
@@ -29,7 +33,7 @@ export function useProductReviews(productIds: string[] = []) {
         setLoading(true);
         const { data, error } = await supabase
           .from('system_a_catalog')
-          .select('id, name, external_id, image_url, price, currency, rating, category, product_category, product_subcategory')
+          .select('id, name, external_id, image_url, price, currency, rating, category, product_category, product_subcategory, description, meta_description, keywords, cta_1_url')
           .in('id', productIds)
           .eq('active', true)
           .eq('approved', true);

@@ -269,6 +269,79 @@ const extractProcessingInstructions = (instructions: string): {
   return { preSteps, postSteps, totalTime };
 };
 
+// Extrai pontos técnicos chave da descrição HTML do Sistema A
+const extractTechnicalDetailsFromHTML = (html: string): string[] => {
+  if (!html) return [];
+  
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const details: string[] = [];
+  
+  // Extrair itens de listas (especificações)
+  doc.querySelectorAll('li').forEach((li) => {
+    const text = li.textContent?.trim();
+    if (text && text.length > 10 && text.length < 200) {
+      details.push(text);
+    }
+  });
+  
+  // Extrair headers (características principais)
+  doc.querySelectorAll('h2, h3, h4, strong').forEach((el) => {
+    const text = el.textContent?.trim();
+    if (text && text.length > 5 && text.length < 100) {
+      details.push(text);
+    }
+  });
+  
+  return details.slice(0, 8); // Limitar a 8 pontos
+};
+
+// Gera SPIN pitch usando dados completos do Sistema A
+const generateSPINFromCatalog = (
+  products: any[], 
+  title: string,
+  categoryLetter?: string
+): string => {
+  if (products.length === 0) return '';
+  
+  // Agrupar por categoria/subcategoria
+  const categories = [...new Set(products.map((p: any) => p.product_category).filter(Boolean))];
+  const subcategories = [...new Set(products.map((p: any) => p.product_subcategory).filter(Boolean))];
+  const productNames = products.map((p: any) => p.name).slice(0, 3).join(', ');
+  
+  // Extrair detalhes técnicos do primeiro produto (principal)
+  const mainProduct = products[0];
+  const technicalDetails = extractTechnicalDetailsFromHTML(mainProduct.description || '');
+  
+  // SITUATION: Contexto do profissional
+  const situation = categories.length > 0
+    ? `Profissionais de ${categories[0].toLowerCase()} buscam soluções confiáveis para ${subcategories.join(' e ').toLowerCase() || 'procedimentos clínicos'}.`
+    : `Profissionais de odontologia digital buscam materiais e equipamentos de alta performance.`;
+  
+  // PROBLEM: Dor específica
+  const problem = subcategories.length > 0
+    ? `Dificuldade em encontrar ${subcategories[0].toLowerCase()} com especificações técnicas validadas e suporte especializado.`
+    : `Dificuldade em encontrar produtos com documentação técnica completa e protocolos de uso.`;
+  
+  // IMPLICATION: Consequência
+  const implication = `Uso inadequado pode comprometer resultados clínicos, gerar retrabalho e insatisfação do paciente.`;
+  
+  // NEED-SOLUTION: Proposta de valor (usar meta_description se disponível)
+  const solution = mainProduct.meta_description 
+    ? mainProduct.meta_description
+    : `Este artigo fornece protocolo completo e validado para ${productNames}.`;
+  
+  // AUTHORITY: Credencial
+  const authority = `Smart Dent é distribuidor oficial e especialista em impressão 3D odontológica no Brasil.`;
+  
+  // TECHNICAL: Especificações (do description HTML)
+  const technicalSpecs = technicalDetails.length > 0
+    ? `Especificações técnicas: ${technicalDetails.slice(0, 4).join('; ')}.`
+    : '';
+  
+  return `[SITUATION] ${situation} [PROBLEM] ${problem} [IMPLICATION] ${implication} [NEED-SOLUTION] ${solution} [AUTHORITY] ${authority} ${technicalSpecs}`.trim();
+};
+
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://smartdent.com.br';
   
@@ -650,16 +723,39 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     };
   }).filter(Boolean);
   
-  // 🆕 Atualizar AI-context com instruções de processamento
+  // 🆕 Atualizar AI-context com instruções de processamento e SPIN do Sistema A
   let enhancedAiContext = `Conteúdo técnico-científico sobre impressão 3D odontológica e materiais dentais. Público-alvo: cirurgiões-dentistas, protéticos e especialistas em odontologia digital. Nível: ${isTechnicalPage ? 'Expert' : 'Profissional'}. Tipo: ${content.content_html?.includes('itemtype="https://schema.org/HowTo') ? 'Tutorial prático com protocolo clínico' : 'Artigo técnico de referência'}.`;
   
+  // 🆕 SPIN do Sistema A (produtos do catálogo)
+  if (products.length > 0) {
+    const catalogSPIN = generateSPINFromCatalog(products, displayTitle, category?.letter);
+    enhancedAiContext += ` ${catalogSPIN}`;
+  }
+  
+  // Manter instruções de processamento de resinas (tabela resins)
   if (resinsWithInstructions.length > 0) {
     const instructionsSummary = resinsWithInstructions.map((resin) => {
       const { preSteps, postSteps } = extractProcessingInstructions(resin.processing_instructions);
-      return `${resin.name}: ${[...preSteps, ...postSteps].join('; ')}`;
+      return `${resin.name}: ${[...preSteps, ...postSteps].slice(0, 3).join('; ')}`;
     }).join(' | ');
     
     enhancedAiContext += ` Instruções de processamento: ${instructionsSummary}`;
+  }
+  
+  // 🆕 Keywords do catálogo para enriquecer contexto
+  const catalogKeywords = products
+    .flatMap((p: any) => p.keywords || [])
+    .filter((k: string, i: number, arr: string[]) => arr.indexOf(k) === i)
+    .slice(0, 10);
+
+  if (catalogKeywords.length > 0) {
+    enhancedAiContext += ` Termos relacionados: ${catalogKeywords.join(', ')}.`;
+  }
+
+  // 🆕 Categorias/Subcategorias do Sistema A
+  const productCategories = [...new Set(products.map((p: any) => p.product_subcategory).filter(Boolean))];
+  if (productCategories.length > 0) {
+    enhancedAiContext += ` Categorias de produtos: ${productCategories.join(', ')}.`;
   }
 
   const breadcrumbSchema = {
