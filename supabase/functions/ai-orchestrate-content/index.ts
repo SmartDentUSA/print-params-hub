@@ -711,7 +711,20 @@ ${sources.customPrompt}
 
 **FORMATO DE RESPOSTA OBRIGATÓRIO:**
 
-Você DEVE retornar um objeto JSON válido com esta estrutura exata:
+⚠️ **ATENÇÃO CRÍTICA - LEIA ISTO PRIMEIRO** ⚠️
+
+Você DEVE retornar APENAS um objeto JSON puro que comece com { e termine com }.
+
+❌ NÃO FAÇA ISSO:
+- "Aqui está o resultado: {...}"
+- "Blocos de código markdown com json dentro"
+- "O artigo ficou assim: {...}"
+- Explicações antes ou depois do JSON
+
+✅ FAÇA ISSO:
+Sua resposta deve começar EXATAMENTE com o caractere { e terminar EXATAMENTE com }
+
+**ESTRUTURA JSON OBRIGATÓRIA:**
 
 {
   "html": "<!-- Artigo HTML completo SEM a seção de FAQs -->",
@@ -737,7 +750,7 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
 }
 
 **REGRAS CRÍTICAS:**
-1. Retorne APENAS o JSON válido (sem \`\`\`json ou outros marcadores)
+1. Sua resposta deve começar com { e terminar com } (primeiro e último caractere)
 2. O campo "html" NÃO deve conter a seção <h2>❓ Perguntas e Respostas</h2>
 3. O campo "faqs" deve conter array com exatamente 10 perguntas e respostas
 4. As FAQs devem cobrir: 5 técnicas, 3 clínicas, 2 comerciais
@@ -797,6 +810,8 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
     const rawContent = aiData.choices[0].message.content;
 
     console.log('🔍 Parseando resposta da IA...');
+    console.log('📝 Resposta bruta (primeiros 1000 chars):', rawContent.substring(0, 1000));
+    console.log('📝 Resposta bruta (últimos 500 chars):', rawContent.substring(Math.max(0, rawContent.length - 500)));
 
     let parsedResponse: { html: string; faqs: Array<{ question: string; answer: string }> };
 
@@ -821,8 +836,9 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
       
       if (jsonStart === -1 || jsonEnd === -1 || jsonStart > jsonEnd) {
         console.error('❌ JSON não encontrado no conteúdo');
-        console.error('📄 Primeiros 500 chars:', rawContent.substring(0, 500));
-        throw new Error('IA não retornou JSON válido. Nenhum objeto JSON encontrado.');
+        console.error('📄 Resposta completa da IA:', rawContent);
+        console.error('🔍 indexOf("{"):', jsonStart, '| lastIndexOf("}"):', jsonEnd);
+        throw new Error('IA não retornou JSON válido. Verifique os logs da edge function para detalhes. A resposta da IA não contém um objeto JSON válido (não encontrado { ou }).');
       }
       
       cleanedContent = cleanedContent.substring(jsonStart, jsonEnd + 1).trim();
