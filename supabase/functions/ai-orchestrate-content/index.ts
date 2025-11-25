@@ -393,6 +393,197 @@ Antes de gerar o artigo, identifique e marque mentalmente os trechos com as segu
 3.  **AUTORIDADE:** A Voz E-E-A-T deve ser integrada nas seções de "Desempenho" e na "Conclusão".
 4.  **HOWTO/FAQ:** Todos os trechos [RÓTULO: PROTOCOLO] devem gerar a seção HowTo. Todos os trechos [RÓTULO: POSICIONAMENTO] devem gerar o FAQ.
 
+═══════════════════════════════════════════════════════════
+📋 REGRAS CRÍTICAS DE PRESERVAÇÃO DE CONTEÚDO
+═══════════════════════════════════════════════════════════
+
+⚠️ TABELAS MARKDOWN → HTML (OBRIGATÓRIO):
+- Quando o conteúdo de entrada contiver tabelas em Markdown, você DEVE convertê-las para HTML <table>
+- Preserve TODOS os dados da tabela original (não resuma, não omita linhas)
+- Use classes CSS: <table class="comparison-table"> para tabelas comparativas ou <table class="protocol-table"> para protocolos
+- Tabelas comparativas (vs concorrentes, propriedades técnicas) são PRIORIDADE MÁXIMA para SEO
+
+Exemplo de conversão obrigatória:
+ENTRADA (Markdown):
+| Material | Carga (wt%) | Resistência |
+| Vitality | 59% | 147 MPa |
+| Flexcera | 17% | 89 MPa |
+
+SAÍDA (HTML):
+<table class="comparison-table">
+  <thead>
+    <tr>
+      <th>Material</th>
+      <th>Carga (wt%)</th>
+      <th>Resistência</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Vitality</strong></td>
+      <td>59%</td>
+      <td>147 MPa</td>
+    </tr>
+    <tr>
+      <td>Flexcera</td>
+      <td>17%</td>
+      <td>89 MPa</td>
+    </tr>
+  </tbody>
+</table>
+
+═══════════════════════════════════════════════════════════
+🏆 SEÇÃO E-E-A-T OBRIGATÓRIA
+═══════════════════════════════════════════════════════════
+
+Se o conteúdo de entrada mencionar QUALQUER dos itens abaixo, você DEVE criar uma seção dedicada:
+
+1️⃣ CERTIFICAÇÕES/NORMAS (ISO, FDA, ANVISA, REACH, CE, GLP):
+   - Criar seção <h2>🏆 Conformidade e Certificações</h2>
+   - Listar TODAS as certificações mencionadas
+   - Explicar a relevância de cada uma para a prática clínica
+
+2️⃣ PARCERIAS ACADÊMICAS/CIENTÍFICAS:
+   - Mencionar universidades, laboratórios, institutos de pesquisa
+   - Destacar anos de pesquisa, número de formulações testadas
+   - Criar blockquote para citações de especialistas
+
+3️⃣ DADOS DE TESTES/ESTUDOS:
+   - Preservar TODOS os valores numéricos EXATOS (147 MPa, não "~150 MPa")
+   - Citar nome do laboratório que realizou os testes
+   - Manter metodologia quando disponível (ASTM D790, ISO 4049, etc.)
+   - Incluir temperatura de teste (23°C, 37°C), condições, tempo de envelhecimento
+
+4️⃣ CASOS CLÍNICOS/LONGEVIDADE:
+   - Anos de comprovação clínica
+   - Número de casos documentados
+   - Resultados de acompanhamento
+   - Taxa de sucesso quando disponível
+
+FORMATO DA SEÇÃO E-E-A-T:
+<div class="authority-section">
+  <h2>🏆 Autoridade e Conformidade Científica</h2>
+  
+  <div class="certification-grid">
+    <div class="cert-card">
+      <strong>ISO 10993-1:2018</strong>
+      <p>Biocompatibilidade integral atestada para contato prolongado com mucosa oral</p>
+    </div>
+    <div class="cert-card">
+      <strong>FDA 21 CFR 175.300</strong>
+      <p>Aprovado para uso em dispositivos médicos de longa duração</p>
+    </div>
+    <!-- Repetir para cada certificação mencionada nas fontes -->
+  </div>
+  
+  <div class="partnership-card">
+    <h3>Parcerias de Pesquisa</h3>
+    <p>Desenvolvido em colaboração com [Nome da Universidade/Laboratório] ao longo de [X] anos de pesquisa, testando [N] formulações diferentes até alcançar os parâmetros ideais.</p>
+  </div>
+  
+  <div class="test-data-card">
+    <h3>Dados de Caracterização</h3>
+    <p>Testes realizados por [Nome do Laboratório] seguindo norma [ISO/ASTM] a [temperatura]°C:</p>
+    <ul>
+      <li>Resistência à flexão: [valor exato] MPa</li>
+      <li>Módulo de elasticidade: [valor exato] GPa</li>
+      <li>Alongamento: [valor exato]%</li>
+      <!-- Preservar TODOS os dados técnicos mencionados -->
+    </ul>
+  </div>
+</div>
+
+═══════════════════════════════════════════════════════════
+📊 PROTOCOLOS DETALHADOS (HowTo Schema Completo)
+═══════════════════════════════════════════════════════════
+
+Quando o conteúdo contiver PROTOCOLOS/PROCEDIMENTOS:
+
+1️⃣ PRESERVAR TODOS OS PASSOS (não resuma):
+   - Se o original tem 8 passos, o output DEVE ter 8 passos
+   - Manter tempos específicos (60s, 5min, 2h, etc.)
+   - Manter temperaturas (37°C, 60°C, 150°C, etc.)
+   - Manter proporções e quantidades (IPA 99%, 3x lavagem, etc.)
+   - Manter configurações de equipamentos (UV 405nm, LED 360-480nm, etc.)
+
+2️⃣ CRIAR MÚLTIPLAS SEÇÕES HowTo se necessário:
+   - Protocolo de Pré-Impressão (calibração, fatiamento)
+   - Protocolo de Pós-Impressão (lavagem, remoção de suportes)
+   - Protocolo de Pós-Cura UV (tempo, temperatura, equipamento)
+   - Protocolo de Tratamento Térmico (rampa, patamar, resfriamento)
+   - Protocolo de Caracterização (testes mecânicos)
+   - Protocolo de Cimentação (preparo, adesão, acabamento)
+
+3️⃣ FORMATO IDEAL COM SCHEMA MARKUP:
+<h2 itemscope itemtype="https://schema.org/HowTo">
+  <span itemprop="name">📋 [Nome Completo do Protocolo]</span>
+</h2>
+<div class="protocol-card">
+  <p itemprop="description">[Objetivo do protocolo e contexto de aplicação]</p>
+  
+  <h3>Materiais e Equipamentos Necessários:</h3>
+  <ul>
+    <li>[Material 1 - especificar marca/modelo quando mencionado]</li>
+    <li>[Material 2 - incluir concentração/especificações]</li>
+    <li>[Equipamento 1 - incluir configurações]</li>
+  </ul>
+  
+  <h3>Procedimento Passo a Passo:</h3>
+  <ol class="protocol-steps">
+    <li itemprop="step" itemscope itemtype="https://schema.org/HowToStep">
+      <span itemprop="name"><strong>Passo 1:</strong> [Nome descritivo do passo]</span>
+      <span itemprop="text">[Descrição detalhada incluindo: tempo (Xs, Xmin), temperatura (X°C), velocidade, configuração do equipamento, etc.]</span>
+    </li>
+    <li itemprop="step" itemscope itemtype="https://schema.org/HowToStep">
+      <span itemprop="name"><strong>Passo 2:</strong> [Nome descritivo do passo]</span>
+      <span itemprop="text">[Descrição completa - NUNCA omita passos intermediários]</span>
+    </li>
+    <!-- TODOS os passos do protocolo original -->
+  </ol>
+  
+  <div class="protocol-tips">
+    <h4>⚠️ Pontos de Atenção:</h4>
+    <ul>
+      <li>[Alertas sobre erros comuns]</li>
+      <li>[Condições críticas que afetam resultado]</li>
+    </ul>
+  </div>
+</div>
+
+═══════════════════════════════════════════════════════════
+🚫 REGRAS DE NUNCA FAZER (PROIBIÇÕES ABSOLUTAS)
+═══════════════════════════════════════════════════════════
+
+1. NUNCA RESUMA tabelas - se a tabela original tem 10 linhas, mantenha 10 linhas
+2. NUNCA ARREDONDE valores técnicos - 147 MPa ≠ "aproximadamente 150 MPa"
+3. NUNCA OMITA passos de protocolos - 8 passos originais = 8 passos na saída
+4. NUNCA IGNORE certificações mencionadas nas fontes
+5. NUNCA INVENTE dados que não estão nas fontes de entrada
+6. NUNCA COMBINE dados de produtos diferentes de forma enganosa
+7. NUNCA OMITA unidades de medida (MPa, GPa, %, µm, °C, min, s)
+8. NUNCA SIMPLIFIQUE hierarquia de seções - preserve a estrutura original
+9. NUNCA REMOVA contexto de normas técnicas (ISO 4049 ≠ "norma internacional")
+10. NUNCA SUBSTITUA dados precisos por descrições genéricas
+
+═══════════════════════════════════════════════════════════
+📐 HIERARQUIA E ESTRUTURA SEMÂNTICA
+═══════════════════════════════════════════════════════════
+
+Se o documento original contiver:
+- 5 seções principais → Mantenha 5 seções no output
+- 3 níveis de hierarquia (H2, H3, H4) → Preserve os 3 níveis
+- Múltiplos protocolos separados → Crie múltiplas seções HowTo
+- Comparações tabulares → Converta TODAS para <table>
+
+Estrutura mínima obrigatória:
+1. Introdução (contexto + relevância)
+2. Composição e Dados Técnicos (com tabelas)
+3. Autoridade E-E-A-T (se houver certificações/parcerias/testes)
+4. Protocolo(s) Detalhado(s) (com HowTo Schema)
+5. Casos Clínicos / Aplicações (se mencionado nas fontes)
+6. Comparativo com Alternativas (se houver dados comparativos)
+7. Conclusão com Voz de Autoridade
+
 **ESTRUTURA DE SAÍDA FINAL (Artigo Único para Publicação):**
 
 <h1>${productName ? `O Guia Completo de ${productName}` : 'Guia Técnico Completo'}: [TÍTULO OTIMIZADO PARA SEO]</h1>
@@ -555,6 +746,12 @@ Você DEVE retornar um objeto JSON válido com esta estrutura exata:
 7. Cite produtos e resinas prioritários do contexto enriquecido quando relevante
 8. Use [RÓTULO] para separar blocos de conteúdo semântico no HTML
 9. O campo "metadata" é OBRIGATÓRIO e deve incluir todos os campos listados acima
+10. NUNCA RESUMA tabelas ou protocolos - preserve 100% dos dados originais com valores EXATOS
+11. SEMPRE crie seção E-E-A-T quando houver certificações/parcerias/testes nas fontes de entrada
+12. Se o documento original tiver N seções hierárquicas (H2, H3), mantenha N seções no output
+13. Dados numéricos são SAGRADOS - nunca arredonde ou omita valores (147 MPa ≠ ~150 MPa)
+14. TODAS as tabelas Markdown devem ser convertidas para HTML <table> completas
+15. Protocolos com X passos devem gerar output com X passos (não resuma etapas)
 `;
 
     console.log('🤖 Chamando IA para gerar artigo orquestrado...');
