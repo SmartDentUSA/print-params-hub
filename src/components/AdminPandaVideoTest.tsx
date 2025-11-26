@@ -421,69 +421,6 @@ export function AdminPandaVideoTest() {
         </CardContent>
       </Card>
 
-      {/* Card de Instruções */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">📚 Como usar</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div>
-            <strong className="text-primary">1. Testar Auth:</strong>
-            <p className="text-muted-foreground">
-              Verifica se a API key está configurada corretamente e funcionando.
-            </p>
-          </div>
-          
-          <div>
-            <strong className="text-primary">2. Listar Vídeos:</strong>
-            <p className="text-muted-foreground">
-              Retorna os primeiros 10 vídeos do seu catálogo PandaVideo. Use isso para pegar IDs de vídeos para os próximos testes.
-            </p>
-          </div>
-          
-          <div>
-            <strong className="text-primary">3. Detalhes do Vídeo:</strong>
-            <p className="text-muted-foreground">
-              Digite um ID de vídeo no campo acima e veja todos os detalhes disponíveis (título, thumbnail, duração, embed URL, etc).
-            </p>
-          </div>
-          
-          <div>
-            <strong className="text-primary">4. Analytics:</strong>
-            <p className="text-muted-foreground">
-              Obtém dados de consumo de banda de um vídeo específico. Use o campo "video_external_id" da lista de vídeos. Opcionalmente, defina o período de análise.
-            </p>
-          </div>
-          
-          <div>
-            <strong className="text-primary">5. Listar Pastas:</strong>
-            <p className="text-muted-foreground">
-              Se você organiza seus vídeos em pastas no PandaVideo, este endpoint lista todas elas.
-            </p>
-          </div>
-
-          <div>
-            <strong className="text-primary">6. Info Legendas:</strong>
-            <p className="text-muted-foreground">
-              Retorna todas as legendas disponíveis para um vídeo (idiomas, labels). Use para descobrir quais idiomas estão disponíveis.
-            </p>
-          </div>
-
-          <div>
-            <strong className="text-primary">7. Baixar Legendas por Idioma:</strong>
-            <p className="text-muted-foreground">
-              Baixa o conteúdo da legenda em um idioma específico (pt-BR, en, es). Primeiro use "Info Legendas" para ver quais idiomas estão disponíveis.
-            </p>
-          </div>
-
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <strong className="text-sm text-yellow-900">💡 Dica:</strong>
-            <p className="text-xs text-yellow-800 mt-1">
-              Após testar, anote a estrutura de dados retornada para ajustar o banco de dados e componentes de acordo.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }
