@@ -142,15 +142,19 @@ serve(async (req) => {
         continue;
       }
 
-      const avgRetention = retentionData?.points?.length
-        ? retentionData.points.reduce((sum: number, p: any) => sum + (p.retention || 0), 0) /
-          retentionData.points.length
-        : 0;
+      // Calculate average retention from object values (API returns fractional values 0-1)
+      let avgRetention = 0;
+      if (retentionData?.retention) {
+        const retentionValues = Object.values(retentionData.retention) as number[];
+        if (retentionValues.length > 0) {
+          avgRetention = retentionValues.reduce((sum: number, val: number) => sum + (val * 100), 0) / retentionValues.length;
+        }
+      }
 
-      const views = general.views || 0;
-      const unique_views = general.unique_views || 0;
-      const plays = general.plays || 0;
-      const unique_plays = general.unique_plays || 0;
+      const views = general?.total?.view || 0;
+      const unique_views = general?.total?.unique_view || 0;
+      const plays = general?.total?.play || 0;
+      const unique_plays = general?.total?.unique_play || 0;
       const retention = Number(avgRetention.toFixed(2));
 
       // Atualizar maxViews/maxPlays dinamicamente
