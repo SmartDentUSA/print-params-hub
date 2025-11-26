@@ -1311,6 +1311,11 @@ function formatAiReady(data: any) {
         imagem: item.image_url,
         url_canonica: item.canonical_url,
         titulo_seo: item.seo_title_override,
+        reputacao_google: item.extra_data?.reviews_reputation ? {
+          nota: item.extra_data.reviews_reputation.google_rating,
+          total_avaliacoes: item.extra_data.reviews_reputation.google_review_count,
+          ultima_sincronizacao: item.extra_data.reviews_reputation.last_synced_at
+        } : null,
         dados_completos: item.extra_data
       })),
       configuracoes_categorias: (data.system_a_catalog.grouped.category_config || []).map((item: any) => ({
@@ -1398,15 +1403,48 @@ function formatAiReady(data: any) {
         avaliacao: item.rating,
         dados_completos: item.extra_data
       })),
-      avaliacoes_google: (data.system_a_catalog.grouped.google_review || []).map((item: any) => ({
-        id: item.id,
-        external_id: item.external_id,
-        autor: item.name,
-        avaliacao_texto: item.description,
-        foto_perfil: item.image_url,
-        nota: item.rating,
-        dados_completos: item.extra_data
-      })),
+      avaliacoes_google: (() => {
+        // Extrair reviews do perfil da empresa (company_info)
+        const companyInfo = data.system_a_catalog.grouped.company_info?.[0];
+        const reviewsData = companyInfo?.extra_data?.reviews_reputation;
+        
+        if (!reviewsData) return null;
+        
+        return {
+          resumo: {
+            nota_media: reviewsData.google_rating,
+            total_avaliacoes: reviewsData.google_review_count,
+            ultima_sincronizacao: reviewsData.last_synced_at
+          },
+          reviews_pt: (reviewsData.google_reviews_pt || []).map((r: any) => ({
+            autor: r.author_name,
+            foto_perfil: r.profile_photo_url,
+            url_perfil: r.author_url,
+            nota: r.rating,
+            texto: r.text,
+            tempo_relativo: r.relative_time_description,
+            timestamp: r.time
+          })),
+          reviews_en: (reviewsData.google_reviews_en || []).map((r: any) => ({
+            autor: r.author_name,
+            foto_perfil: r.profile_photo_url,
+            url_perfil: r.author_url,
+            nota: r.rating,
+            texto: r.text,
+            tempo_relativo: r.relative_time_description,
+            timestamp: r.time
+          })),
+          reviews_es: (reviewsData.google_reviews_es || []).map((r: any) => ({
+            autor: r.author_name,
+            foto_perfil: r.profile_photo_url,
+            url_perfil: r.author_url,
+            nota: r.rating,
+            texto: r.text,
+            tempo_relativo: r.relative_time_description,
+            timestamp: r.time
+          }))
+        };
+      })(),
       lideres_opiniao: (data.system_a_catalog.grouped.kol || []).map((item: any) => ({
         id: item.id,
         external_id: item.external_id,
