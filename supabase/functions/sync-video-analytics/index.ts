@@ -142,13 +142,20 @@ serve(async (req) => {
         continue;
       }
 
-      // Calculate average retention from object values (API returns fractional values 0-1)
+      // Calculate average retention from absolute viewer counts
       let avgRetention = 0;
-      if (retentionData?.retention) {
-        const retentionValues = Object.values(retentionData.retention) as number[];
-        if (retentionValues.length > 0) {
-          avgRetention = retentionValues.reduce((sum: number, val: number) => sum + (val * 100), 0) / retentionValues.length;
-        }
+      if (retentionData?.retention && Object.keys(retentionData.retention).length > 0) {
+        const retentionObj = retentionData.retention as Record<string, number>;
+        const retentionValues = Object.values(retentionObj);
+        
+        // First value = viewers at the start (second 0)
+        const firstValue = retentionObj["0"] || retentionValues[0] || 1;
+        
+        // Average viewers throughout the video
+        const avgViewers = retentionValues.reduce((sum: number, val: number) => sum + val, 0) / retentionValues.length;
+        
+        // Retention % = (average viewers / initial viewers) * 100
+        avgRetention = (avgViewers / firstValue) * 100;
       }
 
       const views = general?.total?.view || 0;
