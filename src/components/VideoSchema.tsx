@@ -4,9 +4,10 @@ interface VideoSchemaProps {
   videos: KnowledgeVideo[];
   productName?: string;
   currentLang?: 'pt' | 'en' | 'es';
+  includeAnalytics?: boolean;
 }
 
-export const VideoSchema = ({ videos, productName, currentLang = 'pt' }: VideoSchemaProps) => {
+export const VideoSchema = ({ videos, productName, currentLang = 'pt', includeAnalytics = true }: VideoSchemaProps) => {
   if (!videos || videos.length === 0) return null;
 
   const langMap = {
@@ -27,7 +28,7 @@ export const VideoSchema = ({ videos, productName, currentLang = 'pt' }: VideoSc
         "contentUrl": sub.src
       })) || [];
 
-      return {
+      const schema: any = {
         "@type": "VideoObject",
         "name": video.title,
         "description": video.description || productName,
@@ -41,6 +42,30 @@ export const VideoSchema = ({ videos, productName, currentLang = 'pt' }: VideoSc
         "transcript": video.video_transcript || undefined,
         ...(captions.length > 0 && { "caption": captions })
       };
+
+      // Adicionar métricas de interação se includeAnalytics = true
+      if (includeAnalytics && (video as any).analytics_views) {
+        const videoWithAnalytics = video as any;
+        schema.interactionStatistic = [];
+
+        if (videoWithAnalytics.analytics_views > 0) {
+          schema.interactionStatistic.push({
+            "@type": "InteractionCounter",
+            "interactionType": "https://schema.org/WatchAction",
+            "userInteractionCount": videoWithAnalytics.analytics_views
+          });
+        }
+
+        if (videoWithAnalytics.analytics_plays > 0) {
+          schema.interactionStatistic.push({
+            "@type": "InteractionCounter",
+            "interactionType": "https://schema.org/PlayAction",
+            "userInteractionCount": videoWithAnalytics.analytics_plays
+          });
+        }
+      }
+
+      return schema;
     });
 
   if (schemas.length === 0) return null;

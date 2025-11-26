@@ -198,6 +198,34 @@ export function AdminPandaVideoTest() {
             </Button>
 
             <Button
+              onClick={() => callAPI('get_general_analytics')}
+              disabled={loading || !videoId}
+              variant="outline"
+              className="h-20 flex-col gap-2"
+            >
+              {loading && lastAction === 'get_general_analytics' ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <BarChart3 className="h-5 w-5 text-blue-500" />
+              )}
+              <span className="text-sm">Métricas Gerais</span>
+            </Button>
+
+            <Button
+              onClick={() => callAPI('get_retention')}
+              disabled={loading || !videoId}
+              variant="outline"
+              className="h-20 flex-col gap-2"
+            >
+              {loading && lastAction === 'get_retention' ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <span className="text-2xl">📈</span>
+              )}
+              <span className="text-sm">Retenção</span>
+            </Button>
+
+            <Button
               onClick={() => callAPI('list_folders')}
               disabled={loading}
               variant="outline"
