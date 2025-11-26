@@ -169,22 +169,49 @@ export function useVideoOpportunities() {
 
   async function syncAnalytics() {
     setIsSyncing(true);
+    let totalUpdated = 0;
+    let batchCount = 0;
+    
     try {
+      let hasMore = true;
+      
       toast({
-        title: '🔄 Sincronizando analytics...',
-        description: 'Buscando métricas do PandaVideo. Isso pode levar alguns minutos.',
+        title: '🔄 Iniciando sincronização...',
+        description: 'Processando vídeos em batches de 50.',
       });
-
-      const { data, error } = await supabase.functions.invoke('sync-video-analytics');
-
-      if (error) throw error;
-
+      
+      while (hasMore) {
+        batchCount++;
+        console.log(`🔄 Batch ${batchCount} starting...`);
+        
+        const { data, error } = await supabase.functions.invoke('sync-video-analytics', {
+          body: { limit: 50 }
+        });
+        
+        if (error) throw error;
+        
+        totalUpdated += data.updated || 0;
+        hasMore = (data.remaining || 0) > 0;
+        
+        // Atualizar UI progressivamente
+        toast({
+          title: `✅ Batch ${batchCount} concluído`,
+          description: `${data.updated} vídeos sincronizados. ${data.remaining > 0 ? `${data.remaining} restantes...` : 'Finalizado!'}`,
+        });
+        
+        // Refresh data to show progress
+        await fetchData();
+        
+        // Small delay to prevent rate limiting
+        if (hasMore) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
       toast({
-        title: '✅ Sincronização concluída!',
-        description: `${data.updated} vídeos atualizados com sucesso.`,
+        title: '🎉 Sincronização completa!',
+        description: `${totalUpdated} vídeos atualizados em ${batchCount} batches.`,
       });
-
-      await fetchData();
     } catch (error: any) {
       console.error('Error syncing analytics:', error);
       toast({

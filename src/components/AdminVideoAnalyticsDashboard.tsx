@@ -2,7 +2,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
 import { useVideoOpportunities } from '@/hooks/useVideoOpportunities';
 
 export function AdminVideoAnalyticsDashboard() {
@@ -73,17 +73,42 @@ export function AdminVideoAnalyticsDashboard() {
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex items-center justify-between">
-            <div className="text-xs text-muted-foreground">
+          <CardContent>
+            <div className="text-xs text-muted-foreground mb-3">
               {summary.lastSync ? `Último: ${summary.lastSync}` : 'Nunca sincronizado'}
             </div>
+            {isSyncing && (
+              <div className="mb-3">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Processando em batches de 50...</span>
+                </div>
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-300 animate-pulse"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
             <Button
-              size="icon"
+              size="sm"
               variant="outline"
               onClick={syncAnalytics}
               disabled={isSyncing || isLoading}
+              className="w-full"
             >
-              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? (
+                <>
+                  <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                  Sincronizando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3 mr-2" />
+                  Sincronizar
+                </>
+              )}
             </Button>
           </CardContent>
         </Card>
