@@ -418,9 +418,66 @@ export type Database = {
           },
         ]
       }
+      knowledge_video_metrics_log: {
+        Row: {
+          avg_retention: number | null
+          created_at: string | null
+          id: string
+          knowledge_video_id: string | null
+          pandavideo_id: string | null
+          play_rate: number | null
+          plays: number | null
+          relevance_score: number | null
+          unique_plays: number | null
+          unique_views: number | null
+          views: number | null
+        }
+        Insert: {
+          avg_retention?: number | null
+          created_at?: string | null
+          id?: string
+          knowledge_video_id?: string | null
+          pandavideo_id?: string | null
+          play_rate?: number | null
+          plays?: number | null
+          relevance_score?: number | null
+          unique_plays?: number | null
+          unique_views?: number | null
+          views?: number | null
+        }
+        Update: {
+          avg_retention?: number | null
+          created_at?: string | null
+          id?: string
+          knowledge_video_id?: string | null
+          pandavideo_id?: string | null
+          play_rate?: number | null
+          plays?: number | null
+          relevance_score?: number | null
+          unique_plays?: number | null
+          unique_views?: number | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_video_metrics_log_knowledge_video_id_fkey"
+            columns: ["knowledge_video_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_videos: {
         Row: {
           analytics: Json | null
+          analytics_avg_retention: number | null
+          analytics_last_sync: string | null
+          analytics_play_rate: number | null
+          analytics_plays: number | null
+          analytics_unique_plays: number | null
+          analytics_unique_views: number | null
+          analytics_views: number | null
           content_id: string | null
           created_at: string | null
           description: string | null
@@ -441,6 +498,7 @@ export type Database = {
           product_id: string | null
           product_match_status: string | null
           product_subcategory: string | null
+          relevance_score: number | null
           resin_id: string | null
           search_vector: unknown
           thumbnail_url: string | null
@@ -452,6 +510,13 @@ export type Database = {
         }
         Insert: {
           analytics?: Json | null
+          analytics_avg_retention?: number | null
+          analytics_last_sync?: string | null
+          analytics_play_rate?: number | null
+          analytics_plays?: number | null
+          analytics_unique_plays?: number | null
+          analytics_unique_views?: number | null
+          analytics_views?: number | null
           content_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -472,6 +537,7 @@ export type Database = {
           product_id?: string | null
           product_match_status?: string | null
           product_subcategory?: string | null
+          relevance_score?: number | null
           resin_id?: string | null
           search_vector?: unknown
           thumbnail_url?: string | null
@@ -483,6 +549,13 @@ export type Database = {
         }
         Update: {
           analytics?: Json | null
+          analytics_avg_retention?: number | null
+          analytics_last_sync?: string | null
+          analytics_play_rate?: number | null
+          analytics_plays?: number | null
+          analytics_unique_plays?: number | null
+          analytics_unique_views?: number | null
+          analytics_views?: number | null
           content_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -503,6 +576,7 @@ export type Database = {
           product_id?: string | null
           product_match_status?: string | null
           product_subcategory?: string | null
+          relevance_score?: number | null
           resin_id?: string | null
           search_vector?: unknown
           thumbnail_url?: string | null

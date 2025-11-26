@@ -63,6 +63,18 @@ serve(async (req) => {
         url = `${baseUrl}/analytics/traffic?video_id=${videoId}&start_date=${start}&end_date=${end}`;
         description = `📊 Fetching analytics: ${videoId} (${start} to ${end})`;
         break;
+
+      case "get_general_analytics":
+        if (!videoId) throw new Error("videoId required for get_general_analytics");
+        url = `https://data.pandavideo.com/general/${videoId}`;
+        description = `📊 Fetching general analytics (views/plays): ${videoId}`;
+        break;
+
+      case "get_retention":
+        if (!videoId) throw new Error("videoId required for get_retention");
+        url = `https://data.pandavideo.com/retention/${videoId}`;
+        description = `📈 Fetching retention data: ${videoId}`;
+        break;
       
       case "list_folders":
         url = `${baseUrl}/folders`;
