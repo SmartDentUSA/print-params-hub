@@ -65,11 +65,42 @@ serve(async (req) => {
   try {
     console.log('🚀 Starting video analytics sync...');
 
-    // Buscar todos os vídeos com pandavideo_id
+    // Parse request body for limit parameter
+    const { limit = 50 } = await req.json().catch(() => ({}));
+    console.log(`📦 Processing batch size: ${limit}`);
+
+    // Calculate timestamp for 24 hours ago
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Get max values from existing data for normalization
+    const { data: maxData } = await supabase
+      .from("knowledge_videos")
+      .select("analytics_unique_views, analytics_unique_plays")
+      .not("analytics_unique_views", "is", null)
+      .order("analytics_unique_views", { ascending: false })
+      .limit(1)
+      .single();
+
+    let maxViews = maxData?.analytics_unique_views || 1;
+    let maxPlays = maxData?.analytics_unique_plays || 1;
+
+    // Count total videos needing sync
+    const { count: totalCount } = await supabase
+      .from("knowledge_videos")
+      .select("id", { count: "exact", head: true })
+      .not("pandavideo_id", "is", null)
+      .or(`analytics_last_sync.is.null,analytics_last_sync.lt.${yesterday}`);
+
+    console.log(`📊 Total videos needing sync: ${totalCount || 0}`);
+
+    // Buscar vídeos NÃO sincronizados ou sincronizados há mais de 24h
     const { data: videos, error: videosError } = await supabase
       .from("knowledge_videos")
       .select("id, pandavideo_id, title")
-      .not("pandavideo_id", "is", null);
+      .not("pandavideo_id", "is", null)
+      .or(`analytics_last_sync.is.null,analytics_last_sync.lt.${yesterday}`)
+      .order("analytics_last_sync", { ascending: true, nullsFirst: true })
+      .limit(limit);
 
     if (videosError) {
       console.error('❌ Error fetching videos:', videosError);
@@ -77,22 +108,26 @@ serve(async (req) => {
     }
 
     if (!videos || videos.length === 0) {
-      console.log('⚠️ No videos with pandavideo_id found');
+      console.log('✅ All videos are up to date!');
       return new Response(
-        JSON.stringify({ message: "No videos with pandavideo_id found", updated: 0 }),
+        JSON.stringify({ 
+          success: true,
+          message: "All videos are up to date", 
+          updated: 0,
+          remaining: 0,
+          total: 0
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`📹 Found ${videos.length} videos to process`);
+    console.log(`📹 Processing ${videos.length} videos in this batch`);
 
-    let maxViews = 0;
-    let maxPlays = 0;
-    const analytics: any[] = [];
+    let updatedCount = 0;
 
-    // Buscar analytics para cada vídeo
+    // Processar e SALVAR IMEDIATAMENTE cada vídeo
     for (const v of videos) {
-      console.log(`📊 Processing video: ${v.title} (${v.pandavideo_id})`);
+      console.log(`📊 Processing: ${v.title} (${v.pandavideo_id})`);
 
       const general = await fetchJSON(
         `https://data.pandavideo.com/general/${v.pandavideo_id}`
@@ -112,49 +147,41 @@ serve(async (req) => {
           retentionData.points.length
         : 0;
 
-      const record = {
-        id: v.id,
-        pandavideo_id: v.pandavideo_id,
-        views: general.views || 0,
-        unique_views: general.unique_views || 0,
-        plays: general.plays || 0,
-        unique_plays: general.unique_plays || 0,
-        retention: Number(avgRetention.toFixed(2)),
-      };
+      const views = general.views || 0;
+      const unique_views = general.unique_views || 0;
+      const plays = general.plays || 0;
+      const unique_plays = general.unique_plays || 0;
+      const retention = Number(avgRetention.toFixed(2));
 
-      maxViews = Math.max(maxViews, record.unique_views);
-      maxPlays = Math.max(maxPlays, record.unique_plays);
-      analytics.push(record);
+      // Atualizar maxViews/maxPlays dinamicamente
+      maxViews = Math.max(maxViews, unique_views);
+      maxPlays = Math.max(maxPlays, unique_plays);
 
-      console.log(`✅ ${v.title}: ${record.views} views, ${record.retention}% retention`);
-    }
+      // Calcular score
+      const score = calculateRelevanceScore(
+        { views, plays, unique_views, unique_plays, retention },
+        { maxViews, maxPlays }
+      );
 
-    console.log(`📈 Max views: ${maxViews}, Max plays: ${maxPlays}`);
-    console.log(`💾 Updating ${analytics.length} videos in database...`);
+      const playRate = views > 0 ? Number(((plays / views) * 100).toFixed(2)) : 0;
 
-    // Calcular score e atualizar banco
-    let updatedCount = 0;
-    for (const row of analytics) {
-      const score = calculateRelevanceScore(row, { maxViews, maxPlays });
-      const playRate = row.views > 0 ? Number(((row.plays / row.views) * 100).toFixed(2)) : 0;
-
-      // Atualizar knowledge_videos
+      // SALVAR IMEDIATAMENTE (não acumular)
       const { error: updateError } = await supabase
         .from("knowledge_videos")
         .update({
-          analytics_views: row.views,
-          analytics_unique_views: row.unique_views,
-          analytics_plays: row.plays,
-          analytics_unique_plays: row.unique_plays,
+          analytics_views: views,
+          analytics_unique_views: unique_views,
+          analytics_plays: plays,
+          analytics_unique_plays: unique_plays,
           analytics_play_rate: playRate,
-          analytics_avg_retention: row.retention,
+          analytics_avg_retention: retention,
           relevance_score: score,
           analytics_last_sync: new Date().toISOString(),
         })
-        .eq("id", row.id);
+        .eq("id", v.id);
 
       if (updateError) {
-        console.error(`❌ Error updating video ${row.id}:`, updateError);
+        console.error(`❌ Error updating video ${v.id}:`, updateError);
         continue;
       }
 
@@ -162,31 +189,34 @@ serve(async (req) => {
       const { error: logError } = await supabase
         .from("knowledge_video_metrics_log")
         .insert({
-          knowledge_video_id: row.id,
-          pandavideo_id: row.pandavideo_id,
-          views: row.views,
-          unique_views: row.unique_views,
-          plays: row.plays,
-          unique_plays: row.unique_plays,
+          knowledge_video_id: v.id,
+          pandavideo_id: v.pandavideo_id,
+          views,
+          unique_views,
+          plays,
+          unique_plays,
           play_rate: playRate,
-          avg_retention: row.retention,
+          avg_retention: retention,
           relevance_score: score,
         });
 
       if (logError) {
-        console.error(`❌ Error inserting log for ${row.id}:`, logError);
-      } else {
-        updatedCount++;
+        console.error(`❌ Error inserting log for ${v.id}:`, logError);
       }
+
+      updatedCount++;
+      console.log(`✅ ${v.title}: ${views} views, ${retention}% retention, score: ${score}`);
     }
 
-    console.log(`✅ Sync completed! Updated ${updatedCount}/${analytics.length} videos`);
+    const remaining = (totalCount || 0) - updatedCount;
+    console.log(`✅ Batch completed! Updated ${updatedCount} videos, ${remaining} remaining`);
 
     return new Response(
       JSON.stringify({
         success: true,
         updated: updatedCount,
-        total: videos.length,
+        remaining: Math.max(0, remaining),
+        total: totalCount || 0,
         maxViews,
         maxPlays,
       }),
