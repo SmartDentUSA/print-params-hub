@@ -36,6 +36,7 @@ interface MarkdownElement {
 interface ParsedInstructions {
   pre: MarkdownElement[];
   post: MarkdownElement[];
+  sections: { title: string; content: MarkdownElement[] }[];
 }
 
 export function ParameterTable({ parameterSet, processingInstructions }: ParameterTableProps) {
@@ -65,12 +66,15 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
   };
 
   const parseMarkdownInstructions = (instructions: string | null | undefined): ParsedInstructions => {
-    if (!instructions) return { pre: [], post: [] };
+    if (!instructions) return { pre: [], post: [], sections: [] };
     
     const lines = instructions.split('\n');
     const pre: MarkdownElement[] = [];
     const post: MarkdownElement[] = [];
-    let currentSection: 'pre' | 'post' | null = null;
+    const sections: { title: string; content: MarkdownElement[] }[] = [];
+    let currentSection: 'pre' | 'post' | 'generic' | null = null;
+    let currentGenericTitle = '';
+    let currentGenericContent: MarkdownElement[] = [];
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -81,15 +85,28 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
       
       // ## Detectar seção principal
       if (trimmed.startsWith('## ')) {
+        // Se havia uma seção genérica anterior, salvar
+        if (currentSection === 'generic' && currentGenericContent.length > 0) {
+          sections.push({
+            title: currentGenericTitle,
+            content: currentGenericContent
+          });
+          currentGenericContent = [];
+        }
+        
         const sectionTitle = trimmed.replace(/^##\s*/, '');
         
-        // Determinar seção (PRÉ ou PÓS)
+        // Determinar seção (PRÉ, PÓS ou GENÉRICA)
         if (sectionTitle.match(/^PRÉ[-\s]?PROCESSAMENTO/i)) {
           currentSection = 'pre';
           pre.push({ type: 'section', content: sectionTitle });
         } else if (sectionTitle.match(/^PÓS[-\s]?PROCESSAMENTO/i)) {
           currentSection = 'post';
           post.push({ type: 'section', content: sectionTitle });
+        } else {
+          // Qualquer outra seção é genérica
+          currentSection = 'generic';
+          currentGenericTitle = sectionTitle;
         }
         continue;
       }
@@ -99,6 +116,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         const subsection = trimmed.replace(/^###\s*/, '');
         if (currentSection === 'pre') pre.push({ type: 'subsection', content: subsection });
         if (currentSection === 'post') post.push({ type: 'subsection', content: subsection });
+        if (currentSection === 'generic') currentGenericContent.push({ type: 'subsection', content: subsection });
         continue;
       }
       
@@ -107,6 +125,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         const note = trimmed.replace(/^>\s*/, '');
         if (currentSection === 'pre') pre.push({ type: 'note', content: note });
         if (currentSection === 'post') post.push({ type: 'note', content: note });
+        if (currentSection === 'generic') currentGenericContent.push({ type: 'note', content: note });
         continue;
       }
       
@@ -126,6 +145,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         
         if (currentSection === 'pre') pre.push(element);
         if (currentSection === 'post') post.push(element);
+        if (currentSection === 'generic') currentGenericContent.push(element);
         continue;
       }
       
@@ -142,10 +162,19 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         
         if (currentSection === 'pre') pre.push(element);
         if (currentSection === 'post') post.push(element);
+        if (currentSection === 'generic') currentGenericContent.push(element);
       }
     }
     
-    return { pre, post };
+    // Salvar última seção genérica se existir
+    if (currentSection === 'generic' && currentGenericContent.length > 0) {
+      sections.push({
+        title: currentGenericTitle,
+        content: currentGenericContent
+      });
+    }
+    
+    return { pre, post, sections };
   };
 
   // Transforma texto simples em HTML com hyperlinks para produtos do catálogo
@@ -435,8 +464,8 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         </div>
 
         {processingInstructions && (() => {
-          const { pre, post } = parseMarkdownInstructions(processingInstructions);
-          const hasInstructions = pre.length > 0 || post.length > 0;
+          const { pre, post, sections } = parseMarkdownInstructions(processingInstructions);
+          const hasInstructions = pre.length > 0 || post.length > 0 || sections.length > 0;
           
           if (!hasInstructions) return null;
           
@@ -475,6 +504,18 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
                           </ul>
                         </div>
                       )}
+                      
+                      {sections.map((section, sectionIdx) => (
+                        <div key={`section-${sectionIdx}`}>
+                          <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                            <span className="text-purple-600 dark:text-purple-400">🟣</span>
+                            {section.title}
+                          </h4>
+                          <ul className="space-y-1.5">
+                            {section.content.map((element, idx) => renderMarkdownElement(element, idx, products))}
+                          </ul>
+                        </div>
+                      ))}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
