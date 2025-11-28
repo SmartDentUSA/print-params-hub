@@ -1,5 +1,8 @@
 project_id = "okeogjgqijbfkudfjadz"
 
+[functions.reformat-article-html]
+verify_jwt = false
+
 [functions.migrate-catalog-images]
 verify_jwt = false
 
