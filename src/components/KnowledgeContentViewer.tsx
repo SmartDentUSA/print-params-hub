@@ -19,6 +19,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { VideoLanguageIndicator } from '@/components/VideoLanguageIndicator';
 import { toast } from 'sonner';
+import { ArticleSummary } from '@/components/ArticleSummary';
+import { ArticleMeta } from '@/components/ArticleMeta';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -268,9 +270,20 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                 }
               </p>
             )}
+            <ArticleMeta 
+              createdAt={content.created_at} 
+              updatedAt={content.updated_at} 
+            />
           </div>
         </header>
       )}
+
+      {/* Article Summary (TL;DR) */}
+      <ArticleSummary 
+        aiContext={content.ai_context}
+        aiContextEn={content.ai_context_en}
+        aiContextEs={content.ai_context_es}
+      />
       
       <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
         {/* PDFs selecionados - sempre no topo */}
