@@ -1378,7 +1378,35 @@ Deno.serve(async (req) => {
       html = await generateSystemACatalogHTML('video_testimonial', segments[1], supabase);
     } else if (segments[0] === 'categorias' && segments.length === 2) {
       html = await generateSystemACatalogHTML('category_config', segments[1], supabase);
+    } else if (segments[0] === 'base-conhecimento') {
+      // PT: /base-conhecimento/...
+      if (segments.length === 1) {
+        html = await generateKnowledgeHubHTML(supabase);
+      } else if (segments.length === 2) {
+        html = await generateKnowledgeCategoryHTML(segments[1], supabase);
+      } else if (segments.length === 3) {
+        html = await generateKnowledgeArticleHTML(segments[1], segments[2], supabase);
+      }
+    } else if (segments[0] === 'en' && segments[1] === 'knowledge-base') {
+      // EN: /en/knowledge-base/...
+      if (segments.length === 2) {
+        html = await generateKnowledgeHubHTML(supabase);
+      } else if (segments.length === 3) {
+        html = await generateKnowledgeCategoryHTML(segments[2], supabase);
+      } else if (segments.length === 4) {
+        html = await generateKnowledgeArticleHTML(segments[2], segments[3], supabase);
+      }
+    } else if (segments[0] === 'es' && segments[1] === 'base-conocimiento') {
+      // ES: /es/base-conocimiento/...
+      if (segments.length === 2) {
+        html = await generateKnowledgeHubHTML(supabase);
+      } else if (segments.length === 3) {
+        html = await generateKnowledgeCategoryHTML(segments[2], supabase);
+      } else if (segments.length === 4) {
+        html = await generateKnowledgeArticleHTML(segments[2], segments[3], supabase);
+      }
     } else if (segments[0] === 'conhecimento') {
+      // Legacy: /conhecimento/... (mantido para retrocompatibilidade)
       if (segments.length === 1) {
         html = await generateKnowledgeHubHTML(supabase);
       } else if (segments.length === 2) {
