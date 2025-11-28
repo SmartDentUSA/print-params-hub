@@ -33,16 +33,16 @@
   border-radius: 8px;
 }
 
-/* Links */
+/* Links - Reforçado com !important para sobrepor Tailwind Preflight */
 .article-content a {
-  color: #0066cc;
-  text-decoration: underline;
+  color: hsl(var(--primary)) !important;
+  text-decoration: underline !important;
   word-break: break-word;
   transition: color 0.2s ease;
 }
 
 .article-content a:hover {
-  color: #0052a3;
+  color: hsl(var(--primary) / 0.8) !important;
 }
 
 /* Headings */
@@ -136,13 +136,14 @@
   margin: 12px 0;
 }
 
-/* Tables */
+/* Tables - Reforçado com !important */
 .article-content table {
-  width: 100%;
-  max-width: 100%;
-  border-collapse: collapse;
-  margin: 20px 0;
-  font-size: 1em;
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 20px 0 !important;
+  font-size: 1em !important;
+  border: 1px solid hsl(var(--border)) !important;
 }
 
 .article-content-mobile table {
@@ -154,9 +155,9 @@
 
 .article-content th,
 .article-content td {
-  padding: 12px;
-  border: 1px solid hsl(var(--border));
-  text-align: left;
+  padding: 12px !important;
+  border: 1px solid hsl(var(--border)) !important;
+  text-align: left !important;
 }
 
 .article-content-mobile th,
@@ -165,8 +166,8 @@
 }
 
 .article-content th {
-  background-color: hsl(var(--muted));
-  font-weight: 600;
+  background-color: hsl(var(--muted)) !important;
+  font-weight: 600 !important;
 }
 
 /* Code */

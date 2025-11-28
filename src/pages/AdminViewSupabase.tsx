@@ -10,6 +10,7 @@ import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
 import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
 import { AdminParameterPages } from "@/components/AdminParameterPages";
 import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
+import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 
 const AdminViewSupabase = () => {
   const dataContext = useData();
@@ -130,6 +131,19 @@ const AdminViewSupabase = () => {
 
           {/* Video Analytics Dashboard */}
           <AdminVideoAnalyticsDashboard />
+
+          {/* Article HTML Reformatter */}
+          <Card className="bg-gradient-card border-border shadow-medium">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Zap className="w-5 h-5" />
+                Reformatar HTML de Artigos com IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AdminArticleReformatter />
+            </CardContent>
+          </Card>
 
           {/* Parameter Pages Generator (Category F) */}
           <AdminParameterPages />
