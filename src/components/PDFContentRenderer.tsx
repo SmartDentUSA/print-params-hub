@@ -1,4 +1,4 @@
-import { BlogPreviewFrame } from './BlogPreviewFrame';
+import { DirectHTMLRenderer } from './DirectHTMLRenderer';
 import { PDFViewerEmbed } from './PDFViewerEmbed';
 
 interface PDFContentRendererProps {
@@ -18,8 +18,8 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
   
   // Se não há PDFs, renderizar normalmente
   if (!hasPDFContainer) {
-    console.log('PDFContentRenderer: No PDF container found, using BlogPreviewFrame');
-    return <BlogPreviewFrame htmlContent={htmlContent} deviceMode={deviceMode} />;
+    console.log('PDFContentRenderer: No PDF container found, using DirectHTMLRenderer');
+    return <DirectHTMLRenderer htmlContent={htmlContent} deviceMode={deviceMode} />;
   }
 
   // Regex mais simples e robusto: procurar por iframes dentro de pdf-viewer-container
@@ -60,7 +60,7 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
       const htmlBefore = htmlContent.slice(lastIndex, match.index);
       if (htmlBefore.trim()) {
         parts.push(
-          <BlogPreviewFrame 
+          <DirectHTMLRenderer 
             key={`html-${key}`} 
             htmlContent={htmlBefore}
             deviceMode={deviceMode}
@@ -88,7 +88,7 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
     const htmlAfter = htmlContent.slice(lastIndex);
     if (htmlAfter.trim()) {
       parts.push(
-        <BlogPreviewFrame 
+        <DirectHTMLRenderer 
           key={`html-${key}`} 
           htmlContent={htmlAfter}
           deviceMode={deviceMode}
@@ -97,11 +97,10 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
     }
   }
 
-  // Se não conseguiu extrair nenhum PDF com o regex, renderizar tudo no BlogPreviewFrame
-  // (o iframe será renderizado dentro do iframe do BlogPreviewFrame)
+  // Se não conseguiu extrair nenhum PDF com o regex, renderizar tudo diretamente
   if (parts.length === 0) {
-    console.warn('PDFContentRenderer: Container found but regex failed, falling back to BlogPreviewFrame');
-    return <BlogPreviewFrame htmlContent={htmlContent} deviceMode={deviceMode} />;
+    console.warn('PDFContentRenderer: Container found but regex failed, falling back to DirectHTMLRenderer');
+    return <DirectHTMLRenderer htmlContent={htmlContent} deviceMode={deviceMode} />;
   }
 
   console.log('PDFContentRenderer: Successfully rendered', parts.length, 'parts');

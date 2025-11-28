@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Article content styles for LLM-AO optimization */
+@import './styles/article-content.css';
+
 @import './styles/blog-content.css';
 
 /* 3D Printing Parameters App Design System - Technical & Professional */
