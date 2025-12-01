@@ -1,5 +1,6 @@
 import { DirectHTMLRenderer } from './DirectHTMLRenderer';
 import { PDFViewerEmbed } from './PDFViewerEmbed';
+import { devLog, devWarn } from '@/utils/logger';
 
 interface PDFContentRendererProps {
   htmlContent: string;
@@ -10,17 +11,12 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
   // Verificar se há PDFs no conteúdo
   const hasPDFContainer = htmlContent.includes('pdf-viewer-container');
   
-  console.log('PDFContentRenderer: Has PDF container?', hasPDFContainer);
-  
-  if (hasPDFContainer) {
-    console.log('PDFContentRenderer: HTML snippet (first 500 chars):', htmlContent.substring(0, 500));
-  }
-  
   // Se não há PDFs, renderizar normalmente
   if (!hasPDFContainer) {
-    console.log('PDFContentRenderer: No PDF container found, using DirectHTMLRenderer');
     return <DirectHTMLRenderer htmlContent={htmlContent} deviceMode={deviceMode} />;
   }
+
+  devLog('PDFContentRenderer: HTML snippet (first 500 chars):', htmlContent.substring(0, 500));
 
   // Regex mais simples e robusto: procurar por iframes dentro de pdf-viewer-container
   const containerPattern = /<div[^>]*class="pdf-viewer-container"[^>]*>([\s\S]*?)<\/div>(?=\s*(?:<div[^>]*class="pdf-viewer-container"|$))/g;
@@ -29,8 +25,6 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
   let lastIndex = 0;
   let match;
   let key = 0;
-
-  console.log('PDFContentRenderer: Searching for PDF containers...');
 
   while ((match = containerPattern.exec(htmlContent)) !== null) {
     const containerHTML = match[0];
@@ -45,7 +39,7 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
     const subtitleMatch = containerContent.match(/<p[^>]*style="[^"]*font-size:\s*12px[^"]*"[^>]*>([^<]+)<\/p>/);
     
     if (!iframeMatch) {
-      console.warn('PDFContentRenderer: Found container but no iframe, skipping');
+      devWarn('PDFContentRenderer: Found container but no iframe, skipping');
       continue;
     }
     
@@ -53,7 +47,7 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
     const pdfTitle = titleMatch ? titleMatch[1] : 'Documento PDF';
     const pdfSubtitle = subtitleMatch ? subtitleMatch[1].trim() : '';
     
-    console.log('PDFContentRenderer: Found PDF:', { pdfUrl, pdfTitle, pdfSubtitle });
+    devLog('PDFContentRenderer: Found PDF:', { pdfUrl, pdfTitle, pdfSubtitle });
     
     // Conteúdo HTML antes do PDF
     if (match.index > lastIndex) {
@@ -99,10 +93,10 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
 
   // Se não conseguiu extrair nenhum PDF com o regex, renderizar tudo diretamente
   if (parts.length === 0) {
-    console.warn('PDFContentRenderer: Container found but regex failed, falling back to DirectHTMLRenderer');
+    devWarn('PDFContentRenderer: Container found but regex failed, falling back to DirectHTMLRenderer');
     return <DirectHTMLRenderer htmlContent={htmlContent} deviceMode={deviceMode} />;
   }
 
-  console.log('PDFContentRenderer: Successfully rendered', parts.length, 'parts');
+  devLog('PDFContentRenderer: Successfully rendered', parts.length, 'parts');
   return <>{parts}</>;
 }

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { devError } from '@/utils/logger';
 
 export interface KnowledgeCategory {
   id: string;
@@ -115,8 +116,8 @@ export function useKnowledge() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  // ===== FETCH =====
-  const fetchCategories = async () => {
+  // ===== FETCH (MEMOIZED) =====
+  const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -132,9 +133,9 @@ export function useKnowledge() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchContentsByCategory = async (categoryLetter: string) => {
+  const fetchContentsByCategory = useCallback(async (categoryLetter: string) => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -152,9 +153,9 @@ export function useKnowledge() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchContentBySlug = async (slug: string) => {
+  const fetchContentBySlug = useCallback(async (slug: string) => {
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -171,9 +172,9 @@ export function useKnowledge() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  const fetchVideosByContent = async (contentId: string) => {
+  const fetchVideosByContent = useCallback(async (contentId: string) => {
     try {
       const { data, error } = await supabase
         .from('knowledge_videos')
@@ -187,118 +188,9 @@ export function useKnowledge() {
       toast({ title: 'Erro ao carregar vídeos', variant: 'destructive' });
       return [];
     }
-  };
+  }, [toast]);
 
-  // ===== ADMIN CRUD =====
-  const updateCategory = async (id: string, updates: Partial<KnowledgeCategory>) => {
-    try {
-      const { data, error } = await supabase
-        .from('knowledge_categories')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      toast({ title: 'Categoria atualizada!' });
-      return data;
-    } catch (error) {
-      toast({ title: 'Erro ao atualizar categoria', variant: 'destructive' });
-      return null;
-    }
-  };
-
-  const insertContent = async (content: Omit<KnowledgeContent, 'id' | 'created_at' | 'updated_at'>) => {
-    setLoading(true);
-    try {
-      const sanitized = pickAllowed(content) as any;
-      const { data, error } = await supabase
-        .from('knowledge_contents')
-        .insert(sanitized)
-        .select()
-        .maybeSingle();
-
-      if (error) throw error;
-      toast({ title: 'Conteúdo criado com sucesso!' });
-      return data;
-    } catch (error) {
-      console.error('Error inserting content:', error);
-      toast({ title: 'Erro ao criar conteúdo', variant: 'destructive' });
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateContent = async (id: string, updates: Partial<KnowledgeContent>) => {
-    setLoading(true);
-    try {
-      const sanitized = pickAllowed(updates) as any;
-      const { error } = await supabase
-        .from('knowledge_contents')
-        .update(sanitized)
-        .eq('id', id);
-
-      if (error) throw error;
-      toast({ title: 'Conteúdo atualizado com sucesso!' });
-      return true;
-    } catch (error) {
-      console.error('Error updating content:', error);
-      toast({ title: 'Erro ao atualizar conteúdo', variant: 'destructive' });
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deleteContent = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('knowledge_contents')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      toast({ title: 'Conteúdo excluído!' });
-      return true;
-    } catch (error) {
-      toast({ title: 'Erro ao excluir conteúdo', variant: 'destructive' });
-      return false;
-    }
-  };
-
-  const insertVideo = async (video: Omit<KnowledgeVideo, 'id' | 'created_at'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('knowledge_videos')
-        .insert(video)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      toast({ title: 'Erro ao adicionar vídeo', variant: 'destructive' });
-      return null;
-    }
-  };
-
-  const deleteVideo = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('knowledge_videos')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      toast({ title: 'Erro ao excluir vídeo', variant: 'destructive' });
-      return false;
-    }
-  };
-
-  const fetchRelatedContents = async (
+  const fetchRelatedContents = useCallback(async (
     contentId: string, 
     categoryId: string | null, 
     keywords: string[] = [], 
@@ -339,10 +231,119 @@ export function useKnowledge() {
       if (fallbackError) throw fallbackError;
       return fallbackData || [];
     } catch (error) {
-      console.error('Erro ao buscar artigos relacionados:', error);
+      devError('Erro ao buscar artigos relacionados:', error);
       return [];
     }
-  };
+  }, []);
+
+  // ===== ADMIN CRUD =====
+  const updateCategory = useCallback(async (id: string, updates: Partial<KnowledgeCategory>) => {
+    try {
+      const { data, error } = await supabase
+        .from('knowledge_categories')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      toast({ title: 'Categoria atualizada!' });
+      return data;
+    } catch (error) {
+      toast({ title: 'Erro ao atualizar categoria', variant: 'destructive' });
+      return null;
+    }
+  }, [toast]);
+
+  const insertContent = useCallback(async (content: Omit<KnowledgeContent, 'id' | 'created_at' | 'updated_at'>) => {
+    setLoading(true);
+    try {
+      const sanitized = pickAllowed(content) as any;
+      const { data, error } = await supabase
+        .from('knowledge_contents')
+        .insert(sanitized)
+        .select()
+        .maybeSingle();
+
+      if (error) throw error;
+      toast({ title: 'Conteúdo criado com sucesso!' });
+      return data;
+    } catch (error) {
+      devError('Error inserting content:', error);
+      toast({ title: 'Erro ao criar conteúdo', variant: 'destructive' });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const updateContent = useCallback(async (id: string, updates: Partial<KnowledgeContent>) => {
+    setLoading(true);
+    try {
+      const sanitized = pickAllowed(updates) as any;
+      const { error } = await supabase
+        .from('knowledge_contents')
+        .update(sanitized)
+        .eq('id', id);
+
+      if (error) throw error;
+      toast({ title: 'Conteúdo atualizado com sucesso!' });
+      return true;
+    } catch (error) {
+      devError('Error updating content:', error);
+      toast({ title: 'Erro ao atualizar conteúdo', variant: 'destructive' });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  const deleteContent = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('knowledge_contents')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      toast({ title: 'Conteúdo excluído!' });
+      return true;
+    } catch (error) {
+      toast({ title: 'Erro ao excluir conteúdo', variant: 'destructive' });
+      return false;
+    }
+  }, [toast]);
+
+  const insertVideo = useCallback(async (video: Omit<KnowledgeVideo, 'id' | 'created_at'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('knowledge_videos')
+        .insert(video)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      toast({ title: 'Erro ao adicionar vídeo', variant: 'destructive' });
+      return null;
+    }
+  }, [toast]);
+
+  const deleteVideo = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('knowledge_videos')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      toast({ title: 'Erro ao excluir vídeo', variant: 'destructive' });
+      return false;
+    }
+  }, [toast]);
 
   return {
     loading,
