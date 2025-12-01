@@ -1,3 +1,4 @@
+# ==== BOTS DE BUSCA ====
 User-agent: Googlebot
 Allow: /
 
@@ -10,10 +11,43 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+# ==== BOTS DE IA / LLM ====
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Anthropic
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# ==== REGRA GERAL ====
 User-agent: *
 Allow: /
 Allow: /*.pdf$
 
+# ==== SITEMAPS ====
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-en

@@ -5,8 +5,55 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const isBot = (ua: string): boolean =>
-  /(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp)/i.test(ua);
+// Bots de IA / LLM
+const AI_BOTS = [
+  'gptbot',
+  'chatgpt-user',
+  'perplexitybot',
+  'claudebot',
+  'anthropic',
+  'anthropic-ai',
+  'bytespider',
+  'ccbot',
+  'cohere-ai',
+  'google-extended'
+];
+
+// Bots de busca
+const SEARCH_BOTS = [
+  'googlebot',
+  'bingbot',
+  'duckduckbot',
+  'slurp',
+  'baiduspider',
+  'yandex',
+  'applebot',
+  'petalbot',
+  'semrushbot',
+  'ahrefsbot',
+  'dotbot',
+  'mj12bot',
+  'rogerbot',
+  'screaming frog',
+  'serpstatbot'
+];
+
+// Bots sociais
+const SOCIAL_BOTS = [
+  'facebookexternalhit',
+  'twitterbot',
+  'linkedinbot',
+  'whatsapp',
+  'telegrambot'
+];
+
+const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
+
+const isBot = (ua: string): boolean => {
+  if (!ua) return false;
+  const lowerUa = ua.toLowerCase();
+  return ALL_BOTS.some(bot => lowerUa.includes(bot));
+};
 
 function generate404(): string {
   return `<!DOCTYPE html>
