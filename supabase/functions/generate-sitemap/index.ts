@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
       .eq('active', true)
       .eq('approved', true)
       .order('updated_at', { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (videos && videos.length > 0) {
       for (const video of videos) {

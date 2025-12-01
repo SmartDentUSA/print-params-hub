@@ -10,7 +10,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot).*"
+          "value": ".*(googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|applebot|petalbot|semrushbot|ahrefsbot|dotbot|mj12bot|rogerbot|screaming frog|serpstatbot|gptbot|chatgpt-user|perplexitybot|claudebot|anthropic|anthropic-ai|bytespider|ccbot|cohere-ai|google-extended).*"
         }
       ],
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/seo-proxy/:path*"
