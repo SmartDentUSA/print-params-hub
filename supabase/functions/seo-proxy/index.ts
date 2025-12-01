@@ -953,8 +953,8 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
     "@type": "BreadcrumbList",
     "itemListElement": [
       { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/conhecimento` },
-      { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/conhecimento/${letter.toLowerCase()}` }
+      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+      { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
     ]
   })}
   </script>
