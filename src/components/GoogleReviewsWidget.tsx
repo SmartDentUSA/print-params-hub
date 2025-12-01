@@ -29,23 +29,7 @@ export const GoogleReviewsWidget = () => {
   const { data: company, isLoading } = useCompanyData();
   const { language } = useLanguage();
   
-  if (isLoading) {
-    return (
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="text-xs font-bold">O que nossos clientes dizem</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="ml-3 text-muted-foreground">Carregando avaliações...</span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Selecionar reviews baseado no idioma atual
+  // CRITICAL: All hooks must be called before any conditional returns
   const reviews: GoogleReview[] = React.useMemo(() => {
     const reviewsData = company?.reviews_reputation as any;
     
@@ -61,6 +45,22 @@ export const GoogleReviewsWidget = () => {
         return reviewsData.google_reviews_pt || [];
     }
   }, [company, language]);
+  
+  if (isLoading) {
+    return (
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="text-xs font-bold">O que nossos clientes dizem</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-3 text-muted-foreground">Carregando avaliações...</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
   
   const rating = company?.reviews_reputation?.google_rating || 0;
   const count = company?.reviews_reputation?.google_review_count || 0;
