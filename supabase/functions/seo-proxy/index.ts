@@ -1003,15 +1003,36 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     .eq('content_id', content.id)
     .order('order_index');
 
-  // Buscar resinas recomendadas
+  // Buscar resinas recomendadas com brand/model slugs
   let recommendedResins: any[] = [];
   if (content.recommended_resins && content.recommended_resins.length > 0) {
     const { data: resinsData } = await supabase
       .from('resins')
-      .select('slug, name, manufacturer, image_url, price')
+      .select('id, slug, name, manufacturer, image_url, price')
       .in('slug', content.recommended_resins)
       .eq('active', true);
-    recommendedResins = resinsData || [];
+    
+    if (resinsData && resinsData.length > 0) {
+      // Para cada resina, buscar brand_slug e model_slug via parameter_sets
+      const resinsWithPaths = await Promise.all(
+        resinsData.map(async (resin) => {
+          const { data: paramSet } = await supabase
+            .from('parameter_sets')
+            .select('brand_slug, model_slug')
+            .eq('resin_name', resin.name)
+            .eq('active', true)
+            .limit(1)
+            .single();
+          
+          return {
+            ...resin,
+            brand_slug: paramSet?.brand_slug,
+            model_slug: paramSet?.model_slug
+          };
+        })
+      );
+      recommendedResins = resinsWithPaths;
+    }
   }
 
   const desc = content.meta_description || content.excerpt || 
@@ -1055,7 +1076,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
 <head>
   <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
-  <link rel="canonical" href="${baseUrl}/conhecimento/${letter}/${slug}" />
+  <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   
   <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
@@ -1143,9 +1164,9 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "@type": "BreadcrumbList",
         "itemListElement": [
           { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/conhecimento` },
-          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/conhecimento/${letter.toLowerCase()}` },
-          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/conhecimento/${letter}/${slug}` }
+          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
+          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/base-conhecimento/${letter}/${slug}` }
         ]
       },
       ...videoSchemas,
@@ -1164,7 +1185,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
               "position": idx + 1,
               "name": step.substring(0, 100),
               "text": step,
-              "url": `${baseUrl}/conhecimento/${letter}/${slug}#passo-${idx + 1}`
+              "url": `${baseUrl}/base-conhecimento/${letter}/${slug}#passo-${idx + 1}`
             }))
           }];
         }
@@ -1324,7 +1345,11 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
           <li style="margin:1rem 0;display:flex;align-items:center;gap:1rem">
             ${resin.image_url ? `<img src="${resin.image_url}" alt="${escapeHtml(resin.name)}" width="60" height="60" style="border-radius:4px;flex-shrink:0" />` : ''}
             <div>
-              <a href="https://parametros.smartdent.com.br/resinas/${resin.slug || resin.id}" style="font-weight:bold;color:#007bff;text-decoration:none">
+              <a href="${
+                resin.brand_slug && resin.model_slug && (resin.slug || resin.id)
+                  ? `https://parametros.smartdent.com.br/${resin.brand_slug}/${resin.model_slug}/${resin.slug || resin.id}`
+                  : `https://parametros.smartdent.com.br/resinas/${resin.slug || resin.id}`
+              }" style="font-weight:bold;color:#007bff;text-decoration:none">
                 ${escapeHtml(resin.name)}
               </a>
               <br><small style="color:#666">${escapeHtml(resin.manufacturer)}</small>
