@@ -945,7 +945,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
 <head>
   <title>${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento</title>
   <meta name="description" content="Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis." />
-  <link rel="canonical" href="${baseUrl}/conhecimento/${letter.toLowerCase()}" />
+  <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
   <meta property="og:title" content="${escapeHtml(category.name)}" />
   <script type="application/ld+json">
   ${JSON.stringify({
@@ -1041,8 +1041,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   const baseUrl = 'https://parametros.smartdent.com.br';
 
   // Gerar VideoObject schemas
-  const videoSchemas = (videos || []).map((video: any, idx: number) => {
-    const videoId = video.url.includes('youtube.com/watch?v=') 
+  const videoSchemas = (videos || []).filter((video: any) => video.url).map((video: any, idx: number) => {
+    const videoId = video.url.includes('youtube.com/watch?v=')
       ? video.url.split('v=')[1]?.split('&')[0] 
       : video.url.split('youtu.be/')[1]?.split('?')[0];
     
@@ -1080,7 +1080,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   
   <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
-  <meta name="AI-context" content="Conteúdo técnico-científico sobre ${escapeHtml(category.name || 'odontologia')}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico." />
+  <meta name="AI-context" content="Conteúdo técnico-científico sobre ${escapeHtml(content.knowledge_categories?.name || 'odontologia')}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico." />
   
   <!-- FASE 3: Open Graph Otimizado para IA -->
   <meta property="og:title" content="${escapeHtml(content.title)}" />
@@ -1091,7 +1091,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
-  <meta property="article:section" content="${escapeHtml(category.name || 'Conhecimento')}" />
+  <meta property="article:section" content="${escapeHtml(content.knowledge_categories?.name || 'Conhecimento')}" />
   <meta property="article:published_time" content="${content.created_at}" />
   <meta property="article:modified_time" content="${content.updated_at}" />
   ${content.keywords ? content.keywords.slice(0, 10).map((kw: string) => `<meta property="article:tag" content="${escapeHtml(kw)}" />`).join('\n  ') : ''}
