@@ -9,6 +9,7 @@ import DocumentProxyRoute from "./pages/DocumentProxyRoute";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
 import ParameterPageExample from "./pages/ParameterPageExample";
+import ResinRedirect from "./pages/ResinRedirect";
 
 const App = () => (
   <Routes>
@@ -41,6 +42,9 @@ const App = () => (
     
     {/* Exemplo de página da Categoria F */}
     <Route path="/exemplo-parametros" element={<ParameterPageExample />} />
+    
+    {/* Redirect para resinas usando slug ou ID */}
+    <Route path="/resinas/:slug" element={<ResinRedirect />} />
     
     <Route path="*" element={<NotFound />} />
   </Routes>

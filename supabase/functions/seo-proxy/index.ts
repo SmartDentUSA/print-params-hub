@@ -963,14 +963,14 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
   <p>${contents?.length || 0} artigos disponíveis nesta categoria.</p>
   <ul>
-    ${contents?.map((c: any) => `<li><a href="/conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
+    ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
   </ul>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
     var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
     if (!isBot && !navigator.webdriver) {
-      window.location.href = "/conhecimento/${letter.toLowerCase()}";
+      window.location.href = "/base-conhecimento/${letter.toLowerCase()}";
     }
   })();
   </script>
@@ -1324,7 +1324,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
           <li style="margin:1rem 0;display:flex;align-items:center;gap:1rem">
             ${resin.image_url ? `<img src="${resin.image_url}" alt="${escapeHtml(resin.name)}" width="60" height="60" style="border-radius:4px;flex-shrink:0" />` : ''}
             <div>
-              <a href="https://parametros.smartdent.com.br/resinas/${resin.slug}" style="font-weight:bold;color:#007bff;text-decoration:none">
+              <a href="https://parametros.smartdent.com.br/resinas/${resin.slug || resin.id}" style="font-weight:bold;color:#007bff;text-decoration:none">
                 ${escapeHtml(resin.name)}
               </a>
               <br><small style="color:#666">${escapeHtml(resin.manufacturer)}</small>
@@ -1384,7 +1384,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     var ua = navigator.userAgent.toLowerCase();
     var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
     if (!isBot && !navigator.webdriver) {
-      window.location.href = "/conhecimento/${letter}/${slug}";
+      window.location.href = "/base-conhecimento/${letter}/${slug}";
     }
   })();
   </script>
