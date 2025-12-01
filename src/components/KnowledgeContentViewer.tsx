@@ -2,10 +2,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download, ExternalLink, Globe } from 'lucide-react';
+import { Download, ExternalLink } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
-import { AUTHOR_SIGNATURE_TOKEN, renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
+import { renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { VideoSchema } from '@/components/VideoSchema';
@@ -62,128 +62,130 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     }
   }, [hasTranslation, content, navigate, language]);
 
+  // Fetch data - dependencies simplified since functions are now memoized
   useEffect(() => {
-    if (content?.id) {
-      const load = async () => {
-        // Determinar array de PDF IDs baseado no idioma
-        const pdfIds = language === 'es' 
-          ? content.selected_pdf_ids_es || []
-          : language === 'en'
-          ? content.selected_pdf_ids_en || []
-          : content.selected_pdf_ids_pt || [];
+    if (!content?.id) return;
+    
+    const load = async () => {
+      // Determinar array de PDF IDs baseado no idioma
+      const pdfIds = language === 'es' 
+        ? content.selected_pdf_ids_es || []
+        : language === 'en'
+        ? content.selected_pdf_ids_en || []
+        : content.selected_pdf_ids_pt || [];
 
-        // Fetch paralelo: videos + artigos relacionados + resinas CTA + documentos relacionados + PDFs selecionados
-        const [vids, related, resinsData, documentsData, pdfsData] = await Promise.all([
-          fetchVideosByContent(content.id),
-          fetchRelatedContents(
-            content.id, 
-            content.category_id, 
-            content.keywords || []
-          ),
-          // Fetch resinas apenas se necessário
-          content.recommended_resins?.length > 0
-            ? (async () => {
-                const { data } = await supabase
-                  .from('resins')
-                  .select('id, name, manufacturer, image_url, cta_1_url')
-                  .in('id', content.recommended_resins)
-                  .eq('active', true);
-                return data || [];
-              })()
-            : Promise.resolve([]),
-          // 🆕 Fetch documentos relacionados às resinas recomendadas
-          content.recommended_resins?.length > 0
-            ? (async () => {
-                const { data } = await supabase
-                  .from('resin_documents')
-                  .select(`
-                    id,
-                    document_name,
-                    document_description,
-                    file_url,
-                    file_size,
-                    updated_at,
-                    resins!inner(name, manufacturer)
-                  `)
-                  .in('resin_id', content.recommended_resins)
-                  .eq('active', true)
-                  .limit(5);
-                
-                return data ? data.map((doc: any) => ({
-                  ...doc,
-                  resin_name: doc.resins.name,
-                  resin_manufacturer: doc.resins.manufacturer
-                })) : [];
-              })()
-            : Promise.resolve([]),
-          // 🆕 Fetch PDFs selecionados de AMBAS as tabelas (resinas + catálogo)
-          pdfIds.length > 0
-            ? (async () => {
-                // Buscar de resin_documents
-                const { data: resinDocs } = await supabase
-                  .from('resin_documents')
-                  .select(`
-                    id,
-                    document_name,
-                    document_description,
-                    file_url,
-                    resins!inner(name, manufacturer)
-                  `)
-                  .in('id', pdfIds)
-                  .eq('active', true);
-                
-                // Buscar de catalog_documents
-                const { data: catalogDocs } = await supabase
-                  .from('catalog_documents')
-                  .select(`
-                    id,
-                    document_name,
-                    document_description,
-                    file_url,
-                    system_a_catalog!inner(name)
-                  `)
-                  .in('id', pdfIds)
-                  .eq('active', true);
-                
-                // Normalizar estrutura de resin_documents
-                const resinPdfs = resinDocs?.map((doc: any) => ({
-                  id: doc.id,
-                  document_name: doc.document_name,
-                  document_description: doc.document_description,
-                  file_url: doc.file_url,
-                  resin_name: doc.resins.name,
-                  resin_manufacturer: doc.resins.manufacturer,
-                  source: 'resin' as const
-                })) || [];
-                
-                // Normalizar estrutura de catalog_documents
-                const catalogPdfs = catalogDocs?.map((doc: any) => ({
-                  id: doc.id,
-                  document_name: doc.document_name,
-                  document_description: doc.document_description,
-                  file_url: doc.file_url,
-                  resin_name: doc.system_a_catalog.name,
-                  resin_manufacturer: '',
-                  source: 'catalog' as const
-                })) || [];
-                
-                // Combinar e ordenar por nome
-                return [...resinPdfs, ...catalogPdfs].sort((a, b) => 
-                  a.document_name.localeCompare(b.document_name)
-                );
-              })()
-            : Promise.resolve([])
-        ]);
+      // Fetch paralelo: videos + artigos relacionados + resinas CTA + documentos relacionados + PDFs selecionados
+      const [vids, related, resinsData, documentsData, pdfsData] = await Promise.all([
+        fetchVideosByContent(content.id),
+        fetchRelatedContents(
+          content.id, 
+          content.category_id, 
+          content.keywords || []
+        ),
+        // Fetch resinas apenas se necessário
+        content.recommended_resins?.length > 0
+          ? (async () => {
+              const { data } = await supabase
+                .from('resins')
+                .select('id, name, manufacturer, image_url, cta_1_url')
+                .in('id', content.recommended_resins)
+                .eq('active', true);
+              return data || [];
+            })()
+          : Promise.resolve([]),
+        // Fetch documentos relacionados às resinas recomendadas
+        content.recommended_resins?.length > 0
+          ? (async () => {
+              const { data } = await supabase
+                .from('resin_documents')
+                .select(`
+                  id,
+                  document_name,
+                  document_description,
+                  file_url,
+                  file_size,
+                  updated_at,
+                  resins!inner(name, manufacturer)
+                `)
+                .in('resin_id', content.recommended_resins)
+                .eq('active', true)
+                .limit(5);
+              
+              return data ? data.map((doc: any) => ({
+                ...doc,
+                resin_name: doc.resins.name,
+                resin_manufacturer: doc.resins.manufacturer
+              })) : [];
+            })()
+          : Promise.resolve([]),
+        // Fetch PDFs selecionados de AMBAS as tabelas (resinas + catálogo)
+        pdfIds.length > 0
+          ? (async () => {
+              // Buscar de resin_documents
+              const { data: resinDocs } = await supabase
+                .from('resin_documents')
+                .select(`
+                  id,
+                  document_name,
+                  document_description,
+                  file_url,
+                  resins!inner(name, manufacturer)
+                `)
+                .in('id', pdfIds)
+                .eq('active', true);
+              
+              // Buscar de catalog_documents
+              const { data: catalogDocs } = await supabase
+                .from('catalog_documents')
+                .select(`
+                  id,
+                  document_name,
+                  document_description,
+                  file_url,
+                  system_a_catalog!inner(name)
+                `)
+                .in('id', pdfIds)
+                .eq('active', true);
+              
+              // Normalizar estrutura de resin_documents
+              const resinPdfs = resinDocs?.map((doc: any) => ({
+                id: doc.id,
+                document_name: doc.document_name,
+                document_description: doc.document_description,
+                file_url: doc.file_url,
+                resin_name: doc.resins.name,
+                resin_manufacturer: doc.resins.manufacturer,
+                source: 'resin' as const
+              })) || [];
+              
+              // Normalizar estrutura de catalog_documents
+              const catalogPdfs = catalogDocs?.map((doc: any) => ({
+                id: doc.id,
+                document_name: doc.document_name,
+                document_description: doc.document_description,
+                file_url: doc.file_url,
+                resin_name: doc.system_a_catalog.name,
+                resin_manufacturer: '',
+                source: 'catalog' as const
+              })) || [];
+              
+              // Combinar e ordenar por nome
+              return [...resinPdfs, ...catalogPdfs].sort((a, b) => 
+                a.document_name.localeCompare(b.document_name)
+              );
+            })()
+          : Promise.resolve([])
+      ]);
 
-        setVideos(vids);
-        setRelatedArticles(related);
-        setCtaResins(resinsData);
-        setRelatedDocuments(documentsData);
-        setSelectedPdfs(pdfsData);
-        setVideosLoading(false);
-      };
-      load();
-    }
+      setVideos(vids);
+      setRelatedArticles(related);
+      setCtaResins(resinsData);
+      setRelatedDocuments(documentsData);
+      setSelectedPdfs(pdfsData);
+      setVideosLoading(false);
+    };
+    
+    load();
   }, [content?.id, language, fetchVideosByContent, fetchRelatedContents]);
 
   if (!content) return null;
@@ -234,6 +236,9 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     { label: displayContent.title }
   ];
 
+  const processedHTML = displayContent.content_html 
+    ? renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors)
+    : '';
 
   return (
     <div className="space-y-6">
@@ -364,16 +369,12 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
         )}
 
         {/* Rich Content */}
-          {displayContent.content_html && (() => {
-            const processedHTML = renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors);
-            console.log('KnowledgeContentViewer: Rendering content, has PDF?', processedHTML.includes('pdf-viewer-container'));
-            return (
-              <PDFContentRenderer
-                htmlContent={processedHTML}
-                deviceMode={isMobile ? "mobile" : "desktop"}
-              />
-            );
-          })()}
+        {processedHTML && (
+          <PDFContentRenderer
+            htmlContent={processedHTML}
+            deviceMode={isMobile ? "mobile" : "desktop"}
+          />
+        )}
 
         {/* FAQ Section - antes da assinatura do autor */}
         {displayContent.faqs && displayContent.faqs.length > 0 && (
