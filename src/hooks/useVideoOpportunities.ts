@@ -229,8 +229,11 @@ export function useVideoOpportunities() {
 
       if (error) throw error;
 
-      // Atualizar lista local
+      // Atualizar ambas as listas locais
       setTopOpportunities(prev => 
+        prev.map(v => v.id === videoId ? { ...v, product_id: productId, resin_id: resinId } : v)
+      );
+      setExistingContents(prev => 
         prev.map(v => v.id === videoId ? { ...v, product_id: productId, resin_id: resinId } : v)
       );
 
