@@ -17,12 +17,25 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAllVideos, VIDEO_CONTENT_TYPES, VideoContentType, VideoWithDetails } from '@/hooks/useAllVideos';
-import { Search, ChevronLeft, ChevronRight, Video, ExternalLink, Loader2, Sparkles, FileText } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Video, ExternalLink, Loader2, Sparkles, FileText, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { VideoContentGeneratorModal } from './VideoContentGeneratorModal';
+import { cn } from '@/lib/utils';
 
 const CONTENT_CATEGORIES = [
   { letter: 'A', name: 'Vídeos Tutoriais' },
@@ -31,6 +44,13 @@ const CONTENT_CATEGORIES = [
   { letter: 'D', name: 'Casos Clínicos' },
   { letter: 'E', name: 'Ebooks e Guias' },
 ];
+
+interface PendingChanges {
+  contentType?: VideoContentType;
+  category?: string | null;
+  subcategory?: string | null;
+  productId?: string | null;
+}
 
 export function AdminVideosList() {
   const {
@@ -43,17 +63,20 @@ export function AdminVideosList() {
     searchTerm,
     contentTypeFilter,
     linkStatusFilter,
+    categories,
+    subcategories,
+    products,
     setCurrentPage,
     setSearchTerm,
     setContentTypeFilter,
     setLinkStatusFilter,
-    updateContentType,
-    updateVideoContentLink,
+    updateVideoFields,
     refetch,
   } = useAllVideos({ pageSize: 50 });
 
-  const [pendingChanges, setPendingChanges] = useState<Record<string, { contentType?: VideoContentType }>>({});
+  const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChanges>>({});
   const [selectedGenerateCategory, setSelectedGenerateCategory] = useState<Record<string, string>>({});
+  const [productPopoverOpen, setProductPopoverOpen] = useState<Record<string, boolean>>({});
   
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -68,31 +91,85 @@ export function AdminVideosList() {
     }));
   };
 
+  const handleCategoryChange = (videoId: string, value: string) => {
+    const newCategory = value === '_none_' ? null : value;
+    setPendingChanges(prev => ({
+      ...prev,
+      [videoId]: { ...prev[videoId], category: newCategory },
+    }));
+  };
+
+  const handleSubcategoryChange = (videoId: string, value: string) => {
+    const newSubcategory = value === '_none_' ? null : value;
+    setPendingChanges(prev => ({
+      ...prev,
+      [videoId]: { ...prev[videoId], subcategory: newSubcategory },
+    }));
+  };
+
+  const handleProductChange = (videoId: string, productId: string | null) => {
+    setPendingChanges(prev => ({
+      ...prev,
+      [videoId]: { ...prev[videoId], productId },
+    }));
+    setProductPopoverOpen(prev => ({ ...prev, [videoId]: false }));
+  };
+
   const handleSave = async (videoId: string) => {
     const changes = pendingChanges[videoId];
     if (!changes) return;
 
-    if (changes.contentType !== undefined) {
-      const success = await updateContentType(videoId, changes.contentType);
-      if (success) {
-        setPendingChanges(prev => {
-          const next = { ...prev };
-          delete next[videoId];
-          return next;
-        });
-        toast({ title: 'Alterações salvas' });
-      } else {
-        toast({ title: 'Erro ao salvar', variant: 'destructive' });
-      }
+    const updates: Record<string, any> = {};
+    if (changes.contentType !== undefined) updates.content_type = changes.contentType;
+    if (changes.category !== undefined) updates.product_category = changes.category;
+    if (changes.subcategory !== undefined) updates.product_subcategory = changes.subcategory;
+    if (changes.productId !== undefined) updates.product_id = changes.productId;
+
+    const success = await updateVideoFields(videoId, updates);
+    if (success) {
+      setPendingChanges(prev => {
+        const next = { ...prev };
+        delete next[videoId];
+        return next;
+      });
+      toast({ title: 'Alterações salvas' });
+    } else {
+      toast({ title: 'Erro ao salvar', variant: 'destructive' });
     }
   };
 
   const getCurrentContentType = (video: VideoWithDetails) => {
     const pending = pendingChanges[video.id]?.contentType;
-    if (pending !== undefined) {
-      return pending === null ? 'null' : pending;
-    }
+    if (pending !== undefined) return pending === null ? 'null' : pending;
     return video.content_type === null ? 'null' : video.content_type;
+  };
+
+  const getCurrentCategory = (video: VideoWithDetails) => {
+    const pending = pendingChanges[video.id]?.category;
+    if (pending !== undefined) return pending || '_none_';
+    return video.product_category || '_none_';
+  };
+
+  const getCurrentSubcategory = (video: VideoWithDetails) => {
+    const pending = pendingChanges[video.id]?.subcategory;
+    if (pending !== undefined) return pending || '_none_';
+    return video.product_subcategory || '_none_';
+  };
+
+  const getCurrentProductId = (video: VideoWithDetails) => {
+    const pending = pendingChanges[video.id]?.productId;
+    if (pending !== undefined) return pending;
+    return video.product_id;
+  };
+
+  const getCurrentProductName = (video: VideoWithDetails) => {
+    const pending = pendingChanges[video.id]?.productId;
+    if (pending !== undefined) {
+      if (!pending) return null;
+      const product = products.find(p => p.id === pending);
+      return product?.name || null;
+    }
+    return video.product_name;
   };
 
   const hasPendingChange = (videoId: string) => {
@@ -107,7 +184,6 @@ export function AdminVideosList() {
   };
 
   const handleGenerateSuccess = async (contentId: string) => {
-    // Refresh the list to show the new link
     await refetch();
     toast({
       title: '✅ Vídeo vinculado ao novo artigo',
@@ -177,9 +253,9 @@ export function AdminVideosList() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[250px]">Nome</TableHead>
-                  <TableHead className="w-[120px]">Categoria</TableHead>
-                  <TableHead className="w-[150px]">Subcategoria</TableHead>
-                  <TableHead className="w-[150px]">Produto</TableHead>
+                  <TableHead className="w-[140px]">Categoria</TableHead>
+                  <TableHead className="w-[160px]">Subcategoria</TableHead>
+                  <TableHead className="w-[180px]">Produto</TableHead>
                   <TableHead className="w-[150px]">Tipo de Vídeo</TableHead>
                   <TableHead className="w-[150px]">Conteúdo</TableHead>
                   <TableHead className="w-[200px]">Gerar Conteúdo</TableHead>
@@ -191,12 +267,12 @@ export function AdminVideosList() {
                   Array.from({ length: 10 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-10 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-9 w-full" /></TableCell>
-                      <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-9 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-16" /></TableCell>
                     </TableRow>
                   ))
@@ -251,39 +327,103 @@ export function AdminVideosList() {
 
                       {/* Categoria */}
                       <TableCell>
-                        {video.product_category ? (
-                          <Badge variant="secondary" className="text-[10px] truncate max-w-[100px]" title={video.product_category}>
-                            {video.product_category}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
+                        <Select
+                          value={getCurrentCategory(video)}
+                          onValueChange={(v) => handleCategoryChange(video.id, v)}
+                        >
+                          <SelectTrigger className={cn(
+                            "h-8 text-xs",
+                            pendingChanges[video.id]?.category !== undefined && "border-primary"
+                          )}>
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none_">— Nenhuma</SelectItem>
+                            {categories.map(cat => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
 
                       {/* Subcategoria */}
                       <TableCell>
-                        {video.product_subcategory ? (
-                          <Badge variant="outline" className="text-[10px] truncate max-w-[130px]" title={video.product_subcategory}>
-                            {video.product_subcategory}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
+                        <Select
+                          value={getCurrentSubcategory(video)}
+                          onValueChange={(v) => handleSubcategoryChange(video.id, v)}
+                        >
+                          <SelectTrigger className={cn(
+                            "h-8 text-xs",
+                            pendingChanges[video.id]?.subcategory !== undefined && "border-primary"
+                          )}>
+                            <SelectValue placeholder="—" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none_">— Nenhuma</SelectItem>
+                            {subcategories.map(sub => (
+                              <SelectItem key={sub} value={sub}>{sub}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
 
-                      {/* Produto */}
+                      {/* Produto (Combobox with search) */}
                       <TableCell>
-                        {video.product_name ? (
-                          <Badge className="text-[10px] truncate max-w-[130px]" title={video.product_name}>
-                            {video.product_name}
-                          </Badge>
-                        ) : video.resin_name ? (
-                          <Badge variant="outline" className="text-[10px] truncate max-w-[130px]" title={video.resin_name}>
-                            {video.resin_name}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
+                        <Popover
+                          open={productPopoverOpen[video.id] || false}
+                          onOpenChange={(open) => setProductPopoverOpen(prev => ({ ...prev, [video.id]: open }))}
+                        >
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn(
+                                "h-8 w-full justify-between text-xs px-2",
+                                pendingChanges[video.id]?.productId !== undefined && "border-primary"
+                              )}
+                            >
+                              <span className="truncate">
+                                {getCurrentProductName(video) || "— Nenhum"}
+                              </span>
+                              <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[250px] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Buscar produto..." className="h-9" />
+                              <CommandList>
+                                <CommandEmpty>Nenhum produto encontrado</CommandEmpty>
+                                <CommandItem
+                                  value="_none_"
+                                  onSelect={() => handleProductChange(video.id, null)}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      !getCurrentProductId(video) ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  — Nenhum
+                                </CommandItem>
+                                {products.map(product => (
+                                  <CommandItem
+                                    key={product.id}
+                                    value={product.name}
+                                    onSelect={() => handleProductChange(video.id, product.id)}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        getCurrentProductId(video) === product.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <span className="truncate">{product.name}</span>
+                                  </CommandItem>
+                                ))}
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       </TableCell>
 
                       {/* Tipo de Vídeo */}
@@ -292,7 +432,10 @@ export function AdminVideosList() {
                           value={getCurrentContentType(video)}
                           onValueChange={(v) => handleContentTypeChange(video.id, v)}
                         >
-                          <SelectTrigger className={`h-8 text-xs ${hasPendingChange(video.id) ? 'border-primary' : ''}`}>
+                          <SelectTrigger className={cn(
+                            "h-8 text-xs",
+                            pendingChanges[video.id]?.contentType !== undefined && "border-primary"
+                          )}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
