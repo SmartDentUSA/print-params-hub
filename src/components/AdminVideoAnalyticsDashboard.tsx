@@ -386,6 +386,7 @@ export function AdminVideoAnalyticsDashboard() {
                   <TableRow>
                     <TableHead>Artigo</TableHead>
                     <TableHead>Vídeo</TableHead>
+                    <TableHead className="min-w-[220px]">Produto Vinculado</TableHead>
                     <TableHead className="text-right">Views</TableHead>
                     <TableHead className="text-right">Retenção</TableHead>
                     <TableHead className="text-right">Score</TableHead>
@@ -404,6 +405,66 @@ export function AdminVideoAnalyticsDashboard() {
                       <TableCell className="max-w-xs">
                         <div className="truncate text-sm text-muted-foreground">
                           {c.title}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={getCurrentValue(c)}
+                            onValueChange={(value) => handleSelectChange(c.id, value)}
+                          >
+                            <SelectTrigger className="w-[180px] h-8 text-xs">
+                              <SelectValue placeholder="Selecionar..." />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              <SelectItem value="none">
+                                <span className="text-muted-foreground">Nenhum</span>
+                              </SelectItem>
+                              
+                              {resins.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>Resinas ({resins.length})</SelectLabel>
+                                  {resins.map(r => (
+                                    <SelectItem key={r.id} value={`resin:${r.id}`}>
+                                      {r.manufacturer} - {r.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              
+                              {products.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>Produtos ({products.length})</SelectLabel>
+                                  {products.slice(0, 50).map(p => (
+                                    <SelectItem key={p.id} value={`product:${p.id}`}>
+                                      {p.name}
+                                    </SelectItem>
+                                  ))}
+                                  {products.length > 50 && (
+                                    <SelectItem value="product:more" disabled>
+                                      ... e mais {products.length - 50} produtos
+                                    </SelectItem>
+                                  )}
+                                </SelectGroup>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          
+                          {hasPendingEdit(c) && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleSave(c.id)}
+                              disabled={isSaving}
+                              className="h-8 px-2"
+                            >
+                              {isSaving ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Save className="w-3 h-3" />
+                              )}
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">
