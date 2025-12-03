@@ -479,6 +479,7 @@ export type Database = {
           analytics_unique_views: number | null
           analytics_views: number | null
           content_id: string | null
+          content_type: string | null
           created_at: string | null
           description: string | null
           embed_url: string | null
@@ -518,6 +519,7 @@ export type Database = {
           analytics_unique_views?: number | null
           analytics_views?: number | null
           content_id?: string | null
+          content_type?: string | null
           created_at?: string | null
           description?: string | null
           embed_url?: string | null
@@ -557,6 +559,7 @@ export type Database = {
           analytics_unique_views?: number | null
           analytics_views?: number | null
           content_id?: string | null
+          content_type?: string | null
           created_at?: string | null
           description?: string | null
           embed_url?: string | null
