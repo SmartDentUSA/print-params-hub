@@ -1,19 +1,96 @@
+import { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink, Loader2 } from 'lucide-react';
-import { useVideoOpportunities } from '@/hooks/useVideoOpportunities';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink, Loader2, Save } from 'lucide-react';
+import { useVideoOpportunities, VideoRow } from '@/hooks/useVideoOpportunities';
 
 export function AdminVideoAnalyticsDashboard() {
   const {
     summary,
     topOpportunities,
     existingContents,
+    products,
+    resins,
     isLoading,
     isSyncing,
+    isSaving,
     syncAnalytics,
+    updateVideoLink,
   } = useVideoOpportunities();
+
+  // Estado para rastrear edições pendentes por vídeo
+  const [pendingEdits, setPendingEdits] = useState<Record<string, { productId: string | null; resinId: string | null }>>({});
+
+  // Mapear produtos e resinas por ID para lookup rápido
+  const productsMap = new Map(products.map(p => [p.id, p]));
+  const resinsMap = new Map(resins.map(r => [r.id, r]));
+
+  // Obter nome do produto/resina vinculado
+  const getLinkedName = (video: VideoRow) => {
+    if (video.product_id && productsMap.has(video.product_id)) {
+      return productsMap.get(video.product_id)?.name || 'Produto';
+    }
+    if (video.resin_id && resinsMap.has(video.resin_id)) {
+      const resin = resinsMap.get(video.resin_id);
+      return `${resin?.manufacturer} - ${resin?.name}`;
+    }
+    return null;
+  };
+
+  // Obter valor atual do select (considerando edições pendentes)
+  const getCurrentValue = (video: VideoRow): string => {
+    const pending = pendingEdits[video.id];
+    if (pending) {
+      if (pending.productId) return `product:${pending.productId}`;
+      if (pending.resinId) return `resin:${pending.resinId}`;
+      return 'none';
+    }
+    if (video.product_id) return `product:${video.product_id}`;
+    if (video.resin_id) return `resin:${video.resin_id}`;
+    return 'none';
+  };
+
+  // Handler para mudança de seleção
+  const handleSelectChange = (videoId: string, value: string) => {
+    if (value === 'none') {
+      setPendingEdits(prev => ({ ...prev, [videoId]: { productId: null, resinId: null } }));
+    } else if (value.startsWith('product:')) {
+      const productId = value.replace('product:', '');
+      setPendingEdits(prev => ({ ...prev, [videoId]: { productId, resinId: null } }));
+    } else if (value.startsWith('resin:')) {
+      const resinId = value.replace('resin:', '');
+      setPendingEdits(prev => ({ ...prev, [videoId]: { productId: null, resinId } }));
+    }
+  };
+
+  // Handler para salvar
+  const handleSave = async (videoId: string) => {
+    const pending = pendingEdits[videoId];
+    if (!pending) return;
+
+    const success = await updateVideoLink(videoId, pending.productId, pending.resinId);
+    if (success) {
+      setPendingEdits(prev => {
+        const newState = { ...prev };
+        delete newState[videoId];
+        return newState;
+      });
+    }
+  };
+
+  // Verificar se há edição pendente para um vídeo
+  const hasPendingEdit = (video: VideoRow): boolean => {
+    const pending = pendingEdits[video.id];
+    if (!pending) return false;
+    
+    const currentProductId = video.product_id || null;
+    const currentResinId = video.resin_id || null;
+    
+    return pending.productId !== currentProductId || pending.resinId !== currentResinId;
+  };
 
   return (
     <div className="space-y-6 p-6">
@@ -144,6 +221,7 @@ export function AdminVideoAnalyticsDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Título</TableHead>
+                    <TableHead className="min-w-[220px]">Produto Vinculado</TableHead>
                     <TableHead className="text-right">Views</TableHead>
                     <TableHead className="text-right">Plays</TableHead>
                     <TableHead className="text-right">Play Rate</TableHead>
@@ -157,6 +235,66 @@ export function AdminVideoAnalyticsDashboard() {
                     <TableRow key={v.id}>
                       <TableCell className="max-w-xs">
                         <div className="truncate font-medium">{v.title}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            value={getCurrentValue(v)}
+                            onValueChange={(value) => handleSelectChange(v.id, value)}
+                          >
+                            <SelectTrigger className="w-[180px] h-8 text-xs">
+                              <SelectValue placeholder="Selecionar..." />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px]">
+                              <SelectItem value="none">
+                                <span className="text-muted-foreground">Nenhum</span>
+                              </SelectItem>
+                              
+                              {resins.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>Resinas ({resins.length})</SelectLabel>
+                                  {resins.map(r => (
+                                    <SelectItem key={r.id} value={`resin:${r.id}`}>
+                                      {r.manufacturer} - {r.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              )}
+                              
+                              {products.length > 0 && (
+                                <SelectGroup>
+                                  <SelectLabel>Produtos ({products.length})</SelectLabel>
+                                  {products.slice(0, 50).map(p => (
+                                    <SelectItem key={p.id} value={`product:${p.id}`}>
+                                      {p.name}
+                                    </SelectItem>
+                                  ))}
+                                  {products.length > 50 && (
+                                    <SelectItem value="product:more" disabled>
+                                      ... e mais {products.length - 50} produtos
+                                    </SelectItem>
+                                  )}
+                                </SelectGroup>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          
+                          {hasPendingEdit(v) && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleSave(v.id)}
+                              disabled={isSaving}
+                              className="h-8 px-2"
+                            >
+                              {isSaving ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Save className="w-3 h-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         {v.analytics_views?.toLocaleString('pt-BR') || 0}

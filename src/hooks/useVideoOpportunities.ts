@@ -16,6 +16,8 @@ export type VideoRow = {
   content_id: string | null;
   embed_url: string | null;
   thumbnail_url: string | null;
+  product_id: string | null;
+  resin_id: string | null;
 };
 
 export type VideoWithContent = VideoRow & {
@@ -30,6 +32,18 @@ export type Summary = {
   lastSync?: string;
 };
 
+export type ProductOption = {
+  id: string;
+  name: string;
+  category: string;
+};
+
+export type ResinOption = {
+  id: string;
+  name: string;
+  manufacturer: string;
+};
+
 export function useVideoOpportunities() {
   const [summary, setSummary] = useState<Summary>({
     totalVideos: 0,
@@ -39,33 +53,32 @@ export function useVideoOpportunities() {
   });
   const [topOpportunities, setTopOpportunities] = useState<VideoRow[]>([]);
   const [existingContents, setExistingContents] = useState<VideoWithContent[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [resins, setResins] = useState<ResinOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   async function fetchAnalyticsSummary() {
     try {
-      // Total de vídeos
       const { count: total } = await supabase
         .from('knowledge_videos')
         .select('*', { count: 'exact', head: true })
         .not('pandavideo_id', 'is', null);
 
-      // Com conteúdo
       const { count: withContent } = await supabase
         .from('knowledge_videos')
         .select('*', { count: 'exact', head: true })
         .not('pandavideo_id', 'is', null)
         .not('content_id', 'is', null);
 
-      // Sem conteúdo
       const { count: noContent } = await supabase
         .from('knowledge_videos')
         .select('*', { count: 'exact', head: true })
         .not('pandavideo_id', 'is', null)
         .is('content_id', null);
 
-      // Último sync
       const { data: lastSyncData } = await supabase
         .from('knowledge_videos')
         .select('analytics_last_sync')
@@ -100,14 +113,14 @@ export function useVideoOpportunities() {
     try {
       const { data, error } = await supabase
         .from('knowledge_videos')
-        .select('*')
+        .select('id, title, pandavideo_id, analytics_views, analytics_unique_views, analytics_plays, analytics_unique_plays, analytics_avg_retention, analytics_play_rate, relevance_score, content_id, embed_url, thumbnail_url, product_id, resin_id')
         .not('pandavideo_id', 'is', null)
         .is('content_id', null)
         .order('relevance_score', { ascending: false })
         .limit(20);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as VideoRow[];
     } catch (error) {
       console.error('Error fetching opportunities:', error);
       return [];
@@ -118,7 +131,7 @@ export function useVideoOpportunities() {
     try {
       const { data: videos, error } = await supabase
         .from('knowledge_videos')
-        .select('*')
+        .select('id, title, pandavideo_id, analytics_views, analytics_unique_views, analytics_plays, analytics_unique_plays, analytics_avg_retention, analytics_play_rate, relevance_score, content_id, embed_url, thumbnail_url, product_id, resin_id')
         .not('pandavideo_id', 'is', null)
         .not('content_id', 'is', null)
         .order('relevance_score', { ascending: false });
@@ -127,7 +140,6 @@ export function useVideoOpportunities() {
 
       if (!videos || videos.length === 0) return [];
 
-      // Buscar títulos dos conteúdos
       const contentIds = videos.map(v => v.content_id).filter(Boolean);
       const { data: contents } = await supabase
         .from('knowledge_contents')
@@ -146,18 +158,55 @@ export function useVideoOpportunities() {
     }
   }
 
+  async function fetchProducts() {
+    try {
+      const { data, error } = await supabase
+        .from('system_a_catalog')
+        .select('id, name, category')
+        .eq('active', true)
+        .eq('approved', true)
+        .order('name');
+
+      if (error) throw error;
+      return (data || []) as ProductOption[];
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
+  }
+
+  async function fetchResins() {
+    try {
+      const { data, error } = await supabase
+        .from('resins')
+        .select('id, name, manufacturer')
+        .eq('active', true)
+        .order('manufacturer, name');
+
+      if (error) throw error;
+      return (data || []) as ResinOption[];
+    } catch (error) {
+      console.error('Error fetching resins:', error);
+      return [];
+    }
+  }
+
   async function fetchData() {
     setIsLoading(true);
     try {
-      const [summaryData, opportunities, existing] = await Promise.all([
+      const [summaryData, opportunities, existing, productsList, resinsList] = await Promise.all([
         fetchAnalyticsSummary(),
         fetchTopOpportunities(),
         fetchExistingContents(),
+        fetchProducts(),
+        fetchResins(),
       ]);
 
       setSummary(summaryData);
       setTopOpportunities(opportunities);
       setExistingContents(existing);
+      setProducts(productsList);
+      setResins(resinsList);
     } finally {
       setIsLoading(false);
     }
@@ -166,6 +215,43 @@ export function useVideoOpportunities() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  async function updateVideoLink(videoId: string, productId: string | null, resinId: string | null) {
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('knowledge_videos')
+        .update({
+          product_id: productId,
+          resin_id: resinId,
+        })
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      // Atualizar lista local
+      setTopOpportunities(prev => 
+        prev.map(v => v.id === videoId ? { ...v, product_id: productId, resin_id: resinId } : v)
+      );
+
+      toast({
+        title: '✅ Vínculo atualizado',
+        description: 'Produto/resina vinculado ao vídeo com sucesso.',
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error('Error updating video link:', error);
+      toast({
+        title: '❌ Erro ao salvar',
+        description: error.message || 'Não foi possível atualizar o vínculo.',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   async function syncAnalytics() {
     setIsSyncing(true);
@@ -193,16 +279,13 @@ export function useVideoOpportunities() {
         totalUpdated += data.updated || 0;
         hasMore = (data.remaining || 0) > 0;
         
-        // Atualizar UI progressivamente
         toast({
           title: `✅ Batch ${batchCount} concluído`,
           description: `${data.updated} vídeos sincronizados. ${data.remaining > 0 ? `${data.remaining} restantes...` : 'Finalizado!'}`,
         });
         
-        // Refresh data to show progress
         await fetchData();
         
-        // Small delay to prevent rate limiting
         if (hasMore) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -228,9 +311,13 @@ export function useVideoOpportunities() {
     summary,
     topOpportunities,
     existingContents,
+    products,
+    resins,
     isLoading,
     isSyncing,
+    isSaving,
     syncAnalytics,
+    updateVideoLink,
     refreshData: fetchData,
   };
 }
