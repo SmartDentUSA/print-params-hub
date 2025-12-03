@@ -341,16 +341,17 @@ Deno.serve(async (req) => {
       for (const video of videosData.videos) {
         processedVideos++;
 
-        // Check if already has custom_fields (opcional)
+        // Check existing video to preserve content_id
+        const { data: existingVideo } = await supabase
+          .from('knowledge_videos')
+          .select('id, panda_custom_fields, content_id')
+          .eq('pandavideo_id', video.id)
+          .maybeSingle();
+
+        // Skip if only processing missing custom_fields and already has them
         if (params.onlyMissingCustomFields) {
-          const { data: existing } = await supabase
-            .from('knowledge_videos')
-            .select('id, panda_custom_fields')
-            .eq('pandavideo_id', video.id)
-            .maybeSingle();
-          
-          if (existing && existing.panda_custom_fields && 
-              Object.keys(existing.panda_custom_fields).length > 0) {
+          if (existingVideo && existingVideo.panda_custom_fields && 
+              Object.keys(existingVideo.panda_custom_fields).length > 0) {
             skippedVideos++;
             continue;
           }
@@ -404,8 +405,8 @@ Deno.serve(async (req) => {
           
           ...productLink,
           
-          order_index: 0,
-          content_id: null,
+          order_index: existingVideo?.id ? undefined : 0, // Only set on new videos
+          content_id: existingVideo?.content_id || null, // ✅ PRESERVE existing content_id!
         };
 
         // Upsert video (atomic operation, prevents duplicates)
