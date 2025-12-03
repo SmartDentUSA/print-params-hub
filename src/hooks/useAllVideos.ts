@@ -45,6 +45,11 @@ export interface VideoWithDetails {
   video_transcript: string | null;
 }
 
+export interface ProductOption {
+  id: string;
+  name: string;
+}
+
 interface UseAllVideosOptions {
   pageSize?: number;
 }
@@ -60,6 +65,52 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
   const [contentTypeFilter, setContentTypeFilter] = useState<VideoContentType | 'all'>('all');
   const [linkStatusFilter, setLinkStatusFilter] = useState<'all' | 'with_product' | 'without_product' | 'with_article' | 'without_article'>('all');
   const [saving, setSaving] = useState(false);
+
+  // Options lists
+  const [categories, setCategories] = useState<string[]>([]);
+  const [subcategories, setSubcategories] = useState<string[]>([]);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+
+  // Fetch options lists on mount
+  useEffect(() => {
+    const fetchOptions = async () => {
+      // Fetch unique categories
+      const { data: catsData } = await supabase
+        .from('knowledge_videos')
+        .select('product_category')
+        .not('product_category', 'is', null);
+      
+      if (catsData) {
+        const uniqueCats = [...new Set(catsData.map(c => c.product_category).filter(Boolean))] as string[];
+        setCategories(uniqueCats.sort());
+      }
+
+      // Fetch unique subcategories
+      const { data: subsData } = await supabase
+        .from('knowledge_videos')
+        .select('product_subcategory')
+        .not('product_subcategory', 'is', null);
+      
+      if (subsData) {
+        const uniqueSubs = [...new Set(subsData.map(s => s.product_subcategory).filter(Boolean))] as string[];
+        setSubcategories(uniqueSubs.sort());
+      }
+
+      // Fetch products
+      const { data: prodsData } = await supabase
+        .from('system_a_catalog')
+        .select('id, name')
+        .eq('active', true)
+        .eq('approved', true)
+        .order('name');
+      
+      if (prodsData) {
+        setProducts(prodsData);
+      }
+    };
+
+    fetchOptions();
+  }, []);
 
   const fetchVideos = useCallback(async () => {
     setLoading(true);
@@ -256,6 +307,51 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
     }
   };
 
+  // Batch update function for multiple fields
+  const updateVideoFields = async (
+    videoId: string, 
+    updates: {
+      content_type?: VideoContentType;
+      product_category?: string | null;
+      product_subcategory?: string | null;
+      product_id?: string | null;
+    }
+  ) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('knowledge_videos')
+        .update(updates)
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      // Get product name if product_id was updated
+      let productName = null;
+      if (updates.product_id) {
+        const product = products.find(p => p.id === updates.product_id);
+        productName = product?.name || null;
+      }
+
+      setVideos(prev => prev.map(v => {
+        if (v.id !== videoId) return v;
+        return {
+          ...v,
+          ...(updates.content_type !== undefined && { content_type: updates.content_type }),
+          ...(updates.product_category !== undefined && { product_category: updates.product_category }),
+          ...(updates.product_subcategory !== undefined && { product_subcategory: updates.product_subcategory }),
+          ...(updates.product_id !== undefined && { product_id: updates.product_id, product_name: productName }),
+        };
+      }));
+      return true;
+    } catch (error) {
+      console.error('Error updating video fields:', error);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return {
@@ -268,12 +364,16 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
     searchTerm,
     contentTypeFilter,
     linkStatusFilter,
+    categories,
+    subcategories,
+    products,
     setCurrentPage,
     setSearchTerm,
     setContentTypeFilter,
     setLinkStatusFilter,
     updateContentType,
     updateVideoContentLink,
+    updateVideoFields,
     refetch: fetchVideos,
   };
 }
