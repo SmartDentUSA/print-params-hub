@@ -32,6 +32,8 @@ export interface VideoWithDetails {
   content_type: VideoContentType;
   product_id: string | null;
   product_name: string | null;
+  product_category: string | null;
+  product_subcategory: string | null;
   resin_id: string | null;
   resin_name: string | null;
   content_id: string | null;
@@ -39,6 +41,8 @@ export interface VideoWithDetails {
   analytics_views: number;
   analytics_play_rate: number;
   created_at: string;
+  has_transcript: boolean;
+  video_transcript: string | null;
 }
 
 interface UseAllVideosOptions {
@@ -102,11 +106,14 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
           embed_url,
           content_type,
           product_id,
+          product_category,
+          product_subcategory,
           resin_id,
           content_id,
           analytics_views,
           analytics_play_rate,
-          created_at
+          created_at,
+          video_transcript
         `)
         .eq('video_type', 'pandavideo')
         .order('title', { ascending: true })
@@ -165,6 +172,8 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
         content_type: video.content_type as VideoContentType,
         product_id: video.product_id,
         product_name: video.product_id ? productsMap.get(video.product_id) || null : null,
+        product_category: video.product_category,
+        product_subcategory: video.product_subcategory,
         resin_id: video.resin_id,
         resin_name: video.resin_id ? resinsMap.get(video.resin_id) || null : null,
         content_id: video.content_id,
@@ -172,6 +181,8 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
         analytics_views: video.analytics_views || 0,
         analytics_play_rate: video.analytics_play_rate || 0,
         created_at: video.created_at,
+        has_transcript: !!video.video_transcript,
+        video_transcript: video.video_transcript,
       }));
 
       setVideos(enrichedVideos);
@@ -212,6 +223,39 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
     }
   };
 
+  const updateVideoContentLink = async (videoId: string, contentId: string | null) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('knowledge_videos')
+        .update({ content_id: contentId })
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      // Fetch content title if linking
+      let contentTitle = null;
+      if (contentId) {
+        const { data } = await supabase
+          .from('knowledge_contents')
+          .select('title')
+          .eq('id', contentId)
+          .single();
+        contentTitle = data?.title || null;
+      }
+
+      setVideos(prev => prev.map(v => 
+        v.id === videoId ? { ...v, content_id: contentId, content_title: contentTitle } : v
+      ));
+      return true;
+    } catch (error) {
+      console.error('Error updating content link:', error);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return {
@@ -229,6 +273,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
     setContentTypeFilter,
     setLinkStatusFilter,
     updateContentType,
+    updateVideoContentLink,
     refetch: fetchVideos,
   };
 }
