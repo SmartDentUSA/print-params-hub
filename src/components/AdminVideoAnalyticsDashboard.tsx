@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink, Loader2, Save } from 'lucide-react';
 import { useVideoOpportunities, VideoRow } from '@/hooks/useVideoOpportunities';
+import { AdminVideosList } from './AdminVideosList';
 
 export function AdminVideoAnalyticsDashboard() {
   const {
@@ -518,6 +519,9 @@ export function AdminVideoAnalyticsDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Lista completa de vídeos */}
+      <AdminVideosList />
     </div>
   );
 }
