@@ -92,21 +92,37 @@ export function VideoContentGeneratorModal({
     setIsGenerating(true);
 
     try {
+      // Build context for generation
+      const hasValidTranscript = useTranscript && video.has_transcript && video.video_transcript;
+      
+      // If no transcript, use title/excerpt/product info as rawText
+      let rawTextContent: string | null = null;
+      if (!hasValidTranscript) {
+        const parts = [
+          `Título do vídeo: ${video.title}`,
+          excerpt.trim() ? `Resumo: ${excerpt.trim()}` : null,
+          video.product_name ? `Produto relacionado: ${video.product_name}` : null,
+          video.product_category ? `Categoria: ${video.product_category}` : null,
+          video.product_subcategory ? `Subcategoria: ${video.product_subcategory}` : null,
+        ].filter(Boolean);
+        rawTextContent = parts.join('\n');
+      }
+
       const orchestratorPayload = {
         title: title.trim(),
         excerpt: excerpt.trim() || `Conteúdo sobre ${title.trim()}`,
         activeSources: {
-          rawText: false,
+          rawText: !hasValidTranscript && !!rawTextContent,
           pdfTranscription: false,
-          videoTranscription: useTranscript && video.has_transcript,
+          videoTranscription: !!hasValidTranscript,
           relatedPdfs: false,
         },
         selectedResinIds: [],
         selectedProductIds: video.product_id ? [video.product_id] : [],
         sources: {
-          rawText: null,
+          rawText: rawTextContent,
           pdfTranscription: null,
-          videoTranscription: useTranscript ? video.video_transcript : null,
+          videoTranscription: hasValidTranscript ? video.video_transcript : null,
           relatedPdfs: [],
         },
         aiPrompt: '',
