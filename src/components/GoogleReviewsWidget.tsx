@@ -90,8 +90,6 @@ export const GoogleReviewsWidget = () => {
     );
   };
 
-  // Extrair URL base para o perfil do Google
-  const googlePlaceUrl = reviews[0]?.author_url?.split('/reviews')[0] || '#';
 
   return (
     <Card className="mb-8">
@@ -158,7 +156,7 @@ export const GoogleReviewsWidget = () => {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => window.open(googlePlaceUrl, '_blank')}
+            onClick={() => window.open('https://share.google/kxFPjph7NMMpJwPIB', '_blank')}
           >
             Ver todas as avaliações no Google
             <ExternalLink className="w-4 h-4" />
