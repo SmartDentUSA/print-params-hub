@@ -73,15 +73,76 @@ const CategoryPage = () => {
   const ogImage = category.og_image_url || "/og-image.jpg";
   const extraData = category.extra_data || {};
 
+  const baseUrl = "https://parametros.smartdent.com.br";
+  const canonicalUrl = `${baseUrl}/categorias/${slug}`;
+  const keywords = [
+    category.name,
+    extraData.category,
+    extraData.subcategory,
+    "Smart Dent",
+    "impressão 3D odontológica"
+  ].filter(Boolean).join(", ");
+
+  // BreadcrumbList Schema
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": baseUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Categorias",
+        "item": `${baseUrl}/categorias`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": category.name,
+        "item": canonicalUrl
+      }
+    ]
+  };
+
   return (
     <>
       <Helmet>
+        {/* Primary Meta Tags */}
         <title>{seoTitle}</title>
         <meta name="description" content={metaDescription} />
+        <meta name="keywords" content={keywords} />
+        <meta name="author" content="Smart Dent" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href={canonicalUrl} />
+        
+        {/* AI Meta Tags */}
+        <meta name="ai-content-type" content="categorypage" />
+        <meta name="ai-topic" content={keywords} />
+        
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={canonicalUrl} />
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:locale" content="pt_BR" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seoTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={ogImage} />
+        
+        {/* Schema.org JSON-LD */}
+        <script type="application/ld+json">
+          {JSON.stringify(breadcrumbSchema)}
+        </script>
       </Helmet>
 
       <div className="min-h-screen bg-background">

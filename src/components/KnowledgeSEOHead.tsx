@@ -388,7 +388,13 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <Helmet htmlAttributes={{ lang: htmlLang }}>
         <title>Base de Conhecimento - Impressão 3D Odontológica | Smart Dent</title>
         <meta name="description" content="Tutoriais, guias e dicas sobre impressão 3D para odontologia. Aprenda a configurar impressoras, escolher resinas e resolver problemas." />
+        <meta name="author" content="Smart Dent" />
+        <meta name="robots" content="index, follow" />
         <link rel="canonical" href={`${baseUrl}${pathByLang[currentLang]}`} />
+        
+        {/* AI Meta Tags */}
+        <meta name="ai-content-type" content="knowledgebase" />
+        <meta name="ai-topic" content="impressão 3D odontológica, tutoriais, guias, resinas dentais" />
         
         {/* hreflang tags for multilingual SEO */}
         <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}`} />
@@ -405,6 +411,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         <meta property="og:title" content="Base de Conhecimento - Impressão 3D Odontológica" />
         <meta property="og:description" content="Tutoriais, guias e dicas sobre impressão 3D para odontologia" />
         <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}`} />
+        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:locale" content="pt_BR" />
         
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary" />
@@ -426,7 +434,13 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <Helmet htmlAttributes={{ lang: htmlLang }}>
         <title>{category.name} - Base de Conhecimento | Smart Dent</title>
         <meta name="description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
+        <meta name="author" content="Smart Dent" />
+        <meta name="robots" content="index, follow" />
         <link rel="canonical" href={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
+        
+        {/* AI Meta Tags */}
+        <meta name="ai-content-type" content="categorypage" />
+        <meta name="ai-topic" content={`${category.name}, impressão 3D odontológica, artigos`} />
         
         {/* hreflang tags for multilingual SEO */}
         <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category.letter?.toLowerCase()}`} />
@@ -439,6 +453,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         <meta property="og:title" content={`${category.name} - Base de Conhecimento`} />
         <meta property="og:description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
         <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
+        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:locale" content="pt_BR" />
         
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary" />
@@ -870,6 +886,11 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <title>{displayTitle} | Smart Dent</title>
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
+      <meta name="author" content={content.authors?.name || "Smart Dent"} />
+      
+      {/* AI Meta Tags */}
+      <meta name="ai-content-type" content="article" />
+      <meta name="ai-topic" content={content.keywords?.slice(0, 5).join(', ') || displayTitle} />
       
       {/* FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) */}
       <meta 
@@ -890,8 +911,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* Prevent indexing if translation is missing */}
-      {!hasTranslation && <meta name="robots" content="noindex, follow" />}
+      {/* Robots - noindex only if translation is missing */}
+      {hasTranslation ? (
+        <meta name="robots" content="index, follow" />
+      ) : (
+        <meta name="robots" content="noindex, follow" />
+      )}
       
       {/* hreflang tags - only for languages with actual translations */}
       <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
@@ -913,6 +938,8 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta property="og:title" content={displayTitle} />
       <meta property="og:description" content={content.excerpt} />
       <meta property="og:url" content={canonicalUrl} />
+      <meta property="og:site_name" content="PrinterParams Smart Dent" />
+      <meta property="og:locale" content="pt_BR" />
       <meta property="article:section" content={category?.name || 'Conhecimento'} />
       <meta property="article:published_time" content={content.created_at || new Date().toISOString()} />
       <meta property="article:modified_time" content={content.updated_at || new Date().toISOString()} />

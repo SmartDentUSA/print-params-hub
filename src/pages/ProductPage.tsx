@@ -101,20 +101,98 @@ const ProductPage = () => {
   const features = extraData.features || [];
   const faqs = extraData.faqs || [];
 
+  const baseUrl = "https://parametros.smartdent.com.br";
+  const canonicalUrl = `${baseUrl}/produtos/${slug}`;
+  const keywordsStr = product.keywords?.join(", ") || `${product.name}, Smart Dent, produto odontológico`;
+
+  // BreadcrumbList Schema
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": baseUrl
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Produtos",
+        "item": `${baseUrl}/produtos`
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": product.name,
+        "item": canonicalUrl
+      }
+    ]
+  };
+
+  // Product Schema
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": product.name,
+    "description": metaDescription,
+    "image": ogImage,
+    "brand": {
+      "@type": "Brand",
+      "name": "Smart Dent"
+    },
+    "sku": product.id,
+    ...(product.price && {
+      "offers": {
+        "@type": "Offer",
+        "priceCurrency": product.currency || "BRL",
+        "price": product.promo_price || product.price,
+        "availability": "https://schema.org/InStock",
+        "url": product.cta_1_url || canonicalUrl
+      }
+    })
+  };
+
   return (
     <>
       <Helmet>
+        {/* Primary Meta Tags */}
         <title>{seoTitle}</title>
         <meta name="description" content={metaDescription} />
-        {product.keywords && product.keywords.length > 0 && (
-          <meta name="keywords" content={product.keywords.join(", ")} />
-        )}
+        <meta name="keywords" content={keywordsStr} />
+        <meta name="author" content="Smart Dent" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href={canonicalUrl} />
+        
+        {/* AI Meta Tags */}
+        <meta name="ai-content-type" content="productpage" />
+        <meta name="ai-topic" content={keywordsStr} />
+        
+        {/* Open Graph */}
+        <meta property="og:type" content="product" />
+        <meta property="og:url" content={canonicalUrl} />
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:type" content="product" />
+        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:locale" content="pt_BR" />
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seoTitle} />
+        <meta name="twitter:description" content={metaDescription} />
+        <meta name="twitter:image" content={ogImage} />
+        
+        {/* Schema.org JSON-LD */}
+        <script type="application/ld+json">
+          {JSON.stringify(breadcrumbSchema)}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify(productSchema)}
+        </script>
 
-        {/* 🆕 FAQ Schema para Rich Snippets */}
+        {/* FAQ Schema para Rich Snippets */}
         {faqs.length > 0 && (
           <script type="application/ld+json">
             {JSON.stringify({
@@ -132,10 +210,7 @@ const ProductPage = () => {
           </script>
         )}
 
-        {/* Meta tag ai:context para IA generativa */}
-        <meta name="ai:context" content={`${product.name}, produto odontológico, ${product.description || ''}, ${product.keywords?.join(', ') || ''}`} />
-
-        {/* 🆕 Schema JSON-LD para Documentos Técnicos */}
+        {/* Schema JSON-LD para Documentos Técnicos */}
         {(product as any).documents && (product as any).documents.length > 0 && (
           <script type="application/ld+json">
             {JSON.stringify({
@@ -152,15 +227,7 @@ const ProductPage = () => {
                 "contentUrl": doc.file_url,
                 "dateModified": new Date(doc.updated_at).toISOString(),
                 "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
-                "inLanguage": "pt-BR",
-                "about": {
-                  "@type": "Product",
-                  "name": product.name,
-                  "manufacturer": {
-                    "@type": "Organization",
-                    "name": product.name.split(' ')[0]
-                  }
-                }
+                "inLanguage": "pt-BR"
               }))
             })}
           </script>
