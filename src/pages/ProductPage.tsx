@@ -255,6 +255,10 @@ const ProductPage = () => {
                 <img
                   src={product.image_url}
                   alt={product.name}
+                  width="600"
+                  height="400"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full rounded-lg shadow-lg"
                 />
               )}
