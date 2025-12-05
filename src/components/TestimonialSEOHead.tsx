@@ -136,12 +136,28 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
     ]
   });
   
+  const keywords = [
+    testimonial.name,
+    extraData.profession,
+    extraData.specialty,
+    "depoimento",
+    "Smart Dent",
+    "impressão 3D odontológica"
+  ].filter(Boolean).join(", ");
+
   return (
     <Helmet>
       {/* Primary Meta Tags */}
       <title>{seoTitle}</title>
       <meta name="description" content={metaDescription} />
+      <meta name="keywords" content={keywords} />
+      <meta name="author" content="Smart Dent" />
+      <meta name="robots" content="index, follow" />
       <link rel="canonical" href={canonicalUrl} />
+      
+      {/* AI Meta Tags */}
+      <meta name="ai-content-type" content="testimonial" />
+      <meta name="ai-topic" content={keywords} />
       
       {/* Open Graph */}
       <meta property="og:type" content="article" />
@@ -149,6 +165,7 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
       <meta property="og:title" content={seoTitle} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={thumbnailUrl || ogImage} />
+      <meta property="og:site_name" content="PrinterParams Smart Dent" />
       <meta property="og:locale" content="pt_BR" />
       
       {/* Twitter Card */}

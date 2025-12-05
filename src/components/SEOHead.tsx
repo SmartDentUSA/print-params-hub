@@ -587,14 +587,24 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     }
   };
 
+  // Determine AI content type based on page type
+  const aiContentType = pageType === 'home' ? 'homepage' : pageType === 'brand' ? 'categorypage' : 'productpage';
+  const aiTopic = generateAIContext(pageType, brand, model, resins);
+
   return (
     <Helmet>
       {/* Primary Meta Tags */}
       <title>{title}</title>
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
-      <meta name="ai:context" content={generateAIContext(pageType, brand, model, resins)} />
+      <meta name="author" content="Smart Dent" />
+      <meta name="robots" content="index, follow" />
       <link rel="canonical" href={canonical} />
+      
+      {/* AI Meta Tags */}
+      <meta name="ai-content-type" content={aiContentType} />
+      <meta name="ai-topic" content={aiTopic} />
+      <meta name="ai:context" content={aiTopic} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={pageType === 'model' && resins.length > 0 ? 'product' : 'website'} />
@@ -603,6 +613,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <meta property="og:description" content={description} />
       <meta property="og:image" content={ogImage} />
       <meta property="og:site_name" content="PrinterParams Smart Dent" />
+      <meta property="og:locale" content="pt_BR" />
 
       {/* Twitter Card */}
       <meta name="twitter:card" content="summary_large_image" />

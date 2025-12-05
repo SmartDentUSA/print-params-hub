@@ -2,7 +2,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Helmet } from "react-helmet-async";
+import { AboutSEOHead } from "@/components/AboutSEOHead";
 import { Target, Eye, Heart, Users, Award, TrendingUp } from "lucide-react";
 
 export default function About() {
@@ -35,10 +35,7 @@ export default function About() {
 
   return (
     <>
-      <Helmet>
-        <title>Sobre Nós - {company.name}</title>
-        <meta name="description" content={company.description} />
-      </Helmet>
+      <AboutSEOHead company={company} />
 
       <Header />
 
