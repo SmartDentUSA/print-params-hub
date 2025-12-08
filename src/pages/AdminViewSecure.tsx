@@ -11,15 +11,15 @@ import { AdminPandaVideoTest } from "@/components/AdminPandaVideoTest";
 import { AdminPandaVideoSync } from "@/components/AdminPandaVideoSync";
 import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
 import { AdminModels } from "@/components/AdminModels";
+import AdminDocumentsList from "@/components/AdminDocumentsList";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
 import { AdminAuthors } from "@/components/AdminAuthors";
 import { AdminCatalog } from "@/components/AdminCatalog";
-
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -187,7 +187,7 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-8' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-9' : 'grid-cols-2'}`}>
             {isAdmin && (
               <>
                 <TabsTrigger value="models" className="flex items-center gap-2">
@@ -197,6 +197,10 @@ export default function AdminViewSecure() {
                 <TabsTrigger value="catalog" className="flex items-center gap-2">
                   <ShoppingCart className="w-4 h-4" />
                   Catálogo
+                </TabsTrigger>
+                <TabsTrigger value="documents" className="flex items-center gap-2">
+                  <FolderOpen className="w-4 h-4" />
+                  Docs Sistema
                 </TabsTrigger>
               </>
             )}
@@ -236,6 +240,9 @@ export default function AdminViewSecure() {
               </TabsContent>
               <TabsContent value="catalog" className="space-y-6">
                 <AdminCatalog />
+              </TabsContent>
+              <TabsContent value="documents" className="space-y-6">
+                <AdminDocumentsList />
               </TabsContent>
             </>
           )}
