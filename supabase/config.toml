@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.link-videos-to-articles]
 verify_jwt = false
+
+[functions.extract-pdf-raw]
+verify_jwt = false

@@ -65,8 +65,50 @@ serve(async (req) => {
       .update({ extraction_status: 'processing' })
       .eq('id', documentId);
 
-    // Baixar arquivo do storage
+    // 4. Buscar dados do produto/resina VINCULADO ao documento
+    let linkedProduct = null;
+    
+    if (documentType === 'catalog' && doc.product_id) {
+      console.log('🔗 Buscando produto vinculado:', doc.product_id);
+      const { data: product } = await supabase
+        .from('system_a_catalog')
+        .select('name, category, product_category, product_subcategory')
+        .eq('id', doc.product_id)
+        .single();
+      
+      if (product) {
+        linkedProduct = {
+          name: product.name,
+          manufacturer: product.category,
+          category: product.product_category,
+          subcategory: product.product_subcategory
+        };
+        console.log('📦 Produto vinculado encontrado:', linkedProduct.name);
+      }
+    }
+    
+    if (documentType === 'resin' && doc.resin_id) {
+      console.log('🔗 Buscando resina vinculada:', doc.resin_id);
+      const { data: resin } = await supabase
+        .from('resins')
+        .select('name, manufacturer, type')
+        .eq('id', doc.resin_id)
+        .single();
+      
+      if (resin) {
+        linkedProduct = {
+          name: resin.name,
+          manufacturer: resin.manufacturer,
+          type: resin.type
+        };
+        console.log('🧪 Resina vinculada encontrada:', linkedProduct.name);
+      }
+    }
+
+    // 5. Baixar arquivo do storage
     const fileUrl = doc.file_url;
+    console.log('📥 Baixando arquivo:', fileUrl);
+    
     const fileResponse = await fetch(fileUrl);
     if (!fileResponse.ok) {
       throw new Error('Erro ao baixar arquivo do storage');
@@ -77,7 +119,7 @@ serve(async (req) => {
     const fileBuffer = new Uint8Array(fileArrayBuffer);
     
     // Converter para base64 em chunks para evitar stack overflow
-    const CHUNK_SIZE = 8192; // 8KB por vez
+    const CHUNK_SIZE = 8192;
     let binaryString = '';
     for (let i = 0; i < fileBuffer.length; i += CHUNK_SIZE) {
       const chunk = fileBuffer.slice(i, i + CHUNK_SIZE);
@@ -85,19 +127,26 @@ serve(async (req) => {
     }
     const pdfBase64 = btoa(binaryString);
 
+    console.log(`📊 PDF convertido: ${(pdfBase64.length / 1024).toFixed(1)}KB em base64`);
+
     // Calcular hash do arquivo
     const hashBuffer = await crypto.subtle.digest('SHA-256', fileArrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    // Chamar edge function de extração
-    const extractResponse = await fetch(`${supabaseUrl}/functions/v1/ai-enrich-pdf-content`, {
+    // 6. Chamar nova edge function de extração PURA
+    console.log('🤖 Chamando extract-pdf-raw...');
+    
+    const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-raw`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${supabaseKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ pdfBase64 })
+      body: JSON.stringify({ 
+        pdfBase64,
+        linkedProduct // Passa o produto JÁ VINCULADO
+      })
     });
 
     if (!extractResponse.ok) {
@@ -106,23 +155,22 @@ serve(async (req) => {
     }
 
     const extractData = await extractResponse.json();
-    const extractedText = extractData.enrichedText || extractData.rawText;
+    const extractedText = extractData.extractedText;
     
     if (!extractedText) {
       throw new Error('Nenhum texto foi extraído do PDF');
     }
 
-    // Calcular tokens aproximados (1 token ≈ 4 caracteres)
-    const estimatedTokens = Math.ceil(extractedText.length / 4);
+    const tokensUsed = extractData.tokensUsed || Math.ceil(extractedText.length / 4);
 
-    // Salvar no banco
+    // 7. Salvar no banco
     const { error: updateError } = await supabase
       .from(tableName)
       .update({
         extracted_text: extractedText,
         extracted_at: new Date().toISOString(),
-        extraction_method: 'ai-enrich-pdf-content',
-        extraction_tokens: estimatedTokens,
+        extraction_method: 'extract-pdf-raw',
+        extraction_tokens: tokensUsed,
         extraction_status: 'completed',
         extraction_error: null,
         file_hash: fileHash
@@ -134,24 +182,31 @@ serve(async (req) => {
     }
 
     console.log('✅ Extração concluída e salva no banco:', documentId);
+    if (extractData.hasHallucination) {
+      console.warn('⚠️ ALERTA: Possível alucinação detectada na extração');
+    }
 
     return new Response(
       JSON.stringify({
         text: extractedText,
         cached: false,
         extractedAt: new Date().toISOString(),
-        method: 'ai-enrich-pdf-content',
-        tokens: estimatedTokens
+        method: 'extract-pdf-raw',
+        tokens: tokensUsed,
+        linkedProduct: linkedProduct?.name || null,
+        hasHallucination: extractData.hasHallucination || false
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Erro em extract-and-cache-pdf:', error);
+    console.error('❌ Erro em extract-and-cache-pdf:', error);
     
-    // Tentar atualizar status para 'failed' se possível
+    // Tentar atualizar status para 'failed'
     try {
-      const { documentId, documentType } = await req.json();
+      const body = await req.clone().json();
+      const { documentId, documentType } = body;
+      
       if (documentId && documentType) {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -167,7 +222,7 @@ serve(async (req) => {
           .eq('id', documentId);
       }
     } catch (e) {
-      // Ignorar erro ao atualizar status
+      console.error('Erro ao atualizar status de falha:', e);
     }
 
     return new Response(
