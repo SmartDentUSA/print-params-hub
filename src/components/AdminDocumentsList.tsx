@@ -176,9 +176,9 @@ export default function AdminDocumentsList() {
       case 'completed':
         return <Badge variant="default" className="bg-green-600">✅ Concluído</Badge>;
       case 'processing':
-        return <Badge variant="secondary" className="bg-blue-500 text-white">🔄 Processando</Badge>;
+        return <Badge variant="secondary" className="bg-yellow-500 text-white">🔄 Processando</Badge>;
       case 'failed':
-        return <Badge variant="destructive">❌ Erro</Badge>;
+        return <Badge variant="destructive">❌ Falhou</Badge>;
       default:
         return <Badge variant="outline">⏳ Pendente</Badge>;
     }
@@ -670,7 +670,25 @@ export default function AdminDocumentsList() {
                     
                     {/* Status */}
                     <TableCell>
-                      {getStatusBadge(doc.extraction_status)}
+                      <div className="flex items-center gap-1">
+                        {getStatusBadge(doc.extraction_status)}
+                        {(doc.extraction_status === 'failed' || doc.extraction_status === 'processing') && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleClearExtractedText(doc.id, doc.source_type)}
+                            disabled={clearingIds.has(doc.id)}
+                            className="h-6 px-1"
+                            title="Resetar status para tentar novamente"
+                          >
+                            {clearingIds.has(doc.id) ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-3 h-3" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     
                     {/* Ações */}

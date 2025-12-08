@@ -81,15 +81,15 @@ LEMBRE-SE:
     }
 
     // Ajustar max_completion_tokens baseado no tamanho do PDF
-    // PDFs maiores precisam de mais tokens para transcrição completa
+    // REDUZIDO para evitar timeouts do gateway HTTP (limite ~2.5min)
     const pdfSizeNumber = parseFloat(pdfSizeKB);
-    let maxTokens = 16000;
+    let maxTokens = 8000;
     if (pdfSizeNumber > 1000) {
-      maxTokens = 32000; // PDFs muito grandes (>1MB)
+      maxTokens = 12000; // PDFs muito grandes (>1MB) - reduzido de 32000
     } else if (pdfSizeNumber > 500) {
-      maxTokens = 24000; // PDFs grandes (500KB-1MB)
+      maxTokens = 10000; // PDFs grandes (500KB-1MB) - reduzido de 24000
     }
-    console.log(`🔧 Usando max_completion_tokens: ${maxTokens}`);
+    console.log(`🔧 Usando max_completion_tokens: ${maxTokens} (otimizado para evitar timeout)`);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
