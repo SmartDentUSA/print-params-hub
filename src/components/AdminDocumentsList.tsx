@@ -74,13 +74,24 @@ export default function AdminDocumentsList() {
   const { extractPdfText } = usePdfExtraction();
 
   const handleExtractPdf = async (docId: string, sourceType: DocumentSourceType, forceReExtract = false) => {
+    // Find the document to show which extractor will be used
+    const doc = documents.find(d => d.id === docId);
+    const docType = doc?.document_type;
+    const extractorType = docType ? '🤖 Especializado' : '📝 Raw (genérico)';
+    
+    toast.info(`Extraindo com ${extractorType}...`, {
+      description: `Tipo: ${docType || 'não definido'} | Produto: ${doc?.linked_name || 'N/A'}`,
+    });
+    
     setExtractingIds(prev => new Set(prev).add(docId));
     
     const documentType = sourceType === 'resin' ? 'resin' : 'catalog';
     const result = await extractPdfText(docId, documentType, forceReExtract);
     
     if (result) {
-      toast.success('✅ Texto extraído com sucesso!');
+      toast.success(`✅ Extração concluída!`, {
+        description: `Método: ${result.method || 'N/A'} | Tokens: ${result.tokens || 'N/A'}`,
+      });
       refetch();
     }
     
@@ -346,15 +357,16 @@ export default function AdminDocumentsList() {
                 <TableHead className="w-[8%]">Subcateg.</TableHead>
                 <TableHead className="w-[10%]">Produto</TableHead>
                 <TableHead className="w-[8%]">Tipo</TableHead>
+                <TableHead className="w-[6%]">Extrator</TableHead>
                 <TableHead className="w-[6%]">Fonte</TableHead>
-                <TableHead className="w-[12%]">Status</TableHead>
+                <TableHead className="w-[10%]">Status</TableHead>
                 <TableHead className="w-[8%]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {documents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     Nenhum documento encontrado
                   </TableCell>
                 </TableRow>
@@ -661,6 +673,19 @@ export default function AdminDocumentsList() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </TableCell>
+                    
+                    {/* Extrator */}
+                    <TableCell>
+                      {getCurrentValue(doc.id, 'document_type', doc.document_type) ? (
+                        <Badge variant="default" className="bg-emerald-600 text-xs whitespace-nowrap">
+                          🤖 Espec.
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs whitespace-nowrap">
+                          ⚠️ Raw
+                        </Badge>
+                      )}
                     </TableCell>
                     
                     {/* Fonte */}
