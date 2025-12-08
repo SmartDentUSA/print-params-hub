@@ -335,20 +335,20 @@ export default function AdminDocumentsList() {
 
         {/* Table */}
         <div className="rounded-md border overflow-x-auto">
-          <Table>
+          <Table className="table-fixed w-full min-w-[1000px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[140px]">Nome</TableHead>
-                <TableHead className="w-[120px]">Manual</TableHead>
-                <TableHead className="w-[180px]">Extração IA</TableHead>
-                <TableHead className="w-[70px]">🌐</TableHead>
-                <TableHead className="w-[90px]">Categoria</TableHead>
-                <TableHead className="w-[90px]">Subcateg.</TableHead>
-                <TableHead className="w-[120px]">Produto</TableHead>
-                <TableHead className="w-[90px]">Tipo</TableHead>
-                <TableHead className="w-[70px]">Fonte</TableHead>
-                <TableHead className="w-[100px]">Status</TableHead>
-                <TableHead className="w-[70px]">Ações</TableHead>
+                <TableHead className="w-[10%]">Nome</TableHead>
+                <TableHead className="w-[10%]">Manual</TableHead>
+                <TableHead className="w-[15%]">Extração IA</TableHead>
+                <TableHead className="w-[5%]">🌐</TableHead>
+                <TableHead className="w-[8%]">Categ.</TableHead>
+                <TableHead className="w-[8%]">Subcateg.</TableHead>
+                <TableHead className="w-[10%]">Produto</TableHead>
+                <TableHead className="w-[8%]">Tipo</TableHead>
+                <TableHead className="w-[6%]">Fonte</TableHead>
+                <TableHead className="w-[12%]">Status</TableHead>
+                <TableHead className="w-[8%]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
