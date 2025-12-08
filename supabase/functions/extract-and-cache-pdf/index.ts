@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Tipos que usam extrator especializado
+const SPECIALIZED_TYPES = ['guia', 'laudo', 'catalogo', 'ifu', 'fds', 'perfil_tecnico'];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -145,8 +148,38 @@ serve(async (req) => {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    // 6. Chamar nova edge function de extração PURA com timeout aumentado
-    console.log('🤖 Chamando extract-pdf-raw...');
+    // 6. ROTEAMENTO: Decidir qual extrator usar baseado no document_type do documento
+    const docTypeFromDB = doc.document_type;
+    const useSpecialized = docTypeFromDB && SPECIALIZED_TYPES.includes(docTypeFromDB);
+    
+    console.log(`📋 Tipo de documento no banco: ${docTypeFromDB || 'não definido'}`);
+    console.log(`🔄 Usando extrator: ${useSpecialized ? 'specialized (' + docTypeFromDB + ')' : 'raw'}`);
+
+    let extractorUrl: string;
+    let extractorBody: any;
+    let extractionMethod: string;
+
+    if (useSpecialized) {
+      // Usar extrator especializado
+      extractorUrl = `${supabaseUrl}/functions/v1/extract-pdf-specialized`;
+      extractorBody = {
+        pdfBase64,
+        documentType: docTypeFromDB,
+        targetProduct: linkedProduct?.name || null
+      };
+      extractionMethod = `specialized-${docTypeFromDB}`;
+    } else {
+      // Fallback para extrator raw (transcrição literal)
+      extractorUrl = `${supabaseUrl}/functions/v1/extract-pdf-raw`;
+      extractorBody = {
+        pdfBase64,
+        linkedProduct
+      };
+      extractionMethod = 'extract-pdf-raw';
+    }
+
+    // 7. Chamar edge function de extração com timeout aumentado
+    console.log(`🤖 Chamando ${useSpecialized ? 'extract-pdf-specialized' : 'extract-pdf-raw'}...`);
     
     // AbortController com timeout de 180 segundos (3 minutos) para PDFs grandes
     const controller = new AbortController();
@@ -158,17 +191,14 @@ serve(async (req) => {
     
     let extractResponse;
     try {
-      extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-raw`, {
+      extractResponse = await fetch(extractorUrl, {
         method: 'POST',
         signal: controller.signal,
         headers: {
           'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          pdfBase64,
-          linkedProduct // Passa o produto JÁ VINCULADO
-        })
+        body: JSON.stringify(extractorBody)
       });
     } finally {
       clearTimeout(timeoutId);
@@ -180,22 +210,69 @@ serve(async (req) => {
     }
 
     const extractData = await extractResponse.json();
-    const extractedText = extractData.extractedText;
+    const extractedText = extractData.extractedText || extractData.data;
     
     if (!extractedText) {
       throw new Error('Nenhum texto foi extraído do PDF');
     }
 
+    // 8. Verificar resposta do Gatekeeper (apenas para extrator especializado)
+    if (useSpecialized) {
+      if (extractData.gatekeeperBlock || extractedText.includes('ERRO_TIPO_INCOMPATIVEL')) {
+        console.warn('🚫 GATEKEEPER bloqueou a extração');
+        
+        await supabase
+          .from(tableName)
+          .update({
+            extraction_status: 'failed',
+            extraction_error: 'Gatekeeper: Documento incompatível com o tipo selecionado. Verifique se o document_type está correto.',
+            extraction_method: 'gatekeeper-blocked'
+          })
+          .eq('id', documentId);
+        
+        return new Response(
+          JSON.stringify({
+            error: 'Documento incompatível com o tipo selecionado',
+            gatekeeperMessage: extractedText,
+            suggestion: 'Verifique se o tipo de documento está correto ou use outro tipo.'
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (extractData.productNotFound || extractedText.includes('PRODUCT_NOT_FOUND')) {
+        console.warn('🔍 Produto não encontrado no documento');
+        
+        await supabase
+          .from(tableName)
+          .update({
+            extraction_status: 'failed',
+            extraction_error: `Produto "${linkedProduct?.name || 'desconhecido'}" não encontrado no documento`,
+            extraction_method: 'product-not-found'
+          })
+          .eq('id', documentId);
+        
+        return new Response(
+          JSON.stringify({
+            error: 'Produto não encontrado no documento',
+            targetProduct: linkedProduct?.name || null,
+            suggestion: 'Verifique se o documento contém informações sobre este produto específico.'
+          }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const tokensUsed = extractData.tokensUsed || Math.ceil(extractedText.length / 4);
     console.log(`📝 Texto extraído: ${extractedText.length} caracteres, ${tokensUsed} tokens`);
 
-    // 7. Salvar no banco
+    // 9. Salvar no banco
     const { error: updateError } = await supabase
       .from(tableName)
       .update({
         extracted_text: extractedText,
         extracted_at: new Date().toISOString(),
-        extraction_method: 'extract-pdf-raw',
+        extraction_method: extractionMethod,
         extraction_tokens: tokensUsed,
         extraction_status: 'completed',
         extraction_error: null,
@@ -217,10 +294,12 @@ serve(async (req) => {
         text: extractedText,
         cached: false,
         extractedAt: new Date().toISOString(),
-        method: 'extract-pdf-raw',
+        method: extractionMethod,
         tokens: tokensUsed,
         linkedProduct: linkedProduct?.name || null,
-        hasHallucination: extractData.hasHallucination || false
+        hasHallucination: extractData.hasHallucination || false,
+        specializedExtraction: useSpecialized,
+        documentType: docTypeFromDB
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

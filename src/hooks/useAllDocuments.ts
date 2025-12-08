@@ -6,13 +6,15 @@ export type DocumentSourceType = 'resin' | 'catalog';
 export type DocumentLanguage = 'pt' | 'en' | 'es' | 'all';
 
 export const DOCUMENT_TYPES = [
-  { value: 'ifu', label: 'IFU (Instruções de Uso)' },
-  { value: 'fds', label: 'FDS (Ficha de Segurança)' },
-  { value: 'manual', label: 'Manual Técnico' },
-  { value: 'certificado', label: 'Certificado' },
-  { value: 'catalogo', label: 'Catálogo' },
-  { value: 'guia', label: 'Guia de Aplicação' },
-  { value: 'outro', label: 'Outro' },
+  { value: 'guia', label: '📋 Guia de Aplicação (Workflow)' },
+  { value: 'laudo', label: '🔬 Laudo/Ensaio Técnico' },
+  { value: 'catalogo', label: '🛒 Catálogo Comercial' },
+  { value: 'ifu', label: '📄 IFU (Instruções de Uso)' },
+  { value: 'fds', label: '⚠️ FDS (Ficha de Segurança)' },
+  { value: 'perfil_tecnico', label: '🧪 Perfil Técnico/Científico' },
+  { value: 'manual', label: '📚 Manual Técnico' },
+  { value: 'certificado', label: '✅ Certificado' },
+  { value: 'outro', label: '📎 Outro' },
 ] as const;
 
 export const LANGUAGES = [
