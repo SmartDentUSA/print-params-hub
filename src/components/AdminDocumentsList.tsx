@@ -174,6 +174,9 @@ export default function AdminDocumentsList() {
           </Badge>
           <span className="mx-2 text-muted-foreground">|</span>
           <Badge variant="outline" className="px-3 py-1">
+            🌐 {stats.all}
+          </Badge>
+          <Badge variant="outline" className="px-3 py-1">
             🇧🇷 {stats.pt}
           </Badge>
           <Badge variant="outline" className="px-3 py-1">

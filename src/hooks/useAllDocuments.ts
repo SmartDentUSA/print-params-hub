@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type DocumentSourceType = 'resin' | 'catalog';
-export type DocumentLanguage = 'pt' | 'en' | 'es';
+export type DocumentLanguage = 'pt' | 'en' | 'es' | 'all';
 
 export const DOCUMENT_TYPES = [
   { value: 'ifu', label: 'IFU (Instruções de Uso)' },
@@ -16,6 +16,7 @@ export const DOCUMENT_TYPES = [
 ] as const;
 
 export const LANGUAGES = [
+  { value: 'all', label: 'Todos os Idiomas', flag: '🌐' },
   { value: 'pt', label: 'Português', flag: '🇧🇷' },
   { value: 'en', label: 'English', flag: '🇺🇸' },
   { value: 'es', label: 'Español', flag: '🇪🇸' },
@@ -84,6 +85,7 @@ export function useAllDocuments() {
     extracted: 0,
     pending: 0,
     failed: 0,
+    all: 0,
     pt: 0,
     en: 0,
     es: 0,
@@ -263,6 +265,7 @@ export function useAllDocuments() {
         extracted: allDocs.filter(d => d.extraction_status === 'completed').length,
         pending: allDocs.filter(d => !d.extraction_status || d.extraction_status === 'pending').length,
         failed: allDocs.filter(d => d.extraction_status === 'failed').length,
+        all: allDocs.filter(d => d.language === 'all').length,
         pt: allDocs.filter(d => d.language === 'pt').length,
         en: allDocs.filter(d => d.language === 'en').length,
         es: allDocs.filter(d => d.language === 'es').length,
