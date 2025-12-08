@@ -111,8 +111,11 @@ export type Database = {
         Row: {
           active: boolean | null
           created_at: string | null
+          document_category: string | null
           document_description: string | null
           document_name: string
+          document_subcategory: string | null
+          document_type: string | null
           extracted_at: string | null
           extracted_text: string | null
           extraction_error: string | null
@@ -124,6 +127,7 @@ export type Database = {
           file_size: number | null
           file_url: string
           id: string
+          language: string | null
           order_index: number | null
           product_id: string
           updated_at: string | null
@@ -131,8 +135,11 @@ export type Database = {
         Insert: {
           active?: boolean | null
           created_at?: string | null
+          document_category?: string | null
           document_description?: string | null
           document_name: string
+          document_subcategory?: string | null
+          document_type?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
           extraction_error?: string | null
@@ -144,6 +151,7 @@ export type Database = {
           file_size?: number | null
           file_url: string
           id?: string
+          language?: string | null
           order_index?: number | null
           product_id: string
           updated_at?: string | null
@@ -151,8 +159,11 @@ export type Database = {
         Update: {
           active?: boolean | null
           created_at?: string | null
+          document_category?: string | null
           document_description?: string | null
           document_name?: string
+          document_subcategory?: string | null
+          document_type?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
           extraction_error?: string | null
@@ -164,6 +175,7 @@ export type Database = {
           file_size?: number | null
           file_url?: string
           id?: string
+          language?: string | null
           order_index?: number | null
           product_id?: string
           updated_at?: string | null
@@ -775,8 +787,11 @@ export type Database = {
         Row: {
           active: boolean | null
           created_at: string | null
+          document_category: string | null
           document_description: string | null
           document_name: string
+          document_subcategory: string | null
+          document_type: string | null
           extracted_at: string | null
           extracted_text: string | null
           extraction_error: string | null
@@ -788,6 +803,7 @@ export type Database = {
           file_size: number | null
           file_url: string
           id: string
+          language: string | null
           order_index: number | null
           resin_id: string
           updated_at: string | null
@@ -795,8 +811,11 @@ export type Database = {
         Insert: {
           active?: boolean | null
           created_at?: string | null
+          document_category?: string | null
           document_description?: string | null
           document_name: string
+          document_subcategory?: string | null
+          document_type?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
           extraction_error?: string | null
@@ -808,6 +827,7 @@ export type Database = {
           file_size?: number | null
           file_url: string
           id?: string
+          language?: string | null
           order_index?: number | null
           resin_id: string
           updated_at?: string | null
@@ -815,8 +835,11 @@ export type Database = {
         Update: {
           active?: boolean | null
           created_at?: string | null
+          document_category?: string | null
           document_description?: string | null
           document_name?: string
+          document_subcategory?: string | null
+          document_type?: string | null
           extracted_at?: string | null
           extracted_text?: string | null
           extraction_error?: string | null
@@ -828,6 +851,7 @@ export type Database = {
           file_size?: number | null
           file_url?: string
           id?: string
+          language?: string | null
           order_index?: number | null
           resin_id?: string
           updated_at?: string | null
