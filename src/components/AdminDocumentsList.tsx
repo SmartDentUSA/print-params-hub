@@ -19,7 +19,11 @@ import {
   ChevronRight,
   RefreshCw,
   Sparkles,
-  Loader2
+  Loader2,
+  Trash2,
+  Pencil,
+  X,
+  Check
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -54,20 +58,26 @@ export default function AdminDocumentsList() {
     subcategories,
     stats,
     updateDocumentFields,
+    clearExtractedText,
+    updateExtractedText,
     refetch,
   } = useAllDocuments();
 
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChanges>>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+  const [clearingIds, setClearingIds] = useState<Set<string>>(new Set());
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const [savingTextIds, setSavingTextIds] = useState<Set<string>>(new Set());
   
   const { extractPdfText } = usePdfExtraction();
 
-  const handleExtractPdf = async (docId: string, sourceType: DocumentSourceType) => {
+  const handleExtractPdf = async (docId: string, sourceType: DocumentSourceType, forceReExtract = false) => {
     setExtractingIds(prev => new Set(prev).add(docId));
     
     const documentType = sourceType === 'resin' ? 'resin' : 'catalog';
-    const result = await extractPdfText(docId, documentType);
+    const result = await extractPdfText(docId, documentType, forceReExtract);
     
     if (result) {
       toast.success('✅ Texto extraído com sucesso!');
@@ -75,6 +85,50 @@ export default function AdminDocumentsList() {
     }
     
     setExtractingIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(docId);
+      return newSet;
+    });
+  };
+
+  const handleClearExtractedText = async (docId: string, sourceType: DocumentSourceType) => {
+    setClearingIds(prev => new Set(prev).add(docId));
+    
+    const success = await clearExtractedText(docId, sourceType);
+    
+    if (success) {
+      refetch();
+    }
+    
+    setClearingIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(docId);
+      return newSet;
+    });
+  };
+
+  const handleStartEditText = (docId: string, currentText: string | null) => {
+    setEditingTextId(docId);
+    setEditingText(currentText || '');
+  };
+
+  const handleCancelEditText = () => {
+    setEditingTextId(null);
+    setEditingText('');
+  };
+
+  const handleSaveEditText = async (docId: string, sourceType: DocumentSourceType) => {
+    setSavingTextIds(prev => new Set(prev).add(docId));
+    
+    const success = await updateExtractedText(docId, sourceType, editingText);
+    
+    if (success) {
+      setEditingTextId(null);
+      setEditingText('');
+      refetch();
+    }
+    
+    setSavingTextIds(prev => {
       const newSet = new Set(prev);
       newSet.delete(docId);
       return newSet;
@@ -328,41 +382,113 @@ export default function AdminDocumentsList() {
                     
                     {/* Extração IA */}
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-left flex-1 min-w-0">
-                              {doc.extracted_text ? (
-                                <span className="text-xs text-muted-foreground line-clamp-2 hover:text-foreground cursor-pointer">
-                                  {doc.extracted_text.substring(0, 80)}...
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground italic">
-                                  Não extraído
-                                </span>
-                              )}
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[400px] max-h-[300px] overflow-y-auto">
-                            <div className="text-sm whitespace-pre-wrap">
-                              {doc.extracted_text || 'Nenhum texto extraído ainda. Clique no botão IA para extrair.'}
+                      <div className="flex flex-col gap-1">
+                        {editingTextId === doc.id ? (
+                          <div className="space-y-2">
+                            <Textarea
+                              value={editingText}
+                              onChange={(e) => setEditingText(e.target.value)}
+                              className="text-xs min-h-[100px] resize-y w-full"
+                              placeholder="Texto extraído..."
+                            />
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => handleSaveEditText(doc.id, doc.source_type)}
+                                disabled={savingTextIds.has(doc.id)}
+                                className="h-6 px-2"
+                              >
+                                {savingTextIds.has(doc.id) ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Check className="w-3 h-3" />
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={handleCancelEditText}
+                                className="h-6 px-2"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
                             </div>
-                          </PopoverContent>
-                        </Popover>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleExtractPdf(doc.id, doc.source_type)}
-                          disabled={extractingIds.has(doc.id)}
-                          title={doc.extracted_text ? "Re-extrair com IA" : "Extrair conteúdo com IA"}
-                          className="h-7 px-2 shrink-0"
-                        >
-                          {extractingIds.has(doc.id) ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-4 h-4" />
-                          )}
-                        </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-1">
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <button className="text-left flex-1 min-w-0">
+                                    {doc.extracted_text ? (
+                                      <span className="text-xs text-muted-foreground line-clamp-2 hover:text-foreground cursor-pointer">
+                                        {doc.extracted_text.substring(0, 60)}...
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">
+                                        Não extraído
+                                      </span>
+                                    )}
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[500px] max-h-[400px] overflow-y-auto">
+                                  <div className="text-sm whitespace-pre-wrap">
+                                    {doc.extracted_text || 'Nenhum texto extraído ainda. Clique no botão IA para extrair.'}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {/* Botão Extrair/Re-extrair */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleExtractPdf(doc.id, doc.source_type, true)}
+                                disabled={extractingIds.has(doc.id) || clearingIds.has(doc.id)}
+                                title={doc.extracted_text ? "Re-extrair com IA (substitui atual)" : "Extrair conteúdo com IA"}
+                                className="h-6 px-2 shrink-0"
+                              >
+                                {extractingIds.has(doc.id) ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Sparkles className="w-3 h-3" />
+                                )}
+                              </Button>
+                              
+                              {/* Botão Editar texto extraído */}
+                              {doc.extracted_text && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleStartEditText(doc.id, doc.extracted_text)}
+                                  title="Editar texto extraído"
+                                  className="h-6 px-2 shrink-0"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                              )}
+                              
+                              {/* Botão Excluir texto extraído */}
+                              {doc.extracted_text && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleClearExtractedText(doc.id, doc.source_type)}
+                                  disabled={clearingIds.has(doc.id)}
+                                  title="Excluir texto extraído (permitir nova extração)"
+                                  className="h-6 px-2 shrink-0 text-destructive hover:text-destructive"
+                                >
+                                  {clearingIds.has(doc.id) ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                     
