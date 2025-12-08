@@ -20,7 +20,8 @@ serve(async (req) => {
       );
     }
 
-    console.log('📄 Iniciando extração PURA de PDF...');
+    const pdfSizeKB = (pdfBase64.length / 1024).toFixed(1);
+    console.log(`📄 Iniciando extração PURA de PDF (${pdfSizeKB}KB)...`);
     console.log('📦 Produto vinculado:', linkedProduct?.name || 'Não especificado');
 
     // Construir contexto do produto vinculado (se existir)
@@ -79,6 +80,17 @@ LEMBRE-SE:
       throw new Error('LOVABLE_API_KEY não configurada');
     }
 
+    // Ajustar max_completion_tokens baseado no tamanho do PDF
+    // PDFs maiores precisam de mais tokens para transcrição completa
+    const pdfSizeNumber = parseFloat(pdfSizeKB);
+    let maxTokens = 16000;
+    if (pdfSizeNumber > 1000) {
+      maxTokens = 32000; // PDFs muito grandes (>1MB)
+    } else if (pdfSizeNumber > 500) {
+      maxTokens = 24000; // PDFs grandes (500KB-1MB)
+    }
+    console.log(`🔧 Usando max_completion_tokens: ${maxTokens}`);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -108,7 +120,7 @@ LEMBRE-SE:
             ]
           }
         ],
-        max_completion_tokens: 16000,
+        max_completion_tokens: maxTokens,
         temperature: 0.1 // Baixa temperatura para máxima fidelidade
       })
     });
