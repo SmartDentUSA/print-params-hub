@@ -86,7 +86,7 @@ D. **Sem Exemplos:** NÃO use exemplos de outros produtos. Extraia APENAS o cont
 * **IMPORTANTE:** Use APENAS o conteúdo do PDF. NÃO invente, NÃO complete, NÃO use exemplos de outros produtos.
 
 Conteúdo do PDF (base64):
-${pdfBase64.substring(0, 100000)}`
+${pdfBase64}`
           }
         ],
         max_completion_tokens: 12000

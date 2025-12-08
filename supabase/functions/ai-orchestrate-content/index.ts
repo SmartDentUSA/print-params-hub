@@ -362,18 +362,19 @@ OBJETIVO: Criar um artigo completo e educacional que reflete fielmente as fontes
       ORCHESTRATOR_PROMPT += `### DEPOIMENTOS DE ESPECIALISTAS (legacy):\n${sources.testimonials}\n\n`;
     }
 
+    // 🚫 ANTI-ALUCINAÇÃO: Não incluir dados automáticos do banco
+    // Apenas produtos selecionados explicitamente via CTAs são incluídos
     ORCHESTRATOR_PROMPT += `
-📊 DADOS DO BANCO (use quando relevante):
+${detailedProductsContext ? `
+📊 PRODUTOS SELECIONADOS PARA DESTAQUE (via CTAs):
+${detailedProductsContext}
+` : `
+⚠️ NENHUM PRODUTO FOI SELECIONADO PARA DESTAQUE COMERCIAL
 
-${detailedProductsContext || `
-Produtos disponíveis no catálogo:
-${databaseData.products?.map((p: any) => `- ${p.name} (${p.category}) - R$ ${p.price || 'Consulte'}`).join('\n') || 'Nenhum produto encontrado'}
-
-Resinas disponíveis:
-${databaseData.resins?.map((r: any) => `- ${r.name} (${r.manufacturer}) - Tipo: ${r.type}`).join('\n') || 'Nenhuma resina encontrada'}
-
-Parâmetros de impressão disponíveis:
-${databaseData.parameters?.map((p: any) => `- ${p.brand_slug} ${p.model_slug}: ${p.resin_manufacturer} ${p.resin_name} (Layer: ${p.layer_height}mm, Cure: ${p.cure_time}s, Light: ${p.light_intensity}%)`).join('\n') || 'Nenhum parâmetro encontrado'}
+🚫 REGRA ANTI-ALUCINAÇÃO:
+- NÃO mencione produtos específicos que não estejam nas fontes fornecidas
+- NÃO adicione CTAs ou links para produtos
+- Foque 100% no conteúdo técnico/educacional das fontes
 `}
 
 LISTA DE KEYWORDS COM URLS PARA INTERNAL LINKING:

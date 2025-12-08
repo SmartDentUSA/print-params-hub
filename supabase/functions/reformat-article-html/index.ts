@@ -53,17 +53,27 @@ serve(async (req) => {
 
 SEU TRABALHO:
 1. **Detectar tabelas em texto corrido** → Converter para HTML <table> semântico
-2. **Identificar termos técnicos importantes** → Adicionar links internos quando apropriado (resinas, equipamentos, processos)
-3. **Melhorar estrutura de headings** → Garantir hierarquia H2/H3/H4 lógica
-4. **Preservar TODO o conteúdo original** → Não remover nada, apenas reestruturar
+2. **Melhorar estrutura de headings** → Garantir hierarquia H2/H3/H4 lógica
+3. **Preservar TODO o conteúdo original** → Não remover nada, apenas reestruturar
 
-REGRAS CRÍTICAS:
+═══════════════════════════════════════════════════════════
+🚫 REGRAS ANTI-ALUCINAÇÃO (PRIORIDADE MÁXIMA)
+═══════════════════════════════════════════════════════════
+
+❌ NÃO adicione links que não existam no HTML original
+❌ NÃO crie links internos para produtos, resinas ou equipamentos
+❌ NÃO invente dados que não existam no texto original
+❌ NÃO adicione conteúdo novo, apenas reorganize o existente
+❌ NÃO adicione CTAs ou chamadas para ação não presentes no original
+
+✅ Preserve TODOS os links existentes no HTML original
+✅ Apenas reestruture tabelas, headings e formatação
+✅ Mantenha TODO o texto original intacto
+
+REGRAS DE FORMATAÇÃO:
 - Use SEMPRE classes Tailwind para estilização
 - Tabelas devem usar: <table class="w-full border-collapse my-6"><thead><tr><th class="border border-border p-3 bg-muted text-left font-semibold">...
-- Links internos: <a href="/resinas/nome-da-resina" class="text-primary underline hover:text-primary/80">Texto</a>
 - Headings: <h2 class="text-2xl font-bold mt-8 mb-4">...</h2>
-- NÃO invente dados que não existam no texto original
-- NÃO adicione conteúdo novo, apenas reorganize o existente
 - Se houver listas (bullets, numeradas), use <ul class="list-disc pl-6 my-4"> ou <ol>
 - Preserve TODOS os parágrafos <p class="mb-4">
 

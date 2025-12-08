@@ -152,14 +152,9 @@ async function fetchKeywordsRepository(
     `)
     .eq('active', true)
   
-  // 4. 🆕 Buscar produtos do catálogo para criar links para e-commerce
-  const { data: catalogProducts } = await supabase
-    .from('system_a_catalog')
-    .select('id, name, slug, keywords')
-    .eq('active', true)
-    .eq('approved', true)
-    .eq('category', 'product')
-    .eq('visible_in_ui', true)
+  // 🚫 REMOVIDO: Busca automática de produtos do catálogo para evitar alucinações
+  // Links para produtos devem ser curados manualmente via external_links ou seleção explícita de CTAs
+  // Isso evita que a IA adicione links para produtos não mencionados no conteúdo original
 
   if (resinDocuments) {
     for (const doc of resinDocuments) {
@@ -186,40 +181,6 @@ async function fetchKeywordsRepository(
           priority: priority * 0.9,
           source: 'document'
         })
-      }
-    }
-  }
-  
-  // Adicionar produtos do catálogo ao mapa de links
-  if (catalogProducts) {
-    for (const product of catalogProducts) {
-      const productUrl = `/produto/${product.slug}`
-      const priority = 80 // 🔥 Prioridade ALTA (queremos links para e-commerce!)
-      
-      // Nome do produto como keyword principal
-      const productName = product.name.toLowerCase()
-      if (!linkMap.has(productName)) {
-        linkMap.set(productName, {
-          id: product.id,
-          url: productUrl,
-          priority,
-          source: 'catalog_product'
-        })
-      }
-      
-      // Keywords adicionais do produto
-      if (product.keywords && Array.isArray(product.keywords)) {
-        for (const kw of product.keywords) {
-          const kwLower = kw.toLowerCase()
-          if (!linkMap.has(kwLower)) {
-            linkMap.set(kwLower, {
-              id: product.id,
-              url: productUrl,
-              priority: priority * 0.9,
-              source: 'catalog_product'
-            })
-          }
-        }
       }
     }
   }
