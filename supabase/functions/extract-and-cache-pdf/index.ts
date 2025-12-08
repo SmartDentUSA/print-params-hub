@@ -11,8 +11,18 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Variáveis salvas para uso no catch (antes de consumir o body)
+  let savedDocumentId: string | null = null;
+  let savedDocumentType: string | null = null;
+  let savedTableName: string | null = null;
+
   try {
     const { documentId, documentType, forceReExtract = false } = await req.json();
+    
+    // Salvar para uso no catch
+    savedDocumentId = documentId;
+    savedDocumentType = documentType;
+    savedTableName = documentType === 'resin' ? 'resin_documents' : 'catalog_documents';
 
     if (!documentId || !documentType) {
       return new Response(
@@ -25,7 +35,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const tableName = documentType === 'resin' ? 'resin_documents' : 'catalog_documents';
+    const tableName = savedTableName;
 
     // 1. Buscar documento do banco
     const { data: doc, error: fetchError } = await supabase
@@ -127,27 +137,42 @@ serve(async (req) => {
     }
     const pdfBase64 = btoa(binaryString);
 
-    console.log(`📊 PDF convertido: ${(pdfBase64.length / 1024).toFixed(1)}KB em base64`);
+    const pdfSizeKB = (pdfBase64.length / 1024).toFixed(1);
+    console.log(`📊 PDF convertido: ${pdfSizeKB}KB em base64`);
 
     // Calcular hash do arquivo
     const hashBuffer = await crypto.subtle.digest('SHA-256', fileArrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const fileHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-    // 6. Chamar nova edge function de extração PURA
+    // 6. Chamar nova edge function de extração PURA com timeout aumentado
     console.log('🤖 Chamando extract-pdf-raw...');
     
-    const extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-raw`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ 
-        pdfBase64,
-        linkedProduct // Passa o produto JÁ VINCULADO
-      })
-    });
+    // AbortController com timeout de 180 segundos (3 minutos) para PDFs grandes
+    const controller = new AbortController();
+    const timeoutMs = 180000; // 3 minutos
+    const timeoutId = setTimeout(() => {
+      console.warn('⏰ Timeout atingido, abortando requisição...');
+      controller.abort();
+    }, timeoutMs);
+    
+    let extractResponse;
+    try {
+      extractResponse = await fetch(`${supabaseUrl}/functions/v1/extract-pdf-raw`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'Authorization': `Bearer ${supabaseKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          pdfBase64,
+          linkedProduct // Passa o produto JÁ VINCULADO
+        })
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!extractResponse.ok) {
       const errorText = await extractResponse.text();
@@ -162,6 +187,7 @@ serve(async (req) => {
     }
 
     const tokensUsed = extractData.tokensUsed || Math.ceil(extractedText.length / 4);
+    console.log(`📝 Texto extraído: ${extractedText.length} caracteres, ${tokensUsed} tokens`);
 
     // 7. Salvar no banco
     const { error: updateError } = await supabase
@@ -202,27 +228,25 @@ serve(async (req) => {
   } catch (error) {
     console.error('❌ Erro em extract-and-cache-pdf:', error);
     
-    // Tentar atualizar status para 'failed'
-    try {
-      const body = await req.clone().json();
-      const { documentId, documentType } = body;
-      
-      if (documentId && documentType) {
+    // Atualizar status para 'failed' usando variáveis salvas (sem req.clone())
+    if (savedDocumentId && savedTableName) {
+      try {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseKey);
-        const tableName = documentType === 'resin' ? 'resin_documents' : 'catalog_documents';
         
         await supabase
-          .from(tableName)
+          .from(savedTableName)
           .update({ 
             extraction_status: 'failed',
-            extraction_error: error.message 
+            extraction_error: error.message || 'Erro desconhecido'
           })
-          .eq('id', documentId);
+          .eq('id', savedDocumentId);
+        
+        console.log('📝 Status atualizado para failed:', savedDocumentId);
+      } catch (e) {
+        console.error('Erro ao atualizar status de falha:', e);
       }
-    } catch (e) {
-      console.error('Erro ao atualizar status de falha:', e);
     }
 
     return new Response(
