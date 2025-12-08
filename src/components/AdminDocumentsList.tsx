@@ -363,21 +363,69 @@ export default function AdminDocumentsList() {
                   <TableRow key={doc.id} className={hasChanges(doc.id) ? 'bg-yellow-50' : ''}>
                     {/* Nome */}
                     <TableCell>
-                      <Input
-                        value={getCurrentValue(doc.id, 'document_name', doc.document_name)}
-                        onChange={(e) => handleFieldChange(doc.id, 'document_name', e.target.value)}
-                        className="h-8 text-sm"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-left w-full">
+                            <span className="text-sm line-clamp-2 hover:text-primary cursor-pointer">
+                              {getCurrentValue(doc.id, 'document_name', doc.document_name) || '—'}
+                            </span>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px]" align="start">
+                          <div className="space-y-3">
+                            <div className="font-medium text-sm">📄 Nome do Documento</div>
+                            <Input
+                              value={getCurrentValue(doc.id, 'document_name', doc.document_name)}
+                              onChange={(e) => handleFieldChange(doc.id, 'document_name', e.target.value)}
+                              className="text-sm"
+                              placeholder="Nome do documento..."
+                            />
+                            <div className="text-xs text-muted-foreground space-y-1">
+                              <div><strong>Arquivo:</strong> {doc.file_name}</div>
+                              {doc.file_url && (
+                                <a 
+                                  href={doc.file_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline flex items-center gap-1"
+                                >
+                                  <ExternalLink className="w-3 h-3" /> Abrir PDF
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     
                     {/* Manual (antiga Descrição) */}
                     <TableCell>
-                      <Textarea
-                        value={getCurrentValue(doc.id, 'document_description', doc.document_description)}
-                        onChange={(e) => handleFieldChange(doc.id, 'document_description', e.target.value)}
-                        className="text-sm min-h-[60px] resize-y w-full"
-                        placeholder="Descrição manual..."
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-left w-full">
+                            {getCurrentValue(doc.id, 'document_description', doc.document_description) ? (
+                              <span className="text-xs text-muted-foreground line-clamp-2 hover:text-foreground cursor-pointer">
+                                {getCurrentValue(doc.id, 'document_description', doc.document_description).substring(0, 80)}...
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic hover:text-foreground cursor-pointer">
+                                Sem descrição
+                              </span>
+                            )}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[450px]" align="start">
+                          <div className="space-y-3">
+                            <div className="font-medium text-sm">✏️ Descrição Manual</div>
+                            <Textarea
+                              value={getCurrentValue(doc.id, 'document_description', doc.document_description)}
+                              onChange={(e) => handleFieldChange(doc.id, 'document_description', e.target.value)}
+                              className="text-sm min-h-[120px] resize-y w-full"
+                              placeholder="Descrição manual do documento..."
+                            />
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     
                     {/* Extração IA */}
@@ -553,15 +601,46 @@ export default function AdminDocumentsList() {
                     
                     {/* Produto/Resina vinculado */}
                     <TableCell>
-                      <div className="text-sm">
-                        <span className="font-medium">{doc.linked_name || '—'}</span>
-                        {doc.linked_category && (
-                          <span className="block text-xs text-muted-foreground">
-                            {doc.linked_category}
-                            {doc.linked_subcategory && ` / ${doc.linked_subcategory}`}
-                          </span>
-                        )}
-                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-left w-full">
+                            <div className="text-sm">
+                              <span className="font-medium hover:text-primary cursor-pointer line-clamp-1">
+                                {doc.linked_name || '—'}
+                              </span>
+                              {doc.linked_category && (
+                                <span className="block text-xs text-muted-foreground line-clamp-1">
+                                  {doc.linked_category}
+                                  {doc.linked_subcategory && ` / ${doc.linked_subcategory}`}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[350px]" align="start">
+                          <div className="space-y-2">
+                            <div className="font-medium text-sm">🔗 Produto/Resina Vinculado</div>
+                            {doc.linked_name ? (
+                              <div className="text-sm space-y-1">
+                                <div><strong>Nome:</strong> {doc.linked_name}</div>
+                                {doc.linked_category && (
+                                  <div><strong>Categoria:</strong> {doc.linked_category}</div>
+                                )}
+                                {doc.linked_subcategory && (
+                                  <div><strong>Subcategoria:</strong> {doc.linked_subcategory}</div>
+                                )}
+                                <div className="text-xs text-muted-foreground pt-2">
+                                  <strong>Tipo:</strong> {doc.source_type === 'resin' ? 'Resina' : 'Produto do Catálogo'}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-muted-foreground italic">
+                                Nenhum produto ou resina vinculado a este documento.
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableCell>
                     
                     {/* Tipo de Documento */}
