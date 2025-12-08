@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAllDocuments, DOCUMENT_TYPES, LANGUAGES, DocumentSourceType } from '@/hooks/useAllDocuments';
+import { usePdfExtraction } from '@/hooks/usePdfExtraction';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,9 @@ import {
   Save, 
   ChevronLeft, 
   ChevronRight,
-  Filter,
-  RefreshCw
+  RefreshCw,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -55,6 +57,27 @@ export default function AdminDocumentsList() {
 
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChanges>>({});
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
+  const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+  
+  const { extractPdfText } = usePdfExtraction();
+
+  const handleExtractPdf = async (docId: string, sourceType: DocumentSourceType) => {
+    setExtractingIds(prev => new Set(prev).add(docId));
+    
+    const documentType = sourceType === 'resin' ? 'resin' : 'catalog';
+    const result = await extractPdfText(docId, documentType);
+    
+    if (result) {
+      toast.success('✅ Texto extraído com sucesso!');
+      refetch();
+    }
+    
+    setExtractingIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(docId);
+      return newSet;
+    });
+  };
 
   const handleFieldChange = (docId: string, field: keyof PendingChanges, value: string) => {
     setPendingChanges(prev => ({
@@ -260,7 +283,8 @@ export default function AdminDocumentsList() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[200px]">Nome</TableHead>
-                <TableHead className="w-[200px]">Descrição</TableHead>
+                <TableHead className="w-[150px]">Manual</TableHead>
+                <TableHead className="w-[200px]">Extração IA</TableHead>
                 <TableHead className="w-[100px]">🌐 Idioma</TableHead>
                 <TableHead className="w-[140px]">Categoria</TableHead>
                 <TableHead className="w-[140px]">Subcategoria</TableHead>
@@ -274,7 +298,7 @@ export default function AdminDocumentsList() {
             <TableBody>
               {documents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                     Nenhum documento encontrado
                   </TableCell>
                 </TableRow>
@@ -290,14 +314,46 @@ export default function AdminDocumentsList() {
                       />
                     </TableCell>
                     
-                    {/* Descrição */}
+                    {/* Manual (antiga Descrição) */}
                     <TableCell>
                       <Input
                         value={getCurrentValue(doc.id, 'document_description', doc.document_description)}
                         onChange={(e) => handleFieldChange(doc.id, 'document_description', e.target.value)}
                         className="h-8 text-sm"
-                        placeholder="Descrição..."
+                        placeholder="Descrição manual..."
                       />
+                    </TableCell>
+                    
+                    {/* Extração IA */}
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {doc.extracted_text ? (
+                          <span 
+                            className="text-xs text-muted-foreground truncate max-w-[120px]" 
+                            title={doc.extracted_text}
+                          >
+                            {doc.extracted_text.substring(0, 40)}...
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">
+                            Não extraído
+                          </span>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleExtractPdf(doc.id, doc.source_type)}
+                          disabled={extractingIds.has(doc.id)}
+                          title={doc.extracted_text ? "Re-extrair com IA" : "Extrair conteúdo com IA"}
+                          className="h-7 px-2 shrink-0"
+                        >
+                          {extractingIds.has(doc.id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     </TableCell>
                     
                     {/* Idioma */}
