@@ -338,17 +338,17 @@ export default function AdminDocumentsList() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[200px]">Nome</TableHead>
-                <TableHead className="w-[250px]">Manual</TableHead>
-                <TableHead className="w-[300px]">Extração IA</TableHead>
-                <TableHead className="w-[100px]">🌐 Idioma</TableHead>
-                <TableHead className="w-[140px]">Categoria</TableHead>
-                <TableHead className="w-[140px]">Subcategoria</TableHead>
-                <TableHead className="w-[180px]">Produto/Resina</TableHead>
-                <TableHead className="w-[140px]">Tipo Doc</TableHead>
-                <TableHead className="w-[100px]">Fonte</TableHead>
-                <TableHead className="w-[120px]">Status</TableHead>
-                <TableHead className="w-[100px]">Ações</TableHead>
+                <TableHead className="w-[140px]">Nome</TableHead>
+                <TableHead className="w-[120px]">Manual</TableHead>
+                <TableHead className="w-[180px]">Extração IA</TableHead>
+                <TableHead className="w-[70px]">🌐</TableHead>
+                <TableHead className="w-[90px]">Categoria</TableHead>
+                <TableHead className="w-[90px]">Subcateg.</TableHead>
+                <TableHead className="w-[120px]">Produto</TableHead>
+                <TableHead className="w-[90px]">Tipo</TableHead>
+                <TableHead className="w-[70px]">Fonte</TableHead>
+                <TableHead className="w-[100px]">Status</TableHead>
+                <TableHead className="w-[70px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
