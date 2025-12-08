@@ -358,6 +358,74 @@ export function useAllDocuments() {
     return true;
   };
 
+  // Clear extracted text (to allow fresh re-extraction)
+  const clearExtractedText = async (id: string, sourceType: DocumentSourceType) => {
+    const table = sourceType === 'resin' ? 'resin_documents' : 'catalog_documents';
+    
+    const { error } = await supabase
+      .from(table)
+      .update({
+        extracted_text: null,
+        extraction_status: 'pending',
+        extraction_method: null,
+        extraction_error: null,
+        extraction_tokens: null,
+        extracted_at: null,
+      })
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error clearing extracted text:', error);
+      toast.error('Erro ao limpar texto extraído');
+      return false;
+    }
+    
+    // Update local state
+    setDocuments(prev => prev.map(doc => 
+      doc.id === id ? { 
+        ...doc, 
+        extracted_text: null, 
+        extraction_status: 'pending' 
+      } : doc
+    ));
+    
+    toast.success('Texto extraído removido');
+    return true;
+  };
+
+  // Update extracted text manually
+  const updateExtractedText = async (id: string, sourceType: DocumentSourceType, newText: string) => {
+    const table = sourceType === 'resin' ? 'resin_documents' : 'catalog_documents';
+    
+    const { error } = await supabase
+      .from(table)
+      .update({
+        extracted_text: newText,
+        extraction_status: 'completed',
+        extraction_method: 'manual-edit',
+        extracted_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating extracted text:', error);
+      toast.error('Erro ao atualizar texto extraído');
+      return false;
+    }
+    
+    // Update local state
+    setDocuments(prev => prev.map(doc => 
+      doc.id === id ? { 
+        ...doc, 
+        extracted_text: newText, 
+        extraction_status: 'completed' 
+      } : doc
+    ));
+    
+    toast.success('Texto extraído atualizado');
+    return true;
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return {
@@ -383,6 +451,8 @@ export function useAllDocuments() {
     resins,
     stats,
     updateDocumentFields,
+    clearExtractedText,
+    updateExtractedText,
     refetch: fetchDocuments,
   };
 }
