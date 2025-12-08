@@ -3,6 +3,8 @@ import { useAllDocuments, DOCUMENT_TYPES, LANGUAGES, DocumentSourceType } from '
 import { usePdfExtraction } from '@/hooks/usePdfExtraction';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -283,8 +285,8 @@ export default function AdminDocumentsList() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[200px]">Nome</TableHead>
-                <TableHead className="w-[150px]">Manual</TableHead>
-                <TableHead className="w-[200px]">Extração IA</TableHead>
+                <TableHead className="w-[250px]">Manual</TableHead>
+                <TableHead className="w-[300px]">Extração IA</TableHead>
                 <TableHead className="w-[100px]">🌐 Idioma</TableHead>
                 <TableHead className="w-[140px]">Categoria</TableHead>
                 <TableHead className="w-[140px]">Subcategoria</TableHead>
@@ -316,10 +318,10 @@ export default function AdminDocumentsList() {
                     
                     {/* Manual (antiga Descrição) */}
                     <TableCell>
-                      <Input
+                      <Textarea
                         value={getCurrentValue(doc.id, 'document_description', doc.document_description)}
                         onChange={(e) => handleFieldChange(doc.id, 'document_description', e.target.value)}
-                        className="h-8 text-sm"
+                        className="text-sm min-h-[60px] resize-y w-full"
                         placeholder="Descrição manual..."
                       />
                     </TableCell>
@@ -327,18 +329,26 @@ export default function AdminDocumentsList() {
                     {/* Extração IA */}
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {doc.extracted_text ? (
-                          <span 
-                            className="text-xs text-muted-foreground truncate max-w-[120px]" 
-                            title={doc.extracted_text}
-                          >
-                            {doc.extracted_text.substring(0, 40)}...
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">
-                            Não extraído
-                          </span>
-                        )}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-left flex-1 min-w-0">
+                              {doc.extracted_text ? (
+                                <span className="text-xs text-muted-foreground line-clamp-2 hover:text-foreground cursor-pointer">
+                                  {doc.extracted_text.substring(0, 80)}...
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground italic">
+                                  Não extraído
+                                </span>
+                              )}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] max-h-[300px] overflow-y-auto">
+                            <div className="text-sm whitespace-pre-wrap">
+                              {doc.extracted_text || 'Nenhum texto extraído ainda. Clique no botão IA para extrair.'}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         <Button
                           size="sm"
                           variant="outline"
