@@ -344,6 +344,35 @@ export const useSupabaseCRUD = () => {
     }
   };
 
+  const updateResinDocument = async (
+    id: string, 
+    updates: Partial<{
+      document_name: string;
+      document_description: string;
+      document_category: string;
+      document_subcategory: string;
+      document_type: string;
+    }>
+  ): Promise<any | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('resin_documents')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao atualizar documento:', err);
+      return null;
+    }
+  };
+
   return {
     loading,
     error,
@@ -361,6 +390,7 @@ export const useSupabaseCRUD = () => {
     deleteParameterSet,
     fetchResinDocuments,
     insertResinDocument,
+    updateResinDocument,
     deleteResinDocument,
     clearError: () => setError(null)
   };

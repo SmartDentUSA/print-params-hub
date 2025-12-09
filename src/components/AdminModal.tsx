@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AdminCatalogFormSection } from '@/components/AdminCatalogFormSection';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb } from 'lucide-react';
+import { Save, X, ExternalLink, Info, FileText, Plus, Trash2, ShoppingCart, Sparkles, BookOpen, Database, Settings, Lightbulb, Check, Loader2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
@@ -221,7 +221,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [documents, setDocuments] = useState<any[]>([]);
   const [uploadingDocIndex, setUploadingDocIndex] = useState<number | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const { fetchResinDocuments, insertResinDocument, deleteResinDocument } = useSupabaseCRUD();
+  const [savingDocId, setSavingDocId] = useState<string | null>(null);
+  const [savedDocId, setSavedDocId] = useState<string | null>(null);
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
   
   // 🆕 Recursos do sistema para CTA4
   const [systemResources, setSystemResources] = useState<{
@@ -544,6 +547,49 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  // 📄 Handlers para documentos do CATÁLOGO
+  const { insertProductDocument, deleteProductDocument, updateProductDocument } = useCatalogCRUD();
+
+  // Auto-save de documentos com debounce
+  const autoSaveDocument = useCallback(async (doc: any, field: string, value: any) => {
+    if (!doc.id) return; // Documento ainda não foi salvo no banco
+    
+    const docId = doc.id;
+    const timerKey = `${docId}-${field}`;
+    
+    // Cancelar timer anterior
+    if (debounceTimers.current[timerKey]) {
+      clearTimeout(debounceTimers.current[timerKey]);
+    }
+    
+    // Novo timer com debounce de 500ms
+    debounceTimers.current[timerKey] = setTimeout(async () => {
+      setSavingDocId(docId);
+      setSavedDocId(null);
+      
+      try {
+        // Determinar qual tabela usar baseado no tipo
+        if (type === 'catalog') {
+          await updateProductDocument(docId, { [field]: value });
+        } else if (type === 'resin') {
+          await updateResinDocument(docId, { [field]: value });
+        }
+        
+        setSavedDocId(docId);
+        setTimeout(() => setSavedDocId(null), 2000); // Esconde após 2s
+      } catch (error) {
+        console.error('Erro ao salvar documento:', error);
+        toast({
+          title: "Erro ao salvar",
+          description: "Não foi possível salvar as alterações do documento",
+          variant: "destructive"
+        });
+      } finally {
+        setSavingDocId(null);
+      }
+    }, 500);
+  }, [type, updateProductDocument, updateResinDocument, toast]);
+
   // Funções de gerenciamento de documentos
   const handleAddDocument = () => {
     setDocuments([...documents, {
@@ -560,6 +606,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     const updatedDocs = [...documents];
     updatedDocs[index] = { ...updatedDocs[index], [field]: value };
     setDocuments(updatedDocs);
+    
+    // Auto-save se documento já existe e campo é editável
+    const doc = updatedDocs[index];
+    if (doc.id && (field === 'document_name' || field === 'document_description')) {
+      autoSaveDocument(doc, field, value);
+    }
   };
 
   const handleDocumentUpload = async (index: number, file: File | undefined) => {
@@ -684,9 +736,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       }
     }
   };
-
-  // 📄 Handlers para documentos do CATÁLOGO
-  const { insertProductDocument, deleteProductDocument } = useCatalogCRUD();
 
   const handleCatalogDocumentUpload = async (index: number, file: File | undefined) => {
     if (!file) return;
@@ -2083,7 +2132,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 {documents.map((doc, idx) => (
                   <div key={idx} className="p-4 border rounded-lg space-y-3 bg-muted/30">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Documento #{idx + 1}</Label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-semibold">Documento #{idx + 1}</Label>
+                        {/* Indicador de salvamento */}
+                        {doc.id && savingDocId === doc.id && (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Salvando...
+                          </span>
+                        )}
+                        {doc.id && savedDocId === doc.id && (
+                          <span className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="w-3 h-3" />
+                            Salvo
+                          </span>
+                        )}
+                      </div>
                       <Button 
                         size="sm" 
                         variant="destructive"
@@ -2199,7 +2263,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 {documents.map((doc, idx) => (
                   <div key={idx} className="p-4 border rounded-lg space-y-3 bg-muted/30">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Documento #{idx + 1}</Label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-sm font-semibold">Documento #{idx + 1}</Label>
+                        {/* Indicador de salvamento */}
+                        {doc.id && savingDocId === doc.id && (
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Salvando...
+                          </span>
+                        )}
+                        {doc.id && savedDocId === doc.id && (
+                          <span className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="w-3 h-3" />
+                            Salvo
+                          </span>
+                        )}
+                      </div>
                       <Button 
                         size="sm" 
                         variant="destructive"
