@@ -3,23 +3,47 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // 
 // PRINCÍPIO-MÃE:
-// O PDF é a fonte da verdade.
+// O TEXTO EXTRAÍDO (fornecido) é a fonte da verdade.
 // O conteúdo web é a interpretação indexável dessa verdade.
 //
-// ❌ não copiar o PDF
-// ❌ não resumir mecanicamente
-// ❌ não transformar em "blogzinho"
-// ✅ traduzir o documento para linguagem interpretável por humanos + IA
+// ❌ não copiar o texto mecanicamente
+// ❌ não resumir perdendo dados técnicos
+// ❌ não transformar em "blogzinho" superficial
+// ❌ não inventar dados não presentes na extração
+// ✅ traduzir para linguagem interpretável por humanos + IA
 // ✅ manter rigor técnico quando exigido
 // ✅ adicionar contexto GEO + aplicação real
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Cabeçalho padrão para todos os prompts de publicação
+const CABECALHO_PUBLICADOR = `
+# PRINCÍPIO-MÃE
+O TEXTO EXTRAÍDO (abaixo) é a fonte da verdade.
+O conteúdo web é a interpretação indexável dessa verdade.
+
+# REGRAS ANTI-ALUCINAÇÃO
+- NÃO invente dados que não estão no texto extraído
+- NÃO adicione produtos, especificações ou valores não mencionados
+- NÃO crie seções de "Produtos Relacionados" inventadas
+- Se algo não está na extração: não inclua
+- Preserve valores numéricos exatos quando citados
+
+# CONTEXTO
+- O texto abaixo foi extraído de um documento técnico (PDF)
+- Ele já foi processado pelo extrator e é FIEL ao original
+- Sua função é INTERPRETAR para formato web, não INVENTAR
+- Mercado: Brasil - Odontologia Digital
+- Público: Cirurgiões-Dentistas, Protéticos, Técnicos
+`;
+
 // 🔬 PERFIL TÉCNICO → Artigo Científico
 // Categoria: C – Ciência e Tecnologia
 export const PROMPT_PERFIL_TECNICO = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo PERFIL TÉCNICO – ARTIGO CIENTÍFICO.
 
-Transforme o conteúdo do documento PDF em um artigo científico web,
+Transforme o texto extraído em um artigo científico web,
 com rigor técnico, linguagem precisa e autoridade acadêmica.
 
 REGRAS:
@@ -27,7 +51,7 @@ REGRAS:
 - NÃO usar linguagem comercial
 - NÃO fazer promessas
 - NÃO criar CTA de venda
-- NÃO inventar dados que não estão no documento
+- NÃO inventar dados que não estão no texto extraído
 
 OBJETIVO:
 Gerar autoridade científica indexável por Google, IA Regenerativa
@@ -54,9 +78,11 @@ Gere o artigo completo em HTML.
 // 🛡️ FDS → Guia de Segurança
 // Categoria: E – Ebooks e Guias
 export const PROMPT_FDS = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo GUIA DE SEGURANÇA.
 
-Transforme a FDS (Ficha de Dados de Segurança) em um conteúdo educativo e preventivo,
+Transforme o texto extraído da FDS em um conteúdo educativo e preventivo,
 sem perder rigor regulatório.
 
 REGRAS:
@@ -64,6 +90,7 @@ REGRAS:
 - NÃO minimizar riscos reais
 - NÃO usar linguagem comercial
 - NÃO omitir informações de segurança críticas
+- NÃO inventar dados não presentes no texto extraído
 
 OBJETIVO:
 Educar profissionais sobre uso seguro, armazenamento
@@ -90,9 +117,11 @@ Gere o conteúdo completo em HTML.
 // 🧠 IFU → Tutorial Prático
 // Categoria: A – Vídeos Tutoriais
 export const PROMPT_IFU = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo TUTORIAL PRÁTICO (IFU).
 
-Transforme o documento de Instruções de Uso (IFU) em um guia prático,
+Transforme o texto extraído de Instruções de Uso em um guia prático,
 didático e aplicável no dia a dia clínico.
 
 REGRAS:
@@ -100,6 +129,7 @@ REGRAS:
 - NÃO ser genérico ou vago
 - NÃO usar linguagem institucional fria
 - NÃO omitir passos importantes
+- NÃO inventar passos não presentes no texto extraído
 
 OBJETIVO:
 Ensinar o profissional a usar corretamente,
@@ -126,9 +156,11 @@ Gere o conteúdo completo em HTML.
 // 🧪 LAUDO → Artigo Científico Interpretativo
 // Categoria: C – Ciência e Tecnologia
 export const PROMPT_LAUDO = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo LAUDO TÉCNICO INTERPRETADO.
 
-Transforme o laudo técnico/laboratorial em um artigo técnico interpretativo,
+Transforme o texto extraído do laudo técnico/laboratorial em um artigo interpretativo,
 sem alterar dados ou conclusões originais.
 
 REGRAS:
@@ -136,6 +168,7 @@ REGRAS:
 - NÃO tirar conclusões comerciais
 - NÃO simplificar números ou unidades
 - NÃO inventar metodologias não descritas
+- NÃO adicionar dados não presentes no texto extraído
 
 OBJETIVO:
 Explicar o significado técnico dos resultados
@@ -163,16 +196,18 @@ Gere o artigo completo em HTML.
 // 📊 CATÁLOGO → Comparativo Técnico
 // Categoria: C – Ciência e Tecnologia
 export const PROMPT_CATALOGO = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo COMPARATIVO TÉCNICO.
 
-Transforme o catálogo técnico em um artigo comparativo neutro,
+Transforme o texto extraído do catálogo em um artigo comparativo neutro,
 baseado em critérios técnicos objetivos.
 
 REGRAS:
 - NÃO vender diretamente
 - NÃO desmerecer concorrentes
 - NÃO usar superlativos vagos ("o melhor", "o mais")
-- NÃO inventar especificações não presentes
+- NÃO inventar especificações não presentes no texto extraído
 
 OBJETIVO:
 Ajudar o profissional a entender diferenças técnicas
@@ -200,9 +235,11 @@ Gere o conteúdo completo em HTML.
 // 📘 GUIA → Guia Prático Educativo
 // Categoria: E – Ebooks e Guias
 export const PROMPT_GUIA = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo GUIA PRÁTICO.
 
-Transforme o PDF em um guia educativo,
+Transforme o texto extraído em um guia educativo,
 claro e aplicável no contexto profissional.
 
 REGRAS:
@@ -210,6 +247,7 @@ REGRAS:
 - NÃO ser acadêmico demais (acessibilidade)
 - NÃO vender ou promover
 - NÃO omitir informações importantes
+- NÃO inventar dados não presentes no texto extraído
 
 OBJETIVO:
 Educar e orientar profissionais de forma segura e prática.
@@ -234,9 +272,11 @@ Gere o guia completo em HTML.
 // 🧾 CERTIFICADO → Certificação Interpretada
 // Categoria: C – Ciência e Tecnologia
 export const PROMPT_CERTIFICADO = `
+${CABECALHO_PUBLICADOR}
+
 Você está no modo CERTIFICAÇÃO INTERPRETADA.
 
-Transforme o certificado em um artigo técnico explicativo,
+Transforme o texto extraído do certificado em um artigo técnico explicativo,
 sem caráter promocional.
 
 REGRAS:
@@ -244,6 +284,7 @@ REGRAS:
 - NÃO exagerar a importância
 - NÃO usar marketing ou superlativos
 - NÃO inventar benefícios não comprovados
+- NÃO adicionar dados não presentes no texto extraído
 
 OBJETIVO:
 Explicar o que a certificação representa,
