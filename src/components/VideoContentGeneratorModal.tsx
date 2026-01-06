@@ -57,6 +57,10 @@ export function VideoContentGeneratorModal({
   const [updateVideoTitle, setUpdateVideoTitle] = useState(true);
   const [generatedHTML, setGeneratedHTML] = useState<string | null>(null);
   const [step, setStep] = useState<'form' | 'preview' | 'saving'>('form');
+  const [forceTestimonialMode, setForceTestimonialMode] = useState(false);
+
+  // Modo depoimento: ativado automaticamente OU manualmente
+  const isTestimonialMode = video?.content_type === 'depoimentos' || forceTestimonialMode;
 
   const selectedCategory = CONTENT_CATEGORIES.find(c => c.letter === selectedCategoryLetter);
 
@@ -75,6 +79,7 @@ export function VideoContentGeneratorModal({
       setUseTranscript(video.has_transcript);
       setUpdateVideoTitle(true);
       setIsGeneratingMetadata(false);
+      setForceTestimonialMode(false);
     }
   }, [video, open]);
 
@@ -186,7 +191,8 @@ export function VideoContentGeneratorModal({
       const orchestratorPayload = {
         title: title.trim(),
         excerpt: excerpt.trim() || `Conteúdo sobre ${title.trim()}`,
-        contentType: video.content_type || undefined, // Passa tipo de conteúdo para prompt especializado
+        // Usa modo depoimento se ativado (automático ou manual)
+        contentType: isTestimonialMode ? 'depoimentos' : (video.content_type || undefined),
         activeSources: {
           rawText: !hasValidTranscript && !!rawTextContent,
           pdfTranscription: false,
@@ -392,14 +398,33 @@ export function VideoContentGeneratorModal({
                 </div>
               </div>
 
-              {/* Testimonial Mode Indicator */}
-              {video?.content_type === 'depoimentos' && (
-                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                  <MessageCircle className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm text-amber-700 font-medium">
-                    Modo Depoimento: Conteúdo será gerado com técnica Falácia Verdadeira
-                  </span>
+              {/* Modo Depoimento - Toggle Manual */}
+              <div className={`flex items-center justify-between p-3 border rounded-lg ${isTestimonialMode ? 'bg-amber-50 border-amber-200' : 'bg-muted/30'}`}>
+                <div className="flex items-center gap-2">
+                  <MessageCircle className={`h-4 w-4 ${isTestimonialMode ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                  <div>
+                    <span className={`text-sm font-medium ${isTestimonialMode ? 'text-amber-700' : ''}`}>
+                      Modo Depoimento (Falácia Verdadeira)
+                    </span>
+                    <p className="text-xs text-muted-foreground">
+                      Gera conteúdo com técnica de concordância progressiva
+                    </p>
+                  </div>
                 </div>
+                <Switch
+                  checked={isTestimonialMode}
+                  onCheckedChange={(checked) => {
+                    // Se o vídeo já é depoimento, não pode desativar
+                    if (video?.content_type === 'depoimentos') return;
+                    setForceTestimonialMode(checked);
+                  }}
+                  disabled={video?.content_type === 'depoimentos'}
+                />
+              </div>
+              {video?.content_type === 'depoimentos' && (
+                <p className="text-xs text-amber-600 -mt-4 ml-6">
+                  ✓ Ativado automaticamente (vídeo classificado como depoimento)
+                </p>
               )}
 
               {/* Title */}
