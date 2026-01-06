@@ -6,10 +6,38 @@ const corsHeaders = {
 };
 
 // ============================================================================
+// REGRAS BASE (PRINCÍPIO-MÃE)
+// ============================================================================
+
+const CABECALHO_EXTRATOR = `
+# PRINCÍPIO-MÃE
+O PDF é a fonte da verdade.
+O conteúdo extraído é a interpretação estruturada dessa verdade.
+
+# REGRAS ANTI-ALUCINAÇÃO (PROIBIÇÕES ABSOLUTAS)
+- NÃO invente dados que não estão EXPLICITAMENTE no documento
+- NÃO complete informações "faltantes" com suposições
+- NÃO adicione produtos, marcas ou especificações não mencionados
+- NÃO crie seções como "Produtos Relacionados" ou "Recomendações"
+- NÃO arredonde ou aproxime valores numéricos
+- Se algo está ILEGÍVEL: escreva "[ilegível]"
+- Se algo está INCOMPLETO: escreva "[incompleto no original]"
+- Se algo NÃO foi mencionado: escreva "Não informado"
+- PRESERVE tabelas, números e valores exatos com unidades
+
+# CONTEXTO
+- Mercado: Brasil - Odontologia Digital
+- Público: Cirurgiões-Dentistas, Protéticos, Técnicos em Laboratório
+- Objetivo: Extração fiel para posterior publicação web indexável
+`;
+
+// ============================================================================
 // PROMPTS ESPECIALIZADOS POR TIPO DE DOCUMENTO
 // ============================================================================
 
-const PROMPT_GUIA = `# ROLE (PAPEL)
+const PROMPT_GUIA = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
 Você é um Auditor Técnico de Processos Odontológicos. Sua função é processar documentos da categoria "Guia de Aplicação" ou "Workflow Clínico".
 
 # STEP 1: GATEKEEPER (SEGURANÇA)
@@ -49,9 +77,11 @@ REGRA DE OURO: Se a informação não estiver escrita explicitamente, escreva "N
    - Tempos de ação.
 
 # SAÍDA
-Formato Markdown. Use tabelas para dados comparativos.`;
+Formato Markdown. Use tabelas para dados comparativos. Preserve valores exatos.`;
 
-const PROMPT_LAUDO = `# ROLE (PAPEL)
+const PROMPT_LAUDO = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
 Você é um Auditor de Metrologia e Qualidade. Sua função é extrair dados de "Relatórios de Ensaio", "Laudos Técnicos" ou "Technical Reports".
 
 # STEP 1: GATEKEEPER
@@ -84,9 +114,11 @@ REGRA: Priorize a "Média" (Average) e o "Desvio Padrão". Ignore valores indivi
    - Parecer final do laboratório (Aprovado/Reprovado/Conforme).
 
 # SAÍDA
-Formato Markdown. A tabela de resultados é obrigatória.`;
+Formato Markdown. A tabela de resultados é obrigatória. Preserve valores exatos.`;
 
-const PROMPT_CATALOGO = `# ROLE (PAPEL)
+const PROMPT_CATALOGO = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
 Você é um Especialista em PIM (Product Information Management).
 
 # ALVO (TARGET)
@@ -119,9 +151,11 @@ Extraia apenas os dados que pertencem ao alvo.
    - Tamanhos (g/kg) e tipo de embalagem.
 
 # SAÍDA
-Formato Markdown. Extraia apenas o que pertence ao "{{TARGET_PRODUCT}}".`;
+Formato Markdown. Extraia apenas o que pertence ao "{{TARGET_PRODUCT}}". Se não está no documento, não invente.`;
 
-const PROMPT_IFU = `# ROLE (PAPEL)
+const PROMPT_IFU = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
 Você é um Especialista em Assuntos Regulatórios. Sua tarefa é isolar as instruções de um único produto dentro de um documento (Bula/IFU).
 
 # ALVO
@@ -151,9 +185,11 @@ Produto selecionado: "{{TARGET_PRODUCT}}"
 5. CONTRAINDICAÇÕES E ADVERTÊNCIAS.
 
 # SAÍDA
-Formato Markdown.`;
+Formato Markdown. Preserve valores exatos com unidades.`;
 
-const PROMPT_FDS = `# ROLE (PAPEL)
+const PROMPT_FDS = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
 Você é um Engenheiro de Segurança do Trabalho. Analise a Ficha de Dados de Segurança (FDS/SDS) segundo a norma GHS (ABNT NBR 14725).
 
 # STEP 1: GATEKEEPER
@@ -191,9 +227,11 @@ Extraia dados críticos para Emergência e Logística.
    - Classe de Risco e Grupo de Embalagem.
 
 # SAÍDA
-Formato Markdown. Use tabelas para Ingredientes e Propriedades.`;
+Formato Markdown. Use tabelas para Ingredientes e Propriedades. Preserve valores exatos.`;
 
-const PROMPT_PERFIL_TECNICO = `# ROLE (PAPEL)
+const PROMPT_PERFIL_TECNICO = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
 Você é um Pesquisador de P&D Odontológico. Sua função é extrair a "Ciência e Tecnologia" por trás do produto a partir de um Perfil Técnico ou Whitepaper.
 
 # STEP 1: GATEKEEPER
@@ -224,7 +262,45 @@ Extraia os conceitos e evidências.
    - Normas (ISO 4049, ISO 10477) e estudos citados.
 
 # SAÍDA
-Formato Markdown Rico. Use Citações para conceitos chave e Tabelas para dados de testes.`;
+Formato Markdown Rico. Use Citações para conceitos chave e Tabelas para dados de testes. Preserve valores exatos.`;
+
+const PROMPT_CERTIFICADO = `${CABECALHO_EXTRATOR}
+
+# ROLE (PAPEL)
+Você é um Auditor de Conformidade Regulatória. Sua função é extrair dados de Certificados, Registros e Documentos de Conformidade.
+
+# STEP 1: GATEKEEPER
+Analise o documento.
+1. Ele é um certificado oficial (ISO, CE, ANVISA, FDA, laboratório acreditado)?
+2. Se for material promocional ou catálogo:
+   -> Responda: "ERRO_TIPO_INCOMPATIVEL: Documento não é um Certificado oficial."
+
+# STEP 2: EXTRAÇÃO DE CERTIFICAÇÃO
+## SCHEMA DE EXTRAÇÃO
+1. IDENTIFICAÇÃO DO CERTIFICADO:
+   - Número do Certificado/Registro.
+   - Órgão Emissor.
+   - Data de Emissão.
+   - Validade (se aplicável).
+2. ENTIDADE CERTIFICADA:
+   - Nome da Empresa.
+   - CNPJ (se houver).
+   - Endereço.
+3. ESCOPO DA CERTIFICAÇÃO:
+   - O que foi certificado (produto, processo, sistema).
+   - Normas/Padrões atendidos (ISO, ABNT, CE).
+4. PRODUTO(S) ABRANGIDO(S):
+   - Lista de produtos certificados (se especificado).
+   - Categorias ou linhas de produtos.
+5. CONDIÇÕES E RESTRIÇÕES:
+   - Limitações de uso.
+   - Condições especiais.
+6. INFORMAÇÕES ADICIONAIS:
+   - Laboratório de ensaio (se houver).
+   - Referência a relatórios técnicos.
+
+# SAÍDA
+Formato Markdown estruturado. Preserve números e datas exatos.`;
 
 // ============================================================================
 // CONFIGURAÇÃO DOS PROMPTS
@@ -273,6 +349,12 @@ const PROMPTS: Record<string, PromptConfig> = {
     temperature: 0.3,
     model: 'google/gemini-2.5-pro',
     needsTarget: false
+  },
+  certificado: {
+    template: PROMPT_CERTIFICADO,
+    temperature: 0.0,
+    model: 'google/gemini-2.5-flash',
+    needsTarget: false
   }
 };
 
@@ -313,10 +395,11 @@ serve(async (req) => {
     // Verificar se precisa de produto alvo
     if (config.needsTarget && !targetProduct) {
       console.warn(`⚠️ Tipo ${documentType} requer targetProduct mas não foi fornecido`);
-      // Não bloquear, apenas avisar - pode ser que o documento não tenha produto vinculado
     }
 
+    const pdfSizeKB = (pdfBase64.length / 1024).toFixed(1);
     console.log(`📋 Tipo: ${documentType}`);
+    console.log(`📄 Tamanho PDF: ${pdfSizeKB}KB`);
     console.log(`🎯 Produto Alvo: ${targetProduct || 'N/A'}`);
     console.log(`🤖 Modelo: ${config.model}`);
     console.log(`🌡️ Temperatura: ${config.temperature}`);
@@ -333,6 +416,16 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY não configurada');
     }
+
+    // Ajustar max_tokens baseado no tamanho do PDF
+    const pdfSizeNumber = parseFloat(pdfSizeKB);
+    let maxTokens = 8000;
+    if (pdfSizeNumber > 1000) {
+      maxTokens = 12000;
+    } else if (pdfSizeNumber > 500) {
+      maxTokens = 10000;
+    }
+    console.log(`🔧 max_tokens: ${maxTokens}`);
 
     console.log('🤖 Chamando Lovable AI Gateway...');
     
@@ -354,7 +447,7 @@ serve(async (req) => {
             content: [
               {
                 type: 'text',
-                text: 'Analise o documento PDF anexado e extraia os dados conforme o schema definido.'
+                text: 'Analise o documento PDF anexado e extraia os dados conforme o schema definido. Lembre-se: o PDF é a fonte da verdade. Não invente dados.'
               },
               {
                 type: 'image_url',
@@ -366,7 +459,7 @@ serve(async (req) => {
           }
         ],
         temperature: config.temperature,
-        max_tokens: 8000
+        max_tokens: maxTokens
       })
     });
 
@@ -401,6 +494,21 @@ serve(async (req) => {
     const isGatekeeperBlock = extractedText.includes('ERRO_TIPO_INCOMPATIVEL');
     const isProductNotFound = extractedText.includes('PRODUCT_NOT_FOUND');
 
+    // Verificar alucinações suspeitas
+    const suspiciousSections = [
+      '## 🛒 Produtos Relacionados',
+      '## Produtos Relacionados',
+      '## Recomendações',
+    ];
+    
+    let hasHallucination = false;
+    for (const section of suspiciousSections) {
+      if (extractedText.includes(section)) {
+        console.warn(`⚠️ Possível alucinação: "${section}"`);
+        hasHallucination = true;
+      }
+    }
+
     if (isGatekeeperBlock) {
       console.warn('🚫 GATEKEEPER bloqueou a extração');
     }
@@ -417,7 +525,8 @@ serve(async (req) => {
         documentType,
         targetProduct: targetProduct || null,
         gatekeeperBlock: isGatekeeperBlock,
-        productNotFound: isProductNotFound
+        productNotFound: isProductNotFound,
+        hasHallucination
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
