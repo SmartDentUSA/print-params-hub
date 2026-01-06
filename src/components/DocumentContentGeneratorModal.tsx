@@ -112,6 +112,7 @@ export function DocumentContentGeneratorModal({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
   const [generatedHTML, setGeneratedHTML] = useState<string | null>(null);
+  const [generatedFAQs, setGeneratedFAQs] = useState<Array<{ question: string; answer: string }> | null>(null);
   const [step, setStep] = useState<'form' | 'preview' | 'saving'>('form');
   const [showExtractedText, setShowExtractedText] = useState(false);
 
@@ -130,6 +131,7 @@ export function DocumentContentGeneratorModal({
       setTitle(suggestedTitle);
       setExcerpt('');
       setGeneratedHTML(null);
+      setGeneratedFAQs(null);
       setStep('form');
       setShowExtractedText(false);
       
@@ -286,11 +288,18 @@ export function DocumentContentGeneratorModal({
       }
 
       setGeneratedHTML(data.html);
+      
+      // Capturar FAQs geradas pela IA
+      if (data.faqs && Array.isArray(data.faqs)) {
+        setGeneratedFAQs(data.faqs);
+        console.log(`✅ ${data.faqs.length} FAQs geradas`);
+      }
+      
       setStep('preview');
 
       toast({
         title: '✅ Conteúdo gerado!',
-        description: 'Revise e clique em "Salvar Publicação"',
+        description: `Revise e clique em "Salvar Publicação"${data.faqs?.length ? ` • ${data.faqs.length} FAQs` : ''}`,
       });
     } catch (error: any) {
       console.error('❌ Erro ao gerar conteúdo:', error);
@@ -343,6 +352,7 @@ export function DocumentContentGeneratorModal({
           recommended_products: recommendedProducts,
           recommended_resins: recommendedResins,
           selected_pdf_ids_pt: [sourcePdfId], // PDF fonte vinculado automaticamente
+          faqs: generatedFAQs || [], // FAQs geradas automaticamente
         })
         .select('id')
         .single();
@@ -351,7 +361,7 @@ export function DocumentContentGeneratorModal({
 
       toast({
         title: '✅ Publicação criada com sucesso!',
-        description: `"${title}" foi criada na categoria ${selectedCategory.letter} • ${selectedCategory.name}`,
+        description: `"${title}" criada em ${selectedCategory.letter} com ${generatedFAQs?.length || 0} FAQs`,
       });
 
       onSuccess(newContent.id);
