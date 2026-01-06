@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sistema tipográfico moderno (variáveis base) */
+@import './styles/typography-system.css';
+
 /* Article content styles for LLM-AO optimization */
 @import './styles/article-content.css';
 

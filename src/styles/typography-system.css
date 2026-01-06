@@ -1,0 +1,159 @@
+/* ============= SISTEMA TIPOGRÁFICO MODERNO ============= */
+/* Baseado em: Nielsen Norman Group, Butterick's Practical Typography, WCAG 2.2 */
+
+:root {
+  /* === ESCALA TIPOGRÁFICA FLUIDA === */
+  /* Corpo de texto */
+  --text-base: clamp(1rem, 0.5vw + 0.95rem, 1.25rem);       /* 16-20px */
+  --text-lg: clamp(1.125rem, 0.5vw + 1rem, 1.375rem);       /* 18-22px */
+  --text-sm: clamp(0.875rem, 0.25vw + 0.8rem, 1rem);        /* 14-16px */
+  --text-xs: clamp(0.75rem, 0.2vw + 0.7rem, 0.875rem);      /* 12-14px */
+  
+  /* Headings fluidos */
+  --heading-1: clamp(1.75rem, 3vw + 1rem, 2.5rem);          /* 28-40px */
+  --heading-2: clamp(1.375rem, 2vw + 0.875rem, 1.875rem);   /* 22-30px */
+  --heading-3: clamp(1.125rem, 1vw + 0.875rem, 1.5rem);     /* 18-24px */
+  --heading-4: clamp(1rem, 0.5vw + 0.875rem, 1.25rem);      /* 16-20px */
+  
+  /* === LARGURA IDEAL DE LEITURA === */
+  /* 45-75 caracteres é o ideal (Butterick) */
+  --reading-width: 72ch;
+  --reading-width-narrow: 60ch;
+  --reading-width-wide: 85ch;
+  
+  /* === ESPAÇAMENTOS PROPORCIONAIS === */
+  /* Usamos 'em' para escalar com o font-size */
+  --space-paragraph: 1.5em;
+  --space-paragraph-mobile: 1.25em;
+  --space-heading-before: 2.25em;
+  --space-heading-after: 0.75em;
+  --space-section: 3em;
+  
+  /* === LINE HEIGHTS === */
+  --leading-body: 1.7;
+  --leading-body-mobile: 1.75;
+  --leading-heading: 1.25;
+  --leading-tight: 1.15;
+  
+  /* === LETTER SPACING === */
+  --tracking-body: 0.01em;
+  --tracking-heading: -0.02em;
+  --tracking-tight: -0.03em;
+  --tracking-wide: 0.05em;
+}
+
+/* === CLASSES UTILITÁRIAS DE TIPOGRAFIA === */
+
+/* Largura de leitura ideal */
+.prose-width {
+  max-width: var(--reading-width);
+  margin-inline: auto;
+}
+
+.prose-width-narrow {
+  max-width: var(--reading-width-narrow);
+  margin-inline: auto;
+}
+
+/* Otimização de renderização de texto */
+.text-optimized {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hifenização suave */
+.text-hyphenate {
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Lead paragraph (primeiro parágrafo maior) */
+.lead {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 0.9);
+}
+
+/* Highlight box (destaque de informação importante) */
+.highlight-box {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.06), hsl(var(--primary) / 0.02));
+  border-left: 4px solid hsl(var(--primary));
+  padding: 1.25em 1.5em;
+  margin: 2em 0;
+  border-radius: 0 8px 8px 0;
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+}
+
+.highlight-box p:last-child {
+  margin-bottom: 0;
+}
+
+/* Key insight (caixa de insight) */
+.key-insight {
+  background: hsl(var(--accent) / 0.08);
+  border: 1px solid hsl(var(--accent) / 0.2);
+  border-radius: 12px;
+  padding: 1.5em;
+  margin: 2em 0;
+}
+
+.key-insight::before {
+  content: "💡";
+  display: block;
+  font-size: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Separador visual elegante */
+.section-divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  margin: var(--space-section) 0;
+}
+
+/* Figure com caption melhorada */
+.figure-enhanced {
+  margin: 2em 0;
+}
+
+.figure-enhanced img {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.1);
+}
+
+.figure-enhanced figcaption {
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  margin-top: 0.75em;
+  font-style: italic;
+}
+
+/* Drop cap (letra capitular) */
+.drop-cap::first-letter {
+  float: left;
+  font-size: 3.5em;
+  line-height: 0.8;
+  padding-right: 0.1em;
+  padding-top: 0.1em;
+  font-weight: 700;
+  color: hsl(var(--primary));
+}
+
+/* Pull quote (citação destacada) */
+.pull-quote {
+  font-size: var(--heading-3);
+  font-style: italic;
+  text-align: center;
+  color: hsl(var(--foreground) / 0.8);
+  border-top: 2px solid hsl(var(--border));
+  border-bottom: 2px solid hsl(var(--border));
+  padding: 1.5em 2em;
+  margin: 2.5em 0;
+  line-height: var(--leading-heading);
+}

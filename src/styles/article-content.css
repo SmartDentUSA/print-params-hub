@@ -1,182 +1,243 @@
-/* Article Content Styles - Migrated from BlogPreviewFrame iframe */
+/* Article Content Styles - Sistema Tipográfico Moderno */
+/* Baseado em: Nielsen Norman Group, Butterick's Practical Typography, WCAG 2.2 */
 
 .article-content {
+  /* Tipografia base moderna */
   font-family: system-ui, -apple-system, sans-serif;
-  padding: 20px;
-  line-height: 1.6;
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
   color: hsl(var(--foreground));
-  overflow-x: hidden;
-  font-size: 15px;
+  
+  /* Largura ideal de leitura: 45-75 caracteres */
+  max-width: var(--reading-width);
+  margin-inline: auto;
+  padding: 20px;
+  
+  /* Renderização otimizada */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Hifenização suave */
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
+/* Mobile: ajustes de espaçamento, não de tamanho */
 .article-content-mobile {
-  padding: 12px;
-  line-height: 1.7;
-  font-size: 16px;
+  padding: 16px;
+  line-height: var(--leading-body-mobile);
+  --space-paragraph: var(--space-paragraph-mobile);
 }
 
 .article-content-tablet {
-  padding: 16px;
+  padding: 18px;
 }
 
-/* Images - never overflow */
+/* === IMAGENS === */
 .article-content img {
   max-width: 100%;
   height: auto;
   display: block;
-  margin: 20px 0;
-  border-radius: 4px;
+  margin: 2em 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.08);
 }
 
 .article-content-mobile img {
-  margin: 16px 0;
+  margin: 1.5em 0;
   border-radius: 8px;
 }
 
-/* Links - Reforçado com !important para sobrepor Tailwind Preflight */
+/* === LINKS === */
 .article-content a {
   color: hsl(var(--primary)) !important;
   text-decoration: underline !important;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
   word-break: break-word;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
 }
 
 .article-content a:hover {
   color: hsl(var(--primary) / 0.8) !important;
+  text-decoration-thickness: 2px;
 }
 
-/* Headings */
+/* === HEADINGS === */
 .article-content h1,
 .article-content h2,
 .article-content h3,
 .article-content h4,
 .article-content h5,
 .article-content h6 {
-  margin: 20px 0 10px 0;
-  line-height: 1.3;
+  line-height: var(--leading-heading);
+  letter-spacing: var(--tracking-heading);
   word-break: break-word;
   color: hsl(var(--foreground));
-}
-
-.article-content-mobile h1,
-.article-content-mobile h2,
-.article-content-mobile h3,
-.article-content-mobile h4,
-.article-content-mobile h5,
-.article-content-mobile h6 {
-  margin: 16px 0 8px 0;
+  font-weight: 700;
 }
 
 .article-content h1 {
-  font-size: 2em;
+  font-size: var(--heading-1);
+  margin-top: 0;
+  margin-bottom: var(--space-heading-after);
 }
 
 .article-content h2 {
-  font-size: 1.5em;
+  font-size: var(--heading-2);
+  margin-top: var(--space-heading-before);
+  margin-bottom: var(--space-heading-after);
 }
 
 .article-content h3 {
-  font-size: 1.17em;
+  font-size: var(--heading-3);
+  margin-top: 2em;
+  margin-bottom: 0.6em;
 }
 
-.article-content-mobile h1 {
-  font-size: 1.75em;
+.article-content h4 {
+  font-size: var(--heading-4);
+  margin-top: 1.75em;
+  margin-bottom: 0.5em;
 }
 
-.article-content-mobile h2 {
-  font-size: 1.4em;
+/* Primeiro parágrafo após heading - sem margem extra */
+.article-content h2 + p,
+.article-content h3 + p,
+.article-content h4 + p {
+  margin-top: 0;
 }
 
-.article-content-mobile h3 {
-  font-size: 1.15em;
+/* Mobile headings */
+.article-content-mobile h1,
+.article-content-mobile h2,
+.article-content-mobile h3,
+.article-content-mobile h4 {
+  margin-top: 1.75em;
+  margin-bottom: 0.5em;
 }
 
-/* Paragraphs */
+/* === PARÁGRAFOS === */
 .article-content p {
-  margin-bottom: 15px;
+  margin-bottom: var(--space-paragraph);
   word-break: break-word;
+  text-align: left; /* Justificado causa problemas em telas */
+}
+
+/* Lead paragraph (primeiro parágrafo maior) */
+.article-content > p:first-of-type {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: hsl(var(--foreground) / 0.9);
 }
 
 .article-content-mobile p {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-paragraph-mobile);
 }
 
-/* Lists */
+/* === LISTAS === */
 .article-content ul,
 .article-content ol {
-  margin: 15px 0;
-  padding-left: 30px;
+  margin: 1.25em 0;
+  padding-left: 1.5em;
 }
 
 .article-content-mobile ul,
 .article-content-mobile ol {
-  margin: 12px 0;
-  padding-left: 20px;
+  margin: 1em 0;
+  padding-left: 1.25em;
 }
 
 .article-content li {
-  margin-bottom: 8px;
+  margin-bottom: 0.5em;
+  line-height: var(--leading-body);
+}
+
+.article-content li::marker {
+  color: hsl(var(--primary));
 }
 
 .article-content-mobile li {
-  margin-bottom: 6px;
+  margin-bottom: 0.4em;
 }
 
-/* Blockquotes */
+/* === BLOCKQUOTES === */
 .article-content blockquote {
-  border-left: 4px solid hsl(var(--border));
-  padding-left: 15px;
-  margin: 15px 0;
-  color: hsl(var(--muted-foreground));
+  position: relative;
+  border-left: 4px solid hsl(var(--primary));
+  padding: 1.25em 1.5em;
+  margin: 2em 0;
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.5), hsl(var(--background)));
+  border-radius: 0 12px 12px 0;
+  color: hsl(var(--foreground) / 0.85);
   font-style: italic;
 }
 
-.article-content-mobile blockquote {
-  padding-left: 12px;
-  margin: 12px 0;
+.article-content blockquote::before {
+  content: '"';
+  position: absolute;
+  top: 0.25em;
+  left: 0.5em;
+  font-size: 3em;
+  color: hsl(var(--primary) / 0.15);
+  line-height: 1;
+  font-family: Georgia, serif;
 }
 
-/* Tables - Reforçado com !important */
+.article-content-mobile blockquote {
+  padding: 1em 1.25em;
+  margin: 1.5em 0;
+}
+
+/* === TABELAS === */
 .article-content table {
   width: 100% !important;
   max-width: 100% !important;
   border-collapse: collapse !important;
-  margin: 20px 0 !important;
-  font-size: 1em !important;
+  margin: 2em 0 !important;
+  font-size: var(--text-sm) !important;
   border: 1px solid hsl(var(--border)) !important;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .article-content-mobile table {
   display: block;
   overflow-x: auto;
-  margin: 16px 0;
-  font-size: 0.9em;
+  margin: 1.5em 0;
+  font-size: var(--text-xs);
 }
 
 .article-content th,
 .article-content td {
-  padding: 12px !important;
+  padding: 0.875em 1em !important;
   border: 1px solid hsl(var(--border)) !important;
   text-align: left !important;
 }
 
 .article-content-mobile th,
 .article-content-mobile td {
-  padding: 8px;
+  padding: 0.625em 0.75em;
 }
 
 .article-content th {
   background-color: hsl(var(--muted)) !important;
   font-weight: 600 !important;
+  color: hsl(var(--foreground)) !important;
 }
 
-/* Code */
+/* === CÓDIGO === */
 .article-content code {
   font-size: 0.9em;
   word-break: break-word;
   background-color: hsl(var(--muted));
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 .article-content-mobile code {
@@ -185,17 +246,18 @@
 
 .article-content pre {
   overflow-x: auto;
-  padding: 12px;
+  padding: 1em 1.25em;
   font-size: 0.85em;
   background-color: hsl(var(--muted));
-  border-radius: 6px;
-  margin: 15px 0;
+  border-radius: 8px;
+  margin: 1.5em 0;
+  border: 1px solid hsl(var(--border));
 }
 
 .article-content-mobile pre {
-  padding: 10px;
+  padding: 0.875em 1em;
   font-size: 0.8em;
-  margin: 12px 0;
+  margin: 1.25em 0;
 }
 
 .article-content pre code {
@@ -203,22 +265,37 @@
   padding: 0;
 }
 
-/* Strong and emphasis */
+/* === ÊNFASE === */
 .article-content strong {
   font-weight: 600;
+  color: hsl(var(--foreground));
 }
 
 .article-content em {
   font-style: italic;
 }
 
-/* Horizontal rules */
+/* === SEPARADORES === */
 .article-content hr {
   border: none;
-  border-top: 1px solid hsl(var(--border));
-  margin: 24px 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--border)), transparent);
+  margin: var(--space-section) 0;
 }
 
 .article-content-mobile hr {
-  margin: 16px 0;
+  margin: 2em 0;
+}
+
+/* === FIGURAS === */
+.article-content figure {
+  margin: 2em 0;
+}
+
+.article-content figcaption {
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+  margin-top: 0.75em;
+  font-style: italic;
 }
