@@ -327,6 +327,9 @@ export function DocumentContentGeneratorModal({
       const recommendedProducts = document.source_type === 'catalog' ? [document.linked_id] : [];
       const recommendedResins = document.source_type === 'resin' ? [document.linked_id] : [];
 
+      // Vincular o PDF fonte automaticamente (Princípio-Mãe: PDF é fonte da verdade)
+      const sourcePdfId = document.id;
+
       const { data: newContent, error: insertError } = await supabase
         .from('knowledge_contents')
         .insert({
@@ -339,6 +342,7 @@ export function DocumentContentGeneratorModal({
           active: true,
           recommended_products: recommendedProducts,
           recommended_resins: recommendedResins,
+          selected_pdf_ids_pt: [sourcePdfId], // PDF fonte vinculado automaticamente
         })
         .select('id')
         .single();
