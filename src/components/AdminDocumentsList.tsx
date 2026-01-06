@@ -23,8 +23,10 @@ import {
   Trash2,
   Pencil,
   X,
-  Check
+  Check,
+  BookOpen
 } from 'lucide-react';
+import { DocumentContentGeneratorModal } from '@/components/DocumentContentGeneratorModal';
 import { toast } from 'sonner';
 
 interface PendingChanges {
@@ -70,8 +72,18 @@ export default function AdminDocumentsList() {
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState<string>('');
   const [savingTextIds, setSavingTextIds] = useState<Set<string>>(new Set());
+  const [selectedDocForPublish, setSelectedDocForPublish] = useState<typeof documents[0] | null>(null);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   
   const { extractPdfText } = usePdfExtraction();
+  
+  const handlePublishSuccess = (contentId: string) => {
+    toast.success('Publicação criada com sucesso!', {
+      description: `ID: ${contentId}`,
+    });
+    setShowPublishModal(false);
+    setSelectedDocForPublish(null);
+  };
 
   const handleExtractPdf = async (docId: string, sourceType: DocumentSourceType, forceReExtract = false) => {
     // Find the document to show which extractor will be used
@@ -719,6 +731,21 @@ export default function AdminDocumentsList() {
                     {/* Ações */}
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        {doc.extraction_status === 'completed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedDocForPublish(doc);
+                              setShowPublishModal(true);
+                            }}
+                            className="h-8 px-2 gap-1"
+                            title="Gerar Publicação"
+                          >
+                            <BookOpen className="w-3 h-3" />
+                            Publicar
+                          </Button>
+                        )}
                         {hasChanges(doc.id) && (
                           <Button
                             size="sm"
@@ -777,6 +804,14 @@ export default function AdminDocumentsList() {
           </div>
         )}
       </CardContent>
+      
+      {/* Modal de Geração de Publicação */}
+      <DocumentContentGeneratorModal
+        open={showPublishModal}
+        onOpenChange={setShowPublishModal}
+        document={selectedDocForPublish}
+        onSuccess={handlePublishSuccess}
+      />
     </Card>
   );
 }
