@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SYSTEM_SUPER_PROMPT } from "../_shared/system-prompt.ts";
 import { TESTIMONIAL_PROMPT } from "../_shared/testimonial-prompt.ts";
+import { DOCUMENT_PROMPTS } from "../_shared/document-prompts.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,6 +35,8 @@ interface OrchestrationRequest {
   selectedProductIds?: string[];
   expansionWarning?: boolean;
   contentType?: 'depoimentos' | 'tecnico' | 'educacional' | 'passo_a_passo' | 'cases_sucesso' | string;
+  // Tipo de documento para prompts especializados
+  documentType?: 'perfil_tecnico' | 'fds' | 'ifu' | 'laudo' | 'catalogo' | 'guia' | 'certificado';
   
   // Campos legacy
   sources: ContentSources;
@@ -80,12 +83,18 @@ serve(async (req) => {
       selectedResinIds = [],
       selectedProductIds = [],
       expansionWarning = false,
-      contentType
+      contentType,
+      documentType
     }: OrchestrationRequest = await req.json();
 
-    // Selecionar prompt base de acordo com tipo de conteúdo
+    // Selecionar prompt base de acordo com tipo de conteúdo ou documento
+    // Prioridade: documentType > contentType (depoimentos) > padrão
     const isTestimonial = contentType === 'depoimentos';
-    if (isTestimonial) {
+    const hasDocumentPrompt = documentType && DOCUMENT_PROMPTS[documentType];
+    
+    if (hasDocumentPrompt) {
+      console.log(`📄 Modo DOCUMENTO ativado: ${documentType} - usando prompt especializado`);
+    } else if (isTestimonial) {
       console.log('🎤 Modo DEPOIMENTOS ativado - usando prompt Falácia Verdadeira');
     }
 
@@ -315,11 +324,20 @@ OBJETIVO: Criar um artigo completo e educacional que reflete fielmente as fontes
       .map(link => `- **${link.name}**: ${link.url}`)
       .join('\n');
 
-    // Construir prompt orquestrador - usar prompt especializado para depoimentos
-    const BASE_PROMPT = isTestimonial ? TESTIMONIAL_PROMPT : SYSTEM_SUPER_PROMPT;
+    // Construir prompt orquestrador - usar prompt especializado
+    // Prioridade: documentType > contentType (depoimentos) > padrão
+    let BASE_PROMPT: string;
+    if (hasDocumentPrompt) {
+      BASE_PROMPT = DOCUMENT_PROMPTS[documentType!];
+    } else if (isTestimonial) {
+      BASE_PROMPT = TESTIMONIAL_PROMPT;
+    } else {
+      BASE_PROMPT = SYSTEM_SUPER_PROMPT;
+    }
+    
     let ORCHESTRATOR_PROMPT = `${BASE_PROMPT}\n\n`;
 
-    if (!isTestimonial) {
+    if (!isTestimonial && !hasDocumentPrompt) {
       ORCHESTRATOR_PROMPT += `**FUNÇÃO CENTRAL: ORQUESTRADOR DE CONTEÚDO SEMÂNTICO MULTI-FONTE**\n\n`;
       ORCHESTRATOR_PROMPT += `Você é o Gerente Editorial de Conteúdo da SmartDent. Sua missão é criar um único artigo técnico-comercial a partir de fontes de dados heterogêneas.\n\n`;
     }
