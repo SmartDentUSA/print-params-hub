@@ -597,6 +597,124 @@ Quando o conteúdo contiver PROTOCOLOS/PROCEDIMENTOS:
 10. NUNCA SUBSTITUA dados precisos por descrições genéricas
 
 ═══════════════════════════════════════════════════════════
+🎯 SEO AI-FIRST: OTIMIZAÇÃO PARA IAs REGENERATIVAS
+═══════════════════════════════════════════════════════════
+
+As IAs de busca (Google SGE, Perplexity, ChatGPT Search) priorizam conteúdo
+com estruturas específicas. SEMPRE aplique as técnicas abaixo:
+
+━━━ 1️⃣ FEATURED SNIPPET BOX (RESUMO CAPTURÁVEL) ━━━
+
+Logo após a introdução, SEMPRE crie um quadro de resumo técnico:
+
+<div class="ai-summary-box" itemscope itemtype="https://schema.org/DefinedTerm">
+  <h2 itemprop="name">📊 Resumo Técnico Rápido</h2>
+  <p itemprop="description">
+    [PRODUTO] apresenta [DADO_TECNICO_1] e [DADO_TECNICO_2], valores que 
+    [superam/atendem] os requisitos da norma [ISO XXXX], garantindo 
+    [BENEFÍCIO CLÍNICO PRINCIPAL].
+  </p>
+  <ul class="quick-facts">
+    <li><strong>[Propriedade 1]:</strong> [valor] [unidade]</li>
+    <li><strong>[Propriedade 2]:</strong> [valor] [unidade]</li>
+    <li><strong>Norma:</strong> [ISO/ASTM referência]</li>
+    <li><strong>Aplicação:</strong> [uso clínico principal]</li>
+  </ul>
+</div>
+
+POR QUE FUNCIONA: IAs capturam esse trecho como "resposta rápida" no topo da pesquisa.
+
+━━━ 2️⃣ TABELAS HTML ESTRUTURADAS (DADOS PARA IA) ━━━
+
+Tabelas são "fontes de dados estruturados" - quando alguém pergunta 
+"Qual o valor de...", a IA busca diretamente na tabela.
+
+FORMATO OBRIGATÓRIO para tabelas comparativas:
+
+<table class="ai-data-table" itemscope itemtype="https://schema.org/Table">
+  <caption itemprop="name">Propriedades Técnicas vs Norma ISO</caption>
+  <thead>
+    <tr>
+      <th>Parâmetro</th>
+      <th>Resultado [Produto]</th>
+      <th>Limite ISO [Norma]</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Sorção</td>
+      <td>15,15 µg/mm³</td>
+      <td>≤40 µg/mm³</td>
+      <td>✅ Aprovado</td>
+    </tr>
+    <tr>
+      <td>Solubilidade</td>
+      <td>-4,44 µg/mm³</td>
+      <td>≤7,5 µg/mm³</td>
+      <td>✅ Aprovado</td>
+    </tr>
+  </tbody>
+</table>
+
+SEMPRE inclua coluna de "Status" com ✅/❌ para facilitar leitura por IA.
+
+━━━ 3️⃣ SEO SEMÂNTICO E RASTREABILIDADE (E-E-A-T) ━━━
+
+Para a IA reconhecer autoridade, fortaleça conexões com entidades:
+
+LINKS EXTERNOS PARA ENTIDADES OFICIAIS:
+Quando mencionar produtos/fabricantes conhecidos, adicione links oficiais:
+
+<a href="[URL_OFICIAL_FABRICANTE]" 
+   rel="noopener" 
+   target="_blank"
+   class="entity-link">
+   [Nome do Produto/Fabricante]
+</a>
+
+TERMOS TÉCNICOS E-E-A-T (use frequentemente):
+- "biocompatível para dentes permanentes"
+- "conforme norma ISO 4049 para materiais restauradores"
+- "aprovado para dispositivos médicos classe II"
+- "teste de biocompatibilidade segundo ISO 10993"
+- "protocolo validado clinicamente"
+- "caracterização mecânica em laboratório certificado"
+
+CITAÇÕES DE ESPECIALISTAS:
+<blockquote class="expert-citation" 
+  data-source="[Nome do Especialista]" 
+  data-institution="[Universidade/Laboratório]">
+  <p>"[Citação direta do especialista ou trecho técnico relevante]"</p>
+  <cite>— [Dr. Nome], [Instituição/Laboratório]</cite>
+</blockquote>
+
+━━━ 4️⃣ ALT-TEXT OTIMIZADO PARA IMAGENS TÉCNICAS ━━━
+
+IAs de visão (Google Lens, modelos multimodais) leem alt-text.
+
+Quando gerar referências a imagens/gráficos:
+
+<figure class="technical-image">
+  <img src="[URL]" 
+       alt="Gráfico técnico de [PROPRIEDADE] da [PRODUTO] conforme 
+            laudo [LABORATÓRIO]. Mostra [DADOS ESPECÍFICOS: valores]"
+       title="[Título curto descritivo]"
+       loading="lazy" />
+  <figcaption>
+    Figura X: [Descrição técnica detalhada incluindo fonte dos dados]
+  </figcaption>
+</figure>
+
+EXEMPLOS DE ALT-TEXT IDEAL:
+✅ "Gráfico técnico de sorção e solubilidade da resina Smart Print Bio Vitality 
+    conforme laudo Afinko. Sorção: 15,15 µg/mm³, Solubilidade: -4,44 µg/mm³"
+✅ "Tabela comparativa de resistência flexural - Vitality 147 MPa vs Flexcera 89 MPa"
+✅ "Fluxograma do protocolo de pós-cura UV para resinas odontológicas classe II"
+
+❌ NUNCA USE: "gráfico", "imagem do produto", "figura 1", "foto"
+
+═══════════════════════════════════════════════════════════
 📐 HIERARQUIA E ESTRUTURA SEMÂNTICA
 ═══════════════════════════════════════════════════════════
 

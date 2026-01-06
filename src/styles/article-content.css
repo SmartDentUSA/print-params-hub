@@ -299,3 +299,215 @@
   margin-top: 0.75em;
   font-style: italic;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   SEO AI-FIRST: Estilos para IAs Regenerativas
+   (Google SGE, Perplexity, ChatGPT Search, Bing Copilot)
+   ═══════════════════════════════════════════════════════════ */
+
+/* Featured Snippet Box - Capturável por IAs como resposta rápida */
+.article-content .ai-summary-box {
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.08), hsl(var(--primary) / 0.02));
+  border: 2px solid hsl(var(--primary) / 0.3);
+  border-radius: 12px;
+  padding: 1.5em 2em;
+  margin: 2em 0;
+  position: relative;
+}
+
+.article-content .ai-summary-box::before {
+  content: '💡';
+  position: absolute;
+  top: -12px;
+  left: 20px;
+  background: hsl(var(--background));
+  padding: 0 8px;
+  font-size: 1.25em;
+}
+
+.article-content .ai-summary-box h2 {
+  margin-top: 0;
+  margin-bottom: 0.75em;
+  color: hsl(var(--primary));
+  font-size: var(--heading-3);
+}
+
+.article-content .ai-summary-box p {
+  font-size: var(--text-base);
+  line-height: 1.6;
+  margin-bottom: 1em;
+}
+
+.article-content .ai-summary-box .quick-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75em;
+  margin: 1em 0 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.article-content .ai-summary-box .quick-facts li {
+  background: hsl(var(--background));
+  padding: 0.5em 0.75em;
+  border-radius: 6px;
+  border: 1px solid hsl(var(--border));
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.article-content .ai-summary-box .quick-facts li strong {
+  color: hsl(var(--primary));
+}
+
+/* Data Tables for AI - Estrutura capturável por IAs */
+.article-content .ai-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  border: 2px solid hsl(var(--primary) / 0.2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.article-content .ai-data-table caption {
+  font-weight: 600;
+  font-size: var(--text-base);
+  margin-bottom: 0.75em;
+  text-align: left;
+  color: hsl(var(--foreground));
+  padding: 0.5em 1em;
+  background: hsl(var(--primary) / 0.05);
+}
+
+.article-content .ai-data-table th,
+.article-content .ai-data-table td {
+  padding: 0.875em 1em;
+  border: 1px solid hsl(var(--border));
+  text-align: left;
+}
+
+.article-content .ai-data-table thead {
+  background: hsl(var(--primary) / 0.1);
+}
+
+.article-content .ai-data-table thead th {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.article-content .ai-data-table tbody tr:nth-child(even) {
+  background: hsl(var(--muted) / 0.3);
+}
+
+.article-content .ai-data-table tbody tr:hover {
+  background: hsl(var(--primary) / 0.05);
+}
+
+/* Entity Links - Links externos para autoridade */
+.article-content .entity-link {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.article-content .entity-link:hover {
+  color: hsl(var(--primary) / 0.8);
+  text-decoration-thickness: 2px;
+}
+
+.article-content .entity-link::after {
+  content: ' ↗';
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+/* Expert Citations - Citações de especialistas para E-E-A-T */
+.article-content .expert-citation {
+  background: linear-gradient(135deg, hsl(var(--muted) / 0.6), hsl(var(--background)));
+  border-left: 4px solid hsl(var(--primary));
+  border-radius: 0 12px 12px 0;
+  padding: 1.25em 1.5em;
+  margin: 2em 0;
+  position: relative;
+}
+
+.article-content .expert-citation::before {
+  content: '🎓';
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  background: hsl(var(--background));
+  padding: 0 6px;
+  font-size: 1.1em;
+}
+
+.article-content .expert-citation p {
+  font-style: italic;
+  font-size: var(--text-base);
+  line-height: 1.6;
+  margin-bottom: 0.75em;
+  color: hsl(var(--foreground) / 0.9);
+}
+
+.article-content .expert-citation cite {
+  display: block;
+  font-style: normal;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: hsl(var(--primary));
+}
+
+/* Technical Figures - Imagens com alt-text otimizado */
+.article-content .technical-image {
+  margin: 2em 0;
+  padding: 1em;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+}
+
+.article-content .technical-image img {
+  margin: 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px hsl(var(--foreground) / 0.1);
+}
+
+.article-content .technical-image figcaption {
+  font-size: var(--text-sm);
+  color: hsl(var(--muted-foreground));
+  margin-top: 1em;
+  padding-top: 0.75em;
+  border-top: 1px solid hsl(var(--border));
+  text-align: left;
+  font-style: normal;
+}
+
+/* Mobile responsivo para componentes AI-First */
+.article-content-mobile .ai-summary-box {
+  padding: 1em 1.25em;
+  margin: 1.5em 0;
+}
+
+.article-content-mobile .ai-summary-box .quick-facts {
+  grid-template-columns: 1fr;
+  gap: 0.5em;
+}
+
+.article-content-mobile .ai-data-table {
+  display: block;
+  overflow-x: auto;
+  font-size: var(--text-xs);
+}
+
+.article-content-mobile .expert-citation {
+  padding: 1em 1.25em;
+  margin: 1.5em 0;
+}
+
+.article-content-mobile .technical-image {
+  padding: 0.75em;
+  margin: 1.5em 0;
+}
