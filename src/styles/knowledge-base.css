@@ -24,8 +24,21 @@
 
 .knowledge-article {
   font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  font-size: var(--text-base);
   color: var(--kb-gray-900);
-  line-height: 1.7;
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  
+  /* Renderização otimizada */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Container de conteúdo com largura controlada */
+.knowledge-article .prose {
+  max-width: var(--reading-width);
+  margin-inline: auto;
 }
 
 /* ============= HERO SECTION ============= */
@@ -66,12 +79,12 @@
 }
 
 .hero-excerpt {
-  font-size: clamp(16px, 3vw, 18px);
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--kb-gray-700);
   line-height: 1.6;
   margin: 0;
-  max-width: 800px;
+  max-width: var(--reading-width-narrow);
 }
 
 .hero-image img {
@@ -86,24 +99,26 @@
 
 .knowledge-article h2,
 .knowledge-article .prose h2 {
-  font-size: 24px !important;
+  font-size: var(--heading-2) !important;
   font-weight: 700 !important;
-  margin-top: 40px !important;
-  margin-bottom: 20px !important;
+  margin-top: var(--space-heading-before) !important;
+  margin-bottom: var(--space-heading-after) !important;
   color: var(--kb-gray-900) !important;
-  line-height: 1.3 !important;
+  line-height: var(--leading-heading) !important;
+  letter-spacing: var(--tracking-heading) !important;
   border-left: none !important;
   padding-left: 0 !important;
 }
 
 .knowledge-article h3,
 .knowledge-article .prose h3 {
-  font-size: 20px !important;
+  font-size: var(--heading-3) !important;
   font-weight: 600 !important;
-  margin-top: 32px !important;
-  margin-bottom: 16px !important;
+  margin-top: 2em !important;
+  margin-bottom: 0.6em !important;
   color: var(--kb-gray-700) !important;
-  line-height: 1.4 !important;
+  line-height: var(--leading-heading) !important;
+  letter-spacing: var(--tracking-heading) !important;
 }
 
 /* ============= FAQ SECTION ============= */
@@ -140,29 +155,44 @@
 }
 
 .knowledge-article p {
-  margin-bottom: 16px;
-  line-height: 1.7;
+  margin-bottom: var(--space-paragraph);
+  line-height: var(--leading-body);
+}
+
+/* Lead paragraph (primeiro parágrafo maior) */
+.knowledge-article > p:first-of-type,
+.knowledge-article .lead {
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  color: var(--kb-gray-700);
 }
 
 .knowledge-article ul,
 .knowledge-article ol {
-  margin-left: 24px;
-  margin-bottom: 16px;
+  margin-left: 1.5em;
+  margin-bottom: var(--space-paragraph);
 }
 
 .knowledge-article li {
-  margin-bottom: 8px;
-  line-height: 1.6;
+  margin-bottom: 0.5em;
+  line-height: var(--leading-body);
+}
+
+.knowledge-article li::marker {
+  color: var(--kb-primary);
 }
 
 .knowledge-article a {
   color: var(--kb-primary);
   text-decoration: underline;
-  transition: color 0.2s;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  transition: color 0.2s, text-decoration-color 0.2s;
 }
 
 .knowledge-article a:hover {
   color: var(--kb-primary-light);
+  text-decoration-thickness: 2px;
 }
 
 .knowledge-article blockquote {
