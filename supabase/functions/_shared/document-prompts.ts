@@ -34,6 +34,14 @@ O conteúdo web é a interpretação indexável dessa verdade.
 - Sua função é INTERPRETAR para formato web, não INVENTAR
 - Mercado: Brasil - Odontologia Digital
 - Público: Cirurgiões-Dentistas, Protéticos, Técnicos
+
+# SEO AI-FIRST (OBRIGATÓRIO)
+As IAs de busca (Google SGE, Perplexity) priorizam estruturas específicas:
+
+1. FEATURED SNIPPET: Após introdução, crie quadro .ai-summary-box com resumo técnico
+2. TABELAS: Use .ai-data-table com coluna de Status (✅/❌)
+3. E-E-A-T: Use termos como "biocompatível", "conforme ISO", links .entity-link
+4. ALT-TEXT: Figuras com alt detalhado: "Gráfico de [propriedade] conforme laudo [lab]"
 `;
 
 // 🔬 PERFIL TÉCNICO → Artigo Científico
