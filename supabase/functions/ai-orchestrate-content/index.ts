@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SYSTEM_SUPER_PROMPT } from "../_shared/system-prompt.ts";
+import { TESTIMONIAL_PROMPT } from "../_shared/testimonial-prompt.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,7 +32,8 @@ interface OrchestrationRequest {
   aiPrompt?: string;
   selectedResinIds?: string[];
   selectedProductIds?: string[];
-  expansionWarning?: boolean; // ✅ NOVO: Flag para ajustar temperatura
+  expansionWarning?: boolean;
+  contentType?: 'depoimentos' | 'tecnico' | 'educacional' | 'passo_a_passo' | 'cases_sucesso' | string;
   
   // Campos legacy
   sources: ContentSources;
@@ -77,8 +79,15 @@ serve(async (req) => {
       aiPrompt,
       selectedResinIds = [],
       selectedProductIds = [],
-      expansionWarning = false // ✅ NOVO
+      expansionWarning = false,
+      contentType
     }: OrchestrationRequest = await req.json();
+
+    // Selecionar prompt base de acordo com tipo de conteúdo
+    const isTestimonial = contentType === 'depoimentos';
+    if (isTestimonial) {
+      console.log('🎤 Modo DEPOIMENTOS ativado - usando prompt Falácia Verdadeira');
+    }
 
     // Validar se há pelo menos uma fonte (suporta ambos formatos)
     const hasAnySources = 
@@ -306,11 +315,14 @@ OBJETIVO: Criar um artigo completo e educacional que reflete fielmente as fontes
       .map(link => `- **${link.name}**: ${link.url}`)
       .join('\n');
 
-    // Construir prompt orquestrador
-    let ORCHESTRATOR_PROMPT = `${SYSTEM_SUPER_PROMPT}\n\n`;
+    // Construir prompt orquestrador - usar prompt especializado para depoimentos
+    const BASE_PROMPT = isTestimonial ? TESTIMONIAL_PROMPT : SYSTEM_SUPER_PROMPT;
+    let ORCHESTRATOR_PROMPT = `${BASE_PROMPT}\n\n`;
 
-    ORCHESTRATOR_PROMPT += `**FUNÇÃO CENTRAL: ORQUESTRADOR DE CONTEÚDO SEMÂNTICO MULTI-FONTE**\n\n`;
-    ORCHESTRATOR_PROMPT += `Você é o Gerente Editorial de Conteúdo da SmartDent. Sua missão é criar um único artigo técnico-comercial a partir de fontes de dados heterogêneas.\n\n`;
+    if (!isTestimonial) {
+      ORCHESTRATOR_PROMPT += `**FUNÇÃO CENTRAL: ORQUESTRADOR DE CONTEÚDO SEMÂNTICO MULTI-FONTE**\n\n`;
+      ORCHESTRATOR_PROMPT += `Você é o Gerente Editorial de Conteúdo da SmartDent. Sua missão é criar um único artigo técnico-comercial a partir de fontes de dados heterogêneas.\n\n`;
+    }
 
     if (title) {
       ORCHESTRATOR_PROMPT += `## TÍTULO DO ARTIGO:\n${title}\n\n`;
@@ -788,8 +800,8 @@ Sua resposta deve começar EXATAMENTE com o caractere { e terminar EXATAMENTE co
           { role: 'user', content: ORCHESTRATOR_PROMPT }
         ],
         max_completion_tokens: 12000,
-        // ✅ NOVO: Temperatura dinâmica baseada em expansionWarning
-        temperature: expansionWarning ? 0.1 : 0.3, // Reduz criatividade se alto risco
+        // Temperatura dinâmica: depoimentos = mais criativo, expansionWarning = menos criativo
+        temperature: isTestimonial ? 0.8 : (expansionWarning ? 0.1 : 0.3),
       }),
     });
 

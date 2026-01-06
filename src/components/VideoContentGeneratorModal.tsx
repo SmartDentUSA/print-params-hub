@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Sparkles, Video, FileText, Package, AlertCircle, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, Video, FileText, Package, AlertCircle, Wand2, MessageCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoWithDetails } from '@/hooks/useAllVideos';
@@ -186,6 +186,7 @@ export function VideoContentGeneratorModal({
       const orchestratorPayload = {
         title: title.trim(),
         excerpt: excerpt.trim() || `Conteúdo sobre ${title.trim()}`,
+        contentType: video.content_type || undefined, // Passa tipo de conteúdo para prompt especializado
         activeSources: {
           rawText: !hasValidTranscript && !!rawTextContent,
           pdfTranscription: false,
@@ -390,6 +391,16 @@ export function VideoContentGeneratorModal({
                   </span>
                 </div>
               </div>
+
+              {/* Testimonial Mode Indicator */}
+              {video?.content_type === 'depoimentos' && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                  <MessageCircle className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm text-amber-700 font-medium">
+                    Modo Depoimento: Conteúdo será gerado com técnica Falácia Verdadeira
+                  </span>
+                </div>
+              )}
 
               {/* Title */}
               <div>
