@@ -315,6 +315,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
       product_category?: string | null;
       product_subcategory?: string | null;
       product_id?: string | null;
+      title?: string;
     }
   ) => {
     setSaving(true);
@@ -341,6 +342,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
           ...(updates.product_category !== undefined && { product_category: updates.product_category }),
           ...(updates.product_subcategory !== undefined && { product_subcategory: updates.product_subcategory }),
           ...(updates.product_id !== undefined && { product_id: updates.product_id, product_name: productName }),
+          ...(updates.title !== undefined && { title: updates.title }),
         };
       }));
       return true;

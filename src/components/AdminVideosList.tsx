@@ -191,6 +191,13 @@ export function AdminVideosList() {
     });
   };
 
+  const handleVideoTitleUpdate = async (videoId: string, newTitle: string) => {
+    const success = await updateVideoFields(videoId, { title: newTitle });
+    if (success) {
+      toast({ title: '✅ Nome do vídeo atualizado na lista' });
+    }
+  };
+
   return (
     <>
       <Card>
@@ -550,6 +557,7 @@ export function AdminVideosList() {
         video={selectedVideo}
         selectedCategoryLetter={selectedCategoryLetter}
         onSuccess={handleGenerateSuccess}
+        onVideoTitleUpdate={handleVideoTitleUpdate}
       />
     </>
   );

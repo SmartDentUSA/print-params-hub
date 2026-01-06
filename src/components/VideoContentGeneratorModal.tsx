@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Sparkles, Video, FileText, Package, AlertCircle } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2, Sparkles, Video, FileText, Package, AlertCircle, Wand2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { VideoWithDetails } from '@/hooks/useAllVideos';
@@ -29,6 +30,7 @@ interface VideoContentGeneratorModalProps {
   video: VideoWithDetails | null;
   selectedCategoryLetter: string;
   onSuccess: (contentId: string) => void;
+  onVideoTitleUpdate?: (videoId: string, newTitle: string) => Promise<void>;
 }
 
 const CONTENT_CATEGORIES: ContentCategory[] = [
@@ -45,11 +47,14 @@ export function VideoContentGeneratorModal({
   video,
   selectedCategoryLetter,
   onSuccess,
+  onVideoTitleUpdate,
 }: VideoContentGeneratorModalProps) {
   const [title, setTitle] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingMetadata, setIsGeneratingMetadata] = useState(false);
   const [useTranscript, setUseTranscript] = useState(true);
+  const [updateVideoTitle, setUpdateVideoTitle] = useState(true);
   const [generatedHTML, setGeneratedHTML] = useState<string | null>(null);
   const [step, setStep] = useState<'form' | 'preview' | 'saving'>('form');
 
@@ -68,8 +73,78 @@ export function VideoContentGeneratorModal({
       setGeneratedHTML(null);
       setStep('form');
       setUseTranscript(video.has_transcript);
+      setUpdateVideoTitle(true);
+      setIsGeneratingMetadata(false);
     }
   }, [video, open]);
+
+  // Generate title and excerpt using AI
+  const handleGenerateMetadata = async () => {
+    if (!video) return;
+
+    setIsGeneratingMetadata(true);
+    try {
+      // Build context for AI from video info
+      const contextParts = [
+        video.video_transcript 
+          ? video.video_transcript.substring(0, 3000) 
+          : null,
+        `Título original do vídeo: ${video.title}`,
+        video.product_name ? `Produto relacionado: ${video.product_name}` : null,
+        video.product_category ? `Categoria: ${video.product_category}` : null,
+        video.product_subcategory ? `Subcategoria: ${video.product_subcategory}` : null,
+      ].filter(Boolean).join('\n\n');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-metadata-generator`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            contentHTML: contextParts,
+            title: video.title,
+            regenerate: { title: true, excerpt: true },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.title) {
+        setTitle(data.title);
+      }
+      if (data.excerpt) {
+        setExcerpt(data.excerpt);
+      }
+
+      // Update video title in the list if checkbox is checked
+      if (updateVideoTitle && data.title && onVideoTitleUpdate) {
+        await onVideoTitleUpdate(video.id, data.title);
+      }
+
+      toast({
+        title: '✅ Título e resumo gerados!',
+        description: updateVideoTitle ? 'Nome do vídeo também atualizado na lista' : undefined,
+      });
+    } catch (error: any) {
+      console.error('❌ Erro ao gerar metadados:', error);
+      toast({
+        title: 'Erro ao gerar título/resumo',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingMetadata(false);
+    }
+  };
 
   const generateSlug = (text: string) => {
     return text
@@ -339,6 +414,43 @@ export function VideoContentGeneratorModal({
                   className="mt-1"
                   rows={2}
                 />
+              </div>
+
+              {/* AI Generate Metadata Button */}
+              <div className="space-y-3 p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <Button 
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleGenerateMetadata}
+                  disabled={isGeneratingMetadata}
+                >
+                  {isGeneratingMetadata ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Gerando com IA...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      ✨ Gerar Título + Resumo com IA
+                    </>
+                  )}
+                </Button>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="updateVideoTitle"
+                    checked={updateVideoTitle}
+                    onCheckedChange={(checked) => setUpdateVideoTitle(checked === true)}
+                  />
+                  <label
+                    htmlFor="updateVideoTitle"
+                    className="text-sm text-muted-foreground cursor-pointer"
+                  >
+                    Também atualizar o nome do vídeo na lista
+                  </label>
+                </div>
               </div>
 
               {/* Sources */}
