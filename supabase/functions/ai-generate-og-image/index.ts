@@ -59,42 +59,57 @@ serve(async (req) => {
     else if (isModel) productCategory = 'model';
     else if (isCrown || isPermanentTeeth) productCategory = 'crown';
 
-    // 4. Prompt State-of-the-Art com Lógica Condicional
-    const imagePrompt = `Create a professional Open Graph image (1200x630 pixels) for a Brazilian dental industry scientific article.
+    // 4. Construir narrativa baseada no contexto detectado (Google Best Practices)
+    let subjectDescription = '';
+    let environmentDescription = '';
+    let lightingDescription = '';
+    let moodDescription = '';
 
-RENDER QUALITY (CRITICAL):
-Unreal Engine 5 render style, ray tracing, macro photography, depth of field f/2.8, clinical cleanliness.
-${isClearMaterial ? "Material MUST show crystalline transparency with realistic light refraction, glass-like clarity, no opacity." : "Dental materials must look like high-quality PMMA or Zirconia, NOT plastic."}
+    if (isSplint) {
+      subjectDescription = `an ultra-transparent 3D printed occlusal splint for bruxism treatment. The splint has crystalline clarity with glass-like light refraction, showing perfect biocompatible smoothness`;
+      environmentDescription = `a modern dental laboratory with a soft clinical blue surface (#1E40AF) as the backdrop`;
+      lightingDescription = `soft directional studio lighting with ray-traced reflections that emphasize the material's transparency`;
+      moodDescription = `medical safety, precision, and clinical purity`;
+    } else if (isSurgicalGuide) {
+      subjectDescription = `a precision 3D printed surgical guide for dental implant placement. The guide features visible metal drill sleeves and anatomically accurate positioning`;
+      environmentDescription = `a sterile surgical preparation area with a soft blue drape`;
+      lightingDescription = `bright, even clinical lighting that highlights the precision of the guide`;
+      moodDescription = `surgical precision and medical-grade accuracy`;
+    } else if (isCrown || isPermanentTeeth) {
+      subjectDescription = `a premium dental crown with lifelike ceramic translucency and natural tooth coloring. The restoration shows realistic layered zirconia finish`;
+      environmentDescription = `a high-end dental prosthetics laboratory with neutral gray tones`;
+      lightingDescription = `soft diffused lighting that reveals the crown's natural translucency`;
+      moodDescription = `premium craftsmanship and biocompatible permanence`;
+    } else if (isModel) {
+      subjectDescription = `a highly detailed 3D printed dental model with anatomically precise surfaces, showing individual teeth with perfect definition`;
+      environmentDescription = `a modern orthodontic laboratory with clean white surfaces`;
+      lightingDescription = `even studio lighting that reveals all surface details`;
+      moodDescription = `precision and dental education`;
+    } else {
+      subjectDescription = `professional dental technology equipment showcasing modern 3D printed dental materials with high-quality PMMA finish`;
+      environmentDescription = `a clean, professional dental technology laboratory`;
+      lightingDescription = `soft, professional studio lighting`;
+      moodDescription = `innovation and clinical excellence`;
+    }
 
-VISUAL THEME:
-Main subject: ${productCategoryStyle[productCategory]}
-Document style: ${visualStyle}
-${productName ? `Product: "${productName}"` : ''}
-${isCytotoxicity ? "EMPHASIS: Medical safety environment, cell culture laboratory aesthetics, biocompatibility certification symbols (ISO 10993-5), scientific precision." : ""}
-${isBiocompatible ? "Show laboratory certification environment, biocompatibility testing atmosphere, analytical equipment." : ""}
-${isSplint ? "FOCUS: Ultra-transparent occlusal splint with crystalline brilliance placed on soft clinical blue background (#1E40AF). Unreal Engine 5 ray tracing must highlight light refraction in the clear material. Atmosphere of medical safety and purity." : ""}
-${isSurgicalGuide ? "FOCUS: Precision surgical guide with visible drill sleeves, placed on sterile surgical drape, implant planning context." : ""}
-${isPermanentTeeth ? "FOCUS: Premium biocompatible dental restoration for permanent teeth with realistic translucency (Vitality style), ceramic-like finish." : ""}
+    // Adicionar contexto de certificação se detectado
+    let certificationContext = '';
+    if (isCytotoxicity || isBiocompatible) {
+      certificationContext = ` In the background, subtle out-of-focus laboratory equipment suggests biocompatibility testing and ISO certification.`;
+    }
 
-COLOR PALETTE:
-Primary: Deep professional blue (#1E40AF)
-Secondary: Clean whites and light grays
-${isClearMaterial ? "Accents: Crystalline highlights, subtle light refractions" : "Accents: Subtle metallic silver"}
+    // Adicionar contexto de material transparente
+    let materialContext = '';
+    if (isClearMaterial) {
+      materialContext = ` The material exhibits perfect crystalline transparency with visible light refraction.`;
+    }
 
-COMPOSITION:
-- Main subject focused on LEFT 2/3 of image
-- Right 1/3: subtle gradient fade for social media text overlay
-- Clean negative space, professional appearance
-- Slight vignette for focus
-${isSplint || isClearMaterial ? "- Light source positioned to maximize transparency effect" : "- Soft directional lighting"}
+    // Prompt narrativo no formato recomendado pelo Google Gemini
+    const imagePrompt = `A photorealistic macro photograph of ${subjectDescription}.${materialContext} The scene is set in ${environmentDescription}. The lighting is ${lightingDescription}, creating an atmosphere of ${moodDescription}.${certificationContext}
 
-STRICT PROHIBITIONS:
-- NO text, watermarks, or logos
-- NO cartoonish or clipart elements
-- NO plastic-looking materials
-- NO busy backgrounds
-- NO human faces
-${isClearMaterial ? "- NO opaque or milky appearance" : ""}`;
+The composition places the main subject on the left two-thirds of the frame, with a subtle gradient fade on the right third for social media text overlay. Captured with a 100mm macro lens at f/2.8, with professional depth of field and slight vignette. The image dimensions are 1200x630 pixels in Open Graph format. The render quality matches Unreal Engine 5 standards with ray tracing and clinical cleanliness.
+
+${productName ? `The featured product is "${productName}".` : ''}`;
 
     console.log('📸 Gerando OG Image:', { 
       title, 
