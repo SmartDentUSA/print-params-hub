@@ -60,6 +60,13 @@ interface OrchestratorResponse {
     howTo: boolean;
     faqPage: boolean;
   };
+  veredictData?: {
+    productName: string;
+    veredict: 'approved' | 'approved_conditionally' | 'pending';
+    summary: string;
+    quickFacts: Array<{ label: string; value: string }>;
+    testNorms?: string[];
+  };
   success: boolean;
 }
 
@@ -336,6 +343,9 @@ OBJETIVO: Criar um artigo completo e educacional que reflete fielmente as fontes
     }
     
     let ORCHESTRATOR_PROMPT = `${BASE_PROMPT}\n\n`;
+
+    // Detectar se é documento que requer veredictData
+    const isVeredictDocument = documentType === 'laudo' || documentType === 'certificado';
 
     if (!isTestimonial && !hasDocumentPrompt) {
       ORCHESTRATOR_PROMPT += `**FUNÇÃO CENTRAL: ORQUESTRADOR DE CONTEÚDO SEMÂNTICO MULTI-FONTE**\n\n`;
@@ -895,7 +905,18 @@ Sua resposta deve começar EXATAMENTE com o caractere { e terminar EXATAMENTE co
     "proficiencyLevel": "Expert",
     "teaches": ["impressão 3D odontológica", "configuração de parâmetros", "workflow digital"],
     "aiContext": "Conteúdo técnico-científico sobre impressão 3D odontológica..."
-  }
+  }${isVeredictDocument ? `,
+  "veredictData": {
+    "productName": "Nome do produto testado/certificado",
+    "veredict": "approved",
+    "summary": "Resumo de 1-2 frases do resultado técnico",
+    "quickFacts": [
+      { "label": "Teste", "value": "ISO 10993-5 Citotoxicidade" },
+      { "label": "Resultado", "value": "Não Citotóxico" },
+      { "label": "Classificação", "value": "Biocompatível" }
+    ],
+    "testNorms": ["ISO 10993-5", "ISO 10993-10"]
+  }` : ''}
 }
 
 **REGRAS CRÍTICAS:**
@@ -915,6 +936,48 @@ Sua resposta deve começar EXATAMENTE com o caractere { e terminar EXATAMENTE co
 14. TODAS as tabelas Markdown devem ser convertidas para HTML <table> completas
 15. Protocolos com X passos devem gerar output com X passos (não resuma etapas)
 `;
+
+    // Adicionar instruções específicas para veredictData em laudos/certificados
+    if (isVeredictDocument) {
+      ORCHESTRATOR_PROMPT += `
+
+═══════════════════════════════════════════════════════════
+🏆 GERAÇÃO OBRIGATÓRIA DE VEREDITO (Tipo: ${documentType})
+═══════════════════════════════════════════════════════════
+
+Este documento é um ${documentType === 'laudo' ? 'LAUDO TÉCNICO' : 'CERTIFICADO'}.
+Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
+
+**ANÁLISE DO TEXTO PARA VEREDITO:**
+1. Identifique o NOME DO PRODUTO testado/certificado
+2. Identifique o RESULTADO (aprovado, reprovado, condicional)
+3. Identifique NORMAS citadas (ISO, ANVISA, FDA, CE, etc.)
+4. Extraia DADOS-CHAVE do teste (valores numéricos, classificações)
+
+**REGRAS DE CLASSIFICAÇÃO:**
+- "approved": Aprovação total, sem ressalvas, conforme, não-citotóxico, biocompatível
+- "approved_conditionally": Aprovado com limitações, uso restrito, necessita condições específicas
+- "pending": Resultado inconclusivo, aguardando reteste, dados insuficientes
+
+**ESTRUTURA veredictData OBRIGATÓRIA:**
+{
+  "productName": "Nome do produto testado",
+  "veredict": "approved",
+  "summary": "Resumo de 1-2 frases do resultado técnico",
+  "quickFacts": [
+    { "label": "Teste", "value": "Nome do ensaio (ex: ISO 10993-5)" },
+    { "label": "Resultado", "value": "Classificação obtida" },
+    { "label": "Laboratório", "value": "Nome do lab" }
+  ],
+  "testNorms": ["ISO 10993-5", "ISO 10993-10"]
+}
+
+⚠️ REGRAS ANTI-ALUCINAÇÃO PARA VEREDITO:
+- NÃO invente normas não citadas no documento
+- NÃO classifique como "approved" se houver ressalvas
+- Se dados estiverem ausentes, use apenas os disponíveis
+`;
+    }
 
     console.log('🤖 Chamando IA para gerar artigo orquestrado...');
 
@@ -1014,8 +1077,18 @@ Sua resposta deve começar EXATAMENTE com o caractere { e terminar EXATAMENTE co
 
     const generatedHTML = parsedResponse.html;
     const generatedFAQs = parsedResponse.faqs;
+    const veredictData = (parsedResponse as any).veredictData || null;
 
-    console.log(`✅ Artigo orquestrado gerado: ${generatedHTML.length} chars, ${generatedFAQs.length} FAQs\n`);
+    console.log(`✅ Artigo orquestrado gerado: ${generatedHTML.length} chars, ${generatedFAQs.length} FAQs`);
+    
+    if (veredictData && isVeredictDocument) {
+      console.log('✅ VeredictData extraído:', {
+        productName: veredictData.productName,
+        veredict: veredictData.veredict,
+        quickFactsCount: veredictData.quickFacts?.length || 0,
+        testNorms: veredictData.testNorms || []
+      });
+    }
 
     // Extrair schemas estruturados do HTML (HowTo ainda está no HTML)
     const hasHowToSchema = generatedHTML.includes('itemtype="https://schema.org/HowTo"');
@@ -1037,6 +1110,7 @@ Sua resposta deve começar EXATAMENTE com o caractere { e terminar EXATAMENTE co
           teaches: [],
           aiContext: ''
         },
+        veredictData,
         schemas,
         success: true
       }),

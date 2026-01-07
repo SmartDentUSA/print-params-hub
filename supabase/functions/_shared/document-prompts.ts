@@ -188,6 +188,7 @@ ESTRUTURA:
 3. O que os resultados indicam (interpretação fiel)
 4. Importância para uso clínico/laboratorial
 5. Confiabilidade e validade do método
+6. Veredito técnico final (aprovado/reprovado/condicional)
 
 REQUISITOS:
 - Fidelidade absoluta ao laudo original
@@ -197,6 +198,7 @@ REQUISITOS:
 - Preservar TODAS as tabelas em formato HTML
 - Estrutura com H2/H3 semânticos
 - Gerar FAQs técnicas baseadas nos resultados
+- Extrair veredictData estruturado para Featured Snippets (ver formato JSON)
 
 Gere o artigo completo em HTML.
 `;
@@ -304,6 +306,7 @@ ESTRUTURA:
 3. Critérios técnicos exigidos
 4. Relevância prática para uso clínico
 5. Confiabilidade e validade da certificação
+6. Classificação final da certificação (aprovado/condicional/pendente)
 
 REQUISITOS:
 - Linguagem técnica
@@ -312,6 +315,7 @@ REQUISITOS:
 - Contexto odontológico brasileiro
 - Estrutura HTML com H2/H3 semânticos
 - Gerar FAQs sobre a certificação
+- Extrair veredictData estruturado para Featured Snippets (ver formato JSON)
 
 Gere o artigo completo em HTML.
 `;
