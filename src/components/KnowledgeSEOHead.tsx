@@ -343,7 +343,7 @@ const generateSPINFromCatalog = (
 };
 
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
-  const baseUrl = 'https://smartdent.com.br';
+  const baseUrl = 'https://parametros.smartdent.com.br';
   
   // 🆕 Fetch products for Review Schema
   const { products } = useProductReviews(content?.recommended_products || []);
