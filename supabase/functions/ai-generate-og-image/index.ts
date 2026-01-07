@@ -178,14 +178,18 @@ ABSOLUTE RESTRICTIONS:
       // MODO GERAÇÃO: Detectar se é artigo conceitual/científico vs produto específico
       const textContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
       
+      // Lista expandida de termos científicos/conceituais
+      const conceptualKeywords = [
+        'evidência científica', 'evidências científicas', 'evidências', 'estudo', 'revisão',
+        'artigo científico', 'pesquisa', 'análise', 'comparativo', 'norma', 'regulamentação',
+        // Termos técnicos de biossegurança e química
+        'tpo', 'fotoiniciador', 'biossegurança', 'pós-cura', 'pós cura', 'postcure',
+        'citotoxicidade', 'biocompatibilidade', 'iso 10993', 'toxicidade', 'polimerização',
+        'propriedades', 'segurança', 'monômero', 'conversão', 'grau de conversão'
+      ];
+
       const isConceptualArticle = !productName || 
-        textContext.includes('evidência científica') ||
-        textContext.includes('evidências científicas') ||
-        textContext.includes('estudo') ||
-        textContext.includes('revisão') ||
-        textContext.includes('artigo científico') ||
-        textContext.includes('pesquisa') ||
-        title?.toLowerCase().includes('evidências');
+        conceptualKeywords.some(keyword => textContext.includes(keyword));
 
       // Se é artigo conceitual, usar imagem de conceito (sem produto fictício)
       const textBasedSubject = isConceptualArticle
@@ -225,14 +229,26 @@ COMPOSITION RULES:
 
 STYLE: Captured with 100mm macro lens at f/2.8, professional depth of field, Unreal Engine 5 render quality with ray-traced reflections.
 
-CRITICAL ANTI-HALLUCINATION RULES:
-- Do NOT create fake product bottles, packaging, or branded containers
-- Do NOT invent product labels, brand names, or fictional product designs
-- Do NOT create imaginary dental product packaging
-- Focus on: 3D printing technology, dental laboratory equipment, prosthetics, dental tools
-- Show dental TECHNOLOGY in action, not invented consumer products
+CRITICAL ANTI-HALLUCINATION RULES - MANDATORY COMPLIANCE:
+- ABSOLUTELY NO product bottles, jars, containers, or packaging of ANY kind
+- ABSOLUTELY NO product labels, brand names, or fictional product designs
+- ABSOLUTELY NO chemical containers, reagent bottles, or material packaging
+- NEVER show products that look "for sale" - no retail-style items
+- NEVER create fictional product representations
 
-RESTRICTIONS: No text, logos, watermarks, human faces, or fictional product packaging.`;
+ONLY SHOW THESE ELEMENTS:
+- 3D printers and post-curing/UV equipment (câmara de pós-cura)
+- Dental prosthetics and models (crowns, dentures, splints, aligners)
+- Laboratory equipment (UV chambers, workstations, microscopes)
+- Dental tools and instruments
+- Computer screens with dental software (no readable text)
+
+IF CONTEXT MENTIONS CHEMICALS (TPO, resins, photopolymers, monomers):
+- Show the EQUIPMENT that uses them (3D printer, UV chamber)
+- Show the PRINTED RESULTS (dental models, prosthetics)
+- NEVER show the chemical containers or material packaging
+
+RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fictional products.`;
 
       console.log('🎨 Modo geração:', isConceptualArticle ? 'CONCEITUAL' : 'PRODUTO');
       console.log('🎨 Prompt de geração:', imagePrompt.substring(0, 400) + '...');
