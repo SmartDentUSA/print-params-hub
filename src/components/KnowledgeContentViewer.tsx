@@ -21,6 +21,7 @@ import { VideoLanguageIndicator } from '@/components/VideoLanguageIndicator';
 import { toast } from 'sonner';
 import { ArticleSummary } from '@/components/ArticleSummary';
 import { ArticleMeta } from '@/components/ArticleMeta';
+import { VeredictBox } from '@/components/VeredictBox';
 
 interface KnowledgeContentViewerProps {
   content: any;
@@ -281,6 +282,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
             />
           </div>
         </header>
+      )}
+
+      {/* VeredictBox - Featured Snippet para AI Search (posição zero) */}
+      {content.veredict_data && (
+        <VeredictBox data={content.veredict_data} />
       )}
 
       {/* Article Summary (TL;DR) */}

@@ -331,6 +331,7 @@ export type Database = {
           title_en: string | null
           title_es: string | null
           updated_at: string | null
+          veredict_data: Json | null
         }
         Insert: {
           active?: boolean | null
@@ -373,6 +374,7 @@ export type Database = {
           title_en?: string | null
           title_es?: string | null
           updated_at?: string | null
+          veredict_data?: Json | null
         }
         Update: {
           active?: boolean | null
@@ -415,6 +417,7 @@ export type Database = {
           title_en?: string | null
           title_es?: string | null
           updated_at?: string | null
+          veredict_data?: Json | null
         }
         Relationships: [
           {
