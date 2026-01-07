@@ -218,12 +218,29 @@ export function DocumentContentGeneratorModal({
     }
   };
 
-  // Generate OG Image using AI
+  // Generate OG Image using AI (with real product image when available)
   const handleGenerateOGImage = async () => {
     if (!document) return;
 
     setIsGeneratingOG(true);
     try {
+      // Buscar imagem do produto vinculado do catálogo (via linked_id)
+      let productImageUrl: string | null = null;
+      
+      if (document.source_type === 'catalog' && document.linked_id) {
+        const { data: catalogProduct } = await supabase
+          .from('system_a_catalog')
+          .select('image_url')
+          .eq('id', document.linked_id)
+          .single();
+        
+        productImageUrl = catalogProduct?.image_url || null;
+        
+        if (productImageUrl) {
+          console.log('🖼️ Usando imagem real do produto:', document.linked_name);
+        }
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-generate-og-image`,
         {
@@ -238,6 +255,7 @@ export function DocumentContentGeneratorModal({
             documentType: document.document_type || null,
             category: selectedCategory?.name || null,
             extractedTextPreview: document.extracted_text?.substring(0, 500) || null,
+            productImageUrl, // Imagem real do produto para edição
           }),
         }
       );
@@ -253,8 +271,10 @@ export function DocumentContentGeneratorModal({
         setGeneratedOGImage(data.og_image_url);
         setGeneratedOGAlt(data.og_image_alt || null);
         toast({
-          title: '✅ Imagem OG gerada!',
-          description: 'Otimizada para LinkedIn, WhatsApp e Google Discover',
+          title: data.mode === 'edit' ? '✅ Imagem editada com produto real!' : '✅ Imagem OG gerada!',
+          description: data.mode === 'edit' 
+            ? `${document.linked_name} em ambiente profissional`
+            : 'Otimizada para LinkedIn, WhatsApp e Google Discover',
         });
       } else {
         throw new Error(data.error || 'Nenhuma imagem foi gerada');

@@ -101,32 +101,62 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
-    const { title, productName, documentType, extractedTextPreview } = await req.json();
+    const { title, productName, documentType, extractedTextPreview, productImageUrl } = await req.json();
 
     const textContext = (extractedTextPreview || "").toLowerCase();
     const docType = documentType || 'catalogo';
     const baseConfig = documentPromptConfig[docType] || documentPromptConfig['catalogo'];
     const finalConfig = applyGoldenRule(baseConfig, textContext, productName);
 
+    // Decidir modo de operação: EDIT (com imagem real) ou GENERATE (do zero)
+    const isEditMode = !!productImageUrl;
+
     console.log('📸 Gerando OG Image:', { 
       title, 
       documentType: docType,
       configUsada: Object.keys(finalConfig),
-      productName
+      productName,
+      modo: isEditMode ? 'EDIÇÃO (produto real)' : 'GERAÇÃO (do zero)',
+      productImageUrl: isEditMode ? productImageUrl.substring(0, 50) + '...' : null
     });
 
-    // PROMPT NARRATIVO UNIVERSAL (Plug-and-Play)
-    const imagePrompt = `A photorealistic macro photograph of ${finalConfig.objeto_principal}. The scene is set in ${finalConfig.ambiente}, following a professional dental and scientific aesthetic. The lighting is ${finalConfig.iluminacao}, creating an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}. The composition places the main subject on the left two-thirds of the frame, with a subtle gradient fade on the right third for social media text overlay. Captured with a 100mm macro lens at f/2.8, with professional depth of field, slight vignette, and Unreal Engine 5 render quality with ray-traced reflections. No text, logos, or watermarks.`;
+    let response: Response;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [{ role: "user", content: imagePrompt }],
-        modalities: ["image", "text"]
-      })
-    });
+    if (isEditMode) {
+      // MODO EDIÇÃO: Envia imagem real + instrução para modificar apenas o ambiente
+      const editPrompt = `Keep the product in this image exactly as it appears - do not modify, distort, or alter the product itself in any way. Transform ONLY the background and environment to: ${finalConfig.ambiente}. Apply ${finalConfig.iluminacao} lighting to create an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}. The composition should place the product on the left two-thirds of the frame, with a subtle gradient fade on the right third for social media text overlay. Professional depth of field, slight vignette, and photorealistic render quality. No text, logos, or watermarks on the background. Output exactly 1200x630 pixels for Open Graph optimization.`;
+
+      console.log('🎨 Prompt de edição:', editPrompt.substring(0, 200) + '...');
+
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: editPrompt },
+              { type: "image_url", image_url: { url: productImageUrl } }
+            ]
+          }],
+          modalities: ["image", "text"]
+        })
+      });
+    } else {
+      // MODO GERAÇÃO: Comportamento original (gera do zero)
+      const imagePrompt = `A photorealistic macro photograph of ${finalConfig.objeto_principal}. The scene is set in ${finalConfig.ambiente}, following a professional dental and scientific aesthetic. The lighting is ${finalConfig.iluminacao}, creating an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}. The composition places the main subject on the left two-thirds of the frame, with a subtle gradient fade on the right third for social media text overlay. Captured with a 100mm macro lens at f/2.8, with professional depth of field, slight vignette, and Unreal Engine 5 render quality with ray-traced reflections. No text, logos, or watermarks.`;
+
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [{ role: "user", content: imagePrompt }],
+          modalities: ["image", "text"]
+        })
+      });
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -139,8 +169,10 @@ serve(async (req) => {
     
     if (!base64Image) throw new Error("Nenhuma imagem gerada pela IA");
 
-    // ALT-TEXT baseado no dicionário (SEO 2026)
-    const og_image_alt = `${finalConfig.objeto_principal} em ambiente de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
+    // ALT-TEXT baseado no modo de operação
+    const og_image_alt = isEditMode
+      ? `${productName || 'Produto'} em ambiente profissional de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`
+      : `${finalConfig.objeto_principal} em ambiente de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
 
     // Upload para Supabase Storage
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
@@ -151,7 +183,7 @@ serve(async (req) => {
       imageBuffer[i] = binaryString.charCodeAt(i);
     }
 
-    const fileName = `og-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+    const fileName = `og-${isEditMode ? 'edit' : 'gen'}-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from('knowledge-images')
@@ -166,13 +198,14 @@ serve(async (req) => {
       .from('knowledge-images')
       .getPublicUrl(`og-images/${fileName}`);
 
-    console.log('✅ OG Image gerada:', { fileName, documentType: docType });
+    console.log('✅ OG Image gerada:', { fileName, documentType: docType, modo: isEditMode ? 'EDIT' : 'GENERATE' });
 
     return new Response(JSON.stringify({
       success: true,
       og_image_url: publicUrl.publicUrl,
       og_image_alt,
-      prompt_used: imagePrompt
+      mode: isEditMode ? 'edit' : 'generate',
+      prompt_used: isEditMode ? 'EDIT_MODE' : 'GENERATE_MODE'
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: any) {
