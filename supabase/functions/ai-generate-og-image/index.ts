@@ -338,12 +338,24 @@ IF CONTEXT MENTIONS CHEMICALS (TPO, resins, photopolymers, monomers):
 
 const COMPOSITION_RULES = `
 COMPOSITION FOR 1200x630 OG IMAGE:
-- Main subject at 35-40% of image height (ZOOM OUT effect)
+┌─────────────────────────────────────────────┐
+│  20% TOP MARGIN (empty/gradient background) │
+├─────────────────────────────────────────────┤
+│                                             │
+│   [PRODUCT]           [EMPTY RIGHT 1/3]     │
+│   MAX 40% height      for text overlays     │
+│   LEFT 2/3                                  │
+│                                             │
+├─────────────────────────────────────────────┤
+│  20% BOTTOM MARGIN (surface/shadow)         │
+└─────────────────────────────────────────────┘
+
+- Subject at MAX 35-40% of frame HEIGHT (ZOOM OUT effect)
+- MANDATORY: 20% empty space ABOVE and BELOW the subject
 - Subject in CENTER-LEFT (left 2/3 of frame)
 - Subtle gradient fade on right third for text overlay
 - Professional depth of field with slight background blur
 - Clean, soft shadow beneath subject
-- Slight vignette for focus
 
 STYLE: 100mm macro lens at f/2.8, Unreal Engine 5 render quality.
 `;
@@ -387,28 +399,45 @@ serve(async (req) => {
       // ========================================
       console.log('🖼️ Modo EDIT: Usando imagem real do produto');
       
-      const editPrompt = `ZOOM OUT COMPOSITION: Create a professional Open Graph image (1200x630 pixels).
+      const editPrompt = `=== HIGHEST PRIORITY - PRODUCT INTEGRITY ===
+THE PRODUCT BOTTLE MUST BE 100% VISIBLE - ABSOLUTELY NO CROPPING.
 
-CRITICAL - PRODUCT SIZE:
-- Product MUST appear at only 35-40% of frame HEIGHT
-- Reproduce product FAITHFULLY but SMALLER
-- Never distort or crop the product
+CRITICAL SIZE REQUIREMENTS:
+- Product MUST occupy MAXIMUM 40% of frame HEIGHT
+- Leave 20% EMPTY SPACE above the product (top margin)
+- Leave 20% EMPTY SPACE below the product (bottom margin)
+- Product positioned in LEFT HALF of the frame, centered vertically
+- The product should look like a SMALL item on a LARGE professional surface
 
-DOCUMENT: "${title || 'Technical Document'}"
-TYPE: ${documentType || 'technical'}
+CANVAS LAYOUT (1200x630 pixels):
+┌─────────────────────────────────────────────┐
+│  20% TOP MARGIN (blurred/gradient bg)       │
+├─────────────────────────────────────────────┤
+│                                             │
+│   [PRODUCT]           [EMPTY RIGHT 1/3]     │
+│   40% height MAX      for social overlays   │
+│   Left-center                               │
+│                                             │
+├─────────────────────────────────────────────┤
+│  20% BOTTOM MARGIN (surface/shadow)         │
+└─────────────────────────────────────────────┘
 
-SCENE:
-- Place product on: ${finalConfig.ambiente}
+ENVIRONMENT:
+- Surface: ${finalConfig.ambiente}
 - Lighting: ${finalConfig.iluminacao}
 - Mood: ${finalConfig.mood}
-- ${finalConfig.elemento_autoridade}
+- Background: Subtle gradient fade, professional blur
 
-${COMPOSITION_RULES}
+DOCUMENT CONTEXT: "${title || 'Technical Document'}"
 
-RESTRICTIONS:
-- Do NOT crop product
-- Do NOT add text, logos, watermarks
-- Do NOT show human faces
+STYLE: 100mm macro lens, f/2.8, photorealistic, Unreal Engine 5 render quality.
+
+=== ABSOLUTE RESTRICTIONS ===
+- NEVER crop the product - show it 100% COMPLETE from bottom to top cap
+- NEVER distort product proportions
+- NEVER add text, logos, or watermarks
+- NEVER show human faces
+- Keep product EXACT as original but rendered SMALLER in frame
 ${finalConfig.regra_anti_alucinacao}`;
 
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
