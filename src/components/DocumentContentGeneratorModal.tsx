@@ -224,20 +224,31 @@ export function DocumentContentGeneratorModal({
 
     setIsGeneratingOG(true);
     try {
-      // Buscar imagem do produto vinculado do catálogo (via linked_id)
+      // Buscar imagem do produto vinculado (catalog OU resin)
       let productImageUrl: string | null = null;
-      
-      if (document.source_type === 'catalog' && document.linked_id) {
-        const { data: catalogProduct } = await supabase
-          .from('system_a_catalog')
-          .select('image_url')
-          .eq('id', document.linked_id)
-          .single();
-        
-        productImageUrl = catalogProduct?.image_url || null;
+
+      if (document.linked_id) {
+        if (document.source_type === 'catalog') {
+          const { data: catalogProduct } = await supabase
+            .from('system_a_catalog')
+            .select('image_url')
+            .eq('id', document.linked_id)
+            .single();
+          
+          productImageUrl = catalogProduct?.image_url || null;
+          
+        } else if (document.source_type === 'resin') {
+          const { data: resinProduct } = await supabase
+            .from('resins')
+            .select('image_url')
+            .eq('id', document.linked_id)
+            .single();
+          
+          productImageUrl = resinProduct?.image_url || null;
+        }
         
         if (productImageUrl) {
-          console.log('🖼️ Usando imagem real do produto:', document.linked_name);
+          console.log('🖼️ Usando imagem real do produto:', document.linked_name, '| Fonte:', document.source_type);
         }
       }
 
