@@ -22,7 +22,10 @@ import {
   ChevronDown,
   ExternalLink,
   Globe,
-  BookOpen
+  BookOpen,
+  Image,
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -115,6 +118,11 @@ export function DocumentContentGeneratorModal({
   const [generatedFAQs, setGeneratedFAQs] = useState<Array<{ question: string; answer: string }> | null>(null);
   const [step, setStep] = useState<'form' | 'preview' | 'saving'>('form');
   const [showExtractedText, setShowExtractedText] = useState(false);
+  
+  // OG Image Generation states
+  const [isGeneratingOG, setIsGeneratingOG] = useState(false);
+  const [generatedOGImage, setGeneratedOGImage] = useState<string | null>(null);
+  const [generatedOGAlt, setGeneratedOGAlt] = useState<string | null>(null);
 
   const selectedCategory = CONTENT_CATEGORIES.find(c => c.letter === selectedCategoryLetter);
   const documentTypeInfo = document?.document_type ? DOCUMENT_TYPE_MAPPING[document.document_type] : null;
@@ -134,6 +142,8 @@ export function DocumentContentGeneratorModal({
       setGeneratedFAQs(null);
       setStep('form');
       setShowExtractedText(false);
+      setGeneratedOGImage(null);
+      setGeneratedOGAlt(null);
       
       // Auto-select category based on document type
       if (documentTypeInfo) {
@@ -205,6 +215,59 @@ export function DocumentContentGeneratorModal({
       });
     } finally {
       setIsGeneratingMetadata(false);
+    }
+  };
+
+  // Generate OG Image using AI
+  const handleGenerateOGImage = async () => {
+    if (!document) return;
+
+    setIsGeneratingOG(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-generate-og-image`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            title: title || document.document_name,
+            productName: document.linked_name || null,
+            documentType: document.document_type || null,
+            category: selectedCategory?.name || null,
+            extractedTextPreview: document.extracted_text?.substring(0, 500) || null,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.og_image_url) {
+        setGeneratedOGImage(data.og_image_url);
+        setGeneratedOGAlt(data.og_image_alt || null);
+        toast({
+          title: '✅ Imagem OG gerada!',
+          description: 'Otimizada para LinkedIn, WhatsApp e Google Discover',
+        });
+      } else {
+        throw new Error(data.error || 'Nenhuma imagem foi gerada');
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao gerar OG Image:', error);
+      toast({
+        title: 'Erro ao gerar imagem OG',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingOG(false);
     }
   };
 
@@ -353,6 +416,8 @@ export function DocumentContentGeneratorModal({
           recommended_resins: recommendedResins,
           selected_pdf_ids_pt: [sourcePdfId], // PDF fonte vinculado automaticamente
           faqs: generatedFAQs || [], // FAQs geradas automaticamente
+          og_image_url: generatedOGImage, // OG Image gerada por IA
+          og_image_alt: generatedOGAlt, // Alt-text SEO otimizado
         })
         .select('id')
         .single();
@@ -549,6 +614,82 @@ export function DocumentContentGeneratorModal({
                       </>
                     )}
                   </Button>
+                </div>
+
+                {/* OG Image Generation */}
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 rounded-lg border border-blue-200 dark:border-blue-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="flex items-center gap-2">
+                        <Image className="h-4 w-4 text-blue-600" />
+                        Imagem OG (Redes Sociais)
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Otimizada para LinkedIn, WhatsApp e Google Discover (1200x630px)
+                      </p>
+                    </div>
+                  </div>
+
+                  {generatedOGImage ? (
+                    <div className="space-y-2">
+                      <div className="relative aspect-[1200/630] rounded-lg overflow-hidden border">
+                        <img 
+                          src={generatedOGImage} 
+                          alt={generatedOGAlt || 'OG Preview'}
+                          className="w-full h-full object-cover"
+                        />
+                        <Badge className="absolute top-2 left-2 bg-green-600">
+                          ✨ Gerada com IA
+                        </Badge>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={handleGenerateOGImage}
+                          disabled={isGeneratingOG}
+                        >
+                          <RefreshCw className={`h-4 w-4 ${isGeneratingOG ? 'animate-spin' : ''}`} />
+                          Regenerar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 text-destructive"
+                          onClick={() => {
+                            setGeneratedOGImage(null);
+                            setGeneratedOGAlt(null);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={handleGenerateOGImage}
+                      disabled={isGeneratingOG || !title.trim()}
+                    >
+                      {isGeneratingOG ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Gerando imagem...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-4 w-4" />
+                          🖼️ Gerar Imagem OG com IA
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
 
                 {/* Extracted Text Preview (Collapsible) */}

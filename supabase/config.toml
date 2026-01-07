@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.extract-pdf-specialized]
 verify_jwt = false
+
+[functions.ai-generate-og-image]
+verify_jwt = false

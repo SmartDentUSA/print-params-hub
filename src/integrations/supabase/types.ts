@@ -318,6 +318,7 @@ export type Database = {
           keyword_ids: string[] | null
           keywords: string[] | null
           meta_description: string | null
+          og_image_alt: string | null
           og_image_url: string | null
           order_index: number
           recommended_products: string[] | null
@@ -359,6 +360,7 @@ export type Database = {
           keyword_ids?: string[] | null
           keywords?: string[] | null
           meta_description?: string | null
+          og_image_alt?: string | null
           og_image_url?: string | null
           order_index: number
           recommended_products?: string[] | null
@@ -400,6 +402,7 @@ export type Database = {
           keyword_ids?: string[] | null
           keywords?: string[] | null
           meta_description?: string | null
+          og_image_alt?: string | null
           og_image_url?: string | null
           order_index?: number
           recommended_products?: string[] | null
