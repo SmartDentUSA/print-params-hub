@@ -462,3 +462,155 @@
     gap: 6px;
   }
 }
+
+/* ========================================
+   VEREDICT BOX - Featured Snippet AI-First
+   ======================================== */
+
+.veredict-box {
+  position: relative;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 32px;
+  border: 2px solid;
+  background: linear-gradient(135deg, var(--veredict-bg), transparent);
+}
+
+/* Variantes de Status */
+.veredict-box.veredict-approved {
+  --veredict-color: hsl(142, 76%, 36%);
+  --veredict-bg: hsl(142, 76%, 36%, 0.08);
+  border-color: hsl(142, 76%, 36%, 0.4);
+}
+
+.veredict-box.veredict-conditional {
+  --veredict-color: hsl(38, 92%, 50%);
+  --veredict-bg: hsl(38, 92%, 50%, 0.08);
+  border-color: hsl(38, 92%, 50%, 0.4);
+}
+
+.veredict-box.veredict-pending {
+  --veredict-color: hsl(var(--muted-foreground));
+  --veredict-bg: hsl(var(--muted) / 0.3);
+  border-color: hsl(var(--border));
+}
+
+/* Header com Badge e Normas */
+.veredict-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.veredict-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--veredict-color) !important;
+  color: white !important;
+  padding: 6px 14px;
+  border-radius: 100px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.veredict-norms {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+}
+
+/* Conteúdo Principal */
+.veredict-content {
+  margin-bottom: 20px;
+}
+
+.veredict-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  margin-bottom: 8px;
+}
+
+.veredict-title svg {
+  color: var(--veredict-color);
+  flex-shrink: 0;
+}
+
+.veredict-summary {
+  font-size: 15px;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+/* Quick Facts Grid */
+.veredict-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.veredict-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.veredict-fact-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: hsl(var(--muted-foreground));
+}
+
+.veredict-fact-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--veredict-color);
+}
+
+/* Footer de Autoridade */
+.veredict-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  padding-top: 12px;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.veredict-footer svg {
+  color: var(--veredict-color);
+}
+
+/* Responsivo */
+@media (max-width: 640px) {
+  .veredict-box {
+    padding: 16px;
+  }
+  
+  .veredict-title {
+    font-size: 16px;
+  }
+  
+  .veredict-facts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
