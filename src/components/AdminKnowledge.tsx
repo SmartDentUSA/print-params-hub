@@ -43,6 +43,7 @@ export function AdminKnowledge() {
   const editorRef = useRef<Editor | null>(null);
   const ogFileRef = useRef<HTMLInputElement>(null);
   const [uploadingOg, setUploadingOg] = useState(false);
+  const [isGeneratingOGImage, setIsGeneratingOGImage] = useState(false);
   const [promptEdited, setPromptEdited] = useState(false);
   const { toast } = useToast();
   
@@ -1508,6 +1509,71 @@ Receba o texto bruto abaixo e:
     } finally {
       setUploadingOg(false);
       if (ogFileRef.current) ogFileRef.current.value = '';
+    }
+  };
+
+  // Generate OG Image using AI
+  const handleGenerateAIOGImage = async () => {
+    if (!formData.title) {
+      toast({
+        title: '⚠️ Título obrigatório',
+        description: 'Preencha o título antes de gerar a imagem OG',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsGeneratingOGImage(true);
+    try {
+      // Get selected category info
+      const currentCategory = categories.find(c => c.letter === selectedCategory);
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-generate-og-image`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          },
+          body: JSON.stringify({
+            title: formData.title,
+            productName: null, // Manual flow doesn't have specific product
+            documentType: null,
+            category: currentCategory?.name || null,
+            extractedTextPreview: formData.content_html?.substring(0, 500) || formData.excerpt || null,
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Erro HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.og_image_url) {
+        setFormData(prev => ({
+          ...prev,
+          og_image_url: data.og_image_url
+        }));
+        toast({
+          title: '✅ Imagem OG gerada!',
+          description: 'Otimizada para LinkedIn, WhatsApp e Google Discover (1200x630px)'
+        });
+      } else {
+        throw new Error(data.error || 'Nenhuma imagem foi gerada');
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao gerar OG Image:', error);
+      toast({
+        title: 'Erro ao gerar imagem OG',
+        description: error.message,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsGeneratingOGImage(false);
     }
   };
 
@@ -3565,7 +3631,7 @@ Receba o texto bruto abaixo e:
                     </div>
                   )}
                   
-                  {/* Upload Button and Template Canva */}
+                  {/* Upload Button, AI Generate and Template Canva */}
                   <div className="flex gap-2 flex-wrap">
                     <input 
                       ref={ogFileRef} 
@@ -3584,7 +3650,28 @@ Receba o texto bruto abaixo e:
                       disabled={uploadingOg}
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadingOg ? 'Enviando...' : 'Enviar imagem OG'}
+                      {uploadingOg ? 'Enviando...' : 'Upload Manual'}
+                    </Button>
+                    
+                    {/* NEW: AI Generate OG Image Button */}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleGenerateAIOGImage}
+                      disabled={isGeneratingOGImage || !formData.title}
+                      className="gap-2"
+                    >
+                      {isGeneratingOGImage ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          Gerar com IA
+                        </>
+                      )}
                     </Button>
                     
                     <Button 
