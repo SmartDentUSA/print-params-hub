@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLink, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
+import { useCompanyData } from "@/hooks/useCompanyData";
 
 interface ProductData {
   id: string;
@@ -36,6 +37,7 @@ const ProductPage = () => {
   const navigate = useNavigate();
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: companyData } = useCompanyData();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -92,7 +94,8 @@ const ProductPage = () => {
 
   if (!product) return null;
 
-  const seoTitle = product.seo_title_override || `${product.name} | Smart Dent`;
+  const companyName = companyData?.name || "Smart Dent";
+  const seoTitle = product.seo_title_override || `${product.name} | ${companyName}`;
   const metaDescription = product.meta_description || product.description || "";
   const ogImage = product.og_image_url || product.image_url || "/og-image.jpg";
   const extraData = product.extra_data || {};
@@ -103,7 +106,7 @@ const ProductPage = () => {
 
   const baseUrl = "https://parametros.smartdent.com.br";
   const canonicalUrl = `${baseUrl}/produtos/${slug}`;
-  const keywordsStr = product.keywords?.join(", ") || `${product.name}, Smart Dent, produto odontológico`;
+  const keywordsStr = product.keywords?.join(", ") || `${product.name}, ${companyName}, produto odontológico`;
 
   // BreadcrumbList Schema
   const breadcrumbSchema = {
@@ -140,7 +143,7 @@ const ProductPage = () => {
     "image": ogImage,
     "brand": {
       "@type": "Brand",
-      "name": "Smart Dent"
+      "name": companyName
     },
     "sku": product.id,
     ...(product.price && {
@@ -161,7 +164,7 @@ const ProductPage = () => {
         <title>{seoTitle}</title>
         <meta name="description" content={metaDescription} />
         <meta name="keywords" content={keywordsStr} />
-        <meta name="author" content="Smart Dent" />
+        <meta name="author" content={companyName} />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={canonicalUrl} />
         
@@ -175,7 +178,7 @@ const ProductPage = () => {
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:site_name" content={`PrinterParams ${companyName}`} />
         <meta property="og:locale" content="pt_BR" />
         
         {/* Twitter Card */}
