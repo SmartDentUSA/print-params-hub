@@ -161,8 +161,42 @@ Output: Photorealistic, professional dental/medical product photography style.`;
         })
       });
     } else {
-      // MODO GERAÇÃO: Comportamento original (gera do zero)
-      const imagePrompt = `A photorealistic macro photograph of ${finalConfig.objeto_principal}. The scene is set in ${finalConfig.ambiente}, following a professional dental and scientific aesthetic. The lighting is ${finalConfig.iluminacao}, creating an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}. The composition places the main subject on the left two-thirds of the frame, with a subtle gradient fade on the right third for social media text overlay. Captured with a 100mm macro lens at f/2.8, with professional depth of field, slight vignette, and Unreal Engine 5 render quality with ray-traced reflections. No text, logos, or watermarks.`;
+      // MODO GERAÇÃO: Usar informações do texto para criar imagem contextual
+      const textBasedSubject = productName 
+        ? `${productName} dental product/material`
+        : finalConfig.objeto_principal;
+
+      const contextualDetails = extractedTextPreview 
+        ? `Context from document: "${extractedTextPreview.substring(0, 200)}"`
+        : '';
+
+      const imagePrompt = `Professional Open Graph image for dental industry (1200x630 pixels).
+
+SUBJECT: ${textBasedSubject}
+${title ? `DOCUMENT TITLE: "${title}"` : ''}
+${contextualDetails}
+
+Create a photorealistic product photography scene featuring dental/medical equipment or materials relevant to the context above.
+
+SCENE SETUP:
+- Environment: ${finalConfig.ambiente}
+- Lighting: ${finalConfig.iluminacao}
+- Mood: ${finalConfig.mood}
+- Authority element: ${finalConfig.elemento_autoridade}
+
+COMPOSITION RULES:
+- Main subject occupies 35-40% of image height
+- Subject positioned in center-left (left 2/3 of frame)
+- Subtle gradient fade on right third for text overlay space
+- Professional depth of field with slight background blur
+- Clean shadow beneath subject
+- Slight vignette for focus
+
+STYLE: Captured with 100mm macro lens at f/2.8, professional depth of field, Unreal Engine 5 render quality with ray-traced reflections.
+
+RESTRICTIONS: No text, logos, watermarks, or human faces.`;
+
+      console.log('🎨 Prompt de geração:', imagePrompt.substring(0, 300) + '...');
 
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
