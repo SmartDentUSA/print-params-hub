@@ -175,9 +175,9 @@ async function syncSystemACatalog(supabase: any, kbData: any) {
     kols: 0
   }
 
-  // 1. Company Profile
-  if (kbData.company_profile) {
-    stats.company = await syncCompanyProfile(supabase, kbData.company_profile)
+  // 1. Company Profile (CORRIGIDO: era company_profile, agora é company)
+  if (kbData.company) {
+    stats.company = await syncCompanyProfile(supabase, kbData.company)
   }
 
   // 2. Categories Config
@@ -211,55 +211,106 @@ async function syncSystemACatalog(supabase: any, kbData: any) {
 }
 
 async function syncCompanyProfile(supabase: any, company: any) {
-  if (!company || !company.company_name) return 0
+  if (!company || !company.company_name) {
+    console.log('⚠️ Company profile não encontrado ou sem company_name')
+    return 0
+  }
+
+  console.log('🏢 Sincronizando company profile:', company.company_name)
 
   try {
+    // Buscar dados existentes para preservar reviews_reputation
+    const { data: existing } = await supabase
+      .from('system_a_catalog')
+      .select('extra_data')
+      .eq('category', 'company_info')
+      .maybeSingle()
+
     const catalogItem = {
       source: 'system_a',
       external_id: `company_${company.id || 'main'}`,
       category: 'company_info',
-      name: company.company_name || 'Empresa',
+      name: company.company_name,
+      slug: 'smart-dent',
       description: company.company_description,
       image_url: company.company_logo_url,
       canonical_url: company.website_url,
       seo_title_override: company.seo_market_positioning,
+      active: true,
+      approved: true,
       extra_data: {
+        // Business Info
+        business: {
+          legal_name: company.company_name,
+          doing_business_as: 'Smart Dent',
+          number_of_employees: company.team_size,
+          founded_year: company.founded_year,
+          sector: company.business_sector
+        },
+        // Corporate Info
         corporate: {
           mission: company.mission_statement,
           vision: company.vision_statement,
           values: company.brand_values,
-          sector: company.business_sector,
-          target_audience: company.target_audience,
-          differentiators: company.differentiators,
           culture: company.company_culture,
-          methodology: company.working_methodology
-        },
-        contact: {
-          email: company.contact_email,
-          phone: company.contact_phone,
-          location: company.location,
+          methodology: company.working_methodology,
+          delivery_approach: company.delivery_approach,
+          differentiators: company.differentiators,
+          target_audience: company.target_audience,
+          main_products: company.main_products_services,
           founded_year: company.founded_year,
           team_size: company.team_size
         },
+        // Contact Info
+        contact: {
+          email: company.contact_email,
+          phone: company.contact_phone,
+          whatsapp: company.contact_phone,
+          address: company.location,
+          city: 'São Carlos',
+          state: 'SP',
+          country: 'BR',
+          languages_spoken: ['pt-BR', 'en', 'es']
+        },
+        // Social Media (MAPEAMENTO CORRETO dos campos do endpoint)
+        social_media: {
+          instagram: company.instagram_profile,
+          youtube: company.youtube_channel,
+          facebook: null,
+          linkedin: null,
+          twitter: null,
+          tiktok: null
+        },
+        // SEO
         seo: {
           competitive_advantages: company.seo_competitive_advantages,
           technical_expertise: company.seo_technical_expertise,
           service_areas: company.seo_service_areas,
           context_keywords: company.seo_context_keywords,
-          domains: company.seo_domains
+          domains: company.seo_domains,
+          market_positioning: company.seo_market_positioning
         },
-        social_media: company.social_media_links,
+        // Company Videos (preservar integralmente do endpoint)
+        company_videos: company.company_videos,
+        // Links Institucionais
         institutional_links: company.institutional_links,
-        videos: company.company_videos,
-        reviews: company.company_reviews,
-        tracking_pixels: company.tracking_pixels
+        // Tracking/Analytics
+        tracking_pixels: company.tracking_pixels,
+        // Preservar reviews_reputation existentes (sincronizados via sync-google-reviews)
+        reviews_reputation: existing?.extra_data?.reviews_reputation || null
       }
     }
 
-    await supabase
+    const { error } = await supabase
       .from('system_a_catalog')
       .upsert(catalogItem, { onConflict: 'source,external_id' })
 
+    if (error) {
+      console.error('❌ Erro no upsert company profile:', error.message)
+      return 0
+    }
+
+    console.log('✅ Company profile sincronizado:', company.company_name)
     return 1
   } catch (err) {
     console.error('❌ Erro ao sincronizar company profile:', err.message)
