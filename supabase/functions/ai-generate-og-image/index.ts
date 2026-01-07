@@ -123,27 +123,41 @@ serve(async (req) => {
     let response: Response;
 
     if (isEditMode) {
-      // MODO EDIÇÃO: Envia imagem real + instrução para modificar apenas o ambiente
-      const editPrompt = `Professional product photography for Open Graph social media (1200x630 pixels).
+      // MODO EDIÇÃO: Transforma a imagem real do produto com ZOOM OUT
+      console.log('🖼️ Modo EDIÇÃO: Usando imagem real do produto (zoom out)');
+      
+      const editPrompt = `ZOOM OUT COMPOSITION: Create a professional Open Graph image (1200x630 pixels) by placing this product in a wider scene.
 
-CRITICAL PRODUCT SIZING: Resize and reposition the product to occupy approximately 35-40% of the image HEIGHT. The product should be centered within the left two-thirds of the frame. This is a well-composed product shot - the product must NOT fill the entire image.
+CRITICAL INSTRUCTION - PRODUCT SIZE:
+- The product from this image MUST appear at only 35-40% of the total frame HEIGHT
+- Imagine stepping back 2 meters from this product to capture it in a wider shot
+- The product must be REPRODUCED FAITHFULLY but SMALLER - never distorted or cropped
+- If the current image shows the product filling the entire frame, SHRINK IT DOWN
 
-PRODUCT FIDELITY: Keep the product's visual appearance (colors, shape, details, labels, textures) exactly as shown - only change its SIZE and POSITION within the frame.
+DOCUMENT CONTEXT:
+- Title: "${title}"
+- Document type: ${documentType || 'technical document'}
 
-ENVIRONMENT TRANSFORMATION: Replace the background completely with ${finalConfig.ambiente}. Apply ${finalConfig.iluminacao} lighting to create an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}.
+SCENE SETUP:
+- Place the product on ${finalConfig.ambiente}
+- Lighting: ${finalConfig.iluminacao}
+- Mood: ${finalConfig.mood}
+- ${finalConfig.elemento_autoridade}
 
 COMPOSITION RULES:
-- Product occupies 35-40% of image height (NOT more)
-- Product centered in left 2/3 of frame
-- Subtle gradient fade on right third for text overlay space
-- Professional depth of field with slight background blur
+- Product positioned in CENTER-LEFT of the frame (left 2/3)
+- Right third should have subtle gradient fade for text overlay space
 - Clean shadow beneath product
+- Professional depth of field with slight background blur
 - Slight vignette for focus
-- No text, logos, or watermarks
 
-Output: Photorealistic, professional dental/medical product photography style.`;
+ABSOLUTE RESTRICTIONS:
+- Do NOT crop any part of the product
+- Do NOT stretch or distort the product
+- Do NOT add text, logos, or watermarks
+- Do NOT show human faces`;
 
-      console.log('🎨 Prompt de edição:', editPrompt.substring(0, 200) + '...');
+      console.log('🎨 Prompt de edição (zoom out):', editPrompt.substring(0, 250) + '...');
 
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -161,22 +175,39 @@ Output: Photorealistic, professional dental/medical product photography style.`;
         })
       });
     } else {
-      // MODO GERAÇÃO: Usar informações do texto para criar imagem contextual
-      const textBasedSubject = productName 
-        ? `${productName} dental product/material`
-        : finalConfig.objeto_principal;
+      // MODO GERAÇÃO: Detectar se é artigo conceitual/científico vs produto específico
+      const textContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
+      
+      const isConceptualArticle = !productName || 
+        textContext.includes('evidência científica') ||
+        textContext.includes('evidências científicas') ||
+        textContext.includes('estudo') ||
+        textContext.includes('revisão') ||
+        textContext.includes('artigo científico') ||
+        textContext.includes('pesquisa') ||
+        title?.toLowerCase().includes('evidências');
+
+      // Se é artigo conceitual, usar imagem de conceito (sem produto fictício)
+      const textBasedSubject = isConceptualArticle
+        ? finalConfig.objeto_principal  // Usar dicionário genérico
+        : (productName ? `${productName} dental product/material` : finalConfig.objeto_principal);
+
+      const conceptualMode = isConceptualArticle 
+        ? `\nCONCEPTUAL MODE ACTIVE: This is a scientific/educational article. Focus on dental TECHNOLOGY and EQUIPMENT, not specific products.`
+        : '';
 
       const contextualDetails = extractedTextPreview 
         ? `Context from document: "${extractedTextPreview.substring(0, 200)}"`
         : '';
 
       const imagePrompt = `Professional Open Graph image for dental industry (1200x630 pixels).
+${conceptualMode}
 
 SUBJECT: ${textBasedSubject}
 ${title ? `DOCUMENT TITLE: "${title}"` : ''}
 ${contextualDetails}
 
-Create a photorealistic product photography scene featuring dental/medical equipment or materials relevant to the context above.
+Create a photorealistic scene featuring dental/medical equipment or technology relevant to the context above.
 
 SCENE SETUP:
 - Environment: ${finalConfig.ambiente}
@@ -194,9 +225,17 @@ COMPOSITION RULES:
 
 STYLE: Captured with 100mm macro lens at f/2.8, professional depth of field, Unreal Engine 5 render quality with ray-traced reflections.
 
-RESTRICTIONS: No text, logos, watermarks, or human faces.`;
+CRITICAL ANTI-HALLUCINATION RULES:
+- Do NOT create fake product bottles, packaging, or branded containers
+- Do NOT invent product labels, brand names, or fictional product designs
+- Do NOT create imaginary dental product packaging
+- Focus on: 3D printing technology, dental laboratory equipment, prosthetics, dental tools
+- Show dental TECHNOLOGY in action, not invented consumer products
 
-      console.log('🎨 Prompt de geração:', imagePrompt.substring(0, 300) + '...');
+RESTRICTIONS: No text, logos, watermarks, human faces, or fictional product packaging.`;
+
+      console.log('🎨 Modo geração:', isConceptualArticle ? 'CONCEITUAL' : 'PRODUTO');
+      console.log('🎨 Prompt de geração:', imagePrompt.substring(0, 400) + '...');
 
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
