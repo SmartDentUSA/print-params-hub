@@ -65,7 +65,7 @@ const documentPromptConfig: Record<string, {
   }
 };
 
-// REGRA DE OURO - Personalização por Contexto Clínico
+// REGRA DE OURO - Personalização por Contexto Clínico com Lógica Combinada
 function applyGoldenRule(
   config: typeof documentPromptConfig[string], 
   textContext: string, 
@@ -73,25 +73,108 @@ function applyGoldenRule(
 ): typeof documentPromptConfig[string] {
   const modified = { ...config };
   
+  // Arrays de detecção de contexto
+  const bioTestKeywords = [
+    'reatividade intracutânea', 'intracutaneous', 'irritação', 'irritation',
+    'sensibilização', 'sensitization', 'citotoxicidade', 'citotox',
+    'biocompatibilidade', 'genotox', 'mutagênico', 'iso 10993'
+  ];
+  
+  // Detectar contextos
+  const isSplint = textContext.includes("splint") || textContext.includes("bruxismo");
+  const hasBioTest = bioTestKeywords.some(k => textContext.includes(k));
+  const isPermanent = textContext.includes("permanente") || textContext.includes("definitivo");
+  
+  // Detectar normas ISO específicas
+  const hasISO10993_10 = textContext.includes('10993-10') || textContext.includes('intracutânea');
+  const hasISO10993_5 = textContext.includes('10993-5') || textContext.includes('citotox');
+  const hasISO10993_23 = textContext.includes('10993-23');
+  
+  // REGRA COMBINADA 1: Splint + Teste Biológico
+  if (isSplint && hasBioTest) {
+    modified.objeto_principal = `Uma placa miorrelaxante ultra-transparente impressa em 3D com clareza cristalina${productName ? ` (${productName})` : ''}`;
+    modified.ambiente = 'Laboratório de biocompatibilidade com superfície azul clínica e equipamentos de teste ao fundo';
+    modified.mood = 'Segurança biológica comprovada e transparência cristalina';
+    
+    // Elemento de autoridade específico por norma ISO
+    if (hasISO10993_10 || hasISO10993_23) {
+      modified.elemento_autoridade = 'Ambiente estéril de laboratório com indicadores sutis de conformidade ISO 10993-10 para testes de irritação intracutânea';
+    } else if (hasISO10993_5) {
+      modified.elemento_autoridade = 'Placas de cultura celular e microscópio desfocados sugerindo ensaios de citotoxicidade ISO 10993-5';
+    } else {
+      modified.elemento_autoridade = 'Equipamentos de laboratório de biocompatibilidade ISO 10993 sutilmente visíveis ao fundo';
+    }
+    return modified; // Early return para evitar sobrescrever
+  }
+  
+  // REGRA COMBINADA 2: Dentes Permanentes + Teste Biológico
+  if (isPermanent && hasBioTest) {
+    modified.objeto_principal = `Uma coroa dentária premium com translucidez natural, indicada para dentes permanentes (Sistema Vitality Smart Dent)`;
+    modified.ambiente = 'Laboratório de biocompatibilidade com elementos de alta estética dental';
+    modified.mood = 'Durabilidade, biocompatibilidade definitiva e segurança comprovada';
+    
+    if (hasISO10993_5) {
+      modified.elemento_autoridade = 'Células em cultura e equipamentos de citotoxicidade ao fundo demonstram a biocompatibilidade ISO 10993-5';
+    } else {
+      modified.elemento_autoridade = 'Equipamentos de laboratório de biocompatibilidade ISO 10993 sutilmente visíveis ao fundo';
+    }
+    return modified;
+  }
+  
+  // REGRAS INDIVIDUAIS (Fallback)
+  
   // Dentes Permanentes → Estética Vitality
-  if (textContext.includes("permanente") || textContext.includes("definitivo")) {
+  if (isPermanent) {
     modified.objeto_principal = `Uma coroa dentária premium com translucidez natural, indicada para dentes permanentes (Sistema Vitality Smart Dent)`;
     modified.mood = 'Durabilidade e biocompatibilidade definitiva';
   }
   
-  // Splint/Bruxismo → Material transparente
-  if (textContext.includes("splint") || textContext.includes("bruxismo")) {
+  // Splint/Bruxismo → Material transparente (sem biotest)
+  if (isSplint) {
     modified.objeto_principal = `Uma placa miorrelaxante ultra-transparente impressa em 3D com clareza cristalina${productName ? ` (${productName})` : ''}`;
     modified.ambiente = 'Laboratório dental moderno com superfície azul clínica (#1E40AF)';
     modified.elemento_autoridade = 'A transparência cristalina demonstra a qualidade ótica e biocompatibilidade';
   }
 
-  // Citotoxicidade/ISO 10993 → Laboratório científico
-  if (textContext.includes("citotox") || textContext.includes("iso 10993")) {
-    modified.elemento_autoridade = 'Células e equipamentos de laboratório desfocados ao fundo sugerem ensaios rigorosos de biocompatibilidade ISO 10993';
+  // Citotoxicidade/ISO 10993 → Laboratório científico (sem splint/permanente)
+  if (hasBioTest && !isSplint && !isPermanent) {
+    if (hasISO10993_10 || hasISO10993_23) {
+      modified.elemento_autoridade = 'Ambiente estéril de laboratório com indicadores sutis de conformidade ISO 10993-10 para testes de irritação';
+    } else if (hasISO10993_5) {
+      modified.elemento_autoridade = 'Placas de cultura celular e microscópio desfocados sugerindo ensaios de citotoxicidade ISO 10993-5';
+    } else {
+      modified.elemento_autoridade = 'Células e equipamentos de laboratório desfocados ao fundo sugerem ensaios rigorosos de biocompatibilidade ISO 10993';
+    }
   }
 
   return modified;
+}
+
+// Funções auxiliares para alt-text contextualizado
+function extractBioTestType(text: string): string {
+  if (text.includes('intracutânea') || text.includes('10993-10')) return 'reatividade intracutânea';
+  if (text.includes('citotox') || text.includes('10993-5')) return 'citotoxicidade';
+  if (text.includes('sensibilização')) return 'sensibilização';
+  if (text.includes('irritação')) return 'irritação';
+  if (text.includes('genotox')) return 'genotoxicidade';
+  return 'biocompatibilidade';
+}
+
+function extractNormaISO(text: string): string {
+  if (text.includes('10993-23')) return 'ISO 10993-23';
+  if (text.includes('10993-10')) return 'ISO 10993-10';
+  if (text.includes('10993-5')) return 'ISO 10993-5';
+  if (text.includes('10993')) return 'ISO 10993';
+  return '';
+}
+
+function detectBioTestContext(text: string): boolean {
+  const bioTestKeywords = [
+    'reatividade intracutânea', 'intracutaneous', 'irritação', 'irritation',
+    'sensibilização', 'sensitization', 'citotoxicidade', 'citotox',
+    'biocompatibilidade', 'genotox', 'mutagênico', 'iso 10993'
+  ];
+  return bioTestKeywords.some(k => text.includes(k));
 }
 
 serve(async (req) => {
@@ -275,10 +358,22 @@ RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fi
     
     if (!base64Image) throw new Error("Nenhuma imagem gerada pela IA");
 
-    // ALT-TEXT baseado no modo de operação
-    const og_image_alt = isEditMode
-      ? `${productName || 'Produto'} em ambiente profissional de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`
-      : `${finalConfig.objeto_principal} em ambiente de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
+    // ALT-TEXT contextualizado baseado no conteúdo
+    const fullTextContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
+    const hasBioTestContext = detectBioTestContext(fullTextContext);
+    const isSplintContext = fullTextContext.includes("splint") || fullTextContext.includes("bruxismo");
+    
+    let og_image_alt: string;
+    if (hasBioTestContext) {
+      const bioTestType = extractBioTestType(fullTextContext);
+      const normaISO = extractNormaISO(fullTextContext);
+      const productType = isSplintContext ? 'placas de bruxismo' : 'aplicações odontológicas';
+      og_image_alt = `Teste de ${bioTestType}${normaISO ? ` ${normaISO}` : ''} comprovando a segurança da resina ${productName || 'Smart Dent'} para ${productType}.`;
+    } else if (isEditMode) {
+      og_image_alt = `${productName || 'Produto'} em ambiente profissional de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
+    } else {
+      og_image_alt = `${finalConfig.objeto_principal} em ambiente de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
+    }
 
     // Upload para Supabase Storage
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
