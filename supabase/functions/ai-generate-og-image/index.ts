@@ -6,176 +6,351 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// DICIONÁRIO UNIVERSAL - Mapeamento por Tipo de Documento
-const documentPromptConfig: Record<string, {
+// ============================================================
+// DICIONÁRIO VISUAL EXPANDIDO POR TIPO DE DOCUMENTO
+// ============================================================
+
+interface OGVisualConfig {
   objeto_principal: string;
   ambiente: string;
   iluminacao: string;
   mood: string;
   elemento_autoridade: string;
-}> = {
+  regra_anti_alucinacao: string;
+  equipamentos_permitidos: string[];
+  elementos_proibidos: string[];
+}
+
+const documentVisualDictionary: Record<string, OGVisualConfig> = {
+  'guia_workflow': {
+    objeto_principal: 'Fluxograma visual de processo clínico com etapas numeradas ou impressora 3D com peça sendo impressa',
+    ambiente: 'Consultório odontológico moderno com impressora 3D ao fundo desfocada',
+    iluminacao: 'Luz ambiente natural combinada com spots de destaque LED',
+    mood: 'Clareza processual, confiança no protocolo e eficiência clínica',
+    elemento_autoridade: 'Equipamentos Smart Dent (câmara UV, impressora) sutilmente visíveis',
+    regra_anti_alucinacao: 'Mostrar apenas equipamentos reais e peças impressas, NUNCA frascos fictícios',
+    equipamentos_permitidos: ['impressora 3D', 'câmara UV', 'computador com software dental', 'scanner intraoral'],
+    elementos_proibidos: ['frascos de resina', 'embalagens de produto', 'logos', 'texto legível']
+  },
   'laudo': {
-    objeto_principal: 'Uma coroa dentária premium com translucidez natural de zircónia',
-    ambiente: 'Laboratório de metrologia odontológica com tons de cinza',
-    iluminacao: 'Luz difusa',
-    mood: 'Precisão científica e rigor',
-    elemento_autoridade: 'Equipamento analítico desfocado ao fundo sugere testes de sorção e solubilidade'
-  },
-  'certificado': {
-    objeto_principal: 'Um selo de certificação metálico texturizado ao lado de uma peça impressa',
-    ambiente: 'Escritório de regulação clínica minimalista',
-    iluminacao: 'Luz pontual (spotlight)',
-    mood: 'Autoridade e conformidade',
-    elemento_autoridade: 'A peça exibe um acabamento impecável validado por normas ISO'
-  },
-  'perfil_tecnico': {
-    objeto_principal: 'Uma estrutura de dupla hélice de DNA estilizada próxima a uma restauração',
-    ambiente: 'Centro de biotecnologia moderno',
-    iluminacao: 'Tons azulados (#1E40AF)',
-    mood: 'Segurança biológica e pureza',
-    elemento_autoridade: 'O foco na suavidade da superfície destaca a biocompatibilidade do material'
-  },
-  'ifu': {
-    objeto_principal: 'Mãos com luvas profissionais manipulando uma peça impressa em 3D',
-    ambiente: 'Consultório odontológico digital',
-    iluminacao: 'Luz de estúdio clara',
-    mood: 'Clareza pedagógica e técnica',
-    elemento_autoridade: 'A demonstração do fluxo de trabalho enfatiza a facilidade de aplicação clínica'
-  },
-  'fds': {
-    objeto_principal: 'Elementos de segurança e frascos de resina organizados esteticamente',
-    ambiente: 'Ambiente de armazenamento médico controlado',
-    iluminacao: 'Luz branca limpa',
-    mood: 'Proteção e responsabilidade',
-    elemento_autoridade: 'Ícones de segurança e pureza do polímero são sugeridos pelo ambiente estéril'
-  },
-  'guia': {
-    objeto_principal: 'Um modelo de arcada dentária completa com guias ou coroas encaixadas',
-    ambiente: 'Bancada de trabalho de um técnico de próteses',
-    iluminacao: 'Luz lateral quente',
-    mood: 'Sucesso clínico e artesanato digital',
-    elemento_autoridade: 'A precisão do encaixe demonstra a estabilidade dimensional do material'
+    objeto_principal: 'Equipamento de laboratório metrológico com peça dental sendo analisada',
+    ambiente: 'Laboratório de metrologia certificado com tons neutros e superfícies limpas',
+    iluminacao: 'Luz difusa científica sem sombras duras',
+    mood: 'Precisão absoluta, rigor científico e imparcialidade',
+    elemento_autoridade: 'Equipamento analítico (microscópio, espectrofotômetro, durômetro) parcialmente visível',
+    regra_anti_alucinacao: 'NUNCA gerar gráficos com dados fictícios - mostrar EQUIPAMENTOS de teste',
+    equipamentos_permitidos: ['microscópio', 'espectrofotômetro', 'durômetro', 'balança analítica'],
+    elementos_proibidos: ['gráficos com números', 'tabelas de dados', 'resultados numéricos']
   },
   'catalogo': {
-    objeto_principal: 'A embalagem da resina Smart Print ao lado de peças impressas finais',
-    ambiente: 'Showcase de produtos premium',
-    iluminacao: 'Iluminação publicitária de alto padrão',
-    mood: 'Inovação e desejo',
-    elemento_autoridade: 'A estética destaca a cor Shade A2 e o acabamento de alta qualidade'
+    objeto_principal: 'Produto real com peças impressas demonstrando aplicações finais',
+    ambiente: 'Showcase premium com gradiente escuro para claro, superfície reflexiva',
+    iluminacao: 'Iluminação publicitária de alto padrão (3-point lighting)',
+    mood: 'Desejo, inovação premium e qualidade excepcional',
+    elemento_autoridade: 'Peças impressas finais demonstrando acabamento perfeito',
+    regra_anti_alucinacao: 'OBRIGATÓRIO usar modo EDIT com imagem real do produto',
+    equipamentos_permitidos: ['peças impressas reais', 'modelos dentários', 'coroas', 'próteses'],
+    elementos_proibidos: ['embalagens fictícias', 'frascos inventados', 'logos criados']
+  },
+  'ifu': {
+    objeto_principal: 'Mãos profissionais com luvas manipulando peça impressa em 3D',
+    ambiente: 'Bancada de trabalho organizada com ferramentas e equipamentos profissionais',
+    iluminacao: 'Luz de estúdio clara e direta com sombras suaves',
+    mood: 'Didático, acessível, técnico e profissional',
+    elemento_autoridade: 'Tablet ou manual impresso sutilmente visível',
+    regra_anti_alucinacao: 'Foco em AÇÃO e PROCESSO, NUNCA no produto embalado',
+    equipamentos_permitidos: ['mãos com luvas', 'ferramentas dentais', 'peças impressas', 'câmara UV'],
+    elementos_proibidos: ['embalagens', 'frascos', 'rostos', 'texto legível']
+  },
+  'fds': {
+    objeto_principal: 'EPIs profissionais (luvas nitrílicas, óculos de proteção) em ambiente controlado',
+    ambiente: 'Área de armazenamento médico com prateleiras organizadas',
+    iluminacao: 'Luz branca limpa e estéril',
+    mood: 'Proteção, responsabilidade, conformidade e segurança ocupacional',
+    elemento_autoridade: 'Símbolos de segurança química (GHS) sutilmente visíveis',
+    regra_anti_alucinacao: 'NUNCA mostrar produto sendo derramado ou em situação de risco',
+    equipamentos_permitidos: ['luvas', 'óculos de proteção', 'jaleco', 'capela de exaustão'],
+    elementos_proibidos: ['acidentes', 'derramamentos', 'situações perigosas', 'frascos abertos']
+  },
+  'perfil_tecnico': {
+    objeto_principal: 'Representação visual de biocompatibilidade - células em cultura ou microscópio',
+    ambiente: 'Centro de biotecnologia moderno com equipamentos de ponta',
+    iluminacao: 'Tons azulados científicos (#1E40AF) com iluminação fria',
+    mood: 'Segurança biológica comprovada, pureza e confiança científica',
+    elemento_autoridade: 'Placas de petri, microscópio ou câmara de cultura celular',
+    regra_anti_alucinacao: 'Para testes ISO 10993, NUNCA inventar resultados visuais',
+    equipamentos_permitidos: ['microscópio', 'placas de petri', 'câmara de cultura', 'pipetas'],
+    elementos_proibidos: ['gráficos fictícios', 'números de certificação', 'frascos de resina']
+  },
+  'manual_tecnico': {
+    objeto_principal: 'Equipamento (impressora 3D ou câmara UV) em vista detalhada',
+    ambiente: 'Oficina técnica profissional ou laboratório de manutenção',
+    iluminacao: 'Luz técnica com destaques pontuais em componentes',
+    mood: 'Expertise técnica, suporte profissional e conhecimento',
+    elemento_autoridade: 'Ferramentas de manutenção e calibração sutilmente visíveis',
+    regra_anti_alucinacao: 'Mostrar equipamentos reais, NUNCA inventar modelos',
+    equipamentos_permitidos: ['impressora 3D', 'câmara UV', 'ferramentas de calibração', 'multímetro'],
+    elementos_proibidos: ['modelos inventados', 'marcas fictícias', 'texto técnico legível']
+  },
+  'certificado': {
+    objeto_principal: 'Selo metálico 3D texturizado (ouro/prata) com detalhes de qualidade',
+    ambiente: 'Fundo gradient escuro para claro com vinheta elegante',
+    iluminacao: 'Spotlight dramático focado no selo com reflexos suaves',
+    mood: 'Autoridade absoluta, conformidade regulatória e credibilidade',
+    elemento_autoridade: 'Peça impressa certificada ao lado do selo',
+    regra_anti_alucinacao: 'NUNCA inventar números de certificado ou datas',
+    equipamentos_permitidos: ['selo metálico abstrato', 'peças impressas', 'ribbon elegante'],
+    elementos_proibidos: ['números de certificado', 'datas específicas', 'logos fictícios', 'texto']
+  },
+  'guia': {
+    objeto_principal: 'Modelo de arcada dentária com guias cirúrgicos ou coroas encaixadas',
+    ambiente: 'Bancada de trabalho de técnico de próteses dental',
+    iluminacao: 'Luz lateral quente combinada com foco superior',
+    mood: 'Sucesso clínico, artesanato digital e precisão',
+    elemento_autoridade: 'Precisão do encaixe demonstra estabilidade dimensional',
+    regra_anti_alucinacao: 'Mostrar PEÇAS FINAIS em uso, não produtos embalados',
+    equipamentos_permitidos: ['modelos dentários', 'articulador', 'guias cirúrgicos', 'coroas'],
+    elementos_proibidos: ['embalagens', 'frascos', 'preços', 'texto promocional']
+  },
+  'outro': {
+    objeto_principal: 'Impressora 3D dental profissional com peça sendo impressa',
+    ambiente: 'Laboratório dental digital moderno e organizado',
+    iluminacao: 'Iluminação profissional balanceada',
+    mood: 'Inovação tecnológica e qualidade profissional',
+    elemento_autoridade: 'Equipamentos de alta tecnologia sutilmente visíveis',
+    regra_anti_alucinacao: 'Mostrar TECNOLOGIA e RESULTADOS, nunca produtos embalados',
+    equipamentos_permitidos: ['impressora 3D', 'câmara UV', 'scanner', 'computador', 'peças'],
+    elementos_proibidos: ['embalagens', 'frascos', 'logos', 'texto', 'rostos']
   }
 };
 
-// REGRA DE OURO - Personalização por Contexto Clínico com Lógica Combinada
-function applyGoldenRule(
-  config: typeof documentPromptConfig[string], 
-  textContext: string, 
+// ============================================================
+// REGRAS DE OURO - CONTEXTOS CLÍNICOS ESPECIAIS
+// ============================================================
+
+interface GoldenRule {
+  keywords: string[];
+  override: Partial<OGVisualConfig>;
+  priority: number;
+}
+
+const goldenRules: GoldenRule[] = [
+  {
+    keywords: ['splint', 'bruxismo', 'miorrelaxante', 'bite', 'oclusão'],
+    override: {
+      objeto_principal: 'Placa miorrelaxante ultra-transparente impressa em 3D com clareza cristalina',
+      ambiente: 'Laboratório dental com superfície azul clínica (#1E40AF)',
+      mood: 'Transparência cristalina, conforto e precisão de encaixe'
+    },
+    priority: 80
+  },
+  {
+    keywords: ['permanente', 'definitivo', 'vitality', 'longo prazo'],
+    override: {
+      objeto_principal: 'Coroa dentária premium com translucidez natural de zircônia',
+      ambiente: 'Laboratório de estética dental com iluminação de alta fidelidade',
+      mood: 'Durabilidade definitiva, estética natural e biocompatibilidade'
+    },
+    priority: 70
+  },
+  {
+    keywords: ['10993-5', 'citotox', 'citotoxicidade'],
+    override: {
+      ambiente: 'Laboratório de cultura celular com equipamentos de biotecnologia',
+      elemento_autoridade: 'Placas de cultura celular e microscópio invertido sugerindo ensaios ISO 10993-5'
+    },
+    priority: 90
+  },
+  {
+    keywords: ['10993-10', 'intracutânea', 'irritação'],
+    override: {
+      ambiente: 'Laboratório de testes in vivo com ambiente estéril',
+      elemento_autoridade: 'Ambiente controlado com indicadores de conformidade ISO 10993-10'
+    },
+    priority: 90
+  },
+  {
+    keywords: ['10993-23', 'sensibilização'],
+    override: {
+      ambiente: 'Laboratório de imunologia e testes de sensibilização',
+      elemento_autoridade: 'Equipamentos de teste imunológico ISO 10993-23'
+    },
+    priority: 90
+  },
+  {
+    keywords: ['guia cirúrgico', 'surgical guide', 'implante', 'cirurgia guiada'],
+    override: {
+      objeto_principal: 'Guia cirúrgico transparente sobre modelo de arcada com implantes',
+      ambiente: 'Centro cirúrgico odontológico ou sala de planejamento digital',
+      mood: 'Precisão milimétrica, segurança cirúrgica e planejamento digital'
+    },
+    priority: 75
+  },
+  {
+    keywords: ['alinhador', 'ortodontia', 'clear aligner', 'movimentação'],
+    override: {
+      objeto_principal: 'Alinhador transparente de precisão sobre modelo dental',
+      ambiente: 'Clínica de ortodontia digital moderna',
+      mood: 'Estética, precisão de movimento e inovação ortodôntica'
+    },
+    priority: 75
+  }
+];
+
+// ============================================================
+// FUNÇÕES AUXILIARES
+// ============================================================
+
+function getBaseConfig(documentType: string): OGVisualConfig {
+  return documentVisualDictionary[documentType] || documentVisualDictionary['outro'];
+}
+
+function applyGoldenRules(
+  baseConfig: OGVisualConfig,
+  textContext: string,
   productName?: string
-): typeof documentPromptConfig[string] {
-  const modified = { ...config };
-  
-  // Arrays de detecção de contexto
-  const bioTestKeywords = [
-    'reatividade intracutânea', 'intracutaneous', 'irritação', 'irritation',
-    'sensibilização', 'sensitization', 'citotoxicidade', 'citotox',
-    'biocompatibilidade', 'genotox', 'mutagênico', 'iso 10993'
-  ];
-  
-  // Detectar contextos
-  const isSplint = textContext.includes("splint") || textContext.includes("bruxismo");
-  const hasBioTest = bioTestKeywords.some(k => textContext.includes(k));
-  const isPermanent = textContext.includes("permanente") || textContext.includes("definitivo");
-  
-  // Detectar normas ISO específicas
-  const hasISO10993_10 = textContext.includes('10993-10') || textContext.includes('intracutânea');
-  const hasISO10993_5 = textContext.includes('10993-5') || textContext.includes('citotox');
-  const hasISO10993_23 = textContext.includes('10993-23');
-  
-  // REGRA COMBINADA 1: Splint + Teste Biológico
-  if (isSplint && hasBioTest) {
-    modified.objeto_principal = `Uma placa miorrelaxante ultra-transparente impressa em 3D com clareza cristalina${productName ? ` (${productName})` : ''}`;
-    modified.ambiente = 'Laboratório de biocompatibilidade com superfície azul clínica e equipamentos de teste ao fundo';
-    modified.mood = 'Segurança biológica comprovada e transparência cristalina';
-    
-    // Elemento de autoridade específico por norma ISO
-    if (hasISO10993_10 || hasISO10993_23) {
-      modified.elemento_autoridade = 'Ambiente estéril de laboratório com indicadores sutis de conformidade ISO 10993-10 para testes de irritação intracutânea';
-    } else if (hasISO10993_5) {
-      modified.elemento_autoridade = 'Placas de cultura celular e microscópio desfocados sugerindo ensaios de citotoxicidade ISO 10993-5';
-    } else {
-      modified.elemento_autoridade = 'Equipamentos de laboratório de biocompatibilidade ISO 10993 sutilmente visíveis ao fundo';
-    }
-    return modified; // Early return para evitar sobrescrever
-  }
-  
-  // REGRA COMBINADA 2: Dentes Permanentes + Teste Biológico
-  if (isPermanent && hasBioTest) {
-    modified.objeto_principal = `Uma coroa dentária premium com translucidez natural, indicada para dentes permanentes (Sistema Vitality Smart Dent)`;
-    modified.ambiente = 'Laboratório de biocompatibilidade com elementos de alta estética dental';
-    modified.mood = 'Durabilidade, biocompatibilidade definitiva e segurança comprovada';
-    
-    if (hasISO10993_5) {
-      modified.elemento_autoridade = 'Células em cultura e equipamentos de citotoxicidade ao fundo demonstram a biocompatibilidade ISO 10993-5';
-    } else {
-      modified.elemento_autoridade = 'Equipamentos de laboratório de biocompatibilidade ISO 10993 sutilmente visíveis ao fundo';
-    }
-    return modified;
-  }
-  
-  // REGRAS INDIVIDUAIS (Fallback)
-  
-  // Dentes Permanentes → Estética Vitality
-  if (isPermanent) {
-    modified.objeto_principal = `Uma coroa dentária premium com translucidez natural, indicada para dentes permanentes (Sistema Vitality Smart Dent)`;
-    modified.mood = 'Durabilidade e biocompatibilidade definitiva';
-  }
-  
-  // Splint/Bruxismo → Material transparente (sem biotest)
-  if (isSplint) {
-    modified.objeto_principal = `Uma placa miorrelaxante ultra-transparente impressa em 3D com clareza cristalina${productName ? ` (${productName})` : ''}`;
-    modified.ambiente = 'Laboratório dental moderno com superfície azul clínica (#1E40AF)';
-    modified.elemento_autoridade = 'A transparência cristalina demonstra a qualidade ótica e biocompatibilidade';
+): OGVisualConfig {
+  const lowerContext = textContext.toLowerCase();
+  const modified = { ...baseConfig };
+
+  const applicableRules = goldenRules
+    .filter(rule => rule.keywords.some(k => lowerContext.includes(k.toLowerCase())))
+    .sort((a, b) => b.priority - a.priority);
+
+  for (const rule of applicableRules) {
+    Object.assign(modified, rule.override);
   }
 
-  // Citotoxicidade/ISO 10993 → Laboratório científico (sem splint/permanente)
-  if (hasBioTest && !isSplint && !isPermanent) {
-    if (hasISO10993_10 || hasISO10993_23) {
-      modified.elemento_autoridade = 'Ambiente estéril de laboratório com indicadores sutis de conformidade ISO 10993-10 para testes de irritação';
-    } else if (hasISO10993_5) {
-      modified.elemento_autoridade = 'Placas de cultura celular e microscópio desfocados sugerindo ensaios de citotoxicidade ISO 10993-5';
-    } else {
-      modified.elemento_autoridade = 'Células e equipamentos de laboratório desfocados ao fundo sugerem ensaios rigorosos de biocompatibilidade ISO 10993';
-    }
+  if (productName && modified.objeto_principal) {
+    modified.objeto_principal = `${modified.objeto_principal} (${productName})`;
   }
 
   return modified;
 }
 
-// Funções auxiliares para alt-text contextualizado
-function extractBioTestType(text: string): string {
-  if (text.includes('intracutânea') || text.includes('10993-10')) return 'reatividade intracutânea';
-  if (text.includes('citotox') || text.includes('10993-5')) return 'citotoxicidade';
-  if (text.includes('sensibilização')) return 'sensibilização';
-  if (text.includes('irritação')) return 'irritação';
-  if (text.includes('genotox')) return 'genotoxicidade';
-  return 'biocompatibilidade';
+type GenerationMode = 'EDIT' | 'EQUIPMENT' | 'CONCEPTUAL' | 'GENERATE';
+
+function detectGenerationMode(
+  productImageUrl?: string,
+  textContext?: string,
+  productName?: string
+): GenerationMode {
+  if (productImageUrl) return 'EDIT';
+
+  const lowerContext = (textContext || '').toLowerCase();
+
+  const equipmentKeywords = ['impressora', 'printer', 'câmara uv', 'uv chamber', 'pós-cura', 'postcure', 'scanner'];
+  if (equipmentKeywords.some(k => lowerContext.includes(k)) && !productName) {
+    return 'EQUIPMENT';
+  }
+
+  const conceptualKeywords = [
+    'evidência científica', 'evidências', 'estudo', 'revisão', 'artigo científico',
+    'pesquisa', 'análise comparativa', 'norma técnica', 'regulamentação',
+    'tpo', 'fotoiniciador', 'biossegurança', 'pós-cura', 'polimerização',
+    'propriedades mecânicas', 'monômero', 'conversão', 'grau de conversão'
+  ];
+  if (!productName && conceptualKeywords.some(k => lowerContext.includes(k))) {
+    return 'CONCEPTUAL';
+  }
+
+  return 'GENERATE';
 }
 
 function extractNormaISO(text: string): string {
-  if (text.includes('10993-23')) return 'ISO 10993-23';
-  if (text.includes('10993-10')) return 'ISO 10993-10';
-  if (text.includes('10993-5')) return 'ISO 10993-5';
-  if (text.includes('10993')) return 'ISO 10993';
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes('10993-23')) return 'ISO 10993-23';
+  if (lowerText.includes('10993-10')) return 'ISO 10993-10';
+  if (lowerText.includes('10993-5')) return 'ISO 10993-5';
+  if (lowerText.includes('10993')) return 'ISO 10993';
+  if (lowerText.includes('4049')) return 'ISO 4049';
+  if (lowerText.includes('10477')) return 'ISO 10477';
   return '';
 }
 
-function detectBioTestContext(text: string): boolean {
-  const bioTestKeywords = [
-    'reatividade intracutânea', 'intracutaneous', 'irritação', 'irritation',
-    'sensibilização', 'sensitization', 'citotoxicidade', 'citotox',
-    'biocompatibilidade', 'genotox', 'mutagênico', 'iso 10993'
-  ];
-  return bioTestKeywords.some(k => text.includes(k));
+function detectBioTestType(text: string): string {
+  const lowerText = text.toLowerCase();
+  if (lowerText.includes('citotox')) return 'citotoxicidade';
+  if (lowerText.includes('intracutânea')) return 'reatividade intracutânea';
+  if (lowerText.includes('sensibilização')) return 'sensibilização';
+  if (lowerText.includes('irritação')) return 'irritação';
+  if (lowerText.includes('genotox')) return 'genotoxicidade';
+  if (lowerText.includes('biocompat')) return 'biocompatibilidade';
+  return '';
 }
+
+function generateSEOAltText(
+  config: OGVisualConfig,
+  textContext: string,
+  productName?: string,
+  mode?: GenerationMode
+): string {
+  const iso = extractNormaISO(textContext);
+  const bioTestType = detectBioTestType(textContext);
+  const brand = 'Smart Dent Odontologia Digital';
+
+  if (bioTestType && iso) {
+    return `Teste de ${bioTestType} ${iso} demonstrando a segurança de ${productName || 'resina Smart Dent'} para aplicações odontológicas.`;
+  }
+  
+  if (iso) {
+    return `${config.objeto_principal} em conformidade com ${iso}. ${brand}.`;
+  }
+
+  if (mode === 'EDIT' && productName) {
+    return `${productName} em ambiente profissional de ${config.ambiente}. ${brand}.`;
+  }
+
+  return `${config.objeto_principal} em ${config.ambiente}. ${brand}.`;
+}
+
+// ============================================================
+// REGRAS ANTI-ALUCINAÇÃO GLOBAIS
+// ============================================================
+
+const GLOBAL_ANTI_HALLUCINATION = `
+CRITICAL ANTI-HALLUCINATION RULES - MANDATORY COMPLIANCE:
+
+ABSOLUTELY PROHIBITED (NEVER generate these):
+- Product bottles, jars, containers, or packaging of ANY kind
+- Product labels, brand names, or fictional product designs  
+- Chemical containers, reagent bottles, or material packaging
+- Products that look "for sale" or retail-style items
+- Graphs with fake numerical data or invented statistics
+- Certification numbers, dates, or regulatory codes
+- Logos of real organizations (ANVISA, INMETRO, FDA)
+- Human faces or identifiable people
+- Readable text of any kind
+
+ONLY SHOW THESE ELEMENTS:
+- 3D printers and post-curing/UV equipment
+- Dental prosthetics and models (crowns, dentures, splints, aligners)
+- Laboratory equipment (UV chambers, workstations, microscopes)
+- Dental tools and instruments
+- Abstract metallic seals (no text or numbers)
+- Professional hands with gloves (no faces)
+
+IF CONTEXT MENTIONS CHEMICALS (TPO, resins, photopolymers, monomers):
+- Show the EQUIPMENT that uses them (3D printer, UV chamber)
+- Show the PRINTED RESULTS (dental models, prosthetics)
+- NEVER show the chemical containers or material packaging
+`;
+
+const COMPOSITION_RULES = `
+COMPOSITION FOR 1200x630 OG IMAGE:
+- Main subject at 35-40% of image height (ZOOM OUT effect)
+- Subject in CENTER-LEFT (left 2/3 of frame)
+- Subtle gradient fade on right third for text overlay
+- Professional depth of field with slight background blur
+- Clean, soft shadow beneath subject
+- Slight vignette for focus
+
+STYLE: 100mm macro lens at f/2.8, Unreal Engine 5 render quality.
+`;
+
+// ============================================================
+// MAIN HANDLER
+// ============================================================
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -186,61 +361,55 @@ serve(async (req) => {
 
     const { title, productName, documentType, extractedTextPreview, productImageUrl } = await req.json();
 
-    const textContext = (extractedTextPreview || "").toLowerCase();
-    const docType = documentType || 'catalogo';
-    const baseConfig = documentPromptConfig[docType] || documentPromptConfig['catalogo'];
-    const finalConfig = applyGoldenRule(baseConfig, textContext, productName);
-
-    // Decidir modo de operação: EDIT (com imagem real) ou GENERATE (do zero)
-    const isEditMode = !!productImageUrl;
+    const textContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
+    const docType = documentType || 'outro';
+    
+    // Obter configuração base e aplicar regras de ouro
+    const baseConfig = getBaseConfig(docType);
+    const finalConfig = applyGoldenRules(baseConfig, textContext, productName);
+    
+    // Detectar modo de geração
+    const mode = detectGenerationMode(productImageUrl, textContext, productName);
 
     console.log('📸 Gerando OG Image:', { 
-      title, 
+      title: title?.substring(0, 50),
       documentType: docType,
-      configUsada: Object.keys(finalConfig),
       productName,
-      modo: isEditMode ? 'EDIÇÃO (produto real)' : 'GERAÇÃO (do zero)',
-      productImageUrl: isEditMode ? productImageUrl.substring(0, 50) + '...' : null
+      modo: mode,
+      hasProductImage: !!productImageUrl
     });
 
     let response: Response;
 
-    if (isEditMode) {
-      // MODO EDIÇÃO: Transforma a imagem real do produto com ZOOM OUT
-      console.log('🖼️ Modo EDIÇÃO: Usando imagem real do produto (zoom out)');
+    if (mode === 'EDIT') {
+      // ========================================
+      // MODO EDIÇÃO: Transforma imagem real com ZOOM OUT
+      // ========================================
+      console.log('🖼️ Modo EDIT: Usando imagem real do produto');
       
-      const editPrompt = `ZOOM OUT COMPOSITION: Create a professional Open Graph image (1200x630 pixels) by placing this product in a wider scene.
+      const editPrompt = `ZOOM OUT COMPOSITION: Create a professional Open Graph image (1200x630 pixels).
 
-CRITICAL INSTRUCTION - PRODUCT SIZE:
-- The product from this image MUST appear at only 35-40% of the total frame HEIGHT
-- Imagine stepping back 2 meters from this product to capture it in a wider shot
-- The product must be REPRODUCED FAITHFULLY but SMALLER - never distorted or cropped
-- If the current image shows the product filling the entire frame, SHRINK IT DOWN
+CRITICAL - PRODUCT SIZE:
+- Product MUST appear at only 35-40% of frame HEIGHT
+- Reproduce product FAITHFULLY but SMALLER
+- Never distort or crop the product
 
-DOCUMENT CONTEXT:
-- Title: "${title}"
-- Document type: ${documentType || 'technical document'}
+DOCUMENT: "${title || 'Technical Document'}"
+TYPE: ${documentType || 'technical'}
 
-SCENE SETUP:
-- Place the product on ${finalConfig.ambiente}
+SCENE:
+- Place product on: ${finalConfig.ambiente}
 - Lighting: ${finalConfig.iluminacao}
 - Mood: ${finalConfig.mood}
 - ${finalConfig.elemento_autoridade}
 
-COMPOSITION RULES:
-- Product positioned in CENTER-LEFT of the frame (left 2/3)
-- Right third should have subtle gradient fade for text overlay space
-- Clean shadow beneath product
-- Professional depth of field with slight background blur
-- Slight vignette for focus
+${COMPOSITION_RULES}
 
-ABSOLUTE RESTRICTIONS:
-- Do NOT crop any part of the product
-- Do NOT stretch or distort the product
-- Do NOT add text, logos, or watermarks
-- Do NOT show human faces`;
-
-      console.log('🎨 Prompt de edição (zoom out):', editPrompt.substring(0, 250) + '...');
+RESTRICTIONS:
+- Do NOT crop product
+- Do NOT add text, logos, watermarks
+- Do NOT show human faces
+${finalConfig.regra_anti_alucinacao}`;
 
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -258,90 +427,44 @@ ABSOLUTE RESTRICTIONS:
         })
       });
     } else {
-      // MODO GERAÇÃO: Detectar se é artigo conceitual/científico vs produto específico
-      const textContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
-      
-      // Lista expandida de termos científicos/conceituais
-      const conceptualKeywords = [
-        'evidência científica', 'evidências científicas', 'evidências', 'estudo', 'revisão',
-        'artigo científico', 'pesquisa', 'análise', 'comparativo', 'norma', 'regulamentação',
-        // Termos técnicos de biossegurança e química
-        'tpo', 'fotoiniciador', 'biossegurança', 'pós-cura', 'pós cura', 'postcure',
-        'citotoxicidade', 'biocompatibilidade', 'iso 10993', 'toxicidade', 'polimerização',
-        'propriedades', 'segurança', 'monômero', 'conversão', 'grau de conversão'
-      ];
+      // ========================================
+      // MODO GERAÇÃO: Criar imagem do zero
+      // ========================================
+      console.log(`🎨 Modo ${mode}: Gerando imagem do zero`);
 
-      const isConceptualArticle = !productName || 
-        conceptualKeywords.some(keyword => textContext.includes(keyword));
-
-      // Se é artigo conceitual, usar imagem de conceito (sem produto fictício)
-      const textBasedSubject = isConceptualArticle
-        ? finalConfig.objeto_principal  // Usar dicionário genérico
-        : (productName ? `${productName} dental product/material` : finalConfig.objeto_principal);
-
-      const conceptualMode = isConceptualArticle 
-        ? `\nCONCEPTUAL MODE ACTIVE: This is a scientific/educational article. Focus on dental TECHNOLOGY and EQUIPMENT, not specific products.`
+      const modeInstruction = mode === 'CONCEPTUAL' 
+        ? '\nCONCEPTUAL MODE: This is a scientific/educational article. Focus on dental TECHNOLOGY and EQUIPMENT, not specific products.'
+        : mode === 'EQUIPMENT'
+        ? '\nEQUIPMENT MODE: Focus on 3D printing and post-curing equipment. No product containers.'
         : '';
 
-      const contextualDetails = extractedTextPreview 
-        ? `Context from document: "${extractedTextPreview.substring(0, 200)}"`
-        : '';
+      const generatePrompt = `Professional Open Graph image for dental industry (1200x630 pixels).
+${modeInstruction}
 
-      const imagePrompt = `Professional Open Graph image for dental industry (1200x630 pixels).
-${conceptualMode}
+SUBJECT: ${finalConfig.objeto_principal}
+TITLE: "${title || 'Technical Document'}"
 
-SUBJECT: ${textBasedSubject}
-${title ? `DOCUMENT TITLE: "${title}"` : ''}
-${contextualDetails}
-
-Create a photorealistic scene featuring dental/medical equipment or technology relevant to the context above.
-
-SCENE SETUP:
+SCENE:
 - Environment: ${finalConfig.ambiente}
 - Lighting: ${finalConfig.iluminacao}
 - Mood: ${finalConfig.mood}
-- Authority element: ${finalConfig.elemento_autoridade}
+- Authority: ${finalConfig.elemento_autoridade}
 
-COMPOSITION RULES:
-- Main subject occupies 35-40% of image height
-- Subject positioned in center-left (left 2/3 of frame)
-- Subtle gradient fade on right third for text overlay space
-- Professional depth of field with slight background blur
-- Clean shadow beneath subject
-- Slight vignette for focus
+ALLOWED ELEMENTS: ${finalConfig.equipamentos_permitidos.join(', ')}
+PROHIBITED: ${finalConfig.elementos_proibidos.join(', ')}
 
-STYLE: Captured with 100mm macro lens at f/2.8, professional depth of field, Unreal Engine 5 render quality with ray-traced reflections.
+${COMPOSITION_RULES}
 
-CRITICAL ANTI-HALLUCINATION RULES - MANDATORY COMPLIANCE:
-- ABSOLUTELY NO product bottles, jars, containers, or packaging of ANY kind
-- ABSOLUTELY NO product labels, brand names, or fictional product designs
-- ABSOLUTELY NO chemical containers, reagent bottles, or material packaging
-- NEVER show products that look "for sale" - no retail-style items
-- NEVER create fictional product representations
+${GLOBAL_ANTI_HALLUCINATION}
 
-ONLY SHOW THESE ELEMENTS:
-- 3D printers and post-curing/UV equipment (câmara de pós-cura)
-- Dental prosthetics and models (crowns, dentures, splints, aligners)
-- Laboratory equipment (UV chambers, workstations, microscopes)
-- Dental tools and instruments
-- Computer screens with dental software (no readable text)
-
-IF CONTEXT MENTIONS CHEMICALS (TPO, resins, photopolymers, monomers):
-- Show the EQUIPMENT that uses them (3D printer, UV chamber)
-- Show the PRINTED RESULTS (dental models, prosthetics)
-- NEVER show the chemical containers or material packaging
-
-RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fictional products.`;
-
-      console.log('🎨 Modo geração:', isConceptualArticle ? 'CONCEITUAL' : 'PRODUTO');
-      console.log('🎨 Prompt de geração:', imagePrompt.substring(0, 400) + '...');
+${finalConfig.regra_anti_alucinacao}`;
 
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-image-preview",
-          messages: [{ role: "user", content: imagePrompt }],
+          messages: [{ role: "user", content: generatePrompt }],
           modalities: ["image", "text"]
         })
       });
@@ -349,7 +472,7 @@ RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fi
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Erro da API:', response.status, errorText);
+      console.error('❌ Erro da API:', response.status, errorText);
       throw new Error(`Erro na API de imagem: ${response.status}`);
     }
 
@@ -358,25 +481,15 @@ RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fi
     
     if (!base64Image) throw new Error("Nenhuma imagem gerada pela IA");
 
-    // ALT-TEXT contextualizado baseado no conteúdo
-    const fullTextContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
-    const hasBioTestContext = detectBioTestContext(fullTextContext);
-    const isSplintContext = fullTextContext.includes("splint") || fullTextContext.includes("bruxismo");
-    
-    let og_image_alt: string;
-    if (hasBioTestContext) {
-      const bioTestType = extractBioTestType(fullTextContext);
-      const normaISO = extractNormaISO(fullTextContext);
-      const productType = isSplintContext ? 'placas de bruxismo' : 'aplicações odontológicas';
-      og_image_alt = `Teste de ${bioTestType}${normaISO ? ` ${normaISO}` : ''} comprovando a segurança da resina ${productName || 'Smart Dent'} para ${productType}.`;
-    } else if (isEditMode) {
-      og_image_alt = `${productName || 'Produto'} em ambiente profissional de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
-    } else {
-      og_image_alt = `${finalConfig.objeto_principal} em ambiente de ${finalConfig.ambiente}. Certificação e autoridade clínica Smart Dent.`;
-    }
+    // Gerar alt-text otimizado para SEO
+    const og_image_alt = generateSEOAltText(finalConfig, textContext, productName, mode);
 
     // Upload para Supabase Storage
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!, 
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+    
     const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
     const binaryString = atob(base64Data);
     const imageBuffer = new Uint8Array(binaryString.length);
@@ -384,7 +497,7 @@ RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fi
       imageBuffer[i] = binaryString.charCodeAt(i);
     }
 
-    const fileName = `og-${isEditMode ? 'edit' : 'gen'}-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+    const fileName = `og-${mode.toLowerCase()}-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
 
     const { error: uploadError } = await supabase.storage
       .from('knowledge-images')
@@ -399,14 +512,23 @@ RESTRICTIONS: No text, logos, watermarks, human faces, bottles, packaging, or fi
       .from('knowledge-images')
       .getPublicUrl(`og-images/${fileName}`);
 
-    console.log('✅ OG Image gerada:', { fileName, documentType: docType, modo: isEditMode ? 'EDIT' : 'GENERATE' });
+    console.log('✅ OG Image gerada:', { 
+      fileName, 
+      documentType: docType, 
+      modo: mode,
+      altText: og_image_alt.substring(0, 50) + '...'
+    });
 
     return new Response(JSON.stringify({
       success: true,
       og_image_url: publicUrl.publicUrl,
       og_image_alt,
-      mode: isEditMode ? 'edit' : 'generate',
-      prompt_used: isEditMode ? 'EDIT_MODE' : 'GENERATE_MODE'
+      mode,
+      config_used: {
+        documento: docType,
+        objeto: finalConfig.objeto_principal.substring(0, 50),
+        ambiente: finalConfig.ambiente.substring(0, 50)
+      }
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (error: any) {
