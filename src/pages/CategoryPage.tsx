@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useCompanyData } from "@/hooks/useCompanyData";
 
 interface CategoryData {
   id: string;
@@ -23,6 +24,7 @@ const CategoryPage = () => {
   const navigate = useNavigate();
   const [category, setCategory] = useState<CategoryData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { data: companyData } = useCompanyData();
 
   useEffect(() => {
     const fetchCategory = async () => {
@@ -68,7 +70,8 @@ const CategoryPage = () => {
 
   if (!category) return null;
 
-  const seoTitle = category.seo_title_override || `${category.name} | Smart Dent`;
+  const companyName = companyData?.name || "Smart Dent";
+  const seoTitle = category.seo_title_override || `${category.name} | ${companyName}`;
   const metaDescription = category.meta_description || category.description || "";
   const ogImage = category.og_image_url || "/og-image.jpg";
   const extraData = category.extra_data || {};
@@ -79,7 +82,7 @@ const CategoryPage = () => {
     category.name,
     extraData.category,
     extraData.subcategory,
-    "Smart Dent",
+    companyName,
     "impressão 3D odontológica"
   ].filter(Boolean).join(", ");
 
@@ -116,7 +119,7 @@ const CategoryPage = () => {
         <title>{seoTitle}</title>
         <meta name="description" content={metaDescription} />
         <meta name="keywords" content={keywords} />
-        <meta name="author" content="Smart Dent" />
+        <meta name="author" content={companyName} />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={canonicalUrl} />
         
@@ -130,7 +133,7 @@ const CategoryPage = () => {
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:site_name" content={`PrinterParams ${companyName}`} />
         <meta property="og:locale" content="pt_BR" />
         
         {/* Twitter Card */}
