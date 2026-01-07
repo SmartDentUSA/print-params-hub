@@ -5,6 +5,15 @@ interface AboutSEOHeadProps {
     name: string;
     description: string;
     logo_url?: string;
+    website_url?: string;
+    social_media?: {
+      instagram?: string;
+      youtube?: string;
+      facebook?: string;
+      linkedin?: string;
+      twitter?: string;
+      tiktok?: string;
+    };
     corporate: {
       mission?: string;
       vision?: string;
@@ -46,11 +55,13 @@ export const AboutSEOHead = ({ company }: AboutSEOHeadProps) => {
     "description": company.description,
     ...(company.corporate.founded_year && { "foundingDate": company.corporate.founded_year.toString() }),
     "sameAs": [
-      "https://www.instagram.com/smartdent.br/",
-      "https://www.youtube.com/@smartdent",
-      "https://www.facebook.com/smartdent.br/",
-      "https://www.linkedin.com/company/smartdent/"
-    ],
+      company.social_media?.instagram,
+      company.social_media?.youtube,
+      company.social_media?.facebook,
+      company.social_media?.linkedin,
+      company.social_media?.twitter,
+      company.social_media?.tiktok
+    ].filter(Boolean),
     "knowsAbout": [
       "Impressão 3D Odontológica",
       "Resinas Dentais 3D",

@@ -90,6 +90,10 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
       ...(extraData.specialty && { "description": extraData.specialty }),
       ...(extraData.location && { "workLocation": extraData.location })
     },
+    "publisher": {
+      "@type": "Organization",
+      "@id": "https://parametros.smartdent.com.br/#organization"
+    },
     "reviewBody": testimonial.description,
     "datePublished": new Date().toISOString(),
     ...(videoObject && { "video": videoObject })

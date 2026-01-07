@@ -2,6 +2,7 @@ import { Helmet } from 'react-helmet-async';
 import { useProductReviews } from '@/hooks/useProductReviews';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCompanyData } from '@/hooks/useCompanyData';
 
 interface KnowledgeSEOHeadProps {
   content?: any;
@@ -344,6 +345,7 @@ const generateSPINFromCatalog = (
 
 export function KnowledgeSEOHead({ content, category, videos = [], relatedDocuments = [], currentLang = 'pt' }: KnowledgeSEOHeadProps) {
   const baseUrl = 'https://parametros.smartdent.com.br';
+  const { data: companyData } = useCompanyData();
   
   // 🆕 Fetch products for Review Schema
   const { products } = useProductReviews(content?.recommended_products || []);
@@ -597,10 +599,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     },
     "publisher": {
       "@type": "Organization",
-      "name": "Smart Dent",
+      "@id": "https://parametros.smartdent.com.br/#organization",
+      "name": companyData?.name || "Smart Dent",
+      "url": companyData?.website_url,
       "logo": {
         "@type": "ImageObject",
-        "url": "https://smartdent.com.br/logo.png"
+        "url": companyData?.logo_url || "https://smartdent.com.br/logo.png"
       }
     },
     // 🆕 Product mentions for technical pages
