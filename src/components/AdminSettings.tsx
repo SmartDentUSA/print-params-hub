@@ -811,14 +811,18 @@ export function AdminSettings() {
                         <TableRow key={model.id}>
                           <TableCell>
                             {model.image_url ? (
-                              <img 
-                                src={model.image_url} 
-                                alt={model.name}
-                                className="w-12 h-12 object-cover rounded"
-                                onError={(e) => {
-                                  e.currentTarget.src = '/placeholder.svg';
-                                }}
-                              />
+                              <div className="w-12 h-12 rounded bg-muted flex items-center justify-center overflow-hidden">
+                                <img 
+                                  src={model.image_url} 
+                                  alt={model.name}
+                                  loading="lazy"
+                                  decoding="async"
+                                  className="w-full h-full object-contain p-1"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/placeholder.svg';
+                                  }}
+                                />
+                              </div>
                             ) : (
                               <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
                                 <Monitor className="w-6 h-6 text-muted-foreground" />

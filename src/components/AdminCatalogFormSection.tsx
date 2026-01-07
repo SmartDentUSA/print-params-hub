@@ -193,14 +193,18 @@ export function AdminCatalogFormSection({
         />
         {formData.image_url && (
           <div className="mt-2">
-            <img 
-              src={formData.image_url} 
-              alt="Preview"
-              className="w-32 h-32 object-cover rounded border"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder.svg';
-              }}
-            />
+            <div className="w-32 h-32 rounded border bg-muted flex items-center justify-center overflow-hidden">
+              <img 
+                src={formData.image_url} 
+                alt="Preview"
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-contain p-2"
+                onError={(e) => {
+                  e.currentTarget.src = '/placeholder.svg';
+                }}
+              />
+            </div>
           </div>
         )}
       </div>

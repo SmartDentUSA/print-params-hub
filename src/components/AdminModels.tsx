@@ -411,11 +411,18 @@ export function AdminModels() {
                     <TableRow key={model.id}>
                       <TableCell>
                         {model.image_url ? (
-                          <img 
-                            src={model.image_url} 
-                            alt={model.name}
-                            className="w-12 h-12 object-cover rounded border"
-                          />
+                          <div className="w-12 h-12 rounded border bg-muted flex items-center justify-center overflow-hidden">
+                            <img 
+                              src={model.image_url} 
+                              alt={model.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                e.currentTarget.src = '/placeholder.svg';
+                              }}
+                            />
+                          </div>
                         ) : (
                           <div className="w-12 h-12 bg-muted rounded border flex items-center justify-center">
                             <Monitor className="w-4 h-4 text-muted-foreground" />
