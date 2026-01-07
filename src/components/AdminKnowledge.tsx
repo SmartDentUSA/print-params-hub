@@ -1527,7 +1527,42 @@ Receba o texto bruto abaixo e:
     try {
       // Get selected category info
       const currentCategory = categories.find(c => c.letter === selectedCategory);
-      
+
+      // Tentar usar imagem real do produto/resina selecionado(a)
+      let productName: string | null = null;
+      let productImageUrl: string | null = null;
+
+      const firstResinId = formData.recommended_resins?.[0];
+      const firstProductId = formData.recommended_products?.[0];
+
+      if (firstResinId) {
+        const { data, error } = await supabase
+          .from('resins')
+          .select('name, image_url')
+          .eq('id', firstResinId)
+          .single();
+
+        if (!error && data?.image_url) {
+          productName = data.name;
+          productImageUrl = data.image_url;
+        }
+      } else if (firstProductId) {
+        const { data, error } = await supabase
+          .from('system_a_catalog')
+          .select('name, image_url')
+          .eq('id', firstProductId)
+          .single();
+
+        if (!error && data?.image_url) {
+          productName = data.name;
+          productImageUrl = data.image_url;
+        }
+      }
+
+      if (productImageUrl) {
+        console.log('🖼️ OG Image: usando imagem real:', productName, '| url:', productImageUrl);
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-generate-og-image`,
         {
@@ -1538,10 +1573,11 @@ Receba o texto bruto abaixo e:
           },
           body: JSON.stringify({
             title: formData.title,
-            productName: null, // Manual flow doesn't have specific product
+            productName,
             documentType: null,
             category: currentCategory?.name || null,
             extractedTextPreview: formData.content_html?.substring(0, 500) || formData.excerpt || null,
+            productImageUrl,
           })
         }
       );
@@ -1559,8 +1595,10 @@ Receba o texto bruto abaixo e:
           og_image_url: data.og_image_url
         }));
         toast({
-          title: '✅ Imagem OG gerada!',
-          description: 'Otimizada para LinkedIn, WhatsApp e Google Discover (1200x630px)'
+          title: data.mode === 'edit' ? '✅ Imagem editada com produto real!' : '✅ Imagem OG gerada!',
+          description: data.mode === 'edit'
+            ? `Produto real: ${productName || 'selecionado'} • ambiente profissional`
+            : 'Otimizada para LinkedIn, WhatsApp e Google Discover (1200x630px)'
         });
       } else {
         throw new Error(data.error || 'Nenhuma imagem foi gerada');
