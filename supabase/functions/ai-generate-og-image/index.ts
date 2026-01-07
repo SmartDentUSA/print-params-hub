@@ -124,7 +124,24 @@ serve(async (req) => {
 
     if (isEditMode) {
       // MODO EDIÇÃO: Envia imagem real + instrução para modificar apenas o ambiente
-      const editPrompt = `Keep the product in this image exactly as it appears - do not modify, distort, or alter the product itself in any way. Transform ONLY the background and environment to: ${finalConfig.ambiente}. Apply ${finalConfig.iluminacao} lighting to create an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}. The composition should place the product on the left two-thirds of the frame, with a subtle gradient fade on the right third for social media text overlay. Professional depth of field, slight vignette, and photorealistic render quality. No text, logos, or watermarks on the background. Output exactly 1200x630 pixels for Open Graph optimization.`;
+      const editPrompt = `Professional product photography for Open Graph social media (1200x630 pixels).
+
+CRITICAL PRODUCT SIZING: Resize and reposition the product to occupy approximately 35-40% of the image HEIGHT. The product should be centered within the left two-thirds of the frame. This is a well-composed product shot - the product must NOT fill the entire image.
+
+PRODUCT FIDELITY: Keep the product's visual appearance (colors, shape, details, labels, textures) exactly as shown - only change its SIZE and POSITION within the frame.
+
+ENVIRONMENT TRANSFORMATION: Replace the background completely with ${finalConfig.ambiente}. Apply ${finalConfig.iluminacao} lighting to create an atmosphere of ${finalConfig.mood}. ${finalConfig.elemento_autoridade}.
+
+COMPOSITION RULES:
+- Product occupies 35-40% of image height (NOT more)
+- Product centered in left 2/3 of frame
+- Subtle gradient fade on right third for text overlay space
+- Professional depth of field with slight background blur
+- Clean shadow beneath product
+- Slight vignette for focus
+- No text, logos, or watermarks
+
+Output: Photorealistic, professional dental/medical product photography style.`;
 
       console.log('🎨 Prompt de edição:', editPrompt.substring(0, 200) + '...');
 
