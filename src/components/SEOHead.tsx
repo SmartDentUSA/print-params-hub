@@ -1,4 +1,5 @@
 import { Helmet } from 'react-helmet-async';
+import { useCompanyData } from '@/hooks/useCompanyData';
 
 interface Brand {
   name: string;
@@ -149,12 +150,13 @@ const generateAIContext = (
 
 export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOHeadProps) => {
   const baseUrl = 'https://parametros.smartdent.com.br';
+  const { data: companyData } = useCompanyData();
   
   // Generate dynamic title and description
   let title = 'PrinterParams - Parâmetros de Impressão 3D Odontológica | Smart Dent';
   let description = 'Encontre parâmetros otimizados de impressão 3D para sua impressora e resina Smart Dent. Configurações testadas para modelos odontológicos com melhor qualidade e precisão.';
   let canonical = baseUrl;
-  let ogImage = 'https://smartdent.com.br/logo-og.png';
+  let ogImage = companyData?.logo_url || 'https://smartdent.com.br/logo-og.png';
   
   // Generate keywords for this page
   const keywords = generateKeywords(pageType, brand, model, resins);
@@ -197,56 +199,55 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     }
   }
 
-  // 🆕 Organization Schema completo (autoridade do domínio)
+  // 🆕 Organization Schema dinâmico (usando dados do banco)
   const organizationSchema = {
     "@context": "https://schema.org",
     "@type": "Organization",
     "@id": "https://parametros.smartdent.com.br/#organization",
-    "name": "Smart Dent",
-    "alternateName": "Smart Dent Odontologia Digital",
-    "url": "https://parametros.smartdent.com.br",
+    "name": companyData?.name || "Smart Dent",
+    "alternateName": companyData?.business?.doing_business_as || "Smart Dent Odontologia Digital",
+    "url": companyData?.website_url || "https://parametros.smartdent.com.br",
     "logo": {
       "@type": "ImageObject",
-      "url": "https://parametros.smartdent.com.br/og-image.jpg",
+      "url": companyData?.logo_url || "https://parametros.smartdent.com.br/og-image.jpg",
       "width": 1200,
       "height": 630
     },
     "sameAs": [
-      "https://www.instagram.com/smartdent.br/",
-      "https://www.youtube.com/@smartdent",
-      "https://www.facebook.com/smartdent.br/",
-      "https://www.linkedin.com/company/smartdent/",
-      "https://loja.smartdent.com.br"
-    ],
+      companyData?.social_media?.instagram,
+      companyData?.social_media?.youtube,
+      companyData?.social_media?.facebook,
+      companyData?.social_media?.linkedin,
+      companyData?.social_media?.twitter,
+      companyData?.social_media?.tiktok
+    ].filter(Boolean),
     "contactPoint": {
       "@type": "ContactPoint",
-      "telephone": "+55-16-993831794",
+      "telephone": companyData?.contact?.phone || "+55-16-993831794",
+      "email": companyData?.contact?.email,
       "contactType": "customer service",
-      "areaServed": "BR",
-      "availableLanguage": ["Portuguese", "Spanish", "English"]
+      "areaServed": companyData?.contact?.country || "BR",
+      "availableLanguage": companyData?.contact?.languages_spoken || ["Portuguese", "Spanish", "English"]
     },
     "address": {
       "@type": "PostalAddress",
-      "streetAddress": "R. Dr. Procópio de Tolêdo Malta, 62, Morada dos Deuses",
-      "addressLocality": "São Carlos",
-      "addressRegion": "SP",
-      "postalCode": "13562-291",
-      "addressCountry": "BR"
+      "streetAddress": companyData?.contact?.address || companyData?.contact?.location,
+      "addressLocality": companyData?.contact?.city || "São Carlos",
+      "addressRegion": companyData?.contact?.state || "SP",
+      "postalCode": companyData?.contact?.postal_code,
+      "addressCountry": companyData?.contact?.country || "BR"
     },
-    "description": "Smart Dent oferece parâmetros de impressão 3D odontológica testados e validados para mais de 50 impressoras e 200+ resinas dentais.",
-    "knowsAbout": [
+    "description": companyData?.description || "Smart Dent oferece parâmetros de impressão 3D odontológica testados e validados para mais de 50 impressoras e 200+ resinas dentais.",
+    "knowsAbout": companyData?.seo?.technical_expertise || [
       "Impressão 3D Odontológica",
       "Resinas Dentais 3D",
       "Parâmetros de Impressão",
       "Odontologia Digital",
       "Prototipagem Rápida"
     ],
-    "founder": {
-      "@type": "Person",
-      "name": "Smart Dent Team"
-    },
-    "foundingDate": "2020",
-    "slogan": "Parâmetros precisos, impressões perfeitas"
+    "foundingDate": companyData?.corporate?.founded_year?.toString() || "2009",
+    "numberOfEmployees": companyData?.business?.number_of_employees,
+    "slogan": companyData?.corporate?.mission || "Parâmetros precisos, impressões perfeitas"
   };
 
   // BreadcrumbList Schema (for internal pages)

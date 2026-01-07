@@ -68,6 +68,7 @@ interface CompanyData {
     phone?: string;
     whatsapp?: string;
     address?: string;
+    location?: string;
     city?: string;
     state?: string;
     country?: string;
