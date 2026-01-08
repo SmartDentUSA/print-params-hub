@@ -288,6 +288,11 @@ export function VideoContentGeneratorModal({
           order_index: nextOrderIndex,
           active: true,
           recommended_products: video.product_id ? [video.product_id] : [],
+          // Usar thumbnail do vídeo como imagens da publicação
+          content_image_url: video.thumbnail_url || null,
+          content_image_alt: video.thumbnail_url ? title.trim() : null,
+          og_image_url: video.thumbnail_url || null,
+          og_image_alt: video.thumbnail_url ? title.trim() : null,
         })
         .select('id')
         .single();
