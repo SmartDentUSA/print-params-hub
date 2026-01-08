@@ -1040,23 +1040,47 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
 
   const baseUrl = 'https://parametros.smartdent.com.br';
 
-  // Gerar VideoObject schemas
-  const videoSchemas = (videos || []).filter((video: any) => video.url).map((video: any, idx: number) => {
-    const videoId = video.url.includes('youtube.com/watch?v=')
-      ? video.url.split('v=')[1]?.split('&')[0] 
-      : video.url.split('youtu.be/')[1]?.split('?')[0];
+  // Gerar VideoObject schemas (suporte YouTube e PandaVideo)
+  const videoSchemas = (videos || []).map((video: any, idx: number) => {
+    const youtubeUrl = video.url || null;
+    const pandaEmbedUrl = video.embed_url || null;
+    const pandaThumbnail = video.thumbnail_url || null;
+    
+    // Extrair ID do YouTube se aplicável
+    let videoId: string | null = null;
+    if (youtubeUrl) {
+      if (youtubeUrl.includes('youtube.com/watch?v=')) {
+        videoId = youtubeUrl.split('v=')[1]?.split('&')[0] || null;
+      } else if (youtubeUrl.includes('youtu.be/')) {
+        videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0] || null;
+      }
+    }
+    
+    // Determinar URLs finais
+    const contentUrl = youtubeUrl || pandaEmbedUrl;
+    const embedUrl = youtubeUrl 
+      ? youtubeUrl.replace('watch?v=', 'embed/')
+      : pandaEmbedUrl;
+    const thumbnailUrl = videoId 
+      ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      : (pandaThumbnail || content.og_image_url || content.content_image_url);
+    
+    // Só gerar schema se houver alguma URL válida
+    if (!contentUrl && !embedUrl) return null;
     
     return {
       "@type": "VideoObject",
       "name": video.title || `${content.title} - Vídeo ${idx + 1}`,
       "description": content.meta_description || content.excerpt,
-      "thumbnailUrl": videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : content.og_image_url,
+      "thumbnailUrl": thumbnailUrl,
       "uploadDate": content.created_at,
-      "contentUrl": video.url,
-      "embedUrl": video.url.replace('watch?v=', 'embed/'),
-      "duration": "PT15M"
+      "contentUrl": contentUrl,
+      "embedUrl": embedUrl,
+      "duration": video.video_duration_seconds 
+        ? `PT${Math.floor(video.video_duration_seconds / 60)}M${video.video_duration_seconds % 60}S`
+        : "PT5M"
     };
-  });
+  }).filter(Boolean);
 
   // Gerar FAQPage schema se houver FAQs
   const faqSchema = (content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0) ? {
