@@ -391,6 +391,7 @@ export function AdminVideoAnalyticsDashboard() {
                     <TableHead className="text-right">Views</TableHead>
                     <TableHead className="text-right">Retenção</TableHead>
                     <TableHead className="text-right">Score</TableHead>
+                    <TableHead className="text-right">Atualizado</TableHead>
                     <TableHead className="text-right">Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -478,6 +479,20 @@ export function AdminVideoAnalyticsDashboard() {
                         <Badge variant="outline">
                           {c.relevance_score?.toFixed(1) || 0}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {c.updated_at 
+                            ? new Date(c.updated_at).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: '2-digit',
+                                year: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : '—'
+                          }
+                        </span>
                       </TableCell>
                       <TableCell className="text-right">
                         {(c.analytics_avg_retention || 0) < 40 ? (

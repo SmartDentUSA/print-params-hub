@@ -363,22 +363,23 @@ export default function AdminDocumentsList() {
               <TableRow>
                 <TableHead className="w-[10%]">Nome</TableHead>
                 <TableHead className="w-[10%]">Manual</TableHead>
-                <TableHead className="w-[15%]">Extração IA</TableHead>
-                <TableHead className="w-[5%]">🌐</TableHead>
-                <TableHead className="w-[8%]">Categ.</TableHead>
-                <TableHead className="w-[8%]">Subcateg.</TableHead>
-                <TableHead className="w-[10%]">Produto</TableHead>
-                <TableHead className="w-[8%]">Tipo</TableHead>
-                <TableHead className="w-[6%]">Extrator</TableHead>
-                <TableHead className="w-[6%]">Fonte</TableHead>
-                <TableHead className="w-[10%]">Status</TableHead>
-                <TableHead className="w-[8%]">Ações</TableHead>
+                <TableHead className="w-[14%]">Extração IA</TableHead>
+                <TableHead className="w-[4%]">🌐</TableHead>
+                <TableHead className="w-[7%]">Categ.</TableHead>
+                <TableHead className="w-[7%]">Subcateg.</TableHead>
+                <TableHead className="w-[9%]">Produto</TableHead>
+                <TableHead className="w-[7%]">Tipo</TableHead>
+                <TableHead className="w-[5%]">Extrator</TableHead>
+                <TableHead className="w-[5%]">Fonte</TableHead>
+                <TableHead className="w-[8%]">Status</TableHead>
+                <TableHead className="w-[7%]">Atualizado</TableHead>
+                <TableHead className="w-[7%]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {documents.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     Nenhum documento encontrado
                   </TableCell>
                 </TableRow>
@@ -726,6 +727,22 @@ export default function AdminDocumentsList() {
                           </Button>
                         )}
                       </div>
+                    </TableCell>
+                    
+                    {/* Atualizado */}
+                    <TableCell>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {doc.updated_at 
+                          ? new Date(doc.updated_at).toLocaleDateString('pt-BR', { 
+                              day: '2-digit', 
+                              month: '2-digit',
+                              year: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })
+                          : '—'
+                        }
+                      </span>
                     </TableCell>
                     
                     {/* Ações */}

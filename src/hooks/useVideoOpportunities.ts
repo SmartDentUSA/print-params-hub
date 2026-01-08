@@ -18,6 +18,7 @@ export type VideoRow = {
   thumbnail_url: string | null;
   product_id: string | null;
   resin_id: string | null;
+  updated_at: string | null;
 };
 
 export type VideoWithContent = VideoRow & {
@@ -113,7 +114,7 @@ export function useVideoOpportunities() {
     try {
       const { data, error } = await supabase
         .from('knowledge_videos')
-        .select('id, title, pandavideo_id, analytics_views, analytics_unique_views, analytics_plays, analytics_unique_plays, analytics_avg_retention, analytics_play_rate, relevance_score, content_id, embed_url, thumbnail_url, product_id, resin_id')
+        .select('id, title, pandavideo_id, analytics_views, analytics_unique_views, analytics_plays, analytics_unique_plays, analytics_avg_retention, analytics_play_rate, relevance_score, content_id, embed_url, thumbnail_url, product_id, resin_id, updated_at')
         .not('pandavideo_id', 'is', null)
         .is('content_id', null)
         .order('relevance_score', { ascending: false })
@@ -131,7 +132,7 @@ export function useVideoOpportunities() {
     try {
       const { data: videos, error } = await supabase
         .from('knowledge_videos')
-        .select('id, title, pandavideo_id, analytics_views, analytics_unique_views, analytics_plays, analytics_unique_plays, analytics_avg_retention, analytics_play_rate, relevance_score, content_id, embed_url, thumbnail_url, product_id, resin_id')
+        .select('id, title, pandavideo_id, analytics_views, analytics_unique_views, analytics_plays, analytics_unique_plays, analytics_avg_retention, analytics_play_rate, relevance_score, content_id, embed_url, thumbnail_url, product_id, resin_id, updated_at')
         .not('pandavideo_id', 'is', null)
         .not('content_id', 'is', null)
         .order('relevance_score', { ascending: false });
