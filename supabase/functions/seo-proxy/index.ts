@@ -1123,14 +1123,30 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   ${content.authors?.instagram_url ? `<meta property="article:author:instagram" content="${escapeHtml(content.authors.instagram_url)}" />` : ''}
   ${content.authors?.linkedin_url ? `<meta property="article:author:linkedin" content="${escapeHtml(content.authors.linkedin_url)}" />` : ''}
   
-  <!-- Twitter Card -->
-  ${videos && videos.length > 0 ? `
-  <meta name="twitter:card" content="player" />
-  <meta name="twitter:player" content="${videos[0].url.replace('watch?v=', 'embed/')}" />
+  <!-- Twitter Card (com suporte YouTube e PandaVideo) -->
+  ${(() => {
+    // Determinar se há vídeo válido para player card
+    const firstVideo = videos && videos.length > 0 ? videos[0] : null;
+    const youtubeUrl = firstVideo?.url || null;
+    const pandaEmbedUrl = firstVideo?.embed_url || null;
+    
+    // Gerar embed URL apenas para YouTube (PandaVideo usa summary_large_image)
+    let playerUrl = null;
+    if (youtubeUrl && (youtubeUrl.includes('youtube.com/watch?v=') || youtubeUrl.includes('youtu.be/'))) {
+      playerUrl = youtubeUrl.replace('watch?v=', 'embed/');
+    }
+    
+    if (playerUrl) {
+      return `<meta name="twitter:card" content="player" />
+  <meta name="twitter:player" content="${playerUrl}" />
   <meta name="twitter:player:width" content="1280" />
-  <meta name="twitter:player:height" content="720" />` : content.og_image_url || content.content_image_url ? `
-  <meta name="twitter:card" content="summary_large_image" />` : `
-  <meta name="twitter:card" content="summary" />`}
+  <meta name="twitter:player:height" content="720" />`;
+    } else if (content.og_image_url || content.content_image_url) {
+      return `<meta name="twitter:card" content="summary_large_image" />`;
+    } else {
+      return `<meta name="twitter:card" content="summary" />`;
+    }
+  })()}
   <meta name="twitter:site" content="@smartdent" />
   <meta name="twitter:creator" content="${content.authors?.twitter_url ? '@' + content.authors.twitter_url.split('/').pop() : '@smartdent'}" />
   <meta name="twitter:title" content="${escapeHtml(content.title)}" />
