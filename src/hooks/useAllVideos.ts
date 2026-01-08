@@ -41,6 +41,7 @@ export interface VideoWithDetails {
   analytics_views: number;
   analytics_play_rate: number;
   created_at: string;
+  updated_at: string | null;
   has_transcript: boolean;
   video_transcript: string | null;
 }
@@ -164,6 +165,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
           analytics_views,
           analytics_play_rate,
           created_at,
+          updated_at,
           video_transcript
         `)
         .eq('video_type', 'pandavideo')
@@ -232,6 +234,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
         analytics_views: video.analytics_views || 0,
         analytics_play_rate: video.analytics_play_rate || 0,
         created_at: video.created_at,
+        updated_at: video.updated_at,
         has_transcript: !!video.video_transcript,
         video_transcript: video.video_transcript,
       }));

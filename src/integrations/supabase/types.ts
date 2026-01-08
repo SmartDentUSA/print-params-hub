@@ -522,6 +522,7 @@ export type Database = {
           search_vector: unknown
           thumbnail_url: string | null
           title: string
+          updated_at: string | null
           url: string | null
           video_duration_seconds: number | null
           video_transcript: string | null
@@ -562,6 +563,7 @@ export type Database = {
           search_vector?: unknown
           thumbnail_url?: string | null
           title: string
+          updated_at?: string | null
           url?: string | null
           video_duration_seconds?: number | null
           video_transcript?: string | null
@@ -602,6 +604,7 @@ export type Database = {
           search_vector?: unknown
           thumbnail_url?: string | null
           title?: string
+          updated_at?: string | null
           url?: string | null
           video_duration_seconds?: number | null
           video_transcript?: string | null

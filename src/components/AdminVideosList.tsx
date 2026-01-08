@@ -259,13 +259,14 @@ export function AdminVideosList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[250px]">Nome</TableHead>
-                  <TableHead className="w-[140px]">Categoria</TableHead>
-                  <TableHead className="w-[160px]">Subcategoria</TableHead>
-                  <TableHead className="w-[180px]">Produto</TableHead>
-                  <TableHead className="w-[150px]">Tipo de Vídeo</TableHead>
-                  <TableHead className="w-[150px]">Conteúdo</TableHead>
-                  <TableHead className="w-[200px]">Gerar Conteúdo</TableHead>
+                  <TableHead className="w-[220px]">Nome</TableHead>
+                  <TableHead className="w-[130px]">Categoria</TableHead>
+                  <TableHead className="w-[140px]">Subcategoria</TableHead>
+                  <TableHead className="w-[160px]">Produto</TableHead>
+                  <TableHead className="w-[140px]">Tipo de Vídeo</TableHead>
+                  <TableHead className="w-[130px]">Conteúdo</TableHead>
+                  <TableHead className="w-[180px]">Gerar Conteúdo</TableHead>
+                  <TableHead className="w-[100px]">Atualizado</TableHead>
                   <TableHead className="w-[80px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -280,12 +281,13 @@ export function AdminVideosList() {
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-16" /></TableCell>
                     </TableRow>
                   ))
                 ) : videos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       Nenhum vídeo encontrado
                     </TableCell>
                   </TableRow>
@@ -497,6 +499,22 @@ export function AdminVideosList() {
                         ) : (
                           <span className="text-muted-foreground text-xs">Vinculado</span>
                         )}
+                      </TableCell>
+
+                      {/* Atualizado */}
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {video.updated_at 
+                            ? new Date(video.updated_at).toLocaleDateString('pt-BR', { 
+                                day: '2-digit', 
+                                month: '2-digit',
+                                year: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : '—'
+                          }
+                        </span>
                       </TableCell>
 
                       {/* Ações */}
