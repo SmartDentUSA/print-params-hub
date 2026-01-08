@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.ai-generate-og-image]
 verify_jwt = false
+
+[functions.enrich-article-seo]
+verify_jwt = false
