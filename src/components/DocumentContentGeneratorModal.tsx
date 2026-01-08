@@ -123,6 +123,7 @@ export function DocumentContentGeneratorModal({
   const [isGeneratingOG, setIsGeneratingOG] = useState(false);
   const [generatedOGImage, setGeneratedOGImage] = useState<string | null>(null);
   const [generatedOGAlt, setGeneratedOGAlt] = useState<string | null>(null);
+  const [generatedVeredictData, setGeneratedVeredictData] = useState<any>(null);
 
   const selectedCategory = CONTENT_CATEGORIES.find(c => c.letter === selectedCategoryLetter);
   const documentTypeInfo = document?.document_type ? DOCUMENT_TYPE_MAPPING[document.document_type] : null;
@@ -144,6 +145,7 @@ export function DocumentContentGeneratorModal({
       setShowExtractedText(false);
       setGeneratedOGImage(null);
       setGeneratedOGAlt(null);
+      setGeneratedVeredictData(null);
       
       // Auto-select category based on document type
       if (documentTypeInfo) {
@@ -389,6 +391,12 @@ export function DocumentContentGeneratorModal({
         console.log(`✅ ${data.faqs.length} FAQs geradas`);
       }
       
+      // Capturar VeredictData (gerado para laudos/certificados)
+      if (data.veredictData) {
+        setGeneratedVeredictData(data.veredictData);
+        console.log('✅ VeredictData gerado automaticamente:', data.veredictData.productName);
+      }
+      
       setStep('preview');
 
       toast({
@@ -449,6 +457,7 @@ export function DocumentContentGeneratorModal({
           faqs: generatedFAQs || [], // FAQs geradas automaticamente
           og_image_url: generatedOGImage, // OG Image gerada por IA
           og_image_alt: generatedOGAlt, // Alt-text SEO otimizado
+          veredict_data: generatedVeredictData, // VeredictBox para laudos/certificados
         })
         .select('id')
         .single();
