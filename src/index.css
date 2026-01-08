@@ -10,6 +10,9 @@
 
 @import './styles/blog-content.css';
 
+/* Knowledge Base styles (VeredictBox, FAQ, etc.) */
+@import './styles/knowledge-base.css';
+
 /* 3D Printing Parameters App Design System - Technical & Professional */
 
 @import './styles/inline-product-card.css';
