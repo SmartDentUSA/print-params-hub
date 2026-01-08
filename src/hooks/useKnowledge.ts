@@ -143,7 +143,7 @@ export function useKnowledge() {
         .select('*, knowledge_categories!inner(*), authors(*)')
         .eq('knowledge_categories.letter', categoryLetter.toUpperCase())
         .eq('active', true)
-        .order('order_index');
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       return data as any[];
