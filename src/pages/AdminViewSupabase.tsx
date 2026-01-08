@@ -2,7 +2,7 @@ import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Database, Settings, ArrowLeft, Wrench, Zap } from "lucide-react";
+import { Database, Settings, ArrowLeft, Wrench, Zap, Sparkles } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { Link } from "react-router-dom";
 import { AdminSettings } from "@/components/AdminSettings";
@@ -11,7 +11,7 @@ import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
 import { AdminParameterPages } from "@/components/AdminParameterPages";
 import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
 import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
-
+import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 const AdminViewSupabase = () => {
   const dataContext = useData();
 
@@ -131,6 +131,9 @@ const AdminViewSupabase = () => {
 
           {/* Video Analytics Dashboard */}
           <AdminVideoAnalyticsDashboard />
+
+          {/* SEO Article Enricher */}
+          <AdminArticleEnricher />
 
           {/* Article HTML Reformatter */}
           <Card className="bg-gradient-card border-border shadow-medium">
