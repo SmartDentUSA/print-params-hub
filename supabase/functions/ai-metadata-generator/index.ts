@@ -99,6 +99,13 @@ serve(async (req) => {
       generateKeywords(lovableApiKey, title, contentHTML).then(k => ({ type: 'keywords', value: k }))
     );
 
+    // FAQs (se necessário)
+    if (!existingFaqs || regenerate.faqs) {
+      promises.push(
+        generateFAQs(lovableApiKey, title, contentHTML).then(f => ({ type: 'faqs', value: f }))
+      );
+    }
+
     // Aguardar todas as promessas em paralelo
     const results = await Promise.allSettled(promises);
 
@@ -143,8 +150,14 @@ serve(async (req) => {
       console.log('✅ Generated slug:', slug);
     }
 
-    // ❌ REMOVIDO: Geração de FAQs (agora é responsabilidade do ai-orchestrate-content)
-    const faqs = existingFaqs || [];
+    // FAQs (processando resultado da promessa)
+    let faqs = existingFaqs || [];
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value.type === 'faqs') {
+        faqs = result.value.value;
+        console.log('✅ Generated FAQs:', faqs.length);
+      }
+    }
 
     const response: MetadataResponse = {
       slug,
@@ -471,4 +484,77 @@ Conteúdo: ${contentPreview}`;
   return parsedArgs.keywords || [];
 }
 
-// ❌ FUNÇÃO generateFAQs REMOVIDA: FAQs agora são geradas APENAS pelo ai-orchestrate-content para evitar duplicação
+async function generateFAQs(
+  apiKey: string,
+  title: string,
+  contentHTML: string
+): Promise<Array<{ question: string; answer: string }>> {
+  const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const contentPreview = stripTags(contentHTML).substring(0, 4000);
+
+  const prompt = `Baseado no título e conteúdo abaixo, gere EXATAMENTE 10 FAQs relevantes para SEO e Voice Search.
+
+Regras obrigatórias:
+- Perguntas devem ser naturais, como pessoas pesquisam no Google
+- Perguntas em tom conversacional (ex: "A resina X é boa para...?" em vez de "Qual o resultado do teste de...?")
+- Respostas completas de 2-4 frases
+- Baseado APENAS no conteúdo fornecido (Princípio-Mãe: sem inventar dados)
+- Contexto: odontologia digital brasileira
+- Sem repetir informações entre FAQs
+
+Título: ${title}
+Conteúdo: ${contentPreview}`;
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: SYSTEM_SUPER_PROMPT },
+        { role: 'user', content: prompt }
+      ],
+      tools: [{
+        type: 'function',
+        function: {
+          name: 'generate_faqs',
+          description: 'Generate 10 SEO-optimized FAQs',
+          parameters: {
+            type: 'object',
+            properties: {
+              faqs: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    question: { type: 'string' },
+                    answer: { type: 'string' }
+                  },
+                  required: ['question', 'answer']
+                }
+              }
+            },
+            required: ['faqs']
+          }
+        }
+      }],
+      tool_choice: { type: 'function', function: { name: 'generate_faqs' } }
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('❌ AI API error for FAQs');
+    return [];
+  }
+
+  const data = await response.json();
+  const toolCall = data.choices[0]?.message?.tool_calls?.[0];
+
+  if (!toolCall) return [];
+  
+  const parsedArgs = JSON.parse(toolCall.function.arguments);
+  return parsedArgs.faqs || [];
+}
