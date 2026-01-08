@@ -102,27 +102,28 @@ REGRAS:
 - Se não encontrar dados técnicos, retorne null`;
 
   try {
-    const response = await fetch('https://api.lovable.dev/v1/chat/completions', {
+    console.log(`[AI] Calling Lovable AI Gateway for: ${title}`);
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: 'Você é um especialista em SEO técnico para conteúdo odontológico. Responda APENAS com JSON válido.' },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 500,
-        temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
-      console.error('AI API error:', response.status);
+      const errorText = await response.text();
+      console.error(`[AI] API error ${response.status}:`, errorText);
       return null;
     }
+    console.log(`[AI] ✅ Response received for: ${title}`);
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
