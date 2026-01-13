@@ -12,6 +12,7 @@ import { AdminParameterPages } from "@/components/AdminParameterPages";
 import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
 import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
+import { ApostilaExport } from "@/components/ApostilaExport";
 const AdminViewSupabase = () => {
   const dataContext = useData();
 
@@ -156,6 +157,9 @@ const AdminViewSupabase = () => {
 
           {/* Video Product Links Dashboard */}
           <AdminVideoProductLinks />
+
+          {/* Apostila Export */}
+          <ApostilaExport />
 
           {/* Admin Settings */}
           <AdminSettings />
