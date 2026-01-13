@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.enrich-article-seo]
 verify_jwt = false
+
+[functions.export-apostila-docx]
+verify_jwt = false
