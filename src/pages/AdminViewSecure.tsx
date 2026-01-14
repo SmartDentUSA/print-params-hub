@@ -15,11 +15,16 @@ import AdminDocumentsList from "@/components/AdminDocumentsList";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart, FolderOpen } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart, FolderOpen, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
 import { AdminAuthors } from "@/components/AdminAuthors";
 import { AdminCatalog } from "@/components/AdminCatalog";
+import { AdminVideoProductLinks } from "@/components/AdminVideoProductLinks";
+import { AdminParameterPages } from "@/components/AdminParameterPages";
+import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
+import AdminArticleEnricher from "@/components/AdminArticleEnricher";
+import { ApostilaExport } from "@/components/ApostilaExport";
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -187,7 +192,7 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-9' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-10' : 'grid-cols-2'}`}>
             {isAdmin && (
               <>
                 <TabsTrigger value="models" className="flex items-center gap-2">
@@ -214,6 +219,10 @@ export default function AdminViewSecure() {
             </TabsTrigger>
             {isAdmin && (
               <>
+                <TabsTrigger value="tools" className="flex items-center gap-2">
+                  <Wrench className="w-4 h-4" />
+                  Ferramentas
+                </TabsTrigger>
                 <TabsTrigger value="stats" className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4" />
                   Estatísticas
@@ -257,6 +266,24 @@ export default function AdminViewSecure() {
 
           {isAdmin && (
             <>
+              <TabsContent value="tools" className="space-y-6">
+                <ApostilaExport />
+                <AdminArticleEnricher />
+                <Card className="bg-gradient-card border-border shadow-medium">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Wrench className="w-5 h-5" />
+                      Reformatar HTML de Artigos com IA
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AdminArticleReformatter />
+                  </CardContent>
+                </Card>
+                <AdminParameterPages />
+                <AdminVideoProductLinks />
+              </TabsContent>
+
               <TabsContent value="stats" className="space-y-6">
                 <AdminStats />
               </TabsContent>
