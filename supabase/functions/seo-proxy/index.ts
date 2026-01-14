@@ -49,6 +49,18 @@ const SOCIAL_BOTS = [
 
 const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 
+// Favicon Tags para SEO
+const BASE_URL = 'https://parametros.smartdent.com.br';
+const FAVICON_TAGS = `
+  <link rel="icon" type="image/x-icon" href="${BASE_URL}/favicon.ico?v=5">
+  <link rel="icon" type="image/png" sizes="16x16" href="${BASE_URL}/favicon-16x16.png?v=5">
+  <link rel="icon" type="image/png" sizes="32x32" href="${BASE_URL}/favicon-32x32.png?v=5">
+  <link rel="icon" type="image/png" sizes="48x48" href="${BASE_URL}/favicon-48x48.png?v=5">
+  <link rel="icon" type="image/png" sizes="192x192" href="${BASE_URL}/favicon-192x192.png?v=5">
+  <link rel="icon" type="image/png" sizes="512x512" href="${BASE_URL}/favicon-512x512.png?v=5">
+  <link rel="apple-touch-icon" sizes="180x180" href="${BASE_URL}/apple-touch-icon.png?v=5">
+`;
+
 const isBot = (ua: string): boolean => {
   if (!ua) return false;
   const lowerUa = ua.toLowerCase();
@@ -61,6 +73,7 @@ function generate404(): string {
 <head>
   <title>Página não encontrada | Smart Dent</title>
   <meta name="robots" content="noindex" />
+  ${FAVICON_TAGS}
 </head>
 <body>
   <h1>404 - Página não encontrada</h1>
@@ -168,6 +181,7 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
 <head>
   <title>Parâmetros de Impressão 3D Odontológica | Smart Dent</title>
   <meta name="description" content="Base de dados profissional com parâmetros testados para ${brands?.length || 15}+ marcas de impressoras 3D odontológicas. Elegoo, Anycubic, Creality e mais." />
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/" />
   <meta property="og:title" content="Parâmetros de Impressão 3D Odontológica" />
   <meta property="og:description" content="Configurações profissionais para impressoras e resinas 3D odontológicas" />
@@ -247,6 +261,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
 <head>
   <title>${escapeHtml(brand.name)} - Parâmetros de Impressão 3D | Smart Dent</title>
   <meta name="description" content="Configurações profissionais para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos disponíveis com parâmetros testados." />
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
   <meta property="og:title" content="${escapeHtml(brand.name)} - Parâmetros de Impressão 3D" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
@@ -346,6 +361,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
 <head>
   <title>${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent</title>
   <meta name="description" content="Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas." />
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
   <meta property="og:title" content="${escapeHtml(model.name)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
@@ -472,6 +488,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <title>${seoTitle}</title>
   <meta name="description" content="${metaDescription}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${canonicalUrl}" />
   <meta property="og:title" content="${escapeHtml(resinData?.name || resinName)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${metaDescription}" />
@@ -618,6 +635,7 @@ async function generateSystemACatalogHTML(
   <title>${escapeHtml(seoTitle)}</title>
   <meta name="description" content="${escapeHtml(metaDescription)}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${canonicalUrl}" />
   
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
@@ -875,6 +893,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 <head>
   <title>Base de Conhecimento | Smart Dent</title>
   <meta name="description" content="Artigos, tutoriais e guias sobre impressão 3D odontológica. Aprenda técnicas, resolução de problemas e melhores práticas." />
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/conhecimento" />
   <meta property="og:title" content="Base de Conhecimento Smart Dent" />
   <meta property="og:type" content="website" />
@@ -945,6 +964,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
 <head>
   <title>${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento</title>
   <meta name="description" content="Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis." />
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
   <meta property="og:title" content="${escapeHtml(category.name)}" />
   <script type="application/ld+json">
@@ -1100,6 +1120,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
 <head>
   <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
+  ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   
