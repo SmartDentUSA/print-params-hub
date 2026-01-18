@@ -67,6 +67,254 @@ const isBot = (ua: string): boolean => {
   return ALL_BOTS.some(bot => lowerUa.includes(bot));
 };
 
+// ===== ADVANCED SEO SCHEMAS - FASE AUDITORIA =====
+
+// Tipo de conteúdo baseado em categoria/keywords (para schemas médicos/científicos)
+function detectContentType(content: any): 'MedicalWebPage' | 'ScholarlyArticle' | 'TechArticle' {
+  const category = content.knowledge_categories?.name?.toLowerCase() || '';
+  const keywords = (content.keywords || []).join(' ').toLowerCase();
+  const title = (content.title || '').toLowerCase();
+  
+  // Conteúdo com foco em saúde/biocompatibilidade
+  if (keywords.includes('biocompatib') || keywords.includes('anvisa') || 
+      keywords.includes('iso 10993') || category.includes('biocompat') ||
+      keywords.includes('citotox') || keywords.includes('médic') ||
+      title.includes('biocompat') || title.includes('anvisa')) {
+    return 'MedicalWebPage';
+  }
+  
+  // Conteúdo com laudos técnicos/certificados/pesquisas
+  if (keywords.includes('laudo') || keywords.includes('certificado') || 
+      keywords.includes('ensaio clínico') || keywords.includes('pesquisa') ||
+      keywords.includes('estudo') || category.includes('document') ||
+      title.includes('laudo') || title.includes('certificado')) {
+    return 'ScholarlyArticle';
+  }
+  
+  return 'TechArticle';
+}
+
+// Publisher Schema completo com dados corporativos
+function buildPublisherSchema(baseUrl: string) {
+  return {
+    "@type": "Organization",
+    "@id": `${baseUrl}/#organization`,
+    "name": "Smart Dent",
+    "legalName": "Smart Dent Comércio e Desenvolvimento de Produtos Odontológicos LTDA",
+    "alternateName": "Smart Dent Odontologia Digital",
+    "url": baseUrl,
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png",
+      "width": 512,
+      "height": 512
+    },
+    "foundingDate": "2009",
+    "numberOfEmployees": {
+      "@type": "QuantitativeValue",
+      "value": 40
+    },
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Rua Alfredo Lopes, 1717 - Jardim Macarengo",
+      "addressLocality": "São Carlos",
+      "addressRegion": "SP",
+      "postalCode": "13560-460",
+      "addressCountry": "BR"
+    },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+55-16-3419-4735",
+      "contactType": "customer service",
+      "availableLanguage": ["Portuguese", "English", "Spanish"]
+    },
+    "sameAs": [
+      "https://www.instagram.com/smartdent.br/",
+      "https://www.youtube.com/@smartdent",
+      "https://www.facebook.com/smartdent.br/",
+      "https://www.linkedin.com/company/smartdent-brasil/"
+    ],
+    "expertise": "Fabricação de resinas odontológicas para impressão 3D",
+    "knowsAbout": [
+      "Impressão 3D odontológica",
+      "Resinas fotopolimerizáveis",
+      "Biocompatibilidade dental",
+      "Prótese dentária digital",
+      "Ortodontia digital"
+    ],
+    "award": [
+      "Certificação ISO 13485 - Dispositivos Médicos",
+      "Registro ANVISA para resinas odontológicas"
+    ]
+  };
+}
+
+// Author Schema completo com credenciais profissionais (E-E-A-T)
+function buildAuthorSchema(author: any, baseUrl: string) {
+  if (!author) {
+    return {
+      "@type": "Organization",
+      "@id": `${baseUrl}/#organization`,
+      "name": "Smart Dent"
+    };
+  }
+
+  const authorSlug = (author.name || '').toLowerCase().replace(/\s+/g, '-').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  const socialLinks = [
+    author.lattes_url,
+    author.linkedin_url,
+    author.instagram_url,
+    author.youtube_url,
+    author.facebook_url,
+    author.twitter_url,
+    author.tiktok_url,
+    author.website_url
+  ].filter(Boolean);
+
+  const schema: any = {
+    "@type": "Person",
+    "@id": `${baseUrl}/#author-${authorSlug}`,
+    "name": author.name,
+    "url": author.website_url || `${baseUrl}/autores/${authorSlug}`,
+    "image": author.photo_url,
+    "jobTitle": author.specialty,
+    "description": author.mini_bio,
+    "sameAs": socialLinks
+  };
+
+  // Adicionar credenciais se disponível (do mini_bio)
+  if (author.mini_bio) {
+    const bio = author.mini_bio.toLowerCase();
+    
+    // Detectar formação acadêmica
+    if (bio.includes('doutor') || bio.includes('phd') || bio.includes('doutorado')) {
+      schema.hasCredential = schema.hasCredential || [];
+      schema.hasCredential.push({
+        "@type": "EducationalOccupationalCredential",
+        "credentialCategory": "degree",
+        "educationalLevel": "Doctoral"
+      });
+    }
+    if (bio.includes('mestre') || bio.includes('mestrado') || bio.includes('msc')) {
+      schema.hasCredential = schema.hasCredential || [];
+      schema.hasCredential.push({
+        "@type": "EducationalOccupationalCredential",
+        "credentialCategory": "degree",
+        "educationalLevel": "Master"
+      });
+    }
+    
+    // Detectar universidades brasileiras conhecidas
+    const universities = [];
+    if (bio.includes('usp') || bio.includes('são paulo')) {
+      universities.push({ "@type": "CollegeOrUniversity", "name": "Universidade de São Paulo (USP)" });
+    }
+    if (bio.includes('unicamp') || bio.includes('campinas')) {
+      universities.push({ "@type": "CollegeOrUniversity", "name": "Universidade Estadual de Campinas (UNICAMP)" });
+    }
+    if (bio.includes('unesp')) {
+      universities.push({ "@type": "CollegeOrUniversity", "name": "Universidade Estadual Paulista (UNESP)" });
+    }
+    if (bio.includes('ufrj') || bio.includes('federal do rio')) {
+      universities.push({ "@type": "CollegeOrUniversity", "name": "Universidade Federal do Rio de Janeiro (UFRJ)" });
+    }
+    if (universities.length > 0) {
+      schema.alumniOf = universities;
+    }
+    
+    // Detectar áreas de conhecimento
+    const knowsAbout = [];
+    if (bio.includes('impressão 3d') || bio.includes('impressora')) knowsAbout.push('Impressão 3D');
+    if (bio.includes('cad') || bio.includes('cam')) knowsAbout.push('CAD/CAM');
+    if (bio.includes('prótese') || bio.includes('protese')) knowsAbout.push('Prótese Dentária');
+    if (bio.includes('ortodon')) knowsAbout.push('Ortodontia');
+    if (bio.includes('resina')) knowsAbout.push('Resinas Odontológicas');
+    if (bio.includes('metrologia') || bio.includes('precisão')) knowsAbout.push('Metrologia');
+    if (knowsAbout.length > 0) {
+      schema.knowsAbout = knowsAbout;
+    }
+  }
+
+  // Adicionar Lattes como credencial CNPq
+  if (author.lattes_url) {
+    schema.memberOf = {
+      "@type": "Organization",
+      "name": "CNPq - Conselho Nacional de Desenvolvimento Científico e Tecnológico",
+      "url": "https://lattes.cnpq.br/"
+    };
+  }
+
+  return schema;
+}
+
+// MedicalWebPage Schema para conteúdo de saúde
+function buildMedicalWebPageSchema(content: any, author: any, baseUrl: string, canonicalUrl: string) {
+  return {
+    "@type": "MedicalWebPage",
+    "@id": canonicalUrl,
+    "name": content.title,
+    "headline": content.title,
+    "description": content.excerpt || content.meta_description,
+    "datePublished": content.created_at,
+    "dateModified": content.updated_at,
+    "image": content.og_image_url || content.content_image_url,
+    "url": canonicalUrl,
+    "inLanguage": "pt-BR",
+    "specialty": {
+      "@type": "MedicalSpecialty",
+      "name": "Odontologia"
+    },
+    "medicalAudience": {
+      "@type": "MedicalAudience",
+      "audienceType": "Clinician",
+      "geographicArea": { "@type": "Country", "name": "Brasil" }
+    },
+    "lastReviewed": content.updated_at,
+    "reviewedBy": buildAuthorSchema(author, baseUrl),
+    "author": { "@id": buildAuthorSchema(author, baseUrl)["@id"] },
+    "publisher": { "@id": `${baseUrl}/#organization` },
+    "about": {
+      "@type": "MedicalEntity",
+      "name": content.knowledge_categories?.name || "Odontologia Digital",
+      "relevantSpecialty": {
+        "@type": "MedicalSpecialty",
+        "name": "Odontologia"
+      }
+    },
+    "mainContentOfPage": {
+      "@type": "WebPageElement",
+      "cssSelector": "article"
+    }
+  };
+}
+
+// ScholarlyArticle Schema para laudos e documentos técnicos
+function buildScholarlyArticleSchema(content: any, author: any, baseUrl: string, canonicalUrl: string) {
+  return {
+    "@type": "ScholarlyArticle",
+    "@id": canonicalUrl,
+    "headline": content.title,
+    "name": content.title,
+    "abstract": content.excerpt || content.meta_description,
+    "description": content.excerpt || content.meta_description,
+    "datePublished": content.created_at,
+    "dateModified": content.updated_at,
+    "image": content.og_image_url || content.content_image_url,
+    "url": canonicalUrl,
+    "inLanguage": "pt-BR",
+    "author": buildAuthorSchema(author, baseUrl),
+    "publisher": { "@id": `${baseUrl}/#organization` },
+    "isAccessibleForFree": true,
+    "keywords": content.keywords?.join(', '),
+    "articleSection": content.knowledge_categories?.name || "Documentação Técnica",
+    "backstory": "Documento técnico-científico baseado em ensaios laboratoriais e normas internacionais (ISO, ANVISA).",
+    "citation": content.file_url ? `Documento disponível em: ${content.file_url}` : undefined,
+    "copyrightHolder": { "@id": `${baseUrl}/#organization` },
+    "copyrightYear": new Date(content.created_at).getFullYear()
+  };
+}
+
 function generate404(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -1175,62 +1423,68 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image" content="${content.og_image_url || content.content_image_url}" />` : ''}
   ${content.og_image_url || content.content_image_url ? `<meta name="twitter:image:alt" content="${escapeHtml(content.content_image_alt || content.title)}" />` : ''}
   
-  <!-- Structured Data: @graph com TechArticle/HowTo + BreadcrumbList -->
+  <!-- Structured Data: @graph com Detecção Dinâmica de Tipo (MedicalWebPage/ScholarlyArticle/TechArticle) -->
   <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@graph": [
-      {
+  ${(() => {
+    const contentType = detectContentType(content);
+    const canonicalUrl = `${baseUrl}/base-conhecimento/${letter}/${slug}`;
+    const authorSchema = buildAuthorSchema(content.authors, baseUrl);
+    const publisherSchema = buildPublisherSchema(baseUrl);
+    
+    // Construir schema principal baseado no tipo detectado
+    let mainArticleSchema: any;
+    
+    if (contentType === 'MedicalWebPage') {
+      mainArticleSchema = buildMedicalWebPageSchema(content, content.authors, baseUrl, canonicalUrl);
+    } else if (contentType === 'ScholarlyArticle') {
+      mainArticleSchema = buildScholarlyArticleSchema(content, content.authors, baseUrl, canonicalUrl);
+    } else {
+      // TechArticle (padrão)
+      mainArticleSchema = {
         "@type": "TechArticle",
+        "@id": canonicalUrl,
         "headline": escapeHtml(content.title),
+        "name": escapeHtml(content.title),
         "description": escapeHtml(content.excerpt || desc),
         "image": content.og_image_url || content.content_image_url,
         "datePublished": content.created_at,
         "dateModified": content.updated_at,
+        "url": canonicalUrl,
+        "inLanguage": "pt-BR",
         "keywords": content.keywords?.join(', ') || undefined,
         "articleBody": content.content_html?.replace(/<[^>]*>/g, '').substring(0, 5000),
         "proficiencyLevel": "Expert",
         "dependencies": recommendedResins.length > 0 ? recommendedResins.map((r: any) => r.name).join(', ') : undefined,
-        "author": content.authors ? {
-          "@type": "Person",
-          "name": escapeHtml(content.authors.name),
-          "url": content.authors.website_url,
-          "image": content.authors.photo_url,
-          "jobTitle": content.authors.specialty,
-          "description": content.authors.mini_bio,
-          "sameAs": [
-            content.authors.lattes_url,
-            content.authors.instagram_url,
-            content.authors.youtube_url,
-            content.authors.linkedin_url,
-            content.authors.facebook_url,
-            content.authors.twitter_url,
-            content.authors.tiktok_url,
-            content.authors.website_url
-          ].filter(Boolean)
-        } : {
-          "@type": "Organization",
-          "name": "Smart Dent"
-        },
-        "publisher": {
-          "@type": "Organization",
-          "name": "Smart Dent",
-          "logo": {
-            "@type": "ImageObject",
-            "url": `${baseUrl}/og-image.jpg`
-          }
+        "author": { "@id": authorSchema["@id"] },
+        "publisher": { "@id": `${baseUrl}/#organization` },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": canonicalUrl
         }
-      },
+      };
+    }
+    
+    // Construir o @graph completo
+    const graph = [
+      // Publisher (Organization) - sempre incluir primeiro
+      publisherSchema,
+      // Author (Person ou Organization)
+      authorSchema,
+      // Artigo principal (tipo detectado dinamicamente)
+      mainArticleSchema,
+      // Breadcrumbs
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
           { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
           { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
           { "@type": "ListItem", "position": 3, "name": escapeHtml(content.knowledge_categories?.name || letter.toUpperCase()), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` },
-          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": `${baseUrl}/base-conhecimento/${letter}/${slug}` }
+          { "@type": "ListItem", "position": 4, "name": escapeHtml(content.title), "item": canonicalUrl }
         ]
       },
+      // Videos
       ...videoSchemas,
+      // FAQs
       ...(faqSchema ? [faqSchema] : []),
       // HowTo Schema - Universal Extractor
       ...(() => {
@@ -1246,13 +1500,13 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
               "position": idx + 1,
               "name": step.substring(0, 100),
               "text": step,
-              "url": `${baseUrl}/base-conhecimento/${letter}/${slug}#passo-${idx + 1}`
+              "url": `${canonicalUrl}#passo-${idx + 1}`
             }))
           }];
         }
         return [];
       })(),
-      // FASE 2: LearningResource Schema para IA Regenerativa
+      // LearningResource Schema para IA Regenerativa
       {
         "@type": "LearningResource",
         "name": escapeHtml(content.title),
@@ -1269,71 +1523,18 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         },
         "inLanguage": "pt-BR",
         "isAccessibleForFree": true,
-        "author": content.authors ? {
-          "@type": "Person",
-          "name": escapeHtml(content.authors.name),
-          "url": content.authors.website_url
-        } : {
-          "@type": "Organization",
-          "name": "Smart Dent",
-          "url": baseUrl
-        },
-        "publisher": {
-          "@type": "Organization",
-          "name": "Smart Dent",
-          "url": baseUrl,
-          "logo": {
-            "@type": "ImageObject",
-            "url": `${baseUrl}/og-image.jpg`
-          }
-        },
+        "author": { "@id": authorSchema["@id"] },
+        "publisher": { "@id": `${baseUrl}/#organization` },
         "datePublished": content.created_at,
         "dateModified": content.updated_at
       }
-    ]
-  })}
-  </script>
-  
-  <!-- FASE 2: Organization Schema com E-E-A-T Enhancement -->
-  <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Smart Dent",
-    "url": baseUrl,
-    "logo": `${baseUrl}/og-image.jpg`,
-    "description": "Base de conhecimento sobre impressão 3D odontológica",
-    "expertise": "Fabricação de resinas odontológicas para impressão 3D, desenvolvimento de parâmetros de impressão otimizados",
-    "knowsAbout": [
-      "Impressão 3D odontológica",
-      "Resinas fotopolimerizáveis",
-      "Biocompatibilidade dental",
-      "Prótese dentária digital",
-      "Ortodontia digital",
-      "Planejamento virtual odontológico"
-    ],
-    "award": [
-      "Certificação ISO 13485 - Dispositivos Médicos",
-      "Registro ANVISA para resinas odontológicas"
-    ],
-    "certifications": [
-      {
-        "@type": "Certification",
-        "name": "ISO 13485",
-        "description": "Sistema de gestão da qualidade para dispositivos médicos"
-      },
-      {
-        "@type": "Certification",
-        "name": "ANVISA",
-        "description": "Registro sanitário para comercialização de resinas odontológicas no Brasil"
-      }
-    ],
-    "sameAs": [
-      "https://www.instagram.com/smartdent.br/",
-      "https://www.youtube.com/@smartdent",
-      "https://www.facebook.com/smartdent.br/"
-    ]
-  })}
+    ];
+    
+    return JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": graph
+    });
+  })()}
   </script>
 </head>
 <body>
