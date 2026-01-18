@@ -52,13 +52,14 @@ const ALL_BOTS = [...AI_BOTS, ...SEARCH_BOTS, ...SOCIAL_BOTS];
 // Favicon Tags para SEO
 const BASE_URL = 'https://parametros.smartdent.com.br';
 const FAVICON_TAGS = `
-  <link rel="icon" type="image/x-icon" href="${BASE_URL}/favicon.ico?v=5">
-  <link rel="icon" type="image/png" sizes="16x16" href="${BASE_URL}/favicon-16x16.png?v=5">
-  <link rel="icon" type="image/png" sizes="32x32" href="${BASE_URL}/favicon-32x32.png?v=5">
-  <link rel="icon" type="image/png" sizes="48x48" href="${BASE_URL}/favicon-48x48.png?v=5">
-  <link rel="icon" type="image/png" sizes="192x192" href="${BASE_URL}/favicon-192x192.png?v=5">
-  <link rel="icon" type="image/png" sizes="512x512" href="${BASE_URL}/favicon-512x512.png?v=5">
-  <link rel="apple-touch-icon" sizes="180x180" href="${BASE_URL}/apple-touch-icon.png?v=5">
+  <link rel="icon" type="image/x-icon" href="${BASE_URL}/favicon.ico?v=6">
+  <link rel="icon" type="image/png" sizes="16x16" href="${BASE_URL}/favicon-16x16.png?v=6">
+  <link rel="icon" type="image/png" sizes="32x32" href="${BASE_URL}/favicon-32x32.png?v=6">
+  <link rel="icon" type="image/png" sizes="48x48" href="${BASE_URL}/favicon-48x48.png?v=6">
+  <link rel="icon" type="image/png" sizes="192x192" href="${BASE_URL}/favicon-192x192.png?v=6">
+  <link rel="icon" type="image/png" sizes="512x512" href="${BASE_URL}/favicon-512x512.png?v=6">
+  <link rel="apple-touch-icon" sizes="180x180" href="${BASE_URL}/apple-touch-icon.png?v=6">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232463eb' width='32' height='32' rx='4'/><text x='50%%' y='50%%' fill='white' font-family='sans-serif' font-size='14' font-weight='bold' text-anchor='middle' dy='.35em'>SD</text></svg>">
 `;
 
 const isBot = (ua: string): boolean => {
