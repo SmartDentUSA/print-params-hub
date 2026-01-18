@@ -74,20 +74,44 @@ function detectContentType(content: any): 'MedicalWebPage' | 'ScholarlyArticle' 
   const category = content.knowledge_categories?.name?.toLowerCase() || '';
   const keywords = (content.keywords || []).join(' ').toLowerCase();
   const title = (content.title || '').toLowerCase();
+  const combinedText = `${keywords} ${title} ${category}`;
   
-  // Conteúdo com foco em saúde/biocompatibilidade
-  if (keywords.includes('biocompatib') || keywords.includes('anvisa') || 
-      keywords.includes('iso 10993') || category.includes('biocompat') ||
-      keywords.includes('citotox') || keywords.includes('médic') ||
-      title.includes('biocompat') || title.includes('anvisa')) {
+  // ===== MedicalWebPage: Conteúdo médico/odontológico =====
+  const medicalKeywords = [
+    // Biocompatibilidade e segurança
+    'biocompatib', 'citotox', 'segurança biológica', 'iso 10993',
+    // Regulamentação
+    'anvisa', 'dispositivos médicos', 
+    // Procedimentos clínicos odontológicos
+    'lesões cervicais', 'lesão cervical', 'lcnc',
+    'restauração classe', 'restaurações classe', 
+    'odontologia restauradora', 'dentística',
+    'restaurações dentárias', 'restauração dentária',
+    'protocolo restaurador', 'abfração',
+    // Tecidos bucais
+    'esmalte dentário', 'adesão dentina', 'dentina',
+    'abrasão dental', 'desgaste dental',
+    // Materiais médicos
+    'resina biocompatível', 'materiais odontológicos',
+    // Especialidades
+    'ortodontia', 'implantodontia', 'prótese dentária',
+    'endodontia', 'periodontia'
+  ];
+  
+  const isMedical = medicalKeywords.some(kw => combinedText.includes(kw));
+  if (isMedical) {
     return 'MedicalWebPage';
   }
   
-  // Conteúdo com laudos técnicos/certificados/pesquisas
-  if (keywords.includes('laudo') || keywords.includes('certificado') || 
-      keywords.includes('ensaio clínico') || keywords.includes('pesquisa') ||
-      keywords.includes('estudo') || category.includes('document') ||
-      title.includes('laudo') || title.includes('certificado')) {
+  // ===== ScholarlyArticle: Laudos e documentos técnicos =====
+  const scholarlyKeywords = [
+    'laudo', 'certificado', 'ensaio clínico', 
+    'pesquisa', 'estudo científico', 'teste de',
+    'relatório técnico', 'análise laboratorial'
+  ];
+  
+  const isScholarly = scholarlyKeywords.some(kw => combinedText.includes(kw));
+  if (isScholarly) {
     return 'ScholarlyArticle';
   }
   
