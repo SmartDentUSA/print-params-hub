@@ -59,7 +59,7 @@ const FAVICON_TAGS = `
   <link rel="icon" type="image/png" sizes="192x192" href="${BASE_URL}/favicon-192x192.png?v=6">
   <link rel="icon" type="image/png" sizes="512x512" href="${BASE_URL}/favicon-512x512.png?v=6">
   <link rel="apple-touch-icon" sizes="180x180" href="${BASE_URL}/apple-touch-icon.png?v=6">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232463eb' width='32' height='32' rx='4'/><text x='50%%' y='50%%' fill='white' font-family='sans-serif' font-size='14' font-weight='bold' text-anchor='middle' dy='.35em'>SD</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232463eb' width='32' height='32' rx='4'/><text x='50%25' y='50%25' fill='white' font-family='sans-serif' font-size='14' font-weight='bold' text-anchor='middle' dy='.35em'>SD</text></svg>">
 `;
 
 const isBot = (ua: string): boolean => {
