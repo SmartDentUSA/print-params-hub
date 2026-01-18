@@ -1698,10 +1698,13 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   const url = new URL(req.url);
-  const path = url.pathname.replace(/^\/seo-proxy/, '').replace(/^\/+$/, ''); // Remove prefixo e trailing slashes
+  
+  // FIXED: Read original path from query parameter (set by Vercel rewrite)
+  const originalPath = url.searchParams.get('originalPath') || '';
+  const path = originalPath.replace(/^\/+$/, '').replace(/^\//, ''); // Remove leading/trailing slashes
   const segments = path.length === 0 ? [] : path.split('/').filter(Boolean);
 
-  console.log('SEO Proxy:', { path, segments, userAgent });
+  console.log('SEO Proxy:', { path, segments, originalPath, userAgent });
 
   let html = '';
 

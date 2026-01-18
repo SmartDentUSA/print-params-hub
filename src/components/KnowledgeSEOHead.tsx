@@ -485,6 +485,91 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   // Check if this is a technical parameter page (Category F)
   const isTechnicalPage = category?.letter === 'F' || content.slug?.startsWith('parametros-');
 
+  // 🆕 AUDITORIA SEO: Detectar tipo de conteúdo para schemas avançados (MedicalWebPage, ScholarlyArticle)
+  const detectContentType = (): 'MedicalWebPage' | 'ScholarlyArticle' | 'TechArticle' | 'Article' => {
+    const keywords = (content.keywords || []).join(' ').toLowerCase();
+    const title = (content.title || '').toLowerCase();
+    const categoryName = category?.name?.toLowerCase() || '';
+    
+    // Conteúdo médico/biocompatibilidade
+    if (keywords.includes('biocompatib') || keywords.includes('citotox') || 
+        keywords.includes('iso 10993') || keywords.includes('anvisa') ||
+        keywords.includes('médic') || categoryName.includes('biocompat') ||
+        title.includes('biocompat') || title.includes('anvisa') ||
+        title.includes('citotox')) {
+      return 'MedicalWebPage';
+    }
+    
+    // Laudos técnicos/certificados/pesquisas científicas
+    if (keywords.includes('laudo') || keywords.includes('certificado') || 
+        keywords.includes('ensaio clínico') || keywords.includes('pesquisa') ||
+        keywords.includes('estudo') || categoryName.includes('document') ||
+        title.includes('laudo') || title.includes('certificado') ||
+        title.includes('teste')) {
+      return 'ScholarlyArticle';
+    }
+    
+    if (isTechnicalPage) return 'TechArticle';
+    
+    return 'Article';
+  };
+  
+  const contentType = detectContentType();
+
+  // 🆕 AUDITORIA SEO: Extrair credentials e alumniOf do mini_bio do autor
+  const detectAuthorCredentials = (): { hasCredential?: any[]; alumniOf?: any[] } => {
+    if (!content.authors?.mini_bio) return {};
+    const bio = content.authors.mini_bio.toLowerCase();
+    
+    const credentials: any[] = [];
+    const alumniOf: any[] = [];
+    
+    // Detectar graus acadêmicos
+    if (bio.includes('doutor') || bio.includes('phd') || bio.includes('dr.')) {
+      credentials.push({ 
+        "@type": "EducationalOccupationalCredential", 
+        "credentialCategory": "degree", 
+        "educationalLevel": "Doctoral" 
+      });
+    }
+    if (bio.includes('mestre') || bio.includes('msc') || bio.includes('mestrado')) {
+      credentials.push({ 
+        "@type": "EducationalOccupationalCredential", 
+        "credentialCategory": "degree", 
+        "educationalLevel": "Masters" 
+      });
+    }
+    if (bio.includes('especialista') || bio.includes('especialização')) {
+      credentials.push({ 
+        "@type": "EducationalOccupationalCredential", 
+        "credentialCategory": "certificate", 
+        "educationalLevel": "Postgraduate Specialization" 
+      });
+    }
+    
+    // Detectar universidades
+    if (bio.includes('usp') || bio.includes('são paulo')) {
+      alumniOf.push({ "@type": "CollegeOrUniversity", "name": "Universidade de São Paulo (USP)" });
+    }
+    if (bio.includes('unicamp')) {
+      alumniOf.push({ "@type": "CollegeOrUniversity", "name": "Universidade Estadual de Campinas (UNICAMP)" });
+    }
+    if (bio.includes('unesp')) {
+      alumniOf.push({ "@type": "CollegeOrUniversity", "name": "Universidade Estadual Paulista (UNESP)" });
+    }
+    if (bio.includes('são carlos') || bio.includes('eesc')) {
+      alumniOf.push({ "@type": "CollegeOrUniversity", "name": "Escola de Engenharia de São Carlos - USP" });
+    }
+    
+    const result: { hasCredential?: any[]; alumniOf?: any[] } = {};
+    if (credentials.length > 0) result.hasCredential = credentials;
+    if (alumniOf.length > 0) result.alumniOf = alumniOf;
+    
+    return result;
+  };
+  
+  const authorCredentials = detectAuthorCredentials();
+
   // Preparar articleBody e wordCount para E-E-A-T
   const articleBody = stripTags(content.content_html || '');
   const wordCount = articleBody.split(/\s+/).filter(w => w.length > 0).length;
@@ -530,7 +615,12 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
 
   const articleSchema: any = {
     "@context": "https://schema.org",
-    "@type": isTechnicalPage ? "TechArticle" : "Article",
+    // 🆕 AUDITORIA SEO: Usar tipo dinâmico com array para MedicalWebPage/ScholarlyArticle
+    "@type": contentType === 'MedicalWebPage' 
+      ? ["TechArticle", "MedicalWebPage"]
+      : contentType === 'ScholarlyArticle'
+      ? ["TechArticle", "ScholarlyArticle"]
+      : isTechnicalPage ? "TechArticle" : "Article",
     "headline": displayTitle,
     "keywords": content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || ''),
     "description": content.meta_description || content.excerpt,
@@ -540,7 +630,37 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "articleBody": articleBody,
     "wordCount": wordCount,
     "inLanguage": htmlLang,
-    // 🆕 TechArticle com proficiencyLevel
+    
+    // 🆕 AUDITORIA SEO: Propriedades específicas para MedicalWebPage
+    ...(contentType === 'MedicalWebPage' && {
+      "specialty": {
+        "@type": "MedicalSpecialty",
+        "name": "Dentistry"
+      },
+      "medicalAudience": {
+        "@type": "MedicalAudience",
+        "audienceType": "Clinician",
+        "geographicArea": { "@type": "Country", "name": "Brazil" }
+      },
+      "lastReviewed": new Date(content.updated_at).toISOString().split('T')[0],
+      "reviewedBy": content.authors ? {
+        "@type": "Person",
+        "name": content.authors.name,
+        "jobTitle": content.authors.specialty
+      } : {
+        "@type": "Organization",
+        "name": "Smart Dent - Equipe Técnica"
+      }
+    }),
+    
+    // 🆕 AUDITORIA SEO: Propriedades específicas para ScholarlyArticle
+    ...(contentType === 'ScholarlyArticle' && {
+      "abstract": content.meta_description || content.excerpt,
+      "isAccessibleForFree": true,
+      "citation": content.keywords?.slice(0, 3).map((k: string) => `Protocolo ${k}`).join('; ')
+    }),
+    
+    // TechArticle com proficiencyLevel
     ...(isTechnicalPage && { 
       "proficiencyLevel": "Expert",
       "teaches": content.keywords?.slice(0, 5) || [],
@@ -567,17 +687,22 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         }
       ]
     }),
-    // 🆕 Autor com sameAs links E hasCredential (E-E-A-T) - FASE 4
+    
+    // 🆕 AUDITORIA SEO: Autor enriquecido com credentials e alumniOf detectados automaticamente
     "author": content.authors ? {
       "@type": "Person",
+      "@id": `${baseUrl}/#author-${content.authors.name?.toLowerCase().replace(/\s+/g, '-')}`,
       "name": content.authors.name,
       "jobTitle": content.authors.specialty,
+      "description": content.authors.mini_bio,
       "url": content.authors.website_url,
       "image": content.authors.photo_url,
       ...(authorSameAs.length > 0 && { "sameAs": authorSameAs }),
-      // 🆕 FASE 4: Author Credential
-      ...(content.authors.lattes_url && {
-        "hasCredential": {
+      // Credenciais detectadas do mini_bio
+      ...authorCredentials,
+      // Lattes como credencial reconhecida pelo CNPq
+      ...(content.authors.lattes_url && !authorCredentials.hasCredential && {
+        "hasCredential": [{
           "@type": "EducationalOccupationalCredential",
           "credentialCategory": "Currículo Lattes",
           "recognizedBy": {
@@ -585,16 +710,18 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             "name": "CNPq - Conselho Nacional de Desenvolvimento Científico e Tecnológico"
           },
           "url": content.authors.lattes_url
-        }
+        }]
       }),
-      // 🆕 FASE 4: knowsAbout
+      // knowsAbout
       "knowsAbout": [
         content.authors.specialty,
         "Impressão 3D Odontológica",
-        "Odontologia Digital"
+        "Odontologia Digital",
+        ...(content.keywords?.slice(0, 3) || [])
       ].filter(Boolean)
     } : { 
       "@type": "Organization", 
+      "@id": `${baseUrl}/#organization`,
       "name": "Smart Dent" 
     },
     "publisher": {
