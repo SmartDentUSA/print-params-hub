@@ -39,22 +39,8 @@ serve(async (req) => {
 
     console.log('Etapa 1/2: Limpando e organizando texto do PDF...');
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: SYSTEM_SUPER_PROMPT
-          },
-          {
-            role: 'user',
-      content: `**INSTRUÇÃO PRINCIPAL: EXTRAÇÃO, ESTRUTURAÇÃO E FIDELIDADE ABSOLUTA**
+    // Usar formato multimodal para enviar PDF ao modelo de visão
+    const extractionPrompt = `**INSTRUÇÃO PRINCIPAL: EXTRAÇÃO, ESTRUTURAÇÃO E FIDELIDADE ABSOLUTA**
 
 **Objetivo:** Transcrever o conteúdo integral do PDF fornecido, estruturando-o em um formato hierárquico, claro e de fácil leitura, garantindo a fidelidade completa a 100% das informações contidas no documento.
 
@@ -85,8 +71,36 @@ D. **Sem Exemplos:** NÃO use exemplos de outros produtos. Extraia APENAS o cont
 * Tabelas e instruções preservadas no formato original.
 * **IMPORTANTE:** Use APENAS o conteúdo do PDF. NÃO invente, NÃO complete, NÃO use exemplos de outros produtos.
 
-Conteúdo do PDF (base64):
-${pdfBase64}`
+Extraia TODO o conteúdo do PDF anexo seguindo estas regras.`;
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'system',
+            content: SYSTEM_SUPER_PROMPT
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: extractionPrompt
+              },
+              {
+                type: 'file',
+                file: {
+                  filename: 'document.pdf',
+                  file_data: `data:application/pdf;base64,${pdfBase64}`
+                }
+              }
+            ]
           }
         ],
         max_completion_tokens: 12000
