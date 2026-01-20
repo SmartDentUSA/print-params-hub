@@ -1018,6 +1018,13 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta name="description" content={content.meta_description || content.excerpt} />
       <meta name="keywords" content={content.keywords?.join(', ') || extractKeywordsFromContent(content.content_html || '')} />
       <meta name="author" content={content.authors?.name || "Smart Dent"} />
+      <meta name="publisher" content={companyData?.name || "Smart Dent"} />
+      
+      {/* Geo Location Tags (LocalBusiness SEO) */}
+      <meta name="geo.region" content="BR-SP" />
+      <meta name="geo.placename" content="São Carlos" />
+      <meta name="geo.position" content="-22.0154;-47.8911" />
+      <meta name="ICBM" content="-22.0154, -47.8911" />
       
       {/* AI Meta Tags */}
       <meta name="ai-content-type" content="article" />
@@ -1115,7 +1122,22 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
             // 🆕 FASE 3: LearningResource Schema Avançado (SEO + IA 2025)
             learningResourceSchema,
             // 🆕 FASE 4: Product Review Schemas (E-E-A-T)
-            ...productReviewSchemas
+            ...productReviewSchemas,
+            // 🆕 AUDITORIA: SpeakableSpecification para Voice Search e AI Assistants
+            {
+              "@type": "WebPage",
+              "@id": canonicalUrl,
+              "speakable": {
+                "@type": "SpeakableSpecification",
+                "cssSelector": [
+                  ".veredict-summary",
+                  ".ai-summary-box", 
+                  "h1",
+                  ".article-excerpt",
+                  ".knowledge-faq"
+                ]
+              }
+            }
           ]
         })}
       </script>

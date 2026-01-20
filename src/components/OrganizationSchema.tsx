@@ -8,7 +8,8 @@ export function OrganizationSchema() {
 
   const schema: any = {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": ["Organization", "LocalBusiness", "Store"],
+    "@id": "https://parametros.smartdent.com.br/#organization",
     
     // Core Identity
     "name": company.name,
@@ -64,6 +65,26 @@ export function OrganizationSchema() {
       "postalCode": company.contact.postal_code,
       "addressCountry": company.contact.country,
     },
+    
+    // GeoCoordinates (LocalBusiness SEO - Google Maps/Local Pack)
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": -22.0154,
+      "longitude": -47.8911
+    },
+    
+    // Opening Hours (LocalBusiness SEO)
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        "opens": "08:00",
+        "closes": "18:00"
+      }
+    ],
+    
+    // Telephone for LocalBusiness
+    "telephone": company.contact.phone,
     
     // Social Media Links
     "sameAs": [
