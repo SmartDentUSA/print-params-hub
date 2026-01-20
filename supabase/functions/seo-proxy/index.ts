@@ -1552,6 +1552,21 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         "publisher": { "@id": `${baseUrl}/#organization` },
         "datePublished": content.created_at,
         "dateModified": content.updated_at
+      },
+      // 🆕 AUDITORIA: SpeakableSpecification para Voice Search e AI Assistants
+      {
+        "@type": "WebPage",
+        "@id": canonicalUrl,
+        "speakable": {
+          "@type": "SpeakableSpecification",
+          "cssSelector": [
+            ".veredict-summary",
+            ".ai-summary-box",
+            "h1",
+            ".article-excerpt",
+            ".knowledge-faq"
+          ]
+        }
       }
     ];
     
@@ -1561,9 +1576,22 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     });
   })()}
   </script>
+  
+  <!-- 🆕 AUDITORIA: Geo Location Meta Tags -->
+  <meta name="geo.region" content="BR-SP" />
+  <meta name="geo.placename" content="São Carlos" />
+  <meta name="geo.position" content="-22.0154;-47.8911" />
+  <meta name="ICBM" content="-22.0154, -47.8911" />
+  <meta name="publisher" content="Smart Dent" />
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+  <!-- 🆕 AUDITORIA: Skip Link para Acessibilidade (WCAG 2.1) -->
+  <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">
+    Pular para conteúdo principal
+  </a>
+  <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
+  
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
         src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
@@ -1571,20 +1599,23 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"
         loading="lazy"
+        decoding="async"
       />
       <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
     </a>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <article>
+  <article role="main" id="main-content">
     ${content.content_image_url ? `
     <img 
       src="${content.content_image_url}" 
       alt="${escapeHtml(content.content_image_alt || content.title)}"
       style="width: 100%; max-width: 1200px; height: auto; border-radius: 12px; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block;"
+      loading="lazy"
+      decoding="async"
     />` : ''}
     <h1>${escapeHtml(content.title)}</h1>
-    <p>${escapeHtml(content.excerpt)}</p>
+    <p class="article-excerpt">${escapeHtml(content.excerpt)}</p>
     
     ${content.file_url ? `
     <div style="background:#fff3cd;border:1px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:4px">
@@ -1691,6 +1722,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     </aside>
     ` : ''}
   </article>
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+    <p><a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a></p>
+  </footer>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
