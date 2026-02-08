@@ -1,9 +1,12 @@
 import { Instagram, Youtube, Facebook, Linkedin, Twitter, Mail, Phone, MapPin } from "lucide-react";
 import { useCompanyData } from "@/hooks/useCompanyData";
 import { Link } from "react-router-dom";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getKnowledgeBasePath } from "@/utils/i18nPaths";
 
 export function Footer() {
   const { data: company } = useCompanyData();
+  const { t, language } = useLanguage();
 
   if (!company) return null;
 
@@ -14,6 +17,8 @@ export function Footer() {
     { icon: Linkedin, url: company.social_media.linkedin, label: "LinkedIn" },
     { icon: Twitter, url: company.social_media.twitter, label: "Twitter" },
   ].filter(link => link.url);
+
+  const aboutPath = language === 'en' ? '/sobre' : language === 'es' ? '/sobre' : '/sobre';
 
   return (
     <footer className="bg-gradient-surface border-t border-border mt-16">
@@ -34,7 +39,7 @@ export function Footer() {
 
           {/* Contact */}
           <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-foreground">Contato</h4>
+            <h4 className="text-lg font-semibold text-foreground">{t('footer.contact')}</h4>
             <div className="space-y-2 text-sm text-muted-foreground">
               {company.contact.email && (
                 <a href={`mailto:${company.contact.email}`} className="flex items-center gap-2 hover:text-foreground transition-colors">
@@ -59,13 +64,13 @@ export function Footer() {
 
           {/* Links */}
           <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-foreground">Links</h4>
+            <h4 className="text-lg font-semibold text-foreground">{t('footer.links')}</h4>
             <div className="space-y-2 text-sm">
-              <Link to="/sobre" className="block text-muted-foreground hover:text-foreground transition-colors">
-                Sobre Nós
+              <Link to={aboutPath} className="block text-muted-foreground hover:text-foreground transition-colors">
+                {t('footer.about_us')}
               </Link>
-              <Link to="/base-conhecimento" className="block text-muted-foreground hover:text-foreground transition-colors">
-                Base de Conhecimento
+              <Link to={getKnowledgeBasePath(language)} className="block text-muted-foreground hover:text-foreground transition-colors">
+                {t('footer.knowledge_base')}
               </Link>
               {company.institutional_links?.slice(0, 3).map((link, index) => (
                 <a 
@@ -84,7 +89,7 @@ export function Footer() {
           {/* Social Media */}
           {socialLinks.length > 0 && (
             <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-foreground">Redes Sociais</h4>
+              <h4 className="text-lg font-semibold text-foreground">{t('footer.social')}</h4>
               <div className="flex gap-3">
                 {socialLinks.map((link, index) => {
                   const Icon = link.icon;
@@ -108,7 +113,7 @@ export function Footer() {
 
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} {company.name}. Todos os direitos reservados.</p>
+          <p>© {new Date().getFullYear()} {company.name}. {t('common.all_rights_reserved')}.</p>
         </div>
       </div>
     </footer>

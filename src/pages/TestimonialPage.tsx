@@ -10,6 +10,7 @@ import { GoogleReviewsWidget } from "@/components/GoogleReviewsWidget";
 import { InstagramEmbed } from "@/components/InstagramEmbed";
 import { RelatedTestimonials } from "@/components/RelatedTestimonials";
 import { MentionedProducts } from "@/components/MentionedProducts";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface TestimonialData {
   id: string;
@@ -28,6 +29,7 @@ const TestimonialPage = () => {
   const navigate = useNavigate();
   const [testimonial, setTestimonial] = useState<TestimonialData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { t } = useLanguage();
 
   useEffect(() => {
     const fetchTestimonial = async () => {
@@ -46,7 +48,7 @@ const TestimonialPage = () => {
         if (error) throw error;
         
         if (!data) {
-          toast.error("Depoimento não encontrado");
+          toast.error(t('testimonial.not_found'));
           navigate("/");
           return;
         }
@@ -54,28 +56,25 @@ const TestimonialPage = () => {
         setTestimonial(data);
       } catch (error) {
         console.error("Error fetching testimonial:", error);
-        toast.error("Erro ao carregar depoimento");
+        toast.error(t('testimonial.load_error'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchTestimonial();
-  }, [slug, navigate]);
+  }, [slug, navigate, t]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Carregando...</p>
+        <p>{t('common.loading')}</p>
       </div>
     );
   }
 
   if (!testimonial) return null;
 
-  const seoTitle = testimonial.seo_title_override || `${testimonial.name} | Smart Dent`;
-  const metaDescription = testimonial.meta_description || testimonial.description || "";
-  const ogImage = testimonial.og_image_url || testimonial.image_url || "/og-image.jpg";
   const extraData = testimonial.extra_data || {};
   const youtubeUrl = extraData.youtube_url;
   const instagramUrl = extraData.instagram_url;
@@ -90,13 +89,9 @@ const TestimonialPage = () => {
       <div className="min-h-screen bg-background">
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/")}
-              className="gap-2"
-            >
+            <Button variant="ghost" onClick={() => navigate("/")} className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              Voltar
+              {t('common.back')}
             </Button>
           </div>
         </header>
@@ -138,7 +133,7 @@ const TestimonialPage = () => {
           {extraData.video_transcript && (
             <Card className="mb-8">
               <CardContent className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Transcrição do Depoimento</h2>
+                <h2 className="text-2xl font-bold mb-4">{t('testimonial.transcription')}</h2>
                 <div className="prose max-w-none">
                   <p className="whitespace-pre-line text-muted-foreground leading-relaxed">
                     {extraData.video_transcript}
@@ -157,13 +152,7 @@ const TestimonialPage = () => {
             resinSlugs={['resina-smart-print-bio-denture-translucida', 'resina-3d-smart-print-modelo-precision']}
           />
 
-          {/* Outros Depoimentos */}
-          <RelatedTestimonials 
-            currentTestimonialId={testimonial.id} 
-            limit={4}
-          />
-
-          {/* Google Reviews Widget */}
+          <RelatedTestimonials currentTestimonialId={testimonial.id} limit={4} />
           <GoogleReviewsWidget />
         </main>
       </div>
