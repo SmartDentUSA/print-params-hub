@@ -1,45 +1,89 @@
 
 
-## Plano: Traduzir Artigos Automaticamente ao Trocar Idioma
+## Plano: Traduzir Labels do Autor para Todos os Idiomas
 
-### Objetivo
-Quando o usuario seleciona EN ou ES, os artigos que ainda nao possuem traducao serao traduzidos automaticamente em tempo real usando a edge function `translate-content`, salvando o resultado no banco para futuras visitas.
+### Problema
 
-### Fluxo
+Os textos da seção "Sobre o autor" estão hardcoded em português em 3 arquivos:
 
-```text
-1. Usuario seleciona idioma EN/ES
-2. KnowledgeContentViewer verifica se artigo tem traducao
-3a. SE TEM traducao -> exibe normalmente (ja funciona)
-3b. SE NAO TEM -> chama translate-content automaticamente
-4. Enquanto traduz: exibe spinner "Traduzindo..."
-5. Traducao concluida: salva no banco + exibe conteudo traduzido
-6. Proxima visita ao mesmo artigo: usa traducao ja salva (sem chamar IA de novo)
+| Texto hardcoded | Onde aparece |
+|---|---|
+| "Sobre o autor" | `AuthorSignature.tsx` (linha 50), `authorSignatureHTML.ts` (linha 73) |
+| "Mini Currículo" | `AuthorSignature.tsx` (linha 86), `authorSignatureHTML.ts` (linha 51) |
+| "Ver Currículo Lattes" | `AuthorSignature.tsx` (linha 98), `AuthorBio.tsx` (linha 80), `authorSignatureHTML.ts` (linha 60) |
+
+Quando o usuario troca para EN ou ES, esses textos permanecem em PT porque nao usam o sistema de traducao `t()`.
+
+### Solucao
+
+#### 1. Adicionar chaves de traducao nos 3 arquivos de locale
+
+**`src/locales/pt.json`** - Adicionar dentro de `"knowledge"`:
+```json
+"about_author": "Sobre o autor",
+"mini_cv": "Mini Currículo",
+"view_lattes": "Ver Currículo Lattes"
 ```
 
-### Mudancas
+**`src/locales/en.json`** - Adicionar dentro de `"knowledge"`:
+```json
+"about_author": "About the author",
+"mini_cv": "Short Bio",
+"view_lattes": "View Lattes CV"
+```
 
-#### 1. `src/components/KnowledgeContentViewer.tsx`
+**`src/locales/es.json`** - Adicionar dentro de `"knowledge"`:
+```json
+"about_author": "Sobre el autor",
+"mini_cv": "Mini Currículum",
+"view_lattes": "Ver Currículum Lattes"
+```
 
-- **Remover** o `useEffect` de redirect (linhas 58-65) que forca retorno ao PT
-- **Adicionar** logica de traducao automatica:
-  - Novo estado `translating: boolean` e `translatedContent: object | null`
-  - Novo `useEffect` que, quando `hasTranslation === false` e `language !== 'pt'`:
-    1. Seta `translating = true`
-    2. Chama `supabase.functions.invoke('translate-content', { body: { title, excerpt, htmlContent, faqs, targetLanguage } })`
-    3. Salva resultado no banco (`knowledge_contents` com `title_en/es`, `excerpt_en/es`, `content_html_en/es`, `faqs_en/es`)
-    4. Atualiza `translatedContent` com os dados traduzidos
-    5. Seta `translating = false`
-  - O `displayContent` passa a considerar `translatedContent` como fonte adicional
-  - Exibe um indicador de carregamento ("Traduzindo conteudo...") enquanto a traducao esta em andamento
+#### 2. `src/components/AuthorSignature.tsx`
 
-#### Nenhum outro arquivo precisa ser alterado
+- Importar `useLanguage` do contexto
+- Substituir "Sobre o autor" (linha 50) por `{t('knowledge.about_author')}`
+- Substituir "Mini Currículo" (linha 86) por `{t('knowledge.mini_cv')}`
+- Substituir "Ver Currículo Lattes" (linha 98) por `{t('knowledge.view_lattes')}`
 
-A edge function `translate-content` ja existe e funciona corretamente. A unica mudanca e no componente que exibe o artigo.
+#### 3. `src/components/AuthorBio.tsx`
+
+- Importar `useLanguage` do contexto
+- Substituir "Ver Currículo Lattes" (linha 80) por `{t('knowledge.view_lattes')}`
+
+#### 4. `src/utils/authorSignatureHTML.ts`
+
+Este arquivo gera HTML como string (usado quando o token `[[ASSINATURA_AUTOR]]` aparece no conteudo). Nao tem acesso ao hook `useLanguage` por ser uma funcao utilitaria.
+
+**Solucao:** Adicionar parametro `language` opcional a funcao `generateAuthorSignatureHTML` e usar um mapa simples de traducoes inline:
+- Receber `language?: 'pt' | 'en' | 'es'` como segundo parametro
+- Criar mapa local com as 3 traducoes
+- Substituir os textos hardcoded pelos valores do mapa
+
+#### 5. `src/utils/authorSignatureToken.ts`
+
+- Atualizar `renderAuthorSignaturePlaceholders` para aceitar e repassar o parametro `language` para `generateAuthorSignatureHTML`
+
+#### 6. `src/components/KnowledgeContentViewer.tsx`
+
+- Passar `language` ao chamar `renderAuthorSignaturePlaceholders` (linha ~230) para que o HTML inline tambem seja traduzido
+
+### Arquivos a Modificar
+
+| Arquivo | Acao |
+|---|---|
+| `src/locales/pt.json` | Adicionar 3 chaves |
+| `src/locales/en.json` | Adicionar 3 chaves |
+| `src/locales/es.json` | Adicionar 3 chaves |
+| `src/components/AuthorSignature.tsx` | Usar `t()` nos 3 textos |
+| `src/components/AuthorBio.tsx` | Usar `t()` em 1 texto |
+| `src/utils/authorSignatureHTML.ts` | Adicionar parametro `language` e mapa de traducoes |
+| `src/utils/authorSignatureToken.ts` | Repassar `language` |
+| `src/components/KnowledgeContentViewer.tsx` | Passar `language` na chamada |
 
 ### Resultado Esperado
-- Trocar idioma nunca mais redireciona de volta para PT
-- Artigos sem traducao sao traduzidos automaticamente na primeira visita
-- Traducao e salva no banco, entao so acontece uma vez por artigo/idioma
-- Artigos ja traduzidos carregam instantaneamente
 
+- "Sobre o autor" -> "About the author" (EN) / "Sobre el autor" (ES)
+- "Mini Currículo" -> "Short Bio" (EN) / "Mini Currículum" (ES)
+- "Ver Currículo Lattes" -> "View Lattes CV" (EN) / "Ver Currículum Lattes" (ES)
+- Funciona tanto no componente React quanto no HTML inline gerado pelo token `[[ASSINATURA_AUTOR]]`
