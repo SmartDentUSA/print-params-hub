@@ -9,7 +9,7 @@ import { renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken'
 import { KnowledgeSEOHead } from '@/components/KnowledgeSEOHead';
 import { KnowledgeCTA } from '@/components/KnowledgeCTA';
 import { VideoSchema } from '@/components/VideoSchema';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
@@ -31,7 +31,6 @@ interface KnowledgeContentViewerProps {
 export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps) {
   const { t, language } = useLanguage();
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
   const [videos, setVideos] = useState<any[]>([]);
   const [relatedArticles, setRelatedArticles] = useState<any[]>([]);
   const [ctaResins, setCtaResins] = useState<any[]>([]);
@@ -39,30 +38,91 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   const [videosLoading, setVideosLoading] = useState(true);
   const [selectedPdfs, setSelectedPdfs] = useState<any[]>([]);
   const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
+  const [translating, setTranslating] = useState(false);
+  const [translatedContent, setTranslatedContent] = useState<{
+    title: string;
+    excerpt: string;
+    content_html: string;
+    faqs: any;
+  } | null>(null);
 
   // Check if translation exists for requested language
   const hasTranslation = useMemo(() => {
-    if (language === 'pt') return true; // PT is always the original
-    
-    if (language === 'en') {
-      return !!(content.title_en && content.content_html_en);
-    }
-    
-    if (language === 'es') {
-      return !!(content.title_es && content.content_html_es);
-    }
-    
+    if (language === 'pt') return true;
+    if (language === 'en') return !!(content.title_en && content.content_html_en);
+    if (language === 'es') return !!(content.title_es && content.content_html_es);
     return false;
   }, [language, content]);
 
-  // Redirect to PT version if translation doesn't exist
+  // Auto-translate when translation is missing
   useEffect(() => {
-    if (!hasTranslation) {
-      const ptPath = `/base-conhecimento/${content.knowledge_categories?.letter?.toLowerCase()}/${content.slug}`;
-      navigate(ptPath, { replace: true });
-      toast.error(language === 'en' ? "This content is only available in Portuguese" : "Este contenido solo está disponible en portugués");
-    }
-  }, [hasTranslation, content, navigate, language]);
+    if (language === 'pt' || hasTranslation || translating) return;
+    // Reset previous translation when content/language changes
+    setTranslatedContent(null);
+
+    let cancelled = false;
+    const translate = async () => {
+      setTranslating(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('translate-content', {
+          body: {
+            title: content.title,
+            excerpt: content.excerpt,
+            htmlContent: content.content_html,
+            faqs: content.faqs,
+            targetLanguage: language,
+          }
+        });
+
+        if (error || !data) {
+          console.error('Translation error:', error);
+          toast.error(language === 'en' 
+            ? 'Failed to translate content. Showing original.' 
+            : 'Error al traducir el contenido. Mostrando original.');
+          setTranslating(false);
+          return;
+        }
+
+        // Save translation to database for future visits
+        const langSuffix = language === 'en' ? '_en' : '_es';
+        const updatePayload: Record<string, any> = {};
+        if (data.translatedTitle) updatePayload[`title${langSuffix}`] = data.translatedTitle;
+        if (data.translatedExcerpt) updatePayload[`excerpt${langSuffix}`] = data.translatedExcerpt;
+        if (data.translatedHTML) updatePayload[`content_html${langSuffix}`] = data.translatedHTML;
+        if (data.translatedFAQs) updatePayload[`faqs${langSuffix}`] = data.translatedFAQs;
+
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: saveError } = await supabase
+            .from('knowledge_contents')
+            .update(updatePayload)
+            .eq('id', content.id);
+          
+          if (saveError) {
+            console.error('Failed to save translation:', saveError);
+          }
+        }
+
+        if (!cancelled) {
+          setTranslatedContent({
+            title: data.translatedTitle || content.title,
+            excerpt: data.translatedExcerpt || content.excerpt,
+            content_html: data.translatedHTML || content.content_html,
+            faqs: data.translatedFAQs || content.faqs,
+          });
+        }
+      } catch (err) {
+        console.error('Translation failed:', err);
+        toast.error(language === 'en' 
+          ? 'Translation service unavailable.' 
+          : 'Servicio de traducción no disponible.');
+      } finally {
+        if (!cancelled) setTranslating(false);
+      }
+    };
+
+    translate();
+    return () => { cancelled = true; };
+  }, [content?.id, language, hasTranslation]);
 
   // Fetch data - dependencies simplified since functions are now memoized
   useEffect(() => {
@@ -192,29 +252,37 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
   if (!content) return null;
 
-  // Select correct language content
+  // Select correct language content (prioritize translatedContent from auto-translation)
   const displayContent = {
     ...content,
     title: 
-      language === 'es' && content.title_es 
+      translatedContent?.title
+        ? translatedContent.title
+        : language === 'es' && content.title_es 
         ? content.title_es 
         : language === 'en' && content.title_en 
         ? content.title_en 
         : content.title,
     excerpt: 
-      language === 'es' && content.excerpt_es 
+      translatedContent?.excerpt
+        ? translatedContent.excerpt
+        : language === 'es' && content.excerpt_es 
         ? content.excerpt_es 
         : language === 'en' && content.excerpt_en 
         ? content.excerpt_en 
         : content.excerpt,
     content_html: 
-      language === 'es' && content.content_html_es 
+      translatedContent?.content_html
+        ? translatedContent.content_html
+        : language === 'es' && content.content_html_es 
         ? content.content_html_es 
         : language === 'en' && content.content_html_en 
         ? content.content_html_en 
         : content.content_html,
     faqs: 
-      language === 'es' && content.faqs_es 
+      translatedContent?.faqs
+        ? translatedContent.faqs
+        : language === 'es' && content.faqs_es 
         ? content.faqs_es 
         : language === 'en' && content.faqs_en 
         ? content.faqs_en 
@@ -252,6 +320,16 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       />
       <VideoSchema videos={videos} productName={displayContent.title} />
       <Breadcrumb items={breadcrumbItems} />
+
+      {/* Translation loading indicator */}
+      {translating && (
+        <div className="flex items-center gap-3 p-4 bg-muted/50 border border-border rounded-lg animate-pulse">
+          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-muted-foreground">
+            {language === 'en' ? 'Translating content...' : 'Traduciendo contenido...'}
+          </span>
+        </div>
+      )}
       
       {/* Hero Section with Category and Title */}
       {(content.content_image_url || content.og_image_url) && (
