@@ -1,39 +1,45 @@
 
 
-## Plano: Limpar Titulos dos Videos de Depoimentos
+## Plano: Traduzir Artigos Automaticamente ao Trocar Idioma
 
-### Escopo
-Atualizar os titulos de **54 videos** no banco de dados que seguem o padrao `XXX Depoimento - Nome.mp4`, mantendo apenas o nome da pessoa.
+### Objetivo
+Quando o usuario seleciona EN ou ES, os artigos que ainda nao possuem traducao serao traduzidos automaticamente em tempo real usando a edge function `translate-content`, salvando o resultado no banco para futuras visitas.
 
-### Transformacao
+### Fluxo
 
-| Antes | Depois |
-|-------|--------|
-| `152 Depoimento - Dielson e Viviane.mp4` | `Dielson e Viviane` |
-| `153 Depoimento - Hugo.mp4` | `Hugo` |
-| `165 Depoimento - Najila da Silva.mp4` | `Najila da Silva` |
-| `200 Depoimento - Renato.mp4` | `Renato` |
-
-### Implementacao
-
-Uma unica operacao de UPDATE no banco de dados:
-
-```sql
-UPDATE knowledge_videos
-SET title = TRIM(BOTH FROM regexp_replace(
-    regexp_replace(title, '\.mp4$', '', 'i'),
-    '^.*Depoimento\s*-\s*', '', 'i'
-  ))
-WHERE title ~* 'Depoimento'
-  AND video_type = 'pandavideo';
+```text
+1. Usuario seleciona idioma EN/ES
+2. KnowledgeContentViewer verifica se artigo tem traducao
+3a. SE TEM traducao -> exibe normalmente (ja funciona)
+3b. SE NAO TEM -> chama translate-content automaticamente
+4. Enquanto traduz: exibe spinner "Traduzindo..."
+5. Traducao concluida: salva no banco + exibe conteudo traduzido
+6. Proxima visita ao mesmo artigo: usa traducao ja salva (sem chamar IA de novo)
 ```
 
-**Logica do SQL:**
-1. Remove a extensao `.mp4` do final
-2. Remove tudo antes e incluindo `Depoimento -` (numero, palavra "Depoimento", hifen)
-3. Aplica TRIM para remover espacos extras
+### Mudancas
 
-### Impacto
-- **54 videos** serao atualizados
-- Nenhuma alteracao em codigo (apenas dados no banco)
-- Os titulos atualizados refletirao automaticamente na lista de videos do admin
+#### 1. `src/components/KnowledgeContentViewer.tsx`
+
+- **Remover** o `useEffect` de redirect (linhas 58-65) que forca retorno ao PT
+- **Adicionar** logica de traducao automatica:
+  - Novo estado `translating: boolean` e `translatedContent: object | null`
+  - Novo `useEffect` que, quando `hasTranslation === false` e `language !== 'pt'`:
+    1. Seta `translating = true`
+    2. Chama `supabase.functions.invoke('translate-content', { body: { title, excerpt, htmlContent, faqs, targetLanguage } })`
+    3. Salva resultado no banco (`knowledge_contents` com `title_en/es`, `excerpt_en/es`, `content_html_en/es`, `faqs_en/es`)
+    4. Atualiza `translatedContent` com os dados traduzidos
+    5. Seta `translating = false`
+  - O `displayContent` passa a considerar `translatedContent` como fonte adicional
+  - Exibe um indicador de carregamento ("Traduzindo conteudo...") enquanto a traducao esta em andamento
+
+#### Nenhum outro arquivo precisa ser alterado
+
+A edge function `translate-content` ja existe e funciona corretamente. A unica mudanca e no componente que exibe o artigo.
+
+### Resultado Esperado
+- Trocar idioma nunca mais redireciona de volta para PT
+- Artigos sem traducao sao traduzidos automaticamente na primeira visita
+- Traducao e salva no banco, entao so acontece uma vez por artigo/idioma
+- Artigos ja traduzidos carregam instantaneamente
+
