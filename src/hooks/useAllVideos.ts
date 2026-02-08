@@ -357,6 +357,52 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
     }
   };
 
+  // Batch update function for multiple videos at once
+  const batchUpdateVideoFields = async (
+    videoIds: string[],
+    updates: {
+      content_type?: VideoContentType;
+      product_category?: string | null;
+      product_subcategory?: string | null;
+      product_id?: string | null;
+    }
+  ): Promise<{ success: number; failed: number }> => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('knowledge_videos')
+        .update(updates)
+        .in('id', videoIds);
+
+      if (error) throw error;
+
+      // Update local state
+      let productName: string | null = null;
+      if (updates.product_id) {
+        const product = products.find(p => p.id === updates.product_id);
+        productName = product?.name || null;
+      }
+
+      setVideos(prev => prev.map(v => {
+        if (!videoIds.includes(v.id)) return v;
+        return {
+          ...v,
+          ...(updates.content_type !== undefined && { content_type: updates.content_type }),
+          ...(updates.product_category !== undefined && { product_category: updates.product_category }),
+          ...(updates.product_subcategory !== undefined && { product_subcategory: updates.product_subcategory }),
+          ...(updates.product_id !== undefined && { product_id: updates.product_id, product_name: productName }),
+        };
+      }));
+
+      return { success: videoIds.length, failed: 0 };
+    } catch (error) {
+      console.error('Error batch updating video fields:', error);
+      return { success: 0, failed: videoIds.length };
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return {
@@ -379,6 +425,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
     updateContentType,
     updateVideoContentLink,
     updateVideoFields,
+    batchUpdateVideoFields,
     refetch: fetchVideos,
   };
 }
