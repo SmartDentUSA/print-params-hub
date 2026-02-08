@@ -31,10 +31,12 @@ import {
 } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAllVideos, VIDEO_CONTENT_TYPES, VideoContentType, VideoWithDetails } from '@/hooks/useAllVideos';
-import { Search, ChevronLeft, ChevronRight, Video, ExternalLink, Loader2, Sparkles, FileText, Check, ChevronsUpDown } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Video, ExternalLink, Loader2, Sparkles, FileText, Check, ChevronsUpDown, Edit, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { VideoContentGeneratorModal } from './VideoContentGeneratorModal';
+import { VideoBatchEditModal } from './VideoBatchEditModal';
 import { cn } from '@/lib/utils';
 
 const CONTENT_CATEGORIES = [
@@ -71,8 +73,40 @@ export function AdminVideosList() {
     setContentTypeFilter,
     setLinkStatusFilter,
     updateVideoFields,
+    batchUpdateVideoFields,
     refetch,
   } = useAllVideos({ pageSize: 50 });
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+
+  const allPageSelected = videos.length > 0 && videos.every(v => selectedIds.has(v.id));
+  const somePageSelected = videos.some(v => selectedIds.has(v.id));
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        videos.forEach(v => next.delete(v.id));
+      } else {
+        videos.forEach(v => next.add(v.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectedVideos = videos.filter(v => selectedIds.has(v.id));
 
   const [pendingChanges, setPendingChanges] = useState<Record<string, PendingChanges>>({});
   const [selectedGenerateCategory, setSelectedGenerateCategory] = useState<Record<string, string>>({});
@@ -254,11 +288,36 @@ export function AdminVideosList() {
             </Select>
           </div>
 
+          {/* Selection Bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+              <span className="text-sm font-medium">
+                {selectedIds.size} vídeo{selectedIds.size > 1 ? 's' : ''} selecionado{selectedIds.size > 1 ? 's' : ''}
+              </span>
+              <Button size="sm" variant="default" className="gap-1" onClick={() => setBatchModalOpen(true)}>
+                <Edit className="h-3 w-3" />
+                Editar em Lote
+              </Button>
+              <Button size="sm" variant="ghost" className="gap-1" onClick={clearSelection}>
+                <X className="h-3 w-3" />
+                Limpar
+              </Button>
+            </div>
+          )}
+
           {/* Table */}
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={allPageSelected}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                      {...(somePageSelected && !allPageSelected ? { 'data-state': 'indeterminate' } : {})}
+                    />
+                  </TableHead>
                   <TableHead className="w-[220px]">Nome</TableHead>
                   <TableHead className="w-[130px]">Categoria</TableHead>
                   <TableHead className="w-[140px]">Subcategoria</TableHead>
@@ -274,6 +333,7 @@ export function AdminVideosList() {
                 {loading ? (
                   Array.from({ length: 10 }).map((_, i) => (
                     <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                       <TableCell><Skeleton className="h-10 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
@@ -287,13 +347,21 @@ export function AdminVideosList() {
                   ))
                 ) : videos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       Nenhum vídeo encontrado
                     </TableCell>
                   </TableRow>
                 ) : (
                   videos.map(video => (
-                    <TableRow key={video.id}>
+                    <TableRow key={video.id} className={cn(selectedIds.has(video.id) && "bg-primary/5")}>
+                      {/* Checkbox */}
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.has(video.id)}
+                          onCheckedChange={() => toggleSelect(video.id)}
+                          aria-label={`Selecionar ${video.title}`}
+                        />
+                      </TableCell>
                       {/* Nome */}
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -576,6 +644,18 @@ export function AdminVideosList() {
         selectedCategoryLetter={selectedCategoryLetter}
         onSuccess={handleGenerateSuccess}
         onVideoTitleUpdate={handleVideoTitleUpdate}
+      />
+
+      {/* Batch Edit Modal */}
+      <VideoBatchEditModal
+        open={batchModalOpen}
+        onOpenChange={setBatchModalOpen}
+        selectedVideos={selectedVideos}
+        categories={categories}
+        subcategories={subcategories}
+        products={products}
+        onBatchUpdate={batchUpdateVideoFields}
+        onRefetch={refetch}
       />
     </>
   );
