@@ -307,7 +307,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   ];
 
   const processedHTML = displayContent.content_html 
-    ? renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors)
+    ? renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es')
     : '';
 
   return (

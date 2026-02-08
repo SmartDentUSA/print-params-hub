@@ -1,11 +1,14 @@
 import { Facebook, Instagram, Linkedin, Youtube, Twitter, UserCircle } from 'lucide-react';
 import { Author } from '@/hooks/useAuthors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AuthorBioProps {
   author: Author;
 }
 
 export function AuthorBio({ author }: AuthorBioProps) {
+  const { t } = useLanguage();
+
   const socialLinks = [
     { url: author.facebook_url, icon: Facebook, label: 'Facebook' },
     { url: author.instagram_url, icon: Instagram, label: 'Instagram' },
@@ -77,7 +80,7 @@ export function AuthorBio({ author }: AuthorBioProps) {
             rel="noopener noreferrer"
             className="text-sm text-primary hover:underline"
           >
-            Ver Currículo Lattes
+            {t('knowledge.view_lattes')}
           </a>
         )}
       </div>

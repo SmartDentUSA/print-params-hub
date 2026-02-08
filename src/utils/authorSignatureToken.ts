@@ -3,7 +3,7 @@ import { Author } from '@/hooks/useAuthors';
 
 export const AUTHOR_SIGNATURE_TOKEN = '[[ASSINATURA_AUTOR]]';
 
-export function renderAuthorSignaturePlaceholders(html: string, author?: Author): string {
+export function renderAuthorSignaturePlaceholders(html: string, author?: Author, language?: 'pt' | 'en' | 'es'): string {
   if (!author) return html;
-  return html.replace(/\[\[ASSINATURA_AUTOR\]\]/gi, generateAuthorSignatureHTML(author));
+  return html.replace(/\[\[ASSINATURA_AUTOR\]\]/gi, generateAuthorSignatureHTML(author, language));
 }

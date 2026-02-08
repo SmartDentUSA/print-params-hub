@@ -1,6 +1,14 @@
 import { Author } from '@/hooks/useAuthors';
 
-export function generateAuthorSignatureHTML(author: Author): string {
+const authorLabels: Record<string, { about_author: string; mini_cv: string; view_lattes: string }> = {
+  pt: { about_author: 'Sobre o autor', mini_cv: 'Mini Currículo', view_lattes: 'Ver Currículo Lattes' },
+  en: { about_author: 'About the author', mini_cv: 'Short Bio', view_lattes: 'View Lattes CV' },
+  es: { about_author: 'Sobre el autor', mini_cv: 'Mini Currículum', view_lattes: 'Ver Currículum Lattes' },
+};
+
+export function generateAuthorSignatureHTML(author: Author, language?: 'pt' | 'en' | 'es'): string {
+  const labels = authorLabels[language || 'pt'] || authorLabels.pt;
+
   // Cores das marcas das redes sociais
   const socialBrandColors: { [key: string]: string } = {
     'Facebook': '#1877F2',
@@ -48,7 +56,7 @@ export function generateAuthorSignatureHTML(author: Author): string {
 
   const miniBioHTML = author.mini_bio
     ? `<p style="font-size: 14px; color: #111111; line-height: 1.6; margin: 0; text-align: left;">${author.mini_bio}</p>`
-    : `<p style="font-size: 16px; color: #111111; font-weight: 600; margin: 0; text-align: center;">Mini Currículo</p>`;
+    : `<p style="font-size: 16px; color: #111111; font-weight: 600; margin: 0; text-align: center;">${labels.mini_cv}</p>`;
 
   const lattesHTML = author.lattes_url
     ? `<a
@@ -57,7 +65,7 @@ export function generateAuthorSignatureHTML(author: Author): string {
         rel="noopener noreferrer"
         style="display: inline-block; margin-top: 12px; font-size: 14px; color: #1877F2; text-decoration: none;"
       >
-        Ver Currículo Lattes
+        ${labels.view_lattes}
       </a>`
     : '';
 
@@ -70,7 +78,7 @@ export function generateAuthorSignatureHTML(author: Author): string {
       <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;">
         <div style="flex: 1; min-width: 0;">
           <p style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 4px 0;">
-            Sobre o autor
+            ${labels.about_author}
           </p>
           <h4 style="font-size: 18px; font-weight: 800; text-transform: uppercase; color: #111111; margin: 0; line-height: 1.2; word-wrap: break-word;">${author.name}</h4>
           ${author.specialty ? `<p style="font-size: 14px; color: #6b7280; margin: 4px 0 0 0; word-wrap: break-word;">${author.specialty}</p>` : ''}
