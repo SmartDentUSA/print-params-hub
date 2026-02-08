@@ -1,89 +1,105 @@
 
 
-## Plano: Traduzir Labels do Autor para Todos os Idiomas
+## Auditoria: Exposicao das Paginas de Conteudo para Buscadores e IAs
 
-### Problema
+### Status Geral
 
-Os textos da seção "Sobre o autor" estão hardcoded em português em 3 arquivos:
+A infraestrutura de SEO esta **bem construida** na maioria dos pontos. O sistema de SSR via SEO Proxy, sitemaps, robots.txt e schemas JSON-LD esta funcional. Porem, foram identificados **5 problemas** que precisam de correcao.
 
-| Texto hardcoded | Onde aparece |
+---
+
+### O que esta funcionando corretamente
+
+| Item | Status |
 |---|---|
-| "Sobre o autor" | `AuthorSignature.tsx` (linha 50), `authorSignatureHTML.ts` (linha 73) |
-| "Mini Currículo" | `AuthorSignature.tsx` (linha 86), `authorSignatureHTML.ts` (linha 51) |
-| "Ver Currículo Lattes" | `AuthorSignature.tsx` (linha 98), `AuthorBio.tsx` (linha 80), `authorSignatureHTML.ts` (linha 60) |
+| robots.txt permite todos os bots (Google, Bing, GPTBot, ClaudeBot, Perplexity, etc.) | OK |
+| Vercel rewrite roteia bots para o SEO Proxy | OK |
+| SEO Proxy retorna HTML completo com schemas para artigos | OK |
+| Sitemaps (PT, EN, ES, documentos, principal) estao ativos | OK |
+| JSON-LD com Article, FAQPage, HowTo, VideoObject, BreadcrumbList | OK |
+| Meta tags OG, Twitter Card, AI-context | OK |
+| hreflang no client-side (SPA) para PT, EN, ES | OK |
+| Canonical URLs apontando para dominio correto (`parametros.smartdent.com.br`) | OK |
+| RSS/Atom feeds para descoberta de conteudo | OK |
 
-Quando o usuario troca para EN ou ES, esses textos permanecem em PT porque nao usam o sistema de traducao `t()`.
+---
 
-### Solucao
+### Problemas Encontrados
 
-#### 1. Adicionar chaves de traducao nos 3 arquivos de locale
+#### 1. CRITICO: `noindex` em paginas EN/ES sem traducao pre-existente
 
-**`src/locales/pt.json`** - Adicionar dentro de `"knowledge"`:
-```json
-"about_author": "Sobre o autor",
-"mini_cv": "Mini Currículo",
-"view_lattes": "Ver Currículo Lattes"
+**Arquivo:** `src/components/KnowledgeSEOHead.tsx` (linhas 1052-1057)
+
+Quando o idioma e EN ou ES e o artigo nao tem traducao salva no banco, o componente injeta `<meta name="robots" content="noindex, follow">`. Como apenas **14 de 281 artigos** possuem traducao, **267 artigos** recebem `noindex` nas versoes EN/ES.
+
+Embora bots sejam roteados para o SEO Proxy (que nao tem esse problema), o Google pode renderizar JavaScript e encontrar essa tag. Com a traducao automatica agora implementada, as traducoes serao salvas gradualmente, mas o `noindex` e avaliado na renderizacao inicial (antes da traducao completar).
+
+**Correcao:** Remover a logica de `noindex` condicional. Artigos em PT devem ser indexaveis em todas as rotas de idioma, ja que o sistema de traducao automatica salvara a traducao no banco para futuras visitas.
+
+#### 2. MODERADO: Canonical errado no KnowledgeHub do SEO Proxy
+
+**Arquivo:** `supabase/functions/seo-proxy/index.ts` (linha 1170)
+
+O canonical da pagina principal da Base de Conhecimento aponta para `/conhecimento` em vez de `/base-conhecimento`. Isso cria um sinal conflitante com o sitemap e o SPA.
+
+```
+Atual:  <link rel="canonical" href=".../conhecimento" />
+Correto: <link rel="canonical" href=".../base-conhecimento" />
 ```
 
-**`src/locales/en.json`** - Adicionar dentro de `"knowledge"`:
-```json
-"about_author": "About the author",
-"mini_cv": "Short Bio",
-"view_lattes": "View Lattes CV"
+**Correcao:** Atualizar a linha 1170 para usar `/base-conhecimento`.
+
+#### 3. MODERADO: BreadcrumbList com dominio errado no client-side
+
+**Arquivo:** `src/components/KnowledgeSEOHead.tsx` (linhas 917, 922, 928)
+
+O schema BreadcrumbList usa `https://smartdent.com.br` como base em vez de `https://parametros.smartdent.com.br`. Isso confunde o Google sobre qual dominio e o dono do conteudo.
+
+```
+Atual:  "item": "https://smartdent.com.br/base-conhecimento"
+Correto: "item": "https://parametros.smartdent.com.br/base-conhecimento"
 ```
 
-**`src/locales/es.json`** - Adicionar dentro de `"knowledge"`:
-```json
-"about_author": "Sobre el autor",
-"mini_cv": "Mini Currículum",
-"view_lattes": "Ver Currículum Lattes"
-```
+**Correcao:** Substituir o baseUrl do BreadcrumbList para usar a constante `baseUrl` ja definida no arquivo.
 
-#### 2. `src/components/AuthorSignature.tsx`
+#### 4. MODERADO: SEO Proxy nao inclui hreflang nas paginas de artigos
 
-- Importar `useLanguage` do contexto
-- Substituir "Sobre o autor" (linha 50) por `{t('knowledge.about_author')}`
-- Substituir "Mini Currículo" (linha 86) por `{t('knowledge.mini_cv')}`
-- Substituir "Ver Currículo Lattes" (linha 98) por `{t('knowledge.view_lattes')}`
+**Arquivo:** `supabase/functions/seo-proxy/index.ts` (funcao `generateKnowledgeArticleHTML`)
 
-#### 3. `src/components/AuthorBio.tsx`
+O HTML servido aos bots para artigos nao inclui tags `<link rel="alternate" hreflang="...">`. Isso impede que buscadores descubram as versoes multilinguais diretamente pelo HTML pre-renderizado.
 
-- Importar `useLanguage` do contexto
-- Substituir "Ver Currículo Lattes" (linha 80) por `{t('knowledge.view_lattes')}`
+**Correcao:** Adicionar hreflang tags (pt-BR, en-US, es-ES, x-default) no `<head>` do HTML gerado por `generateKnowledgeArticleHTML`.
 
-#### 4. `src/utils/authorSignatureHTML.ts`
+#### 5. INFO: Dados SEO ausentes em parte dos artigos
 
-Este arquivo gera HTML como string (usado quando o token `[[ASSINATURA_AUTOR]]` aparece no conteudo). Nao tem acesso ao hook `useLanguage` por ser uma funcao utilitaria.
+| Campo ausente | Quantidade | Impacto |
+|---|---|---|
+| OG Image | 261 de 281 | Social sharing fica sem imagem |
+| Hero Image (content_image_url) | 269 de 281 | Artigo sem imagem principal |
+| Keywords | 4 de 281 | Baixo impacto |
+| Meta Description | 3 de 281 | Moderado impacto |
+| Autor | 1 de 281 | Baixo impacto (E-E-A-T) |
 
-**Solucao:** Adicionar parametro `language` opcional a funcao `generateAuthorSignatureHTML` e usar um mapa simples de traducoes inline:
-- Receber `language?: 'pt' | 'en' | 'es'` como segundo parametro
-- Criar mapa local com as 3 traducoes
-- Substituir os textos hardcoded pelos valores do mapa
+As OG images ausentes afetam compartilhamento em redes sociais mas nao impactam indexacao.
 
-#### 5. `src/utils/authorSignatureToken.ts`
+---
 
-- Atualizar `renderAuthorSignaturePlaceholders` para aceitar e repassar o parametro `language` para `generateAuthorSignatureHTML`
+### Plano de Correcao
 
-#### 6. `src/components/KnowledgeContentViewer.tsx`
+#### Arquivo 1: `src/components/KnowledgeSEOHead.tsx`
 
-- Passar `language` ao chamar `renderAuthorSignaturePlaceholders` (linha ~230) para que o HTML inline tambem seja traduzido
+- **Linha 1053-1057:** Remover logica condicional de `noindex`. Usar `<meta name="robots" content="index, follow" />` para todos os idiomas
+- **Linhas 917, 922, 928:** Trocar `https://smartdent.com.br` por `${baseUrl}` (`https://parametros.smartdent.com.br`) no BreadcrumbList
 
-### Arquivos a Modificar
+#### Arquivo 2: `supabase/functions/seo-proxy/index.ts`
 
-| Arquivo | Acao |
-|---|---|
-| `src/locales/pt.json` | Adicionar 3 chaves |
-| `src/locales/en.json` | Adicionar 3 chaves |
-| `src/locales/es.json` | Adicionar 3 chaves |
-| `src/components/AuthorSignature.tsx` | Usar `t()` nos 3 textos |
-| `src/components/AuthorBio.tsx` | Usar `t()` em 1 texto |
-| `src/utils/authorSignatureHTML.ts` | Adicionar parametro `language` e mapa de traducoes |
-| `src/utils/authorSignatureToken.ts` | Repassar `language` |
-| `src/components/KnowledgeContentViewer.tsx` | Passar `language` na chamada |
+- **Linha 1170:** Corrigir canonical de `/conhecimento` para `/base-conhecimento`
+- **Funcao `generateKnowledgeArticleHTML`:** Adicionar tags hreflang no `<head>` do HTML para PT, EN, ES e x-default, usando o pattern `/base-conhecimento/`, `/en/knowledge-base/`, `/es/base-conocimiento/`
 
 ### Resultado Esperado
 
-- "Sobre o autor" -> "About the author" (EN) / "Sobre el autor" (ES)
-- "Mini Currículo" -> "Short Bio" (EN) / "Mini Currículum" (ES)
-- "Ver Currículo Lattes" -> "View Lattes CV" (EN) / "Ver Currículum Lattes" (ES)
-- Funciona tanto no componente React quanto no HTML inline gerado pelo token `[[ASSINATURA_AUTOR]]`
+- 100% dos artigos indexaveis em todos os idiomas (PT, EN, ES)
+- Canonical URLs consistentes entre SEO Proxy, SPA e sitemaps
+- BreadcrumbList apontando para o dominio correto
+- Bots descobrem versoes multilinguais via hreflang no HTML pre-renderizado
+
