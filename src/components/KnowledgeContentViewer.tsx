@@ -12,6 +12,7 @@ import { VideoSchema } from '@/components/VideoSchema';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { PDFContentRenderer } from '@/components/PDFContentRenderer';
 import { PDFViewerEmbed } from '@/components/PDFViewerEmbed';
@@ -428,10 +429,10 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   )}
                   <CardContent className="p-4">
                     <h4 className="font-semibold line-clamp-2 mb-2 text-foreground">
-                      {article.title}
+                      {getLocalizedTitle(article, language)}
                     </h4>
                     <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
-                      {article.excerpt}
+                      {getLocalizedExcerpt(article, language)}
                     </p>
                     
                     <LanguageFlags size="xs" showBorder />

@@ -5,6 +5,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { HelpCircle } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface FAQ {
   question: string;
@@ -16,6 +17,8 @@ interface KnowledgeFAQProps {
 }
 
 export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
+  const { t } = useLanguage();
+
   if (!faqs || faqs.length === 0) return null;
 
   return (
@@ -30,10 +33,10 @@ export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
         <HelpCircle className="w-6 h-6 text-black dark:text-white" />
         <div>
           <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
-            Perguntas Frequentes
+            {t('faq.subtitle')}
           </p>
           <h2 className="text-lg font-extrabold uppercase text-black dark:text-white m-0">
-            FAQ
+            {t('faq.title')}
           </h2>
         </div>
       </div>
@@ -74,7 +77,7 @@ export function KnowledgeFAQ({ faqs }: KnowledgeFAQProps) {
       </Accordion>
       
       <p className="text-xs text-gray-500 dark:text-gray-400 mt-4 italic">
-        💡 Essas perguntas são baseadas nas dúvidas mais comuns sobre o tema.
+        {t('faq.hint')}
       </p>
     </section>
   );

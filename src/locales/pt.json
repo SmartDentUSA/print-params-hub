@@ -16,7 +16,8 @@
     "active": "Ativo",
     "inactive": "Inativo",
     "available": "Disponível",
-    "coming_soon": "Em breve"
+    "coming_soon": "Em breve",
+    "all_rights_reserved": "Todos os direitos reservados"
   },
   "header": {
     "title": "Parâmetros de Impressão 3D",
@@ -65,7 +66,12 @@
     "whatsapp_button": "Falar no WhatsApp"
   },
   "footer": {
-    "copyright": "© 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D."
+    "copyright": "© 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D.",
+    "contact": "Contato",
+    "links": "Links",
+    "social": "Redes Sociais",
+    "about_us": "Sobre Nós",
+    "knowledge_base": "Base de Conhecimento"
   },
   "admin": {
     "title": "Painel Administrativo",
@@ -162,6 +168,51 @@
     "subtitles_only_your_language": "📝 Legendas disponíveis no seu idioma. Use o ícone CC no player.",
     "select_language_in_player": "🌐 Use os ícones CC (legendas) e ⚙️ (áudio) no player para selecionar o idioma.",
     "audio": "Áudio",
-    "subtitles": "Legendas"
+    "subtitles": "Legendas",
+    "explore_knowledge_base": "Explorar Base de Conhecimento",
+    "coming_soon_articles": "🚀 Em breve, novos artigos serão publicados!",
+    "coming_soon_description": "Estamos preparando conteúdo exclusivo sobre impressão 3D odontológica, configurações de impressoras, guias de resinas e muito mais."
+  },
+  "product": {
+    "benefits": "Benefícios",
+    "features": "Características",
+    "options": "Opções Disponíveis",
+    "view_store": "Ver na Loja",
+    "learn_more": "Saiba Mais",
+    "not_found": "Produto não encontrado",
+    "load_error": "Erro ao carregar produto"
+  },
+  "testimonial": {
+    "transcription": "Transcrição do Depoimento",
+    "not_found": "Depoimento não encontrado",
+    "load_error": "Erro ao carregar depoimento"
+  },
+  "category": {
+    "main_category": "Categoria Principal",
+    "subcategory": "Subcategoria",
+    "target_audience": "Público-Alvo",
+    "not_found": "Categoria não encontrada",
+    "load_error": "Erro ao carregar categoria"
+  },
+  "about": {
+    "mission": "Missão",
+    "vision": "Visão",
+    "values": "Valores",
+    "foundation": "Fundação",
+    "team": "Equipe",
+    "differentiators": "Nossos Diferenciais",
+    "institutional_videos": "Vídeos Institucionais",
+    "company_not_available": "Informações da empresa não disponíveis."
+  },
+  "index": {
+    "title": "Parâmetros de Impressão 3D",
+    "subtitle": "Base de dados profissional com parâmetros testados para impressoras e resinas odontológicas.",
+    "waiting_import": "Aguardando Importação de Dados",
+    "import_data": "Importar Dados"
+  },
+  "faq": {
+    "title": "FAQ",
+    "subtitle": "Perguntas Frequentes",
+    "hint": "💡 Essas perguntas são baseadas nas dúvidas mais comuns sobre o tema."
   }
 }

@@ -14,6 +14,7 @@ import { ptBR, enUS, es } from 'date-fns/locale';
 import { useRef } from 'react';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getKnowledgeBasePath, getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
 
 const getCategoryColor = (letter: string) => {
   const colors: Record<string, string> = {
@@ -100,12 +101,11 @@ export const KnowledgeFeed = () => {
             🚀 Em breve, novos artigos serão publicados!
           </p>
           <p className="text-sm text-muted-foreground mb-6">
-            Estamos preparando conteúdo exclusivo sobre impressão 3D odontológica, 
-            configurações de impressoras, guias de resinas e muito mais.
+            {t('knowledge.coming_soon_description')}
           </p>
           <Button variant="outline" asChild>
-            <Link to="/base-conhecimento">
-              Explorar Base de Conhecimento
+            <Link to={getKnowledgeBasePath(language)}>
+              {t('knowledge.explore_knowledge_base')}
             </Link>
           </Button>
         </div>
@@ -133,7 +133,7 @@ export const KnowledgeFeed = () => {
             const imageAlt = article.content_image_alt || article.title;
             const categoryLetter = article.knowledge_categories?.letter || 'A';
             const categoryName = article.knowledge_categories?.name || 'Geral';
-            const articleUrl = `/base-conhecimento/${categoryLetter.toLowerCase()}/${article.slug}`;
+            const articleUrl = `${getKnowledgeBasePath(language)}/${categoryLetter.toLowerCase()}/${article.slug}`;
 
             return (
               <CarouselItem 
@@ -195,7 +195,7 @@ export const KnowledgeFeed = () => {
 
       <div className="mt-8 text-center">
         <Button variant="outline" asChild>
-          <Link to="/base-conhecimento">
+          <Link to={getKnowledgeBasePath(language)}>
             {t('knowledge.view_all_articles')}
           </Link>
         </Button>

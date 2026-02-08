@@ -8,6 +8,8 @@ import { ExternalLink, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 import { useCompanyData } from "@/hooks/useCompanyData";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getOgLocale } from "@/utils/i18nPaths";
 
 interface ProductData {
   id: string;
@@ -38,6 +40,7 @@ const ProductPage = () => {
   const [product, setProduct] = useState<ProductData | null>(null);
   const [loading, setLoading] = useState(true);
   const { data: companyData } = useCompanyData();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -67,7 +70,7 @@ const ProductPage = () => {
         if (error) throw error;
         
         if (!data) {
-          toast.error("Produto não encontrado");
+          toast.error(t('product.not_found'));
           navigate("/");
           return;
         }
@@ -75,19 +78,19 @@ const ProductPage = () => {
         setProduct(data);
       } catch (error) {
         console.error("Error fetching product:", error);
-        toast.error("Erro ao carregar produto");
+        toast.error(t('product.load_error'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchProduct();
-  }, [slug, navigate]);
+  }, [slug, navigate, t]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Carregando...</p>
+        <p>{t('common.loading')}</p>
       </div>
     );
   }
@@ -106,31 +109,16 @@ const ProductPage = () => {
 
   const baseUrl = "https://parametros.smartdent.com.br";
   const canonicalUrl = `${baseUrl}/produtos/${slug}`;
-  const keywordsStr = product.keywords?.join(", ") || `${product.name}, ${companyName}, produto odontológico`;
+  const keywordsStr = product.keywords?.join(", ") || `${product.name}, ${companyName}`;
 
   // BreadcrumbList Schema
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": baseUrl
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Produtos",
-        "item": `${baseUrl}/produtos`
-      },
-      {
-        "@type": "ListItem",
-        "position": 3,
-        "name": product.name,
-        "item": canonicalUrl
-      }
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": t('product.features'), "item": `${baseUrl}/produtos` },
+      { "@type": "ListItem", "position": 3, "name": product.name, "item": canonicalUrl }
     ]
   };
 
@@ -141,10 +129,7 @@ const ProductPage = () => {
     "name": product.name,
     "description": metaDescription,
     "image": ogImage,
-    "brand": {
-      "@type": "Brand",
-      "name": companyName
-    },
+    "brand": { "@type": "Brand", "name": companyName },
     "sku": product.id,
     ...(product.price && {
       "offers": {
@@ -160,42 +145,27 @@ const ProductPage = () => {
   return (
     <>
       <Helmet>
-        {/* Primary Meta Tags */}
         <title>{seoTitle}</title>
         <meta name="description" content={metaDescription} />
         <meta name="keywords" content={keywordsStr} />
         <meta name="author" content={companyName} />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={canonicalUrl} />
-        
-        {/* AI Meta Tags */}
         <meta name="ai-content-type" content="productpage" />
         <meta name="ai-topic" content={keywordsStr} />
-        
-        {/* Open Graph */}
         <meta property="og:type" content="product" />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:site_name" content={`PrinterParams ${companyName}`} />
-        <meta property="og:locale" content="pt_BR" />
-        
-        {/* Twitter Card */}
+        <meta property="og:locale" content={getOgLocale(language)} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={seoTitle} />
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={ogImage} />
-        
-        {/* Schema.org JSON-LD */}
-        <script type="application/ld+json">
-          {JSON.stringify(breadcrumbSchema)}
-        </script>
-        <script type="application/ld+json">
-          {JSON.stringify(productSchema)}
-        </script>
-
-        {/* FAQ Schema para Rich Snippets */}
+        <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
+        <script type="application/ld+json">{JSON.stringify(productSchema)}</script>
         {faqs.length > 0 && (
           <script type="application/ld+json">
             {JSON.stringify({
@@ -204,33 +174,28 @@ const ProductPage = () => {
               "mainEntity": faqs.map((faq: any) => ({
                 "@type": "Question",
                 "name": faq.question,
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": faq.answer
-                }
+                "acceptedAnswer": { "@type": "Answer", "text": faq.answer }
               }))
             })}
           </script>
         )}
-
-        {/* Schema JSON-LD para Documentos Técnicos */}
         {(product as any).documents && (product as any).documents.length > 0 && (
           <script type="application/ld+json">
             {JSON.stringify({
               "@context": "https://schema.org",
               "@type": "ItemList",
-              "name": `Documentos Técnicos - ${product.name}`,
+              "name": `${t('product.features')} - ${product.name}`,
               "numberOfItems": (product as any).documents.length,
               "itemListElement": (product as any).documents.map((doc: any, idx: number) => ({
                 "@type": "DigitalDocument",
                 "position": idx + 1,
                 "name": doc.document_name,
-                "description": doc.document_description || `Documento técnico: ${doc.document_name}`,
+                "description": doc.document_description || doc.document_name,
                 "encodingFormat": "application/pdf",
                 "contentUrl": doc.file_url,
                 "dateModified": new Date(doc.updated_at).toISOString(),
                 "fileSize": doc.file_size ? `${doc.file_size} bytes` : undefined,
-                "inLanguage": "pt-BR"
+                "inLanguage": getOgLocale(language).replace('_', '-')
               }))
             })}
           </script>
@@ -240,13 +205,9 @@ const ProductPage = () => {
       <div className="min-h-screen bg-background">
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/")}
-              className="gap-2"
-            >
+            <Button variant="ghost" onClick={() => navigate("/")} className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              Voltar
+              {t('common.back')}
             </Button>
           </div>
         </header>
@@ -255,32 +216,20 @@ const ProductPage = () => {
           <div className="grid md:grid-cols-2 gap-8 mb-8">
             <div>
               {product.image_url && (
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  width="600"
-                  height="400"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full rounded-lg shadow-lg"
-                />
+                <img src={product.image_url} alt={product.name} width="600" height="400" loading="lazy" decoding="async" className="w-full rounded-lg shadow-lg" />
               )}
             </div>
             
             <div>
               <h1 className="text-4xl font-bold mb-4">{product.name}</h1>
               {product.description && (
-                <p className="text-lg text-muted-foreground mb-6">
-                  {product.description}
-                </p>
+                <p className="text-lg text-muted-foreground mb-6">{product.description}</p>
               )}
 
               {(product.price || product.promo_price) && (
                 <div className="mb-6">
                   {product.promo_price && (
-                    <div className="text-3xl font-bold text-primary mb-2">
-                      R$ {product.promo_price.toFixed(2)}
-                    </div>
+                    <div className="text-3xl font-bold text-primary mb-2">R$ {product.promo_price.toFixed(2)}</div>
                   )}
                   {product.price && (
                     <div className={product.promo_price ? "text-xl line-through text-muted-foreground" : "text-3xl font-bold"}>
@@ -295,14 +244,14 @@ const ProductPage = () => {
                   <Button asChild size="lg" className="w-full">
                     <a href={product.cta_1_url} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="w-4 h-4 mr-2" />
-                      {product.cta_1_label || "Ver na Loja"}
+                      {product.cta_1_label || t('product.view_store')}
                     </a>
                   </Button>
                 )}
                 {product.cta_2_url && (
                   <Button asChild variant="outline" size="lg" className="w-full">
                     <a href={product.cta_2_url} target="_blank" rel="noopener noreferrer">
-                      {product.cta_2_label || "Saiba Mais"}
+                      {product.cta_2_label || t('product.learn_more')}
                     </a>
                   </Button>
                 )}
@@ -312,14 +261,10 @@ const ProductPage = () => {
 
           {benefits.length > 0 && (
             <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Benefícios</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>{t('product.benefits')}</CardTitle></CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside space-y-2">
-                  {benefits.map((benefit: string, index: number) => (
-                    <li key={index}>{benefit}</li>
-                  ))}
+                  {benefits.map((benefit: string, index: number) => (<li key={index}>{benefit}</li>))}
                 </ul>
               </CardContent>
             </Card>
@@ -327,14 +272,10 @@ const ProductPage = () => {
 
           {features.length > 0 && (
             <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Características</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>{t('product.features')}</CardTitle></CardHeader>
               <CardContent>
                 <ul className="list-disc list-inside space-y-2">
-                  {features.map((feature: string, index: number) => (
-                    <li key={index}>{feature}</li>
-                  ))}
+                  {features.map((feature: string, index: number) => (<li key={index}>{feature}</li>))}
                 </ul>
               </CardContent>
             </Card>
@@ -342,24 +283,14 @@ const ProductPage = () => {
 
           {variations.length > 0 && (
             <Card className="mb-8">
-              <CardHeader>
-                <CardTitle>Opções Disponíveis</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle>{t('product.options')}</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {variations.map((variation: any, index: number) => (
                     <div key={index} className="border-b pb-4 last:border-0">
                       <h3 className="font-semibold">{variation.name}</h3>
-                      {variation.price && (
-                        <p className="text-lg font-bold text-primary">
-                          R$ {variation.price}
-                        </p>
-                      )}
-                      {variation.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {variation.description}
-                        </p>
-                      )}
+                      {variation.price && (<p className="text-lg font-bold text-primary">R$ {variation.price}</p>)}
+                      {variation.description && (<p className="text-sm text-muted-foreground">{variation.description}</p>)}
                     </div>
                   ))}
                 </div>

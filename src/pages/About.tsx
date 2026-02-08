@@ -4,9 +4,11 @@ import { useCompanyData } from "@/hooks/useCompanyData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AboutSEOHead } from "@/components/AboutSEOHead";
 import { Target, Eye, Heart, Users, Award, TrendingUp } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function About() {
   const { data: company, isLoading } = useCompanyData();
+  const { t } = useLanguage();
 
   if (isLoading) {
     return (
@@ -27,7 +29,7 @@ export default function About() {
       <>
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <p className="text-muted-foreground">Informações da empresa não disponíveis.</p>
+          <p className="text-muted-foreground">{t('about.company_not_available')}</p>
         </main>
       </>
     );
@@ -36,18 +38,13 @@ export default function About() {
   return (
     <>
       <AboutSEOHead company={company} />
-
       <Header />
 
       <main className="container mx-auto px-4 py-8 space-y-12">
         {/* Hero Section */}
         <section className="text-center space-y-4">
           {company.logo_url && (
-            <img 
-              src={company.logo_url} 
-              alt={company.name}
-              className="h-20 w-auto object-contain mx-auto"
-            />
+            <img src={company.logo_url} alt={company.name} className="h-20 w-auto object-contain mx-auto" />
           )}
           <h1 className="text-4xl font-bold text-foreground">{company.name}</h1>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto">{company.description}</p>
@@ -60,7 +57,7 @@ export default function About() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="w-5 h-5 text-primary" />
-                  Missão
+                  {t('about.mission')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -74,7 +71,7 @@ export default function About() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Eye className="w-5 h-5 text-primary" />
-                  Visão
+                  {t('about.vision')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -88,7 +85,7 @@ export default function About() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Heart className="w-5 h-5 text-primary" />
-                  Valores
+                  {t('about.values')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -112,7 +109,7 @@ export default function About() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-primary" />
-                  Fundação
+                  {t('about.foundation')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -126,7 +123,7 @@ export default function About() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-primary" />
-                  Equipe
+                  {t('about.team')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -143,7 +140,7 @@ export default function About() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="w-5 h-5 text-primary" />
-                  Nossos Diferenciais
+                  {t('about.differentiators')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -163,23 +160,14 @@ export default function About() {
         {/* Company Videos */}
         {company.company_videos && company.company_videos.length > 0 && (
           <section>
-            <h2 className="text-2xl font-bold text-foreground mb-6">Vídeos Institucionais</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-6">{t('about.institutional_videos')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {company.company_videos.map((video, index) => (
                 <Card key={index}>
                   <CardContent className="p-4">
-                    <a 
-                      href={video.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="block space-y-2 hover:opacity-80 transition-opacity"
-                    >
+                    <a href={video.url} target="_blank" rel="noopener noreferrer" className="block space-y-2 hover:opacity-80 transition-opacity">
                       {video.thumbnail && (
-                        <img 
-                          src={video.thumbnail} 
-                          alt={video.title}
-                          className="w-full h-48 object-cover rounded"
-                        />
+                        <img src={video.thumbnail} alt={video.title} className="w-full h-48 object-cover rounded" />
                       )}
                       <h3 className="font-semibold text-foreground">{video.title}</h3>
                     </a>

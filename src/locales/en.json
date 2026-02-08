@@ -16,7 +16,8 @@
     "active": "Active",
     "inactive": "Inactive",
     "available": "Available",
-    "coming_soon": "Coming Soon"
+    "coming_soon": "Coming Soon",
+    "all_rights_reserved": "All rights reserved"
   },
   "header": {
     "title": "3D Printing Parameters",
@@ -65,7 +66,12 @@
     "whatsapp_button": "Chat on WhatsApp"
   },
   "footer": {
-    "copyright": "© 2024 Smart Dent. Developed for the 3D printing community."
+    "copyright": "© 2024 Smart Dent. Developed for the 3D printing community.",
+    "contact": "Contact",
+    "links": "Links",
+    "social": "Social Media",
+    "about_us": "About Us",
+    "knowledge_base": "Knowledge Base"
   },
   "admin": {
     "title": "Administrative Panel",
@@ -162,6 +168,51 @@
     "subtitles_only_your_language": "📝 Subtitles available in your language. Use the CC icon in the player.",
     "select_language_in_player": "🌐 Use the CC (subtitles) and ⚙️ (audio) icons in the player to select language.",
     "audio": "Audio",
-    "subtitles": "Subtitles"
+    "subtitles": "Subtitles",
+    "explore_knowledge_base": "Explore Knowledge Base",
+    "coming_soon_articles": "🚀 New articles coming soon!",
+    "coming_soon_description": "We're preparing exclusive content about dental 3D printing, printer configurations, resin guides and much more."
+  },
+  "product": {
+    "benefits": "Benefits",
+    "features": "Features",
+    "options": "Available Options",
+    "view_store": "View in Store",
+    "learn_more": "Learn More",
+    "not_found": "Product not found",
+    "load_error": "Error loading product"
+  },
+  "testimonial": {
+    "transcription": "Testimonial Transcription",
+    "not_found": "Testimonial not found",
+    "load_error": "Error loading testimonial"
+  },
+  "category": {
+    "main_category": "Main Category",
+    "subcategory": "Subcategory",
+    "target_audience": "Target Audience",
+    "not_found": "Category not found",
+    "load_error": "Error loading category"
+  },
+  "about": {
+    "mission": "Mission",
+    "vision": "Vision",
+    "values": "Values",
+    "foundation": "Foundation",
+    "team": "Team",
+    "differentiators": "Our Differentiators",
+    "institutional_videos": "Institutional Videos",
+    "company_not_available": "Company information not available."
+  },
+  "index": {
+    "title": "3D Printing Parameters",
+    "subtitle": "Professional database with tested parameters for dental printers and resins.",
+    "waiting_import": "Waiting for Data Import",
+    "import_data": "Import Data"
+  },
+  "faq": {
+    "title": "FAQ",
+    "subtitle": "Frequently Asked Questions",
+    "hint": "💡 These questions are based on the most common questions about this topic."
   }
 }

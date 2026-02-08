@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useCompanyData } from "@/hooks/useCompanyData";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { getOgLocale } from "@/utils/i18nPaths";
 
 interface CategoryData {
   id: string;
@@ -25,6 +27,7 @@ const CategoryPage = () => {
   const [category, setCategory] = useState<CategoryData | null>(null);
   const [loading, setLoading] = useState(true);
   const { data: companyData } = useCompanyData();
+  const { t, language } = useLanguage();
 
   useEffect(() => {
     const fetchCategory = async () => {
@@ -43,7 +46,7 @@ const CategoryPage = () => {
         if (error) throw error;
         
         if (!data) {
-          toast.error("Categoria não encontrada");
+          toast.error(t('category.not_found'));
           navigate("/");
           return;
         }
@@ -51,19 +54,19 @@ const CategoryPage = () => {
         setCategory(data);
       } catch (error) {
         console.error("Error fetching category:", error);
-        toast.error("Erro ao carregar categoria");
+        toast.error(t('category.load_error'));
       } finally {
         setLoading(false);
       }
     };
 
     fetchCategory();
-  }, [slug, navigate]);
+  }, [slug, navigate, t]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Carregando...</p>
+        <p>{t('common.loading')}</p>
       </div>
     );
   }
@@ -78,86 +81,49 @@ const CategoryPage = () => {
 
   const baseUrl = "https://parametros.smartdent.com.br";
   const canonicalUrl = `${baseUrl}/categorias/${slug}`;
-  const keywords = [
-    category.name,
-    extraData.category,
-    extraData.subcategory,
-    companyName,
-    "impressão 3D odontológica"
-  ].filter(Boolean).join(", ");
+  const keywords = [category.name, extraData.category, extraData.subcategory, companyName].filter(Boolean).join(", ");
 
-  // BreadcrumbList Schema
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     "itemListElement": [
-      {
-        "@type": "ListItem",
-        "position": 1,
-        "name": "Home",
-        "item": baseUrl
-      },
-      {
-        "@type": "ListItem",
-        "position": 2,
-        "name": "Categorias",
-        "item": `${baseUrl}/categorias`
-      },
-      {
-        "@type": "ListItem",
-        "position": 3,
-        "name": category.name,
-        "item": canonicalUrl
-      }
+      { "@type": "ListItem", "position": 1, "name": "Home", "item": baseUrl },
+      { "@type": "ListItem", "position": 2, "name": t('category.main_category'), "item": `${baseUrl}/categorias` },
+      { "@type": "ListItem", "position": 3, "name": category.name, "item": canonicalUrl }
     ]
   };
 
   return (
     <>
       <Helmet>
-        {/* Primary Meta Tags */}
         <title>{seoTitle}</title>
         <meta name="description" content={metaDescription} />
         <meta name="keywords" content={keywords} />
         <meta name="author" content={companyName} />
         <meta name="robots" content="index, follow" />
         <link rel="canonical" href={canonicalUrl} />
-        
-        {/* AI Meta Tags */}
         <meta name="ai-content-type" content="categorypage" />
         <meta name="ai-topic" content={keywords} />
-        
-        {/* Open Graph */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={canonicalUrl} />
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:site_name" content={`PrinterParams ${companyName}`} />
-        <meta property="og:locale" content="pt_BR" />
-        
-        {/* Twitter Card */}
+        <meta property="og:locale" content={getOgLocale(language)} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={seoTitle} />
         <meta name="twitter:description" content={metaDescription} />
         <meta name="twitter:image" content={ogImage} />
-        
-        {/* Schema.org JSON-LD */}
-        <script type="application/ld+json">
-          {JSON.stringify(breadcrumbSchema)}
-        </script>
+        <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
       </Helmet>
 
       <div className="min-h-screen bg-background">
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate("/")}
-              className="gap-2"
-            >
+            <Button variant="ghost" onClick={() => navigate("/")} className="gap-2">
               <ArrowLeft className="w-4 h-4" />
-              Voltar
+              {t('common.back')}
             </Button>
           </div>
         </header>
@@ -176,7 +142,7 @@ const CategoryPage = () => {
           {extraData.category && (
             <Card className="mb-4">
               <CardContent className="pt-6">
-                <h2 className="font-semibold mb-2">Categoria Principal</h2>
+                <h2 className="font-semibold mb-2">{t('category.main_category')}</h2>
                 <p>{extraData.category}</p>
               </CardContent>
             </Card>
@@ -185,7 +151,7 @@ const CategoryPage = () => {
           {extraData.subcategory && (
             <Card className="mb-4">
               <CardContent className="pt-6">
-                <h2 className="font-semibold mb-2">Subcategoria</h2>
+                <h2 className="font-semibold mb-2">{t('category.subcategory')}</h2>
                 <p>{extraData.subcategory}</p>
               </CardContent>
             </Card>
@@ -194,7 +160,7 @@ const CategoryPage = () => {
           {extraData.target_audience && (
             <Card>
               <CardContent className="pt-6">
-                <h2 className="font-semibold mb-2">Público-Alvo</h2>
+                <h2 className="font-semibold mb-2">{t('category.target_audience')}</h2>
                 <p>{extraData.target_audience}</p>
               </CardContent>
             </Card>
