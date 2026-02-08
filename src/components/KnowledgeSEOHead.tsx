@@ -913,19 +913,19 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         "@type": "ListItem",
         "position": 1,
         "name": "Home",
-        "item": "https://smartdent.com.br"
+        "item": baseUrl
       },
       {
         "@type": "ListItem",
         "position": 2,
         "name": "Base de Conhecimento",
-        "item": "https://smartdent.com.br/base-conhecimento"
+        "item": `${baseUrl}/base-conhecimento`
       },
       {
         "@type": "ListItem",
         "position": 3,
         "name": category?.name || "Categoria",
-        "item": `https://smartdent.com.br/base-conhecimento/${category?.letter?.toLowerCase()}`
+        "item": `${baseUrl}/base-conhecimento/${category?.letter?.toLowerCase()}`
       },
       {
         "@type": "ListItem",
@@ -1049,17 +1049,13 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       
       <link rel="canonical" href={canonicalUrl} />
       
-      {/* Robots - noindex only if translation is missing */}
-      {hasTranslation ? (
-        <meta name="robots" content="index, follow" />
-      ) : (
-        <meta name="robots" content="noindex, follow" />
-      )}
+      {/* Robots - always index, translations are auto-generated */}
+      <meta name="robots" content="index, follow" />
       
-      {/* hreflang tags - only for languages with actual translations */}
+      {/* hreflang tags - all languages (translations are auto-generated) */}
       <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
-      {hasTranslationEn && <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category?.letter?.toLowerCase()}/${content.slug}`} />}
-      {hasTranslationEs && <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category?.letter?.toLowerCase()}/${content.slug}`} />}
+      <link rel="alternate" hrefLang="en-US" href={`${baseUrl}${pathByLang['en']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
+      <link rel="alternate" hrefLang="es-ES" href={`${baseUrl}${pathByLang['es']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
       <link rel="alternate" hrefLang="x-default" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />
       
       {/* Preload OG Image */}

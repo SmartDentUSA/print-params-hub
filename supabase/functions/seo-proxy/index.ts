@@ -1167,7 +1167,11 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <title>Base de Conhecimento | Smart Dent</title>
   <meta name="description" content="Artigos, tutoriais e guias sobre impressão 3D odontológica. Aprenda técnicas, resolução de problemas e melhores práticas." />
   ${FAVICON_TAGS}
-  <link rel="canonical" href="${baseUrl}/conhecimento" />
+  <link rel="canonical" href="${baseUrl}/base-conhecimento" />
+  <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento" />
+  <link rel="alternate" hreflang="en-US" href="${baseUrl}/en/knowledge-base" />
+  <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento" />
+  <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento" />
   <meta property="og:title" content="Base de Conhecimento Smart Dent" />
   <meta property="og:type" content="website" />
   <script type="application/ld+json">
@@ -1175,7 +1179,7 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "Base de Conhecimento Smart Dent",
-    "url": `${baseUrl}/conhecimento`,
+    "url": `${baseUrl}/base-conhecimento`,
     "description": "Artigos e tutoriais sobre impressão 3D odontológica"
   })}
   </script>
@@ -1395,6 +1399,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="description" content="${escapeHtml(desc)}" />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  <link rel="alternate" hreflang="en-US" href="${baseUrl}/en/knowledge-base/${letter}/${slug}" />
+  <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento/${letter}/${slug}" />
+  <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
   
   <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
