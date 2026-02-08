@@ -12,6 +12,7 @@ import { AdminParameterPages } from "@/components/AdminParameterPages";
 import { AdminVideoAnalyticsDashboard } from "@/components/AdminVideoAnalyticsDashboard";
 import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
+import { AdminBatchTranslator } from "@/components/AdminBatchTranslator";
 import { ApostilaExport } from "@/components/ApostilaExport";
 const AdminViewSupabase = () => {
   const dataContext = useData();
@@ -146,6 +147,19 @@ const AdminViewSupabase = () => {
             </CardHeader>
             <CardContent>
               <AdminArticleReformatter />
+            </CardContent>
+          </Card>
+
+          {/* Batch Translator */}
+          <Card className="bg-gradient-card border-border shadow-medium">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5" />
+                Tradução em Lote (EN/ES)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AdminBatchTranslator />
             </CardContent>
           </Card>
 
