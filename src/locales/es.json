@@ -171,7 +171,10 @@
     "subtitles": "Subtítulos",
     "explore_knowledge_base": "Explorar Base de Conocimiento",
     "coming_soon_articles": "🚀 ¡Nuevos artículos próximamente!",
-    "coming_soon_description": "Estamos preparando contenido exclusivo sobre impresión 3D dental, configuraciones de impresoras, guías de resinas y mucho más."
+    "coming_soon_description": "Estamos preparando contenido exclusivo sobre impresión 3D dental, configuraciones de impresoras, guías de resinas y mucho más.",
+    "about_author": "Sobre el autor",
+    "mini_cv": "Mini Currículum",
+    "view_lattes": "Ver Currículum Lattes"
   },
   "product": {
     "benefits": "Beneficios",

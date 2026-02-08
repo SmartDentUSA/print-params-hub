@@ -1,11 +1,14 @@
 import { Facebook, Instagram, Linkedin, Youtube, Twitter, UserCircle } from 'lucide-react';
 import { Author } from '@/hooks/useAuthors';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AuthorSignatureProps {
   author: Author;
 }
 
 export function AuthorSignature({ author }: AuthorSignatureProps) {
+  const { t } = useLanguage();
+
   const socialBrandColors: { [key: string]: string } = {
     'Facebook': 'bg-[#1877F2]',
     'Instagram': 'bg-gradient-to-br from-[#feda75] via-[#d62976] via-[#962fbf] to-[#4f5bd5]',
@@ -47,7 +50,7 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-3">
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                Sobre o autor
+                {t('knowledge.about_author')}
               </p>
               <h4 className="text-lg font-extrabold uppercase text-black leading-tight break-words">{author.name}</h4>
               {author.specialty && (
@@ -83,7 +86,7 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
             {author.mini_bio ? (
               <p className="text-sm text-black leading-relaxed text-left">{author.mini_bio}</p>
             ) : (
-              <p className="text-base font-semibold text-black text-center">Mini Currículo</p>
+              <p className="text-base font-semibold text-black text-center">{t('knowledge.mini_cv')}</p>
             )}
           </div>
 
@@ -95,7 +98,7 @@ export function AuthorSignature({ author }: AuthorSignatureProps) {
               rel="noopener noreferrer"
               className="inline-block mt-3 text-sm text-[#1877F2] hover:underline"
             >
-              Ver Currículo Lattes
+              {t('knowledge.view_lattes')}
             </a>
           )}
         </div>
