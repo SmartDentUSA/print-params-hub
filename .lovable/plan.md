@@ -1,147 +1,103 @@
 
+## Plano: Edicao em Lote de Videos com Geracao de Conteudo
 
-## Diagnostico: Idioma Nao Muda nos Conteudos e Paginas
+### Objetivo
+Adicionar checkboxes na lista de videos, um botao "Editar em Lote" que abre um modal para aplicar metadados em massa (Categoria, Subcategoria, Produto, Tipo de Video, Categoria de Conteudo) e gerar automaticamente titulo + resumo via IA para todos os videos selecionados.
 
-### Problemas Encontrados
+### Fluxo do Usuario
 
-Foram identificados **3 problemas principais** que impedem a troca correta de idioma:
-
----
-
-### Problema 1: Links do KnowledgeFeed sempre apontam para rota em Portugues
-
-**Arquivo:** `src/components/KnowledgeFeed.tsx`
-
-Os links dos artigos no feed (carrossel) estao hardcoded para a rota portuguesa `/base-conhecimento/...`, independentemente do idioma selecionado:
-
-- **Linha 107:** Link fallback "Explorar Base de Conhecimento" -> `/base-conhecimento`
-- **Linha 136:** `articleUrl` construido como `/base-conhecimento/${categoryLetter}/${slug}` (sempre PT)
-- **Linha 198:** Botao "Ver todos" -> `/base-conhecimento`
-
-**Correcao:** Usar o `language` do contexto para construir o path correto (`/en/knowledge-base/...` ou `/es/base-conocimiento/...`).
-
----
-
-### Problema 2: Artigos Relacionados no KnowledgeContentViewer nao traduzem titulo/excerpt
-
-**Arquivo:** `src/components/KnowledgeContentViewer.tsx`
-
-Na secao de "Artigos Relacionados" (linhas 419-431), os titulos e excerpts sao exibidos sempre em portugues:
-
-```tsx
-// Linha 430-431: Sempre mostra article.title e article.excerpt (PT)
-<h4>{article.title}</h4>
-<p>{article.excerpt}</p>
+```text
+1. Selecionar videos via checkbox (ou "Selecionar todos")
+      |
+2. Clicar em "Editar em Lote" (aparece quando >= 1 selecionado)
+      |
+3. Modal abre com campos compartilhados:
+   - Categoria (produto)
+   - Subcategoria (produto)
+   - Produto vinculado
+   - Tipo de Video (content_type)
+   - Categoria de Conteudo (A-E para geracao)
+      |
+4. Botao "Aplicar Metadados" salva os campos nos videos selecionados
+      |
+5. Botao "Gerar Conteudo" (ativo apos selecionar Categoria de Conteudo)
+   -> Para cada video selecionado sem artigo vinculado:
+      a. Gera Titulo + Resumo via IA (ai-metadata-generator)
+      b. Gera HTML via IA (ai-orchestrate-content)
+      c. Salva artigo em knowledge_contents
+      d. Vincula video ao artigo
+      e. Exibe progresso em tempo real
 ```
 
-**Correcao:** Aplicar a mesma logica de selecao de idioma ja usada no `displayContent` (linhas 196-221) para os artigos relacionados.
+### Mudancas por Arquivo
 
----
+#### 1. `src/components/AdminVideosList.tsx`
+- Adicionar coluna de checkbox no inicio da tabela (header com "selecionar todos da pagina")
+- Estado `selectedVideoIds: Set<string>` para controlar selecao
+- Barra de acoes flutuante quando ha selecao (ex: "5 videos selecionados | Editar em Lote | Limpar")
+- Importar e renderizar o novo modal `VideoBatchEditModal`
 
-### Problema 3: Paginas secundarias totalmente hardcoded em Portugues
+#### 2. `src/components/VideoBatchEditModal.tsx` (novo arquivo)
+- Modal (Dialog) que recebe os videos selecionados como prop
+- Campos do formulario:
+  - **Categoria** (Select com categorias existentes do hook)
+  - **Subcategoria** (Select com subcategorias existentes)
+  - **Produto** (Combobox com busca, igual ao existente na tabela)
+  - **Tipo de Video** (Select com VIDEO_CONTENT_TYPES)
+  - **Categoria de Conteudo** (Select A-E para geracao de artigos)
+- Secao "Aplicar Metadados":
+  - Botao que aplica os campos preenchidos em todos os videos selecionados via `updateVideoFields`
+  - Indicador de progresso (X de Y)
+- Secao "Gerar Conteudo":
+  - So fica ativo se Categoria de Conteudo estiver selecionada
+  - Para cada video sem `content_id`:
+    1. Chama `ai-metadata-generator` para gerar titulo + resumo
+    2. Chama `ai-orchestrate-content` para gerar HTML
+    3. Insere em `knowledge_contents`
+    4. Vincula video via `content_id`
+  - Barra de progresso com contadores (processados, sucesso, erros)
+  - Botao de pausar/cancelar
+  - Rate limit de 2s entre chamadas para evitar throttling
+  - Log de resultados por video (titulo gerado, status)
 
-Varias paginas nao utilizam o sistema de traducao (`useLanguage`/`t()`):
-
-| Pagina | Arquivo | Problemas |
-|--------|---------|-----------|
-| **ProductPage** | `src/pages/ProductPage.tsx` | Sem `useLanguage()`. Textos "Voltar", "Beneficios", "Caracteristicas", "Opcoes Disponiveis" hardcoded em PT. `og:locale` fixo em `pt_BR`. |
-| **TestimonialPage** | `src/pages/TestimonialPage.tsx` | Sem `useLanguage()`. Textos "Voltar", "Transcricao do Depoimento" hardcoded em PT. |
-| **CategoryPage** | `src/pages/CategoryPage.tsx` | Sem `useLanguage()`. Textos "Voltar", "Categoria Principal", "Subcategoria", "Publico-Alvo" hardcoded em PT. `og:locale` fixo em `pt_BR`. |
-| **About** | `src/pages/About.tsx` | Sem `useLanguage()`. "Missao", "Visao", "Valores", "Nossos Diferenciais", "Videos Institucionais" hardcoded em PT. |
-| **Footer** | `src/components/Footer.tsx` | "Contato", "Links", "Redes Sociais", "Sobre Nos", "Base de Conhecimento", "Todos os direitos reservados" hardcoded em PT. Link `/base-conhecimento` fixo. |
-| **KnowledgeFAQ** | `src/components/KnowledgeFAQ.tsx` | "Perguntas Frequentes" e texto de rodape hardcoded em PT. |
-| **Index** (sem dados) | `src/pages/Index.tsx` | Todos os textos do estado vazio hardcoded em PT. |
-
----
-
-### Plano de Implementacao
-
-#### Fase 1 - Correcoes Criticas (Links quebrados por idioma)
-
-**1.1 Corrigir KnowledgeFeed.tsx**
-- Importar `language` do contexto (ja importado)
-- Criar helper `getBasePath()` que retorna o path correto por idioma
-- Atualizar `articleUrl` (linha 136) para usar o basePath correto
-- Atualizar link fallback (linha 107) e botao "Ver todos" (linha 198)
-
-**1.2 Corrigir artigos relacionados no KnowledgeContentViewer.tsx**
-- Nas linhas 430-431, usar logica de selecao de idioma:
-  ```tsx
-  <h4>{language === 'es' && article.title_es ? article.title_es 
-    : language === 'en' && article.title_en ? article.title_en 
-    : article.title}</h4>
+#### 3. `src/hooks/useAllVideos.ts`
+- Adicionar funcao `batchUpdateVideoFields` que aceita array de IDs e aplica as mesmas atualizacoes em todos:
+  ```typescript
+  batchUpdateVideoFields(videoIds: string[], updates: {...}) => Promise<{success: number, failed: number}>
   ```
-- Aplicar o mesmo para `article.excerpt`
 
-#### Fase 2 - Internacionalizacao das Paginas Secundarias
+### Detalhes Tecnicos
 
-**2.1 Footer.tsx**
-- Adicionar `useLanguage()` e usar `t()` para labels
-- Corrigir link `/base-conhecimento` para usar path por idioma
-- Traduzir "Contato", "Links", "Redes Sociais", etc.
+**Estrutura do Modal:**
+- 2 secoes separadas no modal: "Metadados" e "Geracao de Conteudo"
+- Os campos de metadados usam estado "parcial" - so aplica campos que foram efetivamente alterados (nao sobrescreve com vazio)
+- A geracao de conteudo reutiliza a mesma logica do `VideoContentGeneratorModal` existente (linhas 87-259)
 
-**2.2 KnowledgeFAQ.tsx**
-- Adicionar `useLanguage()` 
-- Traduzir "Perguntas Frequentes" e texto de rodape
+**Batch Update no Supabase:**
+- Para metadados: um unico UPDATE com `.in('id', videoIds)` (mais eficiente que N queries individuais)
+- Para geracao: sequencial com delay de 2s (APIs de IA nao suportam burst)
 
-**2.3 ProductPage.tsx**
-- Adicionar `useLanguage()` e `t()`
-- Traduzir botoes, titulos de secoes, `og:locale` dinamico
+**UI da barra de selecao:**
+- Fixa no topo da tabela quando ha selecao
+- Mostra: "X videos selecionados" + botao "Editar em Lote" + botao "Limpar Selecao"
+- Checkbox no header: seleciona/deseleciona todos da pagina atual
 
-**2.4 TestimonialPage.tsx**
-- Adicionar `useLanguage()` e `t()`
-- Traduzir textos estaticos
+**Progresso da geracao:**
+- Barra de progresso com porcentagem
+- Lista scrollavel mostrando cada video processado com status (aguardando/processando/sucesso/erro)
+- Contadores: Total, Processados, Sucesso, Erros, Ignorados (ja tem artigo)
 
-**2.5 CategoryPage.tsx**
-- Adicionar `useLanguage()` e `t()`
-- Traduzir textos e `og:locale` dinamico
+### Arquivos a Criar/Modificar
 
-**2.6 About.tsx**
-- Adicionar `useLanguage()` e `t()`
-- Traduzir titulos das secoes
-
-**2.7 Index.tsx (estado vazio)**
-- Adicionar `useLanguage()` e `t()`
-- Traduzir mensagens do estado sem dados
-
-#### Fase 3 - Adicionar chaves de traducao nos locales
-
-**3.1 Adicionar chaves faltantes em `src/locales/pt.json`, `en.json`, `es.json`**
-
-Chaves a adicionar:
-- `common.back` / `common.loading`
-- `product.benefits` / `product.features` / `product.options`
-- `testimonial.transcription`
-- `category.main_category` / `category.subcategory` / `category.target_audience`
-- `about.mission` / `about.vision` / `about.values` / `about.differentiators`
-- `footer.contact` / `footer.links` / `footer.social` / `footer.about_us` / `footer.all_rights`
-- `faq.title` / `faq.subtitle`
-
----
-
-### Arquivos a Modificar
-
-| Arquivo | Tipo de Mudanca |
-|---------|-----------------|
-| `src/components/KnowledgeFeed.tsx` | Corrigir links por idioma |
-| `src/components/KnowledgeContentViewer.tsx` | Traduzir artigos relacionados |
-| `src/components/Footer.tsx` | Adicionar i18n completo |
-| `src/components/KnowledgeFAQ.tsx` | Adicionar i18n |
-| `src/pages/ProductPage.tsx` | Adicionar i18n |
-| `src/pages/TestimonialPage.tsx` | Adicionar i18n |
-| `src/pages/CategoryPage.tsx` | Adicionar i18n |
-| `src/pages/About.tsx` | Adicionar i18n |
-| `src/pages/Index.tsx` | Adicionar i18n (estado vazio) |
-| `src/locales/pt.json` | Adicionar chaves faltantes |
-| `src/locales/en.json` | Adicionar traducoes EN |
-| `src/locales/es.json` | Adicionar traducoes ES |
+| Arquivo | Acao |
+|---------|------|
+| `src/components/VideoBatchEditModal.tsx` | Criar novo componente |
+| `src/components/AdminVideosList.tsx` | Adicionar checkboxes, barra de selecao, integrar modal |
+| `src/hooks/useAllVideos.ts` | Adicionar `batchUpdateVideoFields` |
 
 ### Resultado Esperado
-
-Apos as correcoes:
-- Trocar o idioma no seletor refletira imediatamente em **todas** as paginas
-- Links do feed de artigos navegarao para a rota correta do idioma selecionado
-- Artigos relacionados mostrarao titulo/excerpt no idioma correto
-- Todas as paginas secundarias (Produto, Depoimento, Categoria, Sobre) terao textos traduzidos
-- Footer e FAQ respeitarao o idioma selecionado
-
+- Checkboxes visiveis na primeira coluna de cada video
+- Selecao rapida com "Selecionar Todos"
+- Modal de edicao em lote para classificar multiplos videos de uma vez
+- Geracao automatica de titulo + resumo + artigo para todos os videos selecionados sem artigo vinculado
+- Progresso em tempo real com opcao de pausar
