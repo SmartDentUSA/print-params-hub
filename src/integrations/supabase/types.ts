@@ -1215,6 +1215,14 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      update_extra_data_reviews: {
+        Args: {
+          p_google_place_id: string
+          p_record_id: string
+          p_reviews_reputation: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "author"
