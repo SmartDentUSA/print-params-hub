@@ -76,6 +76,8 @@ REGRAS DE FORMATAÇÃO:
 - Headings: <h2 class="text-2xl font-bold mt-8 mb-4">...</h2>
 - Se houver listas (bullets, numeradas), use <ul class="list-disc pl-6 my-4"> ou <ol>
 - Preserve TODOS os parágrafos <p class="mb-4">
+- Se houver URLs em texto plano (ex: https://... ou http://...) que NAO estejam dentro de uma tag <a>, converta-as em hyperlinks: <a href="URL" target="_blank" rel="noopener noreferrer" class="text-primary underline">URL</a>
+- Isso NAO é "adicionar links novos" — é transformar URLs existentes no texto em HTML semântico clicável
 
 FORMATO DE SAÍDA:
 Retorne APENAS o HTML reformatado, sem explicações ou meta-comentários.`;
@@ -123,13 +125,23 @@ Retorne o HTML reformatado seguindo todas as regras.`;
     }
 
     const aiData = await aiResponse.json();
-    const reformattedHtml = aiData.choices?.[0]?.message?.content;
+    const rawReformattedHtml = aiData.choices?.[0]?.message?.content;
 
-    if (!reformattedHtml) {
+    if (!rawReformattedHtml) {
       throw new Error('IA não retornou HTML reformatado');
     }
 
-    console.log(`[reformat-article-html] HTML reformatado recebido: ${reformattedHtml.length} chars`);
+    // Pós-processamento: converter URLs em texto plano para hyperlinks
+    function convertPlainUrlsToLinks(html: string): string {
+      return html.replace(
+        /(?<!href="|src="|">)(https?:\/\/[^\s<>"]+)/g,
+        '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>'
+      );
+    }
+
+    const reformattedHtml = convertPlainUrlsToLinks(rawReformattedHtml);
+
+    console.log(`[reformat-article-html] HTML reformatado recebido: ${reformattedHtml.length} chars (pós-processamento de URLs aplicado)`);
 
     // Preview ou salvar
     if (previewOnly) {
