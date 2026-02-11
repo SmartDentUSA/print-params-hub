@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Download, ExternalLink } from 'lucide-react';
+import { Download, ExternalLink, FileCode } from 'lucide-react';
 import { useKnowledge, getVideoEmbedUrl } from '@/hooks/useKnowledge';
 import { AuthorSignature } from '@/components/AuthorSignature';
 import { renderAuthorSignaturePlaceholders } from '@/utils/authorSignatureToken';
@@ -384,6 +384,42 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     ? prettifyLinkLabels(renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es'))
     : '';
 
+  const handleDownloadHTML = () => {
+    const title = displayContent.title || 'article';
+    const slug = content.slug || 'article';
+    const htmlString = `<!DOCTYPE html>
+<html lang="${language}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+<style>
+body{font-family:Georgia,'Times New Roman',serif;max-width:800px;margin:0 auto;padding:2rem 1rem;color:#1a1a1a;line-height:1.8;font-size:18px}
+h1{font-size:2rem;margin-bottom:.5rem;line-height:1.3}h2{font-size:1.5rem;margin-top:2rem}h3{font-size:1.25rem;margin-top:1.5rem}
+img{max-width:100%;height:auto;border-radius:8px;margin:1rem 0}
+table{width:100%;border-collapse:collapse;margin:1rem 0}th,td{border:1px solid #ddd;padding:.5rem .75rem;text-align:left}th{background:#f5f5f5;font-weight:600}
+a{color:#2563eb;text-decoration:underline}
+blockquote{border-left:4px solid #e5e7eb;margin:1rem 0;padding:.5rem 1rem;color:#555}
+ul,ol{padding-left:1.5rem}li{margin-bottom:.25rem}
+pre,code{background:#f5f5f5;border-radius:4px;padding:.2rem .4rem;font-size:.9em}pre{padding:1rem;overflow-x:auto}
+.veredict-box,.ai-summary-box,.author-signature{margin:1.5rem 0;padding:1rem;border:1px solid #e5e7eb;border-radius:8px}
+</style>
+</head>
+<body>
+<h1>${title}</h1>
+${processedHTML}
+</body>
+</html>`;
+    const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${slug}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('HTML baixado com sucesso!');
+  };
+
   return (
     <div className="space-y-6">
       <KnowledgeSEOHead 
@@ -519,9 +555,9 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
           </div>
         )}
 
-        {/* Download File */}
-        {content.file_url && (
-          <div className="mb-6">
+        {/* Download File + Baixar HTML */}
+        <div className="mb-6 flex flex-wrap gap-3">
+          {content.file_url && (
             <Button 
               onClick={() => window.open(content.file_url, '_blank')}
               className="flex items-center gap-2"
@@ -530,8 +566,18 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
               {t('knowledge.download')} {content.file_name || t('knowledge.download_file')}
               <ExternalLink className="w-3 h-3" />
             </Button>
-          </div>
-        )}
+          )}
+          {processedHTML && (
+            <Button 
+              variant="outline"
+              onClick={handleDownloadHTML}
+              className="flex items-center gap-2"
+            >
+              <FileCode className="w-4 h-4" />
+              Baixar HTML
+            </Button>
+          )}
+        </div>
 
         {/* Rich Content */}
         {processedHTML && (
