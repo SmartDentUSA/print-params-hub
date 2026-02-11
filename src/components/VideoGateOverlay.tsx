@@ -1,4 +1,4 @@
-import { Lock, ExternalLink, X } from 'lucide-react';
+import { Lock, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface VideoGateOverlayProps {
@@ -6,9 +6,9 @@ interface VideoGateOverlayProps {
   onClose: () => void;
 }
 
-export function VideoGateOverlay({ membersAreaUrl, onClose }: VideoGateOverlayProps) {
+export function VideoGateOverlay({ membersAreaUrl }: VideoGateOverlayProps) {
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-lg">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm rounded-lg">
       <div className="bg-card border border-border rounded-xl shadow-2xl p-6 max-w-sm mx-4 text-center space-y-4">
         <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
           <Lock className="w-7 h-7 text-primary" />
@@ -19,7 +19,7 @@ export function VideoGateOverlay({ membersAreaUrl, onClose }: VideoGateOverlayPr
             Conteúdo Exclusivo para Membros
           </h3>
           <p className="text-sm text-muted-foreground">
-            Continue assistindo este vídeo completo na área de membros.
+            Seu tempo de visualização gratuita acabou. Acesse a área de membros para continuar assistindo.
           </p>
         </div>
 
@@ -33,15 +33,6 @@ export function VideoGateOverlay({ membersAreaUrl, onClose }: VideoGateOverlayPr
               <ExternalLink className="w-4 h-4" />
             </Button>
           )}
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="w-full text-muted-foreground"
-            onClick={onClose}
-          >
-            <X className="w-4 h-4 mr-1" />
-            Fechar
-          </Button>
         </div>
       </div>
     </div>

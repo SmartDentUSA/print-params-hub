@@ -300,18 +300,36 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       });
   }, []);
 
-  // Premium video gate timers
+  // Premium video gate timers (2 min limit, persisted in localStorage)
+  const PREMIUM_GATE_SECONDS = 120;
+  const STORAGE_KEY_PREFIX = 'premium_video_watched_';
+
   useEffect(() => {
     if (videosLoading || videos.length === 0) return;
     
     const premiumVideos = videos.filter((v: any) => v.is_premium);
     if (premiumVideos.length === 0) return;
 
+    // Load persisted watch times and gate already-expired videos immediately
+    premiumVideos.forEach((video: any) => {
+      const stored = parseInt(localStorage.getItem(`${STORAGE_KEY_PREFIX}${video.id}`) || '0', 10);
+      videoTimersRef.current[video.id] = stored;
+      if (stored >= PREMIUM_GATE_SECONDS) {
+        setGatedVideoIds(prev => new Set(prev).add(video.id));
+      }
+    });
+
     const interval = setInterval(() => {
       premiumVideos.forEach((video: any) => {
         if (gatedVideoIds.has(video.id)) return;
-        videoTimersRef.current[video.id] = (videoTimersRef.current[video.id] || 0) + 1;
-        if (videoTimersRef.current[video.id] >= 300) {
+        const elapsed = (videoTimersRef.current[video.id] || 0) + 1;
+        videoTimersRef.current[video.id] = elapsed;
+        // Persist every 5 seconds to avoid excessive writes
+        if (elapsed % 5 === 0) {
+          localStorage.setItem(`${STORAGE_KEY_PREFIX}${video.id}`, String(elapsed));
+        }
+        if (elapsed >= PREMIUM_GATE_SECONDS) {
+          localStorage.setItem(`${STORAGE_KEY_PREFIX}${video.id}`, String(elapsed));
           setGatedVideoIds(prev => new Set(prev).add(video.id));
         }
       });
@@ -320,14 +338,8 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     return () => clearInterval(interval);
   }, [videos, videosLoading, gatedVideoIds]);
 
-  const handleCloseGate = useCallback((videoId: string) => {
-    setGatedVideoIds(prev => {
-      const next = new Set(prev);
-      next.delete(videoId);
-      return next;
-    });
-    // Reset timer so it won't re-trigger immediately
-    videoTimersRef.current[videoId] = 0;
+  const handleCloseGate = useCallback((_videoId: string) => {
+    // Gate cannot be dismissed once triggered — video remains locked
   }, []);
 
   if (!content) return null;
