@@ -1,51 +1,56 @@
 
 
-## Corrigir: Reformatador de HTML salvando texto puro em vez de HTML
+## Adicionar "Desfazer" para restaurar formatacao anterior de artigos
 
-### Problema
+### Problema atual
 
-A IA (Gemini) retorna o HTML reformatado envolvido em blocos de codigo Markdown, como:
+Quando voce edita um artigo (especialmente no modo Visual), a formatacao HTML rica e perdida permanentemente. Nao existe nenhum mecanismo para voltar ao conteudo anterior.
 
-~~~
-```html
-<h2>Titulo</h2>
-<p>Conteudo...</p>
-```
-~~~
+### Solucao
 
-Quando esse conteudo e salvo no banco de dados, os marcadores ` ```html ` e ` ``` ` sao incluidos, fazendo com que o artigo inteiro seja exibido como texto puro no site.
+Salvar automaticamente uma copia do HTML original quando o artigo e aberto para edicao, e adicionar um botao "Restaurar HTML Original" que permite voltar a versao que existia antes de editar.
 
-### Correcao
+### Como vai funcionar
 
-**Arquivo:** `supabase/functions/reformat-article-html/index.ts`
+1. Quando voce abre um artigo para editar, o sistema guarda uma copia do `content_html` original em memoria
+2. Um botao "Restaurar Original" fica disponivel ao lado do botao Salvar
+3. Ao clicar, o conteudo volta exatamente ao HTML que estava salvo antes de qualquer alteracao
+4. Funciona para PT, ES e EN independentemente
 
-Adicionar uma funcao de limpeza logo apos receber a resposta da IA (antes do pos-processamento de URLs) que:
+### Protecao extra: aviso ao trocar para modo Visual
 
-1. Remove ` ```html ` ou ` ``` ` do inicio da resposta
-2. Remove ` ``` ` do final da resposta  
-3. Faz `.trim()` para eliminar espacos extras
+Quando o artigo contem HTML rico (tabelas, classes CSS, veredict-box, etc.), ao clicar em "Visual" aparece um alerta:
 
-```js
-function stripMarkdownCodeFences(text: string): string {
-  let cleaned = text.trim();
-  // Remove abertura: ```html ou ```
-  cleaned = cleaned.replace(/^```(?:html|HTML)?\s*\n?/, '');
-  // Remove fechamento: ```
-  cleaned = cleaned.replace(/\n?```\s*$/, '');
-  return cleaned.trim();
-}
-```
+> "Este artigo contem formatacao HTML rica que sera PERDIDA no modo visual. Deseja continuar?"
 
-Aplicar antes do `convertPlainUrlsToLinks`:
+Isso evita perda acidental de formatacao.
 
-```js
-const cleanedHtml = stripMarkdownCodeFences(rawReformattedHtml);
-const reformattedHtml = convertPlainUrlsToLinks(cleanedHtml);
-```
+### Detalhes tecnicos
 
-### Detalhe tecnico
+**Arquivo:** `src/components/AdminKnowledge.tsx`
 
-- Alteracao em 1 arquivo apenas: `supabase/functions/reformat-article-html/index.ts`
-- Linhas afetadas: ~105-115 (apos receber `rawReformattedHtml`)
-- Artigos ja corrompidos precisarao ser reformatados novamente apos o fix
+1. Adicionar estados para guardar o HTML original:
+   - `originalContentPT`, `originalContentES`, `originalContentEN` (string | null)
+
+2. No `handleOpenEdit`, salvar os valores originais:
+   - `setOriginalContentPT(content.content_html)`
+   - `setOriginalContentES(content.content_html_es)`
+   - `setOriginalContentEN(content.content_html_en)`
+
+3. Adicionar funcao `hasRichHTML(html)` que detecta tabelas, classes CSS, veredict-box, etc.
+
+4. No botao "Visual", adicionar `window.confirm()` quando `hasRichHTML` retorna true
+
+5. Adicionar botao "Restaurar Original" ao lado do botao Salvar, que:
+   - So aparece quando `originalContentPT` existe e o conteudo foi modificado
+   - Ao clicar, restaura `formData.content_html` para o valor original
+   - Pede confirmacao antes de restaurar
+
+**Arquivos alterados:** apenas `src/components/AdminKnowledge.tsx`
+
+### Limitacoes
+
+- A restauracao funciona apenas durante a sessao de edicao atual (enquanto o modal esta aberto)
+- Se voce salvar e fechar, o conteudo anterior e perdido (nao e um historico de versoes completo)
+- Para um historico completo seria necessario criar uma tabela de versoes no banco de dados (pode ser feito futuramente)
 
