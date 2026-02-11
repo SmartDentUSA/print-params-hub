@@ -1,87 +1,46 @@
 
 
-## Corrigir URLs expostas como texto visivel nos artigos
+## Remover valores/precos dos prompts de geracao de conteudo
 
 ### Problema
 
-O HTML do artigo "Comparativo entre resinas" contem links onde o texto ancora e a propria URL completa. Exemplo real do banco:
+Os prompts de geracao de conteudo por IA incluem precos dos produtos (R$ XX,XX), o que expoe informacoes comerciais sensiveis nos artigos publicos e pode ficar desatualizado rapidamente.
 
-```html
-<a href="https://drive.google.com/file/d/1xaU0cfLlL5pxmxn0uij-EDEpg3X8SA5j/view">
-  https://drive.google.com/file/d/1xaU0cfLlL5pxmxn0uij-EDEpg3X8SA5j/view
-</a>
-```
+### Arquivos afetados
 
-Isso resulta em URLs longas e ilegíveis aparecendo na pagina publica.
+**1. `supabase/functions/ai-orchestrate-content/index.ts`**
 
-### Solucao
+- **Linha 283-285**: Remover bloco `💰 DADOS COMERCIAIS` que injeta `Preço: R$ ${item.price}` no contexto enviado a IA
+- **Linha 301**: Remover instrucao "Mencionar preços e links de compra quando disponíveis"
+- **Linha 314**: Remover proibicao "Mencionar preços de produtos não listados acima" (ja nao fara sentido)
+- **Linhas 193-196**: Remover `price` do SELECT da tabela `resins`
+- **Linhas 224-226**: Remover `price` do SELECT da tabela `system_a_catalog`
 
-Adicionar uma funcao de pos-processamento no componente `KnowledgeContentViewer.tsx` que transforma URLs expostas em textos amigaveis antes de renderizar. A funcao detecta links cujo texto ancora e igual (ou quase igual) ao href e substitui por um label legivel baseado no dominio.
+**2. `supabase/functions/ai-enrich-pdf-content/index.ts`**
 
-### Mapeamento de dominios para labels amigaveis
+- **Linha 166**: Remover `price` do SELECT de `system_a_catalog`
+- **Linha 275**: Remover referencia a "preço" na descricao de secao de produtos
 
-| Dominio | Label |
-|---------|-------|
-| drive.google.com | "Ver Documento" |
-| loja.smartdent.com.br | Extrair nome do produto do path |
-| docs.google.com | "Ver Documento" |
-| youtube.com / youtu.be | "Assistir Video" |
-| pubmed.ncbi.nlm.nih.gov | "Ver Estudo (PubMed)" |
-| Outros | Mostrar apenas o dominio (ex: "exemplo.com") |
+**3. `supabase/functions/auto-inject-product-cards/index.ts`**
 
-### Alteracoes
+- **Linhas 267-269**: Remover geracao de `priceHtml` no card injetado
+- **Linha 304**: Remover `${priceHtml}` do template HTML do card
+- **Linha 115**: Remover `price, currency` do SELECT
+- **Linhas 143-144, 180-181**: Remover `price` e `currency` do mapeamento
 
-**Arquivo: `src/components/KnowledgeContentViewer.tsx`**
+**4. `supabase/functions/export-apostila-docx/index.ts`**
 
-1. Criar funcao `prettifyLinkLabels(html: string): string` que usa regex para encontrar tags `<a>` cujo texto interno e uma URL (comeca com http) e substitui por um label amigavel mantendo todos os atributos do link intactos.
+- **Linhas 453-455**: Remover bloco que adiciona "Preço: R$ X,XX" na apostila exportada
 
-2. Aplicar a funcao ao `processedHTML` antes de passar para o `PDFContentRenderer` (~linha 457).
+### O que NAO sera alterado
 
-### Logica da funcao
+- `supabase/functions/import-system-a-json/index.ts` e `import-loja-integrada/index.ts` — sao importadores, o preco continua sendo salvo no banco para uso interno/admin
+- `supabase/functions/seo-proxy/index.ts` — Schema.org Product com price e valido para SEO estruturado (Google Shopping), manter
+- `og-visual-dictionary.ts` — ja proibe precos em imagens, esta correto
+- `system-prompt.ts` — nao menciona precos diretamente
+- Admin UI (formularios) — preco continua editavel no painel, so nao sera usado nos prompts de IA
 
-```
-function prettifyLinkLabels(html: string): string {
-  // Regex: encontra <a ...>URL</a> onde o conteudo e uma URL
-  return html.replace(
-    /<a\s([^>]*href="([^"]*)"[^>]*)>(https?:\/\/[^<]+)<\/a>/gi,
-    (match, attrs, href, visibleUrl) => {
-      // So transforma se o texto visivel parece uma URL
-      const label = getFriendlyLabel(href);
-      return `<a ${attrs}>${label} ↗</a>`;
-    }
-  );
-}
+### Resultado
 
-function getFriendlyLabel(url: string): string {
-  if (url.includes('drive.google.com')) return 'Ver Documento';
-  if (url.includes('docs.google.com')) return 'Ver Documento';
-  if (url.includes('loja.smartdent.com.br')) {
-    // Extrair nome do produto do slug
-    const slug = url.split('/').pop();
-    return slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Ver na Loja';
-  }
-  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'Assistir Video';
-  if (url.includes('pubmed')) return 'Ver Estudo (PubMed)';
-  // Fallback: mostrar dominio limpo
-  try {
-    return new URL(url).hostname.replace('www.', '');
-  } catch {
-    return 'Ver Link';
-  }
-}
-```
-
-### Resultado esperado
-
-Antes:
-```
-https://drive.google.com/file/d/1xaU0cfLlL5pxmxn0uij-EDEpg3X8SA5j/view
-```
-
-Depois:
-```
-Ver Documento ↗
-```
-
-Os links continuam clicaveis e abrindo em nova aba. Apenas o texto visivel muda para algo legivel.
+Os artigos gerados pela IA nao incluirao mais valores monetarios. Os precos continuam no banco de dados e no painel admin, mas nao serao injetados nos prompts nem exibidos nos cards automaticos de produtos dentro dos artigos.
 
