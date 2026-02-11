@@ -1,62 +1,87 @@
 
 
-## Botao "Formatar com IA" no campo de Instrucoes de Processamento
+## Corrigir URLs expostas como texto visivel nos artigos
 
-### Objetivo
+### Problema
 
-Adicionar um botao ao lado do campo "Instrucoes de Pre e Pos Processamento" no AdminModal que envia o texto bruto para uma edge function, que usa IA para estrutura-lo automaticamente no formato Markdown esperado pelo parser do ParameterTable.
+O HTML do artigo "Comparativo entre resinas" contem links onde o texto ancora e a propria URL completa. Exemplo real do banco:
 
-### Como funciona
+```html
+<a href="https://drive.google.com/file/d/1xaU0cfLlL5pxmxn0uij-EDEpg3X8SA5j/view">
+  https://drive.google.com/file/d/1xaU0cfLlL5pxmxn0uij-EDEpg3X8SA5j/view
+</a>
+```
 
-1. O usuario cola texto livre no campo (ex: instrucoes de um PDF, email, ou anotacao)
-2. Clica no botao "Formatar com IA"
-3. A IA analisa o texto e retorna o mesmo conteudo formatado com `##`, `###`, bullets `•`, sub-bullets indentados e notas `>`
-4. O campo e atualizado com o texto formatado
+Isso resulta em URLs longas e ilegíveis aparecendo na pagina publica.
+
+### Solucao
+
+Adicionar uma funcao de pos-processamento no componente `KnowledgeContentViewer.tsx` que transforma URLs expostas em textos amigaveis antes de renderizar. A funcao detecta links cujo texto ancora e igual (ou quase igual) ao href e substitui por um label legivel baseado no dominio.
+
+### Mapeamento de dominios para labels amigaveis
+
+| Dominio | Label |
+|---------|-------|
+| drive.google.com | "Ver Documento" |
+| loja.smartdent.com.br | Extrair nome do produto do path |
+| docs.google.com | "Ver Documento" |
+| youtube.com / youtu.be | "Assistir Video" |
+| pubmed.ncbi.nlm.nih.gov | "Ver Estudo (PubMed)" |
+| Outros | Mostrar apenas o dominio (ex: "exemplo.com") |
 
 ### Alteracoes
 
-**1. Nova Edge Function: `supabase/functions/format-processing-instructions/index.ts`**
+**Arquivo: `src/components/KnowledgeContentViewer.tsx`**
 
-- Recebe o texto bruto via POST
-- Envia para o Lovable AI Gateway (google/gemini-3-flash-preview) com um system prompt especifico
-- O system prompt instrui a IA a:
-  - Identificar secoes de pre-processamento, pos-processamento e outras (pos-cura, tratamento termico, etc.)
-  - Formatar com `##` para secoes principais (sem espaco apos ## e aceito, mas gerar com espaco)
-  - Formatar com `###` para subsecoes
-  - Usar `•` para bullets e indentacao de 2 espacos para sub-bullets
-  - Usar `>` para notas/alertas importantes
-  - NAO inventar conteudo - apenas reestruturar o que foi fornecido
-  - Preservar todos os valores numericos (temperaturas, tempos, pressoes) exatamente como estao
-- Retorna o texto formatado
+1. Criar funcao `prettifyLinkLabels(html: string): string` que usa regex para encontrar tags `<a>` cujo texto interno e uma URL (comeca com http) e substitui por um label amigavel mantendo todos os atributos do link intactos.
 
-**2. Modificar: `src/components/AdminModal.tsx`**
+2. Aplicar a funcao ao `processedHTML` antes de passar para o `PDFContentRenderer` (~linha 457).
 
-- Adicionar botao "Formatar com IA" abaixo do Textarea (linha ~1306)
-- Ao clicar, chama a edge function com o conteudo atual do campo
-- Mostra estado de loading durante o processamento
-- Substitui o conteudo do campo pelo texto formatado retornado
-- Toast de sucesso ou erro
-
-### System Prompt da IA (resumo)
+### Logica da funcao
 
 ```
-Voce e um formatador de instrucoes tecnicas de processamento de resinas 3D.
+function prettifyLinkLabels(html: string): string {
+  // Regex: encontra <a ...>URL</a> onde o conteudo e uma URL
+  return html.replace(
+    /<a\s([^>]*href="([^"]*)"[^>]*)>(https?:\/\/[^<]+)<\/a>/gi,
+    (match, attrs, href, visibleUrl) => {
+      // So transforma se o texto visivel parece uma URL
+      const label = getFriendlyLabel(href);
+      return `<a ${attrs}>${label} ↗</a>`;
+    }
+  );
+}
 
-ENTRADA: Texto bruto com instrucoes de processamento.
-SAIDA: O MESMO conteudo reorganizado em Markdown estruturado.
-
-REGRAS:
-- Use ## para secoes principais (PRE-PROCESSAMENTO, POS-PROCESSAMENTO, Pos-cura UV, Tratamento termico, etc.)
-- Use ### para subsecoes (ex: "Lavagem e limpeza", "Secagem")
-- Use • para cada instrucao/passo
-- Use 2 espacos + • para sub-itens
-- Use > para notas/alertas/avisos importantes
-- NAO invente conteudo. Apenas reorganize.
-- Preserve TODOS os numeros, unidades, temperaturas e tempos exatamente.
-- Se o texto ja contiver marcadores ##, reorganize-os corretamente.
+function getFriendlyLabel(url: string): string {
+  if (url.includes('drive.google.com')) return 'Ver Documento';
+  if (url.includes('docs.google.com')) return 'Ver Documento';
+  if (url.includes('loja.smartdent.com.br')) {
+    // Extrair nome do produto do slug
+    const slug = url.split('/').pop();
+    return slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Ver na Loja';
+  }
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'Assistir Video';
+  if (url.includes('pubmed')) return 'Ver Estudo (PubMed)';
+  // Fallback: mostrar dominio limpo
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return 'Ver Link';
+  }
+}
 ```
 
 ### Resultado esperado
 
-O usuario pode colar qualquer texto (como o exemplo com NanoClean Pod, Elegoo Mercury, etc.) e obter automaticamente o formato Markdown que o parser do ParameterTable entende, sem precisar formatar manualmente.
+Antes:
+```
+https://drive.google.com/file/d/1xaU0cfLlL5pxmxn0uij-EDEpg3X8SA5j/view
+```
+
+Depois:
+```
+Ver Documento ↗
+```
+
+Os links continuam clicaveis e abrindo em nova aba. Apenas o texto visivel muda para algo legivel.
 
