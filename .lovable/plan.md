@@ -1,47 +1,45 @@
 
 
-## Botao "Baixar HTML" no Artigo
+## Corrigir URLs expostas nos artigos em Ingles e Espanhol
 
-Sim, e totalmente possivel! O botao vai gerar um arquivo `.html` completo e autonomo, com CSS embutido, pronto para colar em qualquer blog/servidor externo.
+### Problema
 
-### O que sera feito
+Os artigos em EN e ES contem links `<a>` cujo texto visivel e a URL crua (ex: `https://drive.google.com/file/d/...`). A funcao `prettifyLinkLabels` ja processa esses links, mas os labels gerados por `getFriendlyLabel` estao todos em portugues ("Ver Documento", "Assistir Video", "Ver na Loja", etc.).
 
-Adicionar um botao **"Baixar HTML"** na area de conteudo do artigo (ao lado do botao de download existente, linha ~522-534). Ao clicar, o navegador faz download de um arquivo `.html` contendo:
+Alem disso, 3 artigos em EN e 3 em ES possuem URLs expostas no banco de dados.
 
-- O titulo do artigo como `<h1>` e `<title>`
-- O HTML completo do artigo (ja processado e limpo de schema.org)
-- CSS basico embutido (tipografia, imagens responsivas, tabelas, listas) para que o arquivo funcione sozinho em qualquer dominio
-- Meta charset UTF-8 para acentos
-- Imagens mantem as URLs absolutas originais (funcionam em qualquer lugar)
+### Solucao
 
-### Como funciona
+**1. Internacionalizar `getFriendlyLabel`** — receber o idioma como parametro e retornar labels no idioma correto:
 
-1. O botao chama uma funcao `handleDownloadHTML` que:
-   - Monta um documento HTML completo com `<head>` (meta, title, style) e `<body>` (conteudo do artigo)
-   - Cria um `Blob` com tipo `text/html`
-   - Dispara o download com nome `{slug}.html`
+| Dominio | PT | EN | ES |
+|---|---|---|---|
+| drive/docs.google | Ver Documento | View Document | Ver Documento |
+| loja.smartdent | (nome do produto) | (nome do produto) | (nombre del producto) |
+| youtube | Assistir Video | Watch Video | Ver Video |
+| pubmed | Ver Estudo (PubMed) | View Study (PubMed) | Ver Estudio (PubMed) |
+| fallback | Ver Link | View Link | Ver Enlace |
 
-2. O CSS embutido inclui estilos basicos para que o artigo fique legivel sem depender de nenhum framework externo
+**2. Atualizar `prettifyLinkLabels`** — passar o idioma ativo para `getFriendlyLabel`.
 
-### Onde aparece o botao
-
-Na secao de conteudo do `KnowledgeContentViewer.tsx`, logo acima do conteudo HTML (proximo ao botao "Download" existente na linha 522), com icone de download e texto "Baixar HTML".
+**3. Atualizar a chamada** na linha 383-384 — passar `language` para `prettifyLinkLabels`.
 
 ### Arquivo alterado
 
-- `src/components/KnowledgeContentViewer.tsx` - adicionar funcao `handleDownloadHTML` e botao na UI
+- `src/components/KnowledgeContentViewer.tsx` — modificar `getFriendlyLabel` e `prettifyLinkLabels` para aceitar parametro de idioma
 
 ### Secao tecnica
 
 ```text
-Fluxo:
-  Clique no botao
-    -> Monta string HTML completa (doctype + head + body + css inline)
-    -> new Blob([htmlString], { type: 'text/html' })
-    -> URL.createObjectURL(blob)
-    -> <a download="{slug}.html"> click programatico
-    -> URL.revokeObjectURL()
+getFriendlyLabel(url, language)
+  -> mapa de labels por idioma { pt: {...}, en: {...}, es: {...} }
+  -> retorna label no idioma correto
+
+prettifyLinkLabels(html, language)
+  -> passa language para getFriendlyLabel dentro do replace
+
+processedHTML = prettifyLinkLabels(..., language)
 ```
 
-O HTML gerado usa o mesmo `processedHTML` ja calculado no componente (com schema.org limpo e links prettificados), garantindo que o conteudo exportado e identico ao exibido.
+Alteracao pequena, concentrada em ~30 linhas no topo do arquivo.
 
