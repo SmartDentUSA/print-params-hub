@@ -25,27 +25,33 @@ import { ArticleMeta } from '@/components/ArticleMeta';
 import { VeredictBox } from '@/components/VeredictBox';
 import { VideoGateOverlay } from '@/components/VideoGateOverlay';
 
-function getFriendlyLabel(url: string): string {
-  if (url.includes('drive.google.com')) return 'Ver Documento';
-  if (url.includes('docs.google.com')) return 'Ver Documento';
+const linkLabels: Record<string, { document: string; store: string; video: string; study: string; fallback: string }> = {
+  pt: { document: 'Ver Documento', store: 'Ver na Loja', video: 'Assistir Vídeo', study: 'Ver Estudo (PubMed)', fallback: 'Ver Link' },
+  en: { document: 'View Document', store: 'View in Store', video: 'Watch Video', study: 'View Study (PubMed)', fallback: 'View Link' },
+  es: { document: 'Ver Documento', store: 'Ver en Tienda', video: 'Ver Video', study: 'Ver Estudio (PubMed)', fallback: 'Ver Enlace' },
+};
+
+function getFriendlyLabel(url: string, lang: string = 'pt'): string {
+  const labels = linkLabels[lang] || linkLabels.pt;
+  if (url.includes('drive.google.com') || url.includes('docs.google.com')) return labels.document;
   if (url.includes('loja.smartdent.com.br')) {
     const slug = url.split('/').pop();
-    return slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Ver na Loja';
+    return slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : labels.store;
   }
-  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'Assistir Vídeo';
-  if (url.includes('pubmed')) return 'Ver Estudo (PubMed)';
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return labels.video;
+  if (url.includes('pubmed')) return labels.study;
   try {
     return new URL(url).hostname.replace('www.', '');
   } catch {
-    return 'Ver Link';
+    return labels.fallback;
   }
 }
 
-function prettifyLinkLabels(html: string): string {
+function prettifyLinkLabels(html: string, lang: string = 'pt'): string {
   return html.replace(
     /<a\s([^>]*href="([^"]*)"[^>]*)>(https?:\/\/[^<]+)<\/a>/gi,
     (_match, attrs, href) => {
-      const label = getFriendlyLabel(href);
+      const label = getFriendlyLabel(href, lang);
       return `<a ${attrs}>${label} ↗</a>`;
     }
   );
@@ -381,7 +387,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   ];
 
   const processedHTML = displayContent.content_html 
-    ? prettifyLinkLabels(renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es'))
+    ? prettifyLinkLabels(renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es'), language)
     : '';
 
   const handleDownloadHTML = () => {
