@@ -368,9 +368,9 @@ export function AdminVideosList() {
                       {/* Premium */}
                       <TableCell>
                         <Switch
-                          checked={!!(video as any).is_premium}
+                          checked={!!video.is_premium}
                           onCheckedChange={async (checked) => {
-                            const success = await updateVideoFields(video.id, { is_premium: checked } as any);
+                            const success = await updateVideoFields(video.id, { is_premium: checked });
                             if (success) {
                               toast({ title: checked ? '⭐ Vídeo marcado como Premium' : 'Premium removido' });
                             }
@@ -394,7 +394,7 @@ export function AdminVideosList() {
                           )}
                           <div className="flex flex-col min-w-0">
                             <span className="font-medium text-xs truncate max-w-[160px] flex items-center gap-1" title={video.title}>
-                              {(video as any).is_premium && <Crown className="h-3 w-3 text-amber-500 flex-shrink-0" />}
+                              {video.is_premium && <Crown className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                               {video.title}
                             </span>
                             <div className="flex items-center gap-1">

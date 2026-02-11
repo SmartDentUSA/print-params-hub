@@ -44,6 +44,7 @@ export interface VideoWithDetails {
   updated_at: string | null;
   has_transcript: boolean;
   video_transcript: string | null;
+  is_premium: boolean;
 }
 
 export interface ProductOption {
@@ -238,6 +239,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
         updated_at: video.updated_at,
         has_transcript: !!video.video_transcript,
         video_transcript: video.video_transcript,
+        is_premium: !!(video as any).is_premium,
       }));
 
       setVideos(enrichedVideos);
@@ -320,6 +322,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
       product_subcategory?: string | null;
       product_id?: string | null;
       title?: string;
+      is_premium?: boolean;
     }
   ) => {
     setSaving(true);
@@ -347,6 +350,7 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
           ...(updates.product_subcategory !== undefined && { product_subcategory: updates.product_subcategory }),
           ...(updates.product_id !== undefined && { product_id: updates.product_id, product_name: productName }),
           ...(updates.title !== undefined && { title: updates.title }),
+          ...(updates.is_premium !== undefined && { is_premium: updates.is_premium }),
         };
       }));
       return true;
