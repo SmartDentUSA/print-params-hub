@@ -450,9 +450,6 @@ serve(async (req) => {
             }));
           }
           
-          if (product.price) {
-            sections.push(createBullet(`Preço: R$ ${product.price.toFixed(2).replace('.', ',')}`));
-          }
           
           // CTAs
           const ctas = [

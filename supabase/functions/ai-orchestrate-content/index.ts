@@ -192,7 +192,7 @@ serve(async (req) => {
         const { data: selectedResins } = await supabase
           .from('resins')
           .select(`
-            id, name, manufacturer, type, description, price, color,
+            id, name, manufacturer, type, description, color,
             cta_1_label, cta_1_url, cta_2_label, cta_2_url,
             system_a_product_url
           `)
@@ -223,7 +223,7 @@ serve(async (req) => {
         const { data: selectedProducts } = await supabase
           .from('system_a_catalog')
           .select(`
-            id, name, category, description, price, image_url,
+            id, name, category, description, image_url,
             cta_1_label, cta_1_url, cta_2_label, cta_2_url,
             product_category, product_subcategory
           `)
@@ -280,8 +280,7 @@ ${item.technicalDocs.map(doc => `
 `).join('\n')}
 ` : ''}
 
-💰 DADOS COMERCIAIS:
-- Preço: ${item.price ? `R$ ${item.price}` : 'Consultar'}
+🔗 DADOS COMERCIAIS:
 - URL de compra: ${item.cta_1_url || item.system_a_product_url || 'Consultar'}
 
 ${item.relatedArticles?.length > 0 ? `
@@ -298,7 +297,7 @@ ${item.relatedArticles.map(a => `- ${a.title} (/base-conhecimento/${a.slug})`).j
 1️⃣ PRIORIDADE MÁXIMA (OBRIGATÓRIO):
    - Criar seções dedicadas e detalhadas para cada produto acima
    - Incluir todas as especificações técnicas listadas
-   - Mencionar preços e links de compra quando disponíveis
+   - Adicionar links de compra quando disponíveis
    - Adicionar CTAs naturais ao longo do texto
    - Dar mais destaque (mais texto, mais detalhes) a estes produtos
 
@@ -311,7 +310,7 @@ ${item.relatedArticles.map(a => `- ${a.title} (/base-conhecimento/${a.slug})`).j
 3️⃣ PROIBIDO (NUNCA FAÇA):
    - Inventar produtos que não existem
    - Criar especificações técnicas não fornecidas
-   - Mencionar preços de produtos não listados acima
+   - Criar especificações de produtos não listados acima
    - Citar estudos ou dados não presentes nas fontes
 
 OBJETIVO: Criar um artigo completo e educacional que reflete fielmente as fontes fornecidas, mas com foco comercial estratégico nos produtos prioritários listados acima.
