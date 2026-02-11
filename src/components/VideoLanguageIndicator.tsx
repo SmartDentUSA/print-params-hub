@@ -62,15 +62,15 @@ export function VideoLanguageIndicator({ audios = [], subtitles = [] }: VideoLan
   }
 
   return (
-    <Alert className="bg-muted/30 border-border">
-      <Globe className="h-4 w-4" />
-      <AlertDescription className="text-xs space-y-2">
+    <Alert className="bg-muted/30 border-border overflow-hidden">
+      <Globe className="h-4 w-4 shrink-0" />
+      <AlertDescription className="text-xs space-y-2 min-w-0">
         <div>{message}</div>
         
-        <div className="flex flex-wrap gap-3 pt-1">
+        <div className="flex flex-col gap-2 pt-1">
           {audios.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <Volume2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Volume2 className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground mr-1">{t('knowledge.audio')}:</span>
               {audios.map((audio, idx) => (
                 <span key={idx} className="flex items-center gap-1">
@@ -84,8 +84,8 @@ export function VideoLanguageIndicator({ audios = [], subtitles = [] }: VideoLan
           )}
 
           {subtitles.length > 0 && (
-            <div className="flex items-center gap-1.5">
-              <Subtitles className="w-3.5 h-3.5 text-muted-foreground" />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Subtitles className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground mr-1">{t('knowledge.subtitles')}:</span>
               {subtitles.map((sub, idx) => (
                 <span key={idx} className="flex items-center gap-1">
