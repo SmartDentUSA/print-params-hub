@@ -1,33 +1,47 @@
 
 
-## Corrigir: Links schema.org convertidos em tags `<a>` pelo reformatador
+## Botao "Baixar HTML" no Artigo
 
-### Problema
+Sim, e totalmente possivel! O botao vai gerar um arquivo `.html` completo e autonomo, com CSS embutido, pronto para colar em qualquer blog/servidor externo.
 
-A correcao anterior (`cleanSchemaMarkup` no `DirectHTMLRenderer.tsx`) remove atributos microdata crus, mas **nao cobre o caso real**: o reformatador de artigos (`reformat-article-html`) converteu as URLs schema.org em links clicaveis:
+### O que sera feito
 
-```html
-<a href="https://schema.org/HowToStep" target="_blank" rel="noopener noreferrer" class="text-primary underline">https://schema.org/HowToStep</a>
-```
+Adicionar um botao **"Baixar HTML"** na area de conteudo do artigo (ao lado do botao de download existente, linha ~522-534). Ao clicar, o navegador faz download de um arquivo `.html` contendo:
 
-Isso significa que no HTML do banco de dados, as URLs schema.org estao dentro de tags `<a>`, e o regex atual nao as detecta.
+- O titulo do artigo como `<h1>` e `<title>`
+- O HTML completo do artigo (ja processado e limpo de schema.org)
+- CSS basico embutido (tipografia, imagens responsivas, tabelas, listas) para que o arquivo funcione sozinho em qualquer dominio
+- Meta charset UTF-8 para acentos
+- Imagens mantem as URLs absolutas originais (funcionam em qualquer lugar)
 
-### Solucao
+### Como funciona
 
-Adicionar um regex extra na funcao `cleanSchemaMarkup` em `DirectHTMLRenderer.tsx` para remover tags `<a>` que apontam para `schema.org`:
+1. O botao chama uma funcao `handleDownloadHTML` que:
+   - Monta um documento HTML completo com `<head>` (meta, title, style) e `<body>` (conteudo do artigo)
+   - Cria um `Blob` com tipo `text/html`
+   - Dispara o download com nome `{slug}.html`
 
-```js
-// Remove <a> tags linking to schema.org (created by reformatter)
-cleaned = cleaned.replace(/<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>/gi, '');
-```
+2. O CSS embutido inclui estilos basicos para que o artigo fique legivel sem depender de nenhum framework externo
+
+### Onde aparece o botao
+
+Na secao de conteudo do `KnowledgeContentViewer.tsx`, logo acima do conteudo HTML (proximo ao botao "Download" existente na linha 522), com icone de download e texto "Baixar HTML".
 
 ### Arquivo alterado
 
-`src/components/DirectHTMLRenderer.tsx` - adicionar 1 linha na funcao `cleanSchemaMarkup`
+- `src/components/KnowledgeContentViewer.tsx` - adicionar funcao `handleDownloadHTML` e botao na UI
 
-### Resultado
+### Secao tecnica
 
-- Links schema.org clicaveis serao removidos da renderizacao
-- O texto "https://schema.org/HowToStep" deixa de aparecer nos artigos
-- Combinado com os regex existentes, cobre tanto microdata crua quanto links convertidos
+```text
+Fluxo:
+  Clique no botao
+    -> Monta string HTML completa (doctype + head + body + css inline)
+    -> new Blob([htmlString], { type: 'text/html' })
+    -> URL.createObjectURL(blob)
+    -> <a download="{slug}.html"> click programatico
+    -> URL.revokeObjectURL()
+```
+
+O HTML gerado usa o mesmo `processedHTML` ja calculado no componente (com schema.org limpo e links prettificados), garantindo que o conteudo exportado e identico ao exibido.
 
