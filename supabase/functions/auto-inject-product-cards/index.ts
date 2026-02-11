@@ -11,8 +11,6 @@ interface ProductMatch {
   name: string;
   slug: string;
   image_url: string | null;
-  price: number | null;
-  currency: string | null;
   rating: number | null;
   description: string | null;
   shop_url: string;
@@ -112,7 +110,7 @@ async function processArticle(
     const [productsResult, resinsResult] = await Promise.all([
       supabase
         .from('system_a_catalog')
-        .select('id, name, slug, image_url, price, currency, rating, description, cta_1_url')
+        .select('id, name, slug, image_url, rating, description, cta_1_url')
         .eq('active', true)
         .eq('approved', true),
       supabase
@@ -140,8 +138,6 @@ async function processArticle(
           name: product.name,
           slug: product.slug,
           image_url: product.image_url,
-          price: product.price,
-          currency: product.currency,
           rating: product.rating,
           description: product.description,
           shop_url: product.cta_1_url || product.slug || '#'
@@ -177,8 +173,6 @@ async function processArticle(
           name: resin.name,
           slug: resin.slug,
           image_url: resin.image_url,
-          price: null,
-          currency: null,
           rating: null,
           description: resin.description,
           shop_url: resin.system_a_product_url || `/resinas/${resin.slug}` || '#',
@@ -264,10 +258,6 @@ async function processArticle(
 }
 
 function generateCardHtml(product: ProductMatch): string {
-  const priceHtml = product.price 
-    ? `<span class="card-price">${product.currency || 'R$'} ${product.price.toFixed(2).replace('.', ',')}</span>`
-    : '';
-  
   const ratingHtml = product.rating
     ? `<span class="card-rating"><svg class="h-4 w-4 fill-current" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>${product.rating.toFixed(1)}/5</span>`
     : '';
@@ -301,7 +291,6 @@ function generateCardHtml(product: ProductMatch): string {
         ${processingHtml}
         <div class="card-meta">
           ${ratingHtml}
-          ${priceHtml}
         </div>
         <button class="card-cta">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>

@@ -163,7 +163,7 @@ Se não tiver certeza, deixe o campo vazio.`;
       // Buscar produtos no catálogo
       const { data: catalogProducts } = await supabase
         .from("system_a_catalog")
-        .select("id, name, slug, description, price, category, product_category")
+        .select("id, name, slug, description, category, product_category")
         .eq("approved", true)
         .eq("active", true)
         .limit(5);
@@ -272,7 +272,7 @@ ${rawText}
 TAREFA:
 1. Mescle o texto original do PDF com os dados reais do banco
 2. Organize em seções:
-   ${databaseData.products.length > 0 ? "- 🛒 Produtos Relacionados (nome, preço, descrição)" : ""}
+   ${databaseData.products.length > 0 ? "- 🛒 Produtos Relacionados (nome, descrição)" : ""}
    ${databaseData.resins.length > 0 ? "- 🧪 Resinas Compatíveis (fabricante, tipo, cor)" : ""}
    ${databaseData.parameters.length > 0 ? "- ⚙️ Parâmetros de Impressão (modelo, altura de camada, tempo de cura)" : ""}
    ${databaseData.articles.length > 0 ? "- 📚 Artigos Relacionados (título, resumo)" : ""}
