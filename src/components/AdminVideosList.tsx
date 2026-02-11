@@ -32,8 +32,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { useAllVideos, VIDEO_CONTENT_TYPES, VideoContentType, VideoWithDetails } from '@/hooks/useAllVideos';
-import { Search, ChevronLeft, ChevronRight, Video, ExternalLink, Loader2, Sparkles, FileText, Check, ChevronsUpDown, Edit, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Video, ExternalLink, Loader2, Sparkles, FileText, Check, ChevronsUpDown, Edit, X, Crown } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { VideoContentGeneratorModal } from './VideoContentGeneratorModal';
 import { VideoBatchEditModal } from './VideoBatchEditModal';
@@ -318,6 +319,7 @@ export function AdminVideosList() {
                       {...(somePageSelected && !allPageSelected ? { 'data-state': 'indeterminate' } : {})}
                     />
                   </TableHead>
+                  <TableHead className="w-[60px]">Premium</TableHead>
                   <TableHead className="w-[220px]">Nome</TableHead>
                   <TableHead className="w-[130px]">Categoria</TableHead>
                   <TableHead className="w-[140px]">Subcategoria</TableHead>
@@ -334,6 +336,7 @@ export function AdminVideosList() {
                   Array.from({ length: 10 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><Skeleton className="h-4 w-4" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                       <TableCell><Skeleton className="h-10 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                       <TableCell><Skeleton className="h-8 w-full" /></TableCell>
@@ -347,7 +350,7 @@ export function AdminVideosList() {
                   ))
                 ) : videos.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       Nenhum vídeo encontrado
                     </TableCell>
                   </TableRow>
@@ -360,6 +363,19 @@ export function AdminVideosList() {
                           checked={selectedIds.has(video.id)}
                           onCheckedChange={() => toggleSelect(video.id)}
                           aria-label={`Selecionar ${video.title}`}
+                        />
+                      </TableCell>
+                      {/* Premium */}
+                      <TableCell>
+                        <Switch
+                          checked={!!(video as any).is_premium}
+                          onCheckedChange={async (checked) => {
+                            const success = await updateVideoFields(video.id, { is_premium: checked } as any);
+                            if (success) {
+                              toast({ title: checked ? '⭐ Vídeo marcado como Premium' : 'Premium removido' });
+                            }
+                          }}
+                          aria-label="Premium"
                         />
                       </TableCell>
                       {/* Nome */}
@@ -377,7 +393,8 @@ export function AdminVideosList() {
                             </div>
                           )}
                           <div className="flex flex-col min-w-0">
-                            <span className="font-medium text-xs truncate max-w-[160px]" title={video.title}>
+                            <span className="font-medium text-xs truncate max-w-[160px] flex items-center gap-1" title={video.title}>
+                              {(video as any).is_premium && <Crown className="h-3 w-3 text-amber-500 flex-shrink-0" />}
                               {video.title}
                             </span>
                             <div className="flex items-center gap-1">

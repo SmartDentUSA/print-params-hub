@@ -166,7 +166,8 @@ export function useAllVideos(options: UseAllVideosOptions = {}) {
           analytics_play_rate,
           created_at,
           updated_at,
-          video_transcript
+          video_transcript,
+          is_premium
         `)
         .eq('video_type', 'pandavideo')
         .order('title', { ascending: true })
