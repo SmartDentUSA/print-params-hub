@@ -1,56 +1,71 @@
 
 
-## Adicionar "Desfazer" para restaurar formatacao anterior de artigos
+## Corrigir: URLs schema.org aparecendo como texto visivel no conteudo
 
-### Problema atual
+### Problema
 
-Quando voce edita um artigo (especialmente no modo Visual), a formatacao HTML rica e perdida permanentemente. Nao existe nenhum mecanismo para voltar ao conteudo anterior.
+O conteudo HTML de alguns artigos (gerado pela IA) contem marcacao **microdata schema.org** embutida diretamente nas tags HTML, como:
+
+```html
+<div itemscope itemtype="https://schema.org/HowTo">
+<div itemscope itemtype="https://schema.org/HowToStep">
+```
+
+Quando renderizado pelo `DirectHTMLRenderer` via `dangerouslySetInnerHTML`, essas URLs aparecem como texto visivel na pagina. O resultado e que o usuario ve linhas como:
+
+> https://schema.org/HowTo">Protocolo de Preparacao...
+> https://schema.org/HowToStep">Passo 1: Inspecao...
+
+### Causa Raiz
+
+A IA que gera o conteudo (provavelmente `ai-orchestrate-content` ou `reformat-article-html`) esta inserindo microdata schema.org diretamente no HTML do artigo. Em alguns casos a marcacao esta malformada, fazendo com que as URLs vazem como texto.
+
+Isso e **redundante** porque o sistema ja possui:
+- `KnowledgeSEOHead.tsx` - injeta JSON-LD schemas no client-side
+- `seo-proxy` - injeta JSON-LD schemas no SSR para Googlebot
 
 ### Solucao
 
-Salvar automaticamente uma copia do HTML original quando o artigo e aberto para edicao, e adicionar um botao "Restaurar HTML Original" que permite voltar a versao que existia antes de editar.
+Limpar os atributos de microdata schema.org do HTML antes de renderizar, no `DirectHTMLRenderer.tsx`. Isso remove a marcacao redundante sem afetar o SEO (que ja e coberto pelo JSON-LD).
 
-### Como vai funcionar
+### Detalhes Tecnicos
 
-1. Quando voce abre um artigo para editar, o sistema guarda uma copia do `content_html` original em memoria
-2. Um botao "Restaurar Original" fica disponivel ao lado do botao Salvar
-3. Ao clicar, o conteudo volta exatamente ao HTML que estava salvo antes de qualquer alteracao
-4. Funciona para PT, ES e EN independentemente
+**Arquivo:** `src/components/DirectHTMLRenderer.tsx`
 
-### Protecao extra: aviso ao trocar para modo Visual
+Adicionar uma etapa de limpeza na funcao `processHTML` que remove atributos de microdata:
 
-Quando o artigo contem HTML rico (tabelas, classes CSS, veredict-box, etc.), ao clicar em "Visual" aparece um alerta:
+1. Remover `itemscope` de qualquer tag
+2. Remover `itemtype="https://schema.org/..."` de qualquer tag
+3. Remover `itemprop="..."` de qualquer tag (exceto os ja usados pelo proprio componente)
+4. Limpar texto solto que contenha URLs schema.org (caso de markup malformado)
 
-> "Este artigo contem formatacao HTML rica que sera PERDIDA no modo visual. Deseja continuar?"
+```js
+const cleanSchemaMarkup = (html: string): string => {
+  // Remove itemscope attribute
+  let cleaned = html.replace(/\s*itemscope\s*/gi, ' ');
+  // Remove itemtype="https://schema.org/..."
+  cleaned = cleaned.replace(/\s*itemtype="https?:\/\/schema\.org\/[^"]*"/gi, '');
+  // Remove itemprop="..." from content HTML
+  cleaned = cleaned.replace(/\s*itemprop="[^"]*"/gi, '');
+  // Clean up broken markup where schema URLs leak as text
+  cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
+  return cleaned;
+};
+```
 
-Isso evita perda acidental de formatacao.
+Aplicar antes do `processHTML` existente:
 
-### Detalhes tecnicos
+```js
+const cleanedHTML = cleanSchemaMarkup(htmlContent);
+const processedHTML = processHTML(cleanedHTML);
+```
 
-**Arquivo:** `src/components/AdminKnowledge.tsx`
+**Nota:** O `itemScope` e `itemType` no proprio componente `<article>` (linha 46-47) continuam funcionando normalmente pois sao atributos React, nao parte do conteudo HTML injetado.
 
-1. Adicionar estados para guardar o HTML original:
-   - `originalContentPT`, `originalContentES`, `originalContentEN` (string | null)
+### Resultado
 
-2. No `handleOpenEdit`, salvar os valores originais:
-   - `setOriginalContentPT(content.content_html)`
-   - `setOriginalContentES(content.content_html_es)`
-   - `setOriginalContentEN(content.content_html_en)`
-
-3. Adicionar funcao `hasRichHTML(html)` que detecta tabelas, classes CSS, veredict-box, etc.
-
-4. No botao "Visual", adicionar `window.confirm()` quando `hasRichHTML` retorna true
-
-5. Adicionar botao "Restaurar Original" ao lado do botao Salvar, que:
-   - So aparece quando `originalContentPT` existe e o conteudo foi modificado
-   - Ao clicar, restaura `formData.content_html` para o valor original
-   - Pede confirmacao antes de restaurar
-
-**Arquivos alterados:** apenas `src/components/AdminKnowledge.tsx`
-
-### Limitacoes
-
-- A restauracao funciona apenas durante a sessao de edicao atual (enquanto o modal esta aberto)
-- Se voce salvar e fechar, o conteudo anterior e perdido (nao e um historico de versoes completo)
-- Para um historico completo seria necessario criar uma tabela de versoes no banco de dados (pode ser feito futuramente)
+- URLs schema.org nao aparecerao mais como texto visivel
+- SEO nao e afetado (JSON-LD continua funcionando via KnowledgeSEOHead e seo-proxy)
+- Artigos existentes com microdata serao limpos automaticamente na renderizacao
+- Alteracao em 1 arquivo apenas: `DirectHTMLRenderer.tsx`
 
