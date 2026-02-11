@@ -17,6 +17,10 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
     cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
     // Remove <a> tags linking to schema.org (created by reformatter)
     cleaned = cleaned.replace(/<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>/gi, '');
+    // Fix itemtype attributes corrupted by reformatter (contains <a> tags instead of plain URL)
+    cleaned = cleaned.replace(/\s*itemtype="<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>"/gi, '');
+    // Clean leftover itemscope="" (empty)
+    cleaned = cleaned.replace(/\s*itemscope=""/gi, '');
     return cleaned;
   };
 
