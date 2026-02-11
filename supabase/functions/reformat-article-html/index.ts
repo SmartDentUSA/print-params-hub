@@ -140,9 +140,10 @@ Retorne o HTML reformatado seguindo todas as regras.`;
     }
 
     // Pós-processamento: converter URLs em texto plano para hyperlinks
+    // Negative lookbehind prevents converting URLs already inside HTML attributes (href=", src=", itemtype=", etc.)
     function convertPlainUrlsToLinks(html: string): string {
       return html.replace(
-        /(?<!href="|src="|">)(https?:\/\/[^\s<>"]+)/g,
+        /(?<!href="|src="|itemtype="|content="|action="|">)(https?:\/\/[^\s<>"]+)/g,
         '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>'
       );
     }
