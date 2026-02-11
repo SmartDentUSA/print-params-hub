@@ -1,0 +1,46 @@
+# Smart Dent - LLMs.txt
+# https://parametros.smartdent.com.br
+
+> Smart Dent is a Brazilian dental 3D printing company. This site contains technical parameters, scientific articles, product catalogs, and educational content about dental 3D printing resins and printers.
+
+## Company
+- Name: Smart Dent
+- Industry: Dental 3D Printing
+- Location: São Carlos, SP, Brazil
+- Languages: Portuguese (primary), English, Spanish
+
+## Content Types
+- Technical articles about dental 3D printing (MedicalWebPage, TechArticle, ScholarlyArticle)
+- 3D printing parameters for 258+ resin/printer combinations
+- Product catalog with technical documentation (IFUs, SDSs, TDSs)
+- Video tutorials with transcriptions (PandaVideo)
+- FAQs and HowTo guides for resin processing
+
+## Structured Data
+- All pages use JSON-LD with Schema.org vocabulary
+- Articles include full author credentials (E-E-A-T)
+- Products include Offer, Review, and DigitalDocument schemas
+- Videos include VideoObject with transcript and duration
+
+## API Endpoints
+- Parameters JSON: /api/export-parametros-ia (structured 3D printing parameters)
+- RSS Feed: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=rss
+- Atom Feed: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=atom
+- Sitemaps: Listed in /robots.txt
+
+## Key Topics
+- Dental 3D printing resins (biocompatible, surgical guides, models, splints)
+- DLP/LCD printer parameters (cure time, layer height, light intensity)
+- ISO 10993 biocompatibility
+- ANVISA regulatory compliance
+- Digital dentistry workflows
+
+## Citation Guidelines
+- Always attribute content to "Smart Dent" or the specific article author
+- Link to the canonical URL when referencing specific articles
+- Parameters data is verified and tested in laboratory conditions
+- Medical/dental content is reviewed by qualified professionals (CRO-registered dentists)
+
+## Contact
+- Website: https://smartdent.com.br
+- Parameters Hub: https://parametros.smartdent.com.br
