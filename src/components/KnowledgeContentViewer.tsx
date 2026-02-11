@@ -24,6 +24,32 @@ import { ArticleSummary } from '@/components/ArticleSummary';
 import { ArticleMeta } from '@/components/ArticleMeta';
 import { VeredictBox } from '@/components/VeredictBox';
 
+function getFriendlyLabel(url: string): string {
+  if (url.includes('drive.google.com')) return 'Ver Documento';
+  if (url.includes('docs.google.com')) return 'Ver Documento';
+  if (url.includes('loja.smartdent.com.br')) {
+    const slug = url.split('/').pop();
+    return slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Ver na Loja';
+  }
+  if (url.includes('youtube.com') || url.includes('youtu.be')) return 'Assistir Vídeo';
+  if (url.includes('pubmed')) return 'Ver Estudo (PubMed)';
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return 'Ver Link';
+  }
+}
+
+function prettifyLinkLabels(html: string): string {
+  return html.replace(
+    /<a\s([^>]*href="([^"]*)"[^>]*)>(https?:\/\/[^<]+)<\/a>/gi,
+    (_match, attrs, href) => {
+      const label = getFriendlyLabel(href);
+      return `<a ${attrs}>${label} ↗</a>`;
+    }
+  );
+}
+
 interface KnowledgeContentViewerProps {
   content: any;
 }
@@ -307,7 +333,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   ];
 
   const processedHTML = displayContent.content_html 
-    ? renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es')
+    ? prettifyLinkLabels(renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es'))
     : '';
 
   return (
