@@ -1,46 +1,28 @@
 
 
-## Remover valores/precos dos prompts de geracao de conteudo
+## Corrigir bug de detecao de links no AdminArticleReformatter
 
 ### Problema
 
-Os prompts de geracao de conteudo por IA incluem precos dos produtos (R$ XX,XX), o que expoe informacoes comerciais sensiveis nos artigos publicos e pode ficar desatualizado rapidamente.
+Na linha 49 do arquivo `src/components/AdminArticleReformatter.tsx`, a deteccao de links usa:
 
-### Arquivos afetados
+```js
+const hasLinks = html.includes('<a href');
+```
 
-**1. `supabase/functions/ai-orchestrate-content/index.ts`**
+Isso falha quando o HTML tem atributos antes do `href`, como `<a target="_blank" rel="noopener" href="...">`, resultando em falsos negativos.
 
-- **Linha 283-285**: Remover bloco `💰 DADOS COMERCIAIS` que injeta `Preço: R$ ${item.price}` no contexto enviado a IA
-- **Linha 301**: Remover instrucao "Mencionar preços e links de compra quando disponíveis"
-- **Linha 314**: Remover proibicao "Mencionar preços de produtos não listados acima" (ja nao fara sentido)
-- **Linhas 193-196**: Remover `price` do SELECT da tabela `resins`
-- **Linhas 224-226**: Remover `price` do SELECT da tabela `system_a_catalog`
+### Correcao
 
-**2. `supabase/functions/ai-enrich-pdf-content/index.ts`**
+Substituir a linha 49 por uma regex que detecta `<a` seguido de qualquer atributo antes do `href`:
 
-- **Linha 166**: Remover `price` do SELECT de `system_a_catalog`
-- **Linha 275**: Remover referencia a "preço" na descricao de secao de produtos
+```js
+const hasLinks = /<a\s[^>]*href=/i.test(html);
+```
 
-**3. `supabase/functions/auto-inject-product-cards/index.ts`**
+### Arquivo alterado
 
-- **Linhas 267-269**: Remover geracao de `priceHtml` no card injetado
-- **Linha 304**: Remover `${priceHtml}` do template HTML do card
-- **Linha 115**: Remover `price, currency` do SELECT
-- **Linhas 143-144, 180-181**: Remover `price` e `currency` do mapeamento
+- `src/components/AdminArticleReformatter.tsx` - linha 49: trocar `html.includes('<a href')` por `/<a\s[^>]*href=/i.test(html)`
 
-**4. `supabase/functions/export-apostila-docx/index.ts`**
-
-- **Linhas 453-455**: Remover bloco que adiciona "Preço: R$ X,XX" na apostila exportada
-
-### O que NAO sera alterado
-
-- `supabase/functions/import-system-a-json/index.ts` e `import-loja-integrada/index.ts` — sao importadores, o preco continua sendo salvo no banco para uso interno/admin
-- `supabase/functions/seo-proxy/index.ts` — Schema.org Product com price e valido para SEO estruturado (Google Shopping), manter
-- `og-visual-dictionary.ts` — ja proibe precos em imagens, esta correto
-- `system-prompt.ts` — nao menciona precos diretamente
-- Admin UI (formularios) — preco continua editavel no painel, so nao sera usado nos prompts de IA
-
-### Resultado
-
-Os artigos gerados pela IA nao incluirao mais valores monetarios. Os precos continuam no banco de dados e no painel admin, mas nao serao injetados nos prompts nem exibidos nos cards automaticos de produtos dentro dos artigos.
+Alteracao de uma unica linha, sem efeitos colaterais.
 
