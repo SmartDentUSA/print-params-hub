@@ -1,43 +1,62 @@
 
 
-## Corrigir: URLs em texto plano nao viram hyperlinks na reformatacao
+## Botao "Formatar com IA" no campo de Instrucoes de Processamento
 
-### Problema
+### Objetivo
 
-O prompt do `reformat-article-html` diz "NAO adicione links que nao existam no HTML original", mas nao instrui a IA a converter URLs em texto plano (ex: `https://example.com`) em tags `<a href="...">`. A IA interpreta isso como "nao criar links novos" e ignora as URLs que ja estao no texto como texto puro.
+Adicionar um botao ao lado do campo "Instrucoes de Pre e Pos Processamento" no AdminModal que envia o texto bruto para uma edge function, que usa IA para estrutura-lo automaticamente no formato Markdown esperado pelo parser do ParameterTable.
 
-### Solucao
+### Como funciona
 
-Adicionar uma regra explicita no system prompt para converter URLs em texto plano em hyperlinks clicaveis, e tambem adicionar um pos-processamento programatico como fallback.
+1. O usuario cola texto livre no campo (ex: instrucoes de um PDF, email, ou anotacao)
+2. Clica no botao "Formatar com IA"
+3. A IA analisa o texto e retorna o mesmo conteudo formatado com `##`, `###`, bullets `•`, sub-bullets indentados e notas `>`
+4. O campo e atualizado com o texto formatado
 
 ### Alteracoes
 
-**Arquivo: `supabase/functions/reformat-article-html/index.ts`**
+**1. Nova Edge Function: `supabase/functions/format-processing-instructions/index.ts`**
 
-1. Adicionar instrucao no `systemPrompt` (na secao REGRAS DE FORMATACAO, ~linha 73):
+- Recebe o texto bruto via POST
+- Envia para o Lovable AI Gateway (google/gemini-3-flash-preview) com um system prompt especifico
+- O system prompt instrui a IA a:
+  - Identificar secoes de pre-processamento, pos-processamento e outras (pos-cura, tratamento termico, etc.)
+  - Formatar com `##` para secoes principais (sem espaco apos ## e aceito, mas gerar com espaco)
+  - Formatar com `###` para subsecoes
+  - Usar `•` para bullets e indentacao de 2 espacos para sub-bullets
+  - Usar `>` para notas/alertas importantes
+  - NAO inventar conteudo - apenas reestruturar o que foi fornecido
+  - Preservar todos os valores numericos (temperaturas, tempos, pressoes) exatamente como estao
+- Retorna o texto formatado
+
+**2. Modificar: `src/components/AdminModal.tsx`**
+
+- Adicionar botao "Formatar com IA" abaixo do Textarea (linha ~1306)
+- Ao clicar, chama a edge function com o conteudo atual do campo
+- Mostra estado de loading durante o processamento
+- Substitui o conteudo do campo pelo texto formatado retornado
+- Toast de sucesso ou erro
+
+### System Prompt da IA (resumo)
 
 ```
-- Se houver URLs em texto plano (ex: https://... ou http://...) que NAO estejam dentro de uma tag <a>, converta-as em hyperlinks: <a href="URL" target="_blank" rel="noopener noreferrer" class="text-primary underline">URL</a>
-- Isso NAO e "adicionar links novos" — e transformar URLs existentes no texto em HTML semantico clicavel
+Voce e um formatador de instrucoes tecnicas de processamento de resinas 3D.
+
+ENTRADA: Texto bruto com instrucoes de processamento.
+SAIDA: O MESMO conteudo reorganizado em Markdown estruturado.
+
+REGRAS:
+- Use ## para secoes principais (PRE-PROCESSAMENTO, POS-PROCESSAMENTO, Pos-cura UV, Tratamento termico, etc.)
+- Use ### para subsecoes (ex: "Lavagem e limpeza", "Secagem")
+- Use • para cada instrucao/passo
+- Use 2 espacos + • para sub-itens
+- Use > para notas/alertas/avisos importantes
+- NAO invente conteudo. Apenas reorganize.
+- Preserve TODOS os numeros, unidades, temperaturas e tempos exatamente.
+- Se o texto ja contiver marcadores ##, reorganize-os corretamente.
 ```
 
-2. Adicionar pos-processamento programatico no HTML retornado pela IA (~apos linha 120), antes de salvar no banco. Isso garante que mesmo que a IA falhe, URLs soltas serao convertidas:
+### Resultado esperado
 
-```typescript
-function convertPlainUrlsToLinks(html: string): string {
-  // Regex que encontra URLs que NAO estao dentro de href="" ou src="" ou ja dentro de <a>
-  return html.replace(
-    /(?<!href="|src="|">)(https?:\/\/[^\s<>"]+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-primary underline">$1</a>'
-  );
-}
-```
-
-Essa funcao sera aplicada ao `reformattedHtml` antes do `previewOnly` check e do `update`.
-
-### Resultado
-
-- URLs em texto plano serao convertidas em links clicaveis tanto pela IA quanto pelo fallback programatico
-- Links existentes (ja em tags `<a>`) nao serao duplicados gracas ao negative lookbehind na regex
-- Nenhum link inventado sera adicionado (mantem o Principio-Mae)
+O usuario pode colar qualquer texto (como o exemplo com NanoClean Pod, Elegoo Mercury, etc.) e obter automaticamente o formato Markdown que o parser do ParameterTable entende, sem precisar formatar manualmente.
 
