@@ -472,7 +472,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
   const pathByLang = {
     'pt': '/base-conhecimento',
     'en': '/en/knowledge-base',
-    'es': '/es/base-conocimento'
+    'es': '/es/base-conocimiento'
   };
 
   // Check which language translations are available

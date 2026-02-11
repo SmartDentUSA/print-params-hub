@@ -53,3 +53,8 @@ Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledg
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-en
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-es
 Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap
+
+# ==== LLMs.txt ====
+# See https://llmstxt.org/
+# Instructions for AI crawlers
+# Available at: https://parametros.smartdent.com.br/llms.txt
