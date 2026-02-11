@@ -9,6 +9,15 @@ interface DirectHTMLRendererProps {
 export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: DirectHTMLRendererProps) {
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Clean schema.org microdata that leaks as visible text
+  const cleanSchemaMarkup = (html: string): string => {
+    let cleaned = html.replace(/\s*itemscope\s*/gi, ' ');
+    cleaned = cleaned.replace(/\s*itemtype="https?:\/\/schema\.org\/[^"]*"/gi, '');
+    cleaned = cleaned.replace(/\s*itemprop="[^"]*"/gi, '');
+    cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
+    return cleaned;
+  };
+
   // Process HTML to add IDs to headings for better LLM citation
   const processHTML = (html: string): string => {
     let counter = 0;
@@ -38,7 +47,8 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
     });
   }, [htmlContent]);
 
-  const processedHTML = processHTML(htmlContent);
+  const cleanedHTML = cleanSchemaMarkup(htmlContent);
+  const processedHTML = processHTML(cleanedHTML);
 
   return (
     <article
