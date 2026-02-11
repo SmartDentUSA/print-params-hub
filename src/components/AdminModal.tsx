@@ -223,6 +223,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [savingDocId, setSavingDocId] = useState<string | null>(null);
   const [savedDocId, setSavedDocId] = useState<string | null>(null);
+  const [isFormattingInstructions, setIsFormattingInstructions] = useState(false);
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
   
@@ -1305,6 +1306,37 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   className="resize-none font-mono text-sm"
                 />
                 
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!formData.processing_instructions || formData.processing_instructions.trim().length < 10 || isFormattingInstructions}
+                  onClick={async () => {
+                    setIsFormattingInstructions(true);
+                    try {
+                      const { data, error } = await supabase.functions.invoke('format-processing-instructions', {
+                        body: { text: formData.processing_instructions }
+                      });
+                      if (error) throw error;
+                      if (data?.error) throw new Error(data.error);
+                      if (data?.formatted) {
+                        handleInputChange('processing_instructions', data.formatted);
+                        toast({ title: '✅ Instruções formatadas com sucesso!' });
+                      }
+                    } catch (err: any) {
+                      toast({ title: '❌ Erro ao formatar', description: err.message, variant: 'destructive' });
+                    } finally {
+                      setIsFormattingInstructions(false);
+                    }
+                  }}
+                  className="w-fit"
+                >
+                  {isFormattingInstructions ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Formatando...</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4" /> Formatar com IA</>
+                  )}
+                </Button>
                 <div className="flex items-start gap-2 p-3 bg-blue-100 dark:bg-blue-900/30 rounded border border-blue-300 dark:border-blue-700">
                   <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <div className="text-xs text-blue-700 dark:text-blue-300">
