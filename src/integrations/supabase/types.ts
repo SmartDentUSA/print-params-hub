@@ -504,6 +504,7 @@ export type Database = {
           folder_id: string | null
           hls_url: string | null
           id: string
+          is_premium: boolean | null
           last_product_sync_at: string | null
           order_index: number
           panda_config: Json | null
@@ -545,6 +546,7 @@ export type Database = {
           folder_id?: string | null
           hls_url?: string | null
           id?: string
+          is_premium?: boolean | null
           last_product_sync_at?: string | null
           order_index: number
           panda_config?: Json | null
@@ -586,6 +588,7 @@ export type Database = {
           folder_id?: string | null
           hls_url?: string | null
           id?: string
+          is_premium?: boolean | null
           last_product_sync_at?: string | null
           order_index?: number
           panda_config?: Json | null

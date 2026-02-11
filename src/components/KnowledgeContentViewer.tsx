@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { ArticleSummary } from '@/components/ArticleSummary';
 import { ArticleMeta } from '@/components/ArticleMeta';
 import { VeredictBox } from '@/components/VeredictBox';
+import { VideoGateOverlay } from '@/components/VideoGateOverlay';
 
 function getFriendlyLabel(url: string): string {
   if (url.includes('drive.google.com')) return 'Ver Documento';
@@ -65,6 +66,11 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
   const [selectedPdfs, setSelectedPdfs] = useState<any[]>([]);
   const { fetchVideosByContent, fetchRelatedContents } = useKnowledge();
   const [translating, setTranslating] = useState(false);
+  
+  // Premium gate state
+  const [gatedVideoIds, setGatedVideoIds] = useState<Set<string>>(new Set());
+  const [membersAreaUrl, setMembersAreaUrl] = useState<string>('');
+  const videoTimersRef = useRef<Record<string, number>>({});
   const [translatedContent, setTranslatedContent] = useState<{
     title: string;
     excerpt: string;
@@ -276,6 +282,48 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     load();
   }, [content?.id, language, fetchVideosByContent, fetchRelatedContents]);
 
+  // Fetch members_area_url setting
+  useEffect(() => {
+    supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'members_area_url')
+      .single()
+      .then(({ data }) => {
+        if (data?.value) setMembersAreaUrl(data.value);
+      });
+  }, []);
+
+  // Premium video gate timers
+  useEffect(() => {
+    if (videosLoading || videos.length === 0) return;
+    
+    const premiumVideos = videos.filter((v: any) => v.is_premium);
+    if (premiumVideos.length === 0) return;
+
+    const interval = setInterval(() => {
+      premiumVideos.forEach((video: any) => {
+        if (gatedVideoIds.has(video.id)) return;
+        videoTimersRef.current[video.id] = (videoTimersRef.current[video.id] || 0) + 1;
+        if (videoTimersRef.current[video.id] >= 300) {
+          setGatedVideoIds(prev => new Set(prev).add(video.id));
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [videos, videosLoading, gatedVideoIds]);
+
+  const handleCloseGate = useCallback((videoId: string) => {
+    setGatedVideoIds(prev => {
+      const next = new Set(prev);
+      next.delete(videoId);
+      return next;
+    });
+    // Reset timer so it won't re-trigger immediately
+    videoTimersRef.current[videoId] = 0;
+  }, []);
+
   if (!content) return null;
 
   // Select correct language content (prioritize translatedContent from auto-translation)
@@ -440,13 +488,19 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   />
                 )}
                 
-                <div className="aspect-video rounded-lg overflow-hidden border border-border">
+                <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
                   <iframe
                     src={getVideoEmbedUrl(video, language)}
                     className="w-full h-full"
                     allowFullScreen
                     title={video.title || `Vídeo ${idx + 1}`}
                   />
+                  {video.is_premium && gatedVideoIds.has(video.id) && (
+                    <VideoGateOverlay
+                      membersAreaUrl={membersAreaUrl}
+                      onClose={() => handleCloseGate(video.id)}
+                    />
+                  )}
                 </div>
               </div>
             ))}

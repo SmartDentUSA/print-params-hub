@@ -90,6 +90,10 @@ export function AdminSettings() {
   const [cta3Label, setCta3Label] = useState<string>("");
   const [cta3Url, setCta3Url] = useState<string>("");
   const [savingCta3, setSavingCta3] = useState(false);
+  
+  // Members area URL
+  const [membersAreaUrl, setMembersAreaUrl] = useState<string>("");
+  const [savingMembersUrl, setSavingMembersUrl] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSyncingReviews, setIsSyncingReviews] = useState(false);
@@ -191,6 +195,9 @@ export function AdminSettings() {
       
       setCta3Label(label || '');
       setCta3Url(url || '');
+      
+      const membersUrl = await fetchSetting('members_area_url');
+      setMembersAreaUrl(membersUrl || '');
       
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -1172,6 +1179,56 @@ export function AdminSettings() {
                     className="w-full"
                   >
                     {savingCta3 ? "Salvando..." : "Salvar Configurações"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="cta3" className="space-y-4">
+              {/* Members Area URL Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Star className="w-5 h-5" />
+                    URL da Área de Membros
+                  </CardTitle>
+                  <CardDescription>
+                    URL para onde vídeos premium redirecionam após 5 minutos de exibição
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">URL da Área de Membros</label>
+                    <Input
+                      placeholder="https://suaplataforma.com/membros"
+                      value={membersAreaUrl}
+                      onChange={(e) => setMembersAreaUrl(e.target.value)}
+                      type="url"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Vídeos marcados como "Premium" exibirão um popup após 5 min redirecionando para esta URL
+                    </p>
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      setSavingMembersUrl(true);
+                      try {
+                        const success = await updateSetting('members_area_url', membersAreaUrl);
+                        if (success) {
+                          toast({ title: "✅ URL da área de membros salva!" });
+                        } else {
+                          throw new Error("Falha ao salvar");
+                        }
+                      } catch {
+                        toast({ title: "Erro ao salvar", variant: "destructive" });
+                      } finally {
+                        setSavingMembersUrl(false);
+                      }
+                    }}
+                    disabled={savingMembersUrl}
+                    className="w-full"
+                  >
+                    {savingMembersUrl ? "Salvando..." : "Salvar URL"}
                   </Button>
                 </CardContent>
               </Card>
