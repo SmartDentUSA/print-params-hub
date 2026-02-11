@@ -45,7 +45,7 @@ export function AdminArticleReformatter() {
     const tableMatches = html.match(/\|\s*\w+\s*\|/g);
     const hasTables = hasTableTag || (tableMatches && tableMatches.length > 3);
     
-    const hasLinks = html.includes('<a href');
+    const hasLinks = /<a\s[^>]*href=/i.test(html);
     const hasVeredictBox = html.includes('veredict-box') || html.includes('class="veredict') || html.includes('ai-summary-box');
     const hasAiSummary = html.includes('class="ai-') || html.includes('summary-box') || html.includes('article-summary');
     const hasAuthorSignature = html.includes('author-signature') || html.includes('{{AUTHOR_SIGNATURE}}') || html.includes('assinatura-autor');
