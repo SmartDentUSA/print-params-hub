@@ -15,6 +15,8 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
     cleaned = cleaned.replace(/\s*itemtype="https?:\/\/schema\.org\/[^"]*"/gi, '');
     cleaned = cleaned.replace(/\s*itemprop="[^"]*"/gi, '');
     cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
+    // Remove <a> tags linking to schema.org (created by reformatter)
+    cleaned = cleaned.replace(/<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>/gi, '');
     return cleaned;
   };
 
