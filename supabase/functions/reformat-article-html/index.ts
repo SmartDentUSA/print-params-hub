@@ -33,7 +33,7 @@ serve(async (req) => {
     console.log(`[reformat-article-html] Buscando artigo ${contentId}...`);
     const { data: article, error: fetchError } = await supabase
       .from('knowledge_contents')
-      .select('id, title, content_html')
+      .select('id, title, content_html, content_html_en, content_html_es, title_en, title_es')
       .eq('id', contentId)
       .single();
 
@@ -46,7 +46,6 @@ serve(async (req) => {
     }
 
     console.log(`[reformat-article-html] Artigo encontrado: "${article.title}"`);
-    console.log(`[reformat-article-html] Tamanho do HTML original: ${article.content_html.length} chars`);
 
     // Prompt para IA reformatar HTML
     const systemPrompt = `Você é um especialista em reformatar HTML mal estruturado de artigos técnicos sobre odontologia digital.
@@ -82,55 +81,6 @@ REGRAS DE FORMATAÇÃO:
 FORMATO DE SAÍDA:
 Retorne APENAS o HTML reformatado, sem explicações ou meta-comentários.`;
 
-    const userPrompt = `Reformate este HTML de artigo técnico:
-
-TÍTULO: ${article.title}
-
-HTML ORIGINAL:
-${article.content_html}
-
-Retorne o HTML reformatado seguindo todas as regras.`;
-
-    console.log(`[reformat-article-html] Enviando para IA (Lovable AI)...`);
-
-    // Chamar Lovable AI
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.3,
-        max_tokens: 8000,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('[reformat-article-html] Erro da IA:', aiResponse.status, errorText);
-      
-      if (aiResponse.status === 429) {
-        throw new Error('Rate limit excedido. Aguarde alguns minutos e tente novamente.');
-      }
-      if (aiResponse.status === 402) {
-        throw new Error('Créditos Lovable AI esgotados. Adicione créditos no workspace.');
-      }
-      throw new Error(`Erro da IA: ${aiResponse.status} ${errorText}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const rawReformattedHtml = aiData.choices?.[0]?.message?.content;
-
-    if (!rawReformattedHtml) {
-      throw new Error('IA não retornou HTML reformatado');
-    }
-
     // Remover code fences do Markdown que a IA pode retornar
     function stripMarkdownCodeFences(text: string): string {
       let cleaned = text.trim();
@@ -148,10 +98,82 @@ Retorne o HTML reformatado seguindo todas as regras.`;
       );
     }
 
-    const cleanedHtml = stripMarkdownCodeFences(rawReformattedHtml);
-    const reformattedHtml = convertPlainUrlsToLinks(cleanedHtml);
+    // Helper to reformat a single HTML content
+    async function reformatHtml(title: string, html: string, lang: string): Promise<string> {
+      const langLabel = lang === 'pt' ? 'Português' : lang === 'en' ? 'English' : 'Español';
+      console.log(`[reformat-article-html] Reformatando ${lang} (${html.length} chars)...`);
 
-    console.log(`[reformat-article-html] HTML reformatado recebido: ${reformattedHtml.length} chars (pós-processamento de URLs aplicado)`);
+      const userPrompt = `Reformate este HTML de artigo técnico (idioma: ${langLabel}):
+
+TÍTULO: ${title}
+
+HTML ORIGINAL:
+${html}
+
+Retorne o HTML reformatado seguindo todas as regras. Mantenha o idioma original do texto (${langLabel}).`;
+
+      const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${lovableApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.3,
+          max_tokens: 8000,
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error(`[reformat-article-html] Erro da IA (${lang}):`, aiResponse.status, errorText);
+        if (aiResponse.status === 429) throw new Error('Rate limit excedido. Aguarde alguns minutos.');
+        if (aiResponse.status === 402) throw new Error('Créditos Lovable AI esgotados.');
+        throw new Error(`Erro da IA (${lang}): ${aiResponse.status}`);
+      }
+
+      const aiData = await aiResponse.json();
+      const raw = aiData.choices?.[0]?.message?.content;
+      if (!raw) throw new Error(`IA não retornou HTML (${lang})`);
+
+      const cleaned = stripMarkdownCodeFences(raw);
+      return convertPlainUrlsToLinks(cleaned);
+    }
+
+    // Build list of languages to reformat
+    const tasks: { lang: string; field: string; title: string; html: string }[] = [];
+
+    if (article.content_html) {
+      tasks.push({ lang: 'pt', field: 'content_html', title: article.title, html: article.content_html });
+    }
+    if (article.content_html_en) {
+      tasks.push({ lang: 'en', field: 'content_html_en', title: article.title_en || article.title, html: article.content_html_en });
+    }
+    if (article.content_html_es) {
+      tasks.push({ lang: 'es', field: 'content_html_es', title: article.title_es || article.title, html: article.content_html_es });
+    }
+
+    if (tasks.length === 0) {
+      throw new Error('Artigo não possui content_html em nenhum idioma');
+    }
+
+    console.log(`[reformat-article-html] Reformatando ${tasks.length} idioma(s): ${tasks.map(t => t.lang).join(', ')}`);
+
+    // Process all languages (sequentially to avoid rate limits)
+    const results: Record<string, { original: number; reformatted: number }> = {};
+    const updatePayload: Record<string, any> = { updated_at: new Date().toISOString() };
+
+    for (const task of tasks) {
+      const reformatted = await reformatHtml(task.title, task.html, task.lang);
+      updatePayload[task.field] = reformatted;
+      results[task.lang] = { original: task.html.length, reformatted: reformatted.length };
+      console.log(`[reformat-article-html] ✅ ${task.lang}: ${task.html.length} → ${reformatted.length} chars`);
+    }
 
     // Preview ou salvar
     if (previewOnly) {
@@ -160,36 +182,33 @@ Retorne o HTML reformatado seguindo todas as regras.`;
         success: true,
         preview: true,
         original: article.content_html,
-        reformatted: reformattedHtml,
-        originalSize: article.content_html.length,
-        reformattedSize: reformattedHtml.length,
+        reformatted: updatePayload.content_html || article.content_html,
+        originalSize: article.content_html?.length || 0,
+        reformattedSize: (updatePayload.content_html || article.content_html)?.length || 0,
+        languages: results,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Salvar no banco
-    console.log(`[reformat-article-html] Salvando HTML reformatado...`);
+    console.log(`[reformat-article-html] Salvando HTML reformatado (${tasks.length} idiomas)...`);
     const { error: updateError } = await supabase
       .from('knowledge_contents')
-      .update({ 
-        content_html: reformattedHtml,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', contentId);
 
     if (updateError) {
       throw new Error(`Erro ao salvar: ${updateError.message}`);
     }
 
-    console.log(`[reformat-article-html] ✅ Artigo atualizado com sucesso`);
+    console.log(`[reformat-article-html] ✅ Artigo atualizado com sucesso (${tasks.length} idiomas)`);
 
     return new Response(JSON.stringify({
       success: true,
       preview: false,
-      message: 'HTML reformatado e salvo com sucesso',
-      originalSize: article.content_html.length,
-      reformattedSize: reformattedHtml.length,
+      message: `HTML reformatado e salvo com sucesso (${tasks.length} idioma(s))`,
+      languages: results,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
