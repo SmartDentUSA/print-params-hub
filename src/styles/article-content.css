@@ -511,3 +511,14 @@
   padding: 0.75em;
   margin: 1.5em 0;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PERFORMANCE: content-visibility para lazy rendering
+   Seções abaixo da dobra são renderizadas sob demanda
+   ═══════════════════════════════════════════════════════════ */
+.article-content section:nth-child(n+3),
+.article-content .knowledge-faq,
+.article-content aside {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
+}

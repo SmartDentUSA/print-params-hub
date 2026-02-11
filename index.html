@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
-    <!-- Google Tag Manager -->
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','GTM-NZ64Q899');</script>
-    <!-- End Google Tag Manager -->
-    
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PrinterParams - Parâmetros de Impressão 3D Odontológica | Smart Dent</title>
@@ -50,13 +42,42 @@
     <!-- Performance: Preconnect to critical domains -->
     <link rel="preconnect" href="https://vyzfkpydhktdfzuutixz.supabase.co" crossorigin />
     <link rel="dns-prefetch" href="https://vyzfkpydhktdfzuutixz.supabase.co" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+    <!-- Self-hosted Poppins font: preload primary weight -->
+    <link rel="preload" href="/fonts/poppins-400.woff2" as="font" type="font/woff2" crossorigin>
     
     <!-- Critical CSS - Above the fold optimization for LCP/FCP -->
     <style>
+      /* Self-hosted Poppins @font-face declarations */
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 300;
+        font-display: swap;
+        src: url('/fonts/poppins-300.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: url('/fonts/poppins-400.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 600;
+        font-display: swap;
+        src: url('/fonts/poppins-600.woff2') format('woff2');
+      }
+      @font-face {
+        font-family: 'Poppins';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: url('/fonts/poppins-700.woff2') format('woff2');
+      }
+
       /* Critical Design System Variables */
       :root {
         --background: 210 17% 98%;
@@ -111,10 +132,7 @@
         min-height: 100vh;
       }
     </style>
-    
-    <!-- Preload full CSS for progressive enhancement -->
-    <link rel="preload" href="/src/index.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/src/index.css"></noscript>
+
     <meta property="og:site_name" content="PrinterParams Smart Dent" />
     <meta property="og:title" content="PrinterParams - Parâmetros de Impressão 3D Odontológica" />
     <meta property="og:description" content="Configurações otimizadas para impressoras 3D e resinas Smart Dent" />
@@ -130,21 +148,6 @@
     <!-- RSS/Atom Feed Auto-discovery (Categorias C, D, E) -->
     <link rel="alternate" type="application/rss+xml" title="Base de Conhecimento - RSS (C, D, E)" href="https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=rss" />
     <link rel="alternate" type="application/atom+xml" title="Base de Conhecimento - Atom (C, D, E)" href="https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=atom" />
-
-    <!-- Meta Pixel Code -->
-    <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '167413567155597');
-    fbq('track', 'PageView');
-    </script>
-    <!-- End Meta Pixel Code -->
   </head>
 
   <body>
@@ -157,13 +160,11 @@
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZ64Q899"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-    <!-- End Google Tag Manager (noscript) -->
     
     <!-- Meta Pixel (noscript) -->
     <noscript><img height="1" width="1" style="display:none"
     src="https://www.facebook.com/tr?id=167413567155597&ev=PageView&noscript=1"
     /></noscript>
-    <!-- End Meta Pixel (noscript) -->
     
     <!-- SEO Content for Crawlers and No-JS Fallback -->
     <noscript>
@@ -173,10 +174,29 @@
     </noscript>
     
     <!-- BOT SSR MIDDLEWARE: Vercel rewrites handle bot detection via vercel.json -->
-    <!-- No client-side bot detection needed - Vercel intercepts bot User-Agents -->
-    <!-- and redirects them to the seo-proxy Edge Function automatically -->
     
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Deferred: Google Tag Manager (moved from <head> to end of <body>) -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-NZ64Q899');</script>
+
+    <!-- Deferred: Meta Pixel (moved from <head> to end of <body>) -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '167413567155597');
+    fbq('track', 'PageView');
+    </script>
   </body>
 </html>
