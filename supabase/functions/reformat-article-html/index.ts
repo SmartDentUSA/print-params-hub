@@ -131,6 +131,14 @@ Retorne o HTML reformatado seguindo todas as regras.`;
       throw new Error('IA não retornou HTML reformatado');
     }
 
+    // Remover code fences do Markdown que a IA pode retornar
+    function stripMarkdownCodeFences(text: string): string {
+      let cleaned = text.trim();
+      cleaned = cleaned.replace(/^```(?:html|HTML)?\s*\n?/, '');
+      cleaned = cleaned.replace(/\n?```\s*$/, '');
+      return cleaned.trim();
+    }
+
     // Pós-processamento: converter URLs em texto plano para hyperlinks
     function convertPlainUrlsToLinks(html: string): string {
       return html.replace(
@@ -139,7 +147,8 @@ Retorne o HTML reformatado seguindo todas as regras.`;
       );
     }
 
-    const reformattedHtml = convertPlainUrlsToLinks(rawReformattedHtml);
+    const cleanedHtml = stripMarkdownCodeFences(rawReformattedHtml);
+    const reformattedHtml = convertPlainUrlsToLinks(cleanedHtml);
 
     console.log(`[reformat-article-html] HTML reformatado recebido: ${reformattedHtml.length} chars (pós-processamento de URLs aplicado)`);
 
