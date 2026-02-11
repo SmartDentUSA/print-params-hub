@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.export-apostila-docx]
 verify_jwt = false
+
+[functions.format-processing-instructions]
+verify_jwt = false

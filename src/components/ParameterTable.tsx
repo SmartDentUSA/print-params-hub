@@ -84,7 +84,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
       if (!trimmed) continue;
       
       // ## Detectar seção principal
-      if (trimmed.startsWith('## ')) {
+      if (trimmed.match(/^##[^#]/)) {
         // Se havia uma seção genérica anterior, salvar
         if (currentSection === 'generic' && currentGenericContent.length > 0) {
           sections.push({
@@ -112,7 +112,7 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
       }
       
       // ### Detectar subseção
-      if (trimmed.startsWith('### ')) {
+      if (trimmed.match(/^###[^#]/)) {
         const subsection = trimmed.replace(/^###\s*/, '');
         if (currentSection === 'pre') pre.push({ type: 'subsection', content: subsection });
         if (currentSection === 'post') post.push({ type: 'subsection', content: subsection });
