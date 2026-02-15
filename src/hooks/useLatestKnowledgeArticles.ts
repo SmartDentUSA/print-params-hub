@@ -37,7 +37,8 @@ export const useLatestKnowledgeArticles = (limit: number = 12): UseLatestKnowled
         setLoading(true);
         setError(null);
 
-        const { data, error: fetchError } = await supabase
+        // Query 1: artigos ativos
+        const { data: articlesData, error: articlesError } = await supabase
           .from('knowledge_contents')
           .select(`
             id,
@@ -54,13 +55,34 @@ export const useLatestKnowledgeArticles = (limit: number = 12): UseLatestKnowled
             created_at,
             knowledge_categories(name, letter)
           `)
-          .eq('active', true)
-          .order('created_at', { ascending: false })
-          .limit(limit);
+          .eq('active', true);
 
-        if (fetchError) throw fetchError;
+        if (articlesError) throw articlesError;
 
-        setArticles(data || []);
+        // Query 2: views agregadas por content_id
+        const { data: viewsData } = await supabase
+          .from('knowledge_videos')
+          .select('content_id, analytics_views')
+          .not('content_id', 'is', null);
+
+        // Agregar views por content_id
+        const viewsMap = new Map<string, number>();
+        viewsData?.forEach(v => {
+          const current = viewsMap.get(v.content_id!) || 0;
+          viewsMap.set(v.content_id!, current + (v.analytics_views || 0));
+        });
+
+        // Ordenar por views DESC, fallback created_at DESC
+        const sorted = (articlesData || [])
+          .sort((a, b) => {
+            const viewsA = viewsMap.get(a.id) || 0;
+            const viewsB = viewsMap.get(b.id) || 0;
+            if (viewsB !== viewsA) return viewsB - viewsA;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          })
+          .slice(0, limit);
+
+        setArticles(sorted);
       } catch (err) {
         console.error('Erro ao carregar artigos:', err);
         setError('Não foi possível carregar os artigos.');
