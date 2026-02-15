@@ -1,103 +1,93 @@
 
 
-# Performance / Core Web Vitals - De 7/10 para 9/10
+# Ordenar "Últimas Publicações" por Visualizações (Mais Populares Primeiro)
 
-## Diagnostico Atual (7/10)
+## Situacao Atual
 
-O principal gargalo e o carregamento externo do Google Fonts (Poppins), que e render-blocking e adiciona ~200-400ms ao LCP. Alem disso, GTM e Meta Pixel no `<head>` competem por bandwidth critica.
+O feed de artigos no componente `KnowledgeFeed` ordena por `created_at DESC` (mais recentes primeiro). Os dados de visualizacao existem na tabela `knowledge_videos`, onde cada video tem `analytics_views` vinculado a um artigo via `content_id`.
 
----
+## Estrategia
 
-## Acoes de Implementacao
+Criar uma view ou query que agrega o total de visualizacoes dos videos por artigo e usar esse total como criterio de ordenacao. Artigos sem videos ou sem views aparecerao por ultimo, ordenados por data.
 
-### 1. Self-host da fonte Poppins (impacto: +1.0)
+## Implementacao
 
-**Problema:** A tag `<link href="https://fonts.googleapis.com/css2?family=Poppins...">` no `index.html` faz 2 requests externos (CSS + WOFF2) antes de renderizar texto.
+### 1. Criar View no Supabase (migracao)
 
-**Solucao:**
-- Baixar os 4 pesos da Poppins (300, 400, 600, 700) em formato WOFF2
-- Salvar em `public/fonts/`
-- Criar `@font-face` declarations no CSS critico inline do `index.html`
-- Remover o `<link>` do Google Fonts e os `preconnect`/`dns-prefetch` para `fonts.googleapis.com` e `fonts.gstatic.com`
-- Adicionar `<link rel="preload" as="font" type="font/woff2" href="/fonts/poppins-400.woff2" crossorigin>` para o peso principal (400)
+Criar uma view `knowledge_content_popularity` que agrega views por `content_id`:
 
-**Arquivos alterados:**
-- `index.html` (remover link externo, adicionar @font-face inline e preload)
-- `public/fonts/` (novos arquivos WOFF2)
+```sql
+CREATE VIEW knowledge_content_popularity AS
+SELECT 
+  content_id,
+  COALESCE(SUM(analytics_views), 0) AS total_views,
+  COALESCE(SUM(analytics_unique_views), 0) AS total_unique_views,
+  COALESCE(SUM(analytics_plays), 0) AS total_plays
+FROM knowledge_videos
+WHERE content_id IS NOT NULL
+GROUP BY content_id;
+```
 
-### 2. Defer GTM e Meta Pixel (impacto: +0.5)
+### 2. Atualizar `useLatestKnowledgeArticles.ts`
 
-**Problema:** Ambos os scripts estao no `<head>` e competem com recursos criticos durante o parse inicial.
+Alterar a query para fazer um LEFT JOIN com a view de popularidade e ordenar por `total_views DESC`, com fallback para `created_at DESC` para artigos sem views:
 
-**Solucao:**
-- Mover o script GTM para o final do `<body>` (antes de `</body>`)
-- Mover o script Meta Pixel para o final do `<body>`
-- Ambos ja usam `async=true` internamente, mas estar no `<head>` ainda causa parser blocking
+- Buscar artigos normalmente da `knowledge_contents`
+- Buscar a agregacao de views da view `knowledge_content_popularity`
+- Fazer o merge no client-side e ordenar por views decrescente
 
-**Arquivo alterado:** `index.html`
+**Alternativa mais simples (sem view):** Fazer duas queries paralelas:
+1. Buscar artigos ativos
+2. Buscar agregacao de views por content_id da `knowledge_videos`
+3. Fazer merge e sort no client
 
-### 3. Adicionar `content-visibility: auto` para lazy rendering (impacto: +0.5)
+Esta alternativa nao requer migracao e funciona imediatamente.
 
-**Problema:** Secoes abaixo da dobra sao renderizadas imediatamente, consumindo recursos do browser.
+### 3. Arquivo alterado
 
-**Solucao:**
-- Adicionar `content-visibility: auto` com `contain-intrinsic-size` em secoes que ficam abaixo da dobra nos estilos de artigo
-- Aplicar em `.article-content section`, `aside`, `.knowledge-sidebar`, e secoes de FAQ
+- `src/hooks/useLatestKnowledgeArticles.ts` - Adicionar query secundaria para buscar views e ordenar pelo total
 
-**Arquivo alterado:** `src/styles/article-content.css`
+```typescript
+// Query 1: artigos
+const { data: articlesData } = await supabase
+  .from('knowledge_contents')
+  .select(`id, title, title_es, title_en, slug, excerpt, excerpt_es, excerpt_en,
+           og_image_url, content_image_url, content_image_alt, created_at,
+           knowledge_categories(name, letter)`)
+  .eq('active', true);
 
-### 4. Remover CSS preload hack com onload (impacto: +0.5)
+// Query 2: views agregadas por content_id
+const { data: viewsData } = await supabase
+  .from('knowledge_videos')
+  .select('content_id, analytics_views')
+  .not('content_id', 'is', null);
 
-**Problema:** A linha `<link rel="preload" href="/src/index.css" as="style" onload="this.onload=null;this.rel='stylesheet'">` pode causar FOUC (Flash of Unstyled Content) e falha em browsers antigos.
+// Agregar views por content_id
+const viewsMap = new Map<string, number>();
+viewsData?.forEach(v => {
+  const current = viewsMap.get(v.content_id) || 0;
+  viewsMap.set(v.content_id, current + (v.analytics_views || 0));
+});
 
-**Solucao:**
-- Remover essa linha - o Vite ja faz code-splitting e injeta CSS automaticamente via `<script type="module">`
-- O CSS critico inline no `<head>` ja cobre o above-the-fold
+// Ordenar por views DESC, fallback created_at DESC
+const sorted = (articlesData || [])
+  .sort((a, b) => {
+    const viewsA = viewsMap.get(a.id) || 0;
+    const viewsB = viewsMap.get(b.id) || 0;
+    if (viewsB !== viewsA) return viewsB - viewsA;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  })
+  .slice(0, limit);
+```
 
-**Arquivo alterado:** `index.html`
+## Resultado
 
----
-
-## Resultado Esperado
-
-| Item | Antes | Depois |
+| Criterio | Antes | Depois |
 |---|---|---|
-| Google Fonts externo | Sim (-1.0) | Self-hosted (+1.0) |
-| Font preload | Nenhum (-0.5) | Preload WOFF2 400 |
-| GTM/Pixel no head | Blocking (-0.5) | Deferred ao body |
-| content-visibility | Nenhum (-0.5) | auto em below-fold |
-| CSS preload hack | onload hack (-0.5) | Removido (Vite nativo) |
-| **Nota Final** | **7/10** | **9/10** |
+| Ordenacao | Data de criacao | Views totais (desc) |
+| Fallback | Nenhum | Data de criacao (desc) |
+| Dados usados | Nenhuma metrica | analytics_views de knowledge_videos |
+| Migracao necessaria | - | Nenhuma |
 
----
-
-## Secao Tecnica
-
-**Fontes a baixar (WOFF2, subset latin-ext):**
-- `poppins-300.woff2` (Light)
-- `poppins-400.woff2` (Regular)
-- `poppins-600.woff2` (SemiBold)
-- `poppins-700.woff2` (Bold)
-
-**@font-face inline no index.html:**
-```css
-@font-face {
-  font-family: 'Poppins';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/poppins-400.woff2') format('woff2');
-}
-```
-(Repetido para 300, 600, 700)
-
-**content-visibility em article-content.css:**
-```css
-.article-content section:nth-child(n+3),
-.article-content .knowledge-faq,
-.article-content aside {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 500px;
-}
-```
+Os artigos mais assistidos pelos usuarios aparecerao primeiro no carrossel, incentivando engajamento com conteudo ja validado pela audiencia.
 
