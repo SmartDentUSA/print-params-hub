@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
@@ -367,7 +367,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
     const url = new URL(req.url);
@@ -468,7 +468,8 @@ serve(async (req) => {
           .select("id")
           .single();
         fallbackInteractionId = interaction?.id;
-      } catch {
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (fallback):", e);
         // fail silently — stream continues regardless
       }
 
@@ -633,7 +634,8 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
         .select("id")
         .single();
       interactionId = interaction?.id;
-    } catch {
+    } catch (e) {
+      console.error("Failed to insert agent_interaction:", e);
       // fail silently — stream continues regardless
     }
 
