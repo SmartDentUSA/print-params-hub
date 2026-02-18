@@ -1,86 +1,95 @@
 
-# Análise: Novo arquivo "knowledge_base_llm_optimized" vs arquivo anterior
+# Fix: Campos brand, mpn, anti_hallucination, required_products, forbidden_products nulos após importação
 
-## O arquivo é substancialmente melhor — e compatível com a função de importação
+## Causa raiz identificada (leitura direta do JSON)
 
-### Diferenças estruturais confirmadas
+Após ler a estrutura real do arquivo `knowledge_base_llm_optimized_2026-02-18.json`, foram identificados dois problemas distintos:
 
-| Campo | Arquivo Anterior (apostila) | Novo Arquivo (llm_optimized) |
-|---|---|---|
-| Chave raiz | `data.products[]` | `data.products[]` (mesma) |
-| Slug | URL completa da loja | **Slug limpo** (`atos-resina-composta-direta-da2-estetica-dentina`) |
-| Descrição | Texto simples | Texto limpo + sem HTML |
-| Preço | `price` + `promo_price` | `price` + `original_price` (diferente!) |
-| FAQs | Ausentes | Presentes com HTML nos links |
-| Keywords | Lista básica | Lista extensa + `market_keywords` separado |
-| Anti-alucinação | Ausente | Presente por produto |
-| `sales_pitch` | Ausente | Presente (rico) |
-| `applications` | Ausente | Presente |
-| `technical_specifications` | Ausente | Array de key/value |
-| `bot_trigger_words` | Ausente | Presente |
-| `required_products` | Ausente | Presente |
-| `forbidden_products` | Ausente | Presente |
-| `target_audience` | Pode estar no produto | Presente por produto |
+### Problema 1 — required_products e forbidden_products estão dentro de anti_hallucination
 
-### Problema identificado: campo de preço promocional diferente
-
-O arquivo novo usa `original_price` (não `promo_price`). A função `mapProducts` atual lê `product.promo_price`:
-```typescript
-// Código atual — vai perder o original_price
-promo_price: product.promo_price ? parseFloat(product.promo_price) : undefined,
+No JSON real, a estrutura é:
+```
+product.anti_hallucination.required_products[]
+product.anti_hallucination.forbidden_products[]
+product.anti_hallucination.never_claim[]
+product.anti_hallucination.never_mix_with[]
+product.anti_hallucination.always_require[]
+product.anti_hallucination.always_explain[]
+product.anti_hallucination.never_use_in_stages[]
 ```
 
-No novo arquivo, a lógica correta é:
-- `price` = preço atual (já com desconto)
-- `original_price` = preço original (de/por)
-- O que salvar como `promo_price` no banco = `product.original_price` (preço "de") ou manter `price` como o preço final
+O mapeamento atual está tentando ler `product.required_products` e `product.forbidden_products` no nível raiz — esses campos **não existem** lá. Por isso chegam nulos.
 
-### Problema identificado: FAQs têm HTML
+### Problema 2 — brand e mpn existem no produto mas chegam nulos
 
-As FAQs no novo arquivo têm `<a href="...">` nos textos. Quando salvo em `extra_data`, isso é válido. Mas precisamos garantir que seja armazenado.
+O banco mostra `brand: null` para produtos como "Atos Resina Composta Direta - DA1" que claramente tem `"brand": "SMART DENT®"` e `"mpn": "9021.29.00"` no JSON. Isso indica que o upsert está sendo executado mas sobrescrevendo com `extra_data` sem esses campos (conflito com registro anterior do arquivo apostila que não tinha esses campos, e cujo `extra_data` sobrescreveu o novo).
 
-### Dados extras valiosos que devem ir para `extra_data`
+### Problema 3 — bot_trigger_words não existe no novo arquivo
 
-O novo arquivo tem campos ricos por produto que a função atual não captura:
-- `sales_pitch` — texto de vendas para a Dra. L.I.A.
-- `applications` — indicações clínicas
-- `technical_specifications` — especificações técnicas estruturadas
-- `anti_hallucination` — regras anti-alucinação por produto
-- `faq` — FAQs com respostas
-- `market_keywords` — keywords de mercado adicionais
-- `required_products` / `forbidden_products` — contexto de uso
-- `bot_trigger_words` — palavras gatilho para o chatbot
-- `brand` e `mpn` — marca e código do produto
+O campo `bot_trigger_words` não aparece em nenhum produto do novo arquivo `llm_optimized`. Foi mapeado desnecessariamente. Pode ser removido do mapeamento (será null sempre).
 
-## O que precisa mudar na função de importação
+### Estrutura correta confirmada do produto
 
-Apenas **1 arquivo** a modificar: `supabase/functions/import-system-a-json/index.ts`
-
-### Mudança 1 — Corrigir mapeamento de preço promocional (linha ~439)
-
-```typescript
-// Antes:
-promo_price: product.promo_price ? parseFloat(product.promo_price) : undefined,
-
-// Depois (suporta ambos os schemas):
-promo_price: product.promo_price 
-  ? parseFloat(product.promo_price) 
-  : (product.original_price ? parseFloat(product.original_price) : undefined),
+```json
+{
+  "id": "760dd503-...",
+  "name": "Atos Resina Composta Direta - DA1",
+  "brand": "SMART DENT®",          ← nível raiz (OK, mas upsert sobrescrevendo)
+  "mpn": "9021.29.00",             ← nível raiz (OK, mas upsert sobrescrevendo)
+  "sales_pitch": "...",            ← nível raiz (já funcionando)
+  "faq": [...],                    ← nível raiz (já funcionando)
+  "anti_hallucination": {          ← objeto completo
+    "never_claim": [...],
+    "never_mix_with": [...],
+    "always_require": [...],
+    "always_explain": [...],
+    "never_use_in_stages": [...],
+    "required_products": [...],    ← está AQUI, não no nível raiz
+    "forbidden_products": [...]    ← está AQUI, não no nível raiz
+  }
+}
 ```
 
-### Mudança 2 — Capturar slug limpo (linha ~434)
+## Solução
 
-O novo arquivo tem `slug` como um slug real (ex: `atos-resina-composta-direta-da2-estetica-dentina`), não uma URL. O código atual usa `product.slug` diretamente — isso já está correto. Mas o `canonical_url` deve ser gerado a partir de `product.product_url` se disponível:
+### Mudança única: `supabase/functions/import-system-a-json/index.ts`
+
+Corrigir o objeto `extra_data` dentro de `mapProducts` (linhas 464-486):
+
+#### 1. required_products e forbidden_products: extrair de dentro de anti_hallucination
 
 ```typescript
-canonical_url: product.canonical_url || product.product_url || undefined,
+// ANTES (errado):
+anti_hallucination: product.anti_hallucination,
+required_products: product.required_products,     // não existe no nível raiz
+forbidden_products: product.forbidden_products,   // não existe no nível raiz
+
+// DEPOIS (correto):
+anti_hallucination: product.anti_hallucination,   // salva o objeto completo
+required_products: product.anti_hallucination?.required_products,   // extrai do sub-objeto
+forbidden_products: product.anti_hallucination?.forbidden_products, // extrai do sub-objeto
 ```
 
-### Mudança 3 — Expandir `extra_data` para capturar campos ricos (linha ~459-468)
+#### 2. Garantir que brand e mpn são capturados corretamente
+
+Os campos já estão mapeados corretamente mas o upsert de registros antigos pode estar sobrescrevendo. A solução é garantir que o `extra_data` use merge com dados existentes **ou** forçar que brand/mpn sejam sempre escritos corretamente mesmo em upserts.
+
+Como `extra_data` é JSONB e o upsert substitui o campo inteiro, o problema é que registros importados anteriormente (do arquivo apostila) que não tinham `brand`/`mpn` sobrescrevem os novos. A solução correta é:
+- Usar `jsonb_set` no upsert para fazer merge de `extra_data`, **ou**
+- Simplesmente fazer a importação funcionar corretamente com o novo arquivo (garantindo que brand/mpn sejam capturados agora)
+
+A abordagem mais simples é garantir que o upsert substitua os dados corretamente — o novo arquivo tem os dados, então a próxima reimportação vai gravar corretamente.
+
+#### 3. Remover bot_trigger_words (campo inexistente no novo arquivo)
+
+Campo não existe no novo arquivo. Remover para manter o código limpo.
+
+## Arquivo modificado
+
+**`supabase/functions/import-system-a-json/index.ts`** — apenas o bloco `extra_data` dentro de `mapProducts`:
 
 ```typescript
 extra_data: {
-  // Existentes
   variations: product.variations,
   benefits: product.benefits,
   features: product.features,
@@ -89,48 +98,38 @@ extra_data: {
   specifications: product.specifications || product.technical_specifications,
   category: product.category,
   subcategory: product.subcategory,
-  // Novos campos do llm_optimized
+  // Campos ricos do llm_optimized
   sales_pitch: product.sales_pitch,
   applications: product.applications,
   anti_hallucination: product.anti_hallucination,
+  // CORRIGIDO: extrair de dentro do objeto anti_hallucination
+  required_products: product.anti_hallucination?.required_products,
+  forbidden_products: product.anti_hallucination?.forbidden_products,
   faq: product.faq,
   market_keywords: product.market_keywords,
-  required_products: product.required_products,
-  forbidden_products: product.forbidden_products,
-  bot_trigger_words: product.bot_trigger_words,
   target_audience: product.target_audience,
   brand: product.brand,
   mpn: product.mpn,
-  product_url: product.product_url,
+  product_url: product.product_url
 }
 ```
 
-### Mudança 4 — Merge de keywords (linhas ~442)
+## Resultado esperado após reimportar
 
-O novo arquivo tem `market_keywords` separado de `keywords`. Mesclar os dois na importação:
+Após deploy e nova importação do arquivo `knowledge_base_llm_optimized`:
 
-```typescript
-keywords: [
-  ...(Array.isArray(product.keywords) ? product.keywords : []),
-  ...(Array.isArray(product.market_keywords) ? product.market_keywords : [])
-],
-```
-
-## Resultado esperado
-
-Após estas mudanças, a importação do novo arquivo irá:
-1. Salvar preços corretos (price + original_price como promo_price)
-2. Salvar o slug limpo (melhora URLs dos produtos)
-3. Armazenar `sales_pitch`, `faq`, `anti_hallucination`, `applications` e `technical_specifications` em `extra_data` — disponíveis para a Dra. L.I.A.
-4. Combinar keywords + market_keywords para SEO mais rico
-5. Manter compatibilidade com o arquivo anterior (todos os campos são opcionais)
+| Campo | Antes | Depois |
+|---|---|---|
+| `anti_hallucination` | null | objeto completo com never_claim, always_explain etc. |
+| `required_products` | null | array de produtos necessários |
+| `forbidden_products` | null | array de produtos incompatíveis |
+| `brand` | null | "SMART DENT®" |
+| `mpn` | null | "9021.29.00" |
 
 ## Seção Técnica
 
-- O arquivo novo tem 23.371 linhas vs ~5.000 do anterior — muito mais rico
-- A estrutura raiz `{ api_version, format, data: { company, categories, products, ... } }` é compatível com a normalização já feita na função (linha 742-756)
-- `company` ainda existe com estrutura similar — compatível
-- `categories` ainda existe — compatível
-- Não há `testimonials` nem `reviews` neste arquivo (apenas products + company + categories) — isso é OK, a função ignora seções ausentes
-- Nenhuma mudança de banco necessária — `extra_data` é JSONB e aceita qualquer estrutura
-- Deploy da edge function necessário após as mudanças
+- Nenhuma mudança de banco necessária
+- O upsert usa `onConflict: 'source,external_id'` — portanto produtos com mesmo `external_id` serão sobrescritos corretamente na próxima importação
+- `bot_trigger_words` foi removido: o campo não existe em nenhum produto do novo arquivo (pode ter sido planejado mas não implementado no export)
+- A extração `product.anti_hallucination?.required_products` usa optional chaining — segura para produtos sem `anti_hallucination`
+- Deploy da edge function necessário antes da reimportação
