@@ -1,106 +1,101 @@
 
-# Dra. L.I.A. — Respostas Mais Assertivas + Parâmetros Apenas Sob Demanda
+# Dra. L.I.A. — Correção: Saudações e Controle de Relevância Mínima
 
-## Problema Identificado
+## Diagnóstico Preciso
 
-O system prompt atual tem duas regras problemáticas:
+### Causa 1 — Saudações acionam o RAG desnecessariamente
+Quando o usuário digita "Olá", a função `searchKnowledge` executa a busca full-text com o termo "Olá". O `search_knowledge_base` retorna conteúdo aleatório que contém palavras próximas, com `relevance = 0.0` ou muito baixo. O código atual passa esses resultados direto para o Gemini, que então "preenche" a resposta com o conteúdo do contexto.
 
+### Causa 2 — `MIN_SIMILARITY` é zero para fulltext
+Linha 203 do arquivo atual:
 ```
-REGRA 3 (atual): "Ao encontrar PARÂMETROS: apresente em formato legível com os valores exatos"
-REGRA 6 (atual): "Tom: especialista empática, clara e didática — nunca robótica"
+const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.0;
 ```
-
-A Regra 3 instrui o modelo a **sempre exibir parâmetros** quando os encontra nos chunks — independente da pergunta do usuário. Se o usuário pergunta "o NanoClean é bom para uso em clínica?" e o RAG retorna chunks com parâmetros, o Gemini joga todos os valores técnicos na resposta.
-
-O tom "empática e didática" também tende a gerar respostas longas e prolixas.
+Para busca fulltext, qualquer resultado passa — mesmo com relevância 0. Isso significa que um resultado de `search_knowledge_base` com relevância mínima chega ao Gemini como contexto "válido".
 
 ---
 
-## O Que Será Alterado
+## Duas Correções a Aplicar
 
-Apenas 1 arquivo: `supabase/functions/dra-lia/index.ts`
+### Correção 1 — Detecção de Intenção (Intent Guard)
 
-Alterações no system prompt (linhas 276–297):
+Antes de chamar `searchKnowledge`, verificar se a mensagem é uma saudação ou mensagem genérica sem intenção técnica. Se for, responder diretamente com boas-vindas sem acionar o RAG:
 
-### Regra 3 — Parâmetros (mudança crítica)
+```typescript
+// Saudações e mensagens genéricas — detectar antes de buscar
+const GREETING_PATTERNS = [
+  /^(olá|ola|oi|hey|hi|hola|hello|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como estas|como está)\b/i,
+  /^(good morning|good afternoon|good evening|how are you)\b/i,
+  /^(buenos días|buenas tardes|buenas noches|hola|qué tal)\b/i,
+];
 
-**Antes:**
-```
-3. Ao encontrar PARÂMETROS: apresente em formato legível com os valores exatos
-```
-
-**Depois:**
-```
-3. PARÂMETROS DE IMPRESSÃO: só apresente valores técnicos (tempo de exposição, layer height, etc.)
-   quando o usuário EXPLICITAMENTE pedir. Palavras-chave que indicam pedido explícito:
-   "parâmetro", "configuração", "setting", "tempo", "exposição", "layer", "espessura",
-   "velocidade", "how to print", "cómo imprimir", "como imprimir", "valores".
-   Caso contrário, use os dados de parâmetros apenas para confirmar compatibilidade
-   (ex: "Sim, o NanoClean é compatível com a Phrozen Sonic Mini 4K") sem listar os valores.
+const isGreeting = (msg: string) =>
+  GREETING_PATTERNS.some((p) => p.test(msg.trim())) && msg.trim().split(" ").length <= 5;
 ```
 
-### Regras de Tom (mudança de assertividade)
+Se for saudação, a edge function responde com uma mensagem de boas-vindas contextual no idioma correto, sem chamar o RAG nem o Gemini:
 
-**Antes (Regra 6):**
-```
-6. Tom: especialista empática, clara e didática — nunca robótica
-```
+| Idioma | Resposta de Boas-Vindas |
+|---|---|
+| PT | "Olá! Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje? Pode me perguntar sobre resinas, impressoras, parâmetros de impressão ou vídeos técnicos." |
+| EN | "Hello! I'm Dr. L.I.A., SmartDent's digital dentistry specialist. How can I help you today? Feel free to ask about resins, printers, print parameters or technical videos." |
+| ES | "¡Hola! Soy la Dra. L.I.A., especialista en odontología digital de SmartDent. ¿En qué puedo ayudarte hoy? Puedes preguntarme sobre resinas, impresoras, parámetros de impresión o videos técnicos." |
 
-**Depois:**
-```
-6. Tom: direto, assertivo e confiante — responda em 2-4 frases quando possível.
-   Evite introduções longas como "Claro!", "Com certeza!", "Ótima pergunta!".
-   Vá direto ao ponto da resposta.
-```
+### Correção 2 — Relevância Mínima para Full-Text Search
 
-### Nova Regra de Brevidade (adicionada)
+Aumentar o limiar mínimo para fulltext de `0.0` para `0.05`:
 
-```
-11. Brevidade: prefira respostas curtas e precisas. Só detalhe quando o usuário pedir
-    mais informações ou quando a pergunta for claramente técnica e detalhada.
-```
+```typescript
+// Antes:
+const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.0;
 
-### Ajuste na Regra 9
+// Depois:
+const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.05;
 
-**Antes:**
-```
-9. Se houver múltiplos resultados relevantes, mencione os melhores 2-3, não todos
+// E usar isso para filtrar resultados de baixa relevância:
+const filteredResults = results.filter(r => r.similarity >= MIN_SIMILARITY);
+if (filteredResults.length === 0) { /* retorna fallback humano */ }
 ```
 
-**Depois:**
+Isso evita que resultados de busca fulltext com relevância zero sejam enviados como contexto para o Gemini.
+
+### Correção 3 — Nova Regra no System Prompt
+
+Adicionar uma regra explícita para quando a mensagem não tem intenção técnica clara:
+
 ```
-9. Se houver múltiplos resultados relevantes, mencione o mais relevante primeiro.
-   Ofereça os demais apenas se fizer sentido contextual ("Também encontrei um vídeo sobre...").
+12. Se a mensagem do usuário for uma saudação ou não tiver intenção técnica clara,
+    responda apenas cumprimentando e perguntando como pode ajudar — NÃO cite nenhum produto.
 ```
 
 ---
 
 ## Arquivo Modificado
 
-| Arquivo | Linhas alteradas |
-|---|---|
-| `supabase/functions/dra-lia/index.ts` | Linhas 282–291 (system prompt rules) |
+Apenas `supabase/functions/dra-lia/index.ts`:
+
+| Mudança | Localização | Descrição |
+|---|---|---|
+| `isGreeting()` + resposta direta | Após linha 200 (antes do `searchKnowledge`) | Detecta saudações e retorna resposta de boas-vindas sem RAG |
+| `MIN_SIMILARITY` para fulltext | Linha 203 | Muda de `0.0` para `0.05` |
+| Filtro de resultados baixos | Após linha 200 | Filtra resultados com similaridade abaixo do mínimo antes de montar contexto |
+| Regra 12 no system prompt | Linha ~301 | Instrução explícita para não citar produtos em saudações |
 
 ---
 
-## Comportamento Esperado Após a Mudança
+## Comportamento Esperado
 
-### Pergunta: "O NanoClean é bom para clínica?"
-**Antes:** Listava 5 parâmetros técnicos (exposure time, layer height, etc.) + descrição
-**Depois:** "Sim, o NanoClean da Resinamax é uma resina biocompatível indicada para uso clínico, com boa resistência e acabamento. Quer ver os parâmetros de impressão recomendados?"
-
-### Pergunta: "Qual o tempo de exposição do NanoClean na Phrozen?"
-**Antes:** Mesma resposta prolixa com contexto desnecessário
-**Depois:** "Para a Phrozen Sonic Mini 4K: **tempo de exposição base = 35s**, camadas normais = **2.5s**, altura de camada = **0.05mm**."
-
-### Pergunta: "Tem vídeo sobre resinas biocompatíveis?"
-**Antes:** Listava 3 vídeos com descrições longas + parâmetros adjacentes
-**Depois:** "Sim! Encontrei este vídeo: **[▶ NanoClean - Aplicação Clínica](link)**. Quer que eu busque mais sobre o assunto?"
+| Mensagem | Antes | Depois |
+|---|---|---|
+| "Olá" | Listava Smart Orto e produtos aleatórios | "Olá! Sou a Dra. L.I.A... Como posso ajudar?" |
+| "Oi, tudo bem?" | Contexto desnecessário do RAG | Resposta de boas-vindas direta, sem RAG |
+| "O Smart Orto é bom?" | Descreve o produto corretamente | Mesmo comportamento — busca é acionada normalmente |
+| "Tem vídeo sobre resina?" | Listava múltiplos com descrições longas | Cita o mais relevante diretamente |
 
 ---
 
 ## Seção Técnica
 
-A modificação é exclusivamente no system prompt da edge function. Não há mudanças no banco de dados, no widget React, nem nas rotas. Após a edição, o deploy da edge function `dra-lia` é necessário para que as mudanças entrem em produção.
+O `isGreeting()` verifica duas condições simultaneamente: (1) a mensagem começa com um padrão de saudação e (2) tem no máximo 5 palavras — isso evita falsos positivos como "Olá, qual o tempo de exposição do NanoClean?" que deve acionar o RAG normalmente.
 
-O Gemini continuará recebendo os chunks com parâmetros no contexto — a mudança está na **instrução de como usá-los**: como fonte para confirmar compatibilidade, não para despejá-los automaticamente.
+O deploy da edge function `dra-lia` é necessário após a edição para que as mudanças entrem em produção imediatamente.
