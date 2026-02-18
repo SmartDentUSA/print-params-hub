@@ -1,154 +1,132 @@
 
-# Dra. L.I.A. — Links de Vídeo Internos (Landing Pages do Site)
+# Dra. L.I.A. — Correção do "Load Failed" ao Perguntar sobre Limpeza da Vitality
 
-## Diagnóstico do Problema
+## Diagnóstico Confirmado
 
-### O que acontece hoje
-A Regra 2 do system prompt instrui o Gemini a gerar links diretos para o player do PandaVideo:
+Ao testar diretamente a edge function com `curl`, ela **responde corretamente** com os protocolos completos da Vitality. O problema é exclusivamente no frontend e no fluxo de persistência da interação.
+
+### Causa Raiz 1 — Insert em `agent_interactions` falha silenciosamente
+
+O chunk `meta` retornado pelo servidor foi:
+```
+data: {"type":"meta"}
+```
+Sem o campo `interaction_id`. Isso acontece porque o `INSERT` em `agent_interactions` falha — o `RLS` da tabela ou um erro de validação faz `interaction?.id` retornar `undefined`. Esse `undefined` é então passado para o `UPDATE` posterior como UUID, gerando:
 
 ```
-2. Ao encontrar um VÍDEO com VIDEO_EMBED: forneça o título e um link Markdown [▶ Assistir](VIDEO_EMBED_URL)
+ERROR: invalid input syntax for type uuid: "undefined"
 ```
 
-E no builder de contexto (linha 407), o `embed_url` é passado como `VIDEO_EMBED`:
+Confirmado nos logs do Postgres:
+```
+ERROR: new row violates row-level security policy for table "agent_interactions"
+ERROR: invalid input syntax for type uuid: "undefined"
+```
+
+### Causa Raiz 2 — O stream quebra quando `interaction` é null/undefined
+
+No bloco de stream da edge function (linha 556+), quando `interaction?.id` é `undefined`, o `UPDATE` final falha e pode interromper o `controller` de forma abrupta, causando o "Load Failed" no cliente.
+
+### Causa Raiz 3 — RLS está bloqueando o INSERT anônimo
+
+A política de RLS para INSERT em `agent_interactions` é:
+```sql
+WITH Check Expression: true
+```
+
+Deveria permitir qualquer insert. Mas o erro ocorre porque a edge function usa `SUPABASE_ANON_KEY` e a política `Allow public insert agent_interactions` pode não estar sendo aplicada corretamente quando o `session_id` é passado.
+
+O mais provável: **o `session_id` está chegando como `undefined`** do cliente em algumas situações, e a validação do banco rejeita.
+
+## Duas Correções a Aplicar
+
+### Correção 1 — Edge Function: proteger o stream contra falha no INSERT
+
+Envolver o `INSERT` em `agent_interactions` em `try/catch` para que falhas de RLS ou validação **não interrompam** o stream. O stream deve continuar mesmo se a persistência falhar.
+
 ```typescript
-if (meta.embed_url) part += ` | VIDEO_EMBED: ${meta.embed_url}`;
-```
+// Antes: insert direto (falha quebra o stream)
+const { data: interaction } = await supabase
+  .from("agent_interactions")
+  .insert({ session_id, ... })
+  .select("id")
+  .single();
 
-O resultado: o Gemini gera links como:
-`[▶ Assistir](https://player-vz-004839ee-19a.tv.pandavideo.com.br/embed/?v=xxx)`
-
-Esse link não funciona pois o PandaVideo bloqueia iframes em domínios externos — e mesmo que funcionasse, tiraria o usuário do site.
-
-### A solução correta
-Cada vídeo associado a um artigo (`content_id IS NOT NULL`) tem uma **landing page interna** no formato:
-```
-/base-conhecimento/{category_letter}/{content_slug}
-```
-
-A query já traz `content_id` para os vídeos. Basta buscar o `category_letter` e `slug` do artigo associado para montar a URL interna.
-
----
-
-## O que será mudado
-
-Apenas **1 arquivo**: `supabase/functions/dra-lia/index.ts`
-
-### Mudança 1 — Busca de vídeos inclui category_letter e slug do artigo
-
-No `searchKnowledge`, a busca por keyword de vídeos (linhas 226–254) precisa trazer `content_id` e, em seguida, buscar o `slug` e `category_letter` do artigo associado:
-
-**Antes:**
-```typescript
-const { data: videos } = await supabase
-  .from("knowledge_videos")
-  .select("id, title, description, embed_url, thumbnail_url, content_id")
-  ...
-
-// metadata gerado:
-metadata: {
-  title: v.title,
-  embed_url: v.embed_url,
-  thumbnail_url: v.thumbnail_url,
-  video_id: v.id,
+// Depois: insert com try/catch, stream continua independente
+let interactionId: string | undefined;
+try {
+  const { data: interaction } = await supabase
+    .from("agent_interactions")
+    .insert({ session_id: session_id || crypto.randomUUID(), ... })
+    .select("id")
+    .single();
+  interactionId = interaction?.id;
+} catch {
+  // falha silenciosa — stream continua
 }
 ```
 
-**Depois:**
+O mesmo padrão se aplica ao bloco de fallback (linhas 379-425) onde o insert também pode falhar.
+
+### Correção 2 — Garantir session_id válido
+
+O `session_id` pode chegar como `undefined` do cliente. A edge function deve gerar um UUID fallback se não recebido:
+
 ```typescript
-const { data: videos } = await supabase
-  .from("knowledge_videos")
-  .select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id")
-  ...
+// Linha 316 atual:
+const { message, history = [], lang = "pt-BR", session_id } = await req.json();
 
-// Para vídeos com content_id, busca o slug e category_letter do artigo
-const contentIds = videos.filter(v => v.content_id).map(v => v.content_id);
-let contentMap: Record<string, { slug: string; category_letter: string }> = {};
+// Corrigido:
+const { message, history = [], lang = "pt-BR", session_id: rawSessionId } = await req.json();
+const session_id = rawSessionId || crypto.randomUUID();
+```
 
-if (contentIds.length > 0) {
-  const { data: contents } = await supabase
-    .from("knowledge_contents")
-    .select("id, slug, knowledge_categories(letter)")
-    .in("id", contentIds);
+### Correção 3 — Update do `agent_response` com guard em `interactionId`
 
-  contentMap = Object.fromEntries(
-    (contents || []).map(c => [c.id, {
-      slug: c.slug,
-      category_letter: c.knowledge_categories?.letter?.toLowerCase() || '',
-    }])
-  );
-}
+O `UPDATE` final (linha 584) executa mesmo quando `interaction?.id` é undefined, causando o erro de UUID:
 
-// metadata gerado:
-const contentInfo = v.content_id ? contentMap[v.content_id] : null;
-const internalUrl = contentInfo
-  ? `/base-conhecimento/${contentInfo.category_letter}/${contentInfo.slug}`
-  : null;
+```typescript
+// Antes (linha 584):
+await supabase
+  .from("agent_interactions")
+  .update({ agent_response: fullResponse })
+  .eq("id", interaction?.id);  // ← undefined causa erro UUID
 
-metadata: {
-  title: v.title,
-  embed_url: v.embed_url,         // mantido para contexto interno
-  thumbnail_url: v.thumbnail_url,
-  video_id: v.id,
-  url_interna: internalUrl,       // nova: URL da landing page no site
-  has_internal_page: !!internalUrl,
+// Depois:
+if (interactionId) {
+  await supabase
+    .from("agent_interactions")
+    .update({ agent_response: fullResponse })
+    .eq("id", interactionId);
 }
 ```
 
-### Mudança 2 — Context builder passa URL interna em vez de embed_url
+### Correção 4 — Fallback insert também protegido
 
-**Antes (linha 407):**
-```typescript
-if (meta.embed_url) part += ` | VIDEO_EMBED: ${meta.embed_url}`;
-```
+O mesmo problema existe no bloco de `!hasResults` (fallback WhatsApp) onde o insert também pode falhar silenciosamente e interromper o stream. Aplicar o mesmo padrão `try/catch`.
 
-**Depois:**
-```typescript
-if (meta.url_interna) {
-  part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
-} else if (meta.embed_url) {
-  // vídeo sem artigo associado — só menciona o título, sem link
-  part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
-}
-```
+## Arquivo Modificado
 
-### Mudança 3 — Regra 2 do system prompt atualizada
+Apenas `supabase/functions/dra-lia/index.ts`:
 
-**Antes:**
-```
-2. Ao encontrar um VÍDEO com VIDEO_EMBED: forneça o título e um link Markdown [▶ Assistir](VIDEO_EMBED_URL)
-```
+| Mudança | Linha Atual | Descrição |
+|---|---|---|
+| `session_id` fallback | 316 | Garante UUID válido se não recebido |
+| INSERT interação em try/catch | 539-550 | Falha silenciosa, stream não interrompe |
+| Guard em UPDATE final | 584-589 | Só executa se `interactionId` válido |
+| INSERT fallback em try/catch | 379-391 | Mesmo padrão para bloco sem resultados |
 
-**Depois:**
-```
-2. Ao encontrar um VÍDEO:
-   - Se tiver VIDEO_INTERNO: gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) 
-     apontando para a página interna do site. NUNCA use o embed_url do PandaVideo como link.
-   - Se tiver VIDEO_SEM_PAGINA: mencione apenas o título do vídeo ("Encontrei o vídeo: [título]")
-     sem gerar nenhum link clicável.
-   Motivo: os vídeos só funcionam dentro do site — links externos são bloqueados pelo player.
-```
-
-### Também: mesma lógica para vídeos retornados pelo RAG (embeddings)
-
-O `searchKnowledge` por vector/fulltext retorna chunks da tabela `agent_embeddings` que já têm `url_publica` no metadata (para artigos). Para vídeos retornados por esse caminho, o metadata pode ter `embed_url`. Adicionar também verificação: se `source_type === "video"` e tiver `url_publica`, usar essa URL interna.
-
----
-
-## Comportamento Esperado Após a Mudança
+## Comportamento Esperado
 
 | Situação | Antes | Depois |
 |---|---|---|
-| Vídeo com artigo associado (content_id) | `[▶ Assistir](player.pandavideo.com/...)` — link bloqueado | `[▶ Assistir no site](/base-conhecimento/c/nanoclean-pod-limpeza...)` — funciona |
-| Vídeo sem artigo associado | Link pandavideo quebrado | Apenas menciona o título sem link |
-| Pergunta sobre limpeza | Link externo ao pandavideo | Link interno para o artigo da categoria C |
-
----
+| Pergunta "Limpeza da Vitality" | "Load Failed" | Protocolo completo da Vitality exibido |
+| INSERT em agent_interactions falha | Stream quebra | Stream continua, resposta exibida normalmente |
+| session_id undefined | Erro de validação | UUID gerado automaticamente |
+| UPDATE com id undefined | Erro de UUID no Postgres | Update ignorado silenciosamente |
 
 ## Seção Técnica
 
-A query de `knowledge_contents` com join em `knowledge_categories` é leve — só é executada quando há resultados de vídeo com `content_id`. O `contentMap` é montado em memória apenas dentro do escopo da busca.
+O problema é de **resiliência do stream**, não de lógica de negócio. A lógica de protocolos está correta (confirmado pelo teste curl que retornou os dados certos). O stream SSE não deve depender do sucesso da persistência — são operações independentes. Proteger os side effects de persistência com `try/catch` é a prática correta para edge functions de streaming.
 
-Vídeos sem `content_id` são tratados de forma degradada: a Dra. L.I.A. menciona o título mas não gera link — evitando links quebrados. No futuro, associar esses vídeos a artigos os tornará linkáveis automaticamente.
-
-Nenhuma mudança no banco de dados ou nas rotas do React é necessária — as landing pages já existem.
+Nenhuma migração de banco de dados é necessária.
