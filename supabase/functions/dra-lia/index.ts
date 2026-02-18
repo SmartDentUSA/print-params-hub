@@ -313,7 +313,8 @@ serve(async (req) => {
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId } = await req.json();
+    const session_id = rawSessionId || crypto.randomUUID();
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: "Message is required" }), {
@@ -376,19 +377,25 @@ serve(async (req) => {
     if (!hasResults) {
       const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
 
-      const { data: interaction } = await supabase
-        .from("agent_interactions")
-        .insert({
-          session_id,
-          user_message: message,
-          agent_response: fallbackText,
-          lang,
-          top_similarity: 0,
-          context_sources: [],
-          unanswered: true,
-        })
-        .select("id")
-        .single();
+      let fallbackInteractionId: string | undefined;
+      try {
+        const { data: interaction } = await supabase
+          .from("agent_interactions")
+          .insert({
+            session_id,
+            user_message: message,
+            agent_response: fallbackText,
+            lang,
+            top_similarity: 0,
+            context_sources: [],
+            unanswered: true,
+          })
+          .select("id")
+          .single();
+        fallbackInteractionId = interaction?.id;
+      } catch {
+        // fail silently — stream continues regardless
+      }
 
       // Track knowledge gap
       await supabase
@@ -400,7 +407,7 @@ serve(async (req) => {
       const stream = new ReadableStream({
         start(controller) {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ interaction_id: interaction?.id, type: "meta" })}\n\n`)
+            encoder.encode(`data: ${JSON.stringify({ interaction_id: fallbackInteractionId, type: "meta" })}\n\n`)
           );
           const words = fallbackText.split(" ");
           let i = 0;
@@ -536,18 +543,24 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       title: (m.metadata as Record<string, unknown>).title,
     }));
 
-    const { data: interaction } = await supabase
-      .from("agent_interactions")
-      .insert({
-        session_id,
-        user_message: message,
-        lang,
-        top_similarity: topSimilarity,
-        context_sources: contextSources,
-        unanswered: false,
-      })
-      .select("id")
-      .single();
+    let interactionId: string | undefined;
+    try {
+      const { data: interaction } = await supabase
+        .from("agent_interactions")
+        .insert({
+          session_id,
+          user_message: message,
+          lang,
+          top_similarity: topSimilarity,
+          context_sources: contextSources,
+          unanswered: false,
+        })
+        .select("id")
+        .single();
+      interactionId = interaction?.id;
+    } catch {
+      // fail silently — stream continues regardless
+    }
 
     // 8. Stream AI response
     const encoder = new TextEncoder();
@@ -559,7 +572,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
         // Send interaction meta first
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ interaction_id: interaction?.id, type: "meta" })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ interaction_id: interactionId, type: "meta" })}\n\n`)
         );
 
         const reader = aiResponse.body.getReader();
@@ -581,11 +594,11 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
             const jsonStr = line.slice(6).trim();
             if (jsonStr === "[DONE]") {
-              if (fullResponse) {
+              if (fullResponse && interactionId) {
                 await supabase
                   .from("agent_interactions")
                   .update({ agent_response: fullResponse })
-                  .eq("id", interaction?.id);
+                  .eq("id", interactionId);
               }
               controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
