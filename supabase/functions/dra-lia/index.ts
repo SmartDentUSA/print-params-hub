@@ -226,11 +226,31 @@ async function searchKnowledge(
   if (keywords.length > 0) {
     const { data: videos } = await supabase
       .from("knowledge_videos")
-      .select("id, title, description, embed_url, thumbnail_url, content_id")
+      .select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id")
       .or(keywords.map((k) => `title.ilike.%${k}%`).join(","))
       .limit(5);
 
     if (videos && videos.length > 0) {
+      // Fetch internal page URLs for videos with associated articles
+      const contentIds = videos.filter((v: { content_id: string | null }) => v.content_id).map((v: { content_id: string }) => v.content_id);
+      let contentMap: Record<string, { slug: string; category_letter: string }> = {};
+
+      if (contentIds.length > 0) {
+        const { data: contents } = await supabase
+          .from("knowledge_contents")
+          .select("id, slug, category_id, knowledge_categories:knowledge_categories(letter)")
+          .in("id", contentIds);
+
+        if (contents) {
+          for (const c of contents as Array<{ id: string; slug: string; knowledge_categories: { letter: string } | null }>) {
+            const letter = c.knowledge_categories?.letter?.toLowerCase() || "";
+            if (letter) {
+              contentMap[c.id] = { slug: c.slug, category_letter: letter };
+            }
+          }
+        }
+      }
+
       const results = videos.map((v: {
         id: string;
         title: string;
@@ -238,18 +258,28 @@ async function searchKnowledge(
         embed_url: string | null;
         thumbnail_url: string | null;
         content_id: string | null;
-      }) => ({
-        id: v.id,
-        source_type: "video",
-        chunk_text: `${v.title} ${v.description || ""}`,
-        metadata: {
-          title: v.title,
-          embed_url: v.embed_url,
-          thumbnail_url: v.thumbnail_url,
-          video_id: v.id,
-        },
-        similarity: 0.5,
-      }));
+        pandavideo_id: string | null;
+      }) => {
+        const contentInfo = v.content_id ? contentMap[v.content_id] : null;
+        const internalUrl = contentInfo
+          ? `/base-conhecimento/${contentInfo.category_letter}/${contentInfo.slug}`
+          : null;
+
+        return {
+          id: v.id,
+          source_type: "video",
+          chunk_text: `${v.title} ${v.description || ""}`,
+          metadata: {
+            title: v.title,
+            embed_url: v.embed_url,
+            thumbnail_url: v.thumbnail_url,
+            video_id: v.id,
+            url_interna: internalUrl,
+            has_internal_page: !!internalUrl,
+          },
+          similarity: 0.5,
+        };
+      });
       return { results, method: "keyword", topSimilarity: 0.5 };
     }
   }
@@ -404,7 +434,11 @@ serve(async (req) => {
       const meta = m.metadata as Record<string, unknown>;
       let part = `[${m.source_type.toUpperCase()}] ${m.chunk_text}`;
       if (meta.url_publica) part += ` | URL: ${meta.url_publica}`;
-      if (meta.embed_url) part += ` | VIDEO_EMBED: ${meta.embed_url}`;
+      if (meta.url_interna) {
+        part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+      } else if (meta.embed_url) {
+        part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+      }
       if (meta.thumbnail_url) part += ` | THUMBNAIL: ${meta.thumbnail_url}`;
       if (meta.cta_1_url) part += ` | COMPRA: ${meta.cta_1_url}`;
       return part;
@@ -420,7 +454,10 @@ ${langInstruction}
 
 REGRAS ABSOLUTAS:
 1. USE APENAS os dados fornecidos abaixo — nunca invente dados técnicos
-2. Ao encontrar um VÍDEO com VIDEO_EMBED: forneça o título e um link Markdown clicável [▶ Assistir](VIDEO_EMBED_URL)
+2. Ao encontrar um VÍDEO:
+   - Se tiver VIDEO_INTERNO: gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) apontando para a página interna.
+     NUNCA use URLs do PandaVideo como links clicáveis — os vídeos são restritos ao nosso domínio.
+   - Se tiver VIDEO_SEM_PAGINA: mencione apenas o título ("Encontrei o vídeo: [título]") sem gerar link algum.
 3. PARÂMETROS DE IMPRESSÃO: só apresente valores técnicos (tempo de exposição, layer height, etc.)
    quando o usuário EXPLICITAMENTE pedir. Palavras-chave que indicam pedido explícito:
    "parâmetro", "configuração", "setting", "tempo", "exposição", "layer", "espessura",
