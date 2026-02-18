@@ -13,6 +13,22 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+// Greeting patterns — detect before triggering RAG
+const GREETING_PATTERNS = [
+  /^(olá|ola|oi|hey|hi|hola|hello|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como estas|como está)\b/i,
+  /^(good morning|good afternoon|good evening|how are you)\b/i,
+  /^(buenos días|buenas tardes|buenas noches|qué tal)\b/i,
+];
+
+const isGreeting = (msg: string) =>
+  GREETING_PATTERNS.some((p) => p.test(msg.trim())) && msg.trim().split(/\s+/).length <= 5;
+
+const GREETING_RESPONSES: Record<string, string> = {
+  "pt-BR": "Olá! Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje? Pode me perguntar sobre resinas, impressoras, parâmetros de impressão ou vídeos técnicos. 😊",
+  "en-US": "Hello! I'm Dr. L.I.A., SmartDent's digital dentistry specialist. How can I help you today? Feel free to ask about resins, printers, print parameters or technical videos. 😊",
+  "es-ES": "¡Hola! Soy la Dra. L.I.A., especialista en odontología digital de SmartDent. ¿En qué puedo ayudarte hoy? Puedes preguntarme sobre resinas, impresoras, parámetros de impresión o videos técnicos. 😊",
+};
+
 // Multilingual fallback messages when no results found
 const FALLBACK_MESSAGES: Record<string, string> = {
   "pt-BR": `Ainda não tenho essa informação em nossa base de conhecimento, mas nossos especialistas podem ajudar você! 😊
@@ -196,13 +212,42 @@ serve(async (req) => {
       });
     }
 
+    // 0. Intent Guard — intercept greetings before RAG
+    if (isGreeting(message)) {
+      const greetingText = GREETING_RESPONSES[lang] || GREETING_RESPONSES["pt-BR"];
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const words = greetingText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`)
+              );
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      return new Response(stream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
     // 1. Search knowledge base (vector or fulltext)
     const { results, method, topSimilarity } = await searchKnowledge(supabase, message, lang);
 
-    const hasResults = results.length > 0;
-    const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.0; // fulltext always proceeds if results found
+    const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.05;
+    const filteredResults = results.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
+    const hasResults = filteredResults.length > 0;
 
-    // 2. If no results: return human fallback
+    // 2. If no results (or all below threshold): return human fallback
     if (!hasResults) {
       const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
 
@@ -256,7 +301,7 @@ serve(async (req) => {
     }
 
     // 3. Build context from search results
-    const contextParts = results.map((m: {
+    const contextParts = filteredResults.map((m: {
       source_type: string;
       chunk_text: string;
       metadata: Record<string, unknown>;
@@ -299,6 +344,8 @@ REGRAS ABSOLUTAS:
 10. Busca usada: ${method} — seja precisa e baseie-se apenas nos dados fornecidos
 11. Brevidade: prefira respostas curtas e precisas. Só detalhe quando o usuário pedir
     mais informações ou quando a pergunta for claramente técnica e detalhada.
+12. Se a mensagem do usuário for uma saudação ou não tiver intenção técnica clara,
+    responda apenas cumprimentando e perguntando como pode ajudar — NÃO cite nenhum produto.
 
 --- DADOS DAS FONTES ---
 ${context}
@@ -341,7 +388,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     }
 
     // 5. Save interaction
-    const contextSources = results.map((m: { source_type: string; metadata: Record<string, unknown> }) => ({
+    const contextSources = filteredResults.map((m: { source_type: string; metadata: Record<string, unknown> }) => ({
       type: m.source_type,
       title: (m.metadata as Record<string, unknown>).title,
     }));
