@@ -736,7 +736,34 @@ Deno.serve(async (req) => {
       hasKOLs: !!jsonData.data?.kols
     })
 
-    const data = jsonData.data || jsonData
+    // ⭐ NORMALIZE NEW SCHEMA: { meta, data: { company, products, ... } }
+    // Old schema used: data.company_profile, data.categories_config, data.video_testimonials, data.google_reviews
+    // New schema uses: data.company, data.products, data.categories, data.testimonials, data.reviews, data.kols
+    const rawData = jsonData.data || jsonData
+    const data: Record<string, any> = {
+      // Normalize company: new schema uses "company", old uses "company_profile"
+      company_profile: rawData.company_profile || rawData.company || null,
+      // Products: same key in both schemas
+      products: rawData.products || null,
+      // Categories: new uses "categories", old uses "categories_config"
+      categories_config: rawData.categories_config || rawData.categories || null,
+      // Testimonials: new uses "testimonials", old uses "video_testimonials"
+      video_testimonials: rawData.video_testimonials || rawData.testimonials || null,
+      // Reviews: new uses "reviews", old uses "google_reviews"
+      google_reviews: rawData.google_reviews || rawData.reviews || null,
+      // KOLs: same key in both schemas
+      kols: rawData.kols || null,
+    }
+
+    console.log('📊 Normalized schema detection:', {
+      hasProducts: !!data.products,
+      hasCompanyProfile: !!data.company_profile,
+      hasCategoriesConfig: !!data.categories_config,
+      hasVideoTestimonials: !!data.video_testimonials,
+      hasGoogleReviews: !!data.google_reviews,
+      hasKOLs: !!data.kols,
+      schemaVersion: rawData.company ? 'new (apostila)' : 'old (legacy)'
+    })
 
     // ⭐ FETCH products/resins for auto-linking BEFORE processing data
     const items = await fetchProductsForLinking(supabase)
