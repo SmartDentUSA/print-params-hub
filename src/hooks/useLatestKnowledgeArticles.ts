@@ -72,8 +72,13 @@ export const useLatestKnowledgeArticles = (limit: number = 12): UseLatestKnowled
           viewsMap.set(v.content_id!, current + (v.analytics_views || 0));
         });
 
+        // Filtrar artigos da categoria F (Parâmetros Técnicos)
+        const filteredArticles = (articlesData || []).filter(
+          article => article.knowledge_categories?.letter?.toUpperCase() !== 'F'
+        );
+
         // Ordenar por views DESC, fallback created_at DESC
-        const sorted = (articlesData || [])
+        const sorted = filteredArticles
           .sort((a, b) => {
             const viewsA = viewsMap.get(a.id) || 0;
             const viewsB = viewsMap.get(b.id) || 0;
