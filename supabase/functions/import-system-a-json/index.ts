@@ -263,6 +263,10 @@ function buildSearchIndex(items: any[]) {
 }
 
 // ===== SMART AUTO-LINKING (Most relevant only) =====
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function addSmartLinks(text: string, searchIndex: any[]): { linkedText: string; itemsMentioned: Array<{name: string, type: string}> } {
   let linkedText = text
   const itemsMentioned: Array<{name: string, type: string}> = []
@@ -282,9 +286,11 @@ function addSmartLinks(text: string, searchIndex: any[]): { linkedText: string; 
     item.keywords.forEach((keyword: string) => {
       // Skip very short keywords (< 4 chars) to avoid false positives
       if (keyword.length < 4) return
+      // Skip template placeholder keywords like "[nome do produto]"
+      if (keyword.includes('[') || keyword.includes(']')) return
       
       // Try exact match
-      const regexExact = new RegExp(`\\b${keyword}\\b`, 'gi')
+      const regexExact = new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'gi')
       let match
       while ((match = regexExact.exec(text)) !== null) {
         matches.push({
@@ -308,7 +314,7 @@ function addSmartLinks(text: string, searchIndex: any[]): { linkedText: string; 
   // Link only the MOST relevant mention (first after sorting)
   if (matches.length > 0) {
     const best = matches[0]
-    const regex = new RegExp(`\\b(${best.keyword})\\b`, 'i')
+    const regex = new RegExp(`\\b(${escapeRegex(best.keyword)})\\b`, 'i')
     linkedText = linkedText.replace(
       regex,
       `<a href="${best.url}" class="text-primary hover:underline font-medium" target="_blank" rel="noopener">$1</a>`
