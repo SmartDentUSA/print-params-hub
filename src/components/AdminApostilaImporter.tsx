@@ -118,11 +118,19 @@ export function AdminApostilaImporter() {
     try {
       const rawData = parsedData.data || parsedData;
 
+      // Strip large video arrays from company before sending (not needed for catalog, just bloats payload)
+      const rawCompany = rawData.company || rawData.company_profile || null;
+      const companyStripped = rawCompany ? {
+        ...rawCompany,
+        company_videos: undefined,
+        instagram_videos: undefined,
+      } : null;
+
       // For large files, send non-product sections first, then products in batches
       const products: any[] = rawData.products || [];
       const nonProductPayload = {
         data: {
-          company: rawData.company || rawData.company_profile || null,
+          company: companyStripped,
           categories: rawData.categories || rawData.categories_config || null,
           testimonials: rawData.testimonials || rawData.video_testimonials || null,
           reviews: rawData.reviews || rawData.google_reviews || null,
