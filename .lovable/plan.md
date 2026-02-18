@@ -1,78 +1,140 @@
 
-# Correção: Botões 👍/👎 não aparecem no widget da Dra. L.I.A.
+# Base de Conhecimento: Campo de busca aciona a Dra. L.I.A.
 
-## Causa Raiz Identificada
+## Comportamento desejado
 
-A tabela `agent_interactions` está **completamente vazia** — nenhuma conversa foi salva. O INSERT está falhando silenciosamente no bloco `try/catch` da edge function.
+Quando o usuário digitar no campo "Buscar conteúdo..." da Base de Conhecimento e pressionar **Enter** (ou clicar em um botão de busca), a Dra. L.I.A. deve:
+1. Abrir automaticamente (se estiver fechada)
+2. Receber a pergunta digitada
+3. Responder imediatamente
 
-O problema está na linha 370 do `supabase/functions/dra-lia/index.ts`:
+A busca normal por artigos continua funcionando normalmente enquanto o usuário digita (sem Enter).
 
-```typescript
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+---
+
+## Arquitetura da solução: CustomEvent no browser
+
+O `DraLIA` está em `App.tsx` e o campo de busca está em `KnowledgeBase.tsx` — não têm relação pai/filho direta. A forma mais simples e limpa de comunicação entre eles é via **`CustomEvent`** do browser:
+
+```
+KnowledgeBase                App.tsx
+[campo de busca]             [DraLIA]
+      |                          |
+      | dispara CustomEvent      |
+      | "dra-lia:ask"            |
+      |------------------------->|
+                                 | ouve o evento
+                                 | abre o chat
+                                 | envia a pergunta
 ```
 
-A edge function usa a **anon key** para fazer operações de banco de dados server-side. O INSERT em `agent_interactions` tem política pública (WITH CHECK: true), mas o **UPDATE** posterior (para salvar `agent_response` após o stream) está restrito apenas a admins pela política "Admins can manage agent_interactions". Isso faz o UPDATE falhar — e como ambas as operações usam o mesmo cliente, o INSERT também pode estar sendo bloqueado por alguma restrição de RLS.
+Não é necessário criar context global, Redux, Zustand ou nenhuma dependência nova.
 
-Além disso, mesmo se o INSERT funcionasse, o fluxo atual **insere no banco antes de iniciar o stream**, o que pode causar um race condition onde `interactionId` ainda é `undefined` quando o primeiro chunk `meta` é enviado.
+---
 
-## Por que os botões somem
+## Mudanças nos arquivos
 
-No frontend (`DraLIA.tsx`, linha 400):
+### 1. `src/components/DraLIA.tsx` — Ouvir o evento e responder
+
+Adicionar um `useEffect` que registra um listener para o evento customizado `dra-lia:ask`:
+
+```typescript
+useEffect(() => {
+  const handler = (e: CustomEvent<{ query: string }>) => {
+    const query = e.detail?.query?.trim();
+    if (!query) return;
+    setIsOpen(true);
+    // Simular digitação e envio:
+    setInput(query);
+    // Precisamos chamar sendMessage com esse texto — usamos uma ref auxiliar
+  };
+  window.addEventListener('dra-lia:ask', handler as EventListener);
+  return () => window.removeEventListener('dra-lia:ask', handler as EventListener);
+}, []);
+```
+
+Como `sendMessage` usa `input` via closure e `setInput` é assíncrono, a solução correta é usar uma **`pendingQuery` ref** para disparar o envio logo após o estado ser atualizado:
+
+```typescript
+const pendingQueryRef = useRef<string | null>(null);
+
+// No useEffect do evento:
+pendingQueryRef.current = query;
+setIsOpen(true);
+setInput(query);
+
+// Novo useEffect que observa mudança em input + pendingQueryRef:
+useEffect(() => {
+  if (pendingQueryRef.current && input === pendingQueryRef.current) {
+    pendingQueryRef.current = null;
+    sendMessage();
+  }
+}, [input, sendMessage]);
+```
+
+Isso garante que `sendMessage` só é chamado depois que `setInput(query)` terminou de renderizar, evitando o problema de closure stale.
+
+### 2. `src/pages/KnowledgeBase.tsx` — Disparar o evento ao pressionar Enter
+
+No campo de busca, adicionar `onKeyDown` que — quando o usuário pressionar **Enter** — dispara o `CustomEvent` e limpa o campo (a busca normal de artigos continua funcionando ao digitar):
+
+```typescript
+const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === 'Enter' && searchTerm.trim().length >= 2) {
+    window.dispatchEvent(
+      new CustomEvent('dra-lia:ask', { detail: { query: searchTerm } })
+    );
+    setSearchTerm(''); // Limpa o campo após enviar para a Dra. L.I.A.
+  }
+};
+```
+
+Também adicionar um placeholder atualizado indicando a nova funcionalidade, e um ícone de "pressione Enter para perguntar à Dra. L.I.A." abaixo do campo, tipo hint:
+
 ```tsx
-msg.interactionId &&  // ← undefined = botões invisíveis
+{searchTerm.trim().length >= 2 && (
+  <div className="text-xs text-muted-foreground mt-2 text-center">
+    Pressione <kbd>Enter</kbd> para perguntar à Dra. L.I.A. 🦷
+  </div>
+)}
 ```
 
-Se `interactionId` for `undefined` (INSERT falhou), os botões 👍/👎 nunca aparecem.
+---
 
-## Solução
+## Fluxo completo
 
-**Arquivo único modificado:** `supabase/functions/dra-lia/index.ts`
+```text
+1. Usuário digita "resina para dentística"
+   → Campo atualiza (busca de artigos normal funciona)
+   → Hint aparece: "Pressione Enter para perguntar à Dra. L.I.A."
 
-### Mudança 1 — Usar `SUPABASE_SERVICE_ROLE_KEY` no cliente da edge function
+2. Usuário pressiona Enter
+   → KnowledgeBase dispara: window.dispatchEvent(new CustomEvent('dra-lia:ask', { detail: { query: "resina para dentística" } }))
+   → Campo de busca é limpo
 
-```typescript
-// Antes:
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-// ...
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+3. DraLIA recebe o evento
+   → setIsOpen(true) — abre o widget
+   → setInput("resina para dentística")
+   → sendMessage() é chamado automaticamente
 
-// Depois:
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// ...
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+4. Resposta aparece no chat da Dra. L.I.A. com media cards e botões 👍/👎
 ```
 
-Isso é correto e seguro: edge functions rodam server-side, a service role key nunca é exposta ao cliente. Com ela, o INSERT e o UPDATE em `agent_interactions` funcionam sem restrições de RLS.
+---
 
-### Mudança 2 — Adicionar log de erro no catch do INSERT
+## Arquivos modificados
 
-Para facilitar diagnóstico futuro, adicionar `console.error` no bloco que hoje falha silenciosamente:
-
-```typescript
-} catch (e) {
-  console.error("Failed to insert agent_interaction:", e);
-  // stream continues regardless
-}
-```
-
-### Mudança 3 — Após deploy, re-testar que `interactionId` chega ao frontend
-
-O chunk `meta` já é enviado corretamente com `interaction_id` quando o INSERT funciona. Com a service role key, o fluxo será:
-
-1. INSERT → obtém `interactionId` ✓
-2. Chunk `meta` enviado com `{ interaction_id: "uuid", type: "meta", media_cards: [...] }` ✓
-3. Frontend recebe → `msg.interactionId` definido ✓
-4. Botões 👍/👎 aparecem ✓
-5. UPDATE com `agent_response` após stream completo ✓
-
-## Arquivo Modificado
-
-| Arquivo | Mudança |
+| Arquivo | Mudanças |
 |---|---|
-| `supabase/functions/dra-lia/index.ts` | Trocar `SUPABASE_ANON_KEY` por `SUPABASE_SERVICE_ROLE_KEY` no `createClient` + log de erro no catch |
+| `src/components/DraLIA.tsx` | Adicionar `pendingQueryRef`, `useEffect` para ouvir o `CustomEvent 'dra-lia:ask'`, e `useEffect` para disparar `sendMessage` quando o input for preenchido pelo evento |
+| `src/pages/KnowledgeBase.tsx` | Adicionar `onKeyDown` no Input de busca que dispara o `CustomEvent` ao pressionar Enter + hint visual "Pressione Enter para perguntar à Dra. L.I.A." |
+
+---
 
 ## Seção Técnica
 
-- O secret `SUPABASE_SERVICE_ROLE_KEY` já está configurado no projeto (confirmado nos secrets do Supabase).
-- Edge functions do Supabase são server-side e é prática recomendada usar a service role key para operações de banco de dados, pois as funções já têm controle de acesso próprio (verificação de origem, CORS, etc.).
-- Não há mudanças no banco de dados. Não há mudanças no frontend. Deploy da edge function é necessário após a edição.
+- `CustomEvent` é nativo do browser, sem dependências adicionais — sem instalação de pacotes.
+- O widget já está renderizado em `App.tsx` com `DraLIAGlobal` em todas as rotas exceto `/admin` e `/embed`, então ele sempre existe no DOM quando o usuário está na Base de Conhecimento.
+- O `embedded` mode (usado em `/embed/dra-lia`) não escuta o evento porque o `DraLIA` em modo `embedded` não tem o botão flutuante — mas isso não é problema pois a página `/embed/dra-lia` nunca tem a KnowledgeBase aberta ao mesmo tempo.
+- O hint só aparece quando `searchTerm.length >= 2` para não mostrar no estado vazio.
+- A busca de artigos na sidebar continua funcionando normalmente (filtra enquanto digita). Enter apenas encaminha a pergunta para a Dra. L.I.A.
