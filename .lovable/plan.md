@@ -1,183 +1,154 @@
 
-# Dra. L.I.A. — Protocolos de Processamento como Fonte Primária
+# Dra. L.I.A. — Links de Vídeo Internos (Landing Pages do Site)
 
-## Problema Raiz
+## Diagnóstico do Problema
 
-A função `searchKnowledge` em `dra-lia/index.ts` busca dados em 3 fontes:
+### O que acontece hoje
+A Regra 2 do system prompt instrui o Gemini a gerar links diretos para o player do PandaVideo:
 
-1. `agent_embeddings` (pgvector) → artigos, parâmetros, vídeos vetorizados
-2. `search_knowledge_base` (FTS) → artigos da base de conhecimento
-3. `knowledge_videos` (keyword search) → vídeos por título
-
-**A tabela `resins` nunca é consultada diretamente.** O campo `processing_instructions` — que contém os protocolos completos de pré-processamento, lavagem, cura UV, tratamento térmico, acabamento e polimento — fica **completamente invisível** para a L.I.A.
-
-Hoje, 3 resinas têm instruções cadastradas:
-- `Smart Print Bio Vitality`
-- `Smart Print Bio Bite Splint +Flex`
-- `Smart Print Try-in Calcinável`
-
----
-
-## Detecção de Intenção — Palavras-Chave de Protocolo
-
-Perguntas sobre processamento têm padrões identificáveis. A solução usará um detector de intenção específico, análogo ao `isGreeting()` já implementado:
-
-```typescript
-const PROTOCOL_KEYWORDS = [
-  // PT
-  /limpeza|lavagem|lavar|limpar/i,
-  /cura|pós.cura|pos.cura|fotopolimerizar|uv/i,
-  /finaliz|acabamento|polimento|polir/i,
-  /pré.process|pos.process|processamento|protocolo/i,
-  /nanoclean|isopropílico|álcool/i,
-  /suporte|remov/i,
-  // EN
-  /clean|wash|washing/i,
-  /post.cure|curing|cure/i,
-  /finish|polish/i,
-  /processing|protocol/i,
-  // ES
-  /limpieza|lavar/i,
-  /curado|post.curado/i,
-  /pulido|acabado/i,
-  /procesamiento|protocolo/i,
-];
+```
+2. Ao encontrar um VÍDEO com VIDEO_EMBED: forneça o título e um link Markdown [▶ Assistir](VIDEO_EMBED_URL)
 ```
 
-Se a pergunta bater com algum desses padrões, a função executa uma **busca paralela e prioritária** nas `resins.processing_instructions`.
+E no builder de contexto (linha 407), o `embed_url` é passado como `VIDEO_EMBED`:
+```typescript
+if (meta.embed_url) part += ` | VIDEO_EMBED: ${meta.embed_url}`;
+```
+
+O resultado: o Gemini gera links como:
+`[▶ Assistir](https://player-vz-004839ee-19a.tv.pandavideo.com.br/embed/?v=xxx)`
+
+Esse link não funciona pois o PandaVideo bloqueia iframes em domínios externos — e mesmo que funcionasse, tiraria o usuário do site.
+
+### A solução correta
+Cada vídeo associado a um artigo (`content_id IS NOT NULL`) tem uma **landing page interna** no formato:
+```
+/base-conhecimento/{category_letter}/{content_slug}
+```
+
+A query já traz `content_id` para os vídeos. Basta buscar o `category_letter` e `slug` do artigo associado para montar a URL interna.
 
 ---
 
-## Estratégia de Busca Dupla com Prioridade
+## O que será mudado
 
-A nova função `searchProcessingInstructions(supabase, message)` vai:
+Apenas **1 arquivo**: `supabase/functions/dra-lia/index.ts`
 
-1. **Extrair nome de resina da pergunta** se disponível (ex: "NanoClean", "Vitality", "Bite Splint")
-2. **Consultar `resins`** filtrando por nome ou retornando todas com `processing_instructions IS NOT NULL`
-3. **Retornar os dados no formato unificado** já usado pelo RAG
+### Mudança 1 — Busca de vídeos inclui category_letter e slug do artigo
 
+No `searchKnowledge`, a busca por keyword de vídeos (linhas 226–254) precisa trazer `content_id` e, em seguida, buscar o `slug` e `category_letter` do artigo associado:
+
+**Antes:**
 ```typescript
-async function searchProcessingInstructions(supabase, message) {
-  // Tenta identificar nome de resina na mensagem
-  const { data: resins } = await supabase
-    .from("resins")
-    .select("id, name, manufacturer, slug, processing_instructions, cta_1_url, cta_1_label")
-    .eq("active", true)
-    .not("processing_instructions", "is", null);
+const { data: videos } = await supabase
+  .from("knowledge_videos")
+  .select("id, title, description, embed_url, thumbnail_url, content_id")
+  ...
 
-  if (!resins?.length) return [];
-
-  // Score por relevância: quantas palavras da pergunta batem com nome/fabricante da resina
-  const scored = resins
-    .map(r => {
-      const text = `${r.name} ${r.manufacturer}`.toLowerCase();
-      const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-      const score = words.filter(w => text.includes(w)).length;
-      return { resin: r, score };
-    })
-    .filter(x => x.score > 0 || resins.length === 1)
-    .sort((a, b) => b.score - a.score);
-
-  // Se não achou por nome, retorna todas (pergunta genérica como "como lavar?")
-  const targets = scored.length > 0 ? scored.map(x => x.resin) : resins;
-
-  return targets.slice(0, 2).map(r => ({
-    id: r.id,
-    source_type: "processing_protocol",
-    chunk_text: `${r.name} (${r.manufacturer}) — Instruções de Pré e Pós Processamento:\n${r.processing_instructions}`,
-    metadata: {
-      title: `Protocolo de Processamento: ${r.name}`,
-      resin_name: r.name,
-      cta_1_url: r.cta_1_url,
-      url_publica: r.slug ? `/resina/${r.slug}` : null,
-    },
-    similarity: 0.95, // Alta prioridade — é a fonte da verdade
-  }));
+// metadata gerado:
+metadata: {
+  title: v.title,
+  embed_url: v.embed_url,
+  thumbnail_url: v.thumbnail_url,
+  video_id: v.id,
 }
 ```
 
----
+**Depois:**
+```typescript
+const { data: videos } = await supabase
+  .from("knowledge_videos")
+  .select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id")
+  ...
 
-## Nova Regra no System Prompt
+// Para vídeos com content_id, busca o slug e category_letter do artigo
+const contentIds = videos.filter(v => v.content_id).map(v => v.content_id);
+let contentMap: Record<string, { slug: string; category_letter: string }> = {};
 
-Adicionar uma regra específica para protocolos:
+if (contentIds.length > 0) {
+  const { data: contents } = await supabase
+    .from("knowledge_contents")
+    .select("id, slug, knowledge_categories(letter)")
+    .in("id", contentIds);
 
-```
-13. PROTOCOLOS DE PROCESSAMENTO (limpeza, lavagem, cura UV, acabamento):
-    Estes dados vêm diretamente das fichas técnicas cadastradas pelo fabricante — são a FONTE
-    DA VERDADE. Apresente as etapas na ordem exata do documento:
-    1. Pré-processamento
-    2. Lavagem/Limpeza
-    3. Secagem
-    4. Pós-cura UV (com tempos por equipamento se disponível)
-    5. Tratamento térmico (se houver)
-    6. Acabamento e polimento (se houver)
-    Use listas com bullet points. Destaque produtos SmartDent com **negrito**.
-    Nunca omita etapas — a ordem correta é crítica para o resultado clínico.
-```
+  contentMap = Object.fromEntries(
+    (contents || []).map(c => [c.id, {
+      slug: c.slug,
+      category_letter: c.knowledge_categories?.letter?.toLowerCase() || '',
+    }])
+  );
+}
 
----
+// metadata gerado:
+const contentInfo = v.content_id ? contentMap[v.content_id] : null;
+const internalUrl = contentInfo
+  ? `/base-conhecimento/${contentInfo.category_letter}/${contentInfo.slug}`
+  : null;
 
-## Fluxo Completo Após a Mudança
-
-```text
-Usuário: "Como faço a limpeza e cura da Smart Print Bio Vitality?"
-       │
-       ▼
-isGreeting()? → NÃO
-       │
-       ▼
-isProtocolQuestion()? → SIM (palavras: "limpeza", "cura")
-       │
-       ├─→ searchProcessingInstructions() → retorna o processing_instructions completo da Vitality
-       │   (similarity = 0.95, source_type = "processing_protocol")
-       │
-       └─→ searchKnowledge() normal → resultados adicionais (artigos/vídeos)
-       │
-       ▼
-Merge: protocolResults + knowledgeResults (protocolo fica primeiro no contexto)
-       │
-       ▼
-Gemini recebe as instruções completas + Regra 13 no system prompt
-       │
-       ▼
-Resposta estruturada com etapas na ordem correta, usando os dados exatos do cadastro
+metadata: {
+  title: v.title,
+  embed_url: v.embed_url,         // mantido para contexto interno
+  thumbnail_url: v.thumbnail_url,
+  video_id: v.id,
+  url_interna: internalUrl,       // nova: URL da landing page no site
+  has_internal_page: !!internalUrl,
+}
 ```
 
+### Mudança 2 — Context builder passa URL interna em vez de embed_url
+
+**Antes (linha 407):**
+```typescript
+if (meta.embed_url) part += ` | VIDEO_EMBED: ${meta.embed_url}`;
+```
+
+**Depois:**
+```typescript
+if (meta.url_interna) {
+  part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+} else if (meta.embed_url) {
+  // vídeo sem artigo associado — só menciona o título, sem link
+  part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+}
+```
+
+### Mudança 3 — Regra 2 do system prompt atualizada
+
+**Antes:**
+```
+2. Ao encontrar um VÍDEO com VIDEO_EMBED: forneça o título e um link Markdown [▶ Assistir](VIDEO_EMBED_URL)
+```
+
+**Depois:**
+```
+2. Ao encontrar um VÍDEO:
+   - Se tiver VIDEO_INTERNO: gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) 
+     apontando para a página interna do site. NUNCA use o embed_url do PandaVideo como link.
+   - Se tiver VIDEO_SEM_PAGINA: mencione apenas o título do vídeo ("Encontrei o vídeo: [título]")
+     sem gerar nenhum link clicável.
+   Motivo: os vídeos só funcionam dentro do site — links externos são bloqueados pelo player.
+```
+
+### Também: mesma lógica para vídeos retornados pelo RAG (embeddings)
+
+O `searchKnowledge` por vector/fulltext retorna chunks da tabela `agent_embeddings` que já têm `url_publica` no metadata (para artigos). Para vídeos retornados por esse caminho, o metadata pode ter `embed_url`. Adicionar também verificação: se `source_type === "video"` e tiver `url_publica`, usar essa URL interna.
+
 ---
 
-## Arquivo Modificado
+## Comportamento Esperado Após a Mudança
 
-Apenas `supabase/functions/dra-lia/index.ts`:
-
-| Mudança | Descrição |
-|---|---|
-| `PROTOCOL_KEYWORDS` (constante) | Array de regex para detectar perguntas sobre processamento |
-| `isProtocolQuestion(msg)` | Função que verifica se a mensagem é sobre protocolos |
-| `searchProcessingInstructions(supabase, message)` | Nova função que busca diretamente em `resins.processing_instructions` |
-| Bloco após `isGreeting()` | Se `isProtocolQuestion()`, executa busca paralela e prefixa os resultados no contexto |
-| `contextParts` builder | Adiciona `source_type = "processing_protocol"` ao formatador |
-| Regra 13 no system prompt | Instrui o Gemini a apresentar protocolos em ordem e completamente |
-
----
-
-## Comportamento Esperado
-
-| Pergunta | Antes | Depois |
+| Situação | Antes | Depois |
 |---|---|---|
-| "Como limpar a impressão?" | Resposta genérica ou fallback | Protocolo completo: NanoClean 60s → ar comprimido → pós-cura UV com tempos por equipamento |
-| "Qual o protocolo de cura da Vitality?" | Busca fulltext em artigos (sem dados) | Instruções exatas do cadastro: Elegoo Mercury 20min, Anycubic 25min, ShapeCure presets |
-| "Como é o pós-processamento das resinas Smart Dent?" | Não encontrava → fallback humano | Retorna protocolos das 3 resinas cadastradas com instruções completas |
-| "Quanto tempo cura no Elegoo Mercury?" | Não sabia | "**20 min** para coroas, **16 min** para facetas na Smart Print Bio Vitality." |
+| Vídeo com artigo associado (content_id) | `[▶ Assistir](player.pandavideo.com/...)` — link bloqueado | `[▶ Assistir no site](/base-conhecimento/c/nanoclean-pod-limpeza...)` — funciona |
+| Vídeo sem artigo associado | Link pandavideo quebrado | Apenas menciona o título sem link |
+| Pergunta sobre limpeza | Link externo ao pandavideo | Link interno para o artigo da categoria C |
 
 ---
 
 ## Seção Técnica
 
-**Por que `similarity = 0.95` para os resultados de protocolo?**
-Os resultados de `processing_instructions` são injetados com similaridade artificialmente alta (0.95) para garantir que apareçam **primeiro** no contexto montado para o Gemini. Isso implementa a "fonte da verdade" de forma determinística — o modelo verá as instruções do fabricante antes de qualquer artigo ou vídeo.
+A query de `knowledge_contents` com join em `knowledge_categories` é leve — só é executada quando há resultados de vídeo com `content_id`. O `contentMap` é montado em memória apenas dentro do escopo da busca.
 
-**Pergunta genérica sem nome de resina (ex: "como lavar?")**
-Neste caso, o `score > 0` não filtra nenhuma resina, então `targets = resins` retorna todas as resinas com `processing_instructions IS NOT NULL`. O Gemini recebe os protocolos de todas e pode responder de forma consolidada ou pedir clarificação sobre qual resina o usuário está usando.
+Vídeos sem `content_id` são tratados de forma degradada: a Dra. L.I.A. menciona o título mas não gera link — evitando links quebrados. No futuro, associar esses vídeos a artigos os tornará linkáveis automaticamente.
 
-**Sem mudança no banco de dados.** A tabela `resins` já tem o campo `processing_instructions`. Não é necessária nenhuma migração SQL.
+Nenhuma mudança no banco de dados ou nas rotas do React é necessária — as landing pages já existem.
