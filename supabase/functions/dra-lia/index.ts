@@ -46,6 +46,62 @@ const PROTOCOL_KEYWORDS = [
 const isProtocolQuestion = (msg: string) =>
   PROTOCOL_KEYWORDS.some((p) => p.test(msg));
 
+// Stopwords para filtrar palavras irrelevantes antes do ILIKE
+const STOPWORDS_PT = [
+  'você', 'voce', 'tem', 'algum', 'alguma', 'entre', 'para', 'sobre',
+  'como', 'qual', 'quais', 'esse', 'essa', 'este', 'esta', 'isso',
+  'uma', 'uns', 'umas', 'que', 'com', 'por', 'mais', 'muito',
+  'outras', 'outros', 'quando', 'onde', 'seria', 'tenho', 'temos',
+  'fazer', 'feito', 'tenha', 'quer', 'quero', 'busco', 'busca',
+  'preciso', 'existe', 'existem', 'possui', 'possuem', 'algum', 'alguma',
+];
+
+// Busca direta por ILIKE nos títulos e excertos de knowledge_contents
+async function searchByILIKE(
+  supabase: ReturnType<typeof createClient>,
+  query: string,
+) {
+  const words = query
+    .toLowerCase()
+    .replace(/[?!.,;:]/g, '')
+    .split(/\s+/)
+    .filter((w) => w.length > 4 && !STOPWORDS_PT.includes(w))
+    .slice(0, 5);
+
+  if (!words.length) return [];
+
+  const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%`).join(',');
+
+  const { data } = await supabase
+    .from('knowledge_contents')
+    .select('id, title, slug, excerpt, category_id, knowledge_categories:knowledge_categories(letter)')
+    .eq('active', true)
+    .or(orFilter)
+    .limit(5);
+
+  return (data || []).map((a: {
+    id: string;
+    title: string;
+    slug: string;
+    excerpt: string;
+    knowledge_categories: { letter: string } | null;
+  }) => {
+    const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+    return {
+      id: a.id,
+      source_type: 'article',
+      chunk_text: `${a.title} | ${a.excerpt}`,
+      metadata: {
+        title: a.title,
+        slug: a.slug,
+        category_letter: letter,
+        url_publica: letter ? `/base-conhecimento/${letter}/${a.slug}` : null,
+      },
+      similarity: 0.3, // Relevância intermediária — acima de resultados FTS fracos
+    };
+  });
+}
+
 const GREETING_RESPONSES: Record<string, string> = {
   "pt-BR": "Olá! Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje? Pode me perguntar sobre resinas, impressoras, parâmetros de impressão ou vídeos técnicos. 😊",
   "en-US": "Hello! I'm Dr. L.I.A., SmartDent's digital dentistry specialist. How can I help you today? Feel free to ask about resins, printers, print parameters or technical videos. 😊",
@@ -195,29 +251,48 @@ async function searchKnowledge(
     language_code: langCode,
   });
 
-  if (!artError && articles && articles.length > 0) {
-    // Convert to unified format
-    const results = articles.slice(0, 8).map((a: {
-      content_id: string;
-      content_type: string;
-      title: string;
-      excerpt: string;
-      slug: string;
-      category_letter: string;
-      relevance: number;
-    }) => ({
-      id: a.content_id,
-      source_type: a.content_type,
-      chunk_text: `${a.title} | ${a.excerpt}`,
-      metadata: {
-        title: a.title,
-        slug: a.slug,
-        category_letter: a.category_letter,
-        url_publica: `/base-conhecimento/${a.category_letter}/${a.slug}`,
-      },
-      similarity: a.relevance,
-    }));
-    return { results, method: "fulltext", topSimilarity: results[0]?.similarity || 0 };
+  const ftsResults = (!artError && articles && articles.length > 0)
+    ? articles.slice(0, 8).map((a: {
+        content_id: string;
+        content_type: string;
+        title: string;
+        excerpt: string;
+        slug: string;
+        category_letter: string;
+        relevance: number;
+      }) => ({
+        id: a.content_id,
+        source_type: a.content_type,
+        chunk_text: `${a.title} | ${a.excerpt}`,
+        metadata: {
+          title: a.title,
+          slug: a.slug,
+          category_letter: a.category_letter,
+          url_publica: `/base-conhecimento/${a.category_letter}/${a.slug}`,
+        },
+        similarity: a.relevance,
+      }))
+    : [];
+
+  // Check FTS quality: weak if 0-2 results with low relevance (< 0.25)
+  const ftsIsWeak =
+    ftsResults.length === 0 ||
+    (ftsResults.length <= 2 && (ftsResults[0]?.similarity ?? 0) < 0.25);
+
+  if (ftsIsWeak) {
+    const ilikeResults = await searchByILIKE(supabase, query);
+    if (ilikeResults.length > 0) {
+      // Merge: ILIKE first, then any decent FTS results (>= 0.15)
+      const merged = [
+        ...ilikeResults,
+        ...ftsResults.filter((f) => f.similarity >= 0.15),
+      ];
+      return { results: merged, method: "ilike", topSimilarity: merged[0]?.similarity || 0.3 };
+    }
+  }
+
+  if (ftsResults.length > 0) {
+    return { results: ftsResults, method: "fulltext", topSimilarity: ftsResults[0]?.similarity || 0 };
   }
 
   // Last resort: keyword search on videos
