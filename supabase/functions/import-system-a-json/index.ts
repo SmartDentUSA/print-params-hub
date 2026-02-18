@@ -470,15 +470,15 @@ async function mapProducts(products: any[], supabaseAdmin: any): Promise<Catalog
         specifications: product.specifications || product.technical_specifications,
         category: product.category,
         subcategory: product.subcategory,
-        // New fields from llm_optimized format
+        // Campos ricos do llm_optimized format
         sales_pitch: product.sales_pitch,
         applications: product.applications,
         anti_hallucination: product.anti_hallucination,
+        // CORRIGIDO: required_products e forbidden_products estão dentro de anti_hallucination
+        required_products: product.anti_hallucination?.required_products,
+        forbidden_products: product.anti_hallucination?.forbidden_products,
         faq: product.faq,
         market_keywords: product.market_keywords,
-        required_products: product.required_products,
-        forbidden_products: product.forbidden_products,
-        bot_trigger_words: product.bot_trigger_words,
         target_audience: product.target_audience,
         brand: product.brand,
         mpn: product.mpn,
