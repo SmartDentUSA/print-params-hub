@@ -14,6 +14,114 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_embeddings: {
+        Row: {
+          chunk_text: string
+          content_id: string | null
+          created_at: string | null
+          embedding: string | null
+          embedding_updated_at: string | null
+          id: string
+          metadata: Json | null
+          source_type: string
+        }
+        Insert: {
+          chunk_text: string
+          content_id?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          embedding_updated_at?: string | null
+          id?: string
+          metadata?: Json | null
+          source_type: string
+        }
+        Update: {
+          chunk_text?: string
+          content_id?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          embedding_updated_at?: string | null
+          id?: string
+          metadata?: Json | null
+          source_type?: string
+        }
+        Relationships: []
+      }
+      agent_interactions: {
+        Row: {
+          agent_response: string | null
+          context_sources: Json | null
+          created_at: string | null
+          feedback: string | null
+          feedback_comment: string | null
+          id: string
+          lang: string | null
+          session_id: string
+          top_similarity: number | null
+          unanswered: boolean | null
+          user_message: string
+        }
+        Insert: {
+          agent_response?: string | null
+          context_sources?: Json | null
+          created_at?: string | null
+          feedback?: string | null
+          feedback_comment?: string | null
+          id?: string
+          lang?: string | null
+          session_id: string
+          top_similarity?: number | null
+          unanswered?: boolean | null
+          user_message: string
+        }
+        Update: {
+          agent_response?: string | null
+          context_sources?: Json | null
+          created_at?: string | null
+          feedback?: string | null
+          feedback_comment?: string | null
+          id?: string
+          lang?: string | null
+          session_id?: string
+          top_similarity?: number | null
+          unanswered?: boolean | null
+          user_message?: string
+        }
+        Relationships: []
+      }
+      agent_knowledge_gaps: {
+        Row: {
+          created_at: string | null
+          frequency: number | null
+          id: string
+          lang: string | null
+          question: string
+          resolution_note: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          frequency?: number | null
+          id?: string
+          lang?: string | null
+          question: string
+          resolution_note?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          frequency?: number | null
+          id?: string
+          lang?: string | null
+          question?: string
+          resolution_note?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       authors: {
         Row: {
           active: boolean
@@ -1201,6 +1309,20 @@ export type Database = {
       has_panel_access: { Args: { user_id: string }; Returns: boolean }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
+      match_agent_embeddings: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_text: string
+          id: string
+          metadata: Json
+          similarity: number
+          source_type: string
+        }[]
+      }
       normalize_text: { Args: { text_input: string }; Returns: string }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }
