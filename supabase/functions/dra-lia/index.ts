@@ -112,7 +112,7 @@ const GREETING_RESPONSES: Record<string, string> = {
 const FALLBACK_MESSAGES: Record<string, string> = {
   "pt-BR": `Ainda não tenho essa informação em nossa base de conhecimento, mas nossos especialistas podem ajudar você! 😊
 
-💬 **WhatsApp:** [(16) 99383-1794](https://wa.me/5516993831794)
+💬 **WhatsApp:** [Chamar no WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
 ✉️ **E-mail:** comercial@smartdent.com.br
 🕐 **Horário:** Segunda a Sexta, 08h às 18h
 
@@ -120,7 +120,7 @@ Nossa equipe está pronta para explicar melhor!`,
 
   "en-US": `I don't have this information in our knowledge base yet, but our specialists can help you! 😊
 
-💬 **WhatsApp:** [(16) 99383-1794](https://wa.me/5516993831794)
+💬 **WhatsApp:** [Chat on WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
 ✉️ **E-mail:** comercial@smartdent.com.br
 🕐 **Hours:** Monday to Friday, 8am–6pm (BRT)
 
@@ -128,7 +128,7 @@ Our team is ready to help!`,
 
   "es-ES": `Todavía no tengo esa información en nuestra base de conocimiento, pero nuestros especialistas pueden ayudarte! 😊
 
-💬 **WhatsApp:** [(16) 99383-1794](https://wa.me/5516993831794)
+💬 **WhatsApp:** [Chatear por WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
 ✉️ **E-mail:** comercial@smartdent.com.br
 🕐 **Horario:** Lunes a Viernes, 08h–18h (BRT)
 
@@ -641,13 +641,30 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     const encoder = new TextEncoder();
     let fullResponse = "";
 
+    // Build media_cards from allResults (videos with thumbnail, articles with URL)
+    const mediaCards = allResults
+      .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+        const meta = r.metadata as Record<string, unknown>;
+        return meta.thumbnail_url || meta.url_publica || meta.url_interna;
+      })
+      .slice(0, 3)
+      .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
+        const meta = r.metadata as Record<string, unknown>;
+        return {
+          type: r.source_type === 'video' ? 'video' : 'article',
+          title: meta.title as string,
+          thumbnail: meta.thumbnail_url as string | undefined,
+          url: (meta.url_interna || meta.url_publica) as string | undefined,
+        };
+      });
+
     const transformedStream = new ReadableStream({
       async start(controller) {
         if (!aiResponse.body) { controller.close(); return; }
 
-        // Send interaction meta first
+        // Send interaction meta first (with media_cards)
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ interaction_id: interactionId, type: "meta" })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ interaction_id: interactionId, type: "meta", media_cards: mediaCards })}\n\n`)
         );
 
         const reader = aiResponse.body.getReader();
