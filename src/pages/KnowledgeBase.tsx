@@ -103,6 +103,15 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
     setSearchTerm(term);
   };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchTerm.trim().length >= 2) {
+      window.dispatchEvent(
+        new CustomEvent('dra-lia:ask', { detail: { query: searchTerm } })
+      );
+      setSearchTerm('');
+    }
+  };
+
   const filteredContents = searchTerm && searchResults.length > 0
     ? searchResults.filter(r => 
         categoryLetter ? r.category_letter === categoryLetter.toUpperCase() : true
@@ -149,8 +158,14 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
                 className="pl-10 bg-card border-border h-12 text-base"
                 value={searchTerm}
                 onChange={(e) => handleSearch(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
               />
             </div>
+            {searchTerm.trim().length >= 2 && (
+              <div className="text-xs text-muted-foreground mt-2 text-center">
+                Pressione <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-xs">Enter</kbd> para perguntar à Dra. L.I.A. 🦷
+              </div>
+            )}
           </div>
         </div>
 

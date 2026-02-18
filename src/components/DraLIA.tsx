@@ -142,6 +142,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   );
 
   const lang = localeMap[language] || 'pt-BR';
+  const pendingQueryRef = useRef<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -153,6 +154,20 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       prev.map((m) => (m.id === 'welcome' ? { ...m, content: t('dra_lia.welcome_message') } : m))
     );
   }, [language, t]);
+
+  // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
+  useEffect(() => {
+    if (embedded) return;
+    const handler = (e: CustomEvent<{ query: string }>) => {
+      const query = e.detail?.query?.trim();
+      if (!query) return;
+      pendingQueryRef.current = query;
+      setIsOpen(true);
+      setInput(query);
+    };
+    window.addEventListener('dra-lia:ask', handler as EventListener);
+    return () => window.removeEventListener('dra-lia:ask', handler as EventListener);
+  }, [embedded]);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -264,6 +279,14 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       setIsLoading(false);
     }
   }, [input, isLoading, messages, lang, t]);
+
+  // Fire sendMessage once input is updated by the CustomEvent handler
+  useEffect(() => {
+    if (pendingQueryRef.current && input === pendingQueryRef.current) {
+      pendingQueryRef.current = null;
+      sendMessage();
+    }
+  }, [input, sendMessage]);
 
   const sendFeedback = useCallback(
     async (interactionId: string, feedback: 'positive' | 'negative', comment?: string) => {
