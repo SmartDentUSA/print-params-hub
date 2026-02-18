@@ -25,6 +25,7 @@ import { AdminParameterPages } from "@/components/AdminParameterPages";
 import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 import { ApostilaExport } from "@/components/ApostilaExport";
+import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -286,6 +287,7 @@ export default function AdminViewSecure() {
 
               <TabsContent value="stats" className="space-y-6">
                 <AdminStats />
+                <AdminDraLIAStats />
               </TabsContent>
 
               <TabsContent value="users" className="space-y-6">
