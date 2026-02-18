@@ -989,6 +989,7 @@ export type Database = {
       resins: {
         Row: {
           active: boolean
+          ai_context: string | null
           canonical_url: string | null
           color: string | null
           created_at: string
@@ -1032,6 +1033,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          ai_context?: string | null
           canonical_url?: string | null
           color?: string | null
           created_at?: string
@@ -1075,6 +1077,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          ai_context?: string | null
           canonical_url?: string | null
           color?: string | null
           created_at?: string
