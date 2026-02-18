@@ -1,132 +1,159 @@
 
-# Dra. L.I.A. — Correção do "Load Failed" ao Perguntar sobre Limpeza da Vitality
+# Dra. L.I.A. — Artigos não encontrados pelo fulltext caem em vídeos irrelevantes
 
-## Diagnóstico Confirmado
+## Causa Raiz Confirmada
 
-Ao testar diretamente a edge function com `curl`, ela **responde corretamente** com os protocolos completos da Vitality. O problema é exclusivamente no frontend e no fluxo de persistência da interação.
+A `search_knowledge_base` (PostgreSQL FTS com `plainto_tsquery`) retornou **apenas 1 resultado irrelevante** para a pergunta "comparativo entre resinas de outras marcas e a Vitality" — um artigo de parâmetros com relevância `0.19`.
 
-### Causa Raiz 1 — Insert em `agent_interactions` falha silenciosamente
+O artigo correto (`Comparativo entre resinas principais marcas...`, slug: `comparativo-resinas`) **existe no banco** e foi confirmado com score de similaridade `0.27` via `pg_trgm`. Porém, o FTS com `plainto_tsquery('portuguese', ...)` não o indexou adequadamente para essa query.
 
-O chunk `meta` retornado pelo servidor foi:
-```
-data: {"type":"meta"}
-```
-Sem o campo `interaction_id`. Isso acontece porque o `INSERT` em `agent_interactions` falha — o `RLS` da tabela ou um erro de validação faz `interaction?.id` retornar `undefined`. Esse `undefined` é então passado para o `UPDATE` posterior como UUID, gerando:
+Como o fulltext retornou apenas 1 resultado de baixa relevância com `similarity: 0.19` (acima do `MIN_SIMILARITY: 0.05`), o sistema **parou na 2ª camada** e entregou esse resultado. O vídeo retornado (`Indicação de Resinas 3D`) era o único resultado fulltext com relevância suficiente.
 
-```
-ERROR: invalid input syntax for type uuid: "undefined"
-```
+```text
+Busca:  "você tem algum comparativo entre resinas de outras marcas e a Vitality?"
+         │
+         ├─ pgvector → null (sem GOOGLE_AI_KEY)
+         │
+         ├─ search_knowledge_base (FTS) → 1 resultado: parâmetros Anycubic (irrelevante)
+         │   ↑ Min 0.05 atingido → busca PARA AQUI com resultado errado
+         │
+         └─ keyword em vídeos → NÃO EXECUTADO (porque FTS "achou algo")
 
-Confirmado nos logs do Postgres:
-```
-ERROR: new row violates row-level security policy for table "agent_interactions"
-ERROR: invalid input syntax for type uuid: "undefined"
-```
-
-### Causa Raiz 2 — O stream quebra quando `interaction` é null/undefined
-
-No bloco de stream da edge function (linha 556+), quando `interaction?.id` é `undefined`, o `UPDATE` final falha e pode interromper o `controller` de forma abrupta, causando o "Load Failed" no cliente.
-
-### Causa Raiz 3 — RLS está bloqueando o INSERT anônimo
-
-A política de RLS para INSERT em `agent_interactions` é:
-```sql
-WITH Check Expression: true
+Artigo correto: existe no banco, não encontrado pelo FTS
 ```
 
-Deveria permitir qualquer insert. Mas o erro ocorre porque a edge function usa `SUPABASE_ANON_KEY` e a política `Allow public insert agent_interactions` pode não estar sendo aplicada corretamente quando o `session_id` é passado.
+---
 
-O mais provável: **o `session_id` está chegando como `undefined`** do cliente em algumas situações, e a validação do banco rejeita.
+## Solução: Busca ILIKE como camada intermediária
 
-## Duas Correções a Aplicar
+Adicionar uma **4ª estratégia de busca** entre o FTS e o keyword-in-videos: busca direta por `ILIKE` nas colunas `title`, `excerpt` e `keywords` da tabela `knowledge_contents`, usando as palavras-chave extraídas da mensagem.
 
-### Correção 1 — Edge Function: proteger o stream contra falha no INSERT
+Isso garante que artigos com títulos como "Comparativo entre resinas..." sejam encontrados mesmo que o FTS não os indexe corretamente.
 
-Envolver o `INSERT` em `agent_interactions` em `try/catch` para que falhas de RLS ou validação **não interrompam** o stream. O stream deve continuar mesmo se a persistência falhar.
+### Mudança 1 — Adicionar busca ILIKE em `knowledge_contents`
+
+Uma nova função `searchByKeyword(supabase, query, lang)` será criada dentro do `searchKnowledge`, executada **quando o FTS retornar poucos resultados ou resultados de baixa qualidade** (ex: apenas 1 resultado com relevância < 0.3):
 
 ```typescript
-// Antes: insert direto (falha quebra o stream)
-const { data: interaction } = await supabase
-  .from("agent_interactions")
-  .insert({ session_id, ... })
-  .select("id")
-  .single();
+// Se FTS retornou resultados mas todos de baixa qualidade (< 0.25 ou apenas 1 resultado),
+// complementar com busca ILIKE nos títulos e excertos
 
-// Depois: insert com try/catch, stream continua independente
-let interactionId: string | undefined;
-try {
-  const { data: interaction } = await supabase
-    .from("agent_interactions")
-    .insert({ session_id: session_id || crypto.randomUUID(), ... })
-    .select("id")
-    .single();
-  interactionId = interaction?.id;
-} catch {
-  // falha silenciosa — stream continua
+async function searchByILIKE(supabase, query, langCode) {
+  const words = query
+    .toLowerCase()
+    .replace(/[?!.,;]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length > 4 && !STOPWORDS_PT.includes(w))
+    .slice(0, 5);
+
+  if (!words.length) return [];
+
+  const orFilter = words.map(w => `title.ilike.%${w}%,excerpt.ilike.%${w}%`).join(',');
+
+  const { data } = await supabase
+    .from('knowledge_contents')
+    .select('id, title, slug, excerpt, category_id, knowledge_categories:knowledge_categories(letter)')
+    .eq('active', true)
+    .or(orFilter)
+    .limit(5);
+
+  return (data || []).map(a => ({
+    id: a.id,
+    source_type: 'article',
+    chunk_text: `${a.title} | ${a.excerpt}`,
+    metadata: {
+      title: a.title,
+      slug: a.slug,
+      category_letter: a.knowledge_categories?.letter?.toLowerCase() || '',
+      url_publica: `/base-conhecimento/${a.knowledge_categories?.letter?.toLowerCase()}/${a.slug}`,
+    },
+    similarity: 0.3, // Relevância intermediária
+  }));
 }
 ```
 
-O mesmo padrão se aplica ao bloco de fallback (linhas 379-425) onde o insert também pode falhar.
+### Mudança 2 — Lógica de cascata com complemento ILIKE
 
-### Correção 2 — Garantir session_id válido
+A cascata de busca passa a ser:
 
-O `session_id` pode chegar como `undefined` do cliente. A edge function deve gerar um UUID fallback se não recebido:
-
-```typescript
-// Linha 316 atual:
-const { message, history = [], lang = "pt-BR", session_id } = await req.json();
-
-// Corrigido:
-const { message, history = [], lang = "pt-BR", session_id: rawSessionId } = await req.json();
-const session_id = rawSessionId || crypto.randomUUID();
+```text
+1. pgvector (se GOOGLE_AI_KEY disponível)
+2. search_knowledge_base FTS
+   2b. Se FTS retornou 0 ou 1 resultado com relevância < 0.25 → executa ILIKE complementar
+       e mescla os resultados (prioridade para ILIKE se artigo não estava no FTS)
+3. Keyword search em vídeos (apenas se 1+2+2b retornaram vazio)
 ```
 
-### Correção 3 — Update do `agent_response` com guard em `interactionId`
-
-O `UPDATE` final (linha 584) executa mesmo quando `interaction?.id` é undefined, causando o erro de UUID:
-
+Critério de qualidade do FTS:
 ```typescript
-// Antes (linha 584):
-await supabase
-  .from("agent_interactions")
-  .update({ agent_response: fullResponse })
-  .eq("id", interaction?.id);  // ← undefined causa erro UUID
+const ftsIsWeak = !articles || articles.length === 0 || 
+  (articles.length <= 2 && articles[0]?.relevance < 0.25);
 
-// Depois:
-if (interactionId) {
-  await supabase
-    .from("agent_interactions")
-    .update({ agent_response: fullResponse })
-    .eq("id", interactionId);
+if (ftsIsWeak) {
+  const ilikeResults = await searchByILIKE(supabase, query, langCode);
+  // Mescla ILIKE com eventuais resultados FTS, priorizando ILIKE
+  const merged = [...ilikeResults, ...ftsResults.filter(f => f.similarity >= 0.15)];
+  if (merged.length > 0) {
+    return { results: merged, method: "ilike", topSimilarity: merged[0].similarity };
+  }
 }
 ```
 
-### Correção 4 — Fallback insert também protegido
+### Stopwords PT para evitar ruído
 
-O mesmo problema existe no bloco de `!hasResults` (fallback WhatsApp) onde o insert também pode falhar silenciosamente e interromper o stream. Aplicar o mesmo padrão `try/catch`.
+```typescript
+const STOPWORDS_PT = [
+  'você', 'voce', 'tem', 'algum', 'alguma', 'entre', 'para', 'sobre',
+  'como', 'qual', 'quais', 'esse', 'essa', 'este', 'esta', 'isso',
+  'uma', 'uns', 'umas', 'que', 'com', 'por', 'mais', 'muito',
+  'outras', 'outros', 'quando', 'onde', 'seria', 'tenho', 'temos',
+];
+```
+
+---
+
+## Comportamento Esperado Após a Mudança
+
+| Pergunta | Antes | Depois |
+|---|---|---|
+| "comparativo entre resinas de outras marcas e a Vitality?" | Vídeo irrelevante (Indicação de Resinas 3D) | Artigo "Comparativo entre resinas principais marcas..." com link /base-conhecimento/c/comparativo-resinas |
+| "Tem guia técnico de restaurações de longa duração?" | Resultado aleatório do FTS | Artigo correto encontrado via ILIKE no título |
+| "Quais são as propriedades mecânicas da Vitality?" | FTS retorna algo aleatório | Artigo específico encontrado pelo match em título e excerpt |
+
+---
+
+## Sistema de Prioridade Final
+
+Após a mudança, o contexto entregue ao Gemini será ordenado por:
+
+```text
+1. Protocolos de processamento (similarity: 0.95) — somente se isProtocolQuestion
+2. Resultados pgvector (similarity: 0.65–1.0) — somente se GOOGLE_AI_KEY
+3. Resultados FTS de alta qualidade (relevance >= 0.25)
+4. Resultados ILIKE (similarity: 0.30) — novo
+5. Resultados FTS de baixa qualidade (relevance 0.05–0.25) — complemento
+6. Vídeos por keyword — apenas quando tudo acima for vazio
+```
+
+---
 
 ## Arquivo Modificado
 
 Apenas `supabase/functions/dra-lia/index.ts`:
 
-| Mudança | Linha Atual | Descrição |
-|---|---|---|
-| `session_id` fallback | 316 | Garante UUID válido se não recebido |
-| INSERT interação em try/catch | 539-550 | Falha silenciosa, stream não interrompe |
-| Guard em UPDATE final | 584-589 | Só executa se `interactionId` válido |
-| INSERT fallback em try/catch | 379-391 | Mesmo padrão para bloco sem resultados |
+| Mudança | Descrição |
+|---|---|
+| `STOPWORDS_PT` (constante global) | Lista de palavras irrelevantes para filtrar da query antes do ILIKE |
+| `searchByILIKE(supabase, query)` | Nova função que busca diretamente por ILIKE em `knowledge_contents.title` e `excerpt` |
+| `searchKnowledge()` — bloco FTS | Após FTS, verifica qualidade. Se fraco, executa ILIKE e mescla |
+| Method label | Passa `"ilike"` como method quando usada, para ser exibido no system prompt (Regra 10) |
 
-## Comportamento Esperado
-
-| Situação | Antes | Depois |
-|---|---|---|
-| Pergunta "Limpeza da Vitality" | "Load Failed" | Protocolo completo da Vitality exibido |
-| INSERT em agent_interactions falha | Stream quebra | Stream continua, resposta exibida normalmente |
-| session_id undefined | Erro de validação | UUID gerado automaticamente |
-| UPDATE com id undefined | Erro de UUID no Postgres | Update ignorado silenciosamente |
+---
 
 ## Seção Técnica
 
-O problema é de **resiliência do stream**, não de lógica de negócio. A lógica de protocolos está correta (confirmado pelo teste curl que retornou os dados certos). O stream SSE não deve depender do sucesso da persistência — são operações independentes. Proteger os side effects de persistência com `try/catch` é a prática correta para edge functions de streaming.
+A busca ILIKE é executada apenas quando necessário (FTS fraco), não em toda chamada — não há impacto de performance na maioria dos casos.
 
-Nenhuma migração de banco de dados é necessária.
+A extração de palavras-chave usa filtro por `length > 4` e remoção de stopwords para evitar ILIKE em "você", "tem", "algum" — que batem em quase todos os artigos e degradariam a relevância.
+
+Sem mudanças no banco de dados. Sem migrações necessárias.
