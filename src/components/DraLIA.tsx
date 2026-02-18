@@ -4,12 +4,20 @@ import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-re
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
+interface MediaCard {
+  type: 'video' | 'article';
+  title: string;
+  thumbnail?: string;
+  url?: string;
+}
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   interactionId?: string;
   feedbackSent?: boolean;
+  mediaCards?: MediaCard[];
 }
 
 interface DraLIAProps {
@@ -192,6 +200,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       const decoder = new TextDecoder();
       let buffer = '';
       let interactionId: string | undefined;
+      let mediaCards: MediaCard[] | undefined;
       let fullContent = '';
 
       while (true) {
@@ -213,9 +222,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           try {
             const parsed = JSON.parse(jsonStr);
 
-            // Meta chunk with interaction_id
-            if (parsed.type === 'meta' && parsed.interaction_id) {
-              interactionId = parsed.interaction_id;
+            // Meta chunk with interaction_id and media_cards
+            if (parsed.type === 'meta') {
+              if (parsed.interaction_id) interactionId = parsed.interaction_id;
+              if (parsed.media_cards) mediaCards = parsed.media_cards;
               continue;
             }
 
@@ -225,7 +235,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === assistantMsg.id
-                    ? { ...m, content: fullContent, interactionId }
+                    ? { ...m, content: fullContent, interactionId, mediaCards }
                     : m
                 )
               );
@@ -236,10 +246,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         }
       }
 
-      // Final update with interactionId
+      // Final update with interactionId and mediaCards
       setMessages((prev) =>
         prev.map((m) =>
-          m.id === assistantMsg.id ? { ...m, interactionId } : m
+          m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m
         )
       );
     } catch (e) {
@@ -348,7 +358,43 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
               </div>
 
-              {/* Feedback buttons for last non-welcome assistant message */}
+              {/* Media cards strip — videos with thumbnail / articles */}
+              {msg.role === 'assistant' && msg.mediaCards && msg.mediaCards.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  {msg.mediaCards.map((card, i) => (
+                    <a
+                      key={i}
+                      href={card.url || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors overflow-hidden shadow-sm p-2"
+                    >
+                      <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
+                        {card.thumbnail ? (
+                          <img
+                            src={card.thumbnail}
+                            alt={card.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        ) : (
+                          <span className="text-2xl">{card.type === 'video' ? '▶' : '📄'}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-gray-800 leading-tight line-clamp-2">
+                          {card.title}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {card.type === 'video' ? '▶ Assistir no site' : '📖 Ver publicação'}
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+
               {msg.role === 'assistant' &&
                 msg.id !== 'welcome' &&
                 msg.interactionId &&
