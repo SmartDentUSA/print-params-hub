@@ -95,6 +95,8 @@ interface CatalogItem {
   meta_description?: string
   canonical_url?: string
   og_image_url?: string
+  product_category?: string
+  product_subcategory?: string
   cta_1_label?: string
   cta_1_url?: string
   cta_1_description?: string
@@ -421,16 +423,8 @@ async function mapProducts(products: any[], supabaseAdmin: any): Promise<Catalog
   for (const p of products) {
     const product = p.product || p
     
-    // Upload automático da imagem (se existir e for URL externa)
-    let finalImageUrl = product.image_url
-    if (product.image_url && product.image_url.startsWith('http')) {
-      console.log(`🖼️ Processando imagem: ${product.name}`)
-      finalImageUrl = await uploadImageToStorage(
-        product.image_url,
-        product.name,
-        supabaseAdmin
-      )
-    }
+    // Use original image URL directly (no upload to avoid timeout with many products)
+    const finalImageUrl = product.image_url || null
     
     mapped.push({
       source: 'system_a',
@@ -839,22 +833,26 @@ Deno.serve(async (req) => {
 
     console.log(`📦 Total catalog items to upsert: ${allCatalogItems.length}`)
 
-    // Batch upsert all items
+    // Batch upsert in chunks of 50 to avoid payload size limits
     if (allCatalogItems.length > 0) {
-      const { error: upsertError } = await supabase
-        .from('system_a_catalog')
-        .upsert(allCatalogItems, {
-          onConflict: 'source,external_id',
-          ignoreDuplicates: false
-        })
+      const UPSERT_BATCH = 50
+      for (let i = 0; i < allCatalogItems.length; i += UPSERT_BATCH) {
+        const batch = allCatalogItems.slice(i, i + UPSERT_BATCH)
+        const { error: upsertError } = await supabase
+          .from('system_a_catalog')
+          .upsert(batch, {
+            onConflict: 'source,external_id',
+            ignoreDuplicates: false
+          })
 
-      if (upsertError) {
-        console.error('❌ Upsert error:', upsertError)
-        stats.errors++
-        throw upsertError
+        if (upsertError) {
+          console.error('❌ Upsert error:', upsertError)
+          stats.errors++
+          throw upsertError
+        }
+
+        console.log(`✅ Upsert batch ${Math.floor(i / UPSERT_BATCH) + 1}/${Math.ceil(allCatalogItems.length / UPSERT_BATCH)} completed`)
       }
-
-      console.log('✅ Batch upsert completed successfully')
     }
 
     // Calculate total
