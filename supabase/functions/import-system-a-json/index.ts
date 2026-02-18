@@ -837,7 +837,13 @@ Deno.serve(async (req) => {
     if (allCatalogItems.length > 0) {
       const UPSERT_BATCH = 50
       for (let i = 0; i < allCatalogItems.length; i += UPSERT_BATCH) {
-        const batch = allCatalogItems.slice(i, i + UPSERT_BATCH)
+        // Sanitize extra_data to strip undefined values (invalid JSON for PostgreSQL jsonb)
+        const batch = allCatalogItems.slice(i, i + UPSERT_BATCH).map(item => ({
+          ...item,
+          extra_data: item.extra_data
+            ? JSON.parse(JSON.stringify(item.extra_data))
+            : null
+        }))
         const { error: upsertError } = await supabase
           .from('system_a_catalog')
           .upsert(batch, {
