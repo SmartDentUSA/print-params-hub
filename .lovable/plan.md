@@ -1,159 +1,208 @@
 
-# Dra. L.I.A. — Artigos não encontrados pelo fulltext caem em vídeos irrelevantes
+# Dra. L.I.A. — Contato WhatsApp atualizado + Miniaturas de vídeo e cards de publicação
 
-## Causa Raiz Confirmada
+## O que será feito
 
-A `search_knowledge_base` (PostgreSQL FTS com `plainto_tsquery`) retornou **apenas 1 resultado irrelevante** para a pergunta "comparativo entre resinas de outras marcas e a Vitality" — um artigo de parâmetros com relevância `0.19`.
-
-O artigo correto (`Comparativo entre resinas principais marcas...`, slug: `comparativo-resinas`) **existe no banco** e foi confirmado com score de similaridade `0.27` via `pg_trgm`. Porém, o FTS com `plainto_tsquery('portuguese', ...)` não o indexou adequadamente para essa query.
-
-Como o fulltext retornou apenas 1 resultado de baixa relevância com `similarity: 0.19` (acima do `MIN_SIMILARITY: 0.05`), o sistema **parou na 2ª camada** e entregou esse resultado. O vídeo retornado (`Indicação de Resinas 3D`) era o único resultado fulltext com relevância suficiente.
-
-```text
-Busca:  "você tem algum comparativo entre resinas de outras marcas e a Vitality?"
-         │
-         ├─ pgvector → null (sem GOOGLE_AI_KEY)
-         │
-         ├─ search_knowledge_base (FTS) → 1 resultado: parâmetros Anycubic (irrelevante)
-         │   ↑ Min 0.05 atingido → busca PARA AQUI com resultado errado
-         │
-         └─ keyword em vídeos → NÃO EXECUTADO (porque FTS "achou algo")
-
-Artigo correto: existe no banco, não encontrado pelo FTS
-```
+Duas melhorias independentes nos dois arquivos principais da Dra. L.I.A.:
 
 ---
 
-## Solução: Busca ILIKE como camada intermediária
+## Mudança 1 — Contato WhatsApp no FALLBACK_MESSAGES (edge function)
 
-Adicionar uma **4ª estratégia de busca** entre o FTS e o keyword-in-videos: busca direta por `ILIKE` nas colunas `title`, `excerpt` e `keywords` da tabela `knowledge_contents`, usando as palavras-chave extraídas da mensagem.
+**Arquivo:** `supabase/functions/dra-lia/index.ts`
 
-Isso garante que artigos com títulos como "Comparativo entre resinas..." sejam encontrados mesmo que o FTS não os indexe corretamente.
+Atualizar o número e a URL do WhatsApp em todos os 3 idiomas (PT, EN, ES):
 
-### Mudança 1 — Adicionar busca ILIKE em `knowledge_contents`
+**Antes:**
+```
+[(16) 99383-1794](https://wa.me/5516993831794)
+```
 
-Uma nova função `searchByKeyword(supabase, query, lang)` será criada dentro do `searchKnowledge`, executada **quando o FTS retornar poucos resultados ou resultados de baixa qualidade** (ex: apenas 1 resultado com relevância < 0.3):
+**Depois:**
+```
+[Chamar no WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
+```
+
+O link usa o formato `api.whatsapp.com/send/` com o número `551634194735` e a mensagem pré-preenchida `Olá poderia me ajudar?` (encodada como `Ol%C3%A1+poderia+me+ajudar%3F`).
+
+---
+
+## Mudança 2 — Miniaturas e cards de publicação no frontend
+
+**Arquivo:** `src/components/DraLIA.tsx`
+
+### Problema atual
+O Gemini recebe `THUMBNAIL` e `URL_PUBLICA` no contexto, mas gera apenas texto markdown com links. O frontend apenas renderiza esse texto — não há cards visuais.
+
+### Solução: chunk `media_cards` no meta + renderização no React
+
+#### Parte A — Edge function envia `media_cards` no chunk meta
+
+No `index.ts`, logo antes do stream SSE, adicionar ao chunk `meta` a lista de cards de mídia encontrados nos resultados (vídeos com thumbnail, artigos com imagem):
 
 ```typescript
-// Se FTS retornou resultados mas todos de baixa qualidade (< 0.25 ou apenas 1 resultado),
-// complementar com busca ILIKE nos títulos e excertos
+// Montar media_cards a partir dos allResults
+const mediaCards = allResults
+  .filter((r) => {
+    const meta = r.metadata as Record<string, unknown>;
+    return meta.thumbnail_url || meta.url_publica;
+  })
+  .slice(0, 3)
+  .map((r) => {
+    const meta = r.metadata as Record<string, unknown>;
+    return {
+      type: r.source_type,           // 'video' | 'article'
+      title: meta.title as string,
+      thumbnail: meta.thumbnail_url as string | undefined,
+      url: (meta.url_interna || meta.url_publica) as string | undefined,
+    };
+  });
+```
 
-async function searchByILIKE(supabase, query, langCode) {
-  const words = query
-    .toLowerCase()
-    .replace(/[?!.,;]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 4 && !STOPWORDS_PT.includes(w))
-    .slice(0, 5);
+O chunk `meta` passa de:
+```json
+{ "interaction_id": "uuid", "type": "meta" }
+```
+para:
+```json
+{ "interaction_id": "uuid", "type": "meta", "media_cards": [...] }
+```
 
-  if (!words.length) return [];
+#### Parte B — Interface Message recebe `mediaCards`
 
-  const orFilter = words.map(w => `title.ilike.%${w}%,excerpt.ilike.%${w}%`).join(',');
+```typescript
+interface MediaCard {
+  type: 'video' | 'article';
+  title: string;
+  thumbnail?: string;
+  url?: string;
+}
 
-  const { data } = await supabase
-    .from('knowledge_contents')
-    .select('id, title, slug, excerpt, category_id, knowledge_categories:knowledge_categories(letter)')
-    .eq('active', true)
-    .or(orFilter)
-    .limit(5);
-
-  return (data || []).map(a => ({
-    id: a.id,
-    source_type: 'article',
-    chunk_text: `${a.title} | ${a.excerpt}`,
-    metadata: {
-      title: a.title,
-      slug: a.slug,
-      category_letter: a.knowledge_categories?.letter?.toLowerCase() || '',
-      url_publica: `/base-conhecimento/${a.knowledge_categories?.letter?.toLowerCase()}/${a.slug}`,
-    },
-    similarity: 0.3, // Relevância intermediária
-  }));
+interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  interactionId?: string;
+  feedbackSent?: boolean;
+  mediaCards?: MediaCard[];   // NOVO
 }
 ```
 
-### Mudança 2 — Lógica de cascata com complemento ILIKE
+#### Parte C — Frontend processa o chunk `meta` com `media_cards`
 
-A cascata de busca passa a ser:
+No `sendMessage`, onde o chunk `meta` é processado:
 
-```text
-1. pgvector (se GOOGLE_AI_KEY disponível)
-2. search_knowledge_base FTS
-   2b. Se FTS retornou 0 ou 1 resultado com relevância < 0.25 → executa ILIKE complementar
-       e mescla os resultados (prioridade para ILIKE se artigo não estava no FTS)
-3. Keyword search em vídeos (apenas se 1+2+2b retornaram vazio)
-```
-
-Critério de qualidade do FTS:
 ```typescript
-const ftsIsWeak = !articles || articles.length === 0 || 
-  (articles.length <= 2 && articles[0]?.relevance < 0.25);
-
-if (ftsIsWeak) {
-  const ilikeResults = await searchByILIKE(supabase, query, langCode);
-  // Mescla ILIKE com eventuais resultados FTS, priorizando ILIKE
-  const merged = [...ilikeResults, ...ftsResults.filter(f => f.similarity >= 0.15)];
-  if (merged.length > 0) {
-    return { results: merged, method: "ilike", topSimilarity: merged[0].similarity };
-  }
+if (parsed.type === 'meta') {
+  if (parsed.interaction_id) interactionId = parsed.interaction_id;
+  if (parsed.media_cards) mediaCards = parsed.media_cards;
+  continue;
 }
 ```
 
-### Stopwords PT para evitar ruído
+E ao atualizar a mensagem do assistente com os cards:
 
 ```typescript
-const STOPWORDS_PT = [
-  'você', 'voce', 'tem', 'algum', 'alguma', 'entre', 'para', 'sobre',
-  'como', 'qual', 'quais', 'esse', 'essa', 'este', 'esta', 'isso',
-  'uma', 'uns', 'umas', 'que', 'com', 'por', 'mais', 'muito',
-  'outras', 'outros', 'quando', 'onde', 'seria', 'tenho', 'temos',
-];
+setMessages((prev) =>
+  prev.map((m) =>
+    m.id === assistantMsg.id
+      ? { ...m, content: fullContent, interactionId, mediaCards }
+      : m
+  )
+);
+```
+
+#### Parte D — Componente `MediaCardStrip` renderizado abaixo da mensagem
+
+Dentro do render da mensagem do assistente, logo abaixo do texto e antes dos botões de feedback, renderizar os cards:
+
+```tsx
+{msg.mediaCards && msg.mediaCards.length > 0 && (
+  <div className="mt-2 space-y-2">
+    {msg.mediaCards.map((card, i) => (
+      <a
+        key={i}
+        href={card.url || '#'}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white 
+                   hover:bg-gray-50 transition-colors overflow-hidden shadow-sm p-2"
+      >
+        {/* Thumbnail ou ícone */}
+        <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100 
+                        flex items-center justify-center">
+          {card.thumbnail ? (
+            <img
+              src={card.thumbnail}
+              alt={card.title}
+              className="w-full h-full object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+            />
+          ) : (
+            <span className="text-2xl">
+              {card.type === 'video' ? '▶' : '📄'}
+            </span>
+          )}
+        </div>
+
+        {/* Título e tipo */}
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-medium text-gray-800 leading-tight line-clamp-2">
+            {card.title}
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {card.type === 'video' ? '▶ Assistir no site' : '📖 Ver publicação'}
+          </div>
+        </div>
+      </a>
+    ))}
+  </div>
+)}
 ```
 
 ---
 
-## Comportamento Esperado Após a Mudança
+## Resultado Visual Esperado
 
-| Pergunta | Antes | Depois |
-|---|---|---|
-| "comparativo entre resinas de outras marcas e a Vitality?" | Vídeo irrelevante (Indicação de Resinas 3D) | Artigo "Comparativo entre resinas principais marcas..." com link /base-conhecimento/c/comparativo-resinas |
-| "Tem guia técnico de restaurações de longa duração?" | Resultado aleatório do FTS | Artigo correto encontrado via ILIKE no título |
-| "Quais são as propriedades mecânicas da Vitality?" | FTS retorna algo aleatório | Artigo específico encontrado pelo match em título e excerpt |
+**Antes:**
+```
+Com base nos dados cadastrados, temos o vídeo Comparativo de Resinas 3D.
+[▶ Assistir no site](/base-conhecimento/c/comparativo-resinas)
+```
 
----
+**Depois:**
+```
+Com base nos dados cadastrados, temos o vídeo Comparativo de Resinas 3D.
 
-## Sistema de Prioridade Final
+┌─────────────────────────────────────────┐
+│ [miniatura do vídeo] ▶ Comparativo      │
+│                       ▶ Assistir no site│
+└─────────────────────────────────────────┘
 
-Após a mudança, o contexto entregue ao Gemini será ordenado por:
-
-```text
-1. Protocolos de processamento (similarity: 0.95) — somente se isProtocolQuestion
-2. Resultados pgvector (similarity: 0.65–1.0) — somente se GOOGLE_AI_KEY
-3. Resultados FTS de alta qualidade (relevance >= 0.25)
-4. Resultados ILIKE (similarity: 0.30) — novo
-5. Resultados FTS de baixa qualidade (relevance 0.05–0.25) — complemento
-6. Vídeos por keyword — apenas quando tudo acima for vazio
+┌─────────────────────────────────────────┐
+│ [📄]  Guia Técnico: Comparativo de      │
+│       Resinas para Restaurações         │
+│       📖 Ver publicação                 │
+└─────────────────────────────────────────┘
 ```
 
 ---
 
-## Arquivo Modificado
+## Arquivos Modificados
 
-Apenas `supabase/functions/dra-lia/index.ts`:
-
-| Mudança | Descrição |
+| Arquivo | Mudanças |
 |---|---|
-| `STOPWORDS_PT` (constante global) | Lista de palavras irrelevantes para filtrar da query antes do ILIKE |
-| `searchByILIKE(supabase, query)` | Nova função que busca diretamente por ILIKE em `knowledge_contents.title` e `excerpt` |
-| `searchKnowledge()` — bloco FTS | Após FTS, verifica qualidade. Se fraco, executa ILIKE e mescla |
-| Method label | Passa `"ilike"` como method quando usada, para ser exibido no system prompt (Regra 10) |
+| `supabase/functions/dra-lia/index.ts` | 1. WhatsApp URL/número atualizado nos 3 idiomas; 2. `media_cards` adicionado ao chunk `meta` |
+| `src/components/DraLIA.tsx` | 1. Interface `MediaCard` e campo `mediaCards` em `Message`; 2. Parse do `media_cards` no stream; 3. Componente de cards renderizado abaixo da mensagem |
 
 ---
 
 ## Seção Técnica
 
-A busca ILIKE é executada apenas quando necessário (FTS fraco), não em toda chamada — não há impacto de performance na maioria dos casos.
+Os `media_cards` são enviados no primeiro chunk SSE (`meta`), antes do texto — então os cards aparecem assim que o usuário começa a ver a resposta.
 
-A extração de palavras-chave usa filtro por `length > 4` e remoção de stopwords para evitar ILIKE em "você", "tem", "algum" — que batem em quase todos os artigos e degradariam a relevância.
+Apenas os 3 primeiros resultados com thumbnail ou URL são exibidos como cards, para não sobrecarregar o chat.
 
-Sem mudanças no banco de dados. Sem migrações necessárias.
+O `onError` na `<img>` garante que thumbnails quebradas (CDN indisponível, etc.) mostrem o ícone emoji em vez de um elemento quebrado.
+
+Não há mudanças no banco de dados. O deploy da edge function é necessário após a edição do `index.ts`.
