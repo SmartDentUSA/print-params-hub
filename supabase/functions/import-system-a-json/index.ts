@@ -423,16 +423,6 @@ async function mapProducts(products: any[], supabaseAdmin: any): Promise<Catalog
   for (const p of products) {
     const product = p.product || p
     
-    // DEBUG: log first product structure to check where brand/anti_hallucination live
-    if (mapped.length === 0) {
-      console.log('🔍 DEBUG first product keys (p):', Object.keys(p).join(', '))
-      console.log('🔍 DEBUG first product keys (product):', Object.keys(product).join(', '))
-      console.log('🔍 DEBUG brand:', product.brand, '| p.brand:', p.brand)
-      console.log('🔍 DEBUG mpn:', product.mpn, '| p.mpn:', p.mpn)
-      console.log('🔍 DEBUG anti_hallucination:', JSON.stringify(product.anti_hallucination)?.substring(0, 200))
-      console.log('🔍 DEBUG p.anti_hallucination:', JSON.stringify(p.anti_hallucination)?.substring(0, 200))
-    }
-    
     // Use original image URL directly (no upload to avoid timeout with many products)
     const finalImageUrl = product.image_url || null
     
@@ -507,8 +497,8 @@ function mapCompanyProfile(company: any): CatalogItem | null {
   return {
     source: 'system_a',
     category: 'company_info',
-    external_id: String(company.id || 'company-1'),
-    name: company.company_name,
+    external_id: `company_${company.id || 'main'}`,
+    name: company.name || company.company_name || 'Smart Dent',
     description: company.company_description,
     approved: true,
     active: true,
@@ -882,7 +872,7 @@ Deno.serve(async (req) => {
         if (upsertError) {
           console.error('❌ Upsert error:', upsertError)
           stats.errors++
-          throw upsertError
+          // Continue without throw — other batches still process
         }
 
         console.log(`✅ Upsert batch ${Math.floor(i / UPSERT_BATCH) + 1}/${Math.ceil(allCatalogItems.length / UPSERT_BATCH)} completed`)
