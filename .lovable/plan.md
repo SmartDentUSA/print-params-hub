@@ -1,140 +1,106 @@
 
-# Base de Conhecimento: Campo de busca aciona a Dra. L.I.A.
+# Correção: Dra. L.I.A. não encontra "Atos Ortho" / resposta incorreta
 
-## Comportamento desejado
+## Diagnóstico confirmado
 
-Quando o usuário digitar no campo "Buscar conteúdo..." da Base de Conhecimento e pressionar **Enter** (ou clicar em um botão de busca), a Dra. L.I.A. deve:
-1. Abrir automaticamente (se estiver fechada)
-2. Receber a pergunta digitada
-3. Responder imediatamente
+Pergunta do usuário: **"O que é a resina Atos Ortho?"**
 
-A busca normal por artigos continua funcionando normalmente enquanto o usuário digita (sem Enter).
-
----
-
-## Arquitetura da solução: CustomEvent no browser
-
-O `DraLIA` está em `App.tsx` e o campo de busca está em `KnowledgeBase.tsx` — não têm relação pai/filho direta. A forma mais simples e limpa de comunicação entre eles é via **`CustomEvent`** do browser:
+A função `searchByILIKE` na edge function processa as palavras da query assim:
 
 ```
-KnowledgeBase                App.tsx
-[campo de busca]             [DraLIA]
-      |                          |
-      | dispara CustomEvent      |
-      | "dra-lia:ask"            |
-      |------------------------->|
-                                 | ouve o evento
-                                 | abre o chat
-                                 | envia a pergunta
+"resina Atos Ortho"
+  → split por espaços
+  → filtrar apenas palavras com length > 4  ← BUG AQUI
+  
+  "resina" (6) ✓  →  incluída
+  "Atos"   (4) ✗  →  DESCARTADA (4 não é > 4)
+  "Ortho"  (5) ✓  →  incluída
 ```
 
-Não é necessário criar context global, Redux, Zustand ou nenhuma dependência nova.
+O ILIKE roda com `%resina%` e `%ortho%`, retornando 10 artigos — entre eles: Atos Academic, NanoClean, Comparativo de resinas. Eles ficam primeiro porque têm mais ocorrências de "resina". O artigo correto (`Smart Ortho: Adesivo Ortodôntico 3 em 1`) entra em 8ª posição como último do slice de 5 (`.limit(5)`).
 
----
+O AI recebe o contexto errado e gera uma resposta sobre Atos Academic e Atos Unichroma.
 
-## Mudanças nos arquivos
+**Problema secundário confirmado:** a função `search_knowledge_base` retorna `[]` para "Atos Ortho" — o FTS (Full Text Search) também não encontra porque `"Atos Ortho"` não tem correspondência por trigrama ou FTS em nenhum artigo que use essas palavras exatamente juntas.
 
-### 1. `src/components/DraLIA.tsx` — Ouvir o evento e responder
+## Solução — dois ajustes na edge function
 
-Adicionar um `useEffect` que registra um listener para o evento customizado `dra-lia:ask`:
+### Ajuste 1 — Corrigir filtro de tamanho de palavra: `> 4` → `>= 3`
+
+Linha 68 de `supabase/functions/dra-lia/index.ts`:
 
 ```typescript
-useEffect(() => {
-  const handler = (e: CustomEvent<{ query: string }>) => {
-    const query = e.detail?.query?.trim();
-    if (!query) return;
-    setIsOpen(true);
-    // Simular digitação e envio:
-    setInput(query);
-    // Precisamos chamar sendMessage com esse texto — usamos uma ref auxiliar
-  };
-  window.addEventListener('dra-lia:ask', handler as EventListener);
-  return () => window.removeEventListener('dra-lia:ask', handler as EventListener);
-}, []);
+// Antes (bugado):
+.filter((w) => w.length > 4 && !STOPWORDS_PT.includes(w))
+
+// Depois (correto):
+.filter((w) => w.length >= 3 && !STOPWORDS_PT.includes(w))
 ```
 
-Como `sendMessage` usa `input` via closure e `setInput` é assíncrono, a solução correta é usar uma **`pendingQuery` ref** para disparar o envio logo após o estado ser atualizado:
+Com isso, `"Atos"` (4 chars) e outras palavras curtas importantes como nomes de marcas passam pelo filtro.
+
+### Ajuste 2 — Melhorar ordenação do ILIKE: priorizar match no título sobre match no excerpt
+
+Atualmente a query ILIKE retorna até 5 resultados sem ordenação por relevância. Artigos que têm "resina" apenas no excerpt aparecem antes de artigos com "ortho" no título.
+
+A fix é ordenar os resultados do ILIKE por número de palavras-chave encontradas no título (maior relevância primeiro) antes de fatiar `.slice(0, 5)`:
 
 ```typescript
-const pendingQueryRef = useRef<string | null>(null);
+// Após receber data do Supabase, antes de mapear:
+const sorted = (data || []).sort((a, b) => {
+  const scoreA = words.filter(w => a.title.toLowerCase().includes(w)).length;
+  const scoreB = words.filter(w => b.title.toLowerCase().includes(w)).length;
+  return scoreB - scoreA;  // maior score primeiro
+});
 
-// No useEffect do evento:
-pendingQueryRef.current = query;
-setIsOpen(true);
-setInput(query);
-
-// Novo useEffect que observa mudança em input + pendingQueryRef:
-useEffect(() => {
-  if (pendingQueryRef.current && input === pendingQueryRef.current) {
-    pendingQueryRef.current = null;
-    sendMessage();
-  }
-}, [input, sendMessage]);
+return sorted.map((a) => { ... });
 ```
 
-Isso garante que `sendMessage` só é chamado depois que `setInput(query)` terminou de renderizar, evitando o problema de closure stale.
+Isso garante que "Smart Ortho: Adesivo Ortodôntico 3 em 1" (título tem "ortho") aparece antes de "Resina Atos Academic" (título tem "resina" mas não "ortho").
 
-### 2. `src/pages/KnowledgeBase.tsx` — Disparar o evento ao pressionar Enter
+### Ajuste 3 — Também buscar por `ai_context` no ILIKE (sinônimos e termos alternativos)
 
-No campo de busca, adicionar `onKeyDown` que — quando o usuário pressionar **Enter** — dispara o `CustomEvent` e limpa o campo (a busca normal de artigos continua funcionando ao digitar):
+O campo `ai_context` existe na tabela `knowledge_contents` e serve exatamente para isso: guardar contexto adicional de busca/IA. Se o admin tiver cadastrado "Atos Ortho" como sinônimo no `ai_context` do artigo `Smart Ortho`, a busca vai encontrar.
+
+Adicionar `ai_context` no filtro ILIKE da query:
 
 ```typescript
-const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-  if (e.key === 'Enter' && searchTerm.trim().length >= 2) {
-    window.dispatchEvent(
-      new CustomEvent('dra-lia:ask', { detail: { query: searchTerm } })
-    );
-    setSearchTerm(''); // Limpa o campo após enviar para a Dra. L.I.A.
-  }
-};
+// Antes:
+const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%`).join(',');
+
+// Depois:
+const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%,ai_context.ilike.%${w}%`).join(',');
 ```
 
-Também adicionar um placeholder atualizado indicando a nova funcionalidade, e um ícone de "pressione Enter para perguntar à Dra. L.I.A." abaixo do campo, tipo hint:
+E no select, incluir `ai_context` para poder usá-lo:
 
-```tsx
-{searchTerm.trim().length >= 2 && (
-  <div className="text-xs text-muted-foreground mt-2 text-center">
-    Pressione <kbd>Enter</kbd> para perguntar à Dra. L.I.A. 🦷
-  </div>
-)}
+```typescript
+.select('id, title, slug, excerpt, ai_context, category_id, knowledge_categories:knowledge_categories(letter)')
 ```
 
----
+## Por que isso resolve
 
-## Fluxo completo
+Com os três ajustes:
 
-```text
-1. Usuário digita "resina para dentística"
-   → Campo atualiza (busca de artigos normal funciona)
-   → Hint aparece: "Pressione Enter para perguntar à Dra. L.I.A."
+1. `"Atos"` passa pelo filtro (4 >= 3 ✓)
+2. ILIKE busca com `%atos%`, `%resina%`, `%ortho%`
+3. Artigos com "ATOS" ou "ortho" no título recebem score alto e aparecem primeiro
+4. Resultado esperado:
+   - 1º: **ATOS Smart Ortho: Adesivo Ortodôntico para Bráquetes** (título tem "atos" + "ortho")
+   - 2º: **Smart Ortho: Adesivo Ortodôntico 3 em 1** (título tem "ortho")
+   - 3º: **Atos Unichroma** (título tem "atos")
 
-2. Usuário pressiona Enter
-   → KnowledgeBase dispara: window.dispatchEvent(new CustomEvent('dra-lia:ask', { detail: { query: "resina para dentística" } }))
-   → Campo de busca é limpo
+5. O AI recebe esses artigos como contexto e responde corretamente sobre o produto Ortho da linha Atos.
 
-3. DraLIA recebe o evento
-   → setIsOpen(true) — abre o widget
-   → setInput("resina para dentística")
-   → sendMessage() é chamado automaticamente
-
-4. Resposta aparece no chat da Dra. L.I.A. com media cards e botões 👍/👎
-```
-
----
-
-## Arquivos modificados
+## Arquivo modificado
 
 | Arquivo | Mudanças |
 |---|---|
-| `src/components/DraLIA.tsx` | Adicionar `pendingQueryRef`, `useEffect` para ouvir o `CustomEvent 'dra-lia:ask'`, e `useEffect` para disparar `sendMessage` quando o input for preenchido pelo evento |
-| `src/pages/KnowledgeBase.tsx` | Adicionar `onKeyDown` no Input de busca que dispara o `CustomEvent` ao pressionar Enter + hint visual "Pressione Enter para perguntar à Dra. L.I.A." |
-
----
+| `supabase/functions/dra-lia/index.ts` | 1. Mudar `> 4` para `>= 3` na filtragem de palavras do ILIKE; 2. Adicionar ordenação por relevância no título antes do slice; 3. Incluir `ai_context` no filtro e select do ILIKE |
 
 ## Seção Técnica
 
-- `CustomEvent` é nativo do browser, sem dependências adicionais — sem instalação de pacotes.
-- O widget já está renderizado em `App.tsx` com `DraLIAGlobal` em todas as rotas exceto `/admin` e `/embed`, então ele sempre existe no DOM quando o usuário está na Base de Conhecimento.
-- O `embedded` mode (usado em `/embed/dra-lia`) não escuta o evento porque o `DraLIA` em modo `embedded` não tem o botão flutuante — mas isso não é problema pois a página `/embed/dra-lia` nunca tem a KnowledgeBase aberta ao mesmo tempo.
-- O hint só aparece quando `searchTerm.length >= 2` para não mostrar no estado vazio.
-- A busca de artigos na sidebar continua funcionando normalmente (filtra enquanto digita). Enter apenas encaminha a pergunta para a Dra. L.I.A.
+- O campo `ai_context` já existe na tabela `knowledge_contents` (confirmado no schema). Buscá-lo não requer migração de banco.
+- O threshold `>= 3` evita stopwords de 1-2 letras mas captura siglas e nomes de marcas curtos como "Atos" (4), "Bio" (3), "3D" (2 — ficaria de fora mas não é relevante).
+- A ordenação por score de título é O(n log n) sobre no máximo 50 resultados — custo desprezível.
+- Deploy da edge function é necessário. Nenhuma mudança no banco ou no frontend.
