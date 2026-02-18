@@ -437,12 +437,17 @@ async function mapProducts(products: any[], supabaseAdmin: any): Promise<Catalog
       description: product.description,
       image_url: finalImageUrl,
       price: product.price ? parseFloat(product.price) : undefined,
-      promo_price: product.promo_price ? parseFloat(product.promo_price) : undefined,
+      promo_price: product.promo_price
+        ? parseFloat(product.promo_price)
+        : (product.original_price ? parseFloat(product.original_price) : undefined),
       currency: 'BRL',
-      keywords: Array.isArray(product.keywords) ? product.keywords : [],
+      keywords: [
+        ...(Array.isArray(product.keywords) ? product.keywords : []),
+        ...(Array.isArray(product.market_keywords) ? product.market_keywords : [])
+      ],
       seo_title_override: product.seo_title_override,
       meta_description: product.seo_description_override,
-      canonical_url: product.canonical_url,
+      canonical_url: product.canonical_url || product.product_url || undefined,
       og_image_url: product.og_image_url,
       cta_1_label: product.resource_cta1?.label,
       cta_1_url: product.resource_cta1?.url,
@@ -462,9 +467,22 @@ async function mapProducts(products: any[], supabaseAdmin: any): Promise<Catalog
         features: product.features,
         images_gallery: product.images_gallery,
         coupons: p.coupons,
-        specifications: product.specifications,
+        specifications: product.specifications || product.technical_specifications,
         category: product.category,
-        subcategory: product.subcategory
+        subcategory: product.subcategory,
+        // New fields from llm_optimized format
+        sales_pitch: product.sales_pitch,
+        applications: product.applications,
+        anti_hallucination: product.anti_hallucination,
+        faq: product.faq,
+        market_keywords: product.market_keywords,
+        required_products: product.required_products,
+        forbidden_products: product.forbidden_products,
+        bot_trigger_words: product.bot_trigger_words,
+        target_audience: product.target_audience,
+        brand: product.brand,
+        mpn: product.mpn,
+        product_url: product.product_url
       }
     })
   }
