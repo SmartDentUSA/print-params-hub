@@ -23,6 +23,29 @@ const GREETING_PATTERNS = [
 const isGreeting = (msg: string) =>
   GREETING_PATTERNS.some((p) => p.test(msg.trim())) && msg.trim().split(/\s+/).length <= 5;
 
+// Protocol keywords — detect questions about cleaning, curing, finishing
+const PROTOCOL_KEYWORDS = [
+  // PT
+  /limpeza|lavagem|lavar|limpar/i,
+  /\bcura\b|pós.cura|pos.cura|fotopolimerizar/i,
+  /finaliz|acabamento|polimento|polir/i,
+  /pré.process|pre.process|pós.process|pos.process|processamento|protocolo/i,
+  /nanoclean|isopropílico|isopropilico|álcool|alcool/i,
+  // EN
+  /\bclean\b|wash|washing/i,
+  /post.cure|post cure|\bcuring\b/i,
+  /\bfinish\b|polish/i,
+  /\bprocessing\b|protocol/i,
+  // ES
+  /limpieza/i,
+  /curado|post.curado/i,
+  /pulido|acabado/i,
+  /procesamiento/i,
+];
+
+const isProtocolQuestion = (msg: string) =>
+  PROTOCOL_KEYWORDS.some((p) => p.test(msg));
+
 const GREETING_RESPONSES: Record<string, string> = {
   "pt-BR": "Olá! Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje? Pode me perguntar sobre resinas, impressoras, parâmetros de impressão ou vídeos técnicos. 😊",
   "en-US": "Hello! I'm Dr. L.I.A., SmartDent's digital dentistry specialist. How can I help you today? Feel free to ask about resins, printers, print parameters or technical videos. 😊",
@@ -87,6 +110,64 @@ async function generateEmbedding(text: string): Promise<number[] | null> {
   }
 }
 
+// Search processing instructions directly from resins table — SOURCE OF TRUTH
+async function searchProcessingInstructions(
+  supabase: ReturnType<typeof createClient>,
+  message: string
+) {
+  const { data: resins, error } = await supabase
+    .from("resins")
+    .select("id, name, manufacturer, slug, processing_instructions, cta_1_url, cta_1_label")
+    .eq("active", true)
+    .not("processing_instructions", "is", null);
+
+  if (error || !resins?.length) return [];
+
+  // Score resins by name/manufacturer match in message
+  const words = message.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+
+  const scored = resins
+    .map((r: {
+      id: string;
+      name: string;
+      manufacturer: string;
+      slug: string | null;
+      processing_instructions: string;
+      cta_1_url: string | null;
+      cta_1_label: string | null;
+    }) => {
+      const text = `${r.name} ${r.manufacturer}`.toLowerCase();
+      const score = words.filter((w) => text.includes(w)).length;
+      return { resin: r, score };
+    })
+    .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+
+  // If a specific resin was mentioned, use only matched ones; otherwise return all
+  const matched = scored.filter((x: { score: number }) => x.score > 0);
+  const targets = matched.length > 0 ? matched : scored;
+
+  return targets.slice(0, 3).map(({ resin: r }: { resin: {
+    id: string;
+    name: string;
+    manufacturer: string;
+    slug: string | null;
+    processing_instructions: string;
+    cta_1_url: string | null;
+    cta_1_label: string | null;
+  }}) => ({
+    id: r.id,
+    source_type: "processing_protocol",
+    chunk_text: `${r.name} (${r.manufacturer}) — Instruções de Pré e Pós Processamento:\n${r.processing_instructions}`,
+    metadata: {
+      title: `Protocolo de Processamento: ${r.name}`,
+      resin_name: r.name,
+      cta_1_url: r.cta_1_url,
+      url_publica: r.slug ? `/resina/${r.slug}` : null,
+    },
+    similarity: 0.95, // High priority — source of truth
+  }));
+}
+
 // Search using pgvector if embeddings available, otherwise full-text search
 async function searchKnowledge(
   supabase: ReturnType<typeof createClient>,
@@ -141,7 +222,6 @@ async function searchKnowledge(
 
   // Last resort: keyword search on videos
   const keywords = query.split(" ").filter((w) => w.length > 3).slice(0, 4);
-  const videoQuery = keywords.map((k) => `%${k}%`).join("|");
 
   if (keywords.length > 0) {
     const { data: videos } = await supabase
@@ -240,14 +320,29 @@ serve(async (req) => {
       });
     }
 
-    // 1. Search knowledge base (vector or fulltext)
-    const { results, method, topSimilarity } = await searchKnowledge(supabase, message, lang);
+    // 1. Parallel search: knowledge base + processing protocols (if protocol question)
+    const isProtocol = isProtocolQuestion(message);
 
+    const [knowledgeResult, protocolResults] = await Promise.all([
+      searchKnowledge(supabase, message, lang),
+      isProtocol ? searchProcessingInstructions(supabase, message) : Promise.resolve([]),
+    ]);
+
+    const { results: knowledgeResults, method, topSimilarity: knowledgeTopSimilarity } = knowledgeResult;
+
+    // 2. Filter knowledge results by minimum similarity
     const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.05;
-    const filteredResults = results.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
-    const hasResults = filteredResults.length > 0;
+    const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
-    // 2. If no results (or all below threshold): return human fallback
+    // 3. Merge: protocol results first (higher priority), then knowledge results
+    const allResults = [...protocolResults, ...filteredKnowledge];
+    const topSimilarity = protocolResults.length > 0
+      ? 0.95
+      : (filteredKnowledge[0]?.similarity || knowledgeTopSimilarity);
+
+    const hasResults = allResults.length > 0;
+
+    // 4. If no results: return human fallback
     if (!hasResults) {
       const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
 
@@ -300,8 +395,8 @@ serve(async (req) => {
       });
     }
 
-    // 3. Build context from search results
-    const contextParts = filteredResults.map((m: {
+    // 5. Build context from all results
+    const contextParts = allResults.map((m: {
       source_type: string;
       chunk_text: string;
       metadata: Record<string, unknown>;
@@ -341,11 +436,22 @@ REGRAS ABSOLUTAS:
 8. Valores técnicos (tempos em segundos, alturas em mm) NUNCA traduzir — apenas o texto ao redor
 9. Se houver múltiplos resultados relevantes, mencione o mais relevante primeiro.
    Ofereça os demais apenas se fizer sentido contextual ("Também encontrei um vídeo sobre...").
-10. Busca usada: ${method} — seja precisa e baseie-se apenas nos dados fornecidos
+10. Busca usada: ${method}${isProtocol ? " + protocolo direto" : ""} — seja precisa e baseie-se apenas nos dados fornecidos
 11. Brevidade: prefira respostas curtas e precisas. Só detalhe quando o usuário pedir
     mais informações ou quando a pergunta for claramente técnica e detalhada.
 12. Se a mensagem do usuário for uma saudação ou não tiver intenção técnica clara,
     responda apenas cumprimentando e perguntando como pode ajudar — NÃO cite nenhum produto.
+13. PROTOCOLOS DE PROCESSAMENTO (fontes do tipo PROCESSING_PROTOCOL):
+    Estes dados vêm diretamente das configurações cadastradas pelo fabricante — são a FONTE DA VERDADE.
+    Quando presentes no contexto, apresente as etapas na ordem exata do documento:
+    1. Pré-processamento (remoção de suportes, etc.)
+    2. Lavagem/Limpeza (produto, tempo, método)
+    3. Secagem
+    4. Pós-cura UV (com tempos por equipamento se disponível)
+    5. Tratamento térmico (se houver)
+    6. Acabamento e polimento (se houver)
+    Use listas com bullet points. Destaque produtos SmartDent com **negrito**.
+    Nunca omita etapas — a ordem correta é crítica para o resultado clínico.
 
 --- DADOS DAS FONTES ---
 ${context}
@@ -353,7 +459,7 @@ ${context}
 
 Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
-    // 4. Stream response via Gemini
+    // 6. Stream response via Gemini
     const messagesForAI = [
       { role: "system", content: systemPrompt },
       ...history.slice(-8).map((h: { role: string; content: string }) => ({
@@ -387,8 +493,8 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
 
-    // 5. Save interaction
-    const contextSources = filteredResults.map((m: { source_type: string; metadata: Record<string, unknown> }) => ({
+    // 7. Save interaction
+    const contextSources = allResults.map((m: { source_type: string; metadata: Record<string, unknown> }) => ({
       type: m.source_type,
       title: (m.metadata as Record<string, unknown>).title,
     }));
@@ -406,7 +512,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       .select("id")
       .single();
 
-    // 6. Stream AI response
+    // 8. Stream AI response
     const encoder = new TextEncoder();
     let fullResponse = "";
 
