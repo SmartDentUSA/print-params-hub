@@ -217,5 +217,21 @@
     "title": "FAQ",
     "subtitle": "Perguntas Frequentes",
     "hint": "💡 Essas perguntas são baseadas nas dúvidas mais comuns sobre o tema."
+  },
+  "dra_lia": {
+    "button_label": "Dra. L.I.A.",
+    "header_subtitle": "Assistente SmartDent",
+    "welcome_message": "Olá! 👋 Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje?",
+    "input_placeholder": "Digite sua dúvida...",
+    "typing": "Digitando...",
+    "feedback_helpful": "Isso me ajudou!",
+    "feedback_missing": "O que faltou?",
+    "feedback_send": "Enviar feedback",
+    "feedback_thanks": "Obrigado pelo feedback! 🙏",
+    "feedback_comment_placeholder": "Descreva o que faltou na resposta...",
+    "connection_error": "Erro de conexão. Tente novamente.",
+    "send_aria": "Enviar mensagem",
+    "close_aria": "Fechar chat",
+    "open_aria": "Abrir chat com Dra. L.I.A."
   }
 }

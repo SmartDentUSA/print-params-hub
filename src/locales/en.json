@@ -217,5 +217,21 @@
     "title": "FAQ",
     "subtitle": "Frequently Asked Questions",
     "hint": "💡 These questions are based on the most common questions about this topic."
+  },
+  "dra_lia": {
+    "button_label": "Dr. L.I.A.",
+    "header_subtitle": "SmartDent Assistant",
+    "welcome_message": "Hello! 👋 I'm Dr. L.I.A., SmartDent's digital dentistry specialist. How can I help you today?",
+    "input_placeholder": "Type your question...",
+    "typing": "Typing...",
+    "feedback_helpful": "This helped me!",
+    "feedback_missing": "What was missing?",
+    "feedback_send": "Send feedback",
+    "feedback_thanks": "Thank you for your feedback! 🙏",
+    "feedback_comment_placeholder": "Describe what was missing in the answer...",
+    "connection_error": "Connection error. Please try again.",
+    "send_aria": "Send message",
+    "close_aria": "Close chat",
+    "open_aria": "Open chat with Dr. L.I.A."
   }
 }

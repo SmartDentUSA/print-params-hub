@@ -125,3 +125,9 @@ verify_jwt = false
 
 [functions.format-processing-instructions]
 verify_jwt = false
+
+[functions.dra-lia]
+verify_jwt = false
+
+[functions.index-embeddings]
+verify_jwt = false
