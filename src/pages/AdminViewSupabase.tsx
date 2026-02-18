@@ -14,6 +14,7 @@ import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 import { AdminBatchTranslator } from "@/components/AdminBatchTranslator";
 import { ApostilaExport } from "@/components/ApostilaExport";
+import { AdminApostilaImporter } from "@/components/AdminApostilaImporter";
 const AdminViewSupabase = () => {
   const dataContext = useData();
 
@@ -171,6 +172,9 @@ const AdminViewSupabase = () => {
 
           {/* Video Product Links Dashboard */}
           <AdminVideoProductLinks />
+
+          {/* Apostila Importer — Import JSON from Sistema A */}
+          <AdminApostilaImporter />
 
           {/* Apostila Export */}
           <ApostilaExport />
