@@ -1,135 +1,121 @@
 
-# Fix: Campos brand, mpn, anti_hallucination, required_products, forbidden_products nulos após importação
+# Diagnóstico e Fix: Erro 500 na importação do knowledge_base_llm_optimized
 
-## Causa raiz identificada (leitura direta do JSON)
+## Causa raiz identificada
 
-Após ler a estrutura real do arquivo `knowledge_base_llm_optimized_2026-02-18.json`, foram identificados dois problemas distintos:
+Existem **dois problemas distintos** causando o erro 500:
 
-### Problema 1 — required_products e forbidden_products estão dentro de anti_hallucination
+### Problema 1 (337ms / 440ms) — nonProductPayload com company gigante
 
-No JSON real, a estrutura é:
-```
-product.anti_hallucination.required_products[]
-product.anti_hallucination.forbidden_products[]
-product.anti_hallucination.never_claim[]
-product.anti_hallucination.never_mix_with[]
-product.anti_hallucination.always_require[]
-product.anti_hallucination.always_explain[]
-product.anti_hallucination.never_use_in_stages[]
-```
+O novo arquivo `knowledge_base_llm_optimized` tem um objeto `company` muito rico, com `company_videos` contendo dezenas de vídeos do Instagram/YouTube com descrições longas (~25KB só para o company). O `nonProductPayload` envia esse objeto inteiro para a edge function em uma única chamada.
 
-O mapeamento atual está tentando ler `product.required_products` e `product.forbidden_products` no nível raiz — esses campos **não existem** lá. Por isso chegam nulos.
+**Evidência**: O banco já tem um registro `company_info` com 25.127+ caracteres de `extra_data` (com todos os vídeos). Isso indica que o objeto é muito grande para o corpo da request — a edge function falha antes mesmo de processar.
 
-### Problema 2 — brand e mpn existem no produto mas chegam nulos
+### Problema 2 (campo name diferente) — mapCompanyProfile quebra
 
-O banco mostra `brand: null` para produtos como "Atos Resina Composta Direta - DA1" que claramente tem `"brand": "SMART DENT®"` e `"mpn": "9021.29.00"` no JSON. Isso indica que o upsert está sendo executado mas sobrescrevendo com `extra_data` sem esses campos (conflito com registro anterior do arquivo apostila que não tinha esses campos, e cujo `extra_data` sobrescreveu o novo).
+O `mapCompanyProfile` tenta ler `company.company_name`, mas no novo arquivo o campo é `company.name`. Isso causa `name: undefined` no upsert, o que viola a constraint `NOT NULL` da coluna `name` em `system_a_catalog`.
 
-### Problema 3 — bot_trigger_words não existe no novo arquivo
+**Evidência do banco**:
+- Registro antigo: `external_id: "company_3b20b85d-..."` com `name: "Nova Empresaxxx"` (quebrado)
+- Registro novo: `external_id: "company_3b20b85d-..."` com `name: "Smart Dent"` (correto)
 
-O campo `bot_trigger_words` não aparece em nenhum produto do novo arquivo `llm_optimized`. Foi mapeado desnecessariamente. Pode ser removido do mapeamento (será null sempre).
+### Problema 3 — Erro de throw no loop de upsert
 
-### Estrutura correta confirmada do produto
+Na edge function, `throw upsertError` dentro do loop faz a função retornar 500 ao invés de continuar com os outros batches quando há um erro pontual.
 
-```json
-{
-  "id": "760dd503-...",
-  "name": "Atos Resina Composta Direta - DA1",
-  "brand": "SMART DENT®",          ← nível raiz (OK, mas upsert sobrescrevendo)
-  "mpn": "9021.29.00",             ← nível raiz (OK, mas upsert sobrescrevendo)
-  "sales_pitch": "...",            ← nível raiz (já funcionando)
-  "faq": [...],                    ← nível raiz (já funcionando)
-  "anti_hallucination": {          ← objeto completo
-    "never_claim": [...],
-    "never_mix_with": [...],
-    "always_require": [...],
-    "always_explain": [...],
-    "never_use_in_stages": [...],
-    "required_products": [...],    ← está AQUI, não no nível raiz
-    "forbidden_products": [...]    ← está AQUI, não no nível raiz
+## Solução — 2 arquivos
+
+### Arquivo 1: `src/components/AdminApostilaImporter.tsx`
+
+**Mudar o `nonProductPayload` para não incluir `company` diretamente** — em vez disso, fazer a chamada do company separadamente, com o objeto `company` **truncado** (sem `company_videos` que é enorme e desnecessário para o catálogo).
+
+```typescript
+// ANTES: envia company inteiro (pode ser 25KB+)
+const nonProductPayload = {
+  data: {
+    company: rawData.company || rawData.company_profile || null,
+    categories: ...,
+    testimonials: ...,
+    ...
+  }
+}
+
+// DEPOIS: strip company_videos antes de enviar
+const companyData = rawData.company || rawData.company_profile || null;
+const companyStripped = companyData ? {
+  ...companyData,
+  company_videos: undefined, // Remove vídeos gigantes
+  instagram_videos: undefined,
+} : null;
+
+const nonProductPayload = {
+  data: {
+    company: companyStripped,
+    categories: ...,
+    testimonials: ...,
+    ...
   }
 }
 ```
 
-## Solução
+### Arquivo 2: `supabase/functions/import-system-a-json/index.ts`
 
-### Mudança única: `supabase/functions/import-system-a-json/index.ts`
-
-Corrigir o objeto `extra_data` dentro de `mapProducts` (linhas 464-486):
-
-#### 1. required_products e forbidden_products: extrair de dentro de anti_hallucination
+**Fix 1 — mapCompanyProfile: suportar ambos `company.name` e `company.company_name`**
 
 ```typescript
-// ANTES (errado):
-anti_hallucination: product.anti_hallucination,
-required_products: product.required_products,     // não existe no nível raiz
-forbidden_products: product.forbidden_products,   // não existe no nível raiz
+// ANTES:
+name: company.company_name,
 
-// DEPOIS (correto):
-anti_hallucination: product.anti_hallucination,   // salva o objeto completo
-required_products: product.anti_hallucination?.required_products,   // extrai do sub-objeto
-forbidden_products: product.anti_hallucination?.forbidden_products, // extrai do sub-objeto
+// DEPOIS (suporta old e new schema):
+name: company.name || company.company_name || 'Smart Dent',
 ```
 
-#### 2. Garantir que brand e mpn são capturados corretamente
-
-Os campos já estão mapeados corretamente mas o upsert de registros antigos pode estar sobrescrevendo. A solução é garantir que o `extra_data` use merge com dados existentes **ou** forçar que brand/mpn sejam sempre escritos corretamente mesmo em upserts.
-
-Como `extra_data` é JSONB e o upsert substitui o campo inteiro, o problema é que registros importados anteriormente (do arquivo apostila) que não tinham `brand`/`mpn` sobrescrevem os novos. A solução correta é:
-- Usar `jsonb_set` no upsert para fazer merge de `extra_data`, **ou**
-- Simplesmente fazer a importação funcionar corretamente com o novo arquivo (garantindo que brand/mpn sejam capturados agora)
-
-A abordagem mais simples é garantir que o upsert substitua os dados corretamente — o novo arquivo tem os dados, então a próxima reimportação vai gravar corretamente.
-
-#### 3. Remover bot_trigger_words (campo inexistente no novo arquivo)
-
-Campo não existe no novo arquivo. Remover para manter o código limpo.
-
-## Arquivo modificado
-
-**`supabase/functions/import-system-a-json/index.ts`** — apenas o bloco `extra_data` dentro de `mapProducts`:
+**Fix 2 — external_id consistente para company** (evita duplicatas):
 
 ```typescript
-extra_data: {
-  variations: product.variations,
-  benefits: product.benefits,
-  features: product.features,
-  images_gallery: product.images_gallery,
-  coupons: p.coupons,
-  specifications: product.specifications || product.technical_specifications,
-  category: product.category,
-  subcategory: product.subcategory,
-  // Campos ricos do llm_optimized
-  sales_pitch: product.sales_pitch,
-  applications: product.applications,
-  anti_hallucination: product.anti_hallucination,
-  // CORRIGIDO: extrair de dentro do objeto anti_hallucination
-  required_products: product.anti_hallucination?.required_products,
-  forbidden_products: product.anti_hallucination?.forbidden_products,
-  faq: product.faq,
-  market_keywords: product.market_keywords,
-  target_audience: product.target_audience,
-  brand: product.brand,
-  mpn: product.mpn,
-  product_url: product.product_url
+// ANTES:
+external_id: String(company.id || 'company-1'),
+
+// DEPOIS (prefixo fixo para evitar conflito com external_id sem prefixo):
+external_id: `company_${company.id || 'main'}`,
+```
+
+**Fix 3 — Não throw no loop de upsert** (degradação graciosa):
+
+```typescript
+// ANTES:
+if (upsertError) {
+  console.error('❌ Upsert error:', upsertError)
+  stats.errors++
+  throw upsertError  // ← mata tudo
+}
+
+// DEPOIS:
+if (upsertError) {
+  console.error('❌ Upsert error:', upsertError)
+  stats.errors++
+  // continua sem throw — outros batches ainda processam
 }
 ```
 
-## Resultado esperado após reimportar
+**Fix 4 — Remover logs DEBUG** (foram adicionados temporariamente):
 
-Após deploy e nova importação do arquivo `knowledge_base_llm_optimized`:
+```typescript
+// Remover o bloco if (mapped.length === 0) { console.log('🔍 DEBUG...') }
+```
 
-| Campo | Antes | Depois |
-|---|---|---|
-| `anti_hallucination` | null | objeto completo com never_claim, always_explain etc. |
-| `required_products` | null | array de produtos necessários |
-| `forbidden_products` | null | array de produtos incompatíveis |
-| `brand` | null | "SMART DENT®" |
-| `mpn` | null | "9021.29.00" |
+## Resultado esperado
+
+- Primeiro request (nonProductPayload) completa sem 500 — company sem `company_videos` é pequeno
+- Batches de produtos completam normalmente
+- Se algum batch falhar, os outros continuam (não quebra tudo)
+- O `mapCompanyProfile` grava corretamente com `name: "Smart Dent"`
+- External_id do company usa prefixo `company_` consistente
 
 ## Seção Técnica
 
-- Nenhuma mudança de banco necessária
-- O upsert usa `onConflict: 'source,external_id'` — portanto produtos com mesmo `external_id` serão sobrescritos corretamente na próxima importação
-- `bot_trigger_words` foi removido: o campo não existe em nenhum produto do novo arquivo (pode ter sido planejado mas não implementado no export)
-- A extração `product.anti_hallucination?.required_products` usa optional chaining — segura para produtos sem `anti_hallucination`
-- Deploy da edge function necessário antes da reimportação
+- `company_videos` não é necessário para o catálogo — é usado apenas para o chatbot Dra. L.I.A. via `extra_data`, mas no novo formato esse dado não precisa ser importado para `system_a_catalog`
+- O banco tem constraint `name NOT NULL` em `system_a_catalog` — por isso o company com `name: undefined` causava o 500 (constraint violation)
+- A mudança no `throw` do loop é importante: com 116 produtos em 8 batches, se um falhar não deve quebrar todos os outros
+- Nenhuma migração de banco necessária
+- Deploy da edge function é automático
