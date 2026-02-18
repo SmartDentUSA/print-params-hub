@@ -61,36 +61,46 @@ async function searchByILIKE(
   supabase: ReturnType<typeof createClient>,
   query: string,
 ) {
+  // Ajuste 1: >= 3 para capturar nomes curtos de marcas como "Atos" (4), "Bio" (3)
   const words = query
     .toLowerCase()
     .replace(/[?!.,;:]/g, '')
     .split(/\s+/)
-    .filter((w) => w.length > 4 && !STOPWORDS_PT.includes(w))
-    .slice(0, 5);
+    .filter((w) => w.length >= 3 && !STOPWORDS_PT.includes(w))
+    .slice(0, 6);
 
   if (!words.length) return [];
 
-  const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%`).join(',');
+  // Ajuste 3: incluir ai_context no filtro ILIKE para capturar sinônimos
+  const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%,ai_context.ilike.%${w}%`).join(',');
 
   const { data } = await supabase
     .from('knowledge_contents')
-    .select('id, title, slug, excerpt, category_id, knowledge_categories:knowledge_categories(letter)')
+    .select('id, title, slug, excerpt, ai_context, category_id, knowledge_categories:knowledge_categories(letter)')
     .eq('active', true)
     .or(orFilter)
-    .limit(5);
+    .limit(20); // Buscar mais resultados para depois ordenar e filtrar
 
-  return (data || []).map((a: {
+  // Ajuste 2: ordenar por relevância no título (maior score = mais palavras no título)
+  const sorted = (data || []).sort((a: { title: string }, b: { title: string }) => {
+    const scoreA = words.filter(w => a.title.toLowerCase().includes(w)).length;
+    const scoreB = words.filter(w => b.title.toLowerCase().includes(w)).length;
+    return scoreB - scoreA; // maior score primeiro
+  });
+
+  return sorted.slice(0, 5).map((a: {
     id: string;
     title: string;
     slug: string;
     excerpt: string;
+    ai_context: string | null;
     knowledge_categories: { letter: string } | null;
   }) => {
     const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
     return {
       id: a.id,
       source_type: 'article',
-      chunk_text: `${a.title} | ${a.excerpt}`,
+      chunk_text: `${a.title} | ${a.excerpt}${a.ai_context ? ' | ' + a.ai_context : ''}`,
       metadata: {
         title: a.title,
         slug: a.slug,
