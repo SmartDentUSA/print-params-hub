@@ -423,6 +423,16 @@ async function mapProducts(products: any[], supabaseAdmin: any): Promise<Catalog
   for (const p of products) {
     const product = p.product || p
     
+    // DEBUG: log first product structure to check where brand/anti_hallucination live
+    if (mapped.length === 0) {
+      console.log('🔍 DEBUG first product keys (p):', Object.keys(p).join(', '))
+      console.log('🔍 DEBUG first product keys (product):', Object.keys(product).join(', '))
+      console.log('🔍 DEBUG brand:', product.brand, '| p.brand:', p.brand)
+      console.log('🔍 DEBUG mpn:', product.mpn, '| p.mpn:', p.mpn)
+      console.log('🔍 DEBUG anti_hallucination:', JSON.stringify(product.anti_hallucination)?.substring(0, 200))
+      console.log('🔍 DEBUG p.anti_hallucination:', JSON.stringify(p.anti_hallucination)?.substring(0, 200))
+    }
+    
     // Use original image URL directly (no upload to avoid timeout with many products)
     const finalImageUrl = product.image_url || null
     
