@@ -1,76 +1,71 @@
 
-# Fix: Erro "Invalid regular expression" no import-system-a-json
+# Fix: Timeout na Importação de Catálogo (upload de imagens + payload grande)
 
-## Causa raiz confirmada
+## Causa raiz real (pós-fix do regex)
 
-Na função `addSmartLinks` (linha 287 de `supabase/functions/import-system-a-json/index.ts`):
+O erro de regex foi corrigido. O novo erro vem de **dois problemas combinados**:
 
-```typescript
-const regexExact = new RegExp(`\\b${keyword}\\b`, 'gi')
-```
+### Problema 1 — Upload de imagem por produto (timeout)
+A função `mapProducts` (linha 416-479) faz upload de imagem para cada produto via `uploadImageToStorage`, que inclui:
+- `fetch()` externo para baixar a imagem
+- Upload para Supabase Storage
+- Verificação se arquivo já existe (loop de storage list)
 
-O JSON da apostila contém keywords com texto livre como:
-- `"[nome do produto] para [público-alvo]"`
-- `"[marca] vs [concorrente]"`
+Com 116 produtos, isso pode levar **5-10 minutos** — muito além do timeout de 150s da edge function.
 
-Quando `keyword = "[nome do produto] para [público-alvo]"`, o regex construído fica:
-```
-/\b[nome do produto] para [público-alvo]\b/gi
-```
-
-Isso é uma **classe de caracteres com range inválido** (`n-o`, `e-d`, etc.) → erro fatal `Range out of order in character class` → HTTP 500.
+### Problema 2 — Upsert único de todos os itens
+A função tenta fazer upsert de todos os itens em uma única chamada (linha 843-858). Com depoimentos + produtos + reviews, o payload pode ser muito grande.
 
 ## Solução
 
-Dois ajustes na função `addSmartLinks`:
-
-### Fix 1 — Escapar caracteres especiais do regex antes de construir o pattern
-
-Adicionar uma função `escapeRegex` que torna literais todos os metacaracteres do regex:
+### Fix 1 — Desabilitar upload automático de imagens no `mapProducts`
+O upload de imagens não é necessário para a importação do catálogo — a URL original já funciona. A migração de imagens pode ser feita depois, separadamente.
 
 ```typescript
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Antes (linha 424-433):
+let finalImageUrl = product.image_url
+if (product.image_url && product.image_url.startsWith('http')) {
+  console.log(`🖼️ Processando imagem: ${product.name}`)
+  finalImageUrl = await uploadImageToStorage(...)
+}
+
+// Depois: usar URL original diretamente
+const finalImageUrl = product.image_url || null
+```
+
+### Fix 2 — Upsert em lotes pequenos (chunked)
+Substituir o upsert único por lotes de 50 itens para evitar payload grande:
+
+```typescript
+// Dividir em lotes de 50
+const UPSERT_BATCH = 50
+for (let i = 0; i < allCatalogItems.length; i += UPSERT_BATCH) {
+  const batch = allCatalogItems.slice(i, i + UPSERT_BATCH)
+  const { error } = await supabase
+    .from('system_a_catalog')
+    .upsert(batch, { onConflict: 'source,external_id', ignoreDuplicates: false })
+  if (error) throw error
 }
 ```
 
-Usar nas linhas 287 e 311:
-```typescript
-// Antes (linha 287):
-const regexExact = new RegExp(`\\b${keyword}\\b`, 'gi')
-
-// Depois:
-const regexExact = new RegExp(`\\b${escapeRegex(keyword)}\\b`, 'gi')
-
-// Antes (linha 311):
-const regex = new RegExp(`\\b(${best.keyword})\\b`, 'i')
-
-// Depois:
-const regex = new RegExp(`\\b(${escapeRegex(best.keyword)})\\b`, 'i')
-```
-
-### Fix 2 — Skip keywords que contenham `[` ou `]` (keywords de template, não de produto)
-
-Keywords como `"[nome do produto] para [público-alvo]"` são claramente **templates de placeholder**, não palavras-chave reais. Além de escapar o regex, vale filtrar antes para não tentar linkar texto-template:
-
-```typescript
-// No início do forEach, após o check de length < 4:
-if (keyword.includes('[') || keyword.includes(']')) return // skip template keywords
-```
+### Fix 3 — Adicionar `product_category` e `product_subcategory` ao mapeamento
+A função está tentando inserir esses campos mas não estão na interface `CatalogItem`. Adicionar ao tipo para evitar erros de TypeScript e garantir que sejam salvos.
 
 ## Arquivo modificado
 
 **`supabase/functions/import-system-a-json/index.ts`**
 
-Mudanças específicas:
-1. Adicionar função `escapeRegex` (5 linhas, após linha 265)
-2. Filtrar keywords com `[` ou `]` (1 linha, dentro do forEach na linha ~283)
-3. Usar `escapeRegex(keyword)` nas linhas 287 e 311
+Mudanças:
+1. Linha ~424-433: remover `uploadImageToStorage`, usar URL original diretamente
+2. Linha ~843-858: substituir upsert único por loop em lotes de 50
+3. Interface `CatalogItem` (linha 82): adicionar campos `product_category` e `product_subcategory`
 
-Nenhuma mudança de banco, nenhum deploy de outra função, nenhuma alteração de UI.
+Nenhuma mudança de banco, nenhuma migração, nenhuma alteração de UI.
 
 ## Seção Técnica
 
-- O erro ocorria em **100% das chamadas** porque o primeiro batch (empresa/depoimentos) passa pelo `buildSearchIndex` → `addSmartLinks` — e o index já tem keywords inválidas dos produtos do catálogo existente.
-- A função `escapeRegex` é padrão MDN: `str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')`.
-- O deploy automático da edge function é necessário após a mudança.
+- Edge functions Supabase têm timeout de **150 segundos**. Com 116 produtos × ~2s por upload de imagem = ~230s → timeout.
+- O `uploadImageToStorage` também chama `storage.list()` em loop (até 100 vezes) antes de cada upload, multiplicando o problema.
+- Remover o upload de imagens reduz o tempo de execução de ~3-4 minutos para ~5-10 segundos.
+- O upsert em lotes de 50 elimina o risco de payload too large (limite ~6MB por request no Supabase).
+- As imagens externas da apostila continuarão funcionando via URL original — se quiser migrar para Storage depois, pode ser feito via função separada `migrate-catalog-images` (já existe no projeto).
