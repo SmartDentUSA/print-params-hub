@@ -1,106 +1,158 @@
 
-# Correção: Dra. L.I.A. não encontra "Atos Ortho" / resposta incorreta
+# Importar Apostila JSON como Base de Conhecimento da Dra. L.I.A. e Enriquecer Resinas/Catálogo
 
-## Diagnóstico confirmado
+## Diagnóstico: O que este JSON contém
 
-Pergunta do usuário: **"O que é a resina Atos Ortho?"**
+O arquivo `apostila-2026-02-18.json` é uma exportação completa do "Sistema A" da Smart Dent com **126.328 linhas**, contendo:
 
-A função `searchByILIKE` na edge function processa as palavras da query assim:
-
-```
-"resina Atos Ortho"
-  → split por espaços
-  → filtrar apenas palavras com length > 4  ← BUG AQUI
-  
-  "resina" (6) ✓  →  incluída
-  "Atos"   (4) ✗  →  DESCARTADA (4 não é > 4)
-  "Ortho"  (5) ✓  →  incluída
-```
-
-O ILIKE roda com `%resina%` e `%ortho%`, retornando 10 artigos — entre eles: Atos Academic, NanoClean, Comparativo de resinas. Eles ficam primeiro porque têm mais ocorrências de "resina". O artigo correto (`Smart Ortho: Adesivo Ortodôntico 3 em 1`) entra em 8ª posição como último do slice de 5 (`.limit(5)`).
-
-O AI recebe o contexto errado e gera uma resposta sobre Atos Academic e Atos Unichroma.
-
-**Problema secundário confirmado:** a função `search_knowledge_base` retorna `[]` para "Atos Ortho" — o FTS (Full Text Search) também não encontra porque `"Atos Ortho"` não tem correspondência por trigrama ou FTS em nenhum artigo que use essas palavras exatamente juntas.
-
-## Solução — dois ajustes na edge function
-
-### Ajuste 1 — Corrigir filtro de tamanho de palavra: `> 4` → `>= 3`
-
-Linha 68 de `supabase/functions/dra-lia/index.ts`:
-
-```typescript
-// Antes (bugado):
-.filter((w) => w.length > 4 && !STOPWORDS_PT.includes(w))
-
-// Depois (correto):
-.filter((w) => w.length >= 3 && !STOPWORDS_PT.includes(w))
-```
-
-Com isso, `"Atos"` (4 chars) e outras palavras curtas importantes como nomes de marcas passam pelo filtro.
-
-### Ajuste 2 — Melhorar ordenação do ILIKE: priorizar match no título sobre match no excerpt
-
-Atualmente a query ILIKE retorna até 5 resultados sem ordenação por relevância. Artigos que têm "resina" apenas no excerpt aparecem antes de artigos com "ortho" no título.
-
-A fix é ordenar os resultados do ILIKE por número de palavras-chave encontradas no título (maior relevância primeiro) antes de fatiar `.slice(0, 5)`:
-
-```typescript
-// Após receber data do Supabase, antes de mapear:
-const sorted = (data || []).sort((a, b) => {
-  const scoreA = words.filter(w => a.title.toLowerCase().includes(w)).length;
-  const scoreB = words.filter(w => b.title.toLowerCase().includes(w)).length;
-  return scoreB - scoreA;  // maior score primeiro
-});
-
-return sorted.map((a) => { ... });
-```
-
-Isso garante que "Smart Ortho: Adesivo Ortodôntico 3 em 1" (título tem "ortho") aparece antes de "Resina Atos Academic" (título tem "resina" mas não "ortho").
-
-### Ajuste 3 — Também buscar por `ai_context` no ILIKE (sinônimos e termos alternativos)
-
-O campo `ai_context` existe na tabela `knowledge_contents` e serve exatamente para isso: guardar contexto adicional de busca/IA. Se o admin tiver cadastrado "Atos Ortho" como sinônimo no `ai_context` do artigo `Smart Ortho`, a busca vai encontrar.
-
-Adicionar `ai_context` no filtro ILIKE da query:
-
-```typescript
-// Antes:
-const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%`).join(',');
-
-// Depois:
-const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%,ai_context.ilike.%${w}%`).join(',');
-```
-
-E no select, incluir `ai_context` para poder usá-lo:
-
-```typescript
-.select('id, title, slug, excerpt, ai_context, category_id, knowledge_categories:knowledge_categories(letter)')
-```
-
-## Por que isso resolve
-
-Com os três ajustes:
-
-1. `"Atos"` passa pelo filtro (4 >= 3 ✓)
-2. ILIKE busca com `%atos%`, `%resina%`, `%ortho%`
-3. Artigos com "ATOS" ou "ortho" no título recebem score alto e aparecem primeiro
-4. Resultado esperado:
-   - 1º: **ATOS Smart Ortho: Adesivo Ortodôntico para Bráquetes** (título tem "atos" + "ortho")
-   - 2º: **Smart Ortho: Adesivo Ortodôntico 3 em 1** (título tem "ortho")
-   - 3º: **Atos Unichroma** (título tem "atos")
-
-5. O AI recebe esses artigos como contexto e responde corretamente sobre o produto Ortho da linha Atos.
-
-## Arquivo modificado
-
-| Arquivo | Mudanças |
+| Seção | Conteúdo relevante |
 |---|---|
-| `supabase/functions/dra-lia/index.ts` | 1. Mudar `> 4` para `>= 3` na filtragem de palavras do ILIKE; 2. Adicionar ordenação por relevância no título antes do slice; 3. Incluir `ai_context` no filtro e select do ILIKE |
+| `data.company` | Descrição da empresa, missão, valores, canais, reviews Google, redes sociais |
+| `data.products` | ~50+ produtos com name, description, keywords, sales_pitch, FAQs, technical_specifications, seo_title_override, seo_description_override, image_url, resource_cta1/2/3, document_transcriptions (PDFs já transcritos por IA) |
+| `data.categories` | Categorias e subcategorias de produtos |
+| `data.kols` | Key Opinion Leaders (dentistas parceiros) |
+| `data.testimonials` | Depoimentos em vídeo |
+| `data.reviews` | Reviews do Google |
+| `data.blogs` | Artigos de blog/conteúdo |
+| `data.milestones` | Marcos da história da empresa |
+
+**Dados mais valiosos para a Dra. L.I.A.:**
+- `sales_pitch` — discurso comercial/técnico de cada produto
+- `technical_specifications` — specs técnicas (label + value)
+- `document_transcriptions[].extracted_data` — conteúdo de PDFs já extraído por IA (keywords, benefits, features, usage_instructions, document_sections)
+- `seo_title_override` e `seo_description_override` — descrições otimizadas prontas
+- `faq[]` — perguntas e respostas por produto
+- `keywords[]`, `benefits[]`, `features[]` — dados estruturados
+
+## Estratégia de importação — 3 objetivos paralelos
+
+```text
+JSON Apostila
+      │
+      ├─► 1. system_a_catalog (upsert produtos)
+      │         ↓
+      │         ↓ via import-system-a-json (já existe, precisa ajuste)
+      │
+      ├─► 2. resins (enriquecer descrição + ai_context)
+      │         ↓
+      │         ↓ via função nova: enrich-resins-from-apostila
+      │
+      └─► 3. agent_embeddings (indexar como chunks RAG para Dra. L.I.A.)
+                ↓
+                ↓ via index-embeddings (já existe, pode ser reaproveitado)
+```
+
+## O que será construído
+
+### Parte 1 — Adaptar `import-system-a-json` para o novo schema JSON
+
+O JSON enviado tem estrutura `{ meta: {...}, data: { company, products, categories, kols, ... } }`, **diferente do schema esperado pela função** (que esperava `data.products`, `data.company_profile`, etc.).
+
+Ajustes necessários no `import-system-a-json/index.ts`:
+- Detectar e normalizar o novo schema: `data.company` → `company_profile`, `data.products` → `products`
+- Mapear o campo `sales_pitch` como `description` quando `description` estiver vazio
+- Mapear `seo_description_override` → `meta_description`
+- Mapear `seo_title_override` → `seo_title_override` (já correto)
+- Mapear `resource_cta1/2/3.url` e `.label` para os campos CTA
+
+### Parte 2 — Nova edge function: `enrich-resins-from-apostila`
+
+Esta função recebe o JSON, encontra produtos cujo nome bate com resinas da tabela `resins`, e enriquece os campos de descrição e `ai_context`:
+
+```typescript
+// Para cada produto do JSON que seja uma resina (ex: "Smart Print Bio Vitality"):
+// 1. Buscar na tabela resins por name ILIKE %nome%
+// 2. Se encontrar, atualizar:
+//    - description: sales_pitch ou description do produto
+//    - ai_context: juntar keywords + benefits + features para busca
+//    - processing_instructions: manter o existente (não sobrescrever)
+//    - meta_description: seo_description_override
+//    - keywords: keywords do produto
+```
+
+O `ai_context` é o campo que a Dra. L.I.A. já usa no ILIKE para expandir a busca. Preenchê-lo com sinônimos, benefícios e palavras-chave de cada produto melhora drasticamente a relevância das respostas.
+
+### Parte 3 — Indexar produto-chunks no `agent_embeddings`
+
+A tabela `agent_embeddings` já é a fonte de verdade para o RAG vetorial da Dra. L.I.A. Produtos com `document_transcriptions[].extracted_data` são muito ricos — cada produto pode virar 2-3 chunks:
+
+- **Chunk 1 (produto)**: `{name} | {sales_pitch} | Benefícios: {benefits.join()} | Features: {features.join()}`
+- **Chunk 2 (specs técnicas)**: `{name} Especificações: {technical_specifications.map(s => s.label + ': ' + s.value).join(' | ')}`
+- **Chunk 3 (FAQ)**: `{name} FAQ: {faq.map(f => f.question + ' ' + f.answer).join(' | ')}` (primeiras 1000 chars)
+
+A edge function `index-embeddings` existente já sabe criar chunks — será estendida para incluir produtos do `system_a_catalog` como source_type `product`.
+
+### Parte 4 — UI de importação no Admin (componente novo)
+
+Um botão no painel admin que permite fazer upload do JSON e aciona as 3 etapas em sequência, com feedback de progresso.
+
+---
+
+## Arquivos a criar/modificar
+
+| Arquivo | Ação | Descrição |
+|---|---|---|
+| `supabase/functions/import-system-a-json/index.ts` | Modificar | Normalizar schema do novo JSON, mapear sales_pitch, seo_description_override, CTAs |
+| `supabase/functions/enrich-resins-from-apostila/index.ts` | Criar (novo) | Ler produtos do JSON, cruzar com tabela `resins` por nome, atualizar description + ai_context + keywords |
+| `supabase/functions/index-embeddings/index.ts` | Modificar | Adicionar source_type `product` buscando em `system_a_catalog` (category = product ou resin) |
+| `src/components/AdminApostilaImporter.tsx` | Criar (novo) | Upload do JSON + 3 botões de ação: Importar Catálogo, Enriquecer Resinas, Indexar Embeddings |
+| `src/pages/AdminViewSupabase.tsx` | Modificar | Adicionar o novo componente `AdminApostilaImporter` na seção de importações |
+| `supabase/config.toml` | Modificar | Adicionar `[functions.enrich-resins-from-apostila]` com `verify_jwt = false` |
+
+---
+
+## Como funciona o fluxo completo
+
+```text
+Admin faz upload do JSON no painel
+              │
+              ▼
+[Botão 1] Importar Produtos → POST /import-system-a-json
+  → Normaliza schema
+  → Upsert em system_a_catalog (company, products, categories, testimonials, reviews)
+  → Relatório: X produtos importados, Y atualizados
+              │
+              ▼
+[Botão 2] Enriquecer Resinas → POST /enrich-resins-from-apostila
+  → Percorre produtos do JSON que sejam resinas
+  → Cruza com tabela resins por nome
+  → Atualiza: description, ai_context, meta_description, keywords
+  → Relatório: X resinas enriquecidas
+              │
+              ▼
+[Botão 3] Indexar para Dra. L.I.A. → POST /index-embeddings?mode=incremental&sources=products
+  → Gera chunks dos produtos do system_a_catalog
+  → Cria/atualiza embeddings vetoriais na tabela agent_embeddings
+  → Relatório: X chunks indexados
+```
+
+---
+
+## Detalhes técnicos da nova edge function `enrich-resins-from-apostila`
+
+```typescript
+// Lógica de match por nome:
+// produto.name: "Resina 3D Smart Print Bio Vitality"
+// resina.name: "Smart Print Bio Vitality"
+// → Match: produto.name ILIKE %resina.name% OU resina.name ILIKE %palavrasChave%
+
+// O que é escrito em resins.ai_context:
+const aiContext = [
+  product.keywords?.join(', '),
+  product.benefits?.join('. '),
+  product.features?.join('. '),
+  product.market_keywords?.join(', '),
+  product.bot_trigger_words?.join(', '),
+].filter(Boolean).join('\n\n');
+```
+
+Isso diretamente melhora a Dra. L.I.A. porque o ILIKE já busca em `ai_context` (implementado no último deploy).
 
 ## Seção Técnica
 
-- O campo `ai_context` já existe na tabela `knowledge_contents` (confirmado no schema). Buscá-lo não requer migração de banco.
-- O threshold `>= 3` evita stopwords de 1-2 letras mas captura siglas e nomes de marcas curtos como "Atos" (4), "Bio" (3), "3D" (2 — ficaria de fora mas não é relevante).
-- A ordenação por score de título é O(n log n) sobre no máximo 50 resultados — custo desprezível.
-- Deploy da edge function é necessário. Nenhuma mudança no banco ou no frontend.
+- O JSON tem 126.328 linhas e **não pode ser enviado como body de request** (limite ~6MB em edge functions Deno). A estratégia é: o admin faz upload do arquivo, o frontend lê com `FileReader`, e envia o JSON parseado em partes (paginado por lotes de 20 produtos).
+- O `import-system-a-json` já tem lógica de upsert por `(source, external_id)` — nenhuma migração de banco necessária.
+- O enriquecimento de resinas usa `update` — nunca sobrescreve `processing_instructions` (campo crítico).
+- Os embeddings são gerados via Lovable AI Gateway (`openai/text-embedding-3-small`, 768 dims) — o mesmo modelo já em uso.
+- O admin component usará `supabase.functions.invoke()` diretamente, sem precisar de URLs expostas.
+- Deploy de 2 edge functions novas + 2 modificações necessárias.
