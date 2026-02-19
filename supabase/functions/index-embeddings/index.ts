@@ -15,7 +15,7 @@ const DELAY_MS = 2000; // 2s between batches to avoid rate limits
 
 async function generateEmbedding(text: string): Promise<number[]> {
   const modelsToTry = [
-    { model: "models/text-embedding-004", version: "v1beta" },
+    { model: "models/gemini-embedding-001", version: "v1beta" },
   ];
 
   for (const { model, version } of modelsToTry) {
@@ -29,6 +29,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
           model,
           content: { parts: [{ text }] },
           taskType: "RETRIEVAL_DOCUMENT",
+          outputDimensionality: 768,
         }),
       }
     );
