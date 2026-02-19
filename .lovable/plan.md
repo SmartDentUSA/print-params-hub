@@ -1,93 +1,71 @@
 
-## Diagnóstico Completo: Alucinação sobre Vídeos de Suportes em Placas Miorrelaxantes
+## Causa do Link Quebrado: Negrito Envolve o Link no System Prompt
 
-### O Que Aconteceu (Cadeia de Falhas)
+### O Problema Identificado
 
-A pergunta foi: **"você tem algum vídeo que explica como colocar suportes em placas miorrelaxantes?"**
+Na linha 1232 do `dra-lia/index.ts`, o link WhatsApp está envolvido em negrito:
 
-O banco de dados confirma que **não existe nenhum vídeo sobre o tema específico de suportes em placas miorrelaxantes**. O que existe são vídeos sobre *posicionamento geral* e *impressão* de placas, mas nenhum com foco em "como colocar suportes". A LIA deveria ter dito isso — mas não disse.
+```
+**[Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)**
+```
+
+O `renderMarkdown` do `DraLIA.tsx` (linha 49) processa bold e links **separadamente**, mas não de forma aninhada. Quando o regex de negrito (`\*\*...\*\*`) captura primeiro, ele engloba o link inteiro como texto puro dentro do `<strong>` — o link nunca é convertido em `<a href>`. O resultado visual é o texto `[Chamar no WhatsApp](https://wa.me/...)` aparecendo como texto simples, sem ser clicável.
+
+A mesma coisa ocorre na linha 1251 (regra 8/PASSO 3) — o link também está sendo gerado pelo modelo como texto puro dentro de negrito às vezes.
+
+### Duas Correções Necessárias (escolha a mais simples)
+
+Há duas formas de resolver, e ambas são complementares:
 
 ---
 
-### Falha 1 — O RAG retornou contexto fraco (sem `url_interna`)
+### Correção 1 — `supabase/functions/dra-lia/index.ts` (mais rápida, resolve na raiz)
 
-Os vídeos encontrados pelo RAG sobre "placa miorrelaxante" têm `embedding_count: 0` — ou seja, **0 desses vídeos estão indexados no RAG vetorial**. A busca caiu para o fallback ILIKE/keyword, que retornou títulos como "Curso Online - Lychee Slicer - Impresión de Placas Miorrelajantes" e "Posicionamento de Placa".
+Remover o `**` em torno dos links no system prompt nas linhas 1232 e 1251, deixando o link sozinho sem negrito envolvente:
 
-Mas todos esses vídeos retornaram com `url_interna: null` — sem link interno, pois têm `content_id: null` na tabela `knowledge_videos`. Isso significa que o campo `VIDEO_SEM_PAGINA` foi passado para a IA no contexto.
+**Linha 1232 — Antes:**
+```
+- Link: **[Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)**.
+```
 
-### Falha 2 — A IA ignorou a regra anti-alucinação do tema específico
+**Linha 1232 — Depois:**
+```
+- Link: [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)
+```
 
-A regra 8 do system prompt diz explicitamente:
-
-> "CRÍTICO: Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras diretamente relacionadas ao sub-tema pedido pelo usuário. Se o usuário perguntou 'sobre suportes' e os vídeos têm títulos sobre posicionamento geral — responda: 'Não tenho um vídeo específico sobre [sub-tema] cadastrado.'"
-
-A IA recebeu vídeos de "posicionamento de placa" e "impressão de placas miorrelajantes" — que não abordam "colocar suportes" especificamente — mas mesmo assim **inventou os detalhes técnicos**:
-- "inclinar o modelo entre 15° e 30° para evitar o efeito vácuo" — **inventado**
-- "identificação manual de ilhas (pontos críticos)" — **inventado**
-- "impressão da placa na horizontal para reduzir o tempo de exposição" — **inventado**
-
-### Falha 3 — A regra existe mas não é forte o suficiente
-
-O sistema prompt tem a regra 8 e a regra 18 (CONTEXTO FRACO → PERGUNTA CLARIFICADORA), mas o modelo `google/gemini-3-flash-preview` está **priorizando ser útil** em vez de ser preciso quando o contexto é ambíguo. A regra está lá, mas o framing não é forte o suficiente para impedir a geração criativa quando existem vídeos com títulos *relacionados*.
+**Linha 1251 — Antes:**
+```
+"Não tenho um vídeo específico sobre [sub-tema exato] cadastrado no momento. Mas nossa equipe pode ajudar: [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)"
+```
+(já está correto, sem negrito — manter como está)
 
 ---
 
-### As 2 Correções Necessárias
+### Correção 2 — `src/components/DraLIA.tsx` (mais robusta, resolve para sempre)
 
-**Correção 1 — `supabase/functions/dra-lia/index.ts`: Reforçar a regra anti-alucinação de vídeos**
+Atualizar o `renderMarkdown` para suportar links **dentro de negrito** — processar links antes de negrito ou usar um regex único que trate os dois casos juntos. Substituir o regex de link para capturar URLs com qualquer caractere (exceto `)` não escapado):
 
-A regra 8 precisa de uma instrução mais **imperativa e explícita** sobre correspondência de sub-temas. Atualmente ela diz que o título "DEVE conter palavras relacionadas", mas o modelo está interpretando isso de forma liberal.
-
-Mudança na regra 8 do system prompt (linha ~1242): adicionar um CHECK obrigatório com exemplos negativos concretos:
-
-```
-⚠️ VERIFICAÇÃO OBRIGATÓRIA ANTES DE CITAR QUALQUER VÍDEO:
-  - Pergunta do usuário: "suportes em placas miorrelaxantes"
-  - Vídeo disponível: "Posicionamento de Placa" → NÃO relevante (posicionamento ≠ suportes)
-  - Vídeo disponível: "Impressão de Placas Miorrelajantes" → NÃO relevante (impressão geral ≠ suportes)
-  - Vídeo relevante seria: "Suportes em Placas", "Como colocar suportes", "Supports for splints"
-  
-  Se nenhum vídeo tem o sub-tema exato → responda OBRIGATORIAMENTE:
-  "Não tenho um vídeo específico sobre [colocar suportes em placas miorrelaxantes] cadastrado no momento. [Fallback WhatsApp]"
-  NUNCA descreva o conteúdo técnico que o vídeo "provavelmente" contém.
+**Linha 49 — Antes:**
+```js
+const linkMatch = remaining.match(/\[(.+?)\]\((.+?)\)/);
 ```
 
-**Correção 2 — `supabase/functions/dra-lia/index.ts`: Adicionar regra de proibição de inferência técnica**
-
-Adicionar uma nova regra anti-alucinação (regra 19) explicitamente proibindo descrever o conteúdo de vídeos com `VIDEO_SEM_PAGINA`:
-
-```
-19. VÍDEOS SEM PÁGINA (VIDEO_SEM_PAGINA): NUNCA descreva, resuma ou infira o conteúdo técnico de um vídeo. Se o vídeo não tem página interna, apenas cite o título. PROIBIDO dizer "este vídeo ensina X" ou "este tutorial mostra Y" — você não tem acesso ao conteúdo real do vídeo, apenas ao título.
+**Linha 49 — Depois:**
+```js
+const linkMatch = remaining.match(/\[(.+?)\]\(([^)]+)\)/);
 ```
 
----
-
-### Impacto Esperado
-
-| Cenário | Antes | Depois |
-|---|---|---|
-| Vídeo relevante existe com url_interna | Link clicável ✅ | Link clicável ✅ |
-| Vídeo de tema próximo, sem url_interna | Inventa conteúdo técnico ❌ | "Não tenho vídeo específico" + WhatsApp ✅ |
-| Nenhum vídeo relevante | Inventa vídeos fictícios ❌ | "Não tenho vídeo específico" + WhatsApp ✅ |
-
----
-
-### Problema Raiz Subjacente (médio prazo)
-
-**499 vídeos no banco, apenas 20 indexados no RAG.** Os vídeos de placa miorrelaxante têm `content_id: null` — não estão associados a artigos da base de conhecimento — e por isso nunca terão `url_interna`. Para resolver definitivamente:
-
-1. Associar os vídeos técnicos a artigos da base de conhecimento (preencher `content_id`)
-2. Ou criar artigos dedicados para esses vídeos com slug próprio
-
-Mas isso é trabalho editorial, não técnico.
+E adicionar suporte para detectar e processar links dentro de bold (`**[texto](url)**`), extraindo o link antes de passar pelo parser de negrito.
 
 ---
 
 ### Resumo das Alterações
 
-| Arquivo | Local | Mudança |
+| Arquivo | Linha | Mudança |
 |---|---|---|
-| `dra-lia/index.ts` | Regra 8 do system prompt (~linha 1242) | Adicionar verificação obrigatória de correspondência de sub-tema com exemplos negativos |
-| `dra-lia/index.ts` | Nova regra 19 (~linha 1253) | Proibir descrição/inferência de conteúdo de vídeos VIDEO_SEM_PAGINA |
+| `supabase/functions/dra-lia/index.ts` | 1232 | Remover `**` em torno do link WhatsApp no system prompt |
+| `src/components/DraLIA.tsx` | 49 | Melhorar regex de link para ser mais robusto + suportar links dentro de negrito |
 
-2 linhas do system prompt modificadas. Deploy automático. Nenhuma re-indexação necessária.
+As duas correções juntas garantem: (1) o modelo não gera mais links dentro de negrito e (2) mesmo que gere, o renderizador consegue processar corretamente.
+
+Deploy automático após as mudanças. Nenhuma re-indexação necessária.
