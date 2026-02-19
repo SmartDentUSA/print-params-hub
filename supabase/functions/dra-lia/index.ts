@@ -112,6 +112,60 @@ async function searchByILIKE(
   });
 }
 
+// Printer parameter intent detection — detect "params for printer X" without a resin
+const PARAM_KEYWORDS = [
+  /parâmetro|parametro|parameter/i,
+  /configuração|configuracao|setting/i,
+  /\bexposição\b|exposicao|exposure/i,
+  /layer height|espessura de camada/i,
+  /como imprimir|how to print|cómo imprimir/i,
+  /tempo de cura|cure time|tiempo de exposición/i,
+];
+
+const isPrinterParamQuestion = (msg: string) =>
+  PARAM_KEYWORDS.some((p) => p.test(msg));
+
+async function findPrinterInMessage(
+  supabase: ReturnType<typeof createClient>,
+  message: string
+): Promise<{ brand_slug: string; model_slug: string; brand_name: string; model_name: string } | null> {
+  const { data: models } = await supabase
+    .from("models")
+    .select("slug, name, brands(slug, name)")
+    .eq("active", true);
+
+  if (!models?.length) return null;
+
+  const msg = message.toLowerCase();
+
+  for (const model of models as Array<{ slug: string; name: string; brands: { slug: string; name: string } }>) {
+    const modelWords = model.name.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
+    const matchCount = modelWords.filter((w: string) => msg.includes(w)).length;
+
+    if (
+      matchCount >= 2 ||
+      (matchCount === 1 && modelWords.length <= 2)
+    ) {
+      return {
+        brand_slug: model.brands.slug,
+        model_slug: model.slug,
+        brand_name: model.brands.name,
+        model_name: model.name,
+      };
+    }
+  }
+  return null;
+}
+
+const PRINTER_LINK_RESPONSES: Record<string, (brand: string, model: string, url: string) => string> = {
+  "pt-BR": (brand, model, url) =>
+    `Para ver todos os parâmetros disponíveis para a **${brand} ${model}**, acesse a página da impressora:\n👉 [Ver parâmetros da ${brand} ${model}](${url})\n\nLá você encontra os parâmetros organizados por resina. Se precisar de uma resina específica, me diga o nome dela!`,
+  "en-US": (brand, model, url) =>
+    `To see all available parameters for the **${brand} ${model}**, visit the printer page:\n👉 [View ${brand} ${model} parameters](${url})\n\nParameters are organized by resin there. Tell me the resin name if you need specific values!`,
+  "es-ES": (brand, model, url) =>
+    `Para ver todos los parámetros disponibles para la **${brand} ${model}**, visita la página de la impresora:\n👉 [Ver parámetros de ${brand} ${model}](${url})\n\nLos parámetros están organizados por resina. ¡Dime el nombre de la resina si necesitas valores específicos!`,
+};
+
 const GREETING_RESPONSES: Record<string, string> = {
   "pt-BR": "Olá! Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje? Pode me perguntar sobre resinas, impressoras, parâmetros de impressão ou vídeos técnicos. 😊",
   "en-US": "Hello! I'm Dr. L.I.A., SmartDent's digital dentistry specialist. How can I help you today? Feel free to ask about resins, printers, print parameters or technical videos. 😊",
@@ -434,6 +488,65 @@ serve(async (req) => {
       return new Response(stream, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
+    }
+
+    // 0b. Intent Guard — parâmetros sem resina → link direto da impressora
+    if (isPrinterParamQuestion(message)) {
+      const printer = await findPrinterInMessage(supabase, message);
+      if (printer) {
+        const printerUrl = `/${printer.brand_slug}/${printer.model_slug}`;
+        const getLinkText = PRINTER_LINK_RESPONSES[lang] || PRINTER_LINK_RESPONSES["pt-BR"];
+        const linkText = getLinkText(printer.brand_name, printer.model_name, printerUrl);
+
+        // Save interaction
+        let printerInteractionId: string | undefined;
+        try {
+          const { data: interaction } = await supabase
+            .from("agent_interactions")
+            .insert({
+              session_id,
+              user_message: message,
+              agent_response: linkText,
+              lang,
+              top_similarity: 1,
+              context_sources: [{ type: "printer_page", title: `${printer.brand_name} ${printer.model_name}` }],
+              unanswered: false,
+            })
+            .select("id")
+            .single();
+          printerInteractionId = interaction?.id;
+        } catch (e) {
+          console.error("Failed to insert agent_interaction (printer link):", e);
+        }
+
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ interaction_id: printerInteractionId, type: "meta", media_cards: [] })}\n\n`)
+            );
+            const words = linkText.split(" ");
+            let i = 0;
+            const interval = setInterval(() => {
+              if (i < words.length) {
+                const token = (i === 0 ? "" : " ") + words[i];
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`)
+                );
+                i++;
+              } else {
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                controller.close();
+                clearInterval(interval);
+              }
+            }, 25);
+          },
+        });
+        return new Response(stream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+        });
+      }
+      // Impressora não encontrada → segue fluxo normal (RAG)
     }
 
     // 1. Parallel search: knowledge base + processing protocols (if protocol question)
