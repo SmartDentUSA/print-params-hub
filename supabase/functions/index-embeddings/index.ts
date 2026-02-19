@@ -8,25 +8,24 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY") || Deno.env.get("LOVABLE_API_KEY");
 
-const EMBEDDING_API = "https://ai.gateway.lovable.dev/v1/embeddings";
 const BATCH_SIZE = 20;
 const DELAY_MS = 300;
 
 async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await fetch(EMBEDDING_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai/text-embedding-3-small",
-      input: text,
-      dimensions: 768,
-    }),
-  });
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GOOGLE_AI_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "models/text-embedding-004",
+        content: { parts: [{ text }] },
+        outputDimensionality: 768,
+      }),
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
@@ -34,7 +33,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
   }
 
   const data = await response.json();
-  return data.data[0].embedding;
+  return data.embedding?.values || [];
 }
 
 async function sleep(ms: number) {
