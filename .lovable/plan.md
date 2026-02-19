@@ -1,103 +1,93 @@
 
-## Diagnóstico: Links de Produtos Quebrados na Dra. L.I.A.
+## Diagnóstico Completo: Alucinação sobre Vídeos de Suportes em Placas Miorrelaxantes
 
-### 3 Causas Raízes Identificadas
+### O Que Aconteceu (Cadeia de Falhas)
 
----
+A pergunta foi: **"você tem algum vídeo que explica como colocar suportes em placas miorrelaxantes?"**
 
-### Causa 1 — CRÍTICA: Resinas NÃO estão indexadas no RAG
-
-A tabela `agent_embeddings` tem atualmente:
-- **441 chunks** de vídeo
-- **304 chunks** de artigo  
-- **0 chunks** de resina ← o problema principal
-
-Isso significa que quando a Dra. L.I.A. faz busca vetorial (RAG), ela **nunca encontra resinas**. A indexação anterior (`mode=full`) processou apenas artigos e vídeos — as resinas falharam silenciosamente (provavelmente por timeout ou erro de embedding).
+O banco de dados confirma que **não existe nenhum vídeo sobre o tema específico de suportes em placas miorrelaxantes**. O que existe são vídeos sobre *posicionamento geral* e *impressão* de placas, mas nenhum com foco em "como colocar suportes". A LIA deveria ter dito isso — mas não disse.
 
 ---
 
-### Causa 2 — Campo `cta_1_url` está NULL para a maioria das resinas
+### Falha 1 — O RAG retornou contexto fraco (sem `url_interna`)
 
-O banco de dados confirma: as resinas Smart Dent têm `cta_1_url = NULL`, mas possuem o campo `system_a_product_url` preenchido com as URLs corretas da loja:
+Os vídeos encontrados pelo RAG sobre "placa miorrelaxante" têm `embedding_count: 0` — ou seja, **0 desses vídeos estão indexados no RAG vetorial**. A busca caiu para o fallback ILIKE/keyword, que retornou títulos como "Curso Online - Lychee Slicer - Impresión de Placas Miorrelajantes" e "Posicionamento de Placa".
 
-```
-system_a_product_url: https://loja.smartdent.com.br/resina-smart-print-clear-guide-
-system_a_product_url: https://loja.smartdent.com.br/resina-smart-print-bio-denture-translucida
-system_a_product_url: https://loja.smartdent.com.br/resina-3d-smart-print-bio-denture
-```
+Mas todos esses vídeos retornaram com `url_interna: null` — sem link interno, pois têm `content_id: null` na tabela `knowledge_videos`. Isso significa que o campo `VIDEO_SEM_PAGINA` foi passado para a IA no contexto.
 
-O indexador busca apenas `cta_1_url` (linha 190 do `index-embeddings/index.ts`), ignorando completamente `system_a_product_url`. Logo, mesmo quando as resinas fossem indexadas, o metadata `cta_1_url` ficaria `null` e **nenhum link seria enviado para a IA**.
+### Falha 2 — A IA ignorou a regra anti-alucinação do tema específico
+
+A regra 8 do system prompt diz explicitamente:
+
+> "CRÍTICO: Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras diretamente relacionadas ao sub-tema pedido pelo usuário. Se o usuário perguntou 'sobre suportes' e os vídeos têm títulos sobre posicionamento geral — responda: 'Não tenho um vídeo específico sobre [sub-tema] cadastrado.'"
+
+A IA recebeu vídeos de "posicionamento de placa" e "impressão de placas miorrelajantes" — que não abordam "colocar suportes" especificamente — mas mesmo assim **inventou os detalhes técnicos**:
+- "inclinar o modelo entre 15° e 30° para evitar o efeito vácuo" — **inventado**
+- "identificação manual de ilhas (pontos críticos)" — **inventado**
+- "impressão da placa na horizontal para reduzir o tempo de exposição" — **inventado**
+
+### Falha 3 — A regra existe mas não é forte o suficiente
+
+O sistema prompt tem a regra 8 e a regra 18 (CONTEXTO FRACO → PERGUNTA CLARIFICADORA), mas o modelo `google/gemini-3-flash-preview` está **priorizando ser útil** em vez de ser preciso quando o contexto é ambíguo. A regra está lá, mas o framing não é forte o suficiente para impedir a geração criativa quando existem vídeos com títulos *relacionados*.
 
 ---
 
-### Causa 3 — `url_publica` com caminho errado + `title` ausente
+### As 2 Correções Necessárias
 
-Linha 213 do indexador constrói a URL como `/resinas/${r.slug}` (com "s"), mas a rota do app é `/resina/${slug}` (sem "s") — levando a 404. Além disso, o metadata de resinas usa o campo `name` em vez de `title`, criando inconsistência com o padrão dos outros chunks.
+**Correção 1 — `supabase/functions/dra-lia/index.ts`: Reforçar a regra anti-alucinação de vídeos**
+
+A regra 8 precisa de uma instrução mais **imperativa e explícita** sobre correspondência de sub-temas. Atualmente ela diz que o título "DEVE conter palavras relacionadas", mas o modelo está interpretando isso de forma liberal.
+
+Mudança na regra 8 do system prompt (linha ~1242): adicionar um CHECK obrigatório com exemplos negativos concretos:
+
+```
+⚠️ VERIFICAÇÃO OBRIGATÓRIA ANTES DE CITAR QUALQUER VÍDEO:
+  - Pergunta do usuário: "suportes em placas miorrelaxantes"
+  - Vídeo disponível: "Posicionamento de Placa" → NÃO relevante (posicionamento ≠ suportes)
+  - Vídeo disponível: "Impressão de Placas Miorrelajantes" → NÃO relevante (impressão geral ≠ suportes)
+  - Vídeo relevante seria: "Suportes em Placas", "Como colocar suportes", "Supports for splints"
+  
+  Se nenhum vídeo tem o sub-tema exato → responda OBRIGATORIAMENTE:
+  "Não tenho um vídeo específico sobre [colocar suportes em placas miorrelaxantes] cadastrado no momento. [Fallback WhatsApp]"
+  NUNCA descreva o conteúdo técnico que o vídeo "provavelmente" contém.
+```
+
+**Correção 2 — `supabase/functions/dra-lia/index.ts`: Adicionar regra de proibição de inferência técnica**
+
+Adicionar uma nova regra anti-alucinação (regra 19) explicitamente proibindo descrever o conteúdo de vídeos com `VIDEO_SEM_PAGINA`:
+
+```
+19. VÍDEOS SEM PÁGINA (VIDEO_SEM_PAGINA): NUNCA descreva, resuma ou infira o conteúdo técnico de um vídeo. Se o vídeo não tem página interna, apenas cite o título. PROIBIDO dizer "este vídeo ensina X" ou "este tutorial mostra Y" — você não tem acesso ao conteúdo real do vídeo, apenas ao título.
+```
 
 ---
 
-### As 4 Correções Necessárias
+### Impacto Esperado
 
-**Correção 1 — `index-embeddings/index.ts` linha 190:** Adicionar `system_a_product_url` ao SELECT das resinas.
+| Cenário | Antes | Depois |
+|---|---|---|
+| Vídeo relevante existe com url_interna | Link clicável ✅ | Link clicável ✅ |
+| Vídeo de tema próximo, sem url_interna | Inventa conteúdo técnico ❌ | "Não tenho vídeo específico" + WhatsApp ✅ |
+| Nenhum vídeo relevante | Inventa vídeos fictícios ❌ | "Não tenho vídeo específico" + WhatsApp ✅ |
 
-```typescript
-// ANTES
-.select("id, name, manufacturer, description, processing_instructions, slug, cta_1_url, keywords")
+---
 
-// DEPOIS
-.select("id, name, manufacturer, description, processing_instructions, slug, cta_1_url, system_a_product_url, keywords")
-```
+### Problema Raiz Subjacente (médio prazo)
 
-**Correção 2 — `index-embeddings/index.ts` linhas 208-214:** Usar `system_a_product_url` como fallback do link de compra e corrigir os campos do metadata:
+**499 vídeos no banco, apenas 20 indexados no RAG.** Os vídeos de placa miorrelaxante têm `content_id: null` — não estão associados a artigos da base de conhecimento — e por isso nunca terão `url_interna`. Para resolver definitivamente:
 
-```typescript
-// ANTES
-metadata: {
-  name: r.name,
-  manufacturer: r.manufacturer,
-  slug: r.slug,
-  cta_1_url: r.cta_1_url,                        // null para maioria das resinas
-  url_publica: r.slug ? `/resinas/${r.slug}` : null, // URL com "s" = 404
-}
+1. Associar os vídeos técnicos a artigos da base de conhecimento (preencher `content_id`)
+2. Ou criar artigos dedicados para esses vídeos com slug próprio
 
-// DEPOIS
-metadata: {
-  title: `${r.manufacturer} ${r.name}`,           // padronizado com artigos/vídeos
-  name: r.name,
-  manufacturer: r.manufacturer,
-  slug: r.slug,
-  cta_1_url: r.cta_1_url || r.system_a_product_url, // fallback para URL da loja
-  url_publica: r.slug ? `/resina/${r.slug}` : null,  // sem "s" = rota correta
-}
-```
-
-**Correção 3 — `dra-lia/index.ts` linha 697:** O caminho `searchProcessingInstructions` já usa `/resina/` corretamente — nenhuma mudança necessária aqui.
-
-**Correção 4 — `dra-lia/index.ts` linha 1232:** Corrigir o link do WhatsApp no system prompt (já identificado anteriormente):
-
-```
-// ANTES
-https://api.whatsapp.com/send/?phone=551634194735
-
-// DEPOIS
-https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!
-```
+Mas isso é trabalho editorial, não técnico.
 
 ---
 
 ### Resumo das Alterações
 
-| Arquivo | Linha | Mudança |
+| Arquivo | Local | Mudança |
 |---|---|---|
-| `index-embeddings/index.ts` | 190 | Adicionar `system_a_product_url` ao SELECT |
-| `index-embeddings/index.ts` | 208-214 | Metadata: `title` padronizado + fallback para `system_a_product_url` + corrigir `/resina/` |
-| `dra-lia/index.ts` | 1232 | Corrigir link WhatsApp para `wa.me` com mensagem |
+| `dra-lia/index.ts` | Regra 8 do system prompt (~linha 1242) | Adicionar verificação obrigatória de correspondência de sub-tema com exemplos negativos |
+| `dra-lia/index.ts` | Nova regra 19 (~linha 1253) | Proibir descrição/inferência de conteúdo de vídeos VIDEO_SEM_PAGINA |
 
-### Sequência obrigatória após o deploy
-
-1. Deploy automático das funções
-2. **Re-indexação completa** (mode=full) — obrigatória para criar os chunks de resinas com os dados corretos
-3. Confirmar que `agent_embeddings` passa de **745 para ~763** registros (745 + 18 resinas)
-4. Testar a Dra. L.I.A. com "Me fale sobre a resina Smart Print Bio Hybrid" e confirmar que aparece o link da loja
-
-Nenhuma migração de banco. O campo `system_a_product_url` já existe na tabela `resins`.
+2 linhas do system prompt modificadas. Deploy automático. Nenhuma re-indexação necessária.
