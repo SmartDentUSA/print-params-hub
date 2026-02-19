@@ -604,6 +604,40 @@ async function generateEmbedding(text: string): Promise<number[] | null> {
   }
 }
 
+// ── Helper: upsert knowledge gap with frequency increment ─────────────────
+async function upsertKnowledgeGap(
+  supabase: ReturnType<typeof createClient>,
+  question: string,
+  lang: string,
+  status: "pending" | "low_confidence" = "pending"
+) {
+  try {
+    const truncated = question.slice(0, 500);
+    const { data: existing } = await supabase
+      .from("agent_knowledge_gaps")
+      .select("id, frequency")
+      .eq("question", truncated)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("agent_knowledge_gaps")
+        .update({
+          frequency: (existing.frequency ?? 1) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("agent_knowledge_gaps")
+        .insert({ question: truncated, lang, frequency: 1, status });
+    }
+  } catch (e) {
+    console.error("[upsertKnowledgeGap] error:", e);
+    // fail silently
+  }
+}
+
 // Search processing instructions directly from resins table — SOURCE OF TRUTH
 async function searchProcessingInstructions(
   supabase: ReturnType<typeof createClient>,
@@ -1123,11 +1157,8 @@ serve(async (req) => {
         // fail silently — stream continues regardless
       }
 
-      // Track knowledge gap
-      await supabase
-        .from("agent_knowledge_gaps")
-        .insert({ question: message.slice(0, 500), lang })
-        .onConflict?.("question");
+      // Track knowledge gap (Bug fix: was using invalid .onConflict?.() syntax)
+      await upsertKnowledgeGap(supabase, message, lang, "pending");
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -1156,6 +1187,11 @@ serve(async (req) => {
       return new Response(stream, {
         headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
+    }
+
+    // Track low-confidence results as knowledge gaps (Bug fix: was never captured before)
+    if (topSimilarity < 0.35) {
+      await upsertKnowledgeGap(supabase, message, lang, "low_confidence");
     }
 
     // 5. Build context from all results
