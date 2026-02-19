@@ -1,71 +1,107 @@
 
-## Causa do Link Quebrado: Negrito Envolve o Link no System Prompt
+## Problema: Link de Produto (Resina Vitality) Não Clicável na LIA
 
-### O Problema Identificado
+### Diagnóstico
 
-Na linha 1232 do `dra-lia/index.ts`, o link WhatsApp está envolvido em negrito:
+A resposta da LIA para "quero comprar a resina vitality" gerou:
 
 ```
-**[Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)**
+👉 [Ver produto](https://loja.smartdent.com.br/resina-smart-print-bio-vitality)
 ```
 
-O `renderMarkdown` do `DraLIA.tsx` (linha 49) processa bold e links **separadamente**, mas não de forma aninhada. Quando o regex de negrito (`\*\*...\*\*`) captura primeiro, ele engloba o link inteiro como texto puro dentro do `<strong>` — o link nunca é convertido em `<a href>`. O resultado visual é o texto `[Chamar no WhatsApp](https://wa.me/...)` aparecendo como texto simples, sem ser clicável.
+O link parece correto, mas há dois cenários que causam a quebra:
 
-A mesma coisa ocorre na linha 1251 (regra 8/PASSO 3) — o link também está sendo gerado pelo modelo como texto puro dentro de negrito às vezes.
+**Cenário A (mais provável):** O modelo gera o link com negrito ao redor, seguindo a regra 11 do system prompt que diz *"Destaque produtos SmartDent com **negrito**"*:
 
-### Duas Correções Necessárias (escolha a mais simples)
+```
+👉 **[Ver produto](https://loja.smartdent.com.br/resina-smart-print-bio-vitality)**
+```
 
-Há duas formas de resolver, e ambas são complementares:
+Quando há um emoji `👉` antes do negrito+link, o `boldLinkMatch` (`/\*\*\[(.+?)\]\(([^)]+)\)\*\*/`) encontra o padrão corretamente — MAS o `boldMatch` (`/\*\*(.+?)\*\*/`) também encontra e pode ser avaliado primeiro dependendo do índice. No caso atual, a lógica de prioridade está correta (`boldLinkIdx <= boldIdx`), então o `boldlink` deveria vencer.
+
+**Cenário B (confirmado pelo usuário):** O modelo gerou o link como texto sem colchetes markdown — ou seja, o modelo imprimiu a URL diretamente como texto bruto em vez de como link markdown. Isso acontece porque a instrução da regra 9 é ambígua:
+
+```
+9. Ao encontrar RESINA com link de compra: inclua um link [Ver produto](URL).
+```
+
+O modelo às vezes interpreta isso como: "escreva o texto `[Ver produto](URL)`" em vez de "gere um link markdown clicável". E como a URL é longa (`https://loja.smartdent.com.br/resina-smart-print-bio-vitality`), o modelo pode ter gerado a URL como texto puro sem os colchetes.
+
+**Cenário C (identificado na regra 11):** A regra 11 diz `"Destaque produtos SmartDent com **negrito**"`. Isso instrui o modelo a envolver TUDO em negrito — incluindo o link `[Ver produto](URL)`, gerando `**[Ver produto](URL)**`. O `boldLinkMatch` deveria capturar isso, mas há um edge case: se o modelo gerar `[**Ver produto**](URL)` (negrito dentro do texto do link, não fora), nenhum regex atual captura esse padrão.
 
 ---
 
-### Correção 1 — `supabase/functions/dra-lia/index.ts` (mais rápida, resolve na raiz)
+### Correção em 2 Arquivos
 
-Remover o `**` em torno dos links no system prompt nas linhas 1232 e 1251, deixando o link sozinho sem negrito envolvente:
+**Arquivo 1: `supabase/functions/dra-lia/index.ts`**
 
-**Linha 1232 — Antes:**
-```
-- Link: **[Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)**.
+Três mudanças no system prompt:
+
+1. **Regra 9 — Instrução explícita de formato do link de produto:**
+   Mudar de:
+   ```
+   9. Ao encontrar RESINA com link de compra: inclua um link [Ver produto](URL).
+   ```
+   Para:
+   ```
+   9. Ao encontrar RESINA com link de compra (campo COMPRA no contexto): gere EXATAMENTE este formato markdown clicável: [Ver produto](URL_DO_CAMPO_COMPRA). NÃO envolva em negrito. NÃO use **[Ver produto](URL)**. Apenas [Ver produto](URL) sozinho.
+   ```
+
+2. **Regra 11 — Remover instrução de negrito que conflita com links:**
+   A instrução `"Destaque produtos SmartDent com **negrito**"` causa o modelo a envolver links em `**...**`. Remover ou restringir essa instrução apenas para nomes de produtos em texto corrido, não para links.
+   
+   Mudar de:
+   ```
+   ...Use bullet points. Destaque produtos SmartDent com **negrito**. Nunca omita etapas.
+   ```
+   Para:
+   ```
+   ...Use bullet points. Ao mencionar nomes de produtos SmartDent em texto (não em links), use **negrito**. NUNCA envolva links [texto](url) em **negrito**. Nunca omita etapas.
+   ```
+
+3. **Nova regra explícita anti-negrito-em-links:**
+   Após a regra 19, adicionar:
+   ```
+   20. LINKS NUNCA EM NEGRITO: PROIBIDO gerar **[texto](url)** ou [**texto**](url). Links de produto e WhatsApp devem ser sempre no formato simples [texto](url). O negrito em volta de links quebra a renderização do chat.
+   ```
+
+**Arquivo 2: `src/components/DraLIA.tsx`**
+
+Adicionar suporte a mais dois padrões de link problemáticos no `renderMarkdown`:
+
+- `[**texto**](url)` — negrito dentro do texto do link (modelo às vezes gera assim)
+- Detecção de URLs brutas sem markdown: padrão `https://...` sozinho na linha
+
+Adicionar no `parseInline`:
+```typescript
+// Link com negrito no texto: [**text**](url)
+const boldInLinkMatch = remaining.match(/\[\*\*(.+?)\*\*\]\(([^)]+)\)/);
+// URL bruta: https://... (sem colchetes)
+const rawUrlMatch = remaining.match(/https?:\/\/[^\s)]+/);
 ```
 
-**Linha 1232 — Depois:**
-```
-- Link: [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)
-```
-
-**Linha 1251 — Antes:**
-```
-"Não tenho um vídeo específico sobre [sub-tema exato] cadastrado no momento. Mas nossa equipe pode ajudar: [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)"
-```
-(já está correto, sem negrito — manter como está)
+E processar ambos antes do fallback de texto puro.
 
 ---
 
-### Correção 2 — `src/components/DraLIA.tsx` (mais robusta, resolve para sempre)
+### Impacto Esperado
 
-Atualizar o `renderMarkdown` para suportar links **dentro de negrito** — processar links antes de negrito ou usar um regex único que trate os dois casos juntos. Substituir o regex de link para capturar URLs com qualquer caractere (exceto `)` não escapado):
-
-**Linha 49 — Antes:**
-```js
-const linkMatch = remaining.match(/\[(.+?)\]\((.+?)\)/);
-```
-
-**Linha 49 — Depois:**
-```js
-const linkMatch = remaining.match(/\[(.+?)\]\(([^)]+)\)/);
-```
-
-E adicionar suporte para detectar e processar links dentro de bold (`**[texto](url)**`), extraindo o link antes de passar pelo parser de negrito.
+| Padrão gerado pelo modelo | Antes | Depois |
+|---|---|---|
+| `[Ver produto](url)` | Clicável ✅ | Clicável ✅ |
+| `**[Ver produto](url)**` | Depende da posição ⚠️ | Sempre clicável ✅ |
+| `[**Ver produto**](url)` | Texto quebrado ❌ | Clicável ✅ |
+| URL bruta `https://...` | Texto puro ❌ | Link clicável ✅ |
 
 ---
 
 ### Resumo das Alterações
 
-| Arquivo | Linha | Mudança |
+| Arquivo | Local | Mudança |
 |---|---|---|
-| `supabase/functions/dra-lia/index.ts` | 1232 | Remover `**` em torno do link WhatsApp no system prompt |
-| `src/components/DraLIA.tsx` | 49 | Melhorar regex de link para ser mais robusto + suportar links dentro de negrito |
+| `supabase/functions/dra-lia/index.ts` | Regra 9 | Instrução explícita de formato `[Ver produto](URL)` sem negrito |
+| `supabase/functions/dra-lia/index.ts` | Regra 11 | Restringir negrito a nomes em texto corrido, não em links |
+| `supabase/functions/dra-lia/index.ts` | Nova regra 20 | Proibição explícita de links em negrito |
+| `src/components/DraLIA.tsx` | `parseInline` | Suporte a `[**texto**](url)` e URLs brutas `https://...` |
 
-As duas correções juntas garantem: (1) o modelo não gera mais links dentro de negrito e (2) mesmo que gere, o renderizador consegue processar corretamente.
-
-Deploy automático após as mudanças. Nenhuma re-indexação necessária.
+Deploy automático após as mudanças.
