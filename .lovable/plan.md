@@ -1,141 +1,141 @@
 
-# Correção: Tratamento Térmico Não Aciona searchProcessingInstructions
+# Correção: Lacunas de Conhecimento Não Estão Sendo Registradas
 
-## Diagnóstico Raiz
+## Diagnóstico Confirmado — 3 Bugs Encadeados
 
-### O que aconteceu
-O usuário perguntou "COmo e com que eu faço o tratamento térmico?" e a L.I.A. respondeu com valores **inventados**: "80°C por 15 minutos". 
+### Bug 1: Sintaxe incorreta do `.onConflict?.()`
 
-Os valores corretos no banco de dados são:
-- Opção A – glicerina aquecida: **130–150 °C por 1 min**
-- Opção B – forno elétrico a seco: **150 °C por 1 min**
-- Opção C – soprador térmico: **60–170 °C, 30–60 s por face**
-
-### Por que aconteceu — 2 bugs encadeados
-
-**Bug 1: Palavra-chave "tratamento térmico" ausente de PROTOCOL_KEYWORDS**
-
+O código atual usa:
 ```typescript
-// PROTOCOL_KEYWORDS atual (linha 46-63):
-const PROTOCOL_KEYWORDS = [
-  /limpeza|lavagem|lavar|limpar/i,
-  /\bcura\b|pós.cura|pos.cura|fotopolimerizar/i,
-  /finaliz|acabamento|polimento|polir/i,
-  /pré.process|pre.process|pós.process|pos.process|processamento|protocolo/i,
-  /nanoclean|isopropílico|isopropilico|álcool|alcool/i,
-  // ... EN/ES terms
-];
-// ❌ "tratamento térmico", "forno", "thermal" NÃO estão aqui
+await supabase
+  .from("agent_knowledge_gaps")
+  .insert({ question: message.slice(0, 500), lang })
+  .onConflict?.("question");
 ```
 
-Resultado: `isProtocol = false` → `searchProcessingInstructions()` **nunca é chamado** para a query "tratamento térmico".
+O operador `?.` (optional chaining) faz com que `.onConflict` seja chamado **somente se existir** — e como no Supabase JS v2 `.insert()` retorna um `PostgrestBuilder` que tem o método `.upsert()` para conflitos (não `.onConflict` encadeado), a linha inteira falha silenciosamente. A tabela `agent_knowledge_gaps` permanece vazia.
 
-**Bug 2: searchProcessingInstructions não usa o histórico da conversa para identificar a resina**
-
+**Solução:** Trocar para `.upsert()` com `onConflict` como opção:
 ```typescript
-async function searchProcessingInstructions(supabase, message) {
-  // Usa apenas a mensagem ATUAL para identificar resina
-  const words = message.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
-  
-  const scored = resins.map(r => {
-    const text = `${r.name} ${r.manufacturer}`.toLowerCase();
-    const score = words.filter(w => text.includes(w)).length;
-    return { resin: r, score };
-  });
-  
-  const matched = scored.filter(x => x.score > 0);
-  // Se o usuário não mencionou "Vitality" na mensagem atual → score = 0 para tudo
-  // matched.length === 0 → targets = scored (TODAS as resinas, não filtradas)
-  const targets = matched.length > 0 ? matched : scored; // ← retorna qualquer resina
+await supabase
+  .from("agent_knowledge_gaps")
+  .upsert(
+    { question: message.slice(0, 500), lang, frequency: 1 },
+    { onConflict: "question", ignoreDuplicates: false }
+  );
+```
+Porém isso não incrementa `frequency`. Para incrementar, precisamos usar uma abordagem diferente (ver abaixo).
+
+### Bug 2: `frequency` nunca é incrementado para perguntas repetidas
+
+A tabela `agent_knowledge_gaps` tem a coluna `frequency integer DEFAULT 1` e um índice `UNIQUE` em `question`. O objetivo é incrementar `frequency` quando a mesma pergunta aparece novamente — mas o código atual nunca faz isso.
+
+**Solução:** Usar `upsert` com RPC ou fazer select + insert/update:
+```typescript
+// Tenta inserir; se conflito, incrementa frequency
+const { data: existing } = await supabase
+  .from("agent_knowledge_gaps")
+  .select("id, frequency")
+  .eq("question", message.slice(0, 500))
+  .maybeSingle();
+
+if (existing) {
+  await supabase
+    .from("agent_knowledge_gaps")
+    .update({ frequency: (existing.frequency ?? 1) + 1, updated_at: new Date().toISOString() })
+    .eq("id", existing.id);
+} else {
+  await supabase
+    .from("agent_knowledge_gaps")
+    .insert({ question: message.slice(0, 500), lang, frequency: 1 });
 }
 ```
 
-Quando o usuário pergunta "Como faço o tratamento térmico?" **sem mencionar "Vitality"** na última mensagem (porque já foi dito antes), a função retorna as 3 primeiras resinas da lista ordenada — sem garantia de que seja a Vitality. O LLM então recebe contexto errado ou incompleto e **fabrica** valores.
+### Bug 3: Perguntas com resposta alucinada nunca são capturadas
 
-## Solução: 2 Correções Cirúrgicas
+O bloco de registro de lacunas só roda quando `!hasResults` — ou seja, quando o RAG não encontrou absolutamente nada. Mas quando o RAG retorna resultados de baixíssima similaridade (ex: 0.20–0.30) e o LLM alucina, a pergunta **não é registrada** como lacuna.
 
-### Correção 1 — Adicionar "tratamento térmico" e similares aos PROTOCOL_KEYWORDS
+O banco de dados confirma: há 3 interações com `unanswered: true`, mas `agent_knowledge_gaps` está completamente vazia — o que prova que o bug 1 impediu todos os registros.
 
+**Solução complementar:** Além do fix do `upsert`, registrar também gaps quando `topSimilarity < 0.35` (resposta incerta), marcando-os como `status: 'low_confidence'` para diferenciação:
 ```typescript
-const PROTOCOL_KEYWORDS = [
-  // PT (existentes)
-  /limpeza|lavagem|lavar|limpar/i,
-  /\bcura\b|pós.cura|pos.cura|fotopolimerizar/i,
-  /finaliz|acabamento|polimento|polir/i,
-  /pré.process|pre.process|pós.process|pos.process|processamento|protocolo/i,
-  /nanoclean|isopropílico|isopropilico|álcool|alcool/i,
-  // NOVO: termos de tratamento térmico
-  /tratamento.{0,5}t[ée]rmico|t[ée]rmico|forno|glicerina|soprador|thermal/i,
-  /temperatura|aquecimento|aquece|calor/i,
-  // ... EN/ES terms existentes ...
-  /\bpost.?process\b|heat.?treat|thermal.?treat/i, // EN
-  /tratamiento.{0,5}t[ée]rmico|horno|temperatura/i, // ES
-];
-```
-
-### Correção 2 — searchProcessingInstructions deve varrer o histórico para identificar a resina
-
-Igual ao `searchParameterSets`, a função deve receber e usar o `history` para extrair qual resina foi mencionada:
-
-```typescript
-async function searchProcessingInstructions(
-  supabase: ReturnType<typeof createClient>,
-  message: string,
-  history: Array<{ role: string; content: string }> = [] // ← NOVO parâmetro
-) {
-  // Combina histórico + mensagem atual para identificar a resina
-  const recentHistory = history.slice(-8).map(h => h.content).join(' ');
-  const combinedText = `${recentHistory} ${message}`.toLowerCase();
-  
-  // Usa combinedText em vez de apenas message para scorar resinas
-  const words = combinedText.split(/\s+/).filter(w => w.length > 3);
-  
-  // ... resto da função igual, mas usando words do combinedText
+// Após o bloco !hasResults, também captura respostas de baixa confiança
+if (topSimilarity < 0.35 && hasResults) {
+  // Registra como gap de baixa confiança (o RAG respondeu mas sem convicção)
+  await upsertKnowledgeGap(supabase, message, lang, "low_confidence");
 }
 ```
 
-E na chamada (linha 1070-1073), passar `history`:
-
-```typescript
-const [knowledgeResult, protocolResults, paramResults] = await Promise.all([
-  searchKnowledge(supabase, message, lang),
-  isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]), // ← passa history
-  searchParameterSets(supabase, message, history),
-]);
-```
-
-### Correção 3 — Regra 11 do system prompt: incluir "tratamento térmico" explicitamente na ordem das etapas
-
-A Regra 11 já menciona "Tratamento térmico (se houver)" mas o LLM precisa de uma instrução mais forte para não inventar valores quando o tema é tratamento térmico:
-
-```
-11. ... 5. Tratamento térmico (se houver) — ATENÇÃO: os dados de temperatura e tempo de tratamento 
-térmico variam drasticamente entre resinas (ex: 130–150°C vs 150°C vs 60–170°C). 
-NUNCA assuma valores padrão. Use EXCLUSIVAMENTE os valores da fonte PROCESSING_PROTOCOL.
-```
-
-## Tabela de Arquivos Modificados
+## Arquivos Modificados
 
 | Arquivo | Seção | Ação |
 |---|---|---|
-| `supabase/functions/dra-lia/index.ts` | Linha 46–63 (PROTOCOL_KEYWORDS) | Adicionar padrões para "tratamento térmico", "forno", "glicerina", "thermal" |
-| `supabase/functions/dra-lia/index.ts` | Linha 603 (searchProcessingInstructions) | Adicionar parâmetro `history` e usar `combinedText` para identificar a resina |
-| `supabase/functions/dra-lia/index.ts` | Linha 1070–1073 (chamada Promise.all) | Passar `history` para `searchProcessingInstructions` |
-| `supabase/functions/dra-lia/index.ts` | Linha 1200 (Regra 11 do system prompt) | Adicionar aviso explícito sobre não inventar valores de tratamento térmico |
+| `supabase/functions/dra-lia/index.ts` | Linha 1126–1130 | Substituir `.insert().onConflict?.()` por lógica select + insert/update com incremento de `frequency` |
+| `supabase/functions/dra-lia/index.ts` | Após linha 1099 (`hasResults`) | Adicionar captura de gaps de baixa confiança quando `topSimilarity < 0.35` |
+
+## Implementação: Função Helper `upsertKnowledgeGap`
+
+Para evitar duplicação, extrair a lógica para uma função reutilizável:
+
+```typescript
+async function upsertKnowledgeGap(
+  supabase: ReturnType<typeof createClient>,
+  question: string,
+  lang: string,
+  status: "pending" | "low_confidence" = "pending"
+) {
+  try {
+    const truncated = question.slice(0, 500);
+    const { data: existing } = await supabase
+      .from("agent_knowledge_gaps")
+      .select("id, frequency")
+      .eq("question", truncated)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("agent_knowledge_gaps")
+        .update({ 
+          frequency: (existing.frequency ?? 1) + 1, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("agent_knowledge_gaps")
+        .insert({ question: truncated, lang, frequency: 1, status });
+    }
+  } catch (e) {
+    console.error("[upsertKnowledgeGap] error:", e);
+    // fail silently
+  }
+}
+```
+
+E os dois pontos de chamada:
+```typescript
+// Ponto 1: quando !hasResults (linha 1126)
+await upsertKnowledgeGap(supabase, message, lang, "pending");
+
+// Ponto 2: quando baixa confiança (após linha 1099)
+if (!hasResults || topSimilarity < 0.35) {
+  await upsertKnowledgeGap(supabase, message, lang, hasResults ? "low_confidence" : "pending");
+}
+```
 
 ## Tabela de Validação
 
 | Cenário | Antes | Depois |
 |---|---|---|
-| "Como faço o tratamento térmico?" (após mencionar Vitality) | Inventa 80°C/15min | Retorna valores corretos da Vitality: 130–150°C/1min (glicerina) ou 150°C/1min (forno) |
-| "Qual a temperatura do forno para a Vitality?" | isProtocol=false, sem contexto real | isProtocol=true, searchProcessingInstructions retorna dados corretos |
-| "Protocolo de limpeza da Vitality" (fluxo existente) | Funciona | Comportamento mantido |
-| "Pós-cura da Vitality" (fluxo existente) | Funciona | Comportamento mantido |
-| "Como faço o acabamento?" (sem resina mencionada na msg atual) | Pode trazer resina errada | history usado → resina correta identificada pelo contexto da conversa |
+| Pergunta sem resposta no RAG | Gap não registrado (bug do `onConflict?.`) | Gap registrado com `status: pending` |
+| Mesma pergunta sem resposta repetida | Nenhuma atualização | `frequency` incrementado corretamente |
+| Pergunta com resposta de baixa similaridade (< 0.35) | Nunca registrada | Gap registrado com `status: low_confidence` |
+| Painel "Top 10 Perguntas Sem Resposta" | Sempre vazio | Mostra gaps reais da base |
+| Perguntas com boa resposta (similarity >= 0.65) | Não registradas | Não registradas (comportamento correto) |
 
 ## Impacto
 
-- Nenhuma migração de banco de dados
-- Nenhuma alteração na lógica de busca RAG
-- Deploy automático após edição
-- Elimina a alucinação de valores de temperatura/tempo inventados pelo LLM quando o contexto real estava disponível mas não era injetado
+- Nenhuma migração de banco de dados necessária (a tabela já existe com a estrutura correta)
+- O campo `status` já aceita texto livre — `"low_confidence"` funciona sem alteração de schema
+- Deploy automático da edge function após edição
+- O painel `AdminDraLIAStats` já exibe os gaps corretamente — assim que os registros começarem a entrar, o painel exibirá os dados automaticamente
