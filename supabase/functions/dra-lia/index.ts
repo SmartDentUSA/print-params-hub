@@ -35,9 +35,9 @@ const SUPPORT_KEYWORDS = [
 ];
 
 const SUPPORT_FALLBACK: Record<string, string> = {
-  "pt-BR": `Para problemas técnicos com equipamentos, nossa equipe de suporte pode te ajudar diretamente 😊\n\n💬 **WhatsApp:** [Falar com suporte](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+preciso+de+suporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horário:** Segunda a Sexta, 08h às 18h`,
-  "en-US": `For technical issues with equipment, our support team can help you directly 😊\n\n💬 **WhatsApp:** [Contact support](https://api.whatsapp.com/send/?phone=551634194735&text=Hi+I+need+technical+support)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Office hours:** Mon–Fri, 8am–6pm (BRT)`,
-  "es-ES": `Para problemas técnicos con equipos, nuestro equipo de soporte puede ayudarte directamente 😊\n\n💬 **WhatsApp:** [Contactar soporte](https://api.whatsapp.com/send/?phone=551634194735&text=Hola+necesito+soporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horario:** Lunes a Viernes, 8h a 18h`,
+  "pt-BR": `Para problemas técnicos com equipamentos, nossa equipe de suporte pode te ajudar diretamente 😊\n\n💬 **WhatsApp:** [Falar com suporte](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+suporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horário:** Segunda a Sexta, 08h às 18h`,
+  "en-US": `For technical issues with equipment, our support team can help you directly 😊\n\n💬 **WhatsApp:** [Contact support](https://wa.me/551634194735?text=Hi%2C+I+need+technical+support)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Office hours:** Mon–Fri, 8am–6pm (BRT)`,
+  "es-ES": `Para problemas técnicos con equipos, nuestro equipo de soporte puede ayudarte directamente 😊\n\n💬 **WhatsApp:** [Contactar soporte](https://wa.me/551634194735?text=Hola%2C+necesito+soporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horario:** Lunes a Viernes, 8h a 18h`,
 };
 
 const isSupportQuestion = (msg: string) => SUPPORT_KEYWORDS.some((p) => p.test(msg));
@@ -550,7 +550,7 @@ const GREETING_RESPONSES: Record<string, string> = {
 const FALLBACK_MESSAGES: Record<string, string> = {
   "pt-BR": `Ainda não tenho essa informação em nossa base de conhecimento, mas nossos especialistas podem ajudar você! 😊
 
-💬 **WhatsApp:** [Chamar no WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
+💬 **WhatsApp:** [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+poderia+me+ajudar%3F)
 ✉️ **E-mail:** comercial@smartdent.com.br
 🕐 **Horário:** Segunda a Sexta, 08h às 18h
 
@@ -558,7 +558,7 @@ Nossa equipe está pronta para explicar melhor!`,
 
   "en-US": `I don't have this information in our knowledge base yet, but our specialists can help you! 😊
 
-💬 **WhatsApp:** [Chat on WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
+💬 **WhatsApp:** [Chat on WhatsApp](https://wa.me/551634194735?text=Hi%2C+could+you+help+me%3F)
 ✉️ **E-mail:** comercial@smartdent.com.br
 🕐 **Hours:** Monday to Friday, 8am–6pm (BRT)
 
@@ -566,7 +566,7 @@ Our team is ready to help!`,
 
   "es-ES": `Todavía no tengo esa información en nuestra base de conocimiento, pero nuestros especialistas pueden ayudarte! 😊
 
-💬 **WhatsApp:** [Chatear por WhatsApp](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+poderia+me+ajudar%3F)
+💬 **WhatsApp:** [Chatear por WhatsApp](https://wa.me/551634194735?text=Hola%2C+%C2%BFpodrian+ayudarme%3F)
 ✉️ **E-mail:** comercial@smartdent.com.br
 🕐 **Horario:** Lunes a Viernes, 08h–18h (BRT)
 
@@ -1229,7 +1229,7 @@ serve(async (req) => {
 ### 🛠 ESTRATÉGIA DE TRANSIÇÃO HUMANA (Fallback)
 Sempre que você admitir que não sabe algo ou notar frustração (ex: "você não ajuda", "não foi isso que perguntei"), finalize obrigatoriamente com:
 - "Mas não se preocupe! Nossa equipe de especialistas técnicos pode resolver isso agora mesmo para você via WhatsApp."
-- Link: **[Chamar no WhatsApp](https://api.whatsapp.com/send/?phone=551634194735)**.
+- Link: **[Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)**.
 
 ### 📋 REGRAS DE RESPOSTA (As 17 Diretrizes)
 1. Use apenas o contexto RAG fornecido para dados técnicos.
