@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart,
@@ -26,6 +28,13 @@ import {
   Download,
   ChevronDown,
   ChevronUp,
+  Database,
+  Zap,
+  FileText,
+  Video,
+  FlaskConical,
+  Settings2,
+  XCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -76,6 +85,25 @@ interface QualityStats {
   scoreDistribution: { range: string; count: number; color: string }[];
 }
 
+interface RAGStats {
+  totalChunks: number;
+  bySourceType: { source_type: string; count: number }[];
+  lastIndexedAt: string | null;
+  totalArticles: number;
+  indexedArticles: number;
+}
+
+interface IndexingResult {
+  success: boolean;
+  indexed: number;
+  errors: number;
+  skipped: number;
+  total_chunks: number;
+  mode: string;
+  error?: string;
+}
+
+
 const VERDICT_CONFIG: Record<string, { label: string; className: string }> = {
   hallucination: { label: "Alucinação", className: "bg-destructive/20 text-destructive border-destructive/30" },
   off_topic: { label: "Fora do Tema", className: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-400" },
@@ -109,6 +137,15 @@ export function AdminDraLIAStats() {
     reviewedCount: 0,
     scoreDistribution: [],
   });
+  const [ragStats, setRagStats] = useState<RAGStats>({
+    totalChunks: 0,
+    bySourceType: [],
+    lastIndexedAt: null,
+    totalArticles: 0,
+    indexedArticles: 0,
+  });
+  const [indexingResult, setIndexingResult] = useState<IndexingResult | null>(null);
+  const [indexingLoading, setIndexingLoading] = useState(false);
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [knowledgeGaps, setKnowledgeGaps] = useState<KnowledgeGap[]>([]);
   const [qualityItems, setQualityItems] = useState<QualityInteraction[]>([]);
@@ -213,9 +250,76 @@ export function AdminDraLIAStats() {
     }
   }, [toast]);
 
+  const fetchRAGStats = useCallback(async () => {
+    try {
+      const [embResult, artResult] = await Promise.all([
+        supabase.from("agent_embeddings").select("source_type, embedding_updated_at").order("embedding_updated_at", { ascending: false }),
+        supabase.from("knowledge_contents").select("id", { count: "exact" }).eq("active", true),
+      ]);
+
+      const embeddings = embResult.data ?? [];
+      const totalChunks = embeddings.length;
+      const lastIndexedAt = embeddings.length > 0 ? embeddings[0].embedding_updated_at : null;
+
+      // Count by source_type
+      const typeMap: Record<string, number> = {};
+      embeddings.forEach((e) => {
+        typeMap[e.source_type] = (typeMap[e.source_type] || 0) + 1;
+      });
+      const bySourceType = Object.entries(typeMap).map(([source_type, count]) => ({ source_type, count }));
+
+      // Count unique article content_ids indexed
+      const articleEmbeddings = embeddings.filter((e) => e.source_type === "article");
+      const indexedArticles = new Set(articleEmbeddings.map((e) => (e as { source_type: string; embedding_updated_at: string | null } & { content_id?: string }))).size;
+
+      setRagStats({
+        totalChunks,
+        bySourceType,
+        lastIndexedAt,
+        totalArticles: artResult.count ?? 0,
+        indexedArticles: articleEmbeddings.length,
+      });
+    } catch (err) {
+      console.error("Error fetching RAG stats:", err);
+    }
+  }, []);
+
+  const handleIndexing = async (mode: "full" | "incremental") => {
+    setIndexingLoading(true);
+    setIndexingResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const start = Date.now();
+      const response = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=${mode}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+      });
+      const json = await response.json();
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+
+      if (!response.ok) {
+        setIndexingResult({ success: false, indexed: 0, errors: 0, skipped: 0, total_chunks: 0, mode, error: json.error || `HTTP ${response.status}` });
+        toast({ title: `Erro na indexação: ${json.error}`, variant: "destructive" });
+      } else {
+        setIndexingResult({ ...json, success: true });
+        toast({ title: `✓ Indexação concluída em ${elapsed}s — ${json.indexed} chunks indexados` });
+        fetchRAGStats();
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      setIndexingResult({ success: false, indexed: 0, errors: 0, skipped: 0, total_chunks: 0, mode: mode, error: msg });
+      toast({ title: `Erro: ${msg}`, variant: "destructive" });
+    } finally {
+      setIndexingLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchRAGStats();
+  }, [fetchData, fetchRAGStats]);
 
   const handleResolve = async (gapId: string) => {
     setResolvingId(gapId);
@@ -380,6 +484,13 @@ export function AdminDraLIAStats() {
               <Badge className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0 h-4 ml-1">
                 {qualityStats.hallucinationCount}
               </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="rag" className="flex-1 sm:flex-none gap-2">
+            <Database className="w-4 h-4" />
+            Indexação RAG
+            {ragStats.totalChunks === 0 && (
+              <Badge className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0 h-4 ml-1">!</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -709,11 +820,11 @@ export function AdminDraLIAStats() {
           </Card>
 
           {/* Visão dual: Judge (qualidade de resposta) + Gaps (cobertura de conhecimento) */}
-          <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900/30 dark:bg-orange-900/10">
+          <Card className="border-chart-3/30 bg-chart-3/5">
             <CardContent className="pt-4 pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <AlertTriangle className="w-5 h-5 text-orange-500" />
+                  <AlertTriangle className="w-5 h-5 text-chart-3" />
                   <div>
                     <p className="text-sm font-medium">Lacunas de Conhecimento Pendentes</p>
                     <p className="text-xs text-muted-foreground">
@@ -722,10 +833,244 @@ export function AdminDraLIAStats() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-orange-600">{stats.pendingGapsCount}</p>
+                  <p className="text-2xl font-bold text-chart-3">{stats.pendingGapsCount}</p>
                   <p className="text-xs text-muted-foreground">ver em Visão Geral</p>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── TAB: Indexação RAG ───────────────────────────────────────────── */}
+        <TabsContent value="rag" className="space-y-6 mt-6">
+          {/* Alert: RAG inativo */}
+          {ragStats.totalChunks === 0 && (
+            <Alert className="border-destructive/50 bg-destructive/10">
+              <XCircle className="h-5 w-5 text-destructive" />
+              <AlertTitle className="text-destructive font-semibold">RAG Vetorial Inativo — 0 chunks indexados</AlertTitle>
+              <AlertDescription className="text-destructive/80 space-y-2 mt-1">
+                <p>A Dra. L.I.A. está operando <strong>sem busca semântica</strong>. Perguntas coloquiais e sinônimos não encontrarão conteúdo relevante, aumentando a taxa de alucinação estimada para ~34%.</p>
+                <p className="font-medium">Para ativar:</p>
+                <ol className="list-decimal list-inside space-y-1 text-sm">
+                  <li>Acesse <strong>Supabase Dashboard → Settings → Edge Functions → Secrets</strong></li>
+                  <li>Adicione o secret <code className="bg-destructive/20 px-1 rounded font-mono text-xs">GOOGLE_AI_KEY</code></li>
+                  <li>Obtenha sua chave em <strong>aistudio.google.com/app/apikey</strong></li>
+                  <li>Clique em "Indexação Completa" abaixo</li>
+                </ol>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Status KPIs */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Database className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{ragStats.totalChunks.toLocaleString("pt-BR")}</p>
+                    <p className="text-xs text-muted-foreground">Chunks Indexados</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-chart-2/10">
+                    <FileText className="w-5 h-5 text-chart-2" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {ragStats.totalArticles > 0
+                        ? `${Math.round((ragStats.indexedArticles / ragStats.totalArticles) * 100)}%`
+                        : "–"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Cobertura Artigos</p>
+                    <p className="text-xs text-muted-foreground/70">{ragStats.indexedArticles} / {ragStats.totalArticles}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-chart-3/10">
+                    <Activity className="w-5 h-5 text-chart-3" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {ragStats.lastIndexedAt
+                        ? new Date(ragStats.lastIndexedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+                        : "Nunca"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Última Indexação</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${ragStats.totalChunks > 0 ? "bg-chart-2/10" : "bg-destructive/10"}`}>
+                    <Zap className={`w-5 h-5 ${ragStats.totalChunks > 0 ? "text-chart-2" : "text-destructive"}`} />
+                  </div>
+                  <div>
+                    <p className={`text-sm font-bold ${ragStats.totalChunks > 0 ? "text-chart-2" : "text-destructive"}`}>
+                      {ragStats.totalChunks > 0 ? "✓ Ativo" : "✗ Inativo"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Status RAG</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Distribuição por tipo */}
+          {ragStats.bySourceType.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Distribuição por Tipo de Fonte</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {[
+                    { key: "article", label: "Artigos", icon: FileText, color: "bg-primary" },
+                    { key: "video", label: "Vídeos", icon: Video, color: "bg-chart-3" },
+                    { key: "resin", label: "Resinas", icon: FlaskConical, color: "bg-chart-2" },
+                    { key: "parameter", label: "Parâmetros", icon: Settings2, color: "bg-chart-4" },
+                  ].map(({ key, label, icon: Icon, color }) => {
+                    const entry = ragStats.bySourceType.find((s) => s.source_type === key);
+                    const count = entry?.count ?? 0;
+                    const pct = ragStats.totalChunks > 0 ? Math.round((count / ragStats.totalChunks) * 100) : 0;
+                    return (
+                      <div key={key} className="flex items-center gap-3">
+                        <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-muted-foreground w-24 shrink-0">{label}</span>
+                        <Progress value={pct} className="flex-1 h-2" />
+                        <span className="text-sm font-medium w-20 text-right shrink-0">{count.toLocaleString("pt-BR")} <span className="text-xs text-muted-foreground">({pct}%)</span></span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Ações de indexação */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium">Ações de Indexação</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                A <strong>Indexação Completa</strong> apaga todos os embeddings e re-indexa tudo (artigos, vídeos, resinas, parâmetros). A <strong>Incremental</strong> só indexa conteúdo novo.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={() => handleIndexing("full")}
+                  disabled={indexingLoading}
+                  variant="default"
+                  className="gap-2"
+                >
+                  {indexingLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                  {indexingLoading ? "Indexando..." : "Indexação Completa"}
+                </Button>
+                <Button
+                  onClick={() => handleIndexing("incremental")}
+                  disabled={indexingLoading}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  {indexingLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Indexação Incremental
+                </Button>
+                <Button
+                  onClick={fetchRAGStats}
+                  disabled={indexingLoading}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Atualizar Status
+                </Button>
+              </div>
+
+              {indexingLoading && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-sm text-muted-foreground">Indexando chunks — aguarde, pode levar alguns minutos...</p>
+                  <Progress value={undefined} className="h-2 animate-pulse" />
+                </div>
+              )}
+
+              {/* Resultado da última indexação */}
+              {indexingResult && !indexingLoading && (
+                <div className={`rounded-lg border p-4 mt-2 ${indexingResult.success ? "border-chart-2/30 bg-chart-2/10" : "border-destructive/30 bg-destructive/10"}`}>
+                  {indexingResult.success ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-chart-2" />
+                        <span className="text-sm font-medium text-chart-2">Indexação concluída com sucesso</span>
+                        <Badge variant="outline" className="text-xs">{indexingResult.mode}</Badge>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 text-center text-sm">
+                        <div>
+                          <p className="font-bold text-lg">{indexingResult.indexed}</p>
+                          <p className="text-xs text-muted-foreground">Indexados</p>
+                        </div>
+                        <div>
+                          <p className="font-bold text-lg">{indexingResult.skipped}</p>
+                          <p className="text-xs text-muted-foreground">Ignorados</p>
+                        </div>
+                        <div>
+                          <p className={`font-bold text-lg ${indexingResult.errors > 0 ? "text-destructive" : ""}`}>{indexingResult.errors}</p>
+                          <p className="text-xs text-muted-foreground">Erros</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <XCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-destructive">Falha na indexação</p>
+                        <p className="text-xs text-muted-foreground mt-1">{indexingResult.error}</p>
+                        {indexingResult.error?.includes("GOOGLE_AI_KEY") && (
+                          <p className="text-xs text-muted-foreground mt-2">
+                            👉 Configure <code className="bg-muted px-1 rounded">GOOGLE_AI_KEY</code> em{" "}
+                            <a href="https://supabase.com/dashboard/project/okeogjgqijbfkudfjadz/settings/functions" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                              Supabase → Settings → Edge Functions → Secrets
+                            </a>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Instruções para GOOGLE_AI_KEY */}
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                🔑 Configurar GOOGLE_AI_KEY
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs text-muted-foreground space-y-2">
+              <p>A indexação usa a API de Embeddings do Google Gemini (<code className="bg-muted px-1 rounded">text-embedding-004</code>). Siga os passos:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Acesse <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline">aistudio.google.com/app/apikey</a> e crie uma chave</li>
+                <li>No Supabase: <strong>Settings → Edge Functions → Secrets</strong></li>
+                <li>Adicione o secret com nome exato: <code className="bg-muted px-1 rounded font-mono">GOOGLE_AI_KEY</code></li>
+                <li>Clique em "Indexação Completa" acima para indexar os ~300 artigos</li>
+              </ol>
+              <p className="text-xs text-muted-foreground/70">
+                A API do Google Gemini tem cota gratuita generosa — 1.500 req/minuto para embeddings no plano gratuito.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
