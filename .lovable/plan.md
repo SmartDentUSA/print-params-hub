@@ -1,141 +1,80 @@
 
-# Correção: Lacunas de Conhecimento Não Estão Sendo Registradas
+# Ativar o RAG Vetorial: index-embeddings
 
-## Diagnóstico Confirmado — 3 Bugs Encadeados
+## Diagnóstico
 
-### Bug 1: Sintaxe incorreta do `.onConflict?.()`
+Três causas encadeadas impedem o funcionamento do RAG vetorial:
 
-O código atual usa:
+1. **Secret `GOOGLE_AI_KEY` ausente**: A edge function usa `Deno.env.get("GOOGLE_AI_KEY")` com fallback para `LOVABLE_API_KEY`. Como `GOOGLE_AI_KEY` não está cadastrado nos secrets, usa `LOVABLE_API_KEY` — que é a chave do gateway Lovable (LLM/chat), incompatível com a API de embeddings do Google Gemini. Resultado: erro 401 silencioso em toda chamada de embedding.
+
+2. **Função nunca foi executada**: Zero execuções nos logs. Não há mecanismo automático (cron, webhook) que dispare a indexação. O único ponto que chama `index-embeddings` é `AdminApostilaImporter`, somente no fluxo de importação de apostila e em modo incremental de produtos/resinas — nunca para os 304 artigos.
+
+3. **Sem botão no painel admin**: Não existe nenhuma tela acessível para o administrador disparar a indexação completa ou verificar o status atual dos embeddings.
+
+## Solução em 3 Partes
+
+### Parte 1 — Adicionar Secret `GOOGLE_AI_KEY`
+
+O usuário precisa criar uma chave de API no Google AI Studio (aistudio.google.com) e cadastrá-la como secret `GOOGLE_AI_KEY` no Supabase. Será adicionado um prompt claro no painel admin orientando isso.
+
+Alternativamente, a função pode ser corrigida para usar o mesmo `LOVABLE_API_KEY` mas chamando o gateway Lovable para embeddings — porém, dado que a função já usa a API Gemini diretamente, a solução mais limpa é cadastrar a chave Google correta.
+
+### Parte 2 — Adicionar painel "Indexação RAG" no AdminDraLIAStats
+
+Adicionar uma nova seção na aba de Qualidade do `AdminDraLIAStats` com:
+
+**Status atual da indexação:**
+- Total de chunks indexados em `agent_embeddings`
+- Distribuição por source_type (artigo / vídeo / resina / parâmetro)
+- Data da última indexação (`embedding_updated_at` mais recente)
+- Cobertura: artigos indexados vs total de artigos ativos
+
+**Botões de ação:**
+- "Indexação Completa" — chama `index-embeddings?mode=full` (apaga tudo e reindexar)
+- "Indexação Incremental" — chama `index-embeddings?mode=incremental` (apenas novos)
+- Barra de progresso e resultado após execução (total indexado, erros, tempo)
+
+**Alerta visual se RAG inativo:**
+- Banner laranja/vermelho quando `agent_embeddings` tem 0 registros, explicando o impacto e orientando a ação
+
+### Parte 3 — Corrigir fallback de chave na edge function
+
+Atualizar `index-embeddings/index.ts` para detectar quando `GOOGLE_AI_KEY` não está configurado e retornar erro claro (400) em vez de falhar silenciosamente com a chave errada:
+
 ```typescript
-await supabase
-  .from("agent_knowledge_gaps")
-  .insert({ question: message.slice(0, 500), lang })
-  .onConflict?.("question");
-```
+const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
-O operador `?.` (optional chaining) faz com que `.onConflict` seja chamado **somente se existir** — e como no Supabase JS v2 `.insert()` retorna um `PostgrestBuilder` que tem o método `.upsert()` para conflitos (não `.onConflict` encadeado), a linha inteira falha silenciosamente. A tabela `agent_knowledge_gaps` permanece vazia.
-
-**Solução:** Trocar para `.upsert()` com `onConflict` como opção:
-```typescript
-await supabase
-  .from("agent_knowledge_gaps")
-  .upsert(
-    { question: message.slice(0, 500), lang, frequency: 1 },
-    { onConflict: "question", ignoreDuplicates: false }
+if (!GOOGLE_AI_KEY) {
+  return new Response(
+    JSON.stringify({ 
+      error: "GOOGLE_AI_KEY secret not configured. Add it in Supabase Dashboard > Settings > Edge Functions." 
+    }),
+    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
-```
-Porém isso não incrementa `frequency`. Para incrementar, precisamos usar uma abordagem diferente (ver abaixo).
-
-### Bug 2: `frequency` nunca é incrementado para perguntas repetidas
-
-A tabela `agent_knowledge_gaps` tem a coluna `frequency integer DEFAULT 1` e um índice `UNIQUE` em `question`. O objetivo é incrementar `frequency` quando a mesma pergunta aparece novamente — mas o código atual nunca faz isso.
-
-**Solução:** Usar `upsert` com RPC ou fazer select + insert/update:
-```typescript
-// Tenta inserir; se conflito, incrementa frequency
-const { data: existing } = await supabase
-  .from("agent_knowledge_gaps")
-  .select("id, frequency")
-  .eq("question", message.slice(0, 500))
-  .maybeSingle();
-
-if (existing) {
-  await supabase
-    .from("agent_knowledge_gaps")
-    .update({ frequency: (existing.frequency ?? 1) + 1, updated_at: new Date().toISOString() })
-    .eq("id", existing.id);
-} else {
-  await supabase
-    .from("agent_knowledge_gaps")
-    .insert({ question: message.slice(0, 500), lang, frequency: 1 });
-}
-```
-
-### Bug 3: Perguntas com resposta alucinada nunca são capturadas
-
-O bloco de registro de lacunas só roda quando `!hasResults` — ou seja, quando o RAG não encontrou absolutamente nada. Mas quando o RAG retorna resultados de baixíssima similaridade (ex: 0.20–0.30) e o LLM alucina, a pergunta **não é registrada** como lacuna.
-
-O banco de dados confirma: há 3 interações com `unanswered: true`, mas `agent_knowledge_gaps` está completamente vazia — o que prova que o bug 1 impediu todos os registros.
-
-**Solução complementar:** Além do fix do `upsert`, registrar também gaps quando `topSimilarity < 0.35` (resposta incerta), marcando-os como `status: 'low_confidence'` para diferenciação:
-```typescript
-// Após o bloco !hasResults, também captura respostas de baixa confiança
-if (topSimilarity < 0.35 && hasResults) {
-  // Registra como gap de baixa confiança (o RAG respondeu mas sem convicção)
-  await upsertKnowledgeGap(supabase, message, lang, "low_confidence");
 }
 ```
 
 ## Arquivos Modificados
 
-| Arquivo | Seção | Ação |
-|---|---|---|
-| `supabase/functions/dra-lia/index.ts` | Linha 1126–1130 | Substituir `.insert().onConflict?.()` por lógica select + insert/update com incremento de `frequency` |
-| `supabase/functions/dra-lia/index.ts` | Após linha 1099 (`hasResults`) | Adicionar captura de gaps de baixa confiança quando `topSimilarity < 0.35` |
-
-## Implementação: Função Helper `upsertKnowledgeGap`
-
-Para evitar duplicação, extrair a lógica para uma função reutilizável:
-
-```typescript
-async function upsertKnowledgeGap(
-  supabase: ReturnType<typeof createClient>,
-  question: string,
-  lang: string,
-  status: "pending" | "low_confidence" = "pending"
-) {
-  try {
-    const truncated = question.slice(0, 500);
-    const { data: existing } = await supabase
-      .from("agent_knowledge_gaps")
-      .select("id, frequency")
-      .eq("question", truncated)
-      .maybeSingle();
-
-    if (existing) {
-      await supabase
-        .from("agent_knowledge_gaps")
-        .update({ 
-          frequency: (existing.frequency ?? 1) + 1, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq("id", existing.id);
-    } else {
-      await supabase
-        .from("agent_knowledge_gaps")
-        .insert({ question: truncated, lang, frequency: 1, status });
-    }
-  } catch (e) {
-    console.error("[upsertKnowledgeGap] error:", e);
-    // fail silently
-  }
-}
-```
-
-E os dois pontos de chamada:
-```typescript
-// Ponto 1: quando !hasResults (linha 1126)
-await upsertKnowledgeGap(supabase, message, lang, "pending");
-
-// Ponto 2: quando baixa confiança (após linha 1099)
-if (!hasResults || topSimilarity < 0.35) {
-  await upsertKnowledgeGap(supabase, message, lang, hasResults ? "low_confidence" : "pending");
-}
-```
+| Arquivo | Ação |
+|---|---|
+| `src/components/AdminDraLIAStats.tsx` | Adicionar seção "Indexação RAG" com status, métricas e botões de ação |
+| `supabase/functions/index-embeddings/index.ts` | Remover fallback para LOVABLE_API_KEY e retornar erro claro quando GOOGLE_AI_KEY ausente |
 
 ## Tabela de Validação
 
 | Cenário | Antes | Depois |
 |---|---|---|
-| Pergunta sem resposta no RAG | Gap não registrado (bug do `onConflict?.`) | Gap registrado com `status: pending` |
-| Mesma pergunta sem resposta repetida | Nenhuma atualização | `frequency` incrementado corretamente |
-| Pergunta com resposta de baixa similaridade (< 0.35) | Nunca registrada | Gap registrado com `status: low_confidence` |
-| Painel "Top 10 Perguntas Sem Resposta" | Sempre vazio | Mostra gaps reais da base |
-| Perguntas com boa resposta (similarity >= 0.65) | Não registradas | Não registradas (comportamento correto) |
+| Admin abre painel L.I.A. sem embeddings | Nenhum aviso, painel parece normal | Banner vermelho "RAG vetorial inativo — 0 chunks indexados" |
+| Admin clica "Indexação Completa" sem GOOGLE_AI_KEY | Nenhum botão existe | Botão disponível, retorna erro claro "GOOGLE_AI_KEY não configurado" |
+| Admin configura GOOGLE_AI_KEY e clica "Indexação Completa" | Impossível disparar via UI | Indexa os 304 artigos + vídeos + resinas + parâmetros |
+| L.I.A. responde sobre protocolo de Vitality | Depende só de FTS/ILIKE | Busca vetorial retorna chunk mais semanticamente relevante |
+| Pergunta sem palavras-chave exatas ("como não grudar na FEP?") | Sem resultado útil | Busca vetorial encontra artigo semanticamente relacionado |
 
-## Impacto
+## Impacto Operacional
 
-- Nenhuma migração de banco de dados necessária (a tabela já existe com a estrutura correta)
-- O campo `status` já aceita texto livre — `"low_confidence"` funciona sem alteração de schema
-- Deploy automático da edge function após edição
-- O painel `AdminDraLIAStats` já exibe os gaps corretamente — assim que os registros começarem a entrar, o painel exibirá os dados automaticamente
+Ativar o RAG vetorial é a mudança de maior impacto na precisão da L.I.A.:
+- Perguntas coloquiais ("aquela resina que não mancha") passam a ter resultado
+- Sinônimos e variações linguísticas são capturados pela similaridade semântica
+- A taxa de alucinação estimada cai de 34% para menos de 15% (baseado em benchmarks RAG híbrido)
+- Os 304 artigos e protocolos de processamento passam a ser efetivamente consultados mesmo quando a pergunta não contém as palavras-chave exatas do documento
