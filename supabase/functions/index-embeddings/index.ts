@@ -13,47 +13,88 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 const BATCH_SIZE = 20;
 const DELAY_MS = 300;
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  // Use v1beta with the correct model path — text-embedding-004 lives in v1beta for the embedContent method
+async function listAvailableEmbeddingModels(): Promise<string[]> {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GOOGLE_AI_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text }] },
-      }),
-    }
+    `https://generativelanguage.googleapis.com/v1/models?key=${GOOGLE_AI_KEY}`,
+    { method: "GET", headers: { "Content-Type": "application/json" } }
   );
+  if (!response.ok) return [];
+  const data = await response.json();
+  return (data.models || [])
+    .filter((m: { supportedGenerationMethods?: string[] }) =>
+      m.supportedGenerationMethods?.includes("embedContent")
+    )
+    .map((m: { name: string }) => m.name);
+}
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    // If text-embedding-004 fails, try the stable gemini embedding model
-    if (response.status === 404) {
-      const response2 = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${GOOGLE_AI_KEY}`,
+async function generateEmbedding(text: string): Promise<number[]> {
+  // Try models in order of preference
+  const modelsToTry = [
+    "models/text-embedding-004",
+    "models/embedding-001",
+    "models/gemini-embedding-exp-03-07",
+  ];
+
+  for (const model of modelsToTry) {
+    const modelId = model.replace("models/", "");
+    // Try both /v1 and /v1beta for each model
+    for (const apiVersion of ["v1", "v1beta"]) {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelId}:embedContent?key=${GOOGLE_AI_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "models/embedding-001",
+            model,
             content: { parts: [{ text }] },
           }),
         }
       );
-      if (!response2.ok) {
-        const err2 = await response2.text();
-        throw new Error(`Embedding API error ${response2.status}: ${err2}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        const values = data.embedding?.values || [];
+        if (values.length > 0) {
+          console.log(`Using embedding model: ${model} via /${apiVersion}`);
+          return values;
+        }
+      } else if (response.status !== 404) {
+        // Non-404 error means the model exists but something else went wrong
+        const errorBody = await response.text();
+        throw new Error(`Embedding API error ${response.status}: ${errorBody}`);
       }
-      const data2 = await response2.json();
-      return data2.embedding?.values || [];
     }
-    throw new Error(`Embedding API error ${response.status}: ${errorBody}`);
   }
 
-  const data = await response.json();
-  return data.embedding?.values || [];
+  // Last resort: list available models and use the first embedding-capable one
+  const availableModels = await listAvailableEmbeddingModels();
+  console.log("Available embedding models:", availableModels);
+  if (availableModels.length === 0) {
+    throw new Error("No embedding models available for this API key. Check that the Generative Language API is enabled.");
+  }
+
+  // Try the first available model
+  const firstModel = availableModels[0];
+  const modelId = firstModel.replace("models/", "");
+  for (const apiVersion of ["v1", "v1beta"]) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelId}:embedContent?key=${GOOGLE_AI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: firstModel,
+          content: { parts: [{ text }] },
+        }),
+      }
+    );
+    if (response.ok) {
+      const data = await response.json();
+      return data.embedding?.values || [];
+    }
+  }
+
+  throw new Error(`Could not generate embedding with any available model. Available: ${availableModels.join(", ")}`);
 }
 
 async function sleep(ms: number) {
