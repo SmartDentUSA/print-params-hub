@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY") || Deno.env.get("LOVABLE_API_KEY");
+const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
 const BATCH_SIZE = 20;
 const DELAY_MS = 300;
@@ -50,6 +50,17 @@ interface Chunk {
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate GOOGLE_AI_KEY upfront — fail fast with a clear error
+  if (!GOOGLE_AI_KEY) {
+    return new Response(
+      JSON.stringify({
+        error: "GOOGLE_AI_KEY secret not configured. Add it in Supabase Dashboard > Settings > Edge Functions > Secrets.",
+        hint: "Get your key at https://aistudio.google.com/app/apikey",
+      }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
