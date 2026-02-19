@@ -14,6 +14,7 @@ const BATCH_SIZE = 20;
 const DELAY_MS = 300;
 
 async function generateEmbedding(text: string): Promise<number[]> {
+  // Use v1beta with the correct model path — text-embedding-004 lives in v1beta for the embedContent method
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GOOGLE_AI_KEY}`,
     {
@@ -22,14 +23,33 @@ async function generateEmbedding(text: string): Promise<number[]> {
       body: JSON.stringify({
         model: "models/text-embedding-004",
         content: { parts: [{ text }] },
-        outputDimensionality: 768,
       }),
     }
   );
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Embedding API error ${response.status}: ${error}`);
+    const errorBody = await response.text();
+    // If text-embedding-004 fails, try the stable gemini embedding model
+    if (response.status === 404) {
+      const response2 = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${GOOGLE_AI_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "models/embedding-001",
+            content: { parts: [{ text }] },
+          }),
+        }
+      );
+      if (!response2.ok) {
+        const err2 = await response2.text();
+        throw new Error(`Embedding API error ${response2.status}: ${err2}`);
+      }
+      const data2 = await response2.json();
+      return data2.embedding?.values || [];
+    }
+    throw new Error(`Embedding API error ${response.status}: ${errorBody}`);
   }
 
   const data = await response.json();
