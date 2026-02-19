@@ -26,6 +26,15 @@ serve(async (req) => {
       );
     }
 
+    // Guard: mensagens muito curtas (< 10 chars) não têm conteúdo técnico para auditar
+    // Exemplos de ruído: "ok", "vlw", "oi", "sim" — nunca contêm perguntas técnicas
+    if ((record.user_message?.length ?? 0) < 10) {
+      return new Response(
+        JSON.stringify({ message: "Skip: user_message too short for meaningful evaluation" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       throw new Error("Missing required environment variables");
     }

@@ -699,6 +699,27 @@ export function AdminDraLIAStats() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Visão dual: Judge (qualidade de resposta) + Gaps (cobertura de conhecimento) */}
+          <Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900/30 dark:bg-orange-900/10">
+            <CardContent className="pt-4 pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-orange-500" />
+                  <div>
+                    <p className="text-sm font-medium">Lacunas de Conhecimento Pendentes</p>
+                    <p className="text-xs text-muted-foreground">
+                      Perguntas que a L.I.A. não soube responder — complemento ao Score do Juiz
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-orange-600">{stats.pendingGapsCount}</p>
+                  <p className="text-xs text-muted-foreground">ver em Visão Geral</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
