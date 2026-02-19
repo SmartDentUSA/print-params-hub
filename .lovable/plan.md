@@ -1,101 +1,81 @@
 
-# Correção: Supressão Inteligente de Media Cards Irrelevantes
+# Correção: Proibir Oferta de Vídeos Não Confirmados no RAG
 
-## Diagnóstico do Problema
+## Diagnóstico Preciso
 
-A mensagem "Preciso saber como é o protocolo de limpeza da resina Vitality" tem 9 palavras, o que ativa `hasSubstantiveIntent = true` e envia todos os 3 primeiros resultados do RAG como cards — incluindo um vídeo de parâmetros da Anycubic que foi recuperado por proximidade semântica (o RAG trouxe tudo sobre a Vitality, inclusive parâmetros de impressão).
+### O que aconteceu
+A conversa tinha 2 turnos:
+1. "Preciso saber como é o protocolo de limpeza da resina Vitality" → respondido corretamente (fix de media cards funcionou)
+2. "Sim" (confirmando querer saber sobre pós-cura UV) → L.I.A. respondeu com o protocolo de pós-cura correto, **mas finalizou inventando**: *"Também tenho um vídeo detalhando as configurações técnicas para diferentes impressoras se você precisar — quer assistir?"*
 
-O filtro atual tem dois defeitos:
+### Por que aconteceu
+A **Regra 8** do `systemPrompt` em `dra-lia/index.ts` (linha 1112) contém esta permissão:
 
-1. `hasSubstantiveIntent` (> 5 palavras) é muito permissivo — qualquer pergunta técnica dispara cards
-2. Os cards não são filtrados pela relevância em relação à intenção da pergunta — um vídeo de parâmetros de impressora aparece numa pergunta sobre protocolo de limpeza
-
-## Solução: 2 Camadas de Filtragem
-
-### Camada 1 — Refinar o critério de exibição de cards
-
-Substituir `hasSubstantiveIntent` por `userAskedForProtocolContent`:
-
-```text
-ANTES:  cards aparecem SE (pediu vídeo OR > 5 palavras)
-DEPOIS: cards aparecem SE (pediu vídeo explicitamente OR perguntou sobre produto/resina sem contexto de protocolo)
+```
+Em todos os outros casos, NO MÁXIMO mencione: "Também temos um vídeo sobre esse tema — quer ver?"
 ```
 
-Lógica nova:
+Essa cláusula autoriza o LLM a **sugerir espontaneamente** vídeos mesmo quando:
+- Nenhum vídeo relevante foi encontrado no RAG
+- O contexto atual é de protocolo (não de parâmetros de impressora)
+- O usuário não pediu vídeo
 
-```typescript
-// Padrões que indicam pedido explícito de mídia
-const VIDEO_REQUEST_PATTERNS = [
-  /\bv[íi]deo[s]?\b|\bassistir\b|\bwatch\b|\btutorial[s]?\b|\bmostrar\b/i,
-];
+O LLM "completou" com conhecimento próprio que "existe um vídeo sobre configurações técnicas para impressoras" — clássica alucinação factual disfarçada de cortesia.
 
-// Padrões que indicam intenção de PROTOCOLO — nestas perguntas, cards de parâmetros são irrelevantes
-const PROTOCOL_INTENT_PATTERNS = [
-  /\blimpeza\b|\blavar\b|\bcleaning\b|\blimpieza\b/i,
-  /\bcura\b|\bcuring\b|\bcurado\b|\bpós[-\s]?cura\b/i,
-  /\bprotocolo\b|\bprotocol\b|\bprocessamento\b|\bprocessing\b/i,
-  /\bacabamento\b|\bpolimento\b|\bfinishing\b/i,
-  /\bsecagem\b|\bdrying\b|\bsecar\b/i,
-];
+### Por que os media cards não são o problema aqui
+O fix anterior eliminou os cards visuais. O problema agora é **texto gerado pelo LLM** que menciona a existência de um vídeo — isso é independente do sistema de cards.
 
-const userRequestedMedia = VIDEO_REQUEST_PATTERNS.some(p => p.test(message));
-const isProtocolQuery = PROTOCOL_INTENT_PATTERNS.some(p => p.test(message));
+## Solução: 2 Alterações Cirúrgicas no System Prompt
+
+### Alteração 1 — Reformular a Regra 8 para proibir menção espontânea de vídeos
+
+**Antes (linha 1112):**
+```
+8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta. 
+Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", 
+"ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, NO MÁXIMO mencione: 
+"Também temos um vídeo sobre esse tema — quer ver?"
 ```
 
-### Camada 2 — Filtrar os cards por relevância de tipo
-
-Quando os cards são exibidos, filtrar para excluir cards cujo título contenha palavras de parâmetros de impressora quando a intenção for de protocolo:
-
-```typescript
-// Palavras que sinalizam "este card é sobre parâmetros de impressora"
-const PARAMETER_CARD_PATTERNS = [
-  /\bpar[âa]metros?\b|\bsettings?\b|\bparametr/i,
-  /\banycubic\b|\bphrozen\b|\belite[1i]x?\b|\bmiicraft\b|\bprusa\b|\bchitubox\b/i,
-  /\blayer height\b|\bexposure\b|\blift speed\b/i,
-];
-
-const isParameterCard = (title: string) =>
-  PARAMETER_CARD_PATTERNS.some(p => p.test(title));
-
-const mediaCards = userRequestedMedia
-  ? allResults
-      .filter(r => meta.thumbnail_url || meta.url_publica || meta.url_interna)
-      .filter(r => !isProtocolQuery || !isParameterCard((r.metadata as any).title ?? ''))
-      .slice(0, 3)
-      .map(...)
-  : [];
+**Depois:**
+```
+8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta.
+Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir",
+"ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, PROIBIDO mencionar ou sugerir 
+a existência de vídeos. NÃO diga "Também temos um vídeo", "temos um tutorial", 
+"posso te mostrar um vídeo" — a menos que o RAG tenha retornado explicitamente um vídeo 
+com VIDEO_INTERNO ou VIDEO_SEM_PAGINA no contexto desta conversa.
 ```
 
-**Resumo da lógica final:**
+### Alteração 2 — Reforçar Regra 14 (Anti-alucinação) para cobrir vídeos
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│ Pediu vídeo explicitamente (vídeo/assistir/tutorial)?      │
-│  → SIM: mostra cards (mas filtra cards de parâmetros       │
-│         se a pergunta também é de protocolo)               │
-│  → NÃO: não mostra cards                                  │
-└────────────────────────────────────────────────────────────┘
+**Acrescentar ao item 14 (linha 1120):**
 ```
-
-Isso elimina o `hasSubstantiveIntent` que era a raiz do problema.
+14. NUNCA cite produtos, parâmetros ou vídeos como "exemplos" quando o usuário não mencionou 
+aquele produto/marca/impressora específica. Use APENAS os dados diretamente relevantes à pergunta feita.
+NUNCA afirme ter um vídeo sobre um tema se não houver VIDEO_INTERNO ou VIDEO_SEM_PAGINA 
+nas fontes de contexto desta resposta.
+```
 
 ## Arquivo Modificado
 
 | Arquivo | Linhas | Ação |
 |---|---|---|
-| `supabase/functions/dra-lia/index.ts` | 1196–1219 | Substituição cirúrgica da lógica de mediaCards |
+| `supabase/functions/dra-lia/index.ts` | 1112 e 1120 | Edição cirúrgica do system prompt |
 
 ## Tabela de Validação Pós-deploy
 
 | Cenário | Comportamento esperado |
 |---|---|
-| "Preciso saber o protocolo de limpeza da Vitality" | Resposta técnica com protocolo — SEM card de parâmetros Anycubic |
-| "Tem vídeo sobre protocolo de limpeza?" | Card do vídeo aparece (pediu explicitamente), card de parâmetros é filtrado |
-| "Tem vídeo sobre NanoClean?" | Cards de vídeo aparecem normalmente |
-| "Oi" | Saudação humanizada, sem cards |
-| "Como calibrar a Anycubic Mono X?" | Sem cards (não pediu vídeo explicitamente) |
-| "Quero ver um tutorial de cura UV" | Cards de vídeo aparecem — filtro respeita pedido explícito |
+| "Preciso saber o protocolo de limpeza" → "Sim" | Resposta sobre pós-cura SEM oferta de vídeo inventado |
+| "Tem vídeo sobre protocolo de limpeza?" | Só menciona vídeo se RAG retornou VIDEO_INTERNO |
+| "Como usar a Anycubic Mono X?" | Responde sem inventar que existe um tutorial |
+| "Quero ver um tutorial de pós-cura" | Busca no RAG e só cita se encontrar vídeo real |
+| Contexto com VIDEO_INTERNO presente | Mantém comportamento atual — menciona o vídeo com link correto |
 
-## Deploy
+## Impacto
 
-Automático após a edição. Nenhuma migração de banco necessária.
+- Nenhuma migração de banco
+- Nenhuma alteração de lógica de busca
+- Deploy automático após edição
+- O problema de alucinação de texto é eliminado na raiz — o LLM não terá mais "permissão" para inventar ofertas de vídeo
