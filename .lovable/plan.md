@@ -1,68 +1,99 @@
 
-# Implementação dos 2 Ajustes Finais — Guard de Ruído + Card de Gaps
+# Implementação do System Prompt Consolidado + 3 Ajustes de Humanização
 
-## Estado verificado nos arquivos
+## O que será feito
 
-Ambos os ajustes ainda não estão no código:
+Substituição cirúrgica em **3 locais** do arquivo `supabase/functions/dra-lia/index.ts`. Nenhum outro arquivo será tocado.
 
-- `evaluate-interaction/index.ts` linha 28: em branco — falta o guard `length < 10`
-- `AdminDraLIAStats.tsx` linha 701→702: fecha o card do Webhook e vai direto ao `</TabsContent>` — falta o card laranja de Gaps
+---
 
-## Ajuste 1 — `supabase/functions/evaluate-interaction/index.ts`
+## Ponto 1 — GREETING_RESPONSES (linhas 527–531)
 
-Inserir 7 linhas entre as linhas 27 e 29 (entre o último guardrail de idempotência e a verificação de variáveis de ambiente):
+Estado atual (robótico, sem pergunta):
+```
+"Olá! Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent. Como posso ajudar você hoje? Pode me perguntar sobre resinas, impressoras, parâmetros de impressão ou vídeos técnicos. 😊"
+```
 
+Estado novo (humanizado, com qualificação):
+```
+"Olá! 😊 Seja bem-vindo à SmartDent!\n\nSou a Dra. L.I.A., sua assistente de odontologia digital. Estou aqui para te ajudar com o que você precisar.\n\nMe conta: o que você está buscando hoje? Pode ser uma dúvida sobre resinas, parâmetros de impressão 3D, protocolos clínicos ou qualquer outro assunto odontológico. 👇"
+```
+
+Mesmo padrão aplicado para `"en-US"` e `"es-ES"`.
+
+---
+
+## Ponto 2 — systemPrompt (linhas 1090–1146)
+
+O bloco inteiro do `const systemPrompt` será substituído pelo bloco consolidado fornecido. A nova estrutura é:
+
+```text
+[Abertura de missão]
+### PERSONALIDADE E TOM (5 regras de ouro)
+### ESTRATÉGIA DE TRANSIÇÃO HUMANA (Fallback com WhatsApp)
+### REGRAS DE RESPOSTA (17 diretrizes)
+### ANTI-ALUCINAÇÃO (regras 14–17 preservadas e renumeradas)
+--- DADOS DAS FONTES ---
+${context}
+--- FIM DOS DADOS ---
+```
+
+Pontos críticos mantidos intactos:
+- A interpolação dinâmica `${langInstruction}`, `${method}`, `${context}` será adaptada: o `langInstruction` é embutido como Regra 3 ("Idioma: Responda no mesmo idioma do usuário"), e `${context}` continua no bloco de dados
+- As regras de vídeo (NUNCA usar URLs PandaVideo como link direto, VIDEO_INTERNO vs VIDEO_SEM_PAGINA) são absorvidas pelas Regras 7, 8 e 12 do bloco consolidado
+- A Regra 13 de protocolos de processamento (lista de 6 etapas na ordem exata) é preservada na Diretriz 11 ("Se o contexto trouxer múltiplos protocolos...")
+- A instrução de fallback WhatsApp está agora em bloco dedicado e se aplica quando a L.I.A. admite não saber algo
+
+A instrução adicional do usuário sobre vídeos não encontrados ("Se pedirem um vídeo e você não tiver o link exato, admita o erro. Nunca sugira um texto 'substituto'") está na Regra 5 do bloco de Personalidade.
+
+---
+
+## Ponto 3 — mediaCards condicional (linhas 1213–1228)
+
+A construção incondicional:
 ```typescript
-// Guard: mensagens muito curtas (< 10 chars) não têm conteúdo técnico para auditar
-// Exemplos de ruído: "ok", "vlw", "oi", "sim" — nunca contêm perguntas técnicas
-if ((record.user_message?.length ?? 0) < 10) {
-  return new Response(
-    JSON.stringify({ message: "Skip: user_message too short for meaningful evaluation" }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
-}
+const mediaCards = allResults
+  .filter(...)
+  .slice(0, 3)
+  .map(...);
 ```
 
-**Posição correta:** Após o último guardrail de idempotência (linha 27), antes da verificação de `LOVABLE_API_KEY` (linha 29). Isso mantém a hierarquia de guards: estado do registro → qualidade do conteúdo → recursos externos.
+É substituída por:
+```typescript
+const VIDEO_REQUEST_PATTERNS = [
+  /\bv[íi]deo[s]?\b|\bassistir\b|\bwatch\b|\btutorial[s]?\b|\bmostrar\b/i,
+];
+const userRequestedMedia = VIDEO_REQUEST_PATTERNS.some((p: RegExp) => p.test(message));
+const hasSubstantiveIntent = message.trim().split(/\s+/).length > 5;
 
-## Ajuste 2 — `src/components/AdminDraLIAStats.tsx`
-
-Inserir o card de Knowledge Gaps entre as linhas 701 e 702 (após o fechamento do card do Webhook, antes do `</TabsContent>`):
-
-```tsx
-{/* Visão dual: Judge (qualidade de resposta) + Gaps (cobertura de conhecimento) */}
-<Card className="border-orange-200 bg-orange-50/50 dark:border-orange-900/30 dark:bg-orange-900/10">
-  <CardContent className="pt-4 pb-4">
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <AlertTriangle className="w-5 h-5 text-orange-500" />
-        <div>
-          <p className="text-sm font-medium">Lacunas de Conhecimento Pendentes</p>
-          <p className="text-xs text-muted-foreground">
-            Perguntas que a L.I.A. não soube responder — complemento ao Score do Juiz
-          </p>
-        </div>
-      </div>
-      <div className="text-right">
-        <p className="text-2xl font-bold text-orange-600">{stats.pendingGapsCount}</p>
-        <p className="text-xs text-muted-foreground">ver em Visão Geral</p>
-      </div>
-    </div>
-  </CardContent>
-</Card>
+const mediaCards = (userRequestedMedia || hasSubstantiveIntent)
+  ? allResults.filter(...).slice(0, 3).map(...)
+  : [];
 ```
 
-`stats.pendingGapsCount` já está calculado no estado existente. `AlertTriangle` já está importado no componente. Zero dependências novas.
+Critério de envio de cards:
+- Usuário pediu mídia explicitamente (vídeo, assistir, tutorial, mostrar), **OU**
+- Mensagem tem mais de 5 palavras (indica pergunta técnica substantiva)
 
-## Arquivos e localização exata
+---
 
-| Arquivo | Mudança | Localização |
-|---|---|---|
-| `supabase/functions/evaluate-interaction/index.ts` | +7 linhas: guard `length < 10` | Entre linhas 27 e 29 |
-| `src/components/AdminDraLIAStats.tsx` | +16 linhas: card laranja de Gaps | Entre linhas 701 e 702 |
+## Tabela de validação pós-deploy (checklist do usuário)
 
-## Após o deploy
+| Cenário de teste | Comportamento esperado |
+|---|---|
+| Enviar "Oi" | Nova saudação humanizada terminando com "👇" |
+| Enviar "Veja" ou "Ok" | Sem media cards; resposta curta de qualificação |
+| Enviar "Tem vídeo sobre NanoClean?" | Media cards aparecem (pedido explícito) |
+| Enviar "Como calibrar a Anycubic Mono X?" | Media cards aparecem (> 5 palavras, técnico) |
+| Pedir "aula do Dr. Weber" (não existe no banco) | L.I.A. admite que não encontrou + link WhatsApp |
+| Pedir "parâmetros MiiCraft 125 Ultra" (não cadastrado) | L.I.A. admite + link WhatsApp — não cita MiiCraft Alpha |
 
-- `evaluate-interaction` será re-deployada automaticamente
-- Validação: enviar "ok" no chat → logs devem mostrar `"Skip: user_message too short"` sem chamada ao Gemini
-- Validação: Admin → aba Qualidade → card laranja deve exibir o mesmo número da aba Visão Geral
+---
+
+## Arquivo modificado
+
+| Arquivo | Ação |
+|---|---|
+| `supabase/functions/dra-lia/index.ts` | 3 substituições cirúrgicas — linhas 527–531, 1090–1146 e 1213–1228 |
+
+Deploy automático após a edição. Nenhuma migração de banco necessária.
