@@ -1109,7 +1109,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 5. Se o usuário perguntar por "parâmetros", siga o fluxo de marca/modelo/resina. Palavras-chave que indicam pedido explícito: "parâmetro", "configuração", "setting", "tempo", "exposição", "layer", "espessura", "velocidade", "how to print", "cómo imprimir", "como imprimir", "valores".
 6. Nunca mencione IDs de banco de dados ou termos técnicos internos da infraestrutura.
 7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) apontando para a página interna. NUNCA use URLs do PandaVideo como links clicáveis. Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
-8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta. Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, PROIBIDO mencionar ou sugerir a existência de vídeos. NÃO diga "Também temos um vídeo", "temos um tutorial", "posso te mostrar um vídeo" — a menos que o RAG tenha retornado explicitamente um vídeo com VIDEO_INTERNO ou VIDEO_SEM_PAGINA no contexto desta conversa.
+8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta. Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, PROIBIDO mencionar ou sugerir a existência de vídeos. NÃO diga "Também temos um vídeo", "temos um tutorial", "posso te mostrar um vídeo" — a menos que o RAG tenha retornado explicitamente um vídeo com VIDEO_INTERNO ou VIDEO_SEM_PAGINA no contexto desta conversa. CRÍTICO: Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras diretamente relacionadas ao sub-tema pedido pelo usuário. Exemplo: se o usuário perguntou "Qual vídeo sobre tratamento térmico?" e os vídeos disponíveis no contexto têm títulos sobre "protocolos de implante", "impressoras" ou outros temas não relacionados a "tratamento térmico", "forno" ou "temperatura" — responda exatamente: "Não tenho um vídeo específico sobre [sub-tema pedido] cadastrado no momento." e ofereça o WhatsApp. NUNCA apresente um vídeo de tema diferente como cobrindo o sub-tema pedido.
 9. Ao encontrar RESINA com link de compra: inclua um link [Ver produto](URL).
 10. Mantenha a resposta técnica focada na aplicação odontológica. Valores técnicos (tempos em segundos, alturas em mm) NUNCA traduzir.
 11. Se o contexto trouxer múltiplos protocolos de processamento (PROCESSING_PROTOCOL), apresente as etapas na ordem exata: 1. Pré-processamento, 2. Lavagem/Limpeza, 3. Secagem, 4. Pós-cura UV, 5. Tratamento térmico (se houver), 6. Acabamento e polimento (se houver). Use bullet points. Destaque produtos SmartDent com **negrito**. Nunca omita etapas.
@@ -1219,6 +1219,34 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     const isProtocolQuery = PROTOCOL_INTENT_PATTERNS.some((p: RegExp) => p.test(message));
     const isParameterCard = (title: string) => PARAMETER_CARD_PATTERNS.some((p: RegExp) => p.test(title));
 
+    // Gate de relevância por sub-tema: extrai tokens do sub-tema pedido pelo usuário
+    // Exemplo: "Qual vídeo sobre tratamento térmico?" → ["tratamento", "térmico"]
+    const VIDEO_TOPIC_STOPWORDS = new Set([
+      'qual', 'quais', 'vídeo', 'video', 'videos', 'vídeos', 'sobre', 'tem', 'ter', 'quero', 'ver',
+      'assistir', 'tutorial', 'tutoriais', 'mostrar', 'vocês', 'voce', 'você', 'preciso',
+      'gostaria', 'existe', 'existem', 'algum', 'alguma', 'tenho', 'temos', 'busco',
+      'me', 'mim', 'um', 'uma', 'uns', 'umas', 'o', 'a', 'os', 'as',
+      'de', 'do', 'da', 'dos', 'das', 'para', 'que', 'como', 'mais',
+      'com', 'em', 'no', 'na', 'nos', 'nas', 'por', 'pelo', 'pela',
+    ]);
+
+    function extractVideoTopic(msg: string): string[] {
+      return msg.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos para comparação
+        .replace(/[?!.,;:]/g, '')
+        .split(/\s+/)
+        .filter(w => w.length > 3 && !VIDEO_TOPIC_STOPWORDS.has(w));
+    }
+
+    function cardMatchesTopic(title: string, topicTokens: string[]): boolean {
+      if (topicTokens.length === 0) return true; // sem tema específico, aceita qualquer card
+      const titleNorm = title.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return topicTokens.some(token => titleNorm.includes(token));
+    }
+
+    const topicTokens = userRequestedMedia ? extractVideoTopic(message) : [];
+
     const mediaCards = userRequestedMedia
       ? allResults
           .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
@@ -1232,6 +1260,11 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
               return !isParameterCard(title);
             }
             return true;
+          })
+          .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+            // Gate de relevância: o título do card deve conter tokens do sub-tema pedido
+            const title = (r.metadata as Record<string, unknown>).title as string ?? '';
+            return cardMatchesTopic(title, topicTokens);
           })
           .slice(0, 3)
           .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
