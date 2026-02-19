@@ -1240,6 +1240,16 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 6. Nunca mencione IDs de banco de dados ou termos técnicos internos da infraestrutura.
 7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) apontando para a página interna. NUNCA use URLs do PandaVideo como links clicáveis. Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
 8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta. Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, PROIBIDO mencionar ou sugerir a existência de vídeos. NÃO diga "Também temos um vídeo", "temos um tutorial", "posso te mostrar um vídeo" — a menos que o RAG tenha retornado explicitamente um vídeo com VIDEO_INTERNO ou VIDEO_SEM_PAGINA no contexto desta conversa. CRÍTICO: Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras diretamente relacionadas ao sub-tema pedido pelo usuário. Exemplo: se o usuário perguntou "Qual vídeo sobre tratamento térmico?" e os vídeos disponíveis no contexto têm títulos sobre "protocolos de implante", "impressoras" ou outros temas não relacionados a "tratamento térmico", "forno" ou "temperatura" — responda exatamente: "Não tenho um vídeo específico sobre [sub-tema pedido] cadastrado no momento." e ofereça o WhatsApp. NUNCA apresente um vídeo de tema diferente como cobrindo o sub-tema pedido.
+
+⚠️ VERIFICAÇÃO OBRIGATÓRIA ANTES DE CITAR QUALQUER VÍDEO (execute mentalmente este checklist):
+  PASSO 1 — Extraia o sub-tema exato da pergunta do usuário. Exemplo: "suportes em placas miorrelaxantes" → sub-tema = "suportes".
+  PASSO 2 — Para cada vídeo no contexto, verifique se o TÍTULO contém palavra(s) do sub-tema exato.
+    - "Posicionamento de Placa" → sub-tema "suportes" NÃO está no título → VÍDEO IRRELEVANTE
+    - "Impressão de Placas Miorrelajantes" → sub-tema "suportes" NÃO está no título → VÍDEO IRRELEVANTE
+    - "Como colocar suportes em placas" → sub-tema "suportes" ESTÁ no título → VÍDEO RELEVANTE
+  PASSO 3 — Se NENHUM vídeo passou no PASSO 2, responda OBRIGATORIAMENTE:
+    "Não tenho um vídeo específico sobre [sub-tema exato] cadastrado no momento. Mas nossa equipe pode ajudar: [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)"
+    ENCERRE a resposta aqui. NUNCA descreva o que o vídeo "provavelmente" contém. NUNCA invente instruções técnicas.
 9. Ao encontrar RESINA com link de compra: inclua um link [Ver produto](URL).
 10. Mantenha a resposta técnica focada na aplicação odontológica. Valores técnicos (tempos em segundos, alturas em mm) NUNCA traduzir.
 11. Se o contexto trouxer múltiplos protocolos de processamento (PROCESSING_PROTOCOL), apresente as etapas na ordem exata: 1. Pré-processamento, 2. Lavagem/Limpeza, 3. Secagem, 4. Pós-cura UV, 5. Tratamento térmico (se houver) — ⚠️ ATENÇÃO CRÍTICA: os valores de temperatura e tempo de tratamento térmico variam drasticamente entre resinas (ex: 130–150°C vs 150°C vs 60–170°C). NUNCA assuma valores padrão como "80°C" ou "15 minutos". Use EXCLUSIVAMENTE os valores presentes na fonte PROCESSING_PROTOCOL. Se não houver dados de tratamento térmico na fonte, diga "Consulte o fabricante para os parâmetros de tratamento térmico desta resina.", 6. Acabamento e polimento (se houver). Use bullet points. Destaque produtos SmartDent com **negrito**. Nunca omita etapas.
@@ -1252,6 +1262,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 16. PROIBIDO inventar layer height, tempos de exposição ou velocidades.
 17. Se houver conflito de dados, a informação da tabela 'resins' (Source of Truth) prevalece.
 18. CONTEXTO FRACO → PERGUNTA CLARIFICADORA: Se os dados das fontes não mencionam diretamente o produto, resina ou tema que o usuário perguntou, NÃO invente uma resposta com o que está disponível. Sinais de contexto fraco: o contexto fala sobre produto X mas o usuário mencionou produto Y, ou o contexto é sobre categoria diferente da pergunta. Em vez de inventar, pergunte: "Para te ajudar com precisão, você poderia confirmar qual produto ou resina específica você está buscando informações?"
+19. VÍDEOS SEM PÁGINA (VIDEO_SEM_PAGINA): NUNCA descreva, resuma ou infira o conteúdo técnico de um vídeo marcado como VIDEO_SEM_PAGINA. Se o vídeo não tem página interna, você pode mencionar APENAS o título. PROIBIDO dizer "este vídeo ensina X", "este tutorial mostra Y", "o vídeo explica como Z" — você NÃO tem acesso ao conteúdo real do vídeo, apenas ao título. Se o usuário quiser saber o que o vídeo ensina, redirecione para o WhatsApp.
 
 --- DADOS DAS FONTES ---
 ${context}
