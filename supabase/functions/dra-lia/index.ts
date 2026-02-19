@@ -1193,18 +1193,45 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     const encoder = new TextEncoder();
     let fullResponse = "";
 
-    // Build media_cards only when user explicitly requested media OR query is substantive (> 5 words)
+    // Build media_cards ONLY when user explicitly requested media (vídeo/tutorial/assistir)
+    // Cards de parâmetros de impressora são filtrados quando a intenção é de protocolo
     const VIDEO_REQUEST_PATTERNS = [
       /\bv[íi]deo[s]?\b|\bassistir\b|\bwatch\b|\btutorial[s]?\b|\bmostrar\b/i,
     ];
-    const userRequestedMedia = VIDEO_REQUEST_PATTERNS.some((p: RegExp) => p.test(message));
-    const hasSubstantiveIntent = message.trim().split(/\s+/).length > 5;
 
-    const mediaCards = (userRequestedMedia || hasSubstantiveIntent)
+    // Intenção de protocolo (limpeza, cura, processamento) — cards de parâmetros são irrelevantes aqui
+    const PROTOCOL_INTENT_PATTERNS = [
+      /\blimpeza\b|\blavar\b|\bcleaning\b|\blimpieza\b/i,
+      /\bcura\b|\bcuring\b|\bcurado\b|\bpós[-\s]?cura\b/i,
+      /\bprotocolo\b|\bprotocol\b|\bprocessamento\b|\bprocessing\b/i,
+      /\bacabamento\b|\bpolimento\b|\bfinishing\b/i,
+      /\bsecagem\b|\bdrying\b|\bsecar\b/i,
+    ];
+
+    // Sinais de que o card é sobre parâmetros de impressora (não relevante para perguntas de protocolo)
+    const PARAMETER_CARD_PATTERNS = [
+      /\bpar[âa]metros?\b|\bsettings?\b|\bparametr/i,
+      /\banycubic\b|\bphrozen\b|\belite[1i]x?\b|\bmiicraft\b|\bprusa\b|\bchitubox\b/i,
+      /\blayer height\b|\bexposure\b|\blift speed\b/i,
+    ];
+
+    const userRequestedMedia = VIDEO_REQUEST_PATTERNS.some((p: RegExp) => p.test(message));
+    const isProtocolQuery = PROTOCOL_INTENT_PATTERNS.some((p: RegExp) => p.test(message));
+    const isParameterCard = (title: string) => PARAMETER_CARD_PATTERNS.some((p: RegExp) => p.test(title));
+
+    const mediaCards = userRequestedMedia
       ? allResults
           .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
             const meta = r.metadata as Record<string, unknown>;
             return meta.thumbnail_url || meta.url_publica || meta.url_interna;
+          })
+          .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+            // Se é query de protocolo, remove cards de parâmetros de impressora
+            if (isProtocolQuery) {
+              const title = (r.metadata as Record<string, unknown>).title as string ?? '';
+              return !isParameterCard(title);
+            }
+            return true;
           })
           .slice(0, 3)
           .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
