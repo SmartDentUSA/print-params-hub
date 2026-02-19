@@ -42,7 +42,7 @@ const SUPPORT_FALLBACK: Record<string, string> = {
 
 const isSupportQuestion = (msg: string) => SUPPORT_KEYWORDS.some((p) => p.test(msg));
 
-// Protocol keywords — detect questions about cleaning, curing, finishing
+// Protocol keywords — detect questions about cleaning, curing, finishing, thermal treatment
 const PROTOCOL_KEYWORDS = [
   // PT
   /limpeza|lavagem|lavar|limpar/i,
@@ -50,16 +50,21 @@ const PROTOCOL_KEYWORDS = [
   /finaliz|acabamento|polimento|polir/i,
   /pré.process|pre.process|pós.process|pos.process|processamento|protocolo/i,
   /nanoclean|isopropílico|isopropilico|álcool|alcool/i,
+  // NOVO PT: tratamento térmico e termos relacionados
+  /tratamento.{0,5}t[ée]rmico|t[ée]rmico|forno|glicerina|soprador/i,
+  /temperatura|aquecimento|aquece|calor/i,
   // EN
   /\bclean\b|wash|washing/i,
   /post.cure|post cure|\bcuring\b/i,
   /\bfinish\b|polish/i,
   /\bprocessing\b|protocol/i,
+  /\bpost.?process\b|heat.?treat|thermal.?treat|thermal/i,
   // ES
   /limpieza/i,
   /curado|post.curado/i,
   /pulido|acabado/i,
   /procesamiento/i,
+  /tratamiento.{0,5}t[ée]rmico|horno|temperatura/i,
 ];
 
 const isProtocolQuestion = (msg: string) =>
@@ -602,7 +607,8 @@ async function generateEmbedding(text: string): Promise<number[] | null> {
 // Search processing instructions directly from resins table — SOURCE OF TRUTH
 async function searchProcessingInstructions(
   supabase: ReturnType<typeof createClient>,
-  message: string
+  message: string,
+  history: Array<{ role: string; content: string }> = []
 ) {
   const { data: resins, error } = await supabase
     .from("resins")
@@ -612,8 +618,10 @@ async function searchProcessingInstructions(
 
   if (error || !resins?.length) return [];
 
-  // Score resins by name/manufacturer match in message
-  const words = message.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+  // Combine recent history + current message to identify resin from conversation context
+  const recentHistory = history.slice(-8).map((h) => h.content).join(' ');
+  const combinedText = `${recentHistory} ${message}`.toLowerCase();
+  const words = combinedText.split(/\s+/).filter((w) => w.length > 3);
 
   const scored = resins
     .map((r: {
@@ -1069,7 +1077,7 @@ serve(async (req) => {
 
     const [knowledgeResult, protocolResults, paramResults] = await Promise.all([
       searchKnowledge(supabase, message, lang),
-      isProtocol ? searchProcessingInstructions(supabase, message) : Promise.resolve([]),
+      isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       searchParameterSets(supabase, message, history),
     ]);
 
@@ -1197,7 +1205,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta. Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, PROIBIDO mencionar ou sugerir a existência de vídeos. NÃO diga "Também temos um vídeo", "temos um tutorial", "posso te mostrar um vídeo" — a menos que o RAG tenha retornado explicitamente um vídeo com VIDEO_INTERNO ou VIDEO_SEM_PAGINA no contexto desta conversa. CRÍTICO: Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras diretamente relacionadas ao sub-tema pedido pelo usuário. Exemplo: se o usuário perguntou "Qual vídeo sobre tratamento térmico?" e os vídeos disponíveis no contexto têm títulos sobre "protocolos de implante", "impressoras" ou outros temas não relacionados a "tratamento térmico", "forno" ou "temperatura" — responda exatamente: "Não tenho um vídeo específico sobre [sub-tema pedido] cadastrado no momento." e ofereça o WhatsApp. NUNCA apresente um vídeo de tema diferente como cobrindo o sub-tema pedido.
 9. Ao encontrar RESINA com link de compra: inclua um link [Ver produto](URL).
 10. Mantenha a resposta técnica focada na aplicação odontológica. Valores técnicos (tempos em segundos, alturas em mm) NUNCA traduzir.
-11. Se o contexto trouxer múltiplos protocolos de processamento (PROCESSING_PROTOCOL), apresente as etapas na ordem exata: 1. Pré-processamento, 2. Lavagem/Limpeza, 3. Secagem, 4. Pós-cura UV, 5. Tratamento térmico (se houver), 6. Acabamento e polimento (se houver). Use bullet points. Destaque produtos SmartDent com **negrito**. Nunca omita etapas.
+11. Se o contexto trouxer múltiplos protocolos de processamento (PROCESSING_PROTOCOL), apresente as etapas na ordem exata: 1. Pré-processamento, 2. Lavagem/Limpeza, 3. Secagem, 4. Pós-cura UV, 5. Tratamento térmico (se houver) — ⚠️ ATENÇÃO CRÍTICA: os valores de temperatura e tempo de tratamento térmico variam drasticamente entre resinas (ex: 130–150°C vs 150°C vs 60–170°C). NUNCA assuma valores padrão como "80°C" ou "15 minutos". Use EXCLUSIVAMENTE os valores presentes na fonte PROCESSING_PROTOCOL. Se não houver dados de tratamento térmico na fonte, diga "Consulte o fabricante para os parâmetros de tratamento térmico desta resina.", 6. Acabamento e polimento (se houver). Use bullet points. Destaque produtos SmartDent com **negrito**. Nunca omita etapas.
 12. Busca usada: ${method}${isProtocol ? " + protocolo direto" : ""}. Seja precisa e baseie-se apenas nos dados fornecidos.
 13. Mantenha o histórico de mensagens em mente para não repetir saudações ou contextos já explicados.
 
