@@ -116,6 +116,12 @@ async function searchByILIKE(
     knowledge_categories: { letter: string } | null;
   }) => {
     const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+    // Camada 2: Similaridade proporcional ao número de palavras da query no título
+    // score = palavras encontradas no título / total palavras da query → escala 0.1–0.5
+    const matchedWords = words.filter(w => a.title.toLowerCase().includes(w)).length;
+    const similarityScore = words.length > 0
+      ? (matchedWords / words.length) * 0.4 + 0.1
+      : 0.15; // fallback se words estiver vazio por algum motivo
     return {
       id: a.id,
       source_type: 'article',
@@ -126,7 +132,7 @@ async function searchByILIKE(
         category_letter: letter,
         url_publica: letter ? `/base-conhecimento/${letter}/${a.slug}` : null,
       },
-      similarity: 0.3, // Relevância intermediária — acima de resultados FTS fracos
+      similarity: similarityScore,
     };
   });
 }
@@ -1070,7 +1076,10 @@ serve(async (req) => {
     const { results: knowledgeResults, method, topSimilarity: knowledgeTopSimilarity } = knowledgeResult;
 
     // 2. Filter knowledge results by minimum similarity
-    const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.05;
+    // Camada 1: Threshold diferenciado por método — ILIKE precisa de score ≥ 0.20, FTS ≥ 0.10
+    const MIN_SIMILARITY = method === "vector" ? 0.65
+      : method === "ilike" ? 0.20
+      : 0.10; // fulltext
     const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
     // 3. Merge: protocol results first (higher priority), then knowledge results
@@ -1197,6 +1206,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 15. NUNCA use termos de incerteza: "geralmente", "normalmente", "costuma ser", "em geral", "na maioria dos casos", "provavelmente", "pode ser que", "acredito que", "presumo que", "tipicamente", "é comum que". Se não tiver certeza, redirecione para o WhatsApp.
 16. PROIBIDO inventar layer height, tempos de exposição ou velocidades.
 17. Se houver conflito de dados, a informação da tabela 'resins' (Source of Truth) prevalece.
+18. CONTEXTO FRACO → PERGUNTA CLARIFICADORA: Se os dados das fontes não mencionam diretamente o produto, resina ou tema que o usuário perguntou, NÃO invente uma resposta com o que está disponível. Sinais de contexto fraco: o contexto fala sobre produto X mas o usuário mencionou produto Y, ou o contexto é sobre categoria diferente da pergunta. Em vez de inventar, pergunte: "Para te ajudar com precisão, você poderia confirmar qual produto ou resina específica você está buscando informações?"
 
 --- DADOS DAS FONTES ---
 ${context}
