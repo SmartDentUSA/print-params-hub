@@ -149,6 +149,11 @@ const PARAM_KEYWORDS = [
   /(comprei|tenho|uso|adquiri).{0,30}(resina|impressora)/i,
   /(resina).{0,30}(impressora|imprimir|impressão)/i,
   /calibrar|calibração|calibragem/i,
+  // Padrões de falha de impressão — captura contexto de troubleshooting
+  /(impressões?|prints?).{0,40}(falh|problem|erro|ruim|mal|nao sai|não sai|nao fica|não fica)/i,
+  /(falhas?|problemas?|erros?).{0,30}(impressão|imprimindo)/i,
+  /minhas? impressões?/i,
+  /(nao estou|não estou|tô tendo|estou tendo|tive).{0,30}(imprimindo|impressão)/i,
 ];
 
 const isPrinterParamQuestion = (msg: string) =>
@@ -646,6 +651,76 @@ async function searchProcessingInstructions(
   }));
 }
 
+// Search parameter_sets directly based on brand/model/resin mentions in full conversation context
+async function searchParameterSets(
+  supabase: ReturnType<typeof createClient>,
+  message: string,
+  history: Array<{ role: string; content: string }>
+) {
+  const recentHistory = history.slice(-8).map((h) => h.content).join(" ");
+  const combinedText = `${recentHistory} ${message}`.toLowerCase();
+
+  const { data: brands } = await supabase.from("brands").select("id, slug, name").eq("active", true);
+  if (!brands?.length) return [];
+
+  const mentionedBrands = (brands as Array<{ id: string; slug: string; name: string }>).filter(
+    (b) => combinedText.includes(b.name.toLowerCase()) || combinedText.includes(b.slug.replace(/-/g, " "))
+  );
+  if (!mentionedBrands.length) return [];
+
+  const paramResults: Array<{ id: string; source_type: string; chunk_text: string; metadata: Record<string, unknown>; similarity: number }> = [];
+
+  for (const brand of mentionedBrands.slice(0, 2)) {
+    const { data: models } = await supabase.from("models").select("slug, name").eq("brand_id", brand.id).eq("active", true);
+    if (!models?.length) continue;
+
+    type ModelRow = { slug: string; name: string };
+    const mentionedModels = (models as ModelRow[]).filter((m) => {
+      const nameWords = m.name.toLowerCase().split(/\s+/).filter((w) => w.length >= 2);
+      const matches = nameWords.filter((w) => combinedText.includes(w)).length;
+      return matches >= 1 && (matches >= Math.ceil(nameWords.length * 0.5));
+    });
+
+    for (const model of mentionedModels.slice(0, 2)) {
+      type ParamRow = { id: string; resin_name: string; layer_height: number; cure_time: number; light_intensity: number; bottom_layers: number | null; bottom_cure_time: number | null; lift_speed: number | null; lift_distance: number | null; retract_speed: number | null; notes: string | null };
+      const { data: params } = await supabase.from("parameter_sets").select("id, resin_name, layer_height, cure_time, light_intensity, bottom_layers, bottom_cure_time, lift_speed, lift_distance, retract_speed, notes").eq("brand_slug", brand.slug).eq("model_slug", model.slug).eq("active", true).limit(15);
+      if (!params?.length) continue;
+
+      const typedParams = params as ParamRow[];
+      const resinMatched = typedParams.find((p) => {
+        const resinWords = p.resin_name.toLowerCase().split(/\s+/).filter((w) => w.length >= 4);
+        return resinWords.some((w) => combinedText.includes(w));
+      });
+
+      const targetParams = resinMatched
+        ? typedParams.filter((p) => resinMatched.resin_name.toLowerCase().split(/\s+/).filter((w) => w.length >= 4).some((w) => p.resin_name.toLowerCase().includes(w)))
+        : typedParams.slice(0, 5);
+
+      for (const p of targetParams.slice(0, 5)) {
+        const lines = [
+          `Parâmetros de impressão confirmados: ${brand.name} ${model.name} + ${p.resin_name}`,
+          `• Altura de camada: ${p.layer_height}mm`,
+          `• Tempo de cura: ${p.cure_time}s`,
+          `• Intensidade de luz: ${p.light_intensity}%`,
+          p.bottom_layers != null ? `• Camadas iniciais: ${p.bottom_layers} x ${p.bottom_cure_time}s` : "",
+          p.lift_speed != null ? `• Lift speed: ${p.lift_speed}mm/min | Lift distance: ${p.lift_distance}mm` : "",
+          p.retract_speed != null ? `• Retract speed: ${p.retract_speed}mm/min` : "",
+          p.notes ? `• Observações: ${p.notes}` : "",
+        ].filter(Boolean).join("\n");
+
+        paramResults.push({
+          id: p.id,
+          source_type: "parameter_set",
+          chunk_text: lines,
+          metadata: { title: `${brand.name} ${model.name} + ${p.resin_name}`, url_publica: `/${brand.slug}/${model.slug}` },
+          similarity: resinMatched ? 0.93 : 0.78,
+        });
+      }
+    }
+  }
+  return paramResults;
+}
+
 // Search using pgvector if embeddings available, otherwise full-text search
 async function searchKnowledge(
   supabase: ReturnType<typeof createClient>,
@@ -986,9 +1061,10 @@ serve(async (req) => {
     // 1. Parallel search: knowledge base + processing protocols (if protocol question)
     const isProtocol = isProtocolQuestion(message);
 
-    const [knowledgeResult, protocolResults] = await Promise.all([
+    const [knowledgeResult, protocolResults, paramResults] = await Promise.all([
       searchKnowledge(supabase, message, lang),
       isProtocol ? searchProcessingInstructions(supabase, message) : Promise.resolve([]),
+      searchParameterSets(supabase, message, history),
     ]);
 
     const { results: knowledgeResults, method, topSimilarity: knowledgeTopSimilarity } = knowledgeResult;
@@ -998,7 +1074,7 @@ serve(async (req) => {
     const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
     // 3. Merge: protocol results first (higher priority), then knowledge results
-    const allResults = [...protocolResults, ...filteredKnowledge];
+    const allResults = [...paramResults, ...protocolResults, ...filteredKnowledge];
     const topSimilarity = protocolResults.length > 0
       ? 0.95
       : (filteredKnowledge[0]?.similarity || knowledgeTopSimilarity);
