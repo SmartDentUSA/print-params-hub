@@ -1281,8 +1281,21 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       { role: "user", content: message },
     ];
 
-    // Helper com retry automático: tenta gemini-2.5-flash, fallback para flash-lite
-    const callAI = async (model: string): Promise<Response> => {
+    // Helper com retry automático com suporte a truncar mensagens para modelos com contexto menor
+    const callAI = async (model: string, truncateHistory = false): Promise<Response> => {
+      // Para modelos OpenAI, truncar system prompt se muito longo para evitar 400
+      let msgs = messagesForAI;
+      if (truncateHistory) {
+        const systemMsg = messagesForAI[0];
+        const userMsg = messagesForAI[messagesForAI.length - 1];
+        // Manter apenas system + últimas 4 mensagens de histórico + user
+        const historyMsgs = messagesForAI.slice(1, -1).slice(-4);
+        // Truncar o system prompt para 6000 chars se necessário
+        const truncatedSystem = systemMsg.content.length > 6000
+          ? systemMsg.content.slice(0, 6000) + "\n\n[contexto truncado por limite de tokens]"
+          : systemMsg.content;
+        msgs = [{ ...systemMsg, content: truncatedSystem }, ...historyMsgs, userMsg];
+      }
       const resp = await fetch(CHAT_API, {
         method: "POST",
         headers: {
@@ -1291,7 +1304,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
         },
         body: JSON.stringify({
           model,
-          messages: messagesForAI,
+          messages: msgs,
           stream: true,
           max_tokens: 1024,
         }),
@@ -1307,10 +1320,16 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       aiResponse = await callAI("google/gemini-2.5-flash-lite");
     }
 
-    // Se ainda 500 → último fallback com OpenAI gpt-5-mini
-    if (!aiResponse.ok && aiResponse.status === 500) {
-      console.error(`Flash-lite also failed with 500, retrying with openai/gpt-5-mini...`);
-      aiResponse = await callAI("openai/gpt-5-mini");
+    // Se ainda 500 → fallback com OpenAI gpt-5-mini (com contexto truncado)
+    if (!aiResponse.ok && (aiResponse.status === 500 || aiResponse.status === 400)) {
+      console.error(`Gemini models failed, retrying with openai/gpt-5-mini (truncated)...`);
+      aiResponse = await callAI("openai/gpt-5-mini", true);
+    }
+
+    // Último fallback: openai/gpt-5-nano com contexto mínimo
+    if (!aiResponse.ok && (aiResponse.status === 500 || aiResponse.status === 400)) {
+      console.error(`gpt-5-mini failed, last resort: openai/gpt-5-nano...`);
+      aiResponse = await callAI("openai/gpt-5-nano", true);
     }
 
     if (!aiResponse.ok) {
