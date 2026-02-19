@@ -50,11 +50,16 @@ export type Database = {
       agent_interactions: {
         Row: {
           agent_response: string | null
+          context_raw: string | null
           context_sources: Json | null
           created_at: string | null
           feedback: string | null
           feedback_comment: string | null
+          human_reviewed: boolean | null
           id: string
+          judge_evaluated_at: string | null
+          judge_score: number | null
+          judge_verdict: string | null
           lang: string | null
           session_id: string
           top_similarity: number | null
@@ -63,11 +68,16 @@ export type Database = {
         }
         Insert: {
           agent_response?: string | null
+          context_raw?: string | null
           context_sources?: Json | null
           created_at?: string | null
           feedback?: string | null
           feedback_comment?: string | null
+          human_reviewed?: boolean | null
           id?: string
+          judge_evaluated_at?: string | null
+          judge_score?: number | null
+          judge_verdict?: string | null
           lang?: string | null
           session_id: string
           top_similarity?: number | null
@@ -76,11 +86,16 @@ export type Database = {
         }
         Update: {
           agent_response?: string | null
+          context_raw?: string | null
           context_sources?: Json | null
           created_at?: string | null
           feedback?: string | null
           feedback_comment?: string | null
+          human_reviewed?: boolean | null
           id?: string
+          judge_evaluated_at?: string | null
+          judge_score?: number | null
+          judge_verdict?: string | null
           lang?: string | null
           session_id?: string
           top_similarity?: number | null
@@ -118,6 +133,36 @@ export type Database = {
           question?: string
           resolution_note?: string | null
           status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      agent_sessions: {
+        Row: {
+          created_at: string | null
+          current_state: string
+          extracted_entities: Json | null
+          id: string
+          last_activity_at: string | null
+          session_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_state?: string
+          extracted_entities?: Json | null
+          id?: string
+          last_activity_at?: string | null
+          session_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_state?: string
+          extracted_entities?: Json | null
+          id?: string
+          last_activity_at?: string | null
+          session_id?: string
           updated_at?: string | null
         }
         Relationships: []
