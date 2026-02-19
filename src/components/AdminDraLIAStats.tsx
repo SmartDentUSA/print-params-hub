@@ -265,6 +265,14 @@ export function AdminDraLIAStats() {
 
       if (!response.ok) {
         const err = await response.json().catch(() => ({ error: "Erro desconhecido" }));
+        if (response.status === 404) {
+          toast({
+            title: "Nenhuma interação qualificada",
+            description: "Para exportar, marque interações como revisadas (human_reviewed = true) com judge_score ≥ 4 na lista abaixo.",
+            variant: "destructive",
+          });
+          return;
+        }
         throw new Error(err.error || `HTTP ${response.status}`);
       }
 
