@@ -1,197 +1,237 @@
 
-# Dra. L.I.A. — Lista de Intenções + System Prompt Anti-Hallucination
+# Implementação Completa: Judge, Sessions e Painel de Qualidade
 
-## A pergunta central: lista de frases vs. aprendizado com uso?
+## Visão geral do que será construído
 
-A resposta mais honesta é: **as duas coisas se complementam**, mas para o problema que você está vendo agora, a solução mais rápida e eficaz é a lista de intenções — e ela já existe no código como `PARAM_KEYWORDS`, `GREETING_PATTERNS` e `PROTOCOL_KEYWORDS`.
-
-O aprendizado com uso (fine-tuning, RLHF) seria um investimento de longo prazo com custos altos e exige milhares de interações etiquetadas. Para o problema atual, não é necessário.
+3 entregas simultâneas, 1 migração SQL, 4 arquivos modificados, 2 arquivos novos.
 
 ---
 
-## O que causa o problema hoje (análise técnica)
+## Fase 1 — Migração SQL + Coleta de Dados
 
-O fluxo da Dra. L.I.A. tem **3 camadas de decisão**:
+### 1A. Migração do banco
 
-```text
-1. INTENT GUARD      → Saudação?  → Resposta fixa (sem RAG)
-2. GUIDED DIALOG     → Impressora? → Pergunta guiada (sem RAG)
-3. RAG (fallback)    → Qualquer outra coisa → LLM com dados do banco
+Adiciona 5 colunas na tabela `agent_interactions` existente e cria a nova tabela `agent_sessions`:
+
+```sql
+-- Colunas para o Judge
+ALTER TABLE agent_interactions
+  ADD COLUMN IF NOT EXISTS context_raw text,
+  ADD COLUMN IF NOT EXISTS judge_score integer CHECK (judge_score BETWEEN 0 AND 5),
+  ADD COLUMN IF NOT EXISTS judge_verdict text,
+  ADD COLUMN IF NOT EXISTS judge_evaluated_at timestamptz,
+  ADD COLUMN IF NOT EXISTS human_reviewed boolean DEFAULT false;
+
+-- Nova tabela agent_sessions
+CREATE TABLE IF NOT EXISTS agent_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id text UNIQUE NOT NULL,
+  current_state text NOT NULL DEFAULT 'idle',
+  extracted_entities jsonb DEFAULT '{}'::jsonb,
+  last_activity_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE agent_sessions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public manage sessions" ON agent_sessions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Admins read all sessions" ON agent_sessions FOR SELECT USING (is_admin(auth.uid()));
 ```
 
-O problema é que o **RAG (camada 3)** ainda tem muita liberdade para:
-- Citar produtos do banco como "exemplos" mesmo que o usuário não pediu
-- Incluir vídeos como conteúdo "relevante" quando não são
-- Usar o conhecimento interno do modelo de IA para "completar" respostas
+### 1B. Mudança 1 em `supabase/functions/dra-lia/index.ts` — salvar `context_raw`
 
-A solução está em **reforçar as regras do system prompt** que controlam o RAG — porque o código do system prompt atual (linha 935-982) ainda deixa brechas.
-
----
-
-## Solução em 2 partes
-
-### Parte 1 — Expandir a lista de intenções (INTENT GUARD) para cobrir casos que não devem ir ao RAG
-
-Adicionar uma nova camada: **`SUPPORT_KEYWORDS`** — detecta perguntas de suporte técnico ("minha impressora não liga", "tá dando erro", "não consigo imprimir") e as desvia para o WhatsApp/contato, sem passar pelo RAG.
+**Linha 1097-1104** (INSERT em `agent_interactions`): adicionar `context_raw`:
 
 ```typescript
-// NOVO: Detectar perguntas de suporte técnico (problemas, erros)
-const SUPPORT_KEYWORDS = [
-  /(impressora|printer).*(não liga|not turning|no enciende)/i,
-  /(erro|error).*(impressora|printer|resina)/i,
-  /(falha|failure|falla).*(impressão|print)/i,
-  /(não (está|esta|consigo)|can't|cannot|no puedo).*(imprimir|print)/i,
-  /(peça|garantia|defeito|problema técnico)/i,
-];
+// ANTES
+.insert({
+  session_id,
+  user_message: message,
+  lang,
+  top_similarity: topSimilarity,
+  context_sources: contextSources,
+  unanswered: false,
+})
+
+// DEPOIS
+.insert({
+  session_id,
+  user_message: message,
+  lang,
+  top_similarity: topSimilarity,
+  context_sources: contextSources,
+  context_raw: context.slice(0, 8000),
+  unanswered: false,
+})
 ```
 
-Quando detectado → resposta direta para o WhatsApp, sem RAG.
+A variável `context` já existe na linha 992 — é exatamente o texto completo enviado ao LLM. O truncamento a 8000 caracteres garante que parâmetros técnicos (que aparecem primeiro na ordenação do RAG) sejam sempre incluídos.
 
-### Parte 2 — Reforçar o System Prompt do RAG com regras explícitas de restrição
+### 1C. Mudança 2 em `supabase/functions/dra-lia/index.ts` — substituir `detectPrinterDialogState` por `agent_sessions`
 
-O system prompt atual (linhas 935-982) já tem regras, mas faltam 3 regras críticas:
+A função atual (linhas 318-430) usa regex sobre o texto da última mensagem do assistente. Será substituída por:
 
-**Regra A — Proibir exemplos não solicitados (o problema principal)**
-```
-⛔ PROIBIDO: Citar qualquer produto, parâmetro ou vídeo como "exemplo" quando o usuário
-   não especificou aquele produto/impressora. Se o usuário disse apenas "resina" sem nome,
-   NÃO cite "Smart Print Gengiva" como exemplo.
-```
-
-**Regra B — Proibir vídeos quando não perguntados explicitamente**
-```
-⛔ PROIBIDO: Incluir vídeos na resposta a menos que o usuário tenha pedido um vídeo
-   explicitamente (palavras-chave: "vídeo", "video", "assistir", "ver", "watch").
-   Vídeos só aparecem quando SOLICITADOS.
-```
-
-**Regra C — Lista negra de palavras a evitar (que sinalizam alucinação)**
-```
-⛔ NUNCA use: "geralmente", "normalmente", "costuma ser", "em geral", "na maioria",
-   "provavelmente", "pode ser que", "acredito que", "presumo que".
-   Se não sabe, envie para o WhatsApp.
-```
-
----
-
-## Fluxo completo com as 2 partes implementadas
-
-```text
-Usuário: "minha impressora não liga"
-    ↓
-SUPPORT_KEYWORDS → TRUE
-    ↓
-L.I.A.: "Para problemas técnicos com equipamentos, nosso suporte pode ajudar melhor:
-         💬 [WhatsApp](https://wa.me/...)"
-[RAG NUNCA É CHAMADO]
-
-Usuário: "comprei uma resina e preciso parametrizar"
-    ↓
-PARAM_KEYWORDS → TRUE (já corrigido)
-    ↓
-L.I.A.: "Qual é a marca da sua impressora?
-         Marcas disponíveis: Anycubic, Creality..."
-[RAG NUNCA É CHAMADO]
-
-Usuário: "o que é resina biocompatível?"
-    ↓
-Nenhum intent guard ativa → vai para RAG
-System Prompt com regras novas:
-- Não cita exemplos não pedidos
-- Não inclui vídeos automaticamente
-- Não usa "geralmente" ou "normalmente"
-    ↓
-L.I.A.: "Resina biocompatível é um material aprovado para contato com tecidos orais...
-         [resposta baseada APENAS no contexto do banco]"
-```
-
----
-
-## O que muda no código
-
-**Arquivo único: `supabase/functions/dra-lia/index.ts`**
-
-### Mudança 1 — Adicionar `SUPPORT_KEYWORDS` e `isSupportQuestion()` (linha ~27, após `GREETING_PATTERNS`)
+1. Busca a sessão no início: `SELECT * FROM agent_sessions WHERE session_id = $1`
+2. Valida expiração de 2 horas: `last_activity_at < now() - 2h` → retorna `not_in_dialog` e limpa sessão
+3. Usa `current_state` + `extracted_entities` persistidos em vez de regex
+4. Após cada step do diálogo, faz UPSERT com merge cumulativo das entidades:
 
 ```typescript
-const SUPPORT_KEYWORDS = [
-  /(impressora|printer|impresora).{0,30}(não liga|not turning|no enciende|erro|error|defeito|travando|falhou)/i,
-  /(não consigo|can't|cannot|no puedo).{0,20}(imprimir|print|salvar|conectar)/i,
-  /(erro|error|falha|falhou|travando|bug|problema).{0,20}(impressora|printer|software|resina)/i,
-  /(garantia|suporte técnico|assistência|reparo|defeito de fábrica)/i,
-  /(peça|peças|replacement|reposição)/i,
-];
-
-const SUPPORT_FALLBACK: Record<string, string> = {
-  "pt-BR": `Para problemas técnicos com equipamentos, nossa equipe de suporte pode ajudar você diretamente 😊\n\n💬 **WhatsApp:** [Falar com suporte](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+preciso+de+suporte+técnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horário:** Segunda a Sexta, 08h às 18h`,
-  "en-US": `For technical issues with equipment, our support team can help you directly 😊\n\n💬 **WhatsApp:** [Contact support](https://api.whatsapp.com/send/?phone=551634194735&text=Hi+I+need+technical+support)\n✉️ **E-mail:** comercial@smartdent.com.br`,
-  "es-ES": `Para problemas técnicos con equipos, nuestro equipo de soporte puede ayudarte directamente 😊\n\n💬 **WhatsApp:** [Contactar soporte](https://api.whatsapp.com/send/?phone=551634194735&text=Hola+necesito+soporte+técnico)\n✉️ **E-mail:** comercial@smartdent.com.br`,
+const updatedEntities = {
+  ...(sessionData?.extracted_entities || {}),
+  brand_name: brand.name,
+  brand_slug: brand.slug,
+  brand_id: brand.id,
 };
-
-const isSupportQuestion = (msg: string) => SUPPORT_KEYWORDS.some((p) => p.test(msg));
+await supabase.from("agent_sessions").upsert({
+  session_id,
+  current_state: "needs_model",
+  extracted_entities: updatedEntities,
+  last_activity_at: new Date().toISOString(),
+}, { onConflict: "session_id" });
 ```
 
-### Mudança 2 — Adicionar intent guard de suporte no fluxo principal (linha ~736, após o greeting guard)
-
-```typescript
-// 0c. Support question guard — redireciona para WhatsApp sem RAG
-if (isSupportQuestion(message)) {
-  const supportText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
-  // ... stream igual ao greeting guard
-}
-```
-
-### Mudança 3 — Reforçar o system prompt do RAG (linha ~935-982)
-
-Adicionar 3 blocos de regras após as regras existentes:
-
-```typescript
-const systemPrompt = `...regras atuais...
-
-⛔ REGRAS ADICIONAIS ANTI-DESVIO:
-14. NUNCA cite produtos, parâmetros ou vídeos como "exemplos" quando o usuário não mencionou
-    aquele produto/marca/impressora específica. Se o contexto trouxer dados de "Anycubic Mono-X"
-    mas o usuário perguntou sobre "resinas biocompatíveis", IGNORE os dados de parâmetros da Anycubic.
-    Use apenas os dados diretamente relevantes à pergunta.
-
-15. VÍDEOS: só inclua vídeos na resposta se o usuário pediu explicitamente por vídeo
-    (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial").
-    Em outros casos, mencione no máximo "Também temos um vídeo sobre esse tema, quer ver?"
-
-16. LISTA NEGRA — estas palavras indicam que você está inventando. NUNCA use:
-    "geralmente", "normalmente", "costuma ser", "em geral", "na maioria dos casos",
-    "provavelmente", "pode ser que", "acredito que", "presumo que", "tipicamente".
-    Se não tiver certeza, redirecione para o WhatsApp.
-
-17. SE O USUÁRIO MENCIONA UMA IMPRESSORA OU RESINA MAS NÃO PEDIU PARÂMETROS:
-    Confirme apenas a existência ("Sim, temos parâmetros para a Anycubic Mono X")
-    sem listar valores técnicos. Pergunte: "Quer que eu mostre os parâmetros?"
-`;
-```
+O merge cumulativo garante que se o usuário mudar de marca, o modelo anterior é descartado mas a nova marca é preservada corretamente.
 
 ---
 
-## Resumo do benefício
+## Fase 2 — Nova Edge Function `evaluate-interaction`
 
-| Situação | Antes | Depois |
-|---|---|---|
-| "minha impressora não liga" | Vai para RAG, pode citar produtos aleatórios | Intent guard → WhatsApp direto |
-| Qualquer pergunta geral | RAG pode incluir vídeos e exemplos não pedidos | System prompt proíbe explicitamente |
-| LLM usa "geralmente" ou "costuma ser" | Sem controle | Lista negra proíbe essas palavras |
-| Usuário menciona impressora sem pedir parâmetros | RAG lista valores técnicos como exemplos | Proibido — só confirma existência |
+### Arquivo novo: `supabase/functions/evaluate-interaction/index.ts`
 
-## Sobre aprender com o uso
+Baseado exatamente no código fornecido pelo engenheiro, com os guardrails de idempotência:
 
-Não é necessário para esse problema. O que você precisa é de **regras explícitas** — e elas já estão sendo implementadas acima. O aprendizado com uso seria útil apenas se quisesse a IA evoluir automaticamente ao longo do tempo, o que exigiria:
-- Coletar os feedbacks negativos (👎) já registrados na tabela `agent_interactions`
-- Enviar esses exemplos periodicamente para fine-tuning
-- Custo e complexidade significativos
+```typescript
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
-Por agora, as regras explícitas são mais rápidas, baratas e controláveis.
+serve(async (req) => {
+  const { record, old_record } = await req.json();
 
-## Seção Técnica
+  // Guardrails de idempotência
+  if (!record.agent_response || old_record?.agent_response) {
+    return new Response("Skip: agent_response not yet filled", { status: 200 });
+  }
+  if (record.judge_evaluated_at || record.unanswered || !record.context_raw) {
+    return new Response("Skip: already evaluated or no context", { status: 200 });
+  }
 
-- Arquivo único: `supabase/functions/dra-lia/index.ts`
-- Adições: `SUPPORT_KEYWORDS`, `SUPPORT_FALLBACK`, `isSupportQuestion()`, intent guard para suporte, e 4 novas regras no system prompt do RAG
-- Sem migrações de banco
-- Deploy automático
+  const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+  const judgePrompt = `...`; // prompt compacto com foco em fidelidade técnica
+
+  const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [{ role: "user", content: judgePrompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    }),
+  });
+
+  const evaluation = JSON.parse(aiData.choices[0].message.content);
+
+  await supabase.from("agent_interactions")
+    .update({ judge_score: evaluation.score, judge_verdict: evaluation.verdict, judge_evaluated_at: new Date().toISOString() })
+    .eq("id", record.id);
+});
+```
+
+### Adição em `supabase/config.toml`
+
+```toml
+[functions.evaluate-interaction]
+verify_jwt = false
+
+[functions.dra-lia-export]
+verify_jwt = false
+```
+
+### Por que o Webhook dispara no UPDATE (não no INSERT)
+
+O fluxo em `dra-lia/index.ts` é:
+- **INSERT** (linha 1095): salva `user_message`, `context_raw` — `agent_response = NULL`
+- **UPDATE** (linha 1163): salva `agent_response` quando o stream termina com `[DONE]`
+
+O Judge só tem material quando `agent_response` é preenchido. O guard `if (!record.agent_response || old_record?.agent_response)` garante que rode apenas nessa transição exata — update de feedback (👍/👎) não re-aciona o Judge.
+
+**Configuração manual do Webhook** (após deploy):
+- Supabase Dashboard → Database → Webhooks → New Webhook
+- Tabela: `agent_interactions` | Evento: `UPDATE`
+- URL: `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/evaluate-interaction`
+
+---
+
+## Fase 3 — Painel de Qualidade em `AdminDraLIAStats.tsx` + `dra-lia-export`
+
+### Mudanças em `src/components/AdminDraLIAStats.tsx`
+
+O componente atual será envolvido em `Tabs` (já disponível no projeto via Radix):
+
+**Aba "Visão Geral"**: todo o conteúdo atual preservado integralmente
+
+**Aba "Qualidade"** (nova):
+
+1. **4 KPIs de qualidade:**
+   - Taxa de Alucinação: % de `judge_score = 0` (KPI principal para acompanhar ao longo do tempo)
+   - Score Médio do Juiz: média de todos os scores avaliados
+   - Interações Avaliadas: total com `judge_evaluated_at IS NOT NULL`
+   - Revisadas pelo Time: total com `human_reviewed = true`
+
+2. **Lista de revisão paginada (10/página):**
+   - Busca interações com `judge_score <= 2` OU `feedback = 'negative'`
+   - Cada item: pergunta, resposta truncada com botão "expandir", badge do verdict (vermelho = hallucination, laranja = off_topic, amarelo = incomplete), score numérico
+   - Botão "Marcar como OK" → UPDATE `human_reviewed = true`
+
+3. **Botão "Exportar Dataset JSONL":**
+   - Chama `dra-lia-export` via fetch
+   - Faz download do arquivo `.jsonl` gerado
+
+A consulta adicional necessária no `fetchData`:
+```typescript
+const { data: qualityData } = await supabase
+  .from("agent_interactions")
+  .select("id, created_at, user_message, agent_response, judge_score, judge_verdict, feedback, human_reviewed, judge_evaluated_at")
+  .or("judge_score.lte.2,feedback.eq.negative")
+  .not("judge_score", "is", null)
+  .order("created_at", { ascending: false })
+  .limit(50);
+```
+
+### Nova edge function: `supabase/functions/dra-lia-export/index.ts`
+
+- Requer admin (valida `Authorization` header via `getClaims`)
+- Busca interações `human_reviewed = true AND judge_score >= 4`
+- Gera JSONL no formato do Google AI Studio para Gemini fine-tuning:
+  ```json
+  {"messages": [{"role": "system", "content": "..."}, {"role": "user", "content": "pergunta"}, {"role": "model", "content": "resposta"}]}
+  ```
+- Retorna com `Content-Type: application/x-ndjson` + `Content-Disposition: attachment; filename=lia-dataset.jsonl`
+
+---
+
+## Arquivos modificados e criados
+
+| Ação | Arquivo |
+|---|---|
+| Nova migração | `supabase/migrations/[timestamp]_add_judge_sessions.sql` |
+| Modificado | `supabase/functions/dra-lia/index.ts` — salvar `context_raw` (linha 1097) + refatorar `detectPrinterDialogState` (linhas 318-430) |
+| Novo | `supabase/functions/evaluate-interaction/index.ts` |
+| Novo | `supabase/functions/dra-lia-export/index.ts` |
+| Modificado | `supabase/config.toml` — +2 entradas |
+| Modificado | `src/components/AdminDraLIAStats.tsx` — nova aba Qualidade + KPIs + lista de revisão + botão exportar |
+
+---
+
+## Ordem de execução após aprovação
+
+```text
+1. Migração SQL executa → colunas criadas, tabela agent_sessions criada
+2. dra-lia/index.ts atualizado → context_raw começa a ser salvo + sessions ativas
+3. evaluate-interaction + dra-lia-export deployadas
+4. config.toml atualizado com as 2 novas entradas
+5. AdminDraLIAStats.tsx atualizado com aba Qualidade
+6. [Manual] Usuário configura Webhook no Supabase Dashboard
+```
+
+A partir do passo 6, cada nova conversa com resposta RAG será avaliada automaticamente pelo Judge em background, sem impacto no tempo de resposta do usuário.
