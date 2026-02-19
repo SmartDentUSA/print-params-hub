@@ -187,13 +187,13 @@ const ASK_MODEL: Record<string, (brand: string, models: string[]) => string> = {
   "es-ES": (brand, models) => `¡Genial! La **${brand}** está registrada aquí. ¿Cuál es el **modelo** de la impresora?\n\nModelos disponibles: ${models.join(", ")}`,
 };
 
-const ASK_RESIN: Record<string, (brand: string, model: string, modelSlug: string, brandSlug: string, resins: string[]) => string> = {
-  "pt-BR": (brand, model, modelSlug, brandSlug, resins) =>
-    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nResinas com parâmetros cadastrados para essa impressora:\n${resins.join(", ")}\n\nOu acesse diretamente todos os parâmetros:\n👉 [Ver todos os parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
-  "en-US": (brand, model, modelSlug, brandSlug, resins) =>
-    `Found **${brand} ${model}**! Which **resin** will you use?\n\nResins with registered parameters for this printer:\n${resins.join(", ")}\n\nOr access all parameters directly:\n👉 [View all ${brand} ${model} parameters](/${brandSlug}/${modelSlug})`,
-  "es-ES": (brand, model, modelSlug, brandSlug, resins) =>
-    `¡Encontré la **${brand} ${model}**! ¿Qué **resina** vas a usar?\n\nResinas con parámetros registrados para esta impresora:\n${resins.join(", ")}\n\nO accede directamente a todos los parámetros:\n👉 [Ver todos los parámetros de ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+const ASK_RESIN: Record<string, (brand: string, model: string, modelSlug: string, brandSlug: string) => string> = {
+  "pt-BR": (brand, model, _modelSlug, _brandSlug) =>
+    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nMe diga o nome da resina e verifico os parâmetros para você 😊`,
+  "en-US": (brand, model, _modelSlug, _brandSlug) =>
+    `Found **${brand} ${model}**! Which **resin** will you use?\n\nTell me the resin name and I'll check the parameters for you 😊`,
+  "es-ES": (brand, model, _modelSlug, _brandSlug) =>
+    `¡Encontré la **${brand} ${model}**! ¿Qué **resina** vas a usar?\n\nDime el nombre de la resina y verifico los parámetros para ti 😊`,
 };
 
 const RESIN_FOUND: Record<string, (resin: string, brand: string, model: string, brandSlug: string, modelSlug: string) => string> = {
@@ -205,13 +205,19 @@ const RESIN_FOUND: Record<string, (resin: string, brand: string, model: string, 
     `¡Perfecto! Encontré los parámetros de **${resin}** para la **${brand} ${model}**:\n👉 [Ver parámetros](/${brandSlug}/${modelSlug})\n\n¡Si necesitas los valores específicos, solo pídeme y los busco para ti!`,
 };
 
-const RESIN_NOT_FOUND: Record<string, (resin: string, brand: string, model: string, brandSlug: string, modelSlug: string) => string> = {
-  "pt-BR": (resin, brand, model, brandSlug, modelSlug) =>
-    `Ainda não temos parâmetros da **${resin}** para a **${brand} ${model}**.\n\nConfira as resinas disponíveis para esse modelo:\n👉 [Ver parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
-  "en-US": (resin, brand, model, brandSlug, modelSlug) =>
-    `We don't have parameters for **${resin}** on the **${brand} ${model}** yet.\n\nCheck the available resins for this model:\n👉 [View ${brand} ${model} parameters](/${brandSlug}/${modelSlug})`,
-  "es-ES": (resin, brand, model, brandSlug, modelSlug) =>
-    `Aún no tenemos parámetros de **${resin}** para la **${brand} ${model}**.\n\nRevisa las resinas disponibles para este modelo:\n👉 [Ver parámetros de ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+const RESIN_NOT_FOUND: Record<string, (resin: string, brand: string, model: string, brandSlug: string, modelSlug: string, availableResins: string[]) => string> = {
+  "pt-BR": (resin, brand, model, brandSlug, modelSlug, availableResins) =>
+    `Ainda não temos parâmetros da **${resin}** para a **${brand} ${model}**.\n\n` +
+    (availableResins.length > 0 ? `Resinas com parâmetros cadastrados para esse modelo:\n${availableResins.join(", ")}\n\n` : "") +
+    `👉 [Ver todos os parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+  "en-US": (resin, brand, model, brandSlug, modelSlug, availableResins) =>
+    `We don't have parameters for **${resin}** on the **${brand} ${model}** yet.\n\n` +
+    (availableResins.length > 0 ? `Resins with registered parameters for this model:\n${availableResins.join(", ")}\n\n` : "") +
+    `👉 [View ${brand} ${model} parameters](/${brandSlug}/${modelSlug})`,
+  "es-ES": (resin, brand, model, brandSlug, modelSlug, availableResins) =>
+    `Aún no tenemos parámetros de **${resin}** para la **${brand} ${model}**.\n\n` +
+    (availableResins.length > 0 ? `Resinas con parámetros registrados para este modelo:\n${availableResins.join(", ")}\n\n` : "") +
+    `👉 [Ver parámetros de ${brand} ${model}](/${brandSlug}/${modelSlug})`,
 };
 
 const BRAND_NOT_FOUND: Record<string, (brand: string, availableBrands: string[]) => string> = {
@@ -737,20 +743,24 @@ serve(async (req) => {
         dialogText = fn(dialogState.brand, dialogState.availableModels);
       } else if (dialogState.state === "needs_resin") {
         const fn = ASK_RESIN[lang] || ASK_RESIN["pt-BR"];
-        dialogText = fn(dialogState.brandName, dialogState.modelName, dialogState.modelSlug, dialogState.brandSlug, dialogState.availableResins);
+        dialogText = fn(dialogState.brandName, dialogState.modelName, dialogState.modelSlug, dialogState.brandSlug);
         contextSources = [{ type: "printer_page", title: `${dialogState.brandName} ${dialogState.modelName}` }];
       } else if (dialogState.state === "has_resin") {
         // Find brand/model names from slugs for the response message
-        const { data: brandData } = await supabase.from("brands").select("name").eq("slug", dialogState.brandSlug).single();
-        const { data: modelData } = await supabase.from("models").select("name").eq("slug", dialogState.modelSlug).single();
+        const [{ data: brandData }, { data: modelData }] = await Promise.all([
+          supabase.from("brands").select("name").eq("slug", dialogState.brandSlug).single(),
+          supabase.from("models").select("name").eq("slug", dialogState.modelSlug).single(),
+        ]);
         const brandName = brandData?.name || dialogState.brandSlug;
         const modelName = modelData?.name || dialogState.modelSlug;
         if (dialogState.found) {
           const fn = RESIN_FOUND[lang] || RESIN_FOUND["pt-BR"];
           dialogText = fn(dialogState.resinName, brandName, modelName, dialogState.brandSlug, dialogState.modelSlug);
         } else {
+          // Fetch available resins to show in fallback message
+          const availableResins = await fetchAvailableResins(supabase, dialogState.brandSlug, dialogState.modelSlug);
           const fn = RESIN_NOT_FOUND[lang] || RESIN_NOT_FOUND["pt-BR"];
-          dialogText = fn(dialogState.resinName, brandName, modelName, dialogState.brandSlug, dialogState.modelSlug);
+          dialogText = fn(dialogState.resinName, brandName, modelName, dialogState.brandSlug, dialogState.modelSlug, availableResins);
         }
         contextSources = [{ type: "printer_page", title: `${brandName} ${modelName}` }];
       } else if (dialogState.state === "brand_not_found") {
