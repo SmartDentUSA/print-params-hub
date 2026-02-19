@@ -116,7 +116,7 @@ async function searchByILIKE(
 
 // Keywords that indicate the user is asking about print parameters
 const PARAM_KEYWORDS = [
-  /parâmetro|parametro|parameter/i,
+  /parâmetro|parametro|parameter|parametrizar/i,
   /configuração|configuracao|setting/i,
   /\bexposição\b|exposicao|exposure/i,
   /layer height|espessura de camada/i,
@@ -124,6 +124,12 @@ const PARAM_KEYWORDS = [
   /tempo de cura|cure time|tiempo de exposición/i,
   /configurar|configurações|configuracoes/i,
   /quais (os )?param|qual (o )?param/i,
+  // Padrões contextuais — capturam intenção sem palavra exata "parâmetro"
+  /(preciso|quero|busco|quais|como|qual|configurar|usar|parametrizar).{0,40}\bimpressora\b/i,
+  /\bimpressora\b.{0,40}(resina|parâmetro|configurar|parametrizar)/i,
+  /(comprei|tenho|uso|adquiri).{0,30}(resina|impressora)/i,
+  /(resina).{0,30}(impressora|imprimir|impressão)/i,
+  /calibrar|calibração|calibragem/i,
 ];
 
 const isPrinterParamQuestion = (msg: string) =>
