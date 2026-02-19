@@ -1301,10 +1301,16 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
     let aiResponse = await callAI("google/gemini-2.5-flash");
 
-    // Se 500 no modelo primário → retry automático com modelo mais leve
+    // Se 500 no modelo primário → retry com flash-lite
     if (!aiResponse.ok && aiResponse.status === 500) {
       console.error(`Primary model failed with 500, retrying with flash-lite...`);
       aiResponse = await callAI("google/gemini-2.5-flash-lite");
+    }
+
+    // Se ainda 500 → último fallback com OpenAI gpt-5-mini
+    if (!aiResponse.ok && aiResponse.status === 500) {
+      console.error(`Flash-lite also failed with 500, retrying with openai/gpt-5-mini...`);
+      aiResponse = await callAI("openai/gpt-5-mini");
     }
 
     if (!aiResponse.ok) {
