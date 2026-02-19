@@ -130,102 +130,158 @@ const isPrinterParamQuestion = (msg: string) =>
   PARAM_KEYWORDS.some((p) => p.test(msg));
 
 type DialogState =
-  | { state: "needs_brand" }
-  | { state: "needs_model"; brand: string; brandSlug: string; brandId: string }
-  | { state: "has_printer"; brandSlug: string; modelSlug: string; brandName: string; modelName: string }
-  | { state: "brand_not_found"; brandGuess: string }
-  | { state: "model_not_found"; brand: string; brandSlug: string }
+  | { state: "needs_brand"; availableBrands: string[] }
+  | { state: "needs_model"; brand: string; brandSlug: string; brandId: string; availableModels: string[] }
+  | { state: "needs_resin"; brandSlug: string; modelSlug: string; brandName: string; modelName: string; availableResins: string[] }
+  | { state: "has_resin"; brandSlug: string; modelSlug: string; resinName: string; found: boolean }
+  | { state: "brand_not_found"; brandGuess: string; availableBrands: string[] }
+  | { state: "model_not_found"; brand: string; brandSlug: string; availableModels: string[] }
   | { state: "not_in_dialog" };
 
+// Fetch all active brand names from DB
+async function fetchActiveBrands(supabase: ReturnType<typeof createClient>): Promise<Array<{ id: string; slug: string; name: string }>> {
+  const { data } = await supabase
+    .from("brands")
+    .select("id, slug, name")
+    .eq("active", true)
+    .order("name");
+  return data || [];
+}
+
+// Fetch active models for a specific brand
+async function fetchBrandModels(supabase: ReturnType<typeof createClient>, brandId: string): Promise<Array<{ slug: string; name: string }>> {
+  const { data } = await supabase
+    .from("models")
+    .select("slug, name")
+    .eq("active", true)
+    .eq("brand_id", brandId)
+    .order("name");
+  return data || [];
+}
+
+// Fetch distinct resin names from parameter_sets for a brand+model combination
+async function fetchAvailableResins(supabase: ReturnType<typeof createClient>, brandSlug: string, modelSlug: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("parameter_sets")
+    .select("resin_name")
+    .eq("active", true)
+    .eq("brand_slug", brandSlug)
+    .eq("model_slug", modelSlug)
+    .order("resin_name");
+  if (!data?.length) return [];
+  // Deduplicate
+  const seen = new Set<string>();
+  return data.map((r: { resin_name: string }) => r.resin_name).filter((n: string) => { if (seen.has(n)) return false; seen.add(n); return true; });
+}
+
 // Localized messages for each dialog step
-const ASK_BRAND: Record<string, string> = {
-  "pt-BR": "Claro! Para te ajudar com os parâmetros, qual é a **marca** da sua impressora?\n(ex: Anycubic, Phrozen, Bambu Lab, Elegoo, MiiCraft...)",
-  "en-US": "Sure! To help you with parameters, what is your printer **brand**?\n(e.g. Anycubic, Phrozen, Bambu Lab, Elegoo, MiiCraft...)",
-  "es-ES": "¡Claro! Para ayudarte con los parámetros, ¿cuál es la **marca** de tu impresora?\n(ej: Anycubic, Phrozen, Bambu Lab, Elegoo, MiiCraft...)",
+const ASK_BRAND: Record<string, (brands: string[]) => string> = {
+  "pt-BR": (brands) => `Claro! Para te ajudar com os parâmetros, qual é a **marca** da sua impressora?\n\nMarcas disponíveis: ${brands.join(", ")}`,
+  "en-US": (brands) => `Sure! To help you with parameters, what is your printer **brand**?\n\nAvailable brands: ${brands.join(", ")}`,
+  "es-ES": (brands) => `¡Claro! Para ayudarte con los parámetros, ¿cuál es la **marca** de tu impresora?\n\nMarcas disponibles: ${brands.join(", ")}`,
 };
 
-const ASK_MODEL: Record<string, (brand: string) => string> = {
-  "pt-BR": (brand) => `Ótimo! A **${brand}** está cadastrada aqui. Qual é o **modelo** da impressora?\n(ex: Photon Mono 4, M3 Max, Sonic Mini 8K...)`,
-  "en-US": (brand) => `Great! **${brand}** is in our database. What is the printer **model**?\n(e.g. Photon Mono 4, M3 Max, Sonic Mini 8K...)`,
-  "es-ES": (brand) => `¡Genial! La **${brand}** está registrada aquí. ¿Cuál es el **modelo** de la impresora?\n(ej: Photon Mono 4, M3 Max, Sonic Mini 8K...)`,
+const ASK_MODEL: Record<string, (brand: string, models: string[]) => string> = {
+  "pt-BR": (brand, models) => `Ótimo! A **${brand}** está cadastrada aqui. Qual é o **modelo** da impressora?\n\nModelos disponíveis: ${models.join(", ")}`,
+  "en-US": (brand, models) => `Great! **${brand}** is in our database. What is the printer **model**?\n\nAvailable models: ${models.join(", ")}`,
+  "es-ES": (brand, models) => `¡Genial! La **${brand}** está registrada aquí. ¿Cuál es el **modelo** de la impresora?\n\nModelos disponibles: ${models.join(", ")}`,
 };
 
-const BRAND_NOT_FOUND: Record<string, (brand: string) => string> = {
-  "pt-BR": (brand) => `Ainda não temos parâmetros cadastrados para impressoras **${brand}**.\n\nAcesse nossa página de parâmetros e veja todas as marcas disponíveis:\n👉 [Ver todos os parâmetros](/)`,
-  "en-US": (brand) => `We don't have parameters for **${brand}** printers yet.\n\nVisit our parameters page to see all available brands:\n👉 [View all parameters](/)`,
-  "es-ES": (brand) => `Aún no tenemos parámetros para impresoras **${brand}**.\n\nVisita nuestra página de parámetros para ver todas las marcas disponibles:\n👉 [Ver todos los parámetros](/)`,
+const ASK_RESIN: Record<string, (brand: string, model: string, modelSlug: string, brandSlug: string, resins: string[]) => string> = {
+  "pt-BR": (brand, model, modelSlug, brandSlug, resins) =>
+    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nResinas com parâmetros cadastrados para essa impressora:\n${resins.join(", ")}\n\nOu acesse diretamente todos os parâmetros:\n👉 [Ver todos os parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+  "en-US": (brand, model, modelSlug, brandSlug, resins) =>
+    `Found **${brand} ${model}**! Which **resin** will you use?\n\nResins with registered parameters for this printer:\n${resins.join(", ")}\n\nOr access all parameters directly:\n👉 [View all ${brand} ${model} parameters](/${brandSlug}/${modelSlug})`,
+  "es-ES": (brand, model, modelSlug, brandSlug, resins) =>
+    `¡Encontré la **${brand} ${model}**! ¿Qué **resina** vas a usar?\n\nResinas con parámetros registrados para esta impresora:\n${resins.join(", ")}\n\nO accede directamente a todos los parámetros:\n👉 [Ver todos los parámetros de ${brand} ${model}](/${brandSlug}/${modelSlug})`,
 };
 
-const MODEL_NOT_FOUND: Record<string, (brand: string, brandSlug: string) => string> = {
-  "pt-BR": (brand, brandSlug) => `Não encontrei esse modelo para a **${brand}**.\n\nConfira todos os modelos disponíveis:\n👉 [Ver modelos da ${brand}](/${brandSlug})`,
-  "en-US": (brand, brandSlug) => `I couldn't find that model for **${brand}**.\n\nCheck all available models:\n👉 [View ${brand} models](/${brandSlug})`,
-  "es-ES": (brand, brandSlug) => `No encontré ese modelo para la **${brand}**.\n\nRevisa todos los modelos disponibles:\n👉 [Ver modelos de ${brand}](/${brandSlug})`,
+const RESIN_FOUND: Record<string, (resin: string, brand: string, model: string, brandSlug: string, modelSlug: string) => string> = {
+  "pt-BR": (resin, brand, model, brandSlug, modelSlug) =>
+    `Perfeito! Encontrei os parâmetros da **${resin}** para a **${brand} ${model}**:\n👉 [Ver parâmetros](/${brandSlug}/${modelSlug})\n\nSe precisar dos valores específicos, é só me pedir e busco para você!`,
+  "en-US": (resin, brand, model, brandSlug, modelSlug) =>
+    `Perfect! Found parameters for **${resin}** on the **${brand} ${model}**:\n👉 [View parameters](/${brandSlug}/${modelSlug})\n\nIf you need the specific values, just ask and I'll find them for you!`,
+  "es-ES": (resin, brand, model, brandSlug, modelSlug) =>
+    `¡Perfecto! Encontré los parámetros de **${resin}** para la **${brand} ${model}**:\n👉 [Ver parámetros](/${brandSlug}/${modelSlug})\n\n¡Si necesitas los valores específicos, solo pídeme y los busco para ti!`,
 };
 
-const PRINTER_LINK_RESPONSES: Record<string, (brand: string, model: string, url: string) => string> = {
-  "pt-BR": (brand, model, url) =>
-    `Perfeito! Acesse a página da impressora onde os parâmetros estão organizados por resina:\n👉 [Ver parâmetros da ${brand} ${model}](${url})\n\nSe você já sabe qual resina vai usar, me diga o nome dela e busco os valores específicos para você!`,
-  "en-US": (brand, model, url) =>
-    `Perfect! Visit the printer page where parameters are organized by resin:\n👉 [View ${brand} ${model} parameters](${url})\n\nIf you already know which resin you'll use, tell me the name and I'll find the specific values for you!`,
-  "es-ES": (brand, model, url) =>
-    `¡Perfecto! Visita la página de la impresora donde los parámetros están organizados por resina:\n👉 [Ver parámetros de ${brand} ${model}](${url})\n\n¡Si ya sabes qué resina usarás, dime el nombre y busco los valores específicos para ti!`,
+const RESIN_NOT_FOUND: Record<string, (resin: string, brand: string, model: string, brandSlug: string, modelSlug: string) => string> = {
+  "pt-BR": (resin, brand, model, brandSlug, modelSlug) =>
+    `Ainda não temos parâmetros da **${resin}** para a **${brand} ${model}**.\n\nConfira as resinas disponíveis para esse modelo:\n👉 [Ver parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+  "en-US": (resin, brand, model, brandSlug, modelSlug) =>
+    `We don't have parameters for **${resin}** on the **${brand} ${model}** yet.\n\nCheck the available resins for this model:\n👉 [View ${brand} ${model} parameters](/${brandSlug}/${modelSlug})`,
+  "es-ES": (resin, brand, model, brandSlug, modelSlug) =>
+    `Aún no tenemos parámetros de **${resin}** para la **${brand} ${model}**.\n\nRevisa las resinas disponibles para este modelo:\n👉 [Ver parámetros de ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+};
+
+const BRAND_NOT_FOUND: Record<string, (brand: string, availableBrands: string[]) => string> = {
+  "pt-BR": (brand, brands) => `Não encontrei a marca **${brand}** no nosso sistema.\n\nMarcas disponíveis: ${brands.join(", ")}\n\nOu acesse: 👉 [Ver todos os parâmetros](/)`,
+  "en-US": (brand, brands) => `I couldn't find **${brand}** in our system.\n\nAvailable brands: ${brands.join(", ")}\n\nOr visit: 👉 [View all parameters](/)`,
+  "es-ES": (brand, brands) => `No encontré la marca **${brand}** en nuestro sistema.\n\nMarcas disponibles: ${brands.join(", ")}\n\nO accede: 👉 [Ver todos los parámetros](/)`,
+};
+
+const MODEL_NOT_FOUND: Record<string, (brand: string, brandSlug: string, availableModels: string[]) => string> = {
+  "pt-BR": (brand, brandSlug, models) => `Não encontrei esse modelo para a **${brand}**.\n\nModelos disponíveis: ${models.join(", ")}\n\nOu acesse: 👉 [Ver modelos da ${brand}](/${brandSlug})`,
+  "en-US": (brand, brandSlug, models) => `I couldn't find that model for **${brand}**.\n\nAvailable models: ${models.join(", ")}\n\nOr visit: 👉 [View ${brand} models](/${brandSlug})`,
+  "es-ES": (brand, brandSlug, models) => `No encontré ese modelo para la **${brand}**.\n\nModelos disponibles: ${models.join(", ")}\n\nO accede: 👉 [Ver modelos de ${brand}](/${brandSlug})`,
 };
 
 // Find a brand by name in the user's message
 async function findBrandInMessage(
-  supabase: ReturnType<typeof createClient>,
+  brands: Array<{ id: string; slug: string; name: string }>,
   message: string
 ): Promise<{ id: string; slug: string; name: string } | null> {
-  const { data: brands } = await supabase
-    .from("brands")
-    .select("id, slug, name")
-    .eq("active", true);
-
-  if (!brands?.length) return null;
-
   const msg = message.toLowerCase();
   // Sort by name length descending to prefer longer (more specific) matches
   const sorted = [...brands].sort((a, b) => b.name.length - a.name.length);
-  return sorted.find((b: { name: string }) => msg.includes(b.name.toLowerCase())) || null;
+  return sorted.find((b) => msg.includes(b.name.toLowerCase())) || null;
 }
 
-// Find a model by name in the user's message, filtered by brand
-async function findModelInMessage(
-  supabase: ReturnType<typeof createClient>,
-  message: string,
-  brandId: string
-): Promise<{ slug: string; name: string } | null> {
-  const { data: models } = await supabase
-    .from("models")
-    .select("slug, name")
-    .eq("active", true)
-    .eq("brand_id", brandId);
-
-  if (!models?.length) return null;
-
+// Find a model by name in the user's message, from a pre-fetched list
+function findModelInList(
+  models: Array<{ slug: string; name: string }>,
+  message: string
+): { slug: string; name: string } | null {
   const msg = message.toLowerCase();
 
-  // Score each model by match ratio (matched words / total words in model name)
   const scored = models
-    .map((m: { slug: string; name: string }) => {
-      // Include all tokens for matching
-      const words = m.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 1);
-      const matches = words.filter((w: string) => msg.includes(w)).length;
-      const ratio = matches / words.length; // 1.0 = perfect match
+    .map((m) => {
+      const words = m.name.toLowerCase().split(/\s+/).filter((w) => w.length >= 1);
+      const matches = words.filter((w) => msg.includes(w)).length;
+      const ratio = matches / words.length;
       return { model: m, matches, wordCount: words.length, ratio };
     })
     .filter((x) => x.matches > 0)
-    // Sort: higher ratio first, then more matches, then shorter name (more specific)
     .sort((a, b) => b.ratio - a.ratio || b.matches - a.matches || a.wordCount - b.wordCount);
 
   const best = scored[0];
   if (!best) return null;
-
-  // Accept if matched at least half the words and at least 1 match
-  if (best.matches >= 1 && best.ratio >= 0.5) {
-    return best.model;
-  }
+  if (best.matches >= 1 && best.ratio >= 0.5) return best.model;
   return null;
+}
+
+// Find a resin in the list using fuzzy matching
+function findResinInList(resins: string[], message: string): string | null {
+  const msg = message.toLowerCase().trim();
+  // Sort by length descending for longer match priority
+  const sorted = [...resins].sort((a, b) => b.length - a.length);
+  // Try full name match first
+  const exact = sorted.find((r) => msg.includes(r.toLowerCase()));
+  if (exact) return exact;
+  // Try word-level match: any word >= 4 chars from the message that appears in a resin name
+  // Also: if message is a single meaningful word (e.g. "Vitality"), match it against any resin containing that word
+  const msgWords = msg.split(/\s+/).filter((w) => w.length >= 4);
+  for (const word of msgWords) {
+    const hit = sorted.find((r) => r.toLowerCase().includes(word));
+    if (hit) return hit;
+  }
+  // Fallback: ratio-based match (any 1 matching word is enough for short queries)
+  const scored = resins.map((r) => {
+    const words = r.toLowerCase().split(/\s+/).filter((w) => w.length >= 3);
+    const matches = words.filter((w) => msg.includes(w)).length;
+    return { resin: r, matches, ratio: words.length ? matches / words.length : 0 };
+  }).filter((x) => x.matches > 0).sort((a, b) => b.ratio - a.ratio || b.matches - a.matches);
+  return scored.length > 0 ? scored[0].resin : null;
 }
 
 // Detect which step of the guided dialog we're in based on message + history
@@ -234,83 +290,109 @@ async function detectPrinterDialogState(
   message: string,
   history: Array<{ role: string; content: string }>
 ): Promise<DialogState> {
-  // Find last assistant message
   const lastAssistantMsg = [...history].reverse().find((h) => h.role === "assistant");
   const lastContent = lastAssistantMsg?.content || "";
-
-  // Use lowercase for case-insensitive matching
   const lastLower = lastContent.toLowerCase();
 
-  // Check if L.I.A. previously asked for the brand
+  // Check what L.I.A. previously asked
   const liaAskedBrand =
-    (lastLower.includes("marca") || lastLower.includes("brand")) &&
+    (lastLower.includes("marca") || lastLower.includes("brand") || lastLower.includes("marca")) &&
     (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual")) &&
     !lastLower.includes("modelo") && !lastLower.includes("model");
 
-  // Check if L.I.A. previously asked for the model
   const liaAskedModel =
     (lastLower.includes("modelo") || lastLower.includes("model")) &&
-    (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual"));
+    (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual")) &&
+    !lastLower.includes("resina") && !lastLower.includes("resin");
+
+  const liaAskedResin =
+    (lastLower.includes("resina") || lastLower.includes("resin")) &&
+    (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual") ||
+     lastLower.includes("vai usar") || lastLower.includes("will you use") || lastLower.includes("vas a usar"));
+
+  // Always fetch brands (needed for most steps)
+  const allBrands = await fetchActiveBrands(supabase);
+  const brandNames = allBrands.map((b) => b.name);
+
+  // Step 4: L.I.A. asked for resin → user is responding with a resin name
+  if (liaAskedResin) {
+    // Extract brand+model slugs from last assistant message links: /brandslug/modelslug
+    const linkMatch = lastContent.match(/\]\(\/([^/]+)\/([^)]+)\)/);
+    if (linkMatch) {
+      const brandSlug = linkMatch[1];
+      const modelSlug = linkMatch[2];
+      const availableResins = await fetchAvailableResins(supabase, brandSlug, modelSlug);
+      const matched = findResinInList(availableResins, message);
+      if (matched) {
+        return { state: "has_resin", brandSlug, modelSlug, resinName: matched, found: true };
+      }
+      // Resin not found in list
+      const guess = message.trim().slice(0, 80);
+      return { state: "has_resin", brandSlug, modelSlug, resinName: guess, found: false };
+    }
+  }
 
   // Step 2: L.I.A. asked for brand → user is responding with a brand name
   if (liaAskedBrand) {
-    const brand = await findBrandInMessage(supabase, message);
+    const brand = await findBrandInMessage(allBrands, message);
     if (brand) {
-      return { state: "needs_model", brand: brand.name, brandSlug: brand.slug, brandId: brand.id };
+      const models = await fetchBrandModels(supabase, brand.id);
+      const modelNames = models.map((m) => m.name);
+      return { state: "needs_model", brand: brand.name, brandSlug: brand.slug, brandId: brand.id, availableModels: modelNames };
     }
-    // Try treating the whole short message as a brand guess
     const guess = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim();
-    return { state: "brand_not_found", brandGuess: guess || message.trim() };
+    return { state: "brand_not_found", brandGuess: guess || message.trim(), availableBrands: brandNames };
   }
 
   // Step 3: L.I.A. asked for model → user is responding with a model name
   if (liaAskedModel) {
-    // Find all bolded words in last assistant message to identify the brand
+    // Extract brand from bolded phrases in last assistant message
     const boldedPhrases = [...lastContent.matchAll(/\*\*([^*]+)\*\*/g)].map((m) => m[1]);
-
-    // Load all brands to cross-reference
-    const { data: brands } = await supabase
-      .from("brands")
-      .select("id, slug, name")
-      .eq("active", true);
-
-    // Find which bolded phrase matches a brand name (case-insensitive)
-    let matchedBrand: { id: string; slug: string; name: string } | undefined;
+    let matchedBrand: typeof allBrands[0] | undefined;
     for (const phrase of boldedPhrases) {
       const phraseLower = phrase.toLowerCase();
-      const found = brands?.find(
-        (b: { name: string }) =>
-          phraseLower === b.name.toLowerCase() ||
-          phraseLower.includes(b.name.toLowerCase())
+      const found = allBrands.find(
+        (b) => phraseLower === b.name.toLowerCase() || phraseLower.includes(b.name.toLowerCase())
       );
       if (found) { matchedBrand = found; break; }
     }
-
-    // Fallback: search entire last message text for any brand name
-    if (!matchedBrand && brands) {
-      matchedBrand = brands.find((b: { name: string }) =>
-        lastLower.includes(b.name.toLowerCase())
-      );
+    if (!matchedBrand) {
+      matchedBrand = allBrands.find((b) => lastLower.includes(b.name.toLowerCase()));
     }
 
     if (matchedBrand) {
-      const model = await findModelInMessage(supabase, message, matchedBrand.id);
+      const models = await fetchBrandModels(supabase, matchedBrand.id);
+      const model = findModelInList(models, message);
       if (model) {
+        const resins = await fetchAvailableResins(supabase, matchedBrand.slug, model.slug);
+        if (resins.length > 0) {
+          return {
+            state: "needs_resin",
+            brandSlug: matchedBrand.slug,
+            modelSlug: model.slug,
+            brandName: matchedBrand.name,
+            modelName: model.name,
+            availableResins: resins,
+          };
+        }
+        // No resins in DB for this model — skip resin step, send link directly
         return {
-          state: "has_printer",
+          state: "needs_resin",
           brandSlug: matchedBrand.slug,
           modelSlug: model.slug,
           brandName: matchedBrand.name,
           modelName: model.name,
+          availableResins: [],
         };
       }
-      return { state: "model_not_found", brand: matchedBrand.name, brandSlug: matchedBrand.slug };
+      const modelNames = models.map((m) => m.name);
+      return { state: "model_not_found", brand: matchedBrand.name, brandSlug: matchedBrand.slug, availableModels: modelNames };
     }
   }
 
   // Step 1: Current message is a param question — start the dialog
   if (isPrinterParamQuestion(message)) {
-    return { state: "needs_brand" };
+    return { state: "needs_brand", availableBrands: brandNames };
   }
 
   return { state: "not_in_dialog" };
@@ -648,22 +730,37 @@ serve(async (req) => {
       let contextSources: Array<{ type: string; title: string }> = [];
 
       if (dialogState.state === "needs_brand") {
-        dialogText = ASK_BRAND[lang] || ASK_BRAND["pt-BR"];
+        const fn = ASK_BRAND[lang] || ASK_BRAND["pt-BR"];
+        dialogText = fn(dialogState.availableBrands);
       } else if (dialogState.state === "needs_model") {
         const fn = ASK_MODEL[lang] || ASK_MODEL["pt-BR"];
-        dialogText = fn(dialogState.brand);
+        dialogText = fn(dialogState.brand, dialogState.availableModels);
+      } else if (dialogState.state === "needs_resin") {
+        const fn = ASK_RESIN[lang] || ASK_RESIN["pt-BR"];
+        dialogText = fn(dialogState.brandName, dialogState.modelName, dialogState.modelSlug, dialogState.brandSlug, dialogState.availableResins);
+        contextSources = [{ type: "printer_page", title: `${dialogState.brandName} ${dialogState.modelName}` }];
+      } else if (dialogState.state === "has_resin") {
+        // Find brand/model names from slugs for the response message
+        const { data: brandData } = await supabase.from("brands").select("name").eq("slug", dialogState.brandSlug).single();
+        const { data: modelData } = await supabase.from("models").select("name").eq("slug", dialogState.modelSlug).single();
+        const brandName = brandData?.name || dialogState.brandSlug;
+        const modelName = modelData?.name || dialogState.modelSlug;
+        if (dialogState.found) {
+          const fn = RESIN_FOUND[lang] || RESIN_FOUND["pt-BR"];
+          dialogText = fn(dialogState.resinName, brandName, modelName, dialogState.brandSlug, dialogState.modelSlug);
+        } else {
+          const fn = RESIN_NOT_FOUND[lang] || RESIN_NOT_FOUND["pt-BR"];
+          dialogText = fn(dialogState.resinName, brandName, modelName, dialogState.brandSlug, dialogState.modelSlug);
+        }
+        contextSources = [{ type: "printer_page", title: `${brandName} ${modelName}` }];
       } else if (dialogState.state === "brand_not_found") {
         const fn = BRAND_NOT_FOUND[lang] || BRAND_NOT_FOUND["pt-BR"];
-        dialogText = fn(dialogState.brandGuess);
+        dialogText = fn(dialogState.brandGuess, dialogState.availableBrands);
       } else if (dialogState.state === "model_not_found") {
         const fn = MODEL_NOT_FOUND[lang] || MODEL_NOT_FOUND["pt-BR"];
-        dialogText = fn(dialogState.brand, dialogState.brandSlug);
+        dialogText = fn(dialogState.brand, dialogState.brandSlug, dialogState.availableModels);
       } else {
-        // has_printer
-        const printerUrl = `/${dialogState.brandSlug}/${dialogState.modelSlug}`;
-        const fn = PRINTER_LINK_RESPONSES[lang] || PRINTER_LINK_RESPONSES["pt-BR"];
-        dialogText = fn(dialogState.brandName, dialogState.modelName, printerUrl);
-        contextSources = [{ type: "printer_page", title: `${dialogState.brandName} ${dialogState.modelName}` }];
+        dialogText = "";
       }
 
       // Save interaction
