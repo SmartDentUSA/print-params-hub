@@ -315,19 +315,132 @@ function findResinInList(resins: string[], message: string): string | null {
   return scored.length > 0 ? scored[0].resin : null;
 }
 
-// Detect which step of the guided dialog we're in based on message + history
+// Detect which step of the guided dialog we're in — uses agent_sessions for persistence
+// Falls back to regex-on-history if session lookup fails (resilience)
 async function detectPrinterDialogState(
   supabase: ReturnType<typeof createClient>,
   message: string,
-  history: Array<{ role: string; content: string }>
+  history: Array<{ role: string; content: string }>,
+  sessionId: string
 ): Promise<DialogState> {
+  // Always fetch brands (needed for most steps)
+  const allBrands = await fetchActiveBrands(supabase);
+  const brandNames = allBrands.map((b) => b.name);
+
+  // ── Load persistent session state ──────────────────────────────────────────
+  let sessionData: { current_state: string; extracted_entities: Record<string, string>; last_activity_at: string } | null = null;
+  try {
+    const { data } = await supabase
+      .from("agent_sessions")
+      .select("current_state, extracted_entities, last_activity_at")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (data) {
+      // Validate expiration: if last_activity_at > 2 hours ago, treat as idle
+      const lastActivity = new Date(data.last_activity_at).getTime();
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+      if (lastActivity < twoHoursAgo) {
+        // Session expired — reset silently
+        await supabase
+          .from("agent_sessions")
+          .upsert({ session_id: sessionId, current_state: "idle", extracted_entities: {}, last_activity_at: new Date().toISOString() }, { onConflict: "session_id" });
+        sessionData = null;
+      } else {
+        sessionData = data as { current_state: string; extracted_entities: Record<string, string>; last_activity_at: string };
+      }
+    }
+  } catch (e) {
+    console.warn("agent_sessions lookup failed, falling back to history regex:", e);
+  }
+
+  // ── Helper: persist state update cumulatively ──────────────────────────────
+  const persistState = async (newState: string, newEntities: Record<string, string>) => {
+    const updatedEntities = { ...(sessionData?.extracted_entities || {}), ...newEntities };
+    try {
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        current_state: newState,
+        extracted_entities: updatedEntities,
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+    } catch (e) {
+      console.warn("agent_sessions upsert failed:", e);
+    }
+    return updatedEntities;
+  };
+
+  const currentState = sessionData?.current_state || "idle";
+  const entities = sessionData?.extracted_entities || {};
+
+  // ── State machine based on persisted state ─────────────────────────────────
+
+  // State: needs_model → user is responding with a brand name
+  if (currentState === "needs_brand" || currentState === "brand_not_found") {
+    const brand = await findBrandInMessage(allBrands, message);
+    if (brand) {
+      const models = await fetchBrandModels(supabase, brand.id);
+      const modelNames = models.map((m) => m.name);
+      await persistState("needs_model", { brand_name: brand.name, brand_slug: brand.slug, brand_id: brand.id });
+      return { state: "needs_model", brand: brand.name, brandSlug: brand.slug, brandId: brand.id, availableModels: modelNames };
+    }
+    const guess = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim();
+    await persistState("brand_not_found", {});
+    return { state: "brand_not_found", brandGuess: guess || message.trim(), availableBrands: brandNames };
+  }
+
+  // State: needs_resin → user is responding with a model name
+  if (currentState === "needs_model" || currentState === "model_not_found") {
+    const brandSlug = entities.brand_slug;
+    const brandId = entities.brand_id;
+    const brandName = entities.brand_name;
+
+    if (brandSlug && brandId) {
+      const brandObj = allBrands.find((b) => b.id === brandId);
+      const models = await fetchBrandModels(supabase, brandId);
+      const model = findModelInList(models, message);
+      if (model) {
+        const resins = await fetchAvailableResins(supabase, brandSlug, model.slug);
+        await persistState("needs_resin", { model_slug: model.slug, model_name: model.name });
+        return {
+          state: "needs_resin",
+          brandSlug,
+          modelSlug: model.slug,
+          brandName: brandName || (brandObj?.name ?? ""),
+          modelName: model.name,
+          availableResins: resins,
+        };
+      }
+      const modelNames = models.map((m) => m.name);
+      await persistState("model_not_found", {});
+      return { state: "model_not_found", brand: brandName || "", brandSlug, availableModels: modelNames };
+    }
+  }
+
+  // State: has_resin → user is responding with a resin name
+  if (currentState === "needs_resin") {
+    const brandSlug = entities.brand_slug;
+    const modelSlug = entities.model_slug;
+    if (brandSlug && modelSlug) {
+      const availableResins = await fetchAvailableResins(supabase, brandSlug, modelSlug);
+      const matched = findResinInList(availableResins, message);
+      if (matched) {
+        await persistState("idle", {});
+        return { state: "has_resin", brandSlug, modelSlug, resinName: matched, found: true };
+      }
+      const guess = message.trim().slice(0, 80);
+      await persistState("idle", {});
+      return { state: "has_resin", brandSlug, modelSlug, resinName: guess, found: false };
+    }
+  }
+
+  // ── Fallback: regex on last assistant message (resilience for legacy sessions) ──
   const lastAssistantMsg = [...history].reverse().find((h) => h.role === "assistant");
   const lastContent = lastAssistantMsg?.content || "";
   const lastLower = lastContent.toLowerCase();
 
-  // Check what L.I.A. previously asked
   const liaAskedBrand =
-    (lastLower.includes("marca") || lastLower.includes("brand") || lastLower.includes("marca")) &&
+    (lastLower.includes("marca") || lastLower.includes("brand")) &&
     (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual")) &&
     !lastLower.includes("modelo") && !lastLower.includes("model");
 
@@ -341,13 +454,7 @@ async function detectPrinterDialogState(
     (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual") ||
      lastLower.includes("vai usar") || lastLower.includes("will you use") || lastLower.includes("vas a usar"));
 
-  // Always fetch brands (needed for most steps)
-  const allBrands = await fetchActiveBrands(supabase);
-  const brandNames = allBrands.map((b) => b.name);
-
-  // Step 4: L.I.A. asked for resin → user is responding with a resin name
   if (liaAskedResin) {
-    // Extract brand+model slugs from last assistant message links: /brandslug/modelslug
     const linkMatch = lastContent.match(/\]\(\/([^/]+)\/([^)]+)\)/);
     if (linkMatch) {
       const brandSlug = linkMatch[1];
@@ -355,29 +462,29 @@ async function detectPrinterDialogState(
       const availableResins = await fetchAvailableResins(supabase, brandSlug, modelSlug);
       const matched = findResinInList(availableResins, message);
       if (matched) {
+        await persistState("idle", {});
         return { state: "has_resin", brandSlug, modelSlug, resinName: matched, found: true };
       }
-      // Resin not found in list
       const guess = message.trim().slice(0, 80);
+      await persistState("idle", {});
       return { state: "has_resin", brandSlug, modelSlug, resinName: guess, found: false };
     }
   }
 
-  // Step 2: L.I.A. asked for brand → user is responding with a brand name
   if (liaAskedBrand) {
     const brand = await findBrandInMessage(allBrands, message);
     if (brand) {
       const models = await fetchBrandModels(supabase, brand.id);
       const modelNames = models.map((m) => m.name);
+      await persistState("needs_model", { brand_name: brand.name, brand_slug: brand.slug, brand_id: brand.id });
       return { state: "needs_model", brand: brand.name, brandSlug: brand.slug, brandId: brand.id, availableModels: modelNames };
     }
     const guess = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim();
+    await persistState("brand_not_found", {});
     return { state: "brand_not_found", brandGuess: guess || message.trim(), availableBrands: brandNames };
   }
 
-  // Step 3: L.I.A. asked for model → user is responding with a model name
   if (liaAskedModel) {
-    // Extract brand from bolded phrases in last assistant message
     const boldedPhrases = [...lastContent.matchAll(/\*\*([^*]+)\*\*/g)].map((m) => m[1]);
     let matchedBrand: typeof allBrands[0] | undefined;
     for (const phrase of boldedPhrases) {
@@ -396,33 +503,21 @@ async function detectPrinterDialogState(
       const model = findModelInList(models, message);
       if (model) {
         const resins = await fetchAvailableResins(supabase, matchedBrand.slug, model.slug);
+        await persistState("needs_resin", { brand_name: matchedBrand.name, brand_slug: matchedBrand.slug, brand_id: matchedBrand.id, model_slug: model.slug, model_name: model.name });
         if (resins.length > 0) {
-          return {
-            state: "needs_resin",
-            brandSlug: matchedBrand.slug,
-            modelSlug: model.slug,
-            brandName: matchedBrand.name,
-            modelName: model.name,
-            availableResins: resins,
-          };
+          return { state: "needs_resin", brandSlug: matchedBrand.slug, modelSlug: model.slug, brandName: matchedBrand.name, modelName: model.name, availableResins: resins };
         }
-        // No resins in DB for this model — skip resin step, send link directly
-        return {
-          state: "needs_resin",
-          brandSlug: matchedBrand.slug,
-          modelSlug: model.slug,
-          brandName: matchedBrand.name,
-          modelName: model.name,
-          availableResins: [],
-        };
+        return { state: "needs_resin", brandSlug: matchedBrand.slug, modelSlug: model.slug, brandName: matchedBrand.name, modelName: model.name, availableResins: [] };
       }
       const modelNames = models.map((m) => m.name);
+      await persistState("model_not_found", { brand_name: matchedBrand.name, brand_slug: matchedBrand.slug, brand_id: matchedBrand.id });
       return { state: "model_not_found", brand: matchedBrand.name, brandSlug: matchedBrand.slug, availableModels: modelNames };
     }
   }
 
   // Step 1: Current message is a param question — start the dialog
   if (isPrinterParamQuestion(message)) {
+    await persistState("needs_brand", {});
     return { state: "needs_brand", availableBrands: brandNames };
   }
 
@@ -795,7 +890,7 @@ serve(async (req) => {
     }
 
     // 0c. Guided printer dialog — asks brand → model → sends link
-    const dialogState = await detectPrinterDialogState(supabase, message, history);
+    const dialogState = await detectPrinterDialogState(supabase, message, history, session_id);
 
     if (dialogState.state !== "not_in_dialog") {
       let dialogText: string;
@@ -1100,6 +1195,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           lang,
           top_similarity: topSimilarity,
           context_sources: contextSources,
+          context_raw: context.slice(0, 8000),
           unanswered: false,
         })
         .select("id")
