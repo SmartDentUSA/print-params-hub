@@ -1,102 +1,115 @@
 
-# Correção: Gate de Relevância para Vídeos Solicitados por Sub-tema
+# Correção: Alucinação por Contexto de Baixa Relevância (RAG Pollution)
 
-## Diagnóstico Preciso da Cadeia de Erros
+## Diagnóstico Preciso
 
-### Turno 1 — "como é a pós cura após a aplicação do Nanoclean POD?"
-O LLM respondeu corretamente com os tempos de cura, **mas ao final gerou**: *"Também temos um vídeo sobre esse tema — quer ver?"*
+### O que aconteceu
+A L.I.A. respondeu sobre "ATOS Smart Ortho" (adesivo ortodôntico) quando o usuário não perguntou explicitamente sobre esse produto. Isso é uma **alucinação por contexto poluído**.
 
-Esta frase saiu mesmo com a Regra 8 já atualizada. Isso acontece porque o LLM internalizou o padrão de "convite para vídeo" da instrução anterior e ainda o reproduz por momentum de treinamento — a Regra 8 diz PROIBIDO, mas não explica que o LLM deve checar o `context_raw` antes de qualquer menção. A regra precisa ser ainda mais diretiva.
+### Cadeia de causa e efeito
 
-### Turno 2 — "Qual vídeo sobre tratamento térmico?"
-Ao receber essa mensagem, o sistema de código faz:
+```text
+Usuário escreveu algo com "ortho" (ex: "resina ortho" ou similar)
+        ↓
+searchByILIKE encontra artigo de "ATOS Smart Ortho" via .ilike.%ortho%
+        ↓
+Resultado retorna com similarity = 0.3 (fixo, não real)
+        ↓
+MIN_SIMILARITY = 0.05 → resultado passa o filtro
+        ↓
+Contexto entra no system prompt como fonte "relevante"
+        ↓
+LLM usa o artigo do ATOS Smart Ortho para responder — alucinação de relevância
 ```
-userRequestedMedia = true  (pois contém "vídeo")
-isProtocolQuery = false    (não contém "limpeza/cura/protocolo/secagem")
+
+### Código-raiz do problema
+
+**Linha 1073 — Threshold irreal:**
+```typescript
+const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.05;
+//                                                   ^^^^ extremamente permissivo
 ```
-Resultado: retorna os 3 primeiros resultados do RAG com thumbnail/url, que eram sobre:
-- "Protocolos sobre Implante e Próteses Metal Free" (Vitality - temático, não sobre tratamento térmico)
-- "[COMPARATIVO] Impressora 3D ideal para chairside print" (irrelevante)
-- "Impressão de protocolos sobre implante" (irrelevante)
 
-O LLM então **inventou** que o primeiro vídeo "detalha os protocolos sobre implante e próteses metal free" como substituto para tratamento térmico — alucinação de relevância.
+**Linha 129 — Similaridade ILIKE é flat, não reflete relevância real:**
+```typescript
+similarity: 0.3, // Relevância intermediária — acima de resultados FTS fracos
+```
+Qualquer artigo que contenha uma única palavra de 3+ letras da query recebe score 0.3 e entra no contexto.
 
-## Dois Problemas, Duas Correções
+**Linhas 103-108 — ILIKE ordena por palavras no título, mas não filtra por relevância mínima:**
+```typescript
+const scoreA = words.filter(w => a.title.toLowerCase().includes(w)).length;
+// scoreA pode ser 1 para um artigo que só tem 1 palavra em comum — mas ainda entra
+```
 
-### Problema 1: Regra 8 ainda insuficiente
+---
 
-A instrução atual diz "PROIBIDO mencionar vídeos... a menos que o RAG tenha retornado VIDEO_INTERNO ou VIDEO_SEM_PAGINA". Mas o LLM não sabe diferenciar "o contexto tem um vídeo" de "o contexto tem um vídeo SOBRE o que o usuário perguntou agora". Ele vê que há vídeos sobre Vitality no contexto e generaliza.
+## Solução: 3 Camadas de Proteção
 
-**Correção:** Adicionar à Regra 8 uma instrução explícita:
-> "Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras relacionadas ao sub-tema pedido. Se o usuário perguntou 'Qual vídeo sobre tratamento térmico?' e os vídeos disponíveis no contexto não mencionam 'tratamento térmico', 'forno', '85°C' ou termos equivalentes no título/descrição, responda: 'Não tenho um vídeo específico sobre tratamento térmico cadastrado no momento.'"
+### Camada 1 — Elevar MIN_SIMILARITY para métodos não-vetoriais
 
-### Problema 2: Lógica de mediaCards sem gate de relevância de sub-tema
-
-Quando `userRequestedMedia = true`, todos os resultados com URL são retornados. Não há verificação se o título do vídeo é compatível com a intenção específica da pergunta.
-
-**Correção cirúrgica na lógica de mediaCards:** Extrair o "tema pedido" da mensagem do usuário e comparar contra os títulos dos cards. Se nenhum card tem token em comum com o tema pedido, retornar array vazio.
+Mudar de `0.05` para `0.20` para ILIKE e de `0.05` para `0.10` para FTS:
 
 ```typescript
-// Extrai palavras-chave do sub-tema pedido pelo usuário
-// "Qual vídeo sobre tratamento térmico?" → ["tratamento", "térmico"]
-// "Quero ver tutorial sobre NanoClean" → ["nanoclean"]
-const VIDEO_TOPIC_STOPWORDS = new Set([
-  'qual', 'vídeo', 'video', 'sobre', 'tem', 'ter', 'quero', 'ver', 
-  'assistir', 'tutorial', 'mostrar', 'vocês', 'vocé', 'você', 'me',
-  'um', 'uma', 'o', 'a', 'de', 'para', 'que', 'como', 'é', 'tem'
-]);
+// Antes:
+const MIN_SIMILARITY = method === "vector" ? 0.65 : 0.05;
 
-function extractVideoTopic(msg: string): string[] {
-  return msg.toLowerCase()
-    .replace(/[?!.,]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length > 3 && !VIDEO_TOPIC_STOPWORDS.has(w));
-}
-
-function cardMatchesTopic(title: string, topicTokens: string[]): boolean {
-  if (topicTokens.length === 0) return true; // sem tema específico, aceita qualquer card
-  const titleLower = title.toLowerCase();
-  return topicTokens.some(token => titleLower.includes(token));
-}
+// Depois:
+const MIN_SIMILARITY = method === "vector" ? 0.65 
+  : method === "ilike" ? 0.20 
+  : 0.10; // fulltext
 ```
 
-Aplicar o gate na construção de `mediaCards`:
+Isso força os resultados ILIKE a terem pelo menos `similarity >= 0.20`. Como ILIKE usa `similarity: 0.3` flat, isso significa que só passam se o scoreamento de título tiver pelo menos alguma relevância real.
+
+### Camada 2 — Calcular similaridade ILIKE proporcional ao score
+
+Em vez de atribuir `similarity: 0.3` flat para todos os resultados ILIKE, calcular a similaridade com base na proporção de palavras da query encontradas no título:
 
 ```typescript
-const topicTokens = extractVideoTopic(message);
+// Antes (linha 129):
+similarity: 0.3, // flat para todos
 
-const mediaCards = userRequestedMedia
-  ? allResults
-      .filter(r => meta.thumbnail_url || meta.url_publica || meta.url_interna)
-      .filter(r => !isProtocolQuery || !isParameterCard(title))
-      .filter(r => cardMatchesTopic(title, topicTokens))  // ← NOVO GATE
-      .slice(0, 3)
-      .map(...)
-  : [];
+// Depois: proporcional ao score de palavras no título
+// score = número de palavras da query encontradas no título
+// max = total de palavras da query (mínimo 1)
+// similarityScore = (score / words.length) * 0.4 + 0.1
+// Exemplo: 1/1 palavra encontrada → 0.5 | 1/4 palavras → 0.2
 ```
 
-Se `mediaCards.length === 0` após o filtro, não enviamos nenhum card — e o LLM (via Regra 8 reforçada) dirá que não há vídeo específico sobre aquele sub-tema.
+Isso diferencia artigos onde **todas** as palavras da query estão no título (alta relevância) vs artigos onde apenas 1 palavra de 4 está (baixa relevância).
 
-## Arquivo Modificado
+### Camada 3 — Instrução adicional no System Prompt para contexto fraco
+
+Adicionar à seção de regras anti-alucinação uma regra nova:
+
+```
+18. CONTEXTO FRACO → PERGUNTA CLARIFICADORA: Se os dados das fontes não mencionam diretamente 
+o produto, resina ou tema que o usuário perguntou, NÃO invente uma resposta com o que está 
+disponível. Em vez disso, pergunte: "Para te ajudar com precisão, você poderia confirmar 
+qual produto ou resina específica você está buscando informações?"
+Sinais de contexto fraco: o contexto fala sobre produto X mas o usuário mencionou produto Y, 
+ou o contexto é sobre categoria diferente da pergunta.
+```
+
+---
+
+## Tabela de Arquivos Modificados
 
 | Arquivo | Seção | Ação |
 |---|---|---|
-| `supabase/functions/dra-lia/index.ts` | Linha ~1112 (Regra 8) | Acrescentar verificação de sub-tema ao texto da regra |
-| `supabase/functions/dra-lia/index.ts` | Linhas ~1196–1246 (mediaCards) | Adicionar funções `extractVideoTopic` e `cardMatchesTopic` + aplicar filtro |
+| `supabase/functions/dra-lia/index.ts` | Linha ~129 (searchByILIKE) | Similaridade proporcional ao score em vez de 0.3 flat |
+| `supabase/functions/dra-lia/index.ts` | Linha ~1073 (MIN_SIMILARITY) | Threshold diferenciado por método de busca |
+| `supabase/functions/dra-lia/index.ts` | Linha ~1199 (system prompt) | Regra 18 — Contexto Fraco → Pergunta Clarificadora |
+
+---
 
 ## Tabela de Validação
 
 | Cenário | Antes | Depois |
 |---|---|---|
-| "Qual vídeo sobre tratamento térmico?" sem vídeo relevante no RAG | Mostra vídeos irrelevantes e afirma que cobrem o tema | Responde "Não tenho vídeo específico sobre tratamento térmico cadastrado" |
-| "Qual vídeo sobre NanoClean?" com vídeo de NanoClean no RAG | Card aparece corretamente | Comportamento mantido ✓ |
-| "Quero ver um tutorial de limpeza" com vídeo de protocolo no RAG | Funciona | Comportamento mantido ✓ |
-| "Preciso saber o protocolo de limpeza" (sem pedir vídeo) | Sem card | Sem card ✓ |
-| "Tem vídeo sobre impressora Anycubic?" com vídeo Anycubic no RAG | Card aparece | Card aparece ✓ |
-
-## Impacto
-
-- Nenhuma migração de banco
-- Nenhuma alteração de lógica de busca RAG
-- Deploy automático após edição
-- Elimina a alucinação de "relevância fabricada" onde o LLM apresenta um vídeo disponível como cobrindo um sub-tema que ele não cobre
+| Pergunta vaga com palavra "ortho" | ATOS Smart Ortho inventado como resposta | Pergunta clarificadora: "Qual produto ou resina você busca?" |
+| Pergunta específica "Smart Print Ortho" | Pode trazer contexto errado | Traz o artigo correto (smart + print + ortho = 3 matches → alta similaridade) |
+| "Vitality" + "Elegoo Mars 4 Ultra" | Continua funcionando (paramResults prioritário) | Comportamento mantido |
+| "protocolo de limpeza da Vitality" | Continua funcionando (processamento match direto) | Comportamento mantido |
+| Pergunta com palavra rara/específica | ILIKE retorna artigo tangencialmente relacionado | Threshold elevado filtra artigos com match fraco |
