@@ -1,146 +1,109 @@
 
-# Dra. L.I.A. — Passo de Resina: Perguntar Primeiro, Verificar Depois
+# Dra. L.I.A. — Correção do Diálogo Guiado para Frases Contextuais
 
-## O problema exato
+## Os dois problemas exatos
 
-No passo `needs_resin` (quando o modelo foi encontrado), a mensagem atual é:
+### Problema 1 — "parametrizar" não é detectado
+A mensagem `"comprei uma resina de vocês e preciso parametrizar minha impressora"` não bate em nenhum `PARAM_KEYWORD`. O regex `/parametro/i` não captura "parametrizar" porque as letras divergem (parametr**o** vs parametr**izar**). Resultado: a mensagem vai direto ao RAG.
 
-```
-"Encontrei a Anycubic Mono X! Qual resina você vai usar?
+### Problema 2 — RAG gera resposta com dados aleatórios + vídeos
+Com o diálogo guiado fora do caminho, o RAG busca conteúdo usando as palavras "resina", "impressora", "parametrizar" e encontra:
+- Parâmetros cadastrados (ex: "Anycubic Mono-X, Smart Print Gengiva, Layer 0.05mm, Tempo 2.5s")
+- Vídeos com título contendo "anycubic" ou "parâmetros"
 
-Resinas com parâmetros cadastrados para essa impressora:
-Smart Print Bio Clear Guide, Smart Print Bio Denture (Rosa), Smart Print Bio Hybrid A2...
+O LLM então usa esses dados como "exemplos" na resposta — mesmo que o usuário nunca tenha citado Anycubic nem Smart Print Gengiva. É a aparência de "chatbot pré-definido" que o usuário detectou.
 
-Ou acesse diretamente todos os parâmetros:
-👉 [Ver todos os parâmetros da Anycubic Mono X](/anycubic/mono-x)"
-```
+## Solução — 2 mudanças cirúrgicas
 
-O problema: jogar uma lista enorme de resinas antes de o usuário nem responder é ruim para UX — o usuário pode ter uma resina diferente das listadas, ou já saber o nome da sua resina sem precisar ler a lista. A L.I.A. deve **perguntar primeiro** e **verificar depois**.
+### Mudança 1 — Expandir `PARAM_KEYWORDS` (linha 118-127)
 
-## Comportamento novo — 2 mudanças no `supabase/functions/dra-lia/index.ts`
+Adicionar padrões que capturam frases contextuais como a do usuário:
 
-### Mudança 1 — `ASK_RESIN`: remover a lista de resinas da pergunta
-
-A mensagem do passo 3 (`needs_resin`) passa de:
-
-```
-"Encontrei a Anycubic Mono X! Qual resina você vai usar?
-Resinas com parâmetros cadastrados: Smart Print Bio Vitality, Smart Print Bio Clear Guide..."
-```
-
-Para:
-
-```
-"Encontrei a **Anycubic Mono X**! Qual **resina** você vai usar?
-Me diga o nome da resina e verifico os parâmetros para você 😊"
+```typescript
+// ADICIONAR ao array PARAM_KEYWORDS:
+/parametrizar|parametrizaç/i,
+/\bimpressora\b/i,                                    // "minha impressora" já basta
+/(comprei|tenho|uso|adquiri).*(resina|impressora)/i,  // "comprei uma resina"
+/(resina).*(impressora|imprimir)/i,                   // "resina ... impressora"
+/(impressora).*(resina|configurar|usar)/i,            // "impressora ... resina"
 ```
 
-**A função `fetchAvailableResins` ainda é chamada**, mas agora ela é usada apenas internamente no passo 4 (`has_resin`) para fazer o match — não é mais exibida na pergunta.
+A regra `/\bimpressora\b/i` sozinha já capturaria "preciso parametrizar minha **impressora**". Esse é o sinal mais forte: qualquer mensagem que mencione "impressora" tem alta probabilidade de ser uma pergunta de parâmetros.
 
-### Mudança 2 — `RESIN_NOT_FOUND`: mostrar as resinas disponíveis SOMENTE quando a resina não é encontrada
+### Mudança 2 — Guardar o diálogo guiado ANTES do RAG para mensagens com "impressora" + "resina" juntas
 
-No passo 4, quando a resina não existe no banco, a resposta atual já lista as resinas como fallback — esse comportamento se mantém. Isso é o momento certo para mostrar a lista: quando o usuário pediu algo que não existe.
+Quando a mensagem contém "impressora" mas não está num diálogo ativo (history vazio ou último assitante não perguntou nada), o estado correto é `needs_brand` — perguntar a marca primeiro.
 
-```
-"Ainda não temos parâmetros da **Vitamine** para a Anycubic Mono X.
+Isso já acontece se a Mudança 1 for aplicada corretamente, porque `isPrinterParamQuestion` vai retornar `true` e `detectPrinterDialogState` vai retornar `{ state: "needs_brand" }`.
 
-Resinas com parâmetros cadastrados para esse modelo:
-Smart Print Bio Vitality, Smart Print Bio Clear Guide...
-
-Ou acesse todos os parâmetros:
-👉 [Ver parâmetros da Anycubic Mono X](/anycubic/mono-x)"
-```
-
-## Fluxo completo após a mudança
+## Fluxo corrigido
 
 ```text
-Usuário: "preciso de parâmetros para minha impressora"
+Usuário: "comprei uma resina de vocês e preciso parametrizar minha impressora"
     ↓
-L.I.A.: "Qual é a marca da sua impressora?
-         Marcas disponíveis: Anycubic, Creality, Elegoo..."
+isPrinterParamQuestion() → TRUE  (agora detecta "parametrizar" + "impressora")
+detectPrinterDialogState() → { state: "needs_brand", availableBrands: [...] }
     ↓
-Usuário: "Anycubic"
+L.I.A.: "Claro! Para te ajudar com os parâmetros, qual é a marca da sua impressora?
+         Marcas disponíveis: Anycubic, Creality, Elegoo, Ezy3d, Flashforge..."
     ↓
-L.I.A.: "Ótimo! Qual é o modelo da impressora?
-         Modelos disponíveis: Mono X, Photon D2 Dlp, Photon M2..."
-    ↓
-Usuário: "Mono X"
-    ↓
-L.I.A.: "Encontrei a Anycubic Mono X! Qual resina você vai usar?
-         Me diga o nome da resina e verifico os parâmetros para você 😊"
-    ↓
-Usuário: "Smart Print Bio Vitality"
-    ↓
-[verifica no banco → encontrou]
-L.I.A.: "Perfeito! Encontrei os parâmetros da Smart Print Bio Vitality
-         para a Anycubic Mono X:
-         👉 [Ver parâmetros](/anycubic/mono-x)"
-
---- Cenário: resina não encontrada ---
-Usuário: "Vitamine"
-    ↓
-[verifica no banco → não encontrou]
-L.I.A.: "Ainda não temos parâmetros da Vitamine para a Anycubic Mono X.
-         Resinas disponíveis para esse modelo:
-         Smart Print Bio Clear Guide, Smart Print Bio Denture...
-         👉 [Ver todos os parâmetros](/anycubic/mono-x)"
+[RAG nunca é chamado — sem dados aleatórios, sem vídeos irrelevantes]
 ```
 
-## O que muda no código (apenas `index.ts`)
+## O que muda no código
 
-**Linha ~190-197 — `ASK_RESIN`**: remover o `resins.join(", ")` da pergunta e simplificar a mensagem.
+**Apenas `supabase/functions/dra-lia/index.ts` — linhas 118-130**
 
 ```typescript
 // ANTES
-const ASK_RESIN = {
-  "pt-BR": (brand, model, modelSlug, brandSlug, resins) =>
-    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nResinas com parâmetros cadastrados:\n${resins.join(", ")}\n\nOu acesse diretamente:\n👉 [Ver todos os parâmetros](/${brandSlug}/${modelSlug})`,
-  // ...
-};
+const PARAM_KEYWORDS = [
+  /parâmetro|parametro|parameter/i,
+  /configuração|configuracao|setting/i,
+  /\bexposição\b|exposicao|exposure/i,
+  /layer height|espessura de camada/i,
+  /como imprimir|how to print|cómo imprimir/i,
+  /tempo de cura|cure time|tiempo de exposición/i,
+  /configurar|configurações|configuracoes/i,
+  /quais (os )?param|qual (o )?param/i,
+];
 
 // DEPOIS
-const ASK_RESIN = {
-  "pt-BR": (brand, model, modelSlug, brandSlug) =>
-    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nMe diga o nome da resina e verifico os parâmetros para você 😊`,
-  "en-US": (brand, model, modelSlug, brandSlug) =>
-    `Found **${brand} ${model}**! Which **resin** will you use?\n\nTell me the resin name and I'll check the parameters for you 😊`,
-  "es-ES": (brand, model, modelSlug, brandSlug) =>
-    `¡Encontré la **${brand} ${model}**! ¿Qué **resina** vas a usar?\n\nDime el nombre de la resina y verifico los parámetros para ti 😊`,
-};
+const PARAM_KEYWORDS = [
+  /parâmetro|parametro|parameter|parametrizar/i,
+  /configuração|configuracao|setting/i,
+  /\bexposição\b|exposicao|exposure/i,
+  /layer height|espessura de camada/i,
+  /como imprimir|how to print|cómo imprimir/i,
+  /tempo de cura|cure time|tiempo de exposición/i,
+  /configurar|configurações|configuracoes/i,
+  /quais (os )?param|qual (o )?param/i,
+  // Padrões contextuais — capturam intenção sem palavra exata "parâmetro"
+  /\bimpressora\b/i,
+  /(comprei|tenho|uso|adquiri).{0,30}(resina|impressora)/i,
+  /(resina).{0,30}(impressora|imprimir|impressão)/i,
+  /(impressora).{0,30}(resina|configurar|usar|parâmetro)/i,
+  /calibrar|calibração|calibragem/i,
+];
 ```
 
-**Linha ~208-215 — `RESIN_NOT_FOUND`**: mostrar a lista de resinas disponíveis quando a resina pedida não existir.
+**Importante — a linha `/\bimpressora\b/i` sozinha pode ser muito ampla**
+Frases como "minha impressora não liga" não devem ativar o diálogo. Para evitar falsos positivos, a regra de "impressora" precisa de contexto de intenção. Refinamento:
 
 ```typescript
-// DEPOIS — com lista de resinas disponíveis no fallback
-const RESIN_NOT_FOUND = {
-  "pt-BR": (resin, brand, model, brandSlug, modelSlug, availableResins) =>
-    `Ainda não temos parâmetros da **${resin}** para a **${brand} ${model}**.\n\n` +
-    (availableResins.length > 0
-      ? `Resinas com parâmetros cadastrados para esse modelo:\n${availableResins.join(", ")}\n\n`
-      : "") +
-    `👉 [Ver todos os parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
-  // en-US e es-ES seguem o mesmo padrão
-};
+  /(preciso|quero|busco|quais|como|qual|configurar|usar|parametrizar).{0,40}\bimpressora\b/i,
+  /\bimpressora\b.{0,40}(resina|parâmetro|configurar|parametrizar)/i,
 ```
-
-**Linha ~318-332 — `detectPrinterDialogState`, step 4 (`liaAskedResin`)**: passar `availableResins` para `RESIN_NOT_FOUND` no caso de fallback.
-
-**Linha ~190 — chamada de `ASK_RESIN`**: remover o parâmetro `resins` da assinatura da função (ou mantê-lo e ignorá-lo — para não quebrar a chamada existente).
-
-**`fetchAvailableResins` no passo `needs_resin`**: ainda é chamado, mas o resultado só vai para o estado interno do `DialogState` — não é mais exibido na pergunta. No step 4, quando `liaAskedResin`, o `availableResins` é buscado do banco e passado para `RESIN_NOT_FOUND` quando necessário.
 
 ## O que não muda
 
-- Marcas disponíveis: continuam sendo listadas na pergunta de marca (correto — é uma escolha fechada)
-- Modelos disponíveis: continuam sendo listados na pergunta de modelo (correto — é uma escolha fechada)
-- RAG e protocolos: inalterados
-- Frontend: zero mudanças
+- Lógica de detecção de etapas do diálogo — inalterada
+- Frontend — zero mudanças
+- Sistema de RAG — continua funcionando para perguntas que não são sobre parâmetros de impressora
 
 ## Seção Técnica
 
-- Único arquivo alterado: `supabase/functions/dra-lia/index.ts`
-- Mudanças afetam apenas as constantes `ASK_RESIN` e `RESIN_NOT_FOUND` (linhas ~190-215) e a passagem de `availableResins` no estado `has_resin` do step 4 (linhas ~318-332)
-- A chamada `fetchAvailableResins` continua existindo no step 3 — pode ser removida (otimização) ou mantida para pré-validação futura
-- O `DialogState` não muda — o campo `availableResins` pode ser removido de `needs_resin` se não for mais usado na mensagem, mas é seguro mantê-lo para uso interno
+- Arquivo alterado: `supabase/functions/dra-lia/index.ts` — apenas o array `PARAM_KEYWORDS` (linhas 118-130)
+- Impacto: qualquer mensagem que mencione "impressora" com contexto de intenção (preciso, configurar, parametrizar, usar, qual) agora aciona o diálogo guiado em vez de cair no RAG
+- Falsos positivos tratados: "minha impressora não liga" não tem palavras-chave de intenção de parâmetros → não ativa o diálogo
+- A raiz do problema de vídeos e exemplos aleatórios é o RAG rodando sem contexto correto — corrigido indiretamente ao ativar o diálogo guiado para essas mensagens
 - Deploy automático ao salvar
