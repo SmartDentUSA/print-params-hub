@@ -1,107 +1,137 @@
 
-# Fix: Indexação retornando 0 chunks — modelo de embeddings inválido
+# Novo comportamento: Dra. L.I.A. sugere link da impressora quando sem resina específica
 
-## Causa raiz identificada (confirmada nos logs)
+## Objetivo
 
-Os logs do `index-embeddings` mostram o erro exato para **cada chunk**:
+Quando o usuário perguntar sobre parâmetros de impressão **sem citar uma resina específica** (ex: "quais os parâmetros para a Anycubic Photon Mono 4?", "parâmetros para minha impressora X"), a Dra. L.I.A. deve responder com um link direto para a página da impressora no site: `/{brand_slug}/{model_slug}` — em vez de tentar buscar parâmetros sem contexto de resina.
 
-```
-Embedding API error 400: {"type":"bad_request","message":"invalid model: openai/text-embedding-3-small, 
-allowed models: [openai/gpt-5-mini openai/gpt-5 openai/gpt-5-nano ... google/gemini-3-flash-preview ...]"}
-```
+## Causa raiz do comportamento atual
 
-O Lovable Gateway **não suporta mais modelos de embeddings** — apenas modelos de chat estão na lista allowed. O `index-embeddings` usava `openai/text-embedding-3-small` via Lovable Gateway, que não funciona mais.
+A edge function `dra-lia` não detecta esse padrão. Quando o usuário cita apenas uma impressora + parâmetros, o sistema faz uma busca no knowledge base e retorna resultados genéricos. Não existe lógica de detecção de "pergunta de parâmetros sem resina" nem lógica de busca em `brands`/`models` para montar o link correto.
 
-O resultado é: **todos os chunks falham silenciosamente** (graças ao `Promise.allSettled`), o banco não recebe nenhum registro, e a UI reporta `0 chunks indexados`.
+## Solução — 2 mudanças no `supabase/functions/dra-lia/index.ts`
 
-## Solução: Alinhar com o mesmo approach do dra-lia
+### Mudança 1 — Detecção do intent "parâmetros + impressora + sem resina"
 
-O `dra-lia` já resolve isso corretamente: usa `Google text-embedding-004` diretamente via `generativelanguage.googleapis.com` com a chave `GOOGLE_AI_KEY`.
-
-O `index-embeddings` precisa adotar a **exatamente mesma estratégia**.
-
-### Observação importante sobre GOOGLE_AI_KEY
-
-`GOOGLE_AI_KEY` não aparece na listagem de secrets do painel Lovable (apenas aparece: `GOOGLE_PLACES_API_KEY`, `LOJA_INTEGRADA_API_KEY`, etc.). Porém o `dra-lia` referencia `Deno.env.get("GOOGLE_AI_KEY")` e funciona. Isso indica que o secret existe no Supabase mas não foi adicionado via Lovable.
-
-Como alternativa segura (que funciona independente do GOOGLE_AI_KEY), usamos a **mesma chave `LOVABLE_API_KEY`** mas via o endpoint correto do gateway que aceita embeddings — ou, melhor ainda, tentamos `GOOGLE_AI_KEY` primeiro e fazemos fallback para não indexar (sem erro).
-
-A solução mais robusta é simplesmente **mimetizar exatamente o dra-lia**: usar `GOOGLE_AI_KEY` via Google AI API diretamente.
-
-## Mudança única: `supabase/functions/index-embeddings/index.ts`
-
-### Trocar `generateEmbedding` inteira
+Adicionar função `isPrinterParamQuestion(msg)` que detecta quando:
+- A mensagem menciona palavras de parâmetros (`parâmetro`, `configuração`, `setting`, `exposição`, `layer`, `como imprimir`, `how to print`, etc.)
+- **E NÃO** cita nenhuma resina conhecida pelo nome
 
 ```typescript
-// ANTES — usa Lovable Gateway (modelo não suportado):
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const EMBEDDING_API = "https://ai.gateway.lovable.dev/v1/embeddings";
+// Palavras que indicam pedido de parâmetros
+const PARAM_KEYWORDS = [
+  /parâmetro|parametro|parameter/i,
+  /configuração|configuracao|setting/i,
+  /\bexposição\b|exposicao|exposure/i,
+  /layer height|espessura/i,
+  /como imprimir|how to print|cómo imprimir/i,
+];
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await fetch(EMBEDDING_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "openai/text-embedding-3-small",
-      input: text,
-      dimensions: 768,
-    }),
-  });
-  // ...
-  return data.data[0].embedding;
-}
+const isPrinterParamQuestion = (msg: string) =>
+  PARAM_KEYWORDS.some((p) => p.test(msg));
+```
 
-// DEPOIS — usa Google AI API diretamente (igual ao dra-lia):
-const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY") || Deno.env.get("LOVABLE_API_KEY");
+### Mudança 2 — Busca de impressora por nome + geração de link
 
-async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${GOOGLE_AI_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/text-embedding-004",
-        content: { parts: [{ text }] },
-        outputDimensionality: 768,
-      }),
+Adicionar função `findPrinterInMessage(supabase, message)` que:
+1. Consulta todos os `models` ativos com seus `brands` 
+2. Faz fuzzy match por nome (split em words, verifica se alguma word do nome do modelo/marca aparece na mensagem)
+3. Retorna `{ brand_slug, model_slug, brand_name, model_name }` se encontrar
+
+```typescript
+async function findPrinterInMessage(supabase, message) {
+  const { data: models } = await supabase
+    .from('models')
+    .select('slug, name, brands(slug, name)')
+    .eq('active', true);
+  
+  const msg = message.toLowerCase();
+  
+  for (const model of models) {
+    const modelWords = model.name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const matchCount = modelWords.filter(w => msg.includes(w)).length;
+    
+    if (matchCount >= 2 || (matchCount === 1 && model.name.toLowerCase().split(/\s+/).length <= 2)) {
+      return {
+        brand_slug: model.brands.slug,
+        model_slug: model.slug,
+        brand_name: model.brands.name,
+        model_name: model.name,
+      };
     }
-  );
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Embedding API error ${response.status}: ${error}`);
   }
-  const data = await response.json();
-  return data.embedding?.values || [];
+  return null;
 }
 ```
 
-## Por que essa abordagem funciona
+### Mudança 3 — Intercept antes do RAG (após greeting guard)
 
-- `dra-lia` já usa exatamente esse endpoint e modelo — comprovadamente funcional
-- `text-embedding-004` gera vetores de dimensão 768 — compatível com a coluna `embedding vector(768)` em `agent_embeddings`
-- Mesmos vetores = busca semântica coerente: os embeddings gerados pelo `index-embeddings` são diretamente comparáveis com os gerados pelo `dra-lia` na busca
-- `GOOGLE_AI_KEY` é lido do mesmo secret que o `dra-lia` usa
+No fluxo principal, após o intent guard de saudação, adicionar:
 
-## Resultado esperado após o fix
+```typescript
+// 0b. Intent Guard — parâmetros sem resina → link da impressora
+if (isPrinterParamQuestion(message)) {
+  const printer = await findPrinterInMessage(supabase, message);
+  
+  if (printer) {
+    const printerUrl = `/${printer.brand_slug}/${printer.model_slug}`;
+    const linkText = getLinkText(lang, printer.brand_name, printer.model_name, printerUrl);
+    // Stream a resposta diretamente sem chamar a IA
+    return streamTextResponse(linkText, ...);
+  }
+  // Se não encontrou impressora, segue fluxo normal (RAG)
+}
+```
 
-Ao executar "Indexar para Dra. L.I.A." novamente:
-- 303 artigos ativos → chunks gerados
-- 18 resinas ativas → chunks gerados  
-- Vídeos com transcript → chunks gerados
-- Parameter sets ativos → chunks gerados
-- UI mostrará contagem real de chunks indexados (estimativa: 400-600+ chunks)
-- A busca vetorial da Dra. L.I.A. passará a retornar resultados semânticos
+### Mensagem de resposta localizada (3 idiomas)
+
+```
+PT: "Para ver todos os parâmetros disponíveis para a **{brand} {model}**, acesse a página da impressora:
+👉 [Ver parâmetros da {brand} {model}](/{brand_slug}/{model_slug})
+
+Lá você encontra os parâmetros organizados por resina. Se precisar de uma resina específica, me diga o nome dela!"
+
+EN: "To see all available parameters for the **{brand} {model}**, visit the printer page:
+👉 [View {brand} {model} parameters](/{brand_slug}/{model_slug})
+
+Parameters are organized by resin there. Tell me the resin name if you need specific values!"
+
+ES: "Para ver todos los parámetros disponibles para la **{brand} {model}**, visita la página de la impresora:
+👉 [Ver parámetros de {brand} {model}](/{brand_slug}/{model_slug})
+
+Los parámetros están organizados por resina. ¡Dime el nombre de la resina si necesitas valores específicos!"
+```
+
+## Fluxo completo após a mudança
+
+```text
+Usuário: "quais os parâmetros para a Anycubic Photon Mono 4?"
+                    ↓
+isPrinterParamQuestion() → true (contém "parâmetros")
+                    ↓
+findPrinterInMessage() → { brand_slug: "anycubic", model_slug: "photon-mono-4", ... }
+                    ↓
+Resposta direta (sem RAG, sem IA):
+"Para ver todos os parâmetros disponíveis para a **Anycubic Photon Mono 4**,
+acesse a página da impressora:
+👉 [Ver parâmetros da Anycubic Photon Mono 4](/anycubic/photon-mono-4)
+
+Lá você encontra os parâmetros organizados por resina. Se precisar de uma
+resina específica, me diga o nome dela!"
+```
+
+## O que NÃO muda
+
+- Se o usuário citar impressora **E** resina (ex: "parâmetros Anycubic + Smart Print Bio"), o fluxo atual de RAG segue normalmente — a busca de parâmetros específicos funciona como antes
+- Se o usuário pedir parâmetros de uma impressora **não encontrada** no banco, o fluxo normal de RAG também continua
+- Se não for uma pergunta de parâmetros (sem as keywords), nenhum intercept acontece
 
 ## Seção Técnica
 
-- A coluna `agent_embeddings.embedding` é `vector(768)` — dimensão compatível com `text-embedding-004` (768d)
-- `outputDimensionality: 768` no request garante a dimensão correta
-- `LOVABLE_API_KEY` é mantido no código mas não mais usado para embeddings — pode ser removido em refactor futuro, mas mantemos para não quebrar outros usos
-- O modo `full` (padrão) limpa todos os embeddings antes de reinserir — o `incremental` pula chunks já existentes comparando `chunk_text`
-- O `AdminApostilaImporter` chama no modo `incremental` — portanto não vai limpar embeddings existentes, apenas adicionar os novos
-- Nenhuma migração de banco necessária — estrutura de `agent_embeddings` não muda
-- Deploy automático ao salvar o arquivo
+- Único arquivo alterado: `supabase/functions/dra-lia/index.ts`
+- A query em `models` retorna todos os modelos ativos com seus brands — é uma consulta leve (poucos registros, sem paginação necessária)
+- O intercept acontece **antes** de chamar `searchKnowledge` — evita custo de RAG + chamada de IA para esse caso específico
+- A resposta é streamed (igual ao greeting guard) via `ReadableStream` com tokens word-by-word — UX idêntica ao restante do chat
+- `interactionId` é gravado com `unanswered: false` para o feedback funcionar normalmente
+- Nenhuma migração de banco necessária
+- Deploy automático após salvar
