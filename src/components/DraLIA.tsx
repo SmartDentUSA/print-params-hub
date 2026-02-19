@@ -45,27 +45,41 @@ function renderMarkdown(text: string): React.ReactNode {
           while (remaining.length > 0) {
             // Bold+Link combo: **[text](url)**
             const boldLinkMatch = remaining.match(/\*\*\[(.+?)\]\(([^)]+)\)\*\*/);
+            // Link with bold inside text: [**text**](url)
+            const boldInLinkMatch = remaining.match(/\[\*\*(.+?)\*\*\]\(([^)]+)\)/);
             // Bold: **text**
             const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
             // Link: [text](url)
             const linkMatch = remaining.match(/\[(.+?)\]\(([^)]+)\)/);
+            // Raw URL: https://... (no markdown brackets)
+            const rawUrlMatch = remaining.match(/https?:\/\/[^\s)"'<>]+/);
 
             let firstMatch: RegExpMatchArray | null = null;
-            let firstType: 'bold' | 'link' | 'boldlink' | null = null;
+            let firstType: 'bold' | 'link' | 'boldlink' | 'boldInLink' | 'rawUrl' | null = null;
 
             const boldLinkIdx = boldLinkMatch?.index ?? Infinity;
+            const boldInLinkIdx = boldInLinkMatch?.index ?? Infinity;
             const boldIdx = boldMatch?.index ?? Infinity;
             const linkIdx = linkMatch?.index ?? Infinity;
+            const rawUrlIdx = rawUrlMatch?.index ?? Infinity;
 
-            if (boldLinkMatch && boldLinkIdx <= boldIdx && boldLinkIdx <= linkIdx) {
+            const minIdx = Math.min(boldLinkIdx, boldInLinkIdx, boldIdx, linkIdx, rawUrlIdx);
+
+            if (boldLinkMatch && boldLinkIdx === minIdx) {
               firstMatch = boldLinkMatch;
               firstType = 'boldlink';
-            } else if (boldMatch && boldIdx <= linkIdx) {
-              firstMatch = boldMatch;
-              firstType = 'bold';
-            } else if (linkMatch) {
+            } else if (boldInLinkMatch && boldInLinkIdx === minIdx) {
+              firstMatch = boldInLinkMatch;
+              firstType = 'boldInLink';
+            } else if (linkMatch && linkIdx === minIdx) {
               firstMatch = linkMatch;
               firstType = 'link';
+            } else if (rawUrlMatch && rawUrlIdx === minIdx) {
+              firstMatch = rawUrlMatch;
+              firstType = 'rawUrl';
+            } else if (boldMatch) {
+              firstMatch = boldMatch;
+              firstType = 'bold';
             }
 
             if (!firstMatch || firstType === null) {
@@ -76,7 +90,7 @@ function renderMarkdown(text: string): React.ReactNode {
             const before = remaining.slice(0, firstMatch.index!);
             if (before) parts.push(<span key={key++}>{before}</span>);
 
-            if (firstType === 'boldlink') {
+            if (firstType === 'boldlink' || firstType === 'boldInLink') {
               const href = firstMatch[2];
               const isWhatsApp = href.includes('wa.me');
               parts.push(
@@ -104,6 +118,20 @@ function renderMarkdown(text: string): React.ReactNode {
                   className={`underline font-medium ${isWhatsApp ? 'text-green-600' : 'text-blue-600'}`}
                 >
                   {firstMatch[1]}
+                </a>
+              );
+            } else if (firstType === 'rawUrl') {
+              const href = firstMatch[0];
+              const isWhatsApp = href.includes('wa.me');
+              parts.push(
+                <a
+                  key={key++}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`underline font-medium ${isWhatsApp ? 'text-green-600' : 'text-blue-600'}`}
+                >
+                  {isWhatsApp ? 'Chamar no WhatsApp' : href}
                 </a>
               );
             }
