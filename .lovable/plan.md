@@ -1,103 +1,81 @@
 
-## Alterações Confirmadas — 2 arquivos, 2 correções cirúrgicas
+## Substituição de Modelo: `text-embedding-004` → `gemini-embedding-001`
 
-### Diagnóstico do estado atual
+### Estado atual confirmado via leitura dos arquivos
 
-**`index-embeddings/index.ts` (linhas 17-22 e 31):**
-- O array `modelsToTry` ainda tem 4 entradas (`text-embedding-004` e `embedding-001` em `v1` e `v1beta`) — isso multiplica as requisições por 4 e causa erro 429
-- A linha 31 **não tem `taskType`** — o `text-embedding-004` retorna 404 quando esse parâmetro está ausente
+**`index-embeddings/index.ts` (linha 18):**
+```typescript
+{ model: "models/text-embedding-004", version: "v1beta" }
+```
 
-**`dra-lia/index.ts` (linhas 592-596):**
-- A linha 595 tem `outputDimensionality: 768` — pode causar conflito de parâmetros com certas versões da API
-- **Não tem `taskType`** — a pergunta do usuário é vetorizada sem contexto de busca, reduzindo a precisão da similaridade coseno
+**`dra-lia/index.ts` (linhas 588 e 593):**
+```typescript
+// Linha 588 — URL
+`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=...`
+
+// Linha 593 — Body
+model: "models/text-embedding-004"
+```
+
+O `taskType` já está correto nos dois arquivos (`RETRIEVAL_DOCUMENT` e `RETRIEVAL_QUERY`). Apenas o identificador do modelo precisa ser trocado.
 
 ---
 
-### Arquivo 1: `supabase/functions/index-embeddings/index.ts`
+### Alterações precisas
 
-**Linhas 17-22** — Reduzir `modelsToTry` de 4 para 1 entrada:
+**Arquivo 1: `supabase/functions/index-embeddings/index.ts`**
 
+Linha 18 — trocar modelo no array:
 ```typescript
-// ANTES (4 entradas = 4x mais requisições = erro 429)
-const modelsToTry = [
-  { model: "models/text-embedding-004", version: "v1beta" },
-  { model: "models/text-embedding-004", version: "v1" },
-  { model: "models/embedding-001", version: "v1beta" },
-  { model: "models/embedding-001", version: "v1" },
-];
+// ANTES
+{ model: "models/text-embedding-004", version: "v1beta" }
 
-// DEPOIS (1 entrada = endpoint confirmado pelo usuário via Python)
-const modelsToTry = [
-  { model: "models/text-embedding-004", version: "v1beta" },
-];
+// DEPOIS
+{ model: "models/gemini-embedding-001", version: "v1beta" }
 ```
 
-**Linha 31** — Adicionar `taskType: "RETRIEVAL_DOCUMENT"`:
-
-```typescript
-// ANTES (sem taskType = 404)
-body: JSON.stringify({ model, content: { parts: [{ text }] } })
-
-// DEPOIS (com taskType = funciona)
-body: JSON.stringify({
-  model,
-  content: { parts: [{ text }] },
-  taskType: "RETRIEVAL_DOCUMENT",
-})
+A URL é construída dinamicamente na linha 24 via `model.replace("models/", "")`, então ela se atualiza automaticamente para:
+```
+https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent
 ```
 
 ---
 
-### Arquivo 2: `supabase/functions/dra-lia/index.ts`
+**Arquivo 2: `supabase/functions/dra-lia/index.ts`**
 
-**Linhas 592-596** — Remover `outputDimensionality`, adicionar `taskType: "RETRIEVAL_QUERY"`:
-
+Linha 588 — trocar URL:
 ```typescript
-// ANTES (com outputDimensionality que pode causar conflito, sem taskType)
-body: JSON.stringify({
-  model: "models/text-embedding-004",
-  content: { parts: [{ text }] },
-  outputDimensionality: 768,
-})
+// ANTES
+`https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=...`
 
-// DEPOIS (limpo, com taskType correto para busca)
-body: JSON.stringify({
-  model: "models/text-embedding-004",
-  content: { parts: [{ text }] },
-  taskType: "RETRIEVAL_QUERY",
-})
+// DEPOIS
+`https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=...`
 ```
 
----
+Linha 593 — trocar body:
+```typescript
+// ANTES
+model: "models/text-embedding-004"
 
-### Impacto esperado
-
-| Problema | Causa | Correção |
-|---|---|---|
-| Erro 404 | `taskType` ausente | `RETRIEVAL_DOCUMENT` e `RETRIEVAL_QUERY` adicionados |
-| Erro 429 | Loop de 4 modelos × 450 chunks = 1.800 req | 1 modelo × 450 chunks = 450 req |
-| Busca imprecisa | Vetores sem contexto de intenção | `RETRIEVAL_QUERY` otimiza similaridade coseno |
-
----
-
-### Sequência após o deploy
-
-1. Deploy automático de ambas as funções
-2. Disparar indexação completa pelo painel Admin (Indexação RAG > Reindexar Tudo) ou via curl:
-   ```
-   POST https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/index-embeddings?mode=full
-   ```
-3. Confirmar que `agent_embeddings` passa de 0 para ~1.025 registros
-4. Testar a Dra. L.I.A. com uma pergunta real sobre resinas para validar a busca vetorial
+// DEPOIS
+model: "models/gemini-embedding-001"
+```
 
 ---
 
 ### Resumo das alterações
 
-| Arquivo | Linhas | Mudança |
+| Arquivo | Linha | Mudança |
 |---|---|---|
-| `index-embeddings/index.ts` | 17-22 | `modelsToTry` reduzido de 4 para 1 entrada |
-| `index-embeddings/index.ts` | 31 | `taskType: "RETRIEVAL_DOCUMENT"` adicionado |
-| `dra-lia/index.ts` | 592-596 | `outputDimensionality` removido, `taskType: "RETRIEVAL_QUERY"` adicionado |
+| `index-embeddings/index.ts` | 18 | `text-embedding-004` → `gemini-embedding-001` |
+| `dra-lia/index.ts` | 588 | URL: `text-embedding-004` → `gemini-embedding-001` |
+| `dra-lia/index.ts` | 593 | Body: `text-embedding-004` → `gemini-embedding-001` |
 
-Sem migrações de banco. Sem alterações de schema. Apenas 3 linhas modificadas em 2 arquivos.
+3 linhas modificadas. Sem migrações. Sem alteração de schema. Deploy automático após a aprovação.
+
+### Sequência após o deploy
+
+1. Deploy automático das duas funções
+2. Disparar indexação completa via painel Admin (Indexação RAG > Reindexar Tudo) ou curl `mode=full`
+3. Confirmar que `agent_embeddings` passa de 0 para ~1.025 registros
+4. Testar a Dra. L.I.A. com uma pergunta sobre resinas para validar a busca vetorial com o novo modelo
