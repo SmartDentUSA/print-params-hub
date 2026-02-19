@@ -43,15 +43,24 @@ function renderMarkdown(text: string): React.ReactNode {
           let key = 0;
 
           while (remaining.length > 0) {
+            // Bold+Link combo: **[text](url)**
+            const boldLinkMatch = remaining.match(/\*\*\[(.+?)\]\(([^)]+)\)\*\*/);
             // Bold: **text**
             const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
             // Link: [text](url)
-            const linkMatch = remaining.match(/\[(.+?)\]\((.+?)\)/);
+            const linkMatch = remaining.match(/\[(.+?)\]\(([^)]+)\)/);
 
             let firstMatch: RegExpMatchArray | null = null;
-            let firstType: 'bold' | 'link' | null = null;
+            let firstType: 'bold' | 'link' | 'boldlink' | null = null;
 
-            if (boldMatch && (!linkMatch || (boldMatch.index ?? Infinity) < (linkMatch.index ?? Infinity))) {
+            const boldLinkIdx = boldLinkMatch?.index ?? Infinity;
+            const boldIdx = boldMatch?.index ?? Infinity;
+            const linkIdx = linkMatch?.index ?? Infinity;
+
+            if (boldLinkMatch && boldLinkIdx <= boldIdx && boldLinkIdx <= linkIdx) {
+              firstMatch = boldLinkMatch;
+              firstType = 'boldlink';
+            } else if (boldMatch && boldIdx <= linkIdx) {
               firstMatch = boldMatch;
               firstType = 'bold';
             } else if (linkMatch) {
@@ -67,7 +76,21 @@ function renderMarkdown(text: string): React.ReactNode {
             const before = remaining.slice(0, firstMatch.index!);
             if (before) parts.push(<span key={key++}>{before}</span>);
 
-            if (firstType === 'bold') {
+            if (firstType === 'boldlink') {
+              const href = firstMatch[2];
+              const isWhatsApp = href.includes('wa.me');
+              parts.push(
+                <a
+                  key={key++}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`underline font-semibold ${isWhatsApp ? 'text-green-600' : 'text-blue-600'}`}
+                >
+                  {firstMatch[1]}
+                </a>
+              );
+            } else if (firstType === 'bold') {
               parts.push(<strong key={key++} className="font-semibold">{firstMatch[1]}</strong>);
             } else if (firstType === 'link') {
               const href = firstMatch[2];

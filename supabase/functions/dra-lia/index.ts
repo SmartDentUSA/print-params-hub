@@ -1229,7 +1229,7 @@ serve(async (req) => {
 ### 🛠 ESTRATÉGIA DE TRANSIÇÃO HUMANA (Fallback)
 Sempre que você admitir que não sabe algo ou notar frustração (ex: "você não ajuda", "não foi isso que perguntei"), finalize obrigatoriamente com:
 - "Mas não se preocupe! Nossa equipe de especialistas técnicos pode resolver isso agora mesmo para você via WhatsApp."
-- Link: **[Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)**.
+- Link: [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+preciso+de+ajuda+t%C3%A9cnica!)
 
 ### 📋 REGRAS DE RESPOSTA (As 17 Diretrizes)
 1. Use apenas o contexto RAG fornecido para dados técnicos.
