@@ -187,7 +187,7 @@ serve(async (req) => {
     // ── 3. RESINS ────────────────────────────────────────────────
     const { data: resins, error: resinError } = await supabase
       .from("resins")
-      .select("id, name, manufacturer, description, processing_instructions, slug, cta_1_url, keywords")
+      .select("id, name, manufacturer, description, processing_instructions, slug, cta_1_url, system_a_product_url, keywords")
       .eq("active", true);
 
     if (resinError) throw resinError;
@@ -206,11 +206,12 @@ serve(async (req) => {
         source_type: "resin",
         chunk_text: chunkText,
         metadata: {
+          title: `${r.manufacturer} ${r.name}`,
           name: r.name,
           manufacturer: r.manufacturer,
           slug: r.slug,
-          cta_1_url: r.cta_1_url,
-          url_publica: r.slug ? `/resinas/${r.slug}` : null,
+          cta_1_url: r.cta_1_url || r.system_a_product_url || null,
+          url_publica: r.slug ? `/resina/${r.slug}` : null,
         },
       });
     }
