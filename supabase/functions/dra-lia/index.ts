@@ -592,7 +592,7 @@ async function generateEmbedding(text: string): Promise<number[] | null> {
         body: JSON.stringify({
           model: "models/text-embedding-004",
           content: { parts: [{ text }] },
-          outputDimensionality: 768,
+          taskType: "RETRIEVAL_QUERY",
         }),
       }
     );
