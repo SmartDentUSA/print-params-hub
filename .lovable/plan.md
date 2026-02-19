@@ -1,159 +1,146 @@
 
-# Dra. L.I.A. — Diálogo Guiado 100% Baseado nos Dados do Sistema
+# Dra. L.I.A. — Passo de Resina: Perguntar Primeiro, Verificar Depois
 
-## O problema atual
+## O problema exato
 
-O diálogo guiado já funciona (marca → modelo → link), mas **os exemplos nas perguntas são hardcoded**:
-
-- Pergunta de marca mostra: `"ex: Anycubic, Phrozen, Bambu Lab, Elegoo, MiiCraft..."` — fixo no código
-- Pergunta de modelo mostra: `"ex: Photon Mono 4, M3 Max, Sonic Mini 8K..."` — fixo no código
-
-O risco: os exemplos ficam desatualizados e a L.I.A. pode citar marcas/modelos que não existem no banco (como "Bambu Lab" que não está cadastrada).
-
-A sugestão é perfeita: **buscar do banco os dados reais** e usar nas perguntas.
-
-## Solução — Enriquecer o diálogo com dados reais do banco
-
-### O que muda no `supabase/functions/dra-lia/index.ts`
-
-**Mudança 1 — `needs_brand`: mostrar as marcas reais do banco**
-
-Ao detectar que o usuário quer parâmetros, antes de retornar `needs_brand`, buscar todas as marcas ativas do banco:
+No passo `needs_resin` (quando o modelo foi encontrado), a mensagem atual é:
 
 ```
-Atual (hardcoded):
-"qual é a marca da sua impressora?
-(ex: Anycubic, Phrozen, Bambu Lab, Elegoo, MiiCraft...)"
-
-Novo (dados reais):
-"qual é a marca da sua impressora?
-Marcas disponíveis: Anycubic, Creality, Elegoo, Ezy3d, Flashforge, Miicraft, Phrozen, Pionext, Sprintray, Straumann, Uniz, Wanhao"
-```
-
-**Mudança 2 — `needs_model`: mostrar os modelos reais da marca escolhida**
-
-Ao confirmar a marca, buscar apenas os modelos daquela marca do banco:
-
-```
-Atual (hardcoded):
-"Qual é o modelo da impressora?
-(ex: Photon Mono 4, M3 Max, Sonic Mini 8K...)"
-
-Novo (dados reais da Anycubic):
-"Qual é o modelo da impressora?
-Modelos disponíveis: Mono X, Photon D2 Dlp, Photon M2, Photon M5, Photon M5s, Photon Mono 2, Photon Mono 4, Photon Mono 4 Ultra 10k..."
-```
-
-**Mudança 3 — `has_printer`: perguntar também a resina (3º passo)**
-
-Ao invés de enviar direto o link após o modelo, adicionar um 4º passo opcional:
-
-```
-"Encontrei a Anycubic Photon Mono 4!
-Qual resina você vai usar?
+"Encontrei a Anycubic Mono X! Qual resina você vai usar?
 
 Resinas com parâmetros cadastrados para essa impressora:
-Smart Print Bio Vitality, Smart Print Bio Clear Guide, Smart Print Bio Hybrid A2...
+Smart Print Bio Clear Guide, Smart Print Bio Denture (Rosa), Smart Print Bio Hybrid A2...
 
-Ou acesse diretamente a página com todos os parâmetros:
-👉 [Ver todos os parâmetros da Anycubic Photon Mono 4](/anycubic/photon-mono-4)"
+Ou acesse diretamente todos os parâmetros:
+👉 [Ver todos os parâmetros da Anycubic Mono X](/anycubic/mono-x)"
 ```
 
-**Mudança 4 — `has_resin`: link direto para a resina específica na página da impressora**
+O problema: jogar uma lista enorme de resinas antes de o usuário nem responder é ruim para UX — o usuário pode ter uma resina diferente das listadas, ou já saber o nome da sua resina sem precisar ler a lista. A L.I.A. deve **perguntar primeiro** e **verificar depois**.
 
-Quando o usuário responde o nome da resina, a L.I.A. verifica se existe `parameter_sets` para aquela combinação e manda o link com âncora:
+## Comportamento novo — 2 mudanças no `supabase/functions/dra-lia/index.ts`
+
+### Mudança 1 — `ASK_RESIN`: remover a lista de resinas da pergunta
+
+A mensagem do passo 3 (`needs_resin`) passa de:
 
 ```
-"Ótimo! Encontrei os parâmetros da Smart Print Bio Vitality para a Anycubic Photon Mono 4:
-👉 [Ver parâmetros](/anycubic/photon-mono-4#smart-print-bio-vitality)"
+"Encontrei a Anycubic Mono X! Qual resina você vai usar?
+Resinas com parâmetros cadastrados: Smart Print Bio Vitality, Smart Print Bio Clear Guide..."
 ```
 
-Se a resina não tiver parâmetros cadastrados para aquela impressora:
+Para:
+
 ```
-"Ainda não temos parâmetros da [Resina X] para a Anycubic Photon Mono 4.
-Confira as resinas disponíveis para esse modelo:
-👉 [Ver parâmetros da Anycubic Photon Mono 4](/anycubic/photon-mono-4)"
+"Encontrei a **Anycubic Mono X**! Qual **resina** você vai usar?
+Me diga o nome da resina e verifico os parâmetros para você 😊"
 ```
 
-## Novo `DialogState` com 4 etapas
+**A função `fetchAvailableResins` ainda é chamada**, mas agora ela é usada apenas internamente no passo 4 (`has_resin`) para fazer o match — não é mais exibida na pergunta.
 
-```typescript
-type DialogState =
-  | { state: "needs_brand"; availableBrands: string[] }
-  | { state: "needs_model"; brand: string; brandSlug: string; brandId: string; availableModels: string[] }
-  | { state: "needs_resin"; brandSlug: string; modelSlug: string; brandName: string; modelName: string; availableResins: string[] }
-  | { state: "has_resin"; brandSlug: string; modelSlug: string; resinName: string; found: boolean }
-  | { state: "brand_not_found"; brandGuess: string; availableBrands: string[] }
-  | { state: "model_not_found"; brand: string; brandSlug: string; availableModels: string[] }
-  | { state: "not_in_dialog" };
+### Mudança 2 — `RESIN_NOT_FOUND`: mostrar as resinas disponíveis SOMENTE quando a resina não é encontrada
+
+No passo 4, quando a resina não existe no banco, a resposta atual já lista as resinas como fallback — esse comportamento se mantém. Isso é o momento certo para mostrar a lista: quando o usuário pediu algo que não existe.
+
+```
+"Ainda não temos parâmetros da **Vitamine** para a Anycubic Mono X.
+
+Resinas com parâmetros cadastrados para esse modelo:
+Smart Print Bio Vitality, Smart Print Bio Clear Guide...
+
+Ou acesse todos os parâmetros:
+👉 [Ver parâmetros da Anycubic Mono X](/anycubic/mono-x)"
 ```
 
 ## Fluxo completo após a mudança
 
 ```text
-Usuário: "preciso de configurações para minha impressora"
+Usuário: "preciso de parâmetros para minha impressora"
     ↓
-[busca brands do banco → Anycubic, Creality, Elegoo, Miicraft, Phrozen...]
-L.I.A.: "Claro! Qual é a marca da sua impressora?
-         Marcas disponíveis: Anycubic, Creality, Elegoo, Ezy3d,
-         Flashforge, Miicraft, Phrozen, Pionext, Sprintray..."
+L.I.A.: "Qual é a marca da sua impressora?
+         Marcas disponíveis: Anycubic, Creality, Elegoo..."
     ↓
 Usuário: "Anycubic"
     ↓
-[busca models WHERE brand_id = Anycubic]
-L.I.A.: "Ótimo! A Anycubic está cadastrada. Qual é o modelo?
-         Modelos disponíveis: Mono X, Photon D2 Dlp, Photon M2,
-         Photon M5, Photon M5s, Photon Mono 2, Photon Mono 4..."
+L.I.A.: "Ótimo! Qual é o modelo da impressora?
+         Modelos disponíveis: Mono X, Photon D2 Dlp, Photon M2..."
     ↓
-Usuário: "Photon Mono 4"
+Usuário: "Mono X"
     ↓
-[busca parameter_sets WHERE brand_slug=anycubic AND model_slug=photon-mono-4 → retorna resinas distintas]
-L.I.A.: "Encontrei! Qual resina você vai usar com a Anycubic Photon Mono 4?
-         Resinas com parâmetros cadastrados:
-         Smart Print Bio Vitality, Smart Print Bio Clear Guide,
-         Smart Print Bio Hybrid A2, Smart Print Bio Bite Splint Clear...
-         
-         Ou acesse diretamente:
-         👉 [Ver todos os parâmetros da Anycubic Photon Mono 4](/anycubic/photon-mono-4)"
+L.I.A.: "Encontrei a Anycubic Mono X! Qual resina você vai usar?
+         Me diga o nome da resina e verifico os parâmetros para você 😊"
     ↓
-Usuário: "Vitality"
+Usuário: "Smart Print Bio Vitality"
     ↓
-[verifica parameter_sets WHERE resin_name ILIKE '%Vitality%' AND brand_slug='anycubic' AND model_slug='photon-mono-4' → encontrou]
-L.I.A.: "Perfeito! Acesse os parâmetros da Smart Print Bio Vitality para a Anycubic Photon Mono 4:
-         👉 [Ver parâmetros](/anycubic/photon-mono-4)
+[verifica no banco → encontrou]
+L.I.A.: "Perfeito! Encontrei os parâmetros da Smart Print Bio Vitality
+         para a Anycubic Mono X:
+         👉 [Ver parâmetros](/anycubic/mono-x)"
 
-         Se precisar dos valores específicos, é só me pedir e busco para você!"
-
---- Fallback: marca não encontrada ---
-L.I.A.: "Não encontrei essa marca no sistema.
-         Marcas disponíveis: Anycubic, Creality, Elegoo...
-         Ou acesse: 👉 [Ver todos os parâmetros](/)"
-
---- Fallback: modelo não encontrado ---
-L.I.A.: "Não encontrei esse modelo para a Anycubic.
-         Modelos disponíveis: Mono X, Photon D2 Dlp, Photon M2...
-         Ou acesse: 👉 [Ver modelos da Anycubic](/anycubic)"
+--- Cenário: resina não encontrada ---
+Usuário: "Vitamine"
+    ↓
+[verifica no banco → não encontrou]
+L.I.A.: "Ainda não temos parâmetros da Vitamine para a Anycubic Mono X.
+         Resinas disponíveis para esse modelo:
+         Smart Print Bio Clear Guide, Smart Print Bio Denture...
+         👉 [Ver todos os parâmetros](/anycubic/mono-x)"
 ```
 
-## Benefícios anti-alucinação
+## O que muda no código (apenas `index.ts`)
 
-| Antes | Depois |
-|---|---|
-| Exemplos hardcoded (podem conter marcas inexistentes) | Exemplos 100% do banco — se não existe no banco, não é citado |
-| "Bambu Lab" aparecia como exemplo mas não está no banco | Só lista marcas com `active = true` |
-| Usuário não sabia quais resinas existem para a impressora | Lista exata das resinas com parâmetros cadastrados |
-| Após modelo, enviava link sem perguntar a resina | Pergunta a resina antes de enviar o link (fluxo mais completo) |
+**Linha ~190-197 — `ASK_RESIN`**: remover o `resins.join(", ")` da pergunta e simplificar a mensagem.
+
+```typescript
+// ANTES
+const ASK_RESIN = {
+  "pt-BR": (brand, model, modelSlug, brandSlug, resins) =>
+    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nResinas com parâmetros cadastrados:\n${resins.join(", ")}\n\nOu acesse diretamente:\n👉 [Ver todos os parâmetros](/${brandSlug}/${modelSlug})`,
+  // ...
+};
+
+// DEPOIS
+const ASK_RESIN = {
+  "pt-BR": (brand, model, modelSlug, brandSlug) =>
+    `Encontrei a **${brand} ${model}**! Qual **resina** você vai usar?\n\nMe diga o nome da resina e verifico os parâmetros para você 😊`,
+  "en-US": (brand, model, modelSlug, brandSlug) =>
+    `Found **${brand} ${model}**! Which **resin** will you use?\n\nTell me the resin name and I'll check the parameters for you 😊`,
+  "es-ES": (brand, model, modelSlug, brandSlug) =>
+    `¡Encontré la **${brand} ${model}**! ¿Qué **resina** vas a usar?\n\nDime el nombre de la resina y verifico los parámetros para ti 😊`,
+};
+```
+
+**Linha ~208-215 — `RESIN_NOT_FOUND`**: mostrar a lista de resinas disponíveis quando a resina pedida não existir.
+
+```typescript
+// DEPOIS — com lista de resinas disponíveis no fallback
+const RESIN_NOT_FOUND = {
+  "pt-BR": (resin, brand, model, brandSlug, modelSlug, availableResins) =>
+    `Ainda não temos parâmetros da **${resin}** para a **${brand} ${model}**.\n\n` +
+    (availableResins.length > 0
+      ? `Resinas com parâmetros cadastrados para esse modelo:\n${availableResins.join(", ")}\n\n`
+      : "") +
+    `👉 [Ver todos os parâmetros da ${brand} ${model}](/${brandSlug}/${modelSlug})`,
+  // en-US e es-ES seguem o mesmo padrão
+};
+```
+
+**Linha ~318-332 — `detectPrinterDialogState`, step 4 (`liaAskedResin`)**: passar `availableResins` para `RESIN_NOT_FOUND` no caso de fallback.
+
+**Linha ~190 — chamada de `ASK_RESIN`**: remover o parâmetro `resins` da assinatura da função (ou mantê-lo e ignorá-lo — para não quebrar a chamada existente).
+
+**`fetchAvailableResins` no passo `needs_resin`**: ainda é chamado, mas o resultado só vai para o estado interno do `DialogState` — não é mais exibido na pergunta. No step 4, quando `liaAskedResin`, o `availableResins` é buscado do banco e passado para `RESIN_NOT_FOUND` quando necessário.
+
+## O que não muda
+
+- Marcas disponíveis: continuam sendo listadas na pergunta de marca (correto — é uma escolha fechada)
+- Modelos disponíveis: continuam sendo listados na pergunta de modelo (correto — é uma escolha fechada)
+- RAG e protocolos: inalterados
+- Frontend: zero mudanças
 
 ## Seção Técnica
 
 - Único arquivo alterado: `supabase/functions/dra-lia/index.ts`
-- Queries adicionadas:
-  - Step `needs_brand`: `SELECT name FROM brands WHERE active = true ORDER BY name` (já existe, só monta lista de strings)
-  - Step `needs_model`: `SELECT name FROM models WHERE brand_id = X AND active = true ORDER BY name` (já existe, só monta lista)
-  - Step `needs_resin`: `SELECT DISTINCT resin_name FROM parameter_sets WHERE brand_slug = X AND model_slug = Y AND active = true ORDER BY resin_name` — nova query leve
-  - Step `has_resin`: `SELECT id FROM parameter_sets WHERE brand_slug = X AND model_slug = Y AND resin_name ILIKE '%Z%' AND active = true LIMIT 1` — nova query leve
-- O `DialogState` ganha mais 2 estados (`needs_resin`, `has_resin`) e os mensagens existentes ganham `availableBrands`, `availableModels`, `availableResins` como dados injetados
-- O history detection ganha mais 2 checks: `liaAskedResin` (verifica se a última msg da L.I.A. contém "resina")
-- Sem mudanças no frontend — o `history` já é enviado normalmente
-- Sem migrações de banco necessárias
+- Mudanças afetam apenas as constantes `ASK_RESIN` e `RESIN_NOT_FOUND` (linhas ~190-215) e a passagem de `availableResins` no estado `has_resin` do step 4 (linhas ~318-332)
+- A chamada `fetchAvailableResins` continua existindo no step 3 — pode ser removida (otimização) ou mantida para pré-validação futura
+- O `DialogState` não muda — o campo `availableResins` pode ser removido de `needs_resin` se não for mais usado na mensagem, mas é seguro mantê-lo para uso interno
 - Deploy automático ao salvar
