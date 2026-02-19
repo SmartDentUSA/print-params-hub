@@ -23,6 +23,25 @@ const GREETING_PATTERNS = [
 const isGreeting = (msg: string) =>
   GREETING_PATTERNS.some((p) => p.test(msg.trim())) && msg.trim().split(/\s+/).length <= 5;
 
+// Support keywords — detect technical problems and redirect to WhatsApp (no RAG)
+const SUPPORT_KEYWORDS = [
+  /(impressora|printer|impresora).{0,30}(não liga|not turning|no enciende|erro|error|defeito|travando|falhou|quebrou|quebrada)/i,
+  /(não consigo|can't|cannot|no puedo).{0,20}(imprimir|print|salvar|conectar|ligar)/i,
+  /(erro|error|falha|falhou|travando|bug|problema).{0,20}(impressora|printer|software|slicer)/i,
+  /(garantia|suporte técnico|assistência técnica|reparo|defeito de fábrica)/i,
+  /(peça|peças|replacement part|reposição|componente)/i,
+  /(impressora).{0,20}(não funciona|parou|trava|tá travando|está travando|quebrou)/i,
+  /(resina).{0,20}(não (curou|curar|endureceu|endureceu|polimerizo|aderiu))/i,
+];
+
+const SUPPORT_FALLBACK: Record<string, string> = {
+  "pt-BR": `Para problemas técnicos com equipamentos, nossa equipe de suporte pode te ajudar diretamente 😊\n\n💬 **WhatsApp:** [Falar com suporte](https://api.whatsapp.com/send/?phone=551634194735&text=Ol%C3%A1+preciso+de+suporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horário:** Segunda a Sexta, 08h às 18h`,
+  "en-US": `For technical issues with equipment, our support team can help you directly 😊\n\n💬 **WhatsApp:** [Contact support](https://api.whatsapp.com/send/?phone=551634194735&text=Hi+I+need+technical+support)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Office hours:** Mon–Fri, 8am–6pm (BRT)`,
+  "es-ES": `Para problemas técnicos con equipos, nuestro equipo de soporte puede ayudarte directamente 😊\n\n💬 **WhatsApp:** [Contactar soporte](https://api.whatsapp.com/send/?phone=551634194735&text=Hola+necesito+soporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horario:** Lunes a Viernes, 8h a 18h`,
+};
+
+const isSupportQuestion = (msg: string) => SUPPORT_KEYWORDS.some((p) => p.test(msg));
+
 // Protocol keywords — detect questions about cleaning, curing, finishing
 const PROTOCOL_KEYWORDS = [
   // PT
@@ -734,7 +753,48 @@ serve(async (req) => {
       });
     }
 
-    // 0b. Guided printer dialog — asks brand → model → sends link
+    // 0b. Support question guard — redirect to WhatsApp without RAG
+    if (isSupportQuestion(message)) {
+      const supportText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const words = supportText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`)
+              );
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      // Save interaction
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: supportText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (support guard):", e);
+      }
+      return new Response(stream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
+    // 0c. Guided printer dialog — asks brand → model → sends link
     const dialogState = await detectPrinterDialogState(supabase, message, history);
 
     if (dialogState.state !== "not_in_dialog") {
@@ -974,6 +1034,15 @@ REGRAS ABSOLUTAS:
     6. Acabamento e polimento (se houver)
     Use listas com bullet points. Destaque produtos SmartDent com **negrito**.
     Nunca omita etapas — a ordem correta é crítica para o resultado clínico.
+
+⛔ REGRAS ANTI-ALUCINAÇÃO (OBRIGATÓRIAS):
+14. NUNCA cite produtos, parâmetros ou vídeos como "exemplos" quando o usuário não mencionou aquele produto/marca/impressora específica. Use APENAS os dados diretamente relevantes à pergunta feita.
+
+15. VÍDEOS: só inclua links de vídeos na resposta se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, NO MÁXIMO mencione: "Também temos um vídeo sobre esse tema — quer ver?" Nunca liste vídeos espontaneamente.
+
+16. LISTA NEGRA DE PALAVRAS — estas palavras sinalizam que você está inventando. NUNCA use: "geralmente", "normalmente", "costuma ser", "em geral", "na maioria dos casos", "provavelmente", "pode ser que", "acredito que", "presumo que", "tipicamente", "é comum que". Se não tiver certeza, redirecione para o WhatsApp.
+
+17. SE O USUÁRIO MENCIONA UMA IMPRESSORA OU RESINA MAS NÃO PEDIU PARÂMETROS EXPLICITAMENTE: Confirme apenas a existência sem listar valores técnicos. Pergunte: "Quer que eu mostre os parâmetros?"
 
 --- DADOS DAS FONTES ---
 ${context}
