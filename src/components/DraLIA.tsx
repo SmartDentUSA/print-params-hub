@@ -259,7 +259,15 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
       if (!resp.ok || !resp.body) {
         const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || t('dra_lia.connection_error'));
+        // Mensagem amigável para instabilidade temporária (503) ou outros erros
+        const friendlyError = errData.error || t('dra_lia.connection_error');
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: friendlyError } : m
+          )
+        );
+        setIsLoading(false);
+        return;
       }
 
       const reader = resp.body.getReader();

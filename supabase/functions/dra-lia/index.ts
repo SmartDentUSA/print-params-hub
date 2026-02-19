@@ -1281,19 +1281,31 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       { role: "user", content: message },
     ];
 
-    const aiResponse = await fetch(CHAT_API, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: messagesForAI,
-        stream: true,
-        max_tokens: 1024,
-      }),
-    });
+    // Helper com retry automático: tenta gemini-2.5-flash, fallback para flash-lite
+    const callAI = async (model: string): Promise<Response> => {
+      const resp = await fetch(CHAT_API, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: messagesForAI,
+          stream: true,
+          max_tokens: 1024,
+        }),
+      });
+      return resp;
+    };
+
+    let aiResponse = await callAI("google/gemini-2.5-flash");
+
+    // Se 500 no modelo primário → retry automático com modelo mais leve
+    if (!aiResponse.ok && aiResponse.status === 500) {
+      console.error(`Primary model failed with 500, retrying with flash-lite...`);
+      aiResponse = await callAI("google/gemini-2.5-flash-lite");
+    }
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
@@ -1302,7 +1314,12 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
+      // Retornar mensagem amigável ao usuário em vez de erro técnico
+      console.error(`AI gateway error: ${aiResponse.status}`);
+      return new Response(
+        JSON.stringify({ error: "Estou com uma instabilidade temporária. Tente novamente em alguns instantes. 🙏" }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // 7. Save interaction
