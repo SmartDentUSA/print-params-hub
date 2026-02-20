@@ -58,7 +58,7 @@ async function sleep(ms: number) {
 
 interface Chunk {
   content_id?: string;
-  source_type: "article" | "video" | "resin" | "parameter" | "company_kb";
+  source_type: "article" | "video" | "resin" | "parameter" | "company_kb" | "catalog_product";
   chunk_text: string;
   metadata: Record<string, unknown>;
 }
@@ -624,6 +624,88 @@ serve(async (req) => {
     console.log(`[external-kb] ${externalChunks.length} chunks from ai_training endpoint`);
     chunks.push(...externalChunks);
 
+    // ── 6. CATALOG PRODUCTS (system_a_catalog) ───────────────────
+    const { data: catalogProducts, error: catalogError } = await supabase
+      .from("system_a_catalog")
+      .select("id, name, category, product_category, product_subcategory, description, cta_1_url, slug, extra_data, keywords, meta_description")
+      .eq("active", true)
+      .eq("approved", true)
+      .eq("category", "product");
+
+    if (catalogError) console.warn("[catalog-products] query error:", catalogError.message);
+
+    for (const p of catalogProducts || []) {
+      const productUrl = p.cta_1_url || (p.slug ? `https://loja.smartdent.com.br/${p.slug}` : null);
+      const categoryLabel = [p.product_category, p.product_subcategory].filter(Boolean).join(" > ");
+
+      // Chunk 1: Description (principal — "o que é / o que tem de especial")
+      if (p.description && p.description.length > 50) {
+        // Strip HTML tags from description
+        const cleanDesc = p.description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: [
+            `${p.name}${categoryLabel ? " — " + categoryLabel : ""}`,
+            p.meta_description || "",
+            cleanDesc.slice(0, 1200),
+          ].filter(Boolean).join(" | "),
+          metadata: {
+            title: p.name,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "description",
+          },
+        });
+      }
+
+      // Chunk 2: Benefits ("quais os diferenciais/vantagens")
+      const benefits: string[] = (p.extra_data as Record<string, unknown>)?.benefits as string[] || [];
+      if (benefits.length > 0) {
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: [
+            `${p.name} — Diferenciais e Benefícios`,
+            benefits.map((b: string) => `• ${b}`).join(" | ").slice(0, 1000),
+          ].filter(Boolean).join(" | "),
+          metadata: {
+            title: `${p.name} — Benefícios`,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "benefits",
+          },
+        });
+      }
+
+      // Chunk 3: FAQs ("perguntas específicas dos clientes")
+      const faqs: Array<{question: string; answer: string}> = (p.extra_data as Record<string, unknown>)?.faq as Array<{question: string; answer: string}> || [];
+      if (faqs.length > 0) {
+        const faqText = faqs
+          .slice(0, 5)
+          .map((f: {question: string; answer: string}) =>
+            `P: ${f.question.replace(/<[^>]+>/g, "")} R: ${f.answer.replace(/<[^>]+>/g, "").slice(0, 200)}`
+          )
+          .join(" | ");
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: [
+            `${p.name} — Perguntas Frequentes`,
+            faqText,
+          ].filter(Boolean).join(" | ").slice(0, 1500),
+          metadata: {
+            title: `${p.name} — FAQ`,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "faq",
+          },
+        });
+      }
+    }
+
+    console.log(`[catalog-products] ${(catalogProducts || []).length} products → chunks gerados`);
+
     // ── FILTER incremental: skip already indexed ─────────────────
     let chunksToIndex = chunks;
     if (mode === "incremental") {
@@ -637,7 +719,7 @@ serve(async (req) => {
       await supabase.from("agent_embeddings").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     }
 
-    console.log(`Mode: ${mode} | Total chunks: ${chunks.length} | To index: ${chunksToIndex.length} | company_kb: ${externalChunks.length}`);
+    console.log(`Mode: ${mode} | Total: ${chunks.length} | To index: ${chunksToIndex.length} | company_kb: ${externalChunks.length} | catalog_products: ${(catalogProducts || []).length}`);
 
     // ── PROCESS in batches ───────────────────────────────────────
     let indexed = 0;
@@ -682,6 +764,7 @@ serve(async (req) => {
         mode,
         total_chunks: chunks.length,
         company_kb_chunks: externalChunks.length,
+        catalog_product_chunks: (catalogProducts || []).length,
         indexed,
         errors,
         skipped: chunks.length - chunksToIndex.length,
