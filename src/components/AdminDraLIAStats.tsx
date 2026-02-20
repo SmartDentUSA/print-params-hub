@@ -42,6 +42,7 @@ import {
   XCircle,
   Sparkles,
   ChevronRight,
+  Brain,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -438,6 +439,34 @@ export function AdminDraLIAStats() {
       toast({ title: `Erro: ${err instanceof Error ? err.message : "Erro"}`, variant: "destructive" });
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleReindexDraft = async (draftId: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/heal-knowledge-gaps?action=reindex`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ draft_id: draftId }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+
+      toast({
+        title: "✓ Re-indexado na L.I.A.",
+        description: "O FAQ foi absorvido pela memória semântica.",
+      });
+      await fetchDrafts();
+    } catch (err) {
+      toast({ title: `Erro ao re-indexar: ${err instanceof Error ? err.message : "Erro"}`, variant: "destructive" });
     }
   };
 
@@ -1452,6 +1481,17 @@ export function AdminDraLIAStats() {
                         >
                           {draft.status === 'approved' ? '✓ Memória L.I.A.' : '✗ Descartado'}
                         </Badge>
+                        {draft.status === 'approved' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs h-7 gap-1"
+                            onClick={() => handleReindexDraft(draft.id)}
+                          >
+                            <Brain className="w-3 h-3" />
+                            Re-indexar
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
