@@ -1,103 +1,116 @@
 
-# Atualizar Painel RAG: 6 Fontes + Reindexação Seletiva por Categoria
+# Corrigir: L.I.A. presa no diálogo de parâmetros ignora perguntas gerais
 
-## O que está desatualizado
+## Diagnóstico do bug
 
-O painel "Ações de Indexação" e a seção de "Distribuição por Tipo de Fonte" foram escritos quando o RAG tinha apenas 4 fontes. Após as últimas implementações, o RAG agora indexa **6 fontes**, mas a UI não reflete isso:
+**O que aconteceu:** O usuário perguntou "quem é o CEO da Smart Dent?" e recebeu a resposta de "marca não encontrada" com lista de marcas de impressoras.
 
-**Texto desatualizado (linha 1163):**
-> "A Indexação Completa apaga todos os embeddings e re-indexa tudo (**artigos, vídeos, resinas, parâmetros**)."
+**Causa raiz:** A tabela `agent_sessions` armazenou `current_state: "brand_not_found"` de uma conversa anterior sobre parâmetros de impressão. Quando a nova pergunta chegou, a função `detectPrinterDialogState` (linha 467) verificou o estado da sessão **antes** de avaliar se a mensagem era uma pergunta geral — e interceptou a mensagem como se fosse uma resposta ao diálogo de parâmetros.
 
-**Distribuição por tipo desatualizada (linhas 1133–1150):** array hardcoded com apenas 4 entradas — `article`, `video`, `resin`, `parameter` — os chunks de `company_kb` (23 chunks) e `catalog_product` (~321 chunks) existem no banco mas não aparecem nas barras de progresso.
-
-## Mudanças a implementar
-
-### 1. `src/components/AdminDraLIAStats.tsx` — 4 ajustes pontuais
-
-**A. Distribuição por tipo** (linha 1133): Substituir o array de 4 itens por 6, adicionando:
-
-| source_type | Label | Ícone existente | Cor |
-|---|---|---|---|
-| `company_kb` | Empresa & Parcerias | `Building2` (importar) | `bg-violet-500` |
-| `catalog_product` | Produtos Catálogo | `ShoppingBag` (importar) | `bg-amber-500` |
-
-**B. Texto descritivo** (linha 1163): Atualizar para mencionar todas as 6 fontes:
-> "A **Indexação Completa** apaga todos os embeddings e re-indexa tudo (artigos, vídeos, resinas, parâmetros, **empresa & parcerias, produtos do catálogo**). A **Incremental** só indexa conteúdo novo ou modificado."
-
-**C. Nova seção: Reindexação Seletiva por Categoria** — inserir acima dos botões globais um grid de 6 cards compactos (um por fonte), cada um mostrando o count atual de chunks e um botão "Reindexar apenas esta fonte":
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Reindexar por Categoria (apaga e recria apenas os chunks da fonte) │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐    │
-│  │ 📄 Artigos       │ │ 🎥 Vídeos        │ │ 🧪 Resinas       │    │
-│  │ 307 chunks       │ │ 443 chunks       │ │ 18 chunks        │    │
-│  │ [↺ Reindexar]    │ │ [↺ Reindexar]    │ │ [↺ Reindexar]    │    │
-│  └──────────────────┘ └──────────────────┘ └──────────────────┘    │
-│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐    │
-│  │ ⚙️ Parâmetros    │ │ 🏢 Empresa       │ │ 🛍️ Produtos      │    │
-│  │ 305 chunks       │ │ 23 chunks        │ │ 321 chunks       │    │
-│  │ [↺ Reindexar]    │ │ [↺ Reindexar]    │ │ [↺ Reindexar]    │    │
-│  └──────────────────┘ └──────────────────┘ └──────────────────┘    │
-└─────────────────────────────────────────────────────────────────────┘
+**Fluxo atual (bugado):**
+```text
+mensagem "quem é o CEO?" 
+  → detectPrinterDialogState() 
+  → session: brand_not_found 
+  → trata como resposta de marca
+  → "Smart Dent" não é marca cadastrada
+  → retorna BRAND_NOT_FOUND com lista de impressoras ← ERRADO
 ```
 
-**D. Handler `handleIndexingStage(stage)`** — nova função no componente que chama:
-```
-POST /index-embeddings?mode=full&stage=${stage}
+**Fluxo correto (após correção):**
+```text
+mensagem "quem é o CEO?"
+  → detectPrinterDialogState()
+  → session: brand_not_found
+  → NOVO: verifica se a mensagem é uma pergunta geral (isOffTopicFromDialog)
+  → detecta palavras como "CEO", "quem", "fundador", "empresa"
+  → reset da sessão → estado: not_in_dialog
+  → mensagem vai para o RAG normalmente ← CORRETO
 ```
 
-### 2. `supabase/functions/index-embeddings/index.ts` — suporte ao parâmetro `?stage=`
+## A solução: detecção de "saída de contexto" (intent break)
 
-Adicionar lógica de stage seletivo logo após a leitura do `mode`:
+### Arquivo: `supabase/functions/dra-lia/index.ts`
+
+**1. Nova função `isOffTopicFromDialog(message)`** — inserida antes de `detectPrinterDialogState`:
+
+Identifica mensagens que claramente não são respostas ao diálogo de impressora. Um conjunto de padrões cobre:
+- Perguntas sobre a empresa: "CEO", "fundador", "quem criou", "quem é o dono"
+- Perguntas sobre produtos do catálogo: "impressora", "resina", "scanner" (quando não é continuação do diálogo)
+- Perguntas gerais de odontologia: "protocolo", "como usar", "qual a diferença"
+- Comandos de saída: "cancelar", "esquece", "outra pergunta", "mudando de assunto"
+- Palavras interrogativas que indicam pergunta nova: frases com "quem", "o que é", "como funciona" de 5+ palavras
 
 ```typescript
-const stage = url.searchParams.get("stage") || "all";
+const DIALOG_BREAK_PATTERNS = [
+  // Perguntas sobre a empresa
+  /\b(CEO|fundador|dono|sócio|diretor|quem (criou|fundou|é o))\b/i,
+  // Comandos de reset
+  /\b(cancelar|esquece|esqueça|outra (pergunta|coisa)|muda(ndo)? de assunto|não (quero|preciso) mais|sair)\b/i,
+  // Perguntas gerais de produto (não dentro do diálogo)
+  /^(o que (é|são)|qual (é|a diferença)|como (funciona|usar|se usa)|me fala sobre|me explica)/i,
+  // Perguntas sobre empresa/identidade
+  /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
+  // Perguntas sobre categorias de produto (não é especificação de modelo)
+  /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
+];
 
-const stageToSourceType: Record<string, string> = {
-  articles: "article",
-  videos: "video",
-  resins: "resin",
-  parameters: "parameter",
-  company_kb: "company_kb",
-  catalog_products: "catalog_product",
-};
-
-// Se stage específico + mode full: apaga apenas os chunks daquela fonte
-if (mode === "full" && stage !== "all") {
-  const sourceType = stageToSourceType[stage];
-  if (sourceType) {
-    await supabase
-      .from("agent_embeddings")
-      .delete()
-      .eq("source_type", sourceType);
-  }
-} else if (mode === "full" && stage === "all") {
-  // comportamento atual: apaga tudo
-  await supabase.from("agent_embeddings").delete().neq("id", "00000000-...");
+function isOffTopicFromDialog(message: string): boolean {
+  return DIALOG_BREAK_PATTERNS.some((p) => p.test(message.trim()));
 }
 ```
 
-Cada bloco de indexação dos 6 estágios ganha um `if`:
+**2. Modificar `detectPrinterDialogState`** — inserir verificação no início dos estados `brand_not_found` e `needs_brand`:
+
+No início dos blocos que verificam sessão ativa (linhas 467–610), adicionar:
 ```typescript
-if (stage === "all" || stage === "articles") {
-  // bloco artigos existente
+// Se sessão ativa, mas mensagem é claramente off-topic → reset e retorna not_in_dialog
+if (
+  (currentState === "brand_not_found" || 
+   currentState === "needs_brand" ||
+   currentState === "needs_model" ||
+   currentState === "model_not_found" ||
+   currentState === "needs_resin") &&
+  isOffTopicFromDialog(message)
+) {
+  // Reset silencioso da sessão
+  await persistState("idle", {});
+  return { state: "not_in_dialog" };
 }
-if (stage === "all" || stage === "videos") {
-  // bloco vídeos existente
-}
-// ... e assim por diante para resins, parameters, company_kb, catalog_products
 ```
 
-## Arquivos modificados
+Essa verificação ocorre **antes** das tentativas de `findBrandInMessage`, `findModelInList` etc.
 
-| Arquivo | Mudanças |
+**3. Também proteger o fallback de regex (linhas 526–603)** — os blocos `liaAskedBrand`, `liaAskedModel`, `liaAskedResin` que operam sobre o histórico de mensagens também precisam do guard:
+
+```typescript
+if (liaAskedBrand && !isOffTopicFromDialog(message)) { ... }
+if (liaAskedModel && !isOffTopicFromDialog(message)) { ... }
+if (liaAskedResin && !isOffTopicFromDialog(message)) { ... }
+```
+
+## Por que essa abordagem é robusta
+
+A função `isOffTopicFromDialog` é intencional e conservadora: só faz break em padrões que **nunca** seriam respostas válidas ao diálogo de impressoras. Por exemplo:
+- "CEO" — nunca é nome de marca
+- "quais impressoras vocês têm" — inicia novo contexto, não responde a "qual a sua marca?"
+- "cancelar" — sinal explícito do usuário
+
+Palavras ambíguas como "RayShape", "Phrozen", "Anycubic" **não** estão nos padrões de break — elas continuam sendo tratadas como respostas de marca normalmente.
+
+## Arquivo modificado
+
+| Arquivo | Mudança |
 |---|---|
-| `src/components/AdminDraLIAStats.tsx` | + 2 ícones importados (`Building2`, `ShoppingBag`) + array de distribuição com 6 itens + texto descritivo atualizado + seção de reindexação seletiva + handler `handleIndexingStage` |
-| `supabase/functions/index-embeddings/index.ts` | + parse do parâmetro `?stage=` + delete seletivo por `source_type` + condicionais `if (stage === "all" || stage === "xxx")` nos 6 blocos |
+| `supabase/functions/dra-lia/index.ts` | + constante `DIALOG_BREAK_PATTERNS` + função `isOffTopicFromDialog()` + guarda de intent-break no início dos estados ativos de `detectPrinterDialogState` + guarda nos blocos de fallback regex |
 
-Nenhuma migração SQL. Apenas UI + edge function. Deploy automático.
+Nenhuma migração SQL. Deploy automático após a edição.
 
 ## Resultado esperado
 
-Após clicar em "Indexação Completa", o texto e o gráfico refletirão corretamente as 6 fontes (incluindo 321 chunks de produtos e 23 de empresa). Os botões seletivos permitirão reindexar apenas os produtos quando o catálogo for atualizado, sem precisar re-embedar os 1.000+ chunks de artigos e vídeos.
+| Cenário | Antes | Depois |
+|---|---|---|
+| "quem é o CEO?" (sessão em brand_not_found) | Resposta errada sobre marcas de impressoras | Sessão reseta, vai para RAG, responde "Marcelo Del Guerra, fundado em 2009" |
+| "como funciona o processo de impressão?" (em brand_not_found) | Trata como marca → erro | Reset + resposta sobre impressão via RAG |
+| "Anycubic" (em needs_brand) | Detecta marca corretamente | Continua funcionando igual — sem regressão |
+| "cancelar" (em qualquer estado do diálogo) | Continua no diálogo | Reset, pergunta vai para RAG ou fallback |
