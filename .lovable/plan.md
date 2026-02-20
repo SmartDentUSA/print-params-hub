@@ -1,149 +1,65 @@
 
-# Cérebro Externo — Por Pasta por Categoria (sem API Key para listar subpastas)
 
-## Problema duplo que esta mudança resolve
+# Fix: Google Drive KB Sync 401 Error
 
-1. **Erro `GOOGLE_DRIVE_API_KEY`**: A chave ainda não foi configurada no Supabase Secrets, então a edge function falha imediatamente.
-2. **UX confusa**: Exigir que o admin configure subpastas com nomes exatos no Drive para o mapeamento automático funcionar é frágil. Qualquer erro de grafia quebra o sync.
+## Root Cause
 
-A nova abordagem é mais simples e robusta: o admin cola o link de cada pasta diretamente na UI. Zero ambiguidade.
+The `sync-google-drive-kb` function calls `ingest-knowledge-text` passing the **service role key** as Bearer token. However, `ingest-knowledge-text` validates the token using `auth.getClaims()`, which only works with **user JWTs** -- not service role keys. Result: 401 Unauthorized.
 
----
+## Solution
 
-## Nova arquitetura
+Update `ingest-knowledge-text` to also accept the **service role key** as a valid authorization method. If the Bearer token matches the service role key, skip the user claims check and proceed directly.
 
-Em vez de 1 pasta raiz → listar subpastas → mapear nomes → categorias:
+## Changes
 
-```text
-ANTES (atual):
-  ┌─ pasta raiz
-  │    └─ subpastas com nomes exactos → mapeamento automático
-  └─ GOOGLE_DRIVE_API_KEY obrigatória para listar subpastas
+### File: `supabase/functions/ingest-knowledge-text/index.ts`
 
-DEPOIS (nova):
-  ┌─ SDR        → [campo de link/ID] ← admin cola diretamente
-  ├─ Comercial  → [campo de link/ID]
-  ├─ Leads      → [campo de link/ID]
-  ...
-  └─ Geral      → [campo de link/ID]
-```
+Replace the auth check block (lines 60-79) with logic that:
 
-A edge function recebe um array `{ category, folder_id }[]` e processa diretamente cada pasta já com a categoria definida — sem precisar listar subpastas.
-
----
-
-## Arquivo 1 — `src/components/AdminApostilaImporter.tsx`
-
-### Novos estados
-- `driveFolderMap: Record<string, string>` — dicionário `{ sdr: "ID_ou_URL", comercial: "...", ... }`, persistido em `site_settings` como `drive_kb_folder_map` (JSON string)
-- Remover: `driveFolderId` (string simples para pasta raiz)
-- Manter: `driveSourceLabel`, `driveSyncing`, `driveSyncResult`, `driveSyncLog`, `driveLogLoading`, `cronCopied`
-
-### Funções atualizadas
-- `loadSavedDriveConfig()` — carrega `drive_kb_folder_map` (JSON) e `drive_kb_source_label` de `site_settings`
-- `saveDriveConfig()` — salva `drive_kb_folder_map` (JSON.stringify do objeto) e `drive_kb_source_label`
-- `syncDriveNow()` — envia `{ folder_map: { sdr: "ID", comercial: "ID", ... }, source_label }` para a edge function (em vez de `root_folder_id`)
-
-### Nova seção A — Configuração por categoria
-Substituir o único campo de "pasta raiz" por uma tabela compacta com 12 linhas:
+1. First checks if the Bearer token equals `SUPABASE_SERVICE_ROLE_KEY` -- if so, skip user validation (trusted server-to-server call)
+2. Otherwise, validate as a user JWT using `getClaims()` as before
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ 📁 Pasta Raiz (compartilhada por link)                 │
-│   ├── 📁 SDR        [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Comercial  [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Leads      [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Clientes   [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Campanhas  [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Pós-Venda  [link/ID da pasta         ] [✓]    │
-│   ├── 📁 FAQ        [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Objeções   [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Workflow   [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Suporte    [link/ID da pasta         ] [✓]    │
-│   ├── 📁 Onboarding [link/ID da pasta         ] [✓]    │
-│   └── 📁 Geral      [link/ID da pasta         ] [✓]    │
-└─────────────────────────────────────────────────────────┘
-[Salvar configuração]
+Before (simplified):
+  token -> getClaims() -> fail if not user JWT
+
+After (simplified):
+  token == SERVICE_ROLE_KEY ? -> allow (server call)
+  token != SERVICE_ROLE_KEY ? -> getClaims() as before
 ```
 
-- Ícone `✓` verde se o campo estiver preenchido, cinza se vazio
-- Placeholder: `Link ou ID da pasta (opcional)`
-- Categorias não preenchidas são simplesmente ignoradas no sync
+### No other files need changes
 
-### Botão "Sincronizar Agora" — atualizado
-Habilitado quando ao menos 1 campo estiver preenchido (em vez de exigir pasta raiz).
+The `sync-google-drive-kb` function already sends the correct Authorization header with the service role key. The UI component (`AdminApostilaImporter`) is also unaffected.
 
----
+## Technical Detail
 
-## Arquivo 2 — `supabase/functions/sync-google-drive-kb/index.ts`
+The specific code change in the auth block:
 
-### Mudança na leitura de configuração
-
-**Novo fluxo:**
 ```typescript
-// Do body (sync manual):
-const body = await req.json();
-const folderMap: Record<string,string> = body.folder_map || {};  // { sdr: "ID", leads: "ID", ... }
-const sourceLabel = body.source_label || "Drive KB";
+const token = authHeader.replace("Bearer ", "");
 
-// Se não veio pelo body, tenta site_settings (para cron):
-if (!folderMap ou vazio) {
-  const setting = await supabase.from("site_settings")
-    .select("value").eq("key", "drive_kb_folder_map").maybeSingle();
-  Object.assign(folderMap, JSON.parse(setting.value || "{}"));
-}
-```
-
-**Substituir o bloco de subpastas:**
-```typescript
-// ANTES: listar subpastas da pasta raiz
-const subfolders = await listSubfolders(rootFolderId);
-const allFolders = [{ id: rootFolderId, name: "geral" }, ...subfolders];
-
-// DEPOIS: usar diretamente o mapa de pastas
-const allFolders = Object.entries(folderMap)
-  .filter(([cat, id]) => id?.trim())
-  .map(([cat, rawId]) => {
-    // extrai ID de URL se necessário
-    const match = rawId.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-    return { id: match ? match[1] : rawId.trim(), category: cat };
+// Allow service-role calls (server-to-server)
+if (token !== SUPABASE_SERVICE_ROLE_KEY) {
+  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    global: { headers: { Authorization: authHeader } },
   });
-```
-
-**Remover `folderNameToCategory()`** — não é mais necessária, pois a categoria já vem explicitamente do mapa.
-
-**Loop de processamento** — simplificado:
-```typescript
-for (const { id: folderId, category } of allFolders) {
-  const files = await listFiles(folderId);
-  for (const file of files) {
-    // extração + ingest com `category` já definida
+  const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+  if (claimsError || !claimsData?.claims) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 }
 ```
 
-**Validação de entrada:**
-```typescript
-if (Object.keys(allFolders).length === 0) {
-  return 400 { error: "Nenhuma pasta configurada em folder_map" };
-}
-```
+## What This Fixes
 
-### Cron SQL atualizado
-O body do cron fica vazio `'{}'::jsonb` — a edge function lê `drive_kb_folder_map` de `site_settings` automaticamente.
+- The "Erro" status on the sync log for "Smart Print Bio Vitality - SDR" (and any other files)
+- Future syncs from both manual triggers and pg_cron will work correctly
 
----
+## Pre-requisite Reminder
 
-## O que NÃO muda
-- Extração de texto (Google Docs, DOCX, PDF) — inalterada
-- `ingest-knowledge-text` — inalterada  
-- Log `drive_kb_sync_log` — inalterado (mas `folder_name` agora mostrará o nome da categoria, ex: `"sdr"`)
-- Seções B (sync), C (log), D (cron) — inalteradas
-- `validCategories` no `ingest-knowledge-text` — inalterada
+The `GOOGLE_DRIVE_API_KEY` secret is still missing from Supabase Edge Function Secrets. You need to add it for the Drive file listing/export to work. The current error happens *after* the Drive API call succeeds, so either the key is set elsewhere or a test file was used. But for production, ensure this secret is configured.
 
----
-
-## Nota sobre a GOOGLE_DRIVE_API_KEY
-A chave ainda é necessária para chamar a Drive API (listar arquivos dentro de cada pasta, exportar Google Docs como texto, etc.). A mudança elimina apenas a necessidade de **listar subpastas da pasta raiz** — mas a leitura de arquivos dentro de cada pasta ainda usa a API.
-
-O usuário precisa adicionar a `GOOGLE_DRIVE_API_KEY` em **Supabase → Settings → Edge Functions Secrets** com o valor da nova chave (após revogar a exposta no chat). Isso é um pré-requisito independente da mudança de arquitetura.
