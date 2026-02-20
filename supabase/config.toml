@@ -143,3 +143,6 @@ verify_jwt = false
 
 [functions.heal-knowledge-gaps]
 verify_jwt = true
+
+[functions.ingest-knowledge-text]
+verify_jwt = false
