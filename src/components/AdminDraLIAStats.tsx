@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   BarChart,
@@ -42,7 +42,6 @@ import {
   XCircle,
   Sparkles,
   ChevronRight,
-  ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -124,11 +123,6 @@ interface GapDraft {
   created_at: string;
 }
 
-interface KnowledgeCategory {
-  id: string;
-  letter: string;
-  name: string;
-}
 
 const VERDICT_CONFIG: Record<string, { label: string; className: string }> = {
   hallucination: { label: "Alucinação", className: "bg-destructive/20 text-destructive border-destructive/30" },
@@ -187,8 +181,7 @@ export function AdminDraLIAStats() {
   const [healStep, setHealStep] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Record<string, string>>({});
+  const [autoHealCount, setAutoHealCount] = useState(0);
   const { toast } = useToast();
 
   const PAGE_SIZE = 10;
@@ -351,20 +344,18 @@ export function AdminDraLIAStats() {
   };
 
   const fetchDrafts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("knowledge_gap_drafts" as never)
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { count }] = await Promise.all([
+      supabase
+        .from("knowledge_gap_drafts" as never)
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("agent_embeddings" as never)
+        .select("id", { count: "exact", head: true })
+        .eq("metadata->>origin" as never, "auto-heal"),
+    ]);
     if (!error && data) setDrafts(data as unknown as GapDraft[]);
-  }, []);
-
-  const fetchCategories = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("knowledge_categories")
-      .select("id, letter, name")
-      .eq("enabled", true)
-      .order("letter");
-    if (!error && data) setCategories(data as KnowledgeCategory[]);
+    setAutoHealCount(count ?? 0);
   }, []);
 
   const updateDraftField = (draftId: string, field: keyof GapDraft, value: unknown) => {
@@ -432,7 +423,6 @@ export function AdminDraLIAStats() {
           excerpt: edited.draft_excerpt ?? draft.draft_excerpt,
           faqs: edited.draft_faq ?? draft.draft_faq,
           keywords: edited.draft_keywords ?? draft.draft_keywords,
-          category_id: selectedCategoryIds[draftId] ?? null,
         }),
       });
 
@@ -440,8 +430,8 @@ export function AdminDraLIAStats() {
       if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
 
       toast({
-        title: "✓ Artigo publicado e RAG atualizado",
-        description: `Slug: /${result.slug}`,
+        title: "✓ Conhecimento indexado na L.I.A.",
+        description: "O FAQ foi absorvido pela memória semântica da Dra. L.I.A.",
       });
       await fetchDrafts();
     } catch (err) {
@@ -485,8 +475,7 @@ export function AdminDraLIAStats() {
     fetchData();
     fetchRAGStats();
     fetchDrafts();
-    fetchCategories();
-  }, [fetchData, fetchRAGStats, fetchDrafts, fetchCategories]);
+  }, [fetchData, fetchRAGStats, fetchDrafts]);
 
   const handleResolve = async (gapId: string) => {
     setResolvingId(gapId);
@@ -1258,14 +1247,14 @@ export function AdminDraLIAStats() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Sparkles className="w-5 h-5 text-primary" />
-                Gerador de Rascunhos por IA
+                Curadoria de Memória da L.I.A.
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground">
-                    Analisa as <strong>{stats.pendingGapsCount}</strong> lacunas pendentes, agrupa semanticamente e gera rascunhos de FAQ prontos para revisão.
+                    Analisa as <strong>{stats.pendingGapsCount}</strong> lacunas pendentes, agrupa semanticamente e gera rascunhos de FAQ para revisão e indexação direta na memória semântica da Dra. L.I.A.
                   </p>
                 </div>
                 <Button
@@ -1281,6 +1270,15 @@ export function AdminDraLIAStats() {
                   Analisar Lacunas e Gerar Rascunhos
                 </Button>
               </div>
+
+              {autoHealCount > 0 && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-chart-2/5 border border-chart-2/20">
+                  <Database className="w-4 h-4 text-chart-2 shrink-0" />
+                  <p className="text-xs text-chart-2 font-medium">
+                    A L.I.A. já absorveu <strong>{autoHealCount}</strong> tópico(s) técnico(s) via Auto-Heal
+                  </p>
+                </div>
+              )}
 
               {healStep && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
@@ -1392,27 +1390,8 @@ export function AdminDraLIAStats() {
                         </div>
                       )}
 
-                      {/* Categoria */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Categoria da Base de Conhecimento</label>
-                        <Select
-                          value={selectedCategoryIds[draft.id] ?? ""}
-                          onValueChange={(val) => setSelectedCategoryIds(prev => ({ ...prev, [draft.id]: val }))}
-                        >
-                          <SelectTrigger className="text-sm">
-                            <SelectValue placeholder="Selecionar categoria..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.letter} — {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
 
-                      {/* Actions */}
+                       {/* Actions */}
                       <div className="flex gap-2 pt-2">
                         <Button
                           onClick={() => handleApproveDraft(draft.id)}
@@ -1424,7 +1403,7 @@ export function AdminDraLIAStats() {
                           ) : (
                             <CheckCircle2 className="w-4 h-4" />
                           )}
-                          Aprovar e Publicar
+                          Indexar na L.I.A.
                         </Button>
                         <Button
                           variant="ghost"
@@ -1471,18 +1450,8 @@ export function AdminDraLIAStats() {
                             : "text-muted-foreground border-muted-foreground/30"
                           }
                         >
-                          {draft.status === 'approved' ? '✓ Publicado' : '✗ Descartado'}
+                          {draft.status === 'approved' ? '✓ Memória L.I.A.' : '✗ Descartado'}
                         </Badge>
-                        {draft.status === 'approved' && draft.published_content_id && (
-                          <a
-                            href={`/base-conhecimento`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:text-primary/80"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-                        )}
                       </div>
                     </div>
                   ))}
