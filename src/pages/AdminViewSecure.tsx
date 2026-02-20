@@ -26,7 +26,6 @@ import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 import { ApostilaExport } from "@/components/ApostilaExport";
 import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
-import { AdminApostilaImporter } from "@/components/AdminApostilaImporter";
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -253,7 +252,6 @@ export default function AdminViewSecure() {
                 <AdminCatalog />
               </TabsContent>
               <TabsContent value="documents" className="space-y-6">
-                <AdminApostilaImporter />
                 <AdminDocumentsList />
               </TabsContent>
             </>
