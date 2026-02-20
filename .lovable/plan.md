@@ -1,86 +1,169 @@
 
-# Correção: Duplicatas no Catálogo após Sincronização Sistema A
+# Integração da Knowledge Base API (formato `ai_training`) na Dra. L.I.A.
 
-## Diagnóstico confirmado
+## O que o endpoint externo fornece
 
-O banco hoje tem **97 pares de produtos duplicados** com o mesmo nome mas dois `external_id` diferentes:
+O endpoint `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base?format=ai_training` retorna **dados ao vivo, sem cache**, com conteúdo estruturado em Markdown que cobre:
 
-- Registro antigo: `external_id = "53759012"` (ID numérico da Loja Integrada, inserido em nov/2025)
-- Registro novo: `external_id = "d6c2d3e9-..."` (UUID do Sistema A, inserido em fev/2026)
+```text
+PERFIL DA EMPRESA
+  - Nome, Descrição, Missão, Visão, Valores, Diferenciais
+  - Contato: telefone (16993831794), e-mail (comercial@smartdent.com.br)
+  - Endereço, horário, redes sociais, CNPJ, fundador (Marcelo Del Guerra)
+  - NPS Score: 96 | Rating Google: 5.0 | 150 reviews | 84 respostas NPS
 
-O upsert em `sync-knowledge-base` usa `onConflict: 'source,external_id'`. Como os dois IDs são diferentes, o Postgres nunca detecta o conflito e simplesmente **insere um segundo registro**. O problema é que o Sistema A agora envia um UUID próprio no campo `id`, mas o `li_product_id` (ID numérico da Loja Integrada) ainda está disponível no payload — mas não estava sendo usado como `external_id` na primeira rodada histórica.
+INSIGHTS DE CLIENTES (NPS)
+  - Produtos mais demandados: Protocolos Impressos (57), Impressão 3D (35), Cirurgia Guiada (35)
+  - Keywords validadas por demanda real
 
-## Plano de correção em 3 etapas
+VÍDEOS DA EMPRESA (YouTube + Instagram)
+  - 13 vídeos de depoimentos de clientes
+  - 11 vídeos de treinamentos/institucional
 
-### Etapa 1 — Limpeza cirúrgica das duplicatas (SQL + migração)
+PARCERIAS INTERNACIONAIS
+  - exocad (Alemanha), FDA (EUA), BLZ Dental (China), RAYSHAPE (China)
 
-Remover os registros **mais antigos** (os numéricos de nov/2025) para cada nome duplicado, preservando o registro UUID mais recente que tem os dados completos sincronizados do Sistema A.
+AVALIAÇÕES GOOGLE
+  - 62+ avaliações individuais com texto completo (5 estrelas)
 
-SQL de limpeza:
+CATEGORIAS E SUBCATEGORIAS
+  - 20+ categorias de produto com regras anti-alucinação específicas
 
-```sql
--- Deletar os registros numéricos antigos onde o mesmo nome já existe com UUID novo
-DELETE FROM system_a_catalog
-WHERE category = 'product'
-  AND external_id ~ '^[0-9]+$'  -- apenas IDs numéricos antigos
-  AND name IN (
-    SELECT name
-    FROM system_a_catalog
-    WHERE category = 'product'
-    GROUP BY name
-    HAVING COUNT(*) > 1
-  );
+LINKS E KEYWORDS ESTRATÉGICOS
+  - Centenas de keywords mapeadas para URLs da loja
+
+NAVEGAÇÃO E FOOTER
+  - Links de menu, redes sociais, localizações
 ```
 
-Isso remove os 97 registros numéricos duplicados, preservando os 97 registros UUID com dados completos de SEO, CTAs e metadados do Sistema A.
+## Como a L.I.A. funciona atualmente
 
-### Etapa 2 — Adicionar constraint de unicidade por nome + source (migração)
+A L.I.A. usa **exclusivamente** dados do banco Supabase local via RAG:
+1. `agent_embeddings` → busca vetorial (pgvector)
+2. `knowledge_contents` → artigos da base de conhecimento
+3. `knowledge_videos` → vídeos com transcrições
+4. `resins` → dados de resinas com instruções de processamento
+5. `parameter_sets` → parâmetros de impressão
 
-Adicionar um índice único parcial que previne futuras duplicatas de produtos com o mesmo nome e source, independente do `external_id`:
+**O que L.I.A. NÃO sabe hoje** (mas o endpoint externo tem):
+- Telefone, e-mail, endereço completo da Smart Dent
+- NPS, satisfação de clientes, produtos mais demandados
+- Parcerias (exocad, FDA, BLZ, RAYSHAPE)
+- Depoimentos reais de clientes
+- Regras anti-alucinação por categoria de produto
+- Links das redes sociais e navegação do site
 
-```sql
-CREATE UNIQUE INDEX IF NOT EXISTS idx_system_a_catalog_name_source_product
-ON system_a_catalog (source, name)
-WHERE category = 'product';
+## Estratégia de integração: Company Context no System Prompt
+
+A abordagem mais eficiente **não é indexar no RAG** (que usaria tokens de embedding para dados que raramente mudam). A estratégia correta é buscar o endpoint `ai_training` diretamente dentro da edge function `dra-lia`, **uma vez por request**, e injetar as informações mais importantes como contexto estático no `systemPrompt`. Isso garante:
+
+- **Dados ao vivo** (sem cache de 3h)
+- **Zero custo de reindexação** — não polui `agent_embeddings`
+- **Resposta imediata** — L.I.A. passa a conhecer contatos e empresa desde o primeiro request
+- **Sem tokens extras de embedding** — o conteúdo vai direto no system prompt
+
+### O que injetar (apenas o essencial — ~800 tokens)
+
+Extrair do JSON `ai_training` apenas o bloco de empresa + contatos + NPS:
+
+```text
+## CONTEXTO DA EMPRESA (Smart Dent)
+- Telefone: (16) 99383-1794
+- E-mail: comercial@smartdent.com.br
+- WhatsApp: https://wa.me/5516993831794
+- Endereço: Dr. Procópio de Toledo Malta, 62 — São Carlos, SP
+- Horário: Seg–Sex 8h às 18h
+- Fundada em: 2009 | CEO: Marcelo Del Guerra
+- NPS: 96 | Google: 5.0 ⭐ (150 reviews)
+- Parcerias: exocad, RayShape, BLZ Dental, Medit
+- Loja: https://loja.smartdent.com.br/
+- Parâmetros: https://parametros.smartdent.com.br/
+- Cursos: https://smartdentacademy.astronmembers.com/
 ```
 
-Isso garante que mesmo que o `external_id` mude entre sincronizações, o `upsert` nunca criará um segundo registro para o mesmo nome de produto.
+### Fluxo de execução proposto
 
-### Etapa 3 — Corrigir `sync-knowledge-base` para fallback por nome
+```text
+Request chega em dra-lia
+       │
+       ├── [NOVO] Fetch company context do endpoint ai_training
+       │          └── Timeout: 3s (se falhar, usa fallback hardcoded)
+       │
+       ├── Busca RAG (agent_embeddings / FTS / ILIKE)
+       │
+       ├── Busca parâmetros (parameter_sets)
+       │
+       └── Monta systemPrompt
+              └── [NOVO] Inclui bloco COMPANY CONTEXT no topo do systemPrompt
+```
 
-No arquivo `supabase/functions/sync-knowledge-base/index.ts`, alterar a lógica de `syncProductsCatalog` para que o upsert use `onConflict: 'source,name'` (em vez de `source,external_id`) quando a `category` é `product`.
+## Implementação técnica
 
-Mudança nas linhas 548-550:
+### Arquivo único: `supabase/functions/dra-lia/index.ts`
 
+**1. Nova constante no topo do arquivo:**
 ```typescript
-// ANTES
-const { error: upsertError } = await supabase
-  .from('system_a_catalog')
-  .upsert(catalogItem, { onConflict: 'source,external_id' });
-
-// DEPOIS — produtos conflitam por nome, não por external_id (que pode mudar)
-const conflictColumn = productCategory === 'product' ? 'source,name' : 'source,external_id';
-const { error: upsertError } = await supabase
-  .from('system_a_catalog')
-  .upsert(catalogItem, { onConflict: conflictColumn });
+const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
 ```
 
-Isso garante que sincronizações futuras sempre atualizem o registro existente pelo nome, sem criar duplicatas.
+**2. Nova função `fetchCompanyContext()` (antes do `serve()`):**
 
-## Impacto
+A função faz um fetch com timeout de 3 segundos ao endpoint `?format=ai_training` (texto plano, sem necessidade de parsear JSON). Extrai por regex simples os campos:
+- `**Telefone de Contato:** (\S+)` → telefone
+- `**Email de Contato:** (\S+)` → e-mail
+- `**NPS Score:** (\d+)` → NPS
+- `**Rating:** ([^\n]+)` → rating Google
+- `**Endereço Completo:**[\s\S]+?(?=\*\*)` → endereço
+- `**Horário de Funcionamento:**[\s\S]+?(?=\n\n)` → horário
 
-| Aspecto | Antes | Depois |
+Retorna uma string formatada para injeção no systemPrompt. Se o fetch falhar (timeout ou erro de rede), retorna um bloco hardcoded com os valores já conhecidos — garantindo zero impacto em produção.
+
+**3. Modificação no `serve()` — antes das buscas RAG:**
+```typescript
+const companyContext = await fetchCompanyContext();
+```
+
+**4. Modificação no `systemPrompt` — novo bloco antes das 17 diretrizes:**
+```typescript
+### 🏢 DADOS DA EMPRESA (fonte: sistema ao vivo)
+${companyContext}
+
+INSTRUÇÃO ESPECIAL: Você está ONLINE e ativa. Quando perguntarem "você está online?", 
+"você funciona?", "você está ativa?" — responda afirmativamente com o horário de atendimento 
+e ofereça o WhatsApp como complemento humano.
+
+Para perguntas sobre contato comercial, retorne SEMPRE:
+- 📞 WhatsApp: (16) 99383-1794
+- ✉️ E-mail: comercial@smartdent.com.br
+- 🕐 Horário: Segunda a Sexta, 8h às 18h
+```
+
+**5. Complementar SUPPORT_FALLBACK:** Hoje o fallback de suporte hardcoda o número. Com o `companyContext` disponível, os dados ficam sempre atualizados.
+
+## Casos de uso imediatos que passam a funcionar
+
+| Pergunta do usuário | Situação atual | Após implementação |
 |---|---|---|
-| Produtos duplicados | 97 pares (194 registros redundantes) | 0 |
-| Unicidade | Apenas por `source+external_id` | Também por `source+name` para produtos |
-| Sincronizações futuras | Criam duplicatas | Atualizam o existente |
-| Dados preservados | Registros UUID com CTAs e SEO | Todos mantidos |
+| "Você está online?" | Fallback genérico | "Sim! Estou ativa e pronta para ajudar..." |
+| "Qual o telefone de contato?" | "Não tenho essa informação" | "(16) 99383-1794 / WhatsApp" |
+| "Como entrar em contato com o comercial?" | Resposta vaga | E-mail + WhatsApp + horário |
+| "A Smart Dent tem parceria com a exocad?" | "Não sei" | "Sim, desde 2012..." |
+| "Qual o NPS de vocês?" | "Não sei" | "Nosso NPS é 96..." |
+| "Vocês atendem em todo o Brasil?" | "Não sei" | "Sim, com presença em SP, RJ, MG..." |
+
+## Timeout e resiliência
+
+A função `fetchCompanyContext()` usa `AbortSignal.timeout(3000)`:
+- Se o endpoint externo responder em < 3s → dados ao vivo ✓
+- Se demorar > 3s ou falhar → usa fallback hardcoded com dados estáticos conhecidos ✓
+- Zero risco de quebrar o fluxo principal da L.I.A. ✓
 
 ## Arquivos modificados
 
-| Arquivo | Mudança |
+| Arquivo | Tipo de mudança |
 |---|---|
-| Migração SQL | Limpar os 97 duplicatas numéricas + criar índice único `source,name` para `category='product'` |
-| `supabase/functions/sync-knowledge-base/index.ts` | Alterar `onConflict` para `source,name` quando `category = 'product'` |
+| `supabase/functions/dra-lia/index.ts` | + `EXTERNAL_KB_URL` constante + `fetchCompanyContext()` + injeção no systemPrompt |
 
-Nenhuma mudança no frontend necessária. Após a correção, o botão "Sincronizar Agora" funcionará sem criar duplicatas.
+Nenhuma migração SQL. Nenhuma mudança no frontend. Nenhuma nova edge function.
+
+O deploy é automático após a edição do arquivo.
