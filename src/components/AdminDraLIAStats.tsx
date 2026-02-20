@@ -47,6 +47,8 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AdminApostilaImporter } from "@/components/AdminApostilaImporter";
+
 
 interface DailyData {
   day: string;
@@ -716,6 +718,10 @@ export function AdminDraLIAStats() {
                 {drafts.filter(d => d.status === 'draft').length}
               </Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="alimentador" className="flex-1 sm:flex-none gap-1">
+            <Brain className="w-4 h-4" />
+            Alimentador
           </TabsTrigger>
         </TabsList>
 
@@ -1570,6 +1576,11 @@ export function AdminDraLIAStats() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* ── TAB: Alimentador ───────────────────────────────────────────── */}
+        <TabsContent value="alimentador" className="mt-6">
+          <AdminApostilaImporter />
         </TabsContent>
       </Tabs>
     </div>
