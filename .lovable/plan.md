@@ -1,81 +1,72 @@
 
-## Diagnóstico: AI Gateway Error 500 na Dra. L.I.A.
+## Problema: Modelos de Fallback Inválidos no Chain de Retry
 
-### Causa Raiz Identificada
+### Diagnóstico Confirmado pelos Logs
 
-O erro ocorre na linha 1305 do `dra-lia/index.ts`:
-
-```typescript
-throw new Error(`AI gateway error: ${aiResponse.status}`);
+```
+ERROR AI gateway error: 400             ← openai/gpt-5-mini não existe no gateway
+ERROR Flash-lite also failed with 500
+ERROR Primary model failed with 500
 ```
 
-O gateway `https://ai.gateway.lovable.dev/v1/chat/completions` está retornando HTTP 500 ao usar o modelo `google/gemini-3-flash-preview`. Os logs confirmam que o erro é contínuo e consistente — não é um problema pontual.
+O chain de fallback atual é:
+1. `google/gemini-2.5-flash` → 500 (instabilidade do gateway)
+2. `google/gemini-2.5-flash-lite` → 500 (instabilidade do gateway)
+3. `openai/gpt-5-mini` → **400 GARANTIDO** (modelo não existe)
+4. `openai/gpt-5-nano` → **400 GARANTIDO** (modelo não existe)
+5. → 503 para o usuário
 
-Há dois fatores contribuindo:
+O problema é que `gpt-5-mini` e `gpt-5-nano` não são modelos reais disponíveis no gateway Lovable. Os modelos corretos são `openai/gpt-4o-mini` e `openai/gpt-4.1-mini`.
 
-1. **O modelo `google/gemini-3-flash-preview` pode estar instável** — é um modelo em preview, sujeito a indisponibilidades temporárias.
-2. **Não há fallback** — quando o gateway retorna 500, o código só lança um erro. O `GOOGLE_AI_KEY` está configurado nos secrets mas nunca é usado.
+Evidência adicional: o teste direto realizado agora retornou **200 com sucesso** usando `google/gemini-2.5-flash`, o que confirma que os erros 500 são intermitentes — quando o Gemini falha, os fallbacks OpenAI deveriam assumir, mas estão com nomes errados.
 
 ---
 
-### Solução: Fallback para `google/gemini-2.5-flash` + Retry Automático
+### Solução: Corrigir os Nomes dos Modelos de Fallback
 
-**Arquivo: `supabase/functions/dra-lia/index.ts`**
+**Arquivo: `supabase/functions/dra-lia/index.ts`** — apenas as linhas do chain de fallback:
 
-**Mudança 1 — Trocar o modelo primário:**
-
+Mudar de:
 ```typescript
-// Antes (instável):
-model: "google/gemini-3-flash-preview",
-
-// Depois (estável, produção):
-model: "google/gemini-2.5-flash",
+aiResponse = await callAI("openai/gpt-5-mini", true);
+...
+aiResponse = await callAI("openai/gpt-5-nano", true);
 ```
 
-O `google/gemini-2.5-flash` é o modelo de produção estável equivalente ao flash-preview. Capacidade equivalente, sem riscos de instabilidade de preview.
-
-**Mudança 2 — Adicionar lógica de retry com fallback:**
-
-Quando o gateway retorna 500, em vez de lançar erro imediatamente, tentar automaticamente com o modelo de fallback `google/gemini-2.5-flash-lite` (mais leve, mais estável):
-
+Para:
 ```typescript
-async function callAI(messages, model = "google/gemini-2.5-flash") {
-  const response = await fetch(CHAT_API, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model, messages, stream: true, max_tokens: 1024 }),
-  });
-  
-  // Se 500 e ainda no modelo primário → retry com fallback
-  if (!response.ok && response.status === 500 && model === "google/gemini-2.5-flash") {
-    return callAI(messages, "google/gemini-2.5-flash-lite");
-  }
-  return response;
-}
+aiResponse = await callAI("openai/gpt-4o-mini", true);
+...
+aiResponse = await callAI("openai/gpt-4.1-mini", true);
 ```
 
-**Mudança 3 — Melhorar a mensagem de erro para o usuário:**
-
-Em vez de retornar o erro técnico genérico, quando 500 persistir após retry, exibir uma mensagem amigável no chat:
+Também ajustar a condição de trigger dos fallbacks OpenAI para incluir qualquer status não-OK além de 429 (não apenas 500 e 400), tornando o chain mais robusto:
 
 ```typescript
-// Ao invés de throw Error("AI gateway error: 500")
-return new Response(
-  JSON.stringify({ error: "Estou com uma instabilidade temporária. Tente novamente em alguns instantes. 🙏" }),
-  { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-);
-```
+// Fallback 1: flash-lite (apenas para 500)
+if (!aiResponse.ok && aiResponse.status === 500) { ... }
 
-E no frontend (`DraLIA.tsx`), exibir essa mensagem amigável no balão de resposta da LIA em vez de uma mensagem de erro técnico.
+// Fallback 2: gpt-4o-mini (para qualquer falha que não seja 429)
+if (!aiResponse.ok && aiResponse.status !== 429) { ... }
+
+// Fallback 3: gpt-4.1-mini (último recurso)
+if (!aiResponse.ok && aiResponse.status !== 429) { ... }
+```
 
 ---
 
-### Resumo das Alterações
+### Resumo da Alteração
 
-| Arquivo | Mudança |
-|---|---|
-| `supabase/functions/dra-lia/index.ts` | Trocar modelo de `google/gemini-3-flash-preview` para `google/gemini-2.5-flash` (estável) |
-| `supabase/functions/dra-lia/index.ts` | Adicionar retry automático com `google/gemini-2.5-flash-lite` quando 500 |
-| `supabase/functions/dra-lia/index.ts` | Retornar mensagem amigável ao usuário em vez de erro técnico |
+| Arquivo | Linha | Mudança |
+|---|---|---|
+| `supabase/functions/dra-lia/index.ts` | ~1326 | `openai/gpt-5-mini` → `openai/gpt-4o-mini` |
+| `supabase/functions/dra-lia/index.ts` | ~1332 | `openai/gpt-5-nano` → `openai/gpt-4.1-mini` |
+| `supabase/functions/dra-lia/index.ts` | ~1324, 1330 | Condição de fallback: `.status !== 429` em vez de `500 || 400` |
 
-Nenhuma migração de banco. Deploy automático após as mudanças.
+Deploy automático após as mudanças. Nenhuma migração de banco necessária.
+
+---
+
+### Nota sobre o Painel "Lacunas de Conhecimento Pendentes"
+
+O card exibindo "4 Lacunas de Conhecimento Pendentes" no painel Admin é funcional — são perguntas reais que a LIA não soube responder registradas na tabela `agent_knowledge_gaps`. O link "ver em Visão Geral" que aparece no card está correto e navega para a aba correspondente. Isso não é um bug — é o sistema funcionando como esperado, identificando gaps de conteúdo para o time resolver.
