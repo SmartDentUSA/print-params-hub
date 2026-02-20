@@ -1,120 +1,135 @@
 
-# Corrigir: "Quero comprar um RayShape" interceptado como resposta de marca
+# Menu de Roteamento Inicial para a Dra. L.I.A.
 
-## Diagnóstico preciso do bug atual
+## A ideia é boa — e vai resolver o problema na raiz
 
-A mensagem `"Quero comprr um RayShape o que ela tem de tão especial?"` **passa pelo intent-break guard** porque nenhum dos 5 padrões em `DIALOG_BREAK_PATTERNS` a captura. Depois disso, ela entra no **bloco de fallback regex** (linha 588):
+Os bugs recorrentes de interceptação (parâmetros de impressora sendo ativados por perguntas gerais) existem porque o RAG não sabe antecipadamente **qual o contexto da conversa**. Com um menu inicial, o usuário declara sua intenção antes de digitar qualquer coisa, e o backend pode usar isso como filtro prioritário.
+
+## Como vai funcionar
+
+### Fluxo completo
+
+```text
+1. Usuário abre o chat
+2. L.I.A. exibe mensagem de boas-vindas + 4 botões de opção
+3. Usuário clica em um botão (ex: "Parâmetros de Impressão")
+4. O clique é tratado como mensagem enviada automaticamente
+5. O backend recebe a mensagem + um campo "topic_context" na sessão
+6. O RAG prioriza/filtra fontes baseado no contexto declarado
+7. Conversa flui normalmente com contexto pré-definido
+```
+
+### As 4 opções do menu
 
 ```
-if (liaAskedBrand && !isOffTopicFromDialog(message)) {
-  const brand = await findBrandInMessage(allBrands, message)
-  → encontra "RayShape" na lista de marcas
-  → retorna state: "brand_not_found" (porque RayShape não está na tabela de IMPRESSORAS)
-  → "Não encontrei a marca Quero comprr um RayShape..."
+🖨️  Parâmetros de Impressão
+     "Configurações de resinas e impressoras 3D"
+
+💼  Informações Comerciais
+     "Preços, pedidos, contato e parceiros"
+
+🔬  Produtos e Resinas
+     "Catálogo, características e indicações"
+
+🛠️  Suporte Técnico
+     "Problemas com equipamentos ou materiais"
 ```
 
-O `liaAskedBrand` fica verdadeiro porque a última mensagem da L.I.A. continha "qual marca" — residual da conversa anterior sobre parâmetros. O guard `isOffTopicFromDialog` não bloqueia porque **intenção de compra não está nos padrões**.
+## Arquivos a modificar
 
-### Por que o guard de sessão (linha 484) não ajudou
+### 1. `src/components/DraLIA.tsx` — Menu de boas-vindas com botões
 
-O guard de sessão foi adicionado corretamente, mas ele só atua quando `currentState` é um dos estados ativos (`brand_not_found`, `needs_brand` etc.). Neste caso, **o currentState era `idle`** — o fallback de regex operou sem proteção.
+**Novo estado `topicSelected`** (boolean) — controla se o menu já foi exibido/selecionado.
 
-## Solução: 2 adições cirúrgicas
+**Novo estado `topicContext`** — string que é passada junto com cada mensagem para o backend.
 
-### 1. Expandir `DIALOG_BREAK_PATTERNS` com padrões de intenção de compra e curiosidade de produto
+**Mensagem de boas-vindas especial** — em vez do texto atual, a primeira mensagem exibe um componente especial com os 4 botões:
 
-Adicionar 3 novos padrões ao array existente (linhas 407-418):
+```tsx
+// Mensagem welcome com botões de opção (só aparece antes da primeira escolha)
+{msg.id === 'welcome' && !topicSelected && (
+  <div className="mt-3 grid grid-cols-2 gap-2">
+    {TOPIC_OPTIONS.map((opt) => (
+      <button
+        key={opt.id}
+        onClick={() => handleTopicSelect(opt)}
+        className="flex flex-col items-start p-2 rounded-xl border border-gray-200 
+                   bg-white hover:border-[#1e3a5f] hover:bg-blue-50 
+                   transition-all text-left text-xs"
+      >
+        <span className="text-base mb-1">{opt.emoji}</span>
+        <span className="font-semibold text-gray-800 leading-tight">{opt.label}</span>
+        <span className="text-gray-400 leading-tight mt-0.5">{opt.description}</span>
+      </button>
+    ))}
+  </div>
+)}
+```
 
-**Padrão A — Intenção de compra/aquisição:**
+**`handleTopicSelect(opt)`** — ao clicar:
+1. Define `topicSelected = true` e `topicContext = opt.id`
+2. Armazena o contexto no `sessionStorage` para persistência
+3. Envia automaticamente uma mensagem curta como usuário: `opt.userMessage` (ex: "Quero saber sobre parâmetros de impressão")
+4. O texto da mensagem é enviado via `sendMessage` normalmente — o usuário vê a escolha refletida no chat
+
+**Persistência no `sessionStorage`** — junto com o `session_id`, salvar o `topic_context` para não perder se o chat fechar/abrir.
+
+**Campo `topic_context` no body da requisição** — cada chamada ao backend inclui:
+```json
+{ "message": "...", "topic_context": "parameters" }
+```
+
+### 2. `supabase/functions/dra-lia/index.ts` — Usar topic_context no roteamento
+
+**Extrair `topic_context` do body:**
 ```typescript
-/\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
+const { message, history = [], lang = "pt-BR", session_id, topic_context } = await req.json();
 ```
-Captura: "quero comprar", "quero ver", "quero conhecer", "quero saber sobre", "tenho interesse", "como comprar", "onde encontrar"
 
-**Padrão B — Perguntas sobre característica de produto ("o que tem de especial", "quais as vantagens"):**
+**Usar o contexto para ajustar o comportamento em 3 pontos:**
+
+**Ponto A — Contexto de parâmetros já declarado:** Se `topic_context === "parameters"`, ativar diretamente o fluxo de diálogo de parâmetros sem precisar detectar `isPrinterParamQuestion`:
 ```typescript
-/\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
-```
-Captura: "o que tem de especial", "o que ela tem de", "quais as vantagens", "quais os diferenciais", "para que serve", "é indicada para"
-
-**Padrão C — Perguntas sobre produto específico com artigo ("sobre a RayShape", "sobre o scanner"):**
-```typescript
-/\b(sobre (a|o|as|os) [A-ZÀ-Ÿa-zà-ÿ]|fala(r)? (mais |um pouco )?sobre|quero saber sobre|me conta sobre)\b/i,
-```
-Captura: "sobre a RayShape", "sobre o scanner", "falar sobre", "me conta sobre"
-
-### 2. Adicionar guard idêntico ao fallback `liaAskedBrand` para o caso `idle`
-
-O problema raiz é que o fallback de regex (linhas 551-599) pode ativar mesmo quando `currentState === "idle"` se a última mensagem da L.I.A. continha palavras como "marca" e "qual". Adicionar uma verificação adicional antes de todo o bloco de fallback:
-
-```typescript
-// ── Fallback regex: só ativa se último estado era de diálogo ──
-// Se sessão está idle e mensagem é off-topic, não usar fallback
-if (currentState === "idle" && isOffTopicFromDialog(message)) {
-  return { state: "not_in_dialog" };
+// Se usuário já declarou que quer parâmetros, iniciar diálogo diretamente
+if (topic_context === "parameters" && dialogState.state === "not_in_dialog") {
+  const brands = await fetchAllBrands(supabase);
+  await persistState("needs_brand", {});
+  // Retorna needs_brand sem precisar detectar palavras-chave
 }
 ```
 
-Essa verificação vai logo antes da linha 552 (`const lastAssistantMsg = ...`), garantindo que perguntas gerais nunca entrem no bloco de fallback.
+**Ponto B — Contexto comercial:** Se `topic_context === "commercial"`, adicionar instrução ao system prompt para priorizar dados de contato, loja e parcerias, e suprimir sugestões de parâmetros técnicos.
 
-## Arquivo modificado: `supabase/functions/dra-lia/index.ts`
+**Ponto C — Contexto de suporte técnico:** Se `topic_context === "support"`, redirecionar diretamente para WhatsApp de suporte sem passar pelo RAG (já existe o `SUPPORT_FALLBACK` — só acionar diretamente).
 
-### Mudança 1 — Expandir `DIALOG_BREAK_PATTERNS` (linhas 407-418)
-
-```typescript
-const DIALOG_BREAK_PATTERNS = [
-  // Perguntas sobre a empresa / pessoas
-  /\b(CEO|fundador|dono|sócio|diretor|quem (criou|fundou|é o))\b/i,
-  // Comandos de reset explícitos
-  /\b(cancelar|esquece|esqueça|outra (pergunta|coisa)|muda(ndo)? de assunto|não (quero|preciso) mais|sair)\b/i,
-  // Perguntas gerais iniciando com "o que é", "como funciona", etc.
-  /^(o que (é|são)|qual (é|a diferença)|como (funciona|usar|se usa)|me fala sobre|me explica)/i,
-  // Referências à empresa / identidade SmartDent
-  /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
-  // Perguntas sobre categorias de produto que iniciam novo contexto
-  /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
-
-  // ── NOVOS (cobertura de intenção de compra e curiosidade de produto) ──
-
-  // Intenção de compra / interesse em produto
-  /\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
-  // Perguntas sobre características do produto
-  /\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
-  // "sobre a X", "me conta sobre", "fala mais sobre"
-  /\b(fala(r)?(?: mais| um pouco)? sobre|me conta(r)? (mais )?sobre|quero saber (mais )?sobre)\b/i,
-];
+**Ponto D — Instrução no system prompt:** Para todos os contextos, adicionar ao system prompt:
+```
+CONTEXTO DECLARADO PELO USUÁRIO: [label da opção selecionada]
+Priorize respostas relacionadas a este tema. Se a pergunta sair deste contexto, responda normalmente mas mantenha o foco no tema declarado.
 ```
 
-### Mudança 2 — Guard no início do bloco de fallback (antes da linha 552)
+### Detalhes de UX importantes
 
-```typescript
-// ── Fallback guard: se sessão idle e mensagem claramente off-topic → não inferir diálogo do histórico ──
-if (currentState === "idle" && isOffTopicFromDialog(message)) {
-  return { state: "not_in_dialog" };
-}
+- **Botões desaparecem** após a seleção — a mensagem welcome se transforma em texto normal
+- **O usuário pode digitar livremente** sem selecionar — se não selecionar nenhuma opção e digitar, o menu desaparece e funciona como hoje (backward compatible)
+- **Botão "Voltar ao menu"** — um link discreto no rodapé do chat permite resetar o contexto e ver o menu novamente
+- **Mensagem confirmação** — após selecionar, L.I.A. responde com contexto: "Perfeito! Vou te ajudar com **parâmetros de impressão**. Qual impressora você está usando?"
 
-// ── Fallback: regex on last assistant message (resilience for legacy sessions) ──
-const lastAssistantMsg = ...
-```
+## Resumo técnico das mudanças
 
-## Tabela de resultado esperado
-
-| Mensagem | Estado sessão | Antes | Depois |
-|---|---|---|---|
-| "Quero comprar um RayShape" | idle | Brand not found (RayShape) | RAG responde sobre o produto |
-| "O que ela tem de especial?" | idle | Brand not found | RAG responde sobre diferenciais |
-| "Quero saber mais sobre a Edge Mini" | idle | Possível erro | RAG responde |
-| "Phrozen" (respondendo à pergunta de marca) | needs_brand | Detecta marca ✅ | Continua funcionando ✅ |
-| "quero comprar uma Phrozen" | needs_brand | Detecta Phrozen como marca ✅ | **REGRESSÃO?** NÃO — o guard de sessão da linha 484 não checa isOffTopicFromDialog para state=needs_brand neste caminho... na verdade SIM, o guard na linha 484 ativa primeiro e reseta. Mas queremos que "quero comprar Phrozen" enquanto em needs_brand CONTINUE detectando Phrozen como marca... |
-
-### Atenção — caso ambíguo: "quero comprar Phrozen" enquanto em `needs_brand`
-
-Se o usuário está no meio do diálogo (`needs_brand`) e digita "quero comprar uma Phrozen", o guard de sessão (linha 484) vai ativar `isOffTopicFromDialog` e resetar. Isso é **correto** — a L.I.A. vai ir ao RAG e mostrar info sobre a Phrozen, que é mais útil do que entrar no fluxo de parâmetros. O diálogo de parâmetros é iniciado explicitamente pela L.I.A., não pelo usuário.
-
-## Arquivos modificados
-
-| Arquivo | Mudanças |
+| Arquivo | Mudança |
 |---|---|
-| `supabase/functions/dra-lia/index.ts` | + 3 novos padrões em `DIALOG_BREAK_PATTERNS` + guard no início do bloco de fallback de regex |
+| `src/components/DraLIA.tsx` | + estados `topicSelected`, `topicContext` + constante `TOPIC_OPTIONS` + componente de botões na mensagem welcome + `handleTopicSelect()` + campo `topic_context` no body da requisição + botão "Novo assunto" no rodapé |
+| `supabase/functions/dra-lia/index.ts` | + extração de `topic_context` do body + roteamento direto para parâmetros quando `topic_context === "parameters"` + instrução de contexto no system prompt + atalho de suporte quando `topic_context === "support"` |
 
-Nenhuma migração SQL. Deploy automático. 2 edições pontuais no mesmo arquivo.
+Nenhuma migração SQL.
+
+## Resultado esperado
+
+| Cenário | Comportamento |
+|---|---|
+| Usuário clica "Parâmetros de Impressão" | L.I.A. pergunta diretamente "Qual impressora você usa?" sem ambiguidade |
+| Usuário clica "Informações Comerciais" | RAG foca em contato, loja, parcerias — sem acionar fluxo de parâmetros |
+| Usuário clica "Suporte Técnico" | Vai direto para mensagem de WhatsApp de suporte |
+| Usuário digita sem clicar | Funciona exatamente como hoje (zero regressão) |
+| Usuário pergunta "CEO" sem selecionar | Funciona como hoje com intent-break guard |
