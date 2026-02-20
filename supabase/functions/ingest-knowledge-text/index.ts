@@ -96,7 +96,7 @@ serve(async (req) => {
       });
     }
 
-    const validCategories = ["sdr", "comercial", "workflow", "suporte", "faq", "objecoes", "onboarding", "geral"];
+    const validCategories = ["sdr", "comercial", "workflow", "suporte", "faq", "objecoes", "onboarding", "geral", "leads", "clientes", "campanhas", "pos_venda"];
     const results: Array<{ title: string; saved: boolean; chunks_created: number; indexed: number; error?: string }> = [];
     let totalSaved = 0;
     let totalChunks = 0;

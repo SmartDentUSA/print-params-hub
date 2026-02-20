@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Upload, Database, Sparkles, Brain, CheckCircle, AlertCircle, FileJson,
   ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Zap, BookOpen, Activity,
-  FileUp, FileText, Loader2,
+  FileUp, FileText, Loader2, HardDrive, FolderOpen, Clock, Copy, FolderSync,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -72,6 +72,10 @@ const CATEGORIES = [
   { value: "faq", label: "FAQ" },
   { value: "objecoes", label: "Objeções" },
   { value: "onboarding", label: "Onboarding" },
+  { value: "leads", label: "Leads" },
+  { value: "clientes", label: "Clientes" },
+  { value: "campanhas", label: "Campanhas" },
+  { value: "pos_venda", label: "Pós-Venda" },
   { value: "geral", label: "Geral" },
 ];
 
@@ -157,6 +161,15 @@ export function AdminApostilaImporter() {
   const [docSource, setDocSource] = useState("");
   const [docIndexing, setDocIndexing] = useState(false);
   const [docResults, setDocResults] = useState<KBResult[]>([]);
+
+  // ── Cérebro Externo (Google Drive) state ──────────────────────────────────
+  const [driveFolderId, setDriveFolderId] = useState("");
+  const [driveSourceLabel, setDriveSourceLabel] = useState("Drive LIA-Cérebro");
+  const [driveSyncing, setDriveSyncing] = useState(false);
+  const [driveSyncResult, setDriveSyncResult] = useState<any>(null);
+  const [driveSyncLog, setDriveSyncLog] = useState<any[]>([]);
+  const [driveLogLoading, setDriveLogLoading] = useState(false);
+  const [cronCopied, setCronCopied] = useState(false);
 
   // ── Apostila helpers ──────────────────────────────────────────────────────
   const updateStep = (id: string, patch: Partial<Step>) => {
@@ -415,6 +428,92 @@ export function AdminApostilaImporter() {
     }
   };
 
+  // ── Cérebro Externo helpers ───────────────────────────────────────────────
+  const loadSavedDriveConfig = async () => {
+    const { data } = await supabase
+      .from("site_settings")
+      .select("key, value")
+      .in("key", ["drive_kb_root_folder_id", "drive_kb_source_label"]);
+    for (const row of data || []) {
+      if (row.key === "drive_kb_root_folder_id" && row.value) setDriveFolderId(row.value);
+      if (row.key === "drive_kb_source_label" && row.value) setDriveSourceLabel(row.value);
+    }
+  };
+
+  const saveDriveConfig = async () => {
+    const entries = [
+      { key: "drive_kb_root_folder_id", value: driveFolderId },
+      { key: "drive_kb_source_label", value: driveSourceLabel },
+    ];
+    const { error } = await supabase.from("site_settings").upsert(entries, { onConflict: "key" });
+    if (error) {
+      toast({ title: "Erro ao salvar configuração", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Configuração salva!", description: "ID da pasta e rótulo gravados." });
+    }
+  };
+
+  const syncDriveNow = async () => {
+    if (!driveFolderId.trim()) {
+      toast({ title: "Configure o ID da pasta raiz primeiro", variant: "destructive" });
+      return;
+    }
+    setDriveSyncing(true);
+    setDriveSyncResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-google-drive-kb", {
+        body: { root_folder_id: driveFolderId, source_label: driveSourceLabel },
+      });
+      if (error) throw new Error(error.message);
+      setDriveSyncResult(data);
+      toast({
+        title: "Sync concluído!",
+        description: `${data.processed} processados · ${data.skipped} ignorados · ${data.errors} erros`,
+      });
+      loadDriveLog();
+    } catch (e: any) {
+      toast({ title: "Erro no sync", description: e.message, variant: "destructive" });
+    } finally {
+      setDriveSyncing(false);
+    }
+  };
+
+  const loadDriveLog = async () => {
+    setDriveLogLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("drive_kb_sync_log")
+        .select("*")
+        .order("processed_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setDriveSyncLog(data || []);
+    } catch (e: any) {
+      toast({ title: "Erro ao carregar log", description: e.message, variant: "destructive" });
+    } finally {
+      setDriveLogLoading(false);
+    }
+  };
+
+  const copyCronSQL = () => {
+    const sql = `-- Execute UMA VEZ no SQL Editor do Supabase (Live) para ativar sync automático a cada 12h
+select cron.schedule(
+  'sync-google-drive-kb-12h',
+  '0 */12 * * *',
+  $$
+  select net.http_post(
+    url := 'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/sync-google-drive-kb',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk"}'::jsonb,
+    body := '{}'::jsonb
+  ) as request_id;
+  $$
+);`;
+    navigator.clipboard.writeText(sql).then(() => {
+      setCronCopied(true);
+      setTimeout(() => setCronCopied(false), 3000);
+    });
+  };
+
   // ── Upload helpers ────────────────────────────────────────────────────────
   const extractDocxText = useCallback(async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -541,18 +640,22 @@ export function AdminApostilaImporter() {
 
       <CardContent>
         <Tabs defaultValue="apostila">
-          <TabsList className="w-full mb-6">
-            <TabsTrigger value="apostila" className="flex-1 gap-2">
-              <FileJson className="w-4 h-4" />
+          <TabsList className="w-full mb-6 grid grid-cols-4">
+            <TabsTrigger value="apostila" className="gap-1.5 text-xs">
+              <FileJson className="w-3.5 h-3.5" />
               Apostila JSON
             </TabsTrigger>
-            <TabsTrigger value="cerebro" className="flex-1 gap-2">
-              <Brain className="w-4 h-4" />
-              Cérebro da L.I.A.
+            <TabsTrigger value="cerebro" className="gap-1.5 text-xs">
+              <Brain className="w-3.5 h-3.5" />
+              Cérebro L.I.A.
             </TabsTrigger>
-            <TabsTrigger value="upload" className="flex-1 gap-2">
-              <FileUp className="w-4 h-4" />
-              Upload Documento
+            <TabsTrigger value="upload" className="gap-1.5 text-xs">
+              <FileUp className="w-3.5 h-3.5" />
+              Upload Doc
+            </TabsTrigger>
+            <TabsTrigger value="drive" className="gap-1.5 text-xs" onClick={loadSavedDriveConfig}>
+              <HardDrive className="w-3.5 h-3.5" />
+              Cérebro Externo
             </TabsTrigger>
           </TabsList>
 
@@ -1103,6 +1206,209 @@ export function AdminApostilaImporter() {
                 )}
               </>
             )}
+          </TabsContent>
+
+          {/* ── ABA 4: Cérebro Externo (Google Drive) ───────────────────── */}
+          <TabsContent value="drive" className="space-y-6">
+
+            {/* Seção A — Configuração */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <h3 className="font-medium text-sm flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-primary" />
+                A — Configuração da Pasta Raiz
+              </h3>
+
+              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1.5">
+                <p className="font-medium text-foreground">Estrutura esperada no Google Drive:</p>
+                <pre className="text-xs overflow-x-auto leading-relaxed">
+{`📁 Pasta Raiz (compartilhada por link)
+  ├── 📁 SDR
+  ├── 📁 Comercial
+  ├── 📁 Leads
+  ├── 📁 Clientes
+  ├── 📁 Campanhas
+  ├── 📁 Pós-Venda
+  ├── 📁 FAQ
+  ├── 📁 Objeções
+  ├── 📁 Workflow
+  ├── 📁 Suporte
+  ├── 📁 Onboarding
+  └── 📁 Geral`}
+                </pre>
+                <p>⚠️ Cada subpasta deve ter compartilhamento <strong>"Qualquer pessoa com o link pode visualizar"</strong> ativado individualmente.</p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">ID ou URL da pasta raiz *</Label>
+                  <Input
+                    placeholder="Ex: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                    value={driveFolderId}
+                    onChange={(e) => setDriveFolderId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Cole a URL completa ou apenas o ID (parte após /folders/)</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Rótulo de fonte padrão</Label>
+                  <Input
+                    placeholder="Ex: Drive LIA-Cérebro"
+                    value={driveSourceLabel}
+                    onChange={(e) => setDriveSourceLabel(e.target.value)}
+                  />
+                </div>
+                <Button size="sm" variant="outline" onClick={saveDriveConfig} className="gap-2">
+                  <CheckCircle className="w-4 h-4" />
+                  Salvar configuração
+                </Button>
+              </div>
+            </div>
+
+            {/* Seção B — Sincronização */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <h3 className="font-medium text-sm flex items-center gap-2">
+                <FolderSync className="w-4 h-4 text-primary" />
+                B — Sincronização Manual
+              </h3>
+
+              <Button
+                onClick={syncDriveNow}
+                disabled={driveSyncing || !driveFolderId.trim()}
+                className="w-full gap-2"
+              >
+                {driveSyncing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sincronizando com Drive... (pode levar alguns minutos)
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    Sincronizar Agora
+                  </>
+                )}
+              </Button>
+
+              {driveSyncResult && (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                      ✓ Processados: {driveSyncResult.processed}
+                    </Badge>
+                    <Badge variant="outline" className="text-muted-foreground">
+                      Ignorados: {driveSyncResult.skipped}
+                    </Badge>
+                    {driveSyncResult.errors > 0 && (
+                      <Badge variant="destructive" className="text-xs">
+                        Erros: {driveSyncResult.errors}
+                      </Badge>
+                    )}
+                  </div>
+                  {Object.keys(driveSyncResult.by_category || {}).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      <p className="text-xs text-muted-foreground w-full">Por categoria:</p>
+                      {Object.entries(driveSyncResult.by_category).map(([cat, count]) => (
+                        <Badge key={cat} variant="secondary" className="text-xs">
+                          {cat}: +{count as number}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Seção C — Log */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-sm flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  C — Log de Sincronização
+                </h3>
+                <Button size="sm" variant="outline" onClick={loadDriveLog} disabled={driveLogLoading} className="gap-1.5">
+                  <RefreshCw className={`w-3.5 h-3.5 ${driveLogLoading ? "animate-spin" : ""}`} />
+                  {driveLogLoading ? "Carregando..." : "Carregar log"}
+                </Button>
+              </div>
+
+              {driveSyncLog.length === 0 && !driveLogLoading && (
+                <p className="text-xs text-muted-foreground">Clique em "Carregar log" para ver o histórico de sincronização.</p>
+              )}
+
+              {driveSyncLog.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Arquivo</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Pasta → Categoria</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Status</th>
+                        <th className="text-left py-2 px-2 font-medium text-muted-foreground">Processado em</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {driveSyncLog.map((row) => (
+                        <tr key={row.id} className="border-b border-border/50 hover:bg-muted/20">
+                          <td className="py-2 px-2 max-w-[180px] truncate font-medium">{row.file_name}</td>
+                          <td className="py-2 px-2 text-muted-foreground">
+                            {row.folder_name} → <Badge variant="secondary" className="text-xs">{row.category}</Badge>
+                          </td>
+                          <td className="py-2 px-2">
+                            {row.status === "done" && <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Indexado</Badge>}
+                            {row.status === "error" && (
+                              <span title={row.error_msg || ""}>
+                                <Badge variant="destructive" className="text-xs">Erro</Badge>
+                              </span>
+                            )}
+                            {row.status === "skipped" && <Badge variant="outline" className="text-xs text-muted-foreground">Ignorado</Badge>}
+                          </td>
+                          <td className="py-2 px-2 text-muted-foreground">
+                            {row.processed_at ? new Date(row.processed_at).toLocaleString("pt-BR") : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Seção D — Cron automático */}
+            <div className="border border-border rounded-lg p-4 space-y-4">
+              <h3 className="font-medium text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                D — Automação a cada 12h (pg_cron)
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Execute este SQL <strong>uma única vez</strong> no SQL Editor do Supabase (<strong>Live</strong>) para ativar o sync automático a cada 12 horas via pg_cron + pg_net.
+              </p>
+              <div className="relative">
+                <pre className="text-xs bg-muted rounded-lg p-4 overflow-x-auto leading-relaxed text-foreground whitespace-pre-wrap">
+{`select cron.schedule(
+  'sync-google-drive-kb-12h',
+  '0 */12 * * *',
+  $$
+  select net.http_post(
+    url := 'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/sync-google-drive-kb',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk"}'::jsonb,
+    body := '{}'::jsonb
+  ) as request_id;
+  $$
+);`}
+                </pre>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="absolute top-2 right-2 gap-1.5"
+                  onClick={copyCronSQL}
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {cronCopied ? "Copiado ✓" : "Copiar SQL"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Pré-requisitos: extensões <code className="bg-muted px-1 rounded">pg_cron</code> e <code className="bg-muted px-1 rounded">pg_net</code> habilitadas em Database → Extensions no Supabase.
+              </p>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

@@ -146,3 +146,6 @@ verify_jwt = true
 
 [functions.ingest-knowledge-text]
 verify_jwt = false
+
+[functions.sync-google-drive-kb]
+verify_jwt = false
