@@ -394,6 +394,64 @@ serve(async (req) => {
       );
     }
 
+    // ─── ACTION: reindex ───────────────────────────────────────────────────
+    if (action === "reindex") {
+      const body = await req.json();
+      const { draft_id } = body;
+
+      if (!draft_id) {
+        return new Response(JSON.stringify({ error: "draft_id obrigatório" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: draft, error: draftErr } = await adminSupabase
+        .from("knowledge_gap_drafts")
+        .select("*")
+        .eq("id", draft_id)
+        .single();
+
+      if (draftErr || !draft) {
+        return new Response(JSON.stringify({ error: "Rascunho não encontrado" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const faqs = (draft.draft_faq || []) as { q: string; a: string }[];
+      const keywords = (draft.draft_keywords || []) as string[];
+      const faqText = faqs.map((f) => `P: ${f.q} R: ${f.a}`).join(" | ");
+      const chunkText = [draft.draft_title, draft.draft_excerpt, keywords.join(", "), faqText]
+        .filter(Boolean)
+        .join(" | ");
+
+      const embedding = await generateEmbedding(chunkText, GOOGLE_AI_KEY);
+      const { error: embError } = await adminSupabase
+        .from("agent_embeddings")
+        .insert({
+          source_type: "article",
+          chunk_text: chunkText,
+          embedding,
+          metadata: {
+            title: draft.draft_title,
+            excerpt: draft.draft_excerpt,
+            keywords,
+            origin: "auto-heal",
+            is_internal: true,
+            draft_id,
+          },
+          embedding_updated_at: new Date().toISOString(),
+        });
+
+      if (embError) throw embError;
+
+      return new Response(
+        JSON.stringify({ success: true, indexed_to_rag: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ─── ACTION: reject ────────────────────────────────────────────────────
     if (action === "reject") {
       const body = await req.json();
