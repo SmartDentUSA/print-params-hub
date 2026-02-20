@@ -1320,16 +1320,16 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       aiResponse = await callAI("google/gemini-2.5-flash-lite");
     }
 
-    // Se ainda 500 → fallback com OpenAI gpt-5-mini (com contexto truncado)
-    if (!aiResponse.ok && (aiResponse.status === 500 || aiResponse.status === 400)) {
-      console.error(`Gemini models failed, retrying with openai/gpt-5-mini (truncated)...`);
-      aiResponse = await callAI("openai/gpt-5-mini", true);
+    // Se ainda falhar → fallback com OpenAI gpt-4o-mini (com contexto truncado)
+    if (!aiResponse.ok && aiResponse.status !== 429) {
+      console.error(`Gemini models failed, retrying with openai/gpt-4o-mini (truncated)...`);
+      aiResponse = await callAI("openai/gpt-4o-mini", true);
     }
 
-    // Último fallback: openai/gpt-5-nano com contexto mínimo
-    if (!aiResponse.ok && (aiResponse.status === 500 || aiResponse.status === 400)) {
-      console.error(`gpt-5-mini failed, last resort: openai/gpt-5-nano...`);
-      aiResponse = await callAI("openai/gpt-5-nano", true);
+    // Último fallback: openai/gpt-4.1-mini com contexto mínimo
+    if (!aiResponse.ok && aiResponse.status !== 429) {
+      console.error(`gpt-4o-mini failed, last resort: openai/gpt-4.1-mini...`);
+      aiResponse = await callAI("openai/gpt-4.1-mini", true);
     }
 
     if (!aiResponse.ok) {
