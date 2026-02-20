@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Index from "./pages/Index";
 import AdminViewSecure from "./pages/AdminViewSecure";
 import KnowledgeBase from "./pages/KnowledgeBase";
@@ -62,8 +62,8 @@ const App = () => (
 
 // Only render the floating widget outside admin and embed routes
 function DraLIAGlobal() {
-  const path = window.location.pathname;
-  if (path.startsWith('/admin') || path.startsWith('/embed')) return null;
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/admin') || pathname.startsWith('/embed')) return null;
   return <DraLIA />;
 }
 
