@@ -403,6 +403,24 @@ function findResinInList(resins: string[], message: string): string | null {
   return scored.length > 0 ? scored[0].resin : null;
 }
 
+// ── Intent-break detection: identify messages that are clearly NOT dialog responses ──
+const DIALOG_BREAK_PATTERNS = [
+  // Perguntas sobre a empresa / pessoas
+  /\b(CEO|fundador|dono|sócio|diretor|quem (criou|fundou|é o))\b/i,
+  // Comandos de reset explícitos
+  /\b(cancelar|esquece|esqueça|outra (pergunta|coisa)|muda(ndo)? de assunto|não (quero|preciso) mais|sair)\b/i,
+  // Perguntas gerais iniciando com "o que é", "como funciona", etc.
+  /^(o que (é|são)|qual (é|a diferença)|como (funciona|usar|se usa)|me fala sobre|me explica)/i,
+  // Referências à empresa / identidade SmartDent
+  /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
+  // Perguntas sobre categorias de produto que iniciam novo contexto
+  /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
+];
+
+function isOffTopicFromDialog(message: string): boolean {
+  return DIALOG_BREAK_PATTERNS.some((p) => p.test(message.trim()));
+}
+
 // Detect which step of the guided dialog we're in — uses agent_sessions for persistence
 // Falls back to regex-on-history if session lookup fails (resilience)
 async function detectPrinterDialogState(
@@ -460,6 +478,14 @@ async function detectPrinterDialogState(
 
   const currentState = sessionData?.current_state || "idle";
   const entities = sessionData?.extracted_entities || {};
+
+  // ── Intent-break guard: if active dialog state but message is off-topic → reset silently ──
+  const ACTIVE_DIALOG_STATES = ["needs_brand", "brand_not_found", "needs_model", "model_not_found", "needs_resin"];
+  if (ACTIVE_DIALOG_STATES.includes(currentState) && isOffTopicFromDialog(message)) {
+    console.log(`[dialog] intent-break detected (state: ${currentState}), resetting session`);
+    await persistState("idle", {});
+    return { state: "not_in_dialog" };
+  }
 
   // ── State machine based on persisted state ─────────────────────────────────
 
@@ -542,7 +568,7 @@ async function detectPrinterDialogState(
     (lastLower.includes("qual") || lastLower.includes("what") || lastLower.includes("cuál") || lastLower.includes("cual") ||
      lastLower.includes("vai usar") || lastLower.includes("will you use") || lastLower.includes("vas a usar"));
 
-  if (liaAskedResin) {
+  if (liaAskedResin && !isOffTopicFromDialog(message)) {
     const linkMatch = lastContent.match(/\]\(\/([^/]+)\/([^)]+)\)/);
     if (linkMatch) {
       const brandSlug = linkMatch[1];
@@ -559,7 +585,7 @@ async function detectPrinterDialogState(
     }
   }
 
-  if (liaAskedBrand) {
+  if (liaAskedBrand && !isOffTopicFromDialog(message)) {
     const brand = await findBrandInMessage(allBrands, message);
     if (brand) {
       const models = await fetchBrandModels(supabase, brand.id);
@@ -572,7 +598,7 @@ async function detectPrinterDialogState(
     return { state: "brand_not_found", brandGuess: guess || message.trim(), availableBrands: brandNames };
   }
 
-  if (liaAskedModel) {
+  if (liaAskedModel && !isOffTopicFromDialog(message)) {
     const boldedPhrases = [...lastContent.matchAll(/\*\*([^*]+)\*\*/g)].map((m) => m[1]);
     let matchedBrand: typeof allBrands[0] | undefined;
     for (const phrase of boldedPhrases) {
