@@ -379,6 +379,62 @@ export type Database = {
         }
         Relationships: []
       }
+      drive_kb_sync_log: {
+        Row: {
+          category: string
+          created_at: string | null
+          drive_file_id: string
+          error_msg: string | null
+          file_name: string
+          folder_name: string | null
+          id: string
+          kb_text_id: string | null
+          mime_type: string | null
+          modified_time: string | null
+          processed_at: string | null
+          source_label: string | null
+          status: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          drive_file_id: string
+          error_msg?: string | null
+          file_name: string
+          folder_name?: string | null
+          id?: string
+          kb_text_id?: string | null
+          mime_type?: string | null
+          modified_time?: string | null
+          processed_at?: string | null
+          source_label?: string | null
+          status?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          drive_file_id?: string
+          error_msg?: string | null
+          file_name?: string
+          folder_name?: string | null
+          id?: string
+          kb_text_id?: string | null
+          mime_type?: string | null
+          modified_time?: string | null
+          processed_at?: string | null
+          source_label?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drive_kb_sync_log_kb_text_id_fkey"
+            columns: ["kb_text_id"]
+            isOneToOne: false
+            referencedRelation: "company_kb_texts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_links: {
         Row: {
           ai_generated: boolean | null
