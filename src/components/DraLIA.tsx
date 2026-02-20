@@ -581,21 +581,26 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
               {/* Topic selection menu — only on welcome message, before topic is selected */}
               {msg.id === 'welcome' && !topicSelected && !isLoading && (
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {TOPIC_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      onClick={() => handleTopicSelect(opt)}
-                      className="flex flex-col items-start p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-left text-xs shadow-sm"
-                      style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#1e3a5f')}
-                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
-                    >
-                      <span className="text-base mb-1">{opt.emoji}</span>
-                      <span className="font-semibold text-gray-800 leading-tight">{opt.label}</span>
-                      <span className="text-gray-400 leading-tight mt-0.5 text-[10px]">{opt.description}</span>
-                    </button>
-                  ))}
+                <div className="mt-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {TOPIC_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => handleTopicSelect(opt)}
+                        className="flex flex-col items-start p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-left text-xs shadow-sm"
+                        style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#1e3a5f')}
+                        onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+                      >
+                        <span className="text-base mb-1">{opt.emoji}</span>
+                        <span className="font-semibold text-gray-800 leading-tight">{opt.label}</span>
+                        <span className="text-gray-400 leading-tight mt-0.5 text-[10px]">{opt.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-center text-[10px] text-gray-400 mt-2">
+                    Ou digite sua dúvida livremente abaixo ↓
+                  </p>
                 </div>
               )}
               {/* Media cards strip — videos with thumbnail / articles */}
