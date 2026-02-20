@@ -343,6 +343,42 @@ export type Database = {
           },
         ]
       }
+      company_kb_texts: {
+        Row: {
+          active: boolean | null
+          category: string
+          chunks_count: number | null
+          content: string
+          created_at: string | null
+          id: string
+          indexed_at: string | null
+          source_label: string | null
+          title: string
+        }
+        Insert: {
+          active?: boolean | null
+          category: string
+          chunks_count?: number | null
+          content: string
+          created_at?: string | null
+          id?: string
+          indexed_at?: string | null
+          source_label?: string | null
+          title: string
+        }
+        Update: {
+          active?: boolean | null
+          category?: string
+          chunks_count?: number | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          indexed_at?: string | null
+          source_label?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       external_links: {
         Row: {
           ai_generated: boolean | null

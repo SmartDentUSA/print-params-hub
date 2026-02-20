@@ -654,6 +654,39 @@ serve(async (req) => {
     const externalChunks = await fetchExternalKBChunks();
     console.log(`[external-kb] ${externalChunks.length} chunks from ai_training endpoint`);
     chunks.push(...externalChunks);
+
+    // ── NOVO: Ler blocos de experiência humana da company_kb_texts ──
+    const { data: kbTexts, error: kbError } = await supabase
+      .from("company_kb_texts")
+      .select("id, title, category, source_label, content")
+      .eq("active", true);
+
+    if (kbError) console.warn("[company-kb-texts] query error:", kbError.message);
+
+    for (const kb of kbTexts || []) {
+      const KB_CHUNK_SIZE = 900;
+      const KB_OVERLAP = 150;
+      const parts: string[] = [];
+      for (let i = 0; i < kb.content.length; i += KB_CHUNK_SIZE - KB_OVERLAP) {
+        parts.push(kb.content.slice(i, i + KB_CHUNK_SIZE));
+        if (i + KB_CHUNK_SIZE >= kb.content.length) break;
+      }
+      parts.forEach((slice, i) => {
+        chunks.push({
+          source_type: "company_kb",
+          chunk_text: `[${kb.category.toUpperCase()}] ${kb.title}${parts.length > 1 ? ` (parte ${i + 1}/${parts.length})` : ""} | ${slice}`,
+          metadata: {
+            title: kb.title,
+            category: kb.category,
+            source_label: kb.source_label,
+            kb_text_id: kb.id,
+            chunk_part: i + 1,
+            total_parts: parts.length,
+          },
+        });
+      });
+    }
+    console.log(`[company-kb-texts] ${(kbTexts || []).length} blocos de experiência humana processados`);
     } // end if company_kb
 
     // ── 6. CATALOG PRODUCTS (system_a_catalog) ───────────────────
