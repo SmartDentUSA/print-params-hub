@@ -163,7 +163,7 @@ export function AdminApostilaImporter() {
   const [docResults, setDocResults] = useState<KBResult[]>([]);
 
   // ── Cérebro Externo (Google Drive) state ──────────────────────────────────
-  const [driveFolderId, setDriveFolderId] = useState("");
+  const [driveFolderMap, setDriveFolderMap] = useState<Record<string, string>>({});
   const [driveSourceLabel, setDriveSourceLabel] = useState("Drive LIA-Cérebro");
   const [driveSyncing, setDriveSyncing] = useState(false);
   const [driveSyncResult, setDriveSyncResult] = useState<any>(null);
@@ -433,36 +433,40 @@ export function AdminApostilaImporter() {
     const { data } = await supabase
       .from("site_settings")
       .select("key, value")
-      .in("key", ["drive_kb_root_folder_id", "drive_kb_source_label"]);
+      .in("key", ["drive_kb_folder_map", "drive_kb_source_label"]);
     for (const row of data || []) {
-      if (row.key === "drive_kb_root_folder_id" && row.value) setDriveFolderId(row.value);
+      if (row.key === "drive_kb_folder_map" && row.value) {
+        try { setDriveFolderMap(JSON.parse(row.value)); } catch {}
+      }
       if (row.key === "drive_kb_source_label" && row.value) setDriveSourceLabel(row.value);
     }
   };
 
   const saveDriveConfig = async () => {
     const entries = [
-      { key: "drive_kb_root_folder_id", value: driveFolderId },
+      { key: "drive_kb_folder_map", value: JSON.stringify(driveFolderMap) },
       { key: "drive_kb_source_label", value: driveSourceLabel },
     ];
     const { error } = await supabase.from("site_settings").upsert(entries, { onConflict: "key" });
     if (error) {
       toast({ title: "Erro ao salvar configuração", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Configuração salva!", description: "ID da pasta e rótulo gravados." });
+      toast({ title: "Configuração salva!", description: "Mapa de pastas e rótulo gravados." });
     }
   };
 
+  const hasFolderConfigured = Object.values(driveFolderMap).some((v) => v.trim());
+
   const syncDriveNow = async () => {
-    if (!driveFolderId.trim()) {
-      toast({ title: "Configure o ID da pasta raiz primeiro", variant: "destructive" });
+    if (!hasFolderConfigured) {
+      toast({ title: "Configure ao menos uma pasta primeiro", variant: "destructive" });
       return;
     }
     setDriveSyncing(true);
     setDriveSyncResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("sync-google-drive-kb", {
-        body: { root_folder_id: driveFolderId, source_label: driveSourceLabel },
+        body: { folder_map: driveFolderMap, source_label: driveSourceLabel },
       });
       if (error) throw new Error(error.message);
       setDriveSyncResult(data);
@@ -1215,42 +1219,41 @@ select cron.schedule(
             <div className="border border-border rounded-lg p-4 space-y-4">
               <h3 className="font-medium text-sm flex items-center gap-2">
                 <FolderOpen className="w-4 h-4 text-primary" />
-                A — Configuração da Pasta Raiz
+                A — Configuração das Pastas por Categoria
               </h3>
 
-              <div className="bg-muted/30 rounded-lg p-3 text-xs text-muted-foreground space-y-1.5">
-                <p className="font-medium text-foreground">Estrutura esperada no Google Drive:</p>
-                <pre className="text-xs overflow-x-auto leading-relaxed">
-{`📁 Pasta Raiz (compartilhada por link)
-  ├── 📁 SDR
-  ├── 📁 Comercial
-  ├── 📁 Leads
-  ├── 📁 Clientes
-  ├── 📁 Campanhas
-  ├── 📁 Pós-Venda
-  ├── 📁 FAQ
-  ├── 📁 Objeções
-  ├── 📁 Workflow
-  ├── 📁 Suporte
-  ├── 📁 Onboarding
-  └── 📁 Geral`}
-                </pre>
-                <p>⚠️ Cada subpasta deve ter compartilhamento <strong>"Qualquer pessoa com o link pode visualizar"</strong> ativado individualmente.</p>
+              <p className="text-xs text-muted-foreground">
+                Cole o link ou ID de cada pasta do Google Drive na categoria correspondente. Cada pasta deve ter compartilhamento <strong>"Qualquer pessoa com o link pode visualizar"</strong>. Categorias sem pasta são ignoradas no sync.
+              </p>
+
+              <div className="space-y-2">
+                {CATEGORIES.map((cat) => {
+                  const val = driveFolderMap[cat.value] || "";
+                  const filled = val.trim().length > 0;
+                  return (
+                    <div key={cat.value} className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground w-24 shrink-0 flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${filled ? "bg-green-500" : "bg-muted-foreground/30"}`} />
+                        {cat.label}
+                      </span>
+                      <Input
+                        className="h-8 text-xs"
+                        placeholder="Link ou ID da pasta (opcional)"
+                        value={val}
+                        onChange={(e) =>
+                          setDriveFolderMap((prev) => ({ ...prev, [cat.value]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  );
+                })}
               </div>
 
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">ID ou URL da pasta raiz *</Label>
-                  <Input
-                    placeholder="Ex: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
-                    value={driveFolderId}
-                    onChange={(e) => setDriveFolderId(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">Cole a URL completa ou apenas o ID (parte após /folders/)</p>
-                </div>
+              <div className="space-y-2 pt-1">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Rótulo de fonte padrão</Label>
                   <Input
+                    className="h-8 text-xs"
                     placeholder="Ex: Drive LIA-Cérebro"
                     value={driveSourceLabel}
                     onChange={(e) => setDriveSourceLabel(e.target.value)}
@@ -1272,7 +1275,7 @@ select cron.schedule(
 
               <Button
                 onClick={syncDriveNow}
-                disabled={driveSyncing || !driveFolderId.trim()}
+                disabled={driveSyncing || !hasFolderConfigured}
                 className="w-full gap-2"
               >
                 {driveSyncing ? (

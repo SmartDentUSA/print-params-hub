@@ -12,57 +12,6 @@ const GOOGLE_DRIVE_API_KEY = Deno.env.get("GOOGLE_DRIVE_API_KEY")!;
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
 
-// ── Category mapping ──────────────────────────────────────────────────────────
-function folderNameToCategory(name: string): string {
-  const normalized = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // remove accents
-    .replace(/[^a-z0-9]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "");
-
-  const map: Record<string, string> = {
-    sdr: "sdr",
-    sdrs: "sdr",
-    comercial: "comercial",
-    vendas: "comercial",
-    sales: "comercial",
-    workflow: "workflow",
-    fluxo: "workflow",
-    processo: "workflow",
-    suporte: "suporte",
-    support: "suporte",
-    atendimento: "suporte",
-    faq: "faq",
-    perguntas: "faq",
-    objecoes: "objecoes",
-    objecao: "objecoes",
-    objections: "objecoes",
-    onboarding: "onboarding",
-    integracao: "onboarding",
-    leads: "leads",
-    lead: "leads",
-    captacao: "leads",
-    clientes: "clientes",
-    cliente: "clientes",
-    customers: "clientes",
-    campanhas: "campanhas",
-    campanha: "campanhas",
-    marketing: "campanhas",
-    pos_venda: "pos_venda",
-    pos_vendas: "pos_venda",
-    posvenda: "pos_venda",
-    posvendas: "pos_venda",
-    retencao: "pos_venda",
-    geral: "geral",
-    outros: "geral",
-    misc: "geral",
-  };
-
-  return map[normalized] || "geral";
-}
-
 // ── Drive API helpers ─────────────────────────────────────────────────────────
 async function driveGet(path: string, params: Record<string, string> = {}) {
   const url = new URL(`${DRIVE_API}${path}`);
@@ -74,15 +23,6 @@ async function driveGet(path: string, params: Record<string, string> = {}) {
     throw new Error(`Drive API error ${resp.status}: ${err}`);
   }
   return resp.json();
-}
-
-async function listSubfolders(folderId: string): Promise<Array<{ id: string; name: string }>> {
-  const data = await driveGet("/files", {
-    q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-    fields: "files(id,name)",
-    pageSize: "100",
-  });
-  return data.files || [];
 }
 
 async function listFiles(folderId: string): Promise<Array<{ id: string; name: string; mimeType: string; modifiedTime: string }>> {
@@ -100,8 +40,7 @@ async function listFiles(folderId: string): Promise<Array<{ id: string; name: st
   return data.files || [];
 }
 
-async function exportAsText(fileId: string, mimeType: string): Promise<string> {
-  // Google Docs and DOCX → export as plain text
+async function exportAsText(fileId: string): Promise<string> {
   const url = new URL(`${DRIVE_API}/files/${fileId}/export`);
   url.searchParams.set("key", GOOGLE_DRIVE_API_KEY);
   url.searchParams.set("mimeType", "text/plain");
@@ -110,8 +49,7 @@ async function exportAsText(fileId: string, mimeType: string): Promise<string> {
     const err = await resp.text();
     throw new Error(`Export error ${resp.status}: ${err}`);
   }
-  const text = await resp.text();
-  return text.trim();
+  return (await resp.text()).trim();
 }
 
 async function downloadPdfAsBase64(fileId: string): Promise<string> {
@@ -168,6 +106,12 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// ── Extract folder ID from URL or return as-is ───────────────────────────────
+function extractFolderId(rawId: string): string {
+  const match = rawId.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  return match ? match[1] : rawId.trim();
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -184,39 +128,32 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get root_folder_id from body or site_settings
-    let rootFolderId = "";
+    // ── Read folder_map from body or site_settings ────────────────────────────
+    let folderMap: Record<string, string> = {};
     let sourceLabel = "Drive KB";
 
     try {
       const body = await req.json();
-      rootFolderId = body.root_folder_id || "";
-      sourceLabel = body.source_label || sourceLabel;
+      if (body.folder_map && typeof body.folder_map === "object") {
+        folderMap = body.folder_map;
+      }
+      if (body.source_label) sourceLabel = body.source_label;
     } catch {
-      // no body or invalid JSON — try site_settings
+      // no body or invalid JSON — will fall through to site_settings
     }
 
-    if (!rootFolderId) {
-      const { data: setting } = await supabase
+    // Fall back to site_settings if folder_map is empty
+    if (Object.keys(folderMap).length === 0) {
+      const { data: mapSetting } = await supabase
         .from("site_settings")
         .select("value")
-        .eq("key", "drive_kb_root_folder_id")
+        .eq("key", "drive_kb_folder_map")
         .maybeSingle();
-      rootFolderId = setting?.value || "";
+      try {
+        if (mapSetting?.value) Object.assign(folderMap, JSON.parse(mapSetting.value));
+      } catch {}
     }
 
-    if (!rootFolderId) {
-      return new Response(JSON.stringify({ error: "root_folder_id não fornecido e drive_kb_root_folder_id não configurado em site_settings" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Extract folder ID from URL if a full URL was provided
-    const urlMatch = rootFolderId.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-    if (urlMatch) rootFolderId = urlMatch[1];
-
-    // Load source label from settings if not in body
     if (sourceLabel === "Drive KB") {
       const { data: labelSetting } = await supabase
         .from("site_settings")
@@ -226,17 +163,22 @@ serve(async (req) => {
       if (labelSetting?.value) sourceLabel = labelSetting.value;
     }
 
-    console.log(`[sync-google-drive-kb] root: ${rootFolderId}, source_label: ${sourceLabel}`);
+    // Build the list of folders to process (category is explicit)
+    const allFolders = Object.entries(folderMap)
+      .filter(([, rawId]) => rawId?.trim())
+      .map(([category, rawId]) => ({
+        id: extractFolderId(rawId),
+        category,
+      }));
 
-    // List subfolders
-    const subfolders = await listSubfolders(rootFolderId);
-    console.log(`[sync-google-drive-kb] ${subfolders.length} subpastas encontradas`);
+    if (allFolders.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Nenhuma pasta configurada em folder_map. Configure as pastas na aba Cérebro Externo." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Also process files directly in root folder (mapped to 'geral')
-    const allFolders = [
-      { id: rootFolderId, name: "geral" },
-      ...subfolders,
-    ];
+    console.log(`[sync-google-drive-kb] ${allFolders.length} categorias configuradas, source_label: ${sourceLabel}`);
 
     let processed = 0;
     let skipped = 0;
@@ -251,20 +193,20 @@ serve(async (req) => {
       modified_time: string;
       status: string;
       error_msg?: string;
-      kb_text_id?: string;
       source_label: string;
     }> = [];
 
-    for (const folder of allFolders) {
-      const category = folderNameToCategory(folder.name);
+    for (const { id: folderId, category } of allFolders) {
       let files: Array<{ id: string; name: string; mimeType: string; modifiedTime: string }> = [];
 
       try {
-        files = await listFiles(folder.id);
+        files = await listFiles(folderId);
       } catch (e: any) {
-        console.warn(`[sync] Erro listando arquivos em ${folder.name}: ${e.message}`);
+        console.warn(`[sync] Erro listando arquivos em ${category} (${folderId}): ${e.message}`);
         continue;
       }
+
+      console.log(`[sync] Categoria ${category}: ${files.length} arquivos encontrados`);
 
       for (const file of files) {
         // Check if file was already processed with same modifiedTime
@@ -279,7 +221,7 @@ serve(async (req) => {
           logEntries.push({
             drive_file_id: file.id,
             file_name: file.name,
-            folder_name: folder.name,
+            folder_name: category,
             category,
             mime_type: file.mimeType,
             modified_time: file.modifiedTime,
@@ -298,7 +240,7 @@ serve(async (req) => {
             file.mimeType === "application/vnd.google-apps.document" ||
             file.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           ) {
-            content = await exportAsText(file.id, file.mimeType);
+            content = await exportAsText(file.id);
           } else if (file.mimeType === "application/pdf") {
             const base64 = await downloadPdfAsBase64(file.id);
             content = await extractPdfText(base64);
@@ -307,11 +249,7 @@ serve(async (req) => {
           if (!content.trim()) throw new Error("Conteúdo vazio após extração");
 
           const title = file.name.replace(/\.[^.]+$/, ""); // remove extension
-          const ingestResult = await ingestText([
-            { title, category, source_label: sourceLabel, content },
-          ]);
-
-          const kbTextId = ingestResult?.results?.[0] ? undefined : undefined;
+          await ingestText([{ title, category, source_label: sourceLabel, content }]);
 
           processed++;
           byCategory[category] = (byCategory[category] || 0) + 1;
@@ -319,7 +257,7 @@ serve(async (req) => {
           logEntries.push({
             drive_file_id: file.id,
             file_name: file.name,
-            folder_name: folder.name,
+            folder_name: category,
             category,
             mime_type: file.mimeType,
             modified_time: file.modifiedTime,
@@ -335,7 +273,7 @@ serve(async (req) => {
           logEntries.push({
             drive_file_id: file.id,
             file_name: file.name,
-            folder_name: folder.name,
+            folder_name: category,
             category,
             mime_type: file.mimeType,
             modified_time: file.modifiedTime,
@@ -353,10 +291,7 @@ serve(async (req) => {
         await supabase
           .from("drive_kb_sync_log")
           .upsert(
-            {
-              ...entry,
-              processed_at: new Date().toISOString(),
-            },
+            { ...entry, processed_at: new Date().toISOString() },
             { onConflict: "drive_file_id", ignoreDuplicates: false }
           );
       }
