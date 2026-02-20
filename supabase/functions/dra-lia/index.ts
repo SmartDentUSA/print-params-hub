@@ -11,6 +11,28 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
+// ── Topic context re-ranking weights ─────────────────────────────────────────
+// Applied post-search to reorder results toward the user's declared context.
+// source_types: parameter_set, resin, processing_protocol,
+//               article, video, catalog_product, company_kb
+const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
+  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.7,  video: 0.6, catalog_product: 0.5, company_kb: 0.3 },
+  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.2,  video: 0.8, catalog_product: 1.4, company_kb: 0.5 },
+  commercial: { parameter_set: 0.2, resin: 0.5, processing_protocol: 0.3, article: 0.6,  video: 0.4, catalog_product: 0.8, company_kb: 2.0 },
+  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4 },
+};
+
+function applyTopicWeights<T extends { source_type: string; similarity: number }>(
+  results: T[],
+  topicContext: string | undefined | null
+): T[] {
+  if (!topicContext || !TOPIC_WEIGHTS[topicContext]) return results;
+  const weights = TOPIC_WEIGHTS[topicContext];
+  return results
+    .map(r => ({ ...r, similarity: r.similarity * (weights[r.source_type] ?? 1.0) }))
+    .sort((a, b) => b.similarity - a.similarity);
+}
+
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
@@ -894,7 +916,8 @@ async function searchParameterSets(
 async function searchKnowledge(
   supabase: ReturnType<typeof createClient>,
   query: string,
-  lang: string
+  lang: string,
+  topicContext?: string
 ) {
   // Try vector search first
   const embedding = await generateEmbedding(query);
@@ -906,7 +929,8 @@ async function searchKnowledge(
       match_count: 10,
     });
     if (!error && data && data.length > 0) {
-      return { results: data, method: "vector", topSimilarity: data[0]?.similarity || 0 };
+      const reranked = applyTopicWeights(data, topicContext);
+      return { results: reranked, method: "vector", topSimilarity: reranked[0]?.similarity || 0 };
     }
   }
 
@@ -953,12 +977,14 @@ async function searchKnowledge(
         ...ilikeResults,
         ...ftsResults.filter((f) => f.similarity >= 0.15),
       ];
-      return { results: merged, method: "ilike", topSimilarity: merged[0]?.similarity || 0.3 };
+      const rerankedMerged = applyTopicWeights(merged, topicContext);
+      return { results: rerankedMerged, method: "ilike", topSimilarity: rerankedMerged[0]?.similarity || 0.3 };
     }
   }
 
   if (ftsResults.length > 0) {
-    return { results: ftsResults, method: "fulltext", topSimilarity: ftsResults[0]?.similarity || 0 };
+    const rerankedFts = applyTopicWeights(ftsResults, topicContext);
+    return { results: rerankedFts, method: "fulltext", topSimilarity: rerankedFts[0]?.similarity || 0 };
   }
 
   // Last resort: keyword search on videos
@@ -1021,7 +1047,8 @@ async function searchKnowledge(
           similarity: 0.5,
         };
       });
-      return { results, method: "keyword", topSimilarity: 0.5 };
+      const rerankedKeyword = applyTopicWeights(results, topicContext);
+      return { results: rerankedKeyword, method: "keyword", topSimilarity: 0.5 };
     }
   }
 
@@ -1236,7 +1263,7 @@ serve(async (req) => {
     const isProtocol = isProtocolQuestion(message);
 
     const [knowledgeResult, protocolResults, paramResults, companyContext] = await Promise.all([
-      searchKnowledge(supabase, message, lang),
+      searchKnowledge(supabase, message, lang, topic_context),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       searchParameterSets(supabase, message, history),
       companyContextPromise,
@@ -1252,7 +1279,10 @@ serve(async (req) => {
     const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
     // 3. Merge: protocol results first (higher priority), then knowledge results
-    const allResults = [...paramResults, ...protocolResults, ...filteredKnowledge];
+    const allResults = applyTopicWeights(
+      [...paramResults, ...protocolResults, ...filteredKnowledge],
+      topic_context
+    );
     const topSimilarity = protocolResults.length > 0
       ? 0.95
       : (filteredKnowledge[0]?.similarity || knowledgeTopSimilarity);
