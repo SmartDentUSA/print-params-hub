@@ -1329,7 +1329,8 @@ serve(async (req) => {
     const hasResults = allResults.length > 0;
 
     // 4. If no results: return human fallback
-    if (!hasResults) {
+    // Exception: commercial route bypasses fallback to allow LLM + SDR instruction
+    if (!hasResults && topic_context !== "commercial") {
       const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
 
       let fallbackInteractionId: string | undefined;
