@@ -140,3 +140,6 @@ verify_jwt = false
 
 [functions.dra-lia-export]
 verify_jwt = false
+
+[functions.heal-knowledge-gaps]
+verify_jwt = true

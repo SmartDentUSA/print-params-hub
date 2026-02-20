@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   BarChart,
   Bar,
@@ -35,6 +40,9 @@ import {
   FlaskConical,
   Settings2,
   XCircle,
+  Sparkles,
+  ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -103,6 +111,24 @@ interface IndexingResult {
   error?: string;
 }
 
+interface GapDraft {
+  id: string;
+  draft_title: string;
+  draft_excerpt: string;
+  draft_faq: { q: string; a: string }[] | null;
+  draft_keywords: string[] | null;
+  gap_ids: string[];
+  cluster_questions: string[];
+  status: 'draft' | 'approved' | 'rejected';
+  published_content_id: string | null;
+  created_at: string;
+}
+
+interface KnowledgeCategory {
+  id: string;
+  letter: string;
+  name: string;
+}
 
 const VERDICT_CONFIG: Record<string, { label: string; className: string }> = {
   hallucination: { label: "Alucinação", className: "bg-destructive/20 text-destructive border-destructive/30" },
@@ -155,6 +181,14 @@ export function AdminDraLIAStats() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [exportingJsonl, setExportingJsonl] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
+  const [drafts, setDrafts] = useState<GapDraft[]>([]);
+  const [editedDrafts, setEditedDrafts] = useState<Record<string, Partial<GapDraft>>>({});
+  const [healLoading, setHealLoading] = useState(false);
+  const [healStep, setHealStep] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<KnowledgeCategory[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
   const PAGE_SIZE = 10;
@@ -316,10 +350,143 @@ export function AdminDraLIAStats() {
     }
   };
 
+  const fetchDrafts = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("knowledge_gap_drafts" as never)
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (!error && data) setDrafts(data as unknown as GapDraft[]);
+  }, []);
+
+  const fetchCategories = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("knowledge_categories")
+      .select("id, letter, name")
+      .eq("enabled", true)
+      .order("letter");
+    if (!error && data) setCategories(data as KnowledgeCategory[]);
+  }, []);
+
+  const updateDraftField = (draftId: string, field: keyof GapDraft, value: unknown) => {
+    setEditedDrafts((prev) => ({
+      ...prev,
+      [draftId]: { ...prev[draftId], [field]: value },
+    }));
+  };
+
+  const handleGenerate = async () => {
+    setHealLoading(true);
+    setHealStep("Buscando lacunas pendentes...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      setHealStep("Gerando embeddings e agrupando lacunas...");
+      const response = await fetch(`${supabaseUrl}/functions/v1/heal-knowledge-gaps?action=generate`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+
+      setHealStep(`✓ ${result.drafts_created} rascunhos criados de ${result.gaps_analyzed} lacunas analisadas`);
+      toast({ title: `Auto-Heal concluído: ${result.drafts_created} rascunhos criados` });
+      await fetchDrafts();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      toast({ title: `Erro: ${msg}`, variant: "destructive" });
+      setHealStep(null);
+    } finally {
+      setHealLoading(false);
+    }
+  };
+
+  const handleApproveDraft = async (draftId: string) => {
+    setApprovingId(draftId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const draft = drafts.find((d) => d.id === draftId);
+      if (!draft) throw new Error("Rascunho não encontrado");
+
+      const edited = editedDrafts[draftId] ?? {};
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/heal-knowledge-gaps?action=approve`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          draft_id: draftId,
+          title: edited.draft_title ?? draft.draft_title,
+          excerpt: edited.draft_excerpt ?? draft.draft_excerpt,
+          faqs: edited.draft_faq ?? draft.draft_faq,
+          keywords: edited.draft_keywords ?? draft.draft_keywords,
+          category_id: selectedCategoryIds[draftId] ?? null,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+
+      toast({
+        title: "✓ Artigo publicado e RAG atualizado",
+        description: `Slug: /${result.slug}`,
+      });
+      await fetchDrafts();
+    } catch (err) {
+      toast({ title: `Erro: ${err instanceof Error ? err.message : "Erro"}`, variant: "destructive" });
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectDraft = async (draftId: string) => {
+    setRejectingId(draftId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${supabaseUrl}/functions/v1/heal-knowledge-gaps?action=reject`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ draft_id: draftId }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+
+      toast({ title: "Rascunho descartado" });
+      await fetchDrafts();
+    } catch (err) {
+      toast({ title: `Erro: ${err instanceof Error ? err.message : "Erro"}`, variant: "destructive" });
+    } finally {
+      setRejectingId(null);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     fetchRAGStats();
-  }, [fetchData, fetchRAGStats]);
+    fetchDrafts();
+    fetchCategories();
+  }, [fetchData, fetchRAGStats, fetchDrafts, fetchCategories]);
 
   const handleResolve = async (gapId: string) => {
     setResolvingId(gapId);
@@ -491,6 +658,15 @@ export function AdminDraLIAStats() {
             Indexação RAG
             {ragStats.totalChunks === 0 && (
               <Badge className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0 h-4 ml-1">!</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="autoheal" className="flex-1 sm:flex-none gap-1">
+            <Sparkles className="w-4 h-4" />
+            Auto-Heal
+            {drafts.filter(d => d.status === 'draft').length > 0 && (
+              <Badge className="bg-primary text-primary-foreground text-xs px-1.5 py-0 h-4 ml-1">
+                {drafts.filter(d => d.status === 'draft').length}
+              </Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -1073,6 +1249,247 @@ export function AdminDraLIAStats() {
               </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── TAB: Auto-Heal ─────────────────────────────────────────────── */}
+        <TabsContent value="autoheal" className="space-y-6 mt-6">
+          {/* Painel de Ação */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Sparkles className="w-5 h-5 text-primary" />
+                Gerador de Rascunhos por IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">
+                    Analisa as <strong>{stats.pendingGapsCount}</strong> lacunas pendentes, agrupa semanticamente e gera rascunhos de FAQ prontos para revisão.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleGenerate}
+                  disabled={healLoading || stats.pendingGapsCount === 0}
+                  className="gap-2 shrink-0"
+                >
+                  {healLoading ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  Analisar Lacunas e Gerar Rascunhos
+                </Button>
+              </div>
+
+              {healStep && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  {healLoading && <RefreshCw className="w-4 h-4 text-primary animate-spin shrink-0" />}
+                  {!healLoading && <CheckCircle2 className="w-4 h-4 text-chart-2 shrink-0" />}
+                  <p className="text-sm text-foreground">{healStep}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Rascunhos Pendentes */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <FileText className="w-4 h-4 text-primary" />
+              Rascunhos Pendentes ({drafts.filter(d => d.status === 'draft').length})
+            </h3>
+
+            {drafts.filter(d => d.status === 'draft').length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                  <Sparkles className="w-10 h-10 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Nenhum rascunho pendente.</p>
+                  <p className="text-xs text-muted-foreground/70">Clique em "Analisar Lacunas e Gerar Rascunhos" para começar.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              drafts.filter(d => d.status === 'draft').map((draft) => {
+                const edited = editedDrafts[draft.id] ?? {};
+                const currentFaqs = (edited.draft_faq ?? draft.draft_faq) as { q: string; a: string }[] | null ?? [];
+                return (
+                  <Card key={draft.id} className="border-primary/20">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-1 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs text-primary border-primary/30">Rascunho IA</Badge>
+                            <span className="text-xs text-muted-foreground">{new Date(draft.created_at).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                          <Input
+                            value={edited.draft_title ?? draft.draft_title}
+                            onChange={(e) => updateDraftField(draft.id, 'draft_title', e.target.value)}
+                            className="font-semibold text-base border-0 border-b rounded-none px-0 h-auto focus-visible:ring-0 focus-visible:border-primary"
+                            placeholder="Título do artigo"
+                          />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Perguntas originais do cluster */}
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                          <ChevronRight className="w-3 h-3" />
+                          {draft.cluster_questions.length} pergunta(s) original(is) do cluster
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <ul className="mt-2 space-y-1 pl-5">
+                            {draft.cluster_questions.map((q, i) => (
+                              <li key={i} className="text-xs text-muted-foreground list-disc">{q}</li>
+                            ))}
+                          </ul>
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      {/* Excerpt */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Resumo / Excerpt</label>
+                        <Textarea
+                          value={edited.draft_excerpt ?? draft.draft_excerpt}
+                          onChange={(e) => updateDraftField(draft.id, 'draft_excerpt', e.target.value)}
+                          className="min-h-[60px] text-sm"
+                          placeholder="Resumo do artigo..."
+                        />
+                      </div>
+
+                      {/* FAQ Q&A */}
+                      {currentFaqs.length > 0 && (
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">Pares de Pergunta & Resposta</label>
+                          <Accordion type="multiple" className="w-full">
+                            {currentFaqs.map((faq, idx) => (
+                              <AccordionItem key={idx} value={`faq-${draft.id}-${idx}`}>
+                                <AccordionTrigger className="text-sm py-2 hover:no-underline">
+                                  <span className="text-left truncate pr-2">{faq.q || `Pergunta ${idx + 1}`}</span>
+                                </AccordionTrigger>
+                                <AccordionContent className="space-y-2 pb-3">
+                                  <Input
+                                    value={faq.q}
+                                    onChange={(e) => {
+                                      const updated = currentFaqs.map((f, i) => i === idx ? { ...f, q: e.target.value } : f);
+                                      updateDraftField(draft.id, 'draft_faq', updated);
+                                    }}
+                                    placeholder="Pergunta..."
+                                    className="text-sm"
+                                  />
+                                  <Textarea
+                                    value={faq.a}
+                                    onChange={(e) => {
+                                      const updated = currentFaqs.map((f, i) => i === idx ? { ...f, a: e.target.value } : f);
+                                      updateDraftField(draft.id, 'draft_faq', updated);
+                                    }}
+                                    placeholder="Resposta técnica..."
+                                    className="min-h-[80px] text-sm"
+                                  />
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </Accordion>
+                        </div>
+                      )}
+
+                      {/* Categoria */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Categoria da Base de Conhecimento</label>
+                        <Select
+                          value={selectedCategoryIds[draft.id] ?? ""}
+                          onValueChange={(val) => setSelectedCategoryIds(prev => ({ ...prev, [draft.id]: val }))}
+                        >
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder="Selecionar categoria..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id}>
+                                {cat.letter} — {cat.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={() => handleApproveDraft(draft.id)}
+                          disabled={approvingId === draft.id || rejectingId === draft.id}
+                          className="gap-2"
+                        >
+                          {approvingId === draft.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle2 className="w-4 h-4" />
+                          )}
+                          Aprovar e Publicar
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleRejectDraft(draft.id)}
+                          disabled={approvingId === draft.id || rejectingId === draft.id}
+                          className="gap-2 text-muted-foreground hover:text-destructive"
+                        >
+                          {rejectingId === draft.id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <XCircle className="w-4 h-4" />
+                          )}
+                          Descartar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Histórico */}
+          {drafts.filter(d => d.status === 'approved' || d.status === 'rejected').length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Histórico</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {drafts.filter(d => d.status === 'approved' || d.status === 'rejected').map((draft) => (
+                    <div key={draft.id} className="flex items-center justify-between py-2 border-b last:border-0 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{draft.draft_title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(draft.created_at).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={draft.status === 'approved'
+                            ? "text-chart-2 border-chart-2/30"
+                            : "text-muted-foreground border-muted-foreground/30"
+                          }
+                        >
+                          {draft.status === 'approved' ? '✓ Publicado' : '✗ Descartado'}
+                        </Badge>
+                        {draft.status === 'approved' && draft.published_content_id && (
+                          <a
+                            href={`/base-conhecimento`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:text-primary/80"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>
