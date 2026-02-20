@@ -13,6 +13,78 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
+
+// ── Fetch company context from external knowledge-base (ai_training format, live data) ──
+// Timeout: 3s. Falls back to hardcoded values if fetch fails — zero risk to main flow.
+async function fetchCompanyContext(): Promise<string> {
+  const FALLBACK = `- Telefone: (16) 99383-1794
+- WhatsApp: https://wa.me/5516993831794
+- E-mail: comercial@smartdent.com.br
+- Endereço: Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP — CEP 13560-460
+- Horário: Segunda a Sexta, 8h às 18h
+- Fundada em: 2009 | CEO: Marcelo Del Guerra
+- NPS: 96 | Google: 5.0 ⭐ (150+ avaliações)
+- Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA
+- Loja: https://loja.smartdent.com.br/
+- Parâmetros: https://parametros.smartdent.com.br/
+- Cursos: https://smartdentacademy.astronmembers.com/
+- Instagram: https://www.instagram.com/smartdentbr/
+- YouTube: https://www.youtube.com/@smartdentbr`;
+
+  try {
+    const response = await fetch(`${EXTERNAL_KB_URL}?format=ai_training`, {
+      signal: AbortSignal.timeout(3000),
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      console.warn(`[fetchCompanyContext] HTTP ${response.status}, using fallback`);
+      return FALLBACK;
+    }
+
+    const text = await response.text();
+
+    // Extract key fields from the ai_training text using regex
+    const extract = (pattern: RegExp): string => {
+      const m = text.match(pattern);
+      return m ? m[1].trim() : "";
+    };
+
+    const phone = extract(/\*\*Telefone[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                  extract(/Telefone[:\s]+([0-9()\s\-+]+)/i) || "(16) 99383-1794";
+    const email = extract(/\*\*E-?mail[^*]*\*\*[:\s]+([^\s\n]+)/i) ||
+                  extract(/E-?mail[:\s]+([^\s\n]+@[^\s\n]+)/i) || "comercial@smartdent.com.br";
+    const nps = extract(/\*\*NPS[^*]*\*\*[:\s]+([^\n|]+)/i) ||
+                extract(/NPS Score[:\s]+(\d+)/i) || "96";
+    const rating = extract(/\*\*Rating[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                   extract(/Rating[:\s]+([^\n]+)/i) || "5.0 ⭐";
+    const horario = extract(/\*\*Hor[áa]rio[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                    extract(/Hor[áa]rio[:\s]+([^\n]+)/i) || "Segunda a Sexta, 8h às 18h";
+    const endereco = extract(/\*\*Endere[çc]o[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                     extract(/Endere[çc]o[:\s]+([^\n]+)/i) || "Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP";
+
+    const built = `- Telefone/WhatsApp: ${phone.replace(/\D/g, '').length >= 10 ? phone : "(16) 99383-1794"} | https://wa.me/5516993831794
+- E-mail: ${email.includes('@') ? email : "comercial@smartdent.com.br"}
+- Endereço: ${endereco || "Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP"}
+- Horário: ${horario}
+- Fundada em: 2009 | CEO: Marcelo Del Guerra
+- NPS: ${nps} | Google: ${rating} (150+ avaliações)
+- Parcerias: exocad, RayShape, BLZ Dental, Medit, FDA
+- Loja: https://loja.smartdent.com.br/
+- Parâmetros: https://parametros.smartdent.com.br/
+- Cursos: https://smartdentacademy.astronmembers.com/
+- Instagram: https://www.instagram.com/smartdentbr/
+- YouTube: https://www.youtube.com/@smartdentbr`;
+
+    console.log(`[fetchCompanyContext] ✓ Live data fetched (${text.length} chars)`);
+    return built;
+  } catch (err) {
+    console.warn(`[fetchCompanyContext] Failed (${err}), using fallback`);
+    return FALLBACK;
+  }
+}
+
 // Greeting patterns — detect before triggering RAG
 const GREETING_PATTERNS = [
   /^(olá|ola|oi|hey|hi|hola|hello|bom dia|boa tarde|boa noite|tudo bem|tudo bom|como vai|como estas|como está)\b/i,
@@ -1107,13 +1179,17 @@ serve(async (req) => {
       });
     }
 
+    // [NOVO] Fetch company context from external KB (live, no cache) — parallel with RAG
+    const companyContextPromise = fetchCompanyContext();
+
     // 1. Parallel search: knowledge base + processing protocols (if protocol question)
     const isProtocol = isProtocolQuestion(message);
 
-    const [knowledgeResult, protocolResults, paramResults] = await Promise.all([
+    const [knowledgeResult, protocolResults, paramResults, companyContext] = await Promise.all([
       searchKnowledge(supabase, message, lang),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       searchParameterSets(supabase, message, history),
+      companyContextPromise,
     ]);
 
     const { results: knowledgeResults, method, topSimilarity: knowledgeTopSimilarity } = knowledgeResult;
@@ -1218,6 +1294,15 @@ serve(async (req) => {
     const langInstruction = LANG_INSTRUCTIONS[lang] || LANG_INSTRUCTIONS["pt-BR"];
 
     const systemPrompt = `Você é a Dra. L.I.A., assistente técnica especialista da Smart Dent. Sua missão é fornecer suporte preciso sobre odontologia digital, impressoras 3D e resinas.
+
+### 🏢 DADOS DA EMPRESA (fonte: sistema ao vivo — use sempre que perguntarem sobre contato, localização, horário, NPS, parcerias ou status da L.I.A.)
+${companyContext}
+
+INSTRUÇÃO ESPECIAL — STATUS ONLINE: Você está ONLINE e ativa 24/7. Quando perguntarem "você está online?", "você funciona?", "você está ativa?" — responda afirmativamente, mencione o horário de atendimento humano e ofereça o WhatsApp como complemento.
+INSTRUÇÃO ESPECIAL — CONTATO COMERCIAL: Para qualquer pergunta sobre como entrar em contato, retorne SEMPRE:
+- 📞 WhatsApp: (16) 99383-1794 | [Chamar no WhatsApp](https://wa.me/5516993831794)
+- ✉️ E-mail: comercial@smartdent.com.br
+- 🕐 Horário: Segunda a Sexta, 8h às 18h
 
 ### 🎭 PERSONALIDADE E TOM (Regras de Ouro)
 1. **Humana e Calorosa:** Responda como uma especialista gentil, não como um robô de busca. Use saudações naturais.
