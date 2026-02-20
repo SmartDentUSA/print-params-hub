@@ -545,9 +545,12 @@ async function syncProductsCatalog(supabase: any, products: any[]) {
         subcategory: product.subcategory
       });
 
+      // Produtos conflitam por nome (external_id pode mudar entre sincronizações)
+      // Outros itens do catálogo conflitam por external_id (comportamento original)
+      const conflictColumn = catalogItem.category === 'product' ? 'source,name' : 'source,external_id';
       const { error: upsertError } = await supabase
         .from('system_a_catalog')
-        .upsert(catalogItem, { onConflict: 'source,external_id' });
+        .upsert(catalogItem, { onConflict: conflictColumn });
 
       if (upsertError) {
         console.error(`❌ Erro ao sincronizar produto ${product.name}:`, upsertError.message);
