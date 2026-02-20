@@ -308,7 +308,7 @@ serve(async (req) => {
     // ─── ACTION: approve ───────────────────────────────────────────────────
     if (action === "approve") {
       const body = await req.json();
-      const { draft_id, title, excerpt, faqs, keywords, category_id } = body;
+      const { draft_id, title, excerpt, faqs, keywords } = body;
 
       if (!draft_id) {
         return new Response(JSON.stringify({ error: "draft_id obrigatório" }), {
@@ -333,53 +333,48 @@ serve(async (req) => {
         });
       }
 
-      // Generate unique slug
-      const baseSlug =
-        (title || draft.draft_title)
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "") + "-faq-auto";
+      // Build chunk_text for RAG indexing
+      const finalTitle    = title    || draft.draft_title;
+      const finalExcerpt  = excerpt  || draft.draft_excerpt;
+      const finalFaqs     = (faqs    || draft.draft_faq    || []) as { q: string; a: string }[];
+      const finalKeywords = (keywords || draft.draft_keywords || []) as string[];
 
-      let slug = baseSlug;
-      let suffix = 2;
-      while (true) {
-        const { data: existing } = await adminSupabase
-          .from("knowledge_contents")
-          .select("id")
-          .eq("slug", slug)
-          .maybeSingle();
-        if (!existing) break;
-        slug = `${baseSlug}-${suffix++}`;
-        if (suffix > 20) break;
-      }
+      const faqText = finalFaqs
+        .map((f) => `P: ${f.q} R: ${f.a}`)
+        .join(" | ");
 
-      // Insert into knowledge_contents
-      const { data: newContent, error: insertError } = await adminSupabase
-        .from("knowledge_contents")
+      const chunkText = [finalTitle, finalExcerpt, finalKeywords.join(", "), faqText]
+        .filter(Boolean)
+        .join(" | ");
+
+      // Generate embedding
+      const embedding = await generateEmbedding(chunkText, GOOGLE_AI_KEY);
+
+      // Insert directly into agent_embeddings (RAG brain)
+      const { error: embError } = await adminSupabase
+        .from("agent_embeddings")
         .insert({
-          title: title || draft.draft_title,
-          slug,
-          excerpt: excerpt || draft.draft_excerpt,
-          faqs: faqs || draft.draft_faq,
-          keywords: keywords || draft.draft_keywords,
-          category_id: category_id || null,
-          active: true,
-          icon_color: "blue",
-          order_index: 0,
-        })
-        .select("id, slug")
-        .single();
+          source_type: "article",
+          chunk_text: chunkText,
+          embedding,
+          metadata: {
+            title: finalTitle,
+            excerpt: finalExcerpt,
+            keywords: finalKeywords,
+            origin: "auto-heal",
+            is_internal: true,
+            draft_id,
+          },
+          embedding_updated_at: new Date().toISOString(),
+        });
 
-      if (insertError) throw insertError;
+      if (embError) throw embError;
 
-      // Update draft status
+      // Update draft status (no published_content_id)
       await adminSupabase
         .from("knowledge_gap_drafts")
         .update({
           status: "approved",
-          published_content_id: newContent.id,
           reviewed_at: new Date().toISOString(),
           reviewed_by: user.email ?? user.id,
         })
@@ -389,25 +384,12 @@ serve(async (req) => {
       if (draft.gap_ids && draft.gap_ids.length > 0) {
         await adminSupabase
           .from("agent_knowledge_gaps")
-          .update({ status: "resolved", resolution_note: `Auto-healed → ${newContent.slug}` })
+          .update({ status: "resolved", resolution_note: "Auto-healed → RAG indexado diretamente" })
           .in("id", draft.gap_ids);
       }
 
-      // Trigger incremental RAG indexing
-      try {
-        await fetch(`${SUPABASE_URL}/functions/v1/index-embeddings?mode=incremental`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-            "Content-Type": "application/json",
-          },
-        });
-      } catch (e) {
-        console.warn("RAG indexing trigger failed (non-fatal):", e);
-      }
-
       return new Response(
-        JSON.stringify({ success: true, content_id: newContent.id, slug: newContent.slug }),
+        JSON.stringify({ success: true, indexed_to_rag: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
