@@ -447,12 +447,35 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const mode = url.searchParams.get("mode") || "full"; // 'full' | 'incremental'
+    const stage = url.searchParams.get("stage") || "all"; // 'all' | 'articles' | 'videos' | 'resins' | 'parameters' | 'company_kb' | 'catalog_products'
+
+    const stageToSourceType: Record<string, string> = {
+      articles: "article",
+      videos: "video",
+      resins: "resin",
+      parameters: "parameter",
+      company_kb: "company_kb",
+      catalog_products: "catalog_product",
+    };
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // ── DELETE logic based on mode + stage ──────────────────────
+    if (mode === "full") {
+      if (stage !== "all") {
+        const sourceType = stageToSourceType[stage];
+        if (sourceType) {
+          await supabase.from("agent_embeddings").delete().eq("source_type", sourceType);
+          console.log(`[delete] Cleared chunks for source_type="${sourceType}" (stage=${stage})`);
+        }
+      }
+      // For stage=all, deletion happens after all chunks are collected (at the filter step below)
+    }
 
     const chunks: Chunk[] = [];
 
     // ── 1. ARTICLES ─────────────────────────────────────────────
+    if (stage === "all" || stage === "articles") {
     const { data: articles, error: artError } = await supabase
       .from("knowledge_contents")
       .select("id, title, slug, excerpt, meta_description, keywords, category_id, content_html, og_image_url")
@@ -487,8 +510,10 @@ serve(async (req) => {
         },
       });
     }
+    } // end if articles
 
     // ── 2. VIDEOS (all with transcripts — all will be published) ─
+    if (stage === "all" || stage === "videos") {
     const { data: videos, error: vidError } = await supabase
       .from("knowledge_videos")
       .select("id, title, description, video_transcript, embed_url, thumbnail_url, content_id, pandavideo_id")
@@ -549,9 +574,11 @@ serve(async (req) => {
           },
         });
       }
-    }
+      }
+    } // end if videos
 
     // ── 3. RESINS ────────────────────────────────────────────────
+    if (stage === "all" || stage === "resins") {
     const { data: resins, error: resinError } = await supabase
       .from("resins")
       .select("id, name, manufacturer, description, processing_instructions, slug, cta_1_url, system_a_product_url, keywords")
@@ -582,8 +609,10 @@ serve(async (req) => {
         },
       });
     }
+    } // end if resins
 
     // ── 4. PARAMETERS ────────────────────────────────────────────
+    if (stage === "all" || stage === "parameters") {
     const { data: params, error: parError } = await supabase
       .from("parameter_sets")
       .select("id, brand_slug, model_slug, resin_name, resin_manufacturer, layer_height, cure_time, light_intensity, bottom_layers, bottom_cure_time, notes")
@@ -618,13 +647,17 @@ serve(async (req) => {
         },
       });
     }
+    } // end if parameters
 
     // ── 5. EXTERNAL KB (company_kb) ──────────────────────────────
+    if (stage === "all" || stage === "company_kb") {
     const externalChunks = await fetchExternalKBChunks();
     console.log(`[external-kb] ${externalChunks.length} chunks from ai_training endpoint`);
     chunks.push(...externalChunks);
+    } // end if company_kb
 
     // ── 6. CATALOG PRODUCTS (system_a_catalog) ───────────────────
+    if (stage === "all" || stage === "catalog_products") {
     const { data: catalogProducts, error: catalogError } = await supabase
       .from("system_a_catalog")
       .select("id, name, category, product_category, product_subcategory, description, cta_1_url, slug, extra_data, keywords, meta_description")
@@ -703,8 +736,9 @@ serve(async (req) => {
         });
       }
     }
+    } // end if catalog_products
 
-    console.log(`[catalog-products] ${(catalogProducts || []).length} products → chunks gerados`);
+    console.log(`[catalog-products] chunks gerados`);
 
     // ── FILTER incremental: skip already indexed ─────────────────
     let chunksToIndex = chunks;
@@ -714,12 +748,15 @@ serve(async (req) => {
         .select("chunk_text");
       const existingTexts = new Set((existing || []).map((e: { chunk_text: string }) => e.chunk_text));
       chunksToIndex = chunks.filter((c) => !existingTexts.has(c.chunk_text));
-    } else {
-      // Full mode: clear all embeddings first
+    } else if (mode === "full" && stage === "all") {
+      // Full mode + all stages: clear everything first
       await supabase.from("agent_embeddings").delete().neq("id", "00000000-0000-0000-0000-000000000000");
     }
+    // Note: full mode + specific stage already deleted selectively above
 
-    console.log(`Mode: ${mode} | Total: ${chunks.length} | To index: ${chunksToIndex.length} | company_kb: ${externalChunks.length} | catalog_products: ${(catalogProducts || []).length}`);
+    const externalChunksCount = chunks.filter(c => c.source_type === "company_kb").length;
+    const catalogProductChunksCount = chunks.filter(c => c.source_type === "catalog_product").length;
+    console.log(`Mode: ${mode} | Stage: ${stage} | Total: ${chunks.length} | To index: ${chunksToIndex.length} | company_kb: ${externalChunksCount} | catalog_products: ${catalogProductChunksCount}`);
 
     // ── PROCESS in batches ───────────────────────────────────────
     let indexed = 0;
@@ -762,9 +799,10 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         mode,
+        stage,
         total_chunks: chunks.length,
-        company_kb_chunks: externalChunks.length,
-        catalog_product_chunks: (catalogProducts || []).length,
+        company_kb_chunks: externalChunksCount,
+        catalog_product_chunks: catalogProductChunksCount,
         indexed,
         errors,
         skipped: chunks.length - chunksToIndex.length,
