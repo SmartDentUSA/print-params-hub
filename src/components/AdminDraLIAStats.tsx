@@ -43,6 +43,8 @@ import {
   Sparkles,
   ChevronRight,
   Brain,
+  Building2,
+  ShoppingBag,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -341,6 +343,34 @@ export function AdminDraLIAStats() {
       toast({ title: `Erro: ${msg}`, variant: "destructive" });
     } finally {
       setIndexingLoading(false);
+    }
+  };
+
+  const [stagingLoading, setStagingLoading] = useState<string | null>(null);
+
+  const handleIndexingStage = async (stage: string) => {
+    setStagingLoading(stage);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Não autenticado");
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const start = Date.now();
+      const response = await fetch(`${supabaseUrl}/functions/v1/index-embeddings?mode=full&stage=${stage}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+      });
+      const json = await response.json();
+      const elapsed = ((Date.now() - start) / 1000).toFixed(1);
+      if (!response.ok) {
+        toast({ title: `Erro na reindexação: ${json.error}`, variant: "destructive" });
+      } else {
+        toast({ title: `✓ ${stage} reindexado em ${elapsed}s — ${json.indexed} chunks` });
+        fetchRAGStats();
+      }
+    } catch (err) {
+      toast({ title: `Erro: ${err instanceof Error ? err.message : "Erro"}`, variant: "destructive" });
+    } finally {
+      setStagingLoading(null);
     }
   };
 
@@ -1135,6 +1165,8 @@ export function AdminDraLIAStats() {
                     { key: "video", label: "Vídeos", icon: Video, color: "bg-chart-3" },
                     { key: "resin", label: "Resinas", icon: FlaskConical, color: "bg-chart-2" },
                     { key: "parameter", label: "Parâmetros", icon: Settings2, color: "bg-chart-4" },
+                    { key: "company_kb", label: "Empresa & Parcerias", icon: Building2, color: "bg-violet-500" },
+                    { key: "catalog_product", label: "Produtos Catálogo", icon: ShoppingBag, color: "bg-amber-500" },
                   ].map(({ key, label, icon: Icon, color }) => {
                     const entry = ragStats.bySourceType.find((s) => s.source_type === key);
                     const count = entry?.count ?? 0;
@@ -1160,8 +1192,47 @@ export function AdminDraLIAStats() {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                A <strong>Indexação Completa</strong> apaga todos os embeddings e re-indexa tudo (artigos, vídeos, resinas, parâmetros). A <strong>Incremental</strong> só indexa conteúdo novo.
+                A <strong>Indexação Completa</strong> apaga todos os embeddings e re-indexa tudo (artigos, vídeos, resinas, parâmetros, empresa &amp; parcerias, produtos do catálogo). A <strong>Incremental</strong> só indexa conteúdo novo ou modificado.
               </p>
+
+              {/* Reindexação Seletiva por Categoria */}
+              <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Reindexar por Categoria</p>
+                <p className="text-xs text-muted-foreground">Apaga e recria apenas os chunks da fonte selecionada — sem afetar as demais.</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { stage: "articles", label: "Artigos", icon: FileText, key: "article" },
+                    { stage: "videos", label: "Vídeos", icon: Video, key: "video" },
+                    { stage: "resins", label: "Resinas", icon: FlaskConical, key: "resin" },
+                    { stage: "parameters", label: "Parâmetros", icon: Settings2, key: "parameter" },
+                    { stage: "company_kb", label: "Empresa & Parcerias", icon: Building2, key: "company_kb" },
+                    { stage: "catalog_products", label: "Produtos Catálogo", icon: ShoppingBag, key: "catalog_product" },
+                  ].map(({ stage, label, icon: Icon, key }) => {
+                    const count = ragStats.bySourceType.find(s => s.source_type === key)?.count ?? 0;
+                    const isLoading = stagingLoading === stage;
+                    return (
+                      <div key={stage} className="flex flex-col gap-1 rounded-md border border-border bg-card p-3">
+                        <div className="flex items-center gap-1.5">
+                          <Icon className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-xs font-medium truncate">{label}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{count.toLocaleString("pt-BR")} chunks</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1 mt-1"
+                          disabled={!!stagingLoading || indexingLoading}
+                          onClick={() => handleIndexingStage(stage)}
+                        >
+                          {isLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                          {isLoading ? "..." : "Reindexar"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="flex flex-wrap gap-3">
                 <Button
                   onClick={() => handleIndexing("full")}
