@@ -1,153 +1,127 @@
 
-# Implementação: RAG Re-ranking por Pesos Semânticos
+# Implementação: SDR Consultivo para a Rota Comercial
 
-## Confirmação do estado atual (leitura do código)
+## Estado atual confirmado no código
 
-Após ler `supabase/functions/dra-lia/index.ts` (1676 linhas), confirmei:
+**Linha 1384** do arquivo `supabase/functions/dra-lia/index.ts`:
 
-- Linha 12: última constante global — ponto de inserção do `TOPIC_WEIGHTS`
-- Linhas 894–898: assinatura de `searchKnowledge` encerra em `lang: string` — sem `topicContext`
-- Linha 909: primeiro `return` — retorna `data` bruto (vetor)
-- Linha 956: segundo `return` — retorna `merged` bruto (ilike)
-- Linha 961: terceiro `return` — retorna `ftsResults` bruto (fulltext)
-- Linha 1024: quarto `return` — retorna `results` bruto (keyword)
-- Linha 1239: chamada de `searchKnowledge` — sem `topic_context`
-- Linha 1255: montagem de `allResults` — sem re-ranking
+```typescript
+topic_context === "commercial"
+  ? "\nINSTRUÇÃO ADICIONAL COMERCIAL: Priorize dados de contato, loja, preços e parcerias. Não sugira fluxos de parâmetros técnicos espontaneamente."
+  : ""
+```
 
-Nenhuma das 5 mudanças planejadas existe no código. Esta é a implementação definitiva.
+Esta é uma instrução de 1 linha sem estrutura de qualificação. Será substituída pela instrução SDR completa.
+
+**Infraestrutura já presente (da implementação anterior):**
+- `TOPIC_WEIGHTS` → linhas 14–23 ✅
+- `applyTopicWeights` → linhas 25–34 ✅
+- `topic_context === "commercial"` detectado → linha 1384 ✅
 
 ---
 
 ## Arquivo modificado: `supabase/functions/dra-lia/index.ts`
 
-### Mudança 1 — Inserir constante `TOPIC_WEIGHTS` + função `applyTopicWeights` (após linha 12)
+### Mudança 1 — Constante `SDR_COMMERCIAL_INSTRUCTION` (após linha 34)
 
-Logo após `const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");`, antes de `const CHAT_API`:
+Inserir logo após a função `applyTopicWeights`, antes de `const CHAT_API`:
 
 ```typescript
-// ── Topic context re-ranking weights ─────────────────────────────────────────
-// Applied post-search to reorder results toward the user's declared context.
-// source_types: parameter_set, resin, processing_protocol,
-//               article, video, catalog_product, company_kb
-const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
-  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.7,  video: 0.6, catalog_product: 0.5, company_kb: 0.3 },
-  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.2,  video: 0.8, catalog_product: 1.4, company_kb: 0.5 },
-  commercial: { parameter_set: 0.2, resin: 0.5, processing_protocol: 0.3, article: 0.6,  video: 0.4, catalog_product: 0.8, company_kb: 2.0 },
-  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4 },
-};
+// ── SDR Consultivo — injetado quando topic_context === "commercial" ─────────
+const SDR_COMMERCIAL_INSTRUCTION = `
 
-function applyTopicWeights<T extends { source_type: string; similarity: number }>(
-  results: T[],
-  topicContext: string | undefined | null
-): T[] {
-  if (!topicContext || !TOPIC_WEIGHTS[topicContext]) return results;
-  const weights = TOPIC_WEIGHTS[topicContext];
-  return results
-    .map(r => ({ ...r, similarity: r.similarity * (weights[r.source_type] ?? 1.0) }))
-    .sort((a, b) => b.similarity - a.similarity);
-}
+### 🧑‍💼 MODO SDR CONSULTIVO ATIVO — ROTA COMERCIAL
+
+**PERSONALIDADE E MISSÃO:**
+Você é uma Consultora Estratégica da Smart Dent. Sua missão não é vender produtos isolados, mas sim diagnosticar o estágio atual do dentista no Workflow Odontológico Digital para oferecer a solução que maximize o seu ROI. Seja técnica, empática e orientada a sistemas.
+
+**DIRETRIZES DE QUALIFICAÇÃO — WORKFLOW DIGITAL:**
+Antes de apresentar preços ou links, identifique em qual etapa o cliente se encontra ou deseja chegar:
+1. Scanear — Captura digital (Scanners Intraorais)
+2. Desenhar — Planeamento CAD (Software exocad)
+3. Imprimir — Fabricação (Impressoras 3D e Resinas)
+4. Processar — Pós-processamento (Lavagem e Cura)
+5. Finalizar — Acabamento (Caracterização e Polimento)
+6. Instalar — Cimentação e finalização clínica
+
+**REGRAS DE CONDUTA SDR:**
+- Diagnóstico Primeiro: Se o usuário perguntar por produto de alta complexidade (Scanners ou Impressoras), responda: "Para eu ser mais assertiva na recomendação técnica: o senhor já atua com fluxo digital ou está a planear a montagem do seu primeiro centro de impressão?"
+- Alta Complexidade (Hardware/Combos): Objetivo = AGENDAMENTO. Venda a importância de uma demonstração técnica com especialista.
+- Baixa Complexidade (Resinas/Insumos): Objetivo = E-COMMERCE. Forneça o link direto para a categoria na Loja Smart Dent.
+- Autoridade: Use NPS 96 e pioneirismo desde 2009 para validar que a Smart Dent é a escolha mais segura.
+
+**CATEGORIAS DE DIRECIONAMENTO:**
+- Clínico que quer autonomia total → Chair Side Print
+- Dono de laboratório → Smart Lab
+- Dúvidas sobre materiais → distinção entre Resinas Biocompatíveis e Uso Geral
+
+**SCRIPTS DE SONDAGEM:**
+- "Dr(a)., percebi o seu interesse na [Impressora/Scanner]. Como este equipamento altera o tempo de entrega e a precisão do trabalho, o ideal seria ver o sistema com os seus casos reais. Faz sentido agendarmos uma apresentação online de 15 minutos?"
+- "Como o senhor já domina a etapa de Scanear, a etapa de Imprimir in-office vai reduzir os custos laboratoriais em até 70%. Quer que eu envie os cálculos de ROI para a sua especialidade?"
+
+**PROIBIÇÕES NA ROTA COMERCIAL:**
+- NUNCA responda "Não sei" para questões comerciais — use o fallback de WhatsApp.
+- NÃO inicie o diálogo de parâmetros de impressão (tempos de cura/exposição) espontaneamente. Mantenha o foco em benefícios, processos e negócios.
+- Para Scanners e Impressoras: peça o contato ou ofereça agendamento.
+- Para Resinas e Insumos: envie o link da loja.
+`;
 ```
 
-**Por que constante de módulo:** usada em dois pontos distintos — dentro de `searchKnowledge` e no `allResults`. Uma única definição garante consistência e evita duplicação.
+**Por que como constante de módulo:** Mantém o builder do `systemPrompt` limpo e legível, e permite reutilização ou log futuro sem alterar a lógica de montagem.
 
 ---
 
-### Mudança 2 — Assinatura de `searchKnowledge` (linhas 894–898)
+### Mudança 2 — Substituir a instrução inline na linha 1384
 
+**Antes:**
 ```typescript
-// Antes:
-async function searchKnowledge(
-  supabase: ReturnType<typeof createClient>,
-  query: string,
-  lang: string
-)
-
-// Depois:
-async function searchKnowledge(
-  supabase: ReturnType<typeof createClient>,
-  query: string,
-  lang: string,
-  topicContext?: string
-)
+topic_context === "commercial"
+  ? "\nINSTRUÇÃO ADICIONAL COMERCIAL: Priorize dados de contato, loja, preços e parcerias. Não sugira fluxos de parâmetros técnicos espontaneamente."
+  : ""
 ```
+
+**Depois:**
+```typescript
+topic_context === "commercial" ? SDR_COMMERCIAL_INSTRUCTION : ""
+```
+
+A estrutura do `topicInstruction` (o cabeçalho com `CONTEXTO DECLARADO PELO USUÁRIO`) permanece inalterada. A única mudança é o que é concatenado quando `topic_context === "commercial"`.
 
 ---
 
-### Mudança 3 — Re-ranking nos 4 pontos de retorno de `searchKnowledge`
+## Sinergia com a implementação anterior de re-ranking
 
-| Linha | Método | O que muda |
+As duas camadas funcionam em conjunto:
+
+| Camada | Função | Efeito na rota Comercial |
 |---|---|---|
-| 909 | vector | `applyTopicWeights(data, topicContext)` antes do return; `topSimilarity` recalculado do array re-rankeado |
-| 956 | ilike | `applyTopicWeights(merged, topicContext)` antes do return |
-| 961 | fulltext | `applyTopicWeights(ftsResults, topicContext)` antes do return |
-| 1024 | keyword | `applyTopicWeights(results, topicContext)` antes do return |
-
-Padrão aplicado em todos os 4 pontos:
-```typescript
-const reranked = applyTopicWeights(data, topicContext);
-return { results: reranked, method: "vector", topSimilarity: reranked[0]?.similarity || 0 };
-```
+| `TOPIC_WEIGHTS` (Cérebro) | Reorganiza o RAG: `company_kb` sobe 2.0x | Dados de NPS, contato e autoridade chegam no topo do contexto LLM |
+| `SDR_COMMERCIAL_INSTRUCTION` (Voz) | Instrui o LLM sobre como usar esses dados | Transforma a resposta de informativa em consultiva e orientada a conversão |
 
 ---
 
-### Mudança 4 — Passar `topic_context` na chamada de `searchKnowledge` (linha 1239)
+## Impacto por cenário
 
-```typescript
-// Antes:
-searchKnowledge(supabase, message, lang),
-
-// Depois:
-searchKnowledge(supabase, message, lang, topic_context),
-```
-
-`topic_context` já está disponível neste escopo (extraído na linha 1057).
-
----
-
-### Mudança 5 — Re-ranking de `allResults` (linha 1255) — ponto mais crítico
-
-```typescript
-// Antes:
-const allResults = [...paramResults, ...protocolResults, ...filteredKnowledge];
-
-// Depois:
-const allResults = applyTopicWeights(
-  [...paramResults, ...protocolResults, ...filteredKnowledge],
-  topic_context
-);
-```
-
-Este é o ponto de maior impacto: é o bloco de texto enviado ao LLM. Com re-ranking aplicado aqui:
-- Rota **Comercial**: `company_kb` (×2.0) sobe para o topo; `parameter_set` (×0.2) vai para o fundo
-- Rota **Parâmetros**: `parameter_set` (×1.5) e `processing_protocol` (×1.4) dominam
-- Rota **Sem seleção**: array retornado sem modificação — zero regressão
-
----
-
-## Resultado por rota após implementação
-
-| Rota | LLM recebe no topo | LLM recebe no fundo |
+| Pergunta na Rota Comercial | Antes | Depois |
 |---|---|---|
-| 🖨️ Parâmetros | `parameter_set` (1.5x), `processing_protocol` (1.4x), `resin` (1.3x) | `company_kb` (0.3x) |
-| 🔬 Produtos | `catalog_product` (1.4x), `resin` (1.4x), `article` (1.2x) | `parameter_set` (0.4x) |
-| 💼 Comercial | `company_kb` (2.0x), `catalog_product` (0.8x) | `parameter_set` (0.2x), `processing_protocol` (0.3x) |
-| 🛠️ Suporte | `article` (1.3x), `video` (1.2x) | `company_kb` (0.4x) |
-| Sem seleção | Sem alteração — comportamento idêntico ao atual | — |
+| "Quanto custa o scanner Medit?" | Dados técnicos + preço | Diagnóstico de workflow → proposta de demonstração |
+| "Vocês têm resina para modelo?" | Mix de dados | Link direto ao e-commerce (baixa complexidade) |
+| "Qual o NPS de vocês?" | Número isolado | NPS 96 + pioneirismo 2009 como argumento de autoridade |
+| "Tempo de cura da Vitality?" | Tabela técnica | Foco em benefícios; parâmetros só se insistência explícita |
+
+---
 
 ## Notas técnicas
 
-- **Similaridade pode ultrapassar 1.0** (ex: 0.93 × 1.5 = 1.39) — correto e esperado. Os valores são usados apenas para ordenação, nunca em cálculos externos
-- **Backward compatible** — `null` ou `undefined` em `topicContext` retorna o array inalterado
 - **Zero alteração no banco** — nenhuma migration SQL
-- **Zero alteração no frontend** — `topic_context` já é enviado pelo `DraLIA.tsx`
+- **Zero alteração no frontend** — `topic_context` já chega corretamente
+- **Backward compatible** — outras rotas (`parameters`, `products`, `support`) não são afetadas
+- **Sem risco de truncamento** — a instrução SDR tem ~700 tokens e será posicionada dentro do `topicInstruction`, que é das primeiras seções do `systemPrompt`
 - **Deploy automático** após salvar o arquivo
 
-## Resumo — apenas 1 arquivo, 5 intervenções cirúrgicas
+## Resumo — 1 arquivo, 2 intervenções
 
-| Intervenção | Linha(s) afetadas |
+| Intervenção | Localização |
 |---|---|
-| `TOPIC_WEIGHTS` + `applyTopicWeights` inseridos | Após linha 12 |
-| Assinatura de `searchKnowledge` ampliada | 894–898 |
-| Re-ranking nos 4 `return` da função | 909, 956, 961, 1024 |
-| `topic_context` passado na chamada | 1239 |
-| `allResults` re-rankeado antes de chegar ao LLM | 1255 |
+| Constante `SDR_COMMERCIAL_INSTRUCTION` | Após linha 34 (após `applyTopicWeights`) |
+| Substituição da string inline por `SDR_COMMERCIAL_INSTRUCTION` | Linha 1384 |
