@@ -1,142 +1,86 @@
 
-# Correção Pontual: Reindexar o Draft Auto-Heal Existente no RAG
+# Correção: Duplicatas no Catálogo após Sincronização Sistema A
 
-## Diagnóstico confirmado pelos dados
+## Diagnóstico confirmado
 
-O draft "FAQ Técnico SmartDent: Robô de Vendas e Odontologia Digital" (`f4b2dac7`) foi aprovado **antes** da implementação do novo paradigma. Ele tem:
-- `status: approved` ✓
-- `published_content_id: a5a6d438-511e-45b5-96aa-c9c048232ccd` → artigo que **não existe** em `knowledge_contents`
-- **Zero chunks** com `origin: "auto-heal"` em `agent_embeddings`
+O banco hoje tem **97 pares de produtos duplicados** com o mesmo nome mas dois `external_id` diferentes:
 
-Os dois testes confirmam: L.I.A. responde com fallback genérico porque o conteúdo do FAQ jamais chegou ao RAG.
+- Registro antigo: `external_id = "53759012"` (ID numérico da Loja Integrada, inserido em nov/2025)
+- Registro novo: `external_id = "d6c2d3e9-..."` (UUID do Sistema A, inserido em fev/2026)
 
-## O que precisa ser feito
+O upsert em `sync-knowledge-base` usa `onConflict: 'source,external_id'`. Como os dois IDs são diferentes, o Postgres nunca detecta o conflito e simplesmente **insere um segundo registro**. O problema é que o Sistema A agora envia um UUID próprio no campo `id`, mas o `li_product_id` (ID numérico da Loja Integrada) ainda está disponível no payload — mas não estava sendo usado como `external_id` na primeira rodada histórica.
 
-### Opção A — Botão "Re-indexar" na UI Admin (recomendado)
+## Plano de correção em 3 etapas
 
-Adicionar na aba Auto-Heal, na linha de cada draft com `status: approved`, um botão **"Re-indexar na L.I.A."** que chama o mesmo endpoint `heal-knowledge-gaps?action=reindex` com o `draft_id`. Isso permite reindexar qualquer draft histórico sem precisar re-aprovar.
+### Etapa 1 — Limpeza cirúrgica das duplicatas (SQL + migração)
 
-**Nova ação `reindex` em `supabase/functions/heal-knowledge-gaps/index.ts`:**
-- Recebe `draft_id`
-- Lê o draft existente (já tem `draft_faq`, `draft_title`, `draft_excerpt`, `draft_keywords`)
-- Serializa as FAQs em `chunkText` (mesmo algoritmo do `approve`)
-- Gera embedding e insere em `agent_embeddings` com `metadata.origin = "auto-heal"`
-- **Não altera** o status do draft (já está `approved`)
-- Retorna `{ success: true, indexed_to_rag: true }`
+Remover os registros **mais antigos** (os numéricos de nov/2025) para cada nome duplicado, preservando o registro UUID mais recente que tem os dados completos sincronizados do Sistema A.
 
-### Opção B — Re-aprovar pelo Admin (mais simples, porém destrutivo)
+SQL de limpeza:
 
-Resetar o status do draft para `pending`, voltar à aba Auto-Heal e clicar "Indexar na L.I.A." novamente. Funciona, mas perde o `reviewed_at` e `reviewed_by` originais.
-
----
-
-## Implementação escolhida: Opção A
-
-### Arquivo 1: `supabase/functions/heal-knowledge-gaps/index.ts`
-
-Adicionar um novo bloco `else if (action === "reindex")` após o bloco `approve` (por volta da linha 415):
-
-```typescript
-} else if (action === "reindex") {
-  const { draft_id } = body;
-  if (!draft_id) return errorResponse("draft_id required", 400);
-
-  // Buscar o draft
-  const { data: draft, error: draftErr } = await adminSupabase
-    .from("knowledge_gap_drafts")
-    .select("*")
-    .eq("id", draft_id)
-    .single();
-  if (draftErr || !draft) return errorResponse("Draft not found", 404);
-
-  // Serializar FAQs
-  const faqs = (draft.draft_faq || []) as { q: string; a: string }[];
-  const keywords = (draft.draft_keywords || []) as string[];
-  const faqText = faqs.map(f => `P: ${f.q} R: ${f.a}`).join(" | ");
-  const chunkText = [draft.draft_title, draft.draft_excerpt, keywords.join(", "), faqText]
-    .filter(Boolean)
-    .join(" | ");
-
-  // Gerar embedding e inserir no RAG
-  const embedding = await generateEmbedding(chunkText, GOOGLE_AI_KEY);
-  const { error: embError } = await adminSupabase
-    .from("agent_embeddings")
-    .insert({
-      source_type: "article",
-      chunk_text: chunkText,
-      embedding,
-      metadata: {
-        title: draft.draft_title,
-        excerpt: draft.draft_excerpt,
-        keywords,
-        origin: "auto-heal",
-        is_internal: true,
-        draft_id,
-      },
-      embedding_updated_at: new Date().toISOString(),
-    });
-  if (embError) throw embError;
-
-  return new Response(
-    JSON.stringify({ success: true, indexed_to_rag: true }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+```sql
+-- Deletar os registros numéricos antigos onde o mesmo nome já existe com UUID novo
+DELETE FROM system_a_catalog
+WHERE category = 'product'
+  AND external_id ~ '^[0-9]+$'  -- apenas IDs numéricos antigos
+  AND name IN (
+    SELECT name
+    FROM system_a_catalog
+    WHERE category = 'product'
+    GROUP BY name
+    HAVING COUNT(*) > 1
   );
-}
 ```
 
-### Arquivo 2: `src/components/AdminDraLIAStats.tsx`
+Isso remove os 97 registros numéricos duplicados, preservando os 97 registros UUID com dados completos de SEO, CTAs e metadados do Sistema A.
 
-**Adicionar handler `handleReindexDraft`** (próximo ao `handleApproveDraft`):
+### Etapa 2 — Adicionar constraint de unicidade por nome + source (migração)
+
+Adicionar um índice único parcial que previne futuras duplicatas de produtos com o mesmo nome e source, independente do `external_id`:
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS idx_system_a_catalog_name_source_product
+ON system_a_catalog (source, name)
+WHERE category = 'product';
+```
+
+Isso garante que mesmo que o `external_id` mude entre sincronizações, o `upsert` nunca criará um segundo registro para o mesmo nome de produto.
+
+### Etapa 3 — Corrigir `sync-knowledge-base` para fallback por nome
+
+No arquivo `supabase/functions/sync-knowledge-base/index.ts`, alterar a lógica de `syncProductsCatalog` para que o upsert use `onConflict: 'source,name'` (em vez de `source,external_id`) quando a `category` é `product`.
+
+Mudança nas linhas 548-550:
+
 ```typescript
-const handleReindexDraft = async (draftId: string) => {
-  try {
-    const resp = await fetch(
-      `${SUPABASE_URL}/functions/v1/heal-knowledge-gaps?action=reindex`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
-        body: JSON.stringify({ draft_id: draftId }),
-      }
-    );
-    if (!resp.ok) throw new Error(await resp.text());
-    toast({ title: "✓ Re-indexado na L.I.A.", description: "O FAQ foi absorvido pela memória semântica." });
-    fetchDrafts();
-  } catch (e) {
-    toast({ title: "Erro ao re-indexar", description: String(e), variant: "destructive" });
-  }
-};
+// ANTES
+const { error: upsertError } = await supabase
+  .from('system_a_catalog')
+  .upsert(catalogItem, { onConflict: 'source,external_id' });
+
+// DEPOIS — produtos conflitam por nome, não por external_id (que pode mudar)
+const conflictColumn = productCategory === 'product' ? 'source,name' : 'source,external_id';
+const { error: upsertError } = await supabase
+  .from('system_a_catalog')
+  .upsert(catalogItem, { onConflict: conflictColumn });
 ```
 
-**Na tabela de histórico** (seção que lista drafts aprovados), adicionar um botão **"Re-indexar"** ao lado de cada linha com `status === "approved"`:
-```tsx
-{draft.status === "approved" && (
-  <Button
-    size="sm"
-    variant="outline"
-    className="text-xs h-7 gap-1"
-    onClick={() => handleReindexDraft(draft.id)}
-  >
-    <Brain className="w-3 h-3" />
-    Re-indexar
-  </Button>
-)}
-```
+Isso garante que sincronizações futuras sempre atualizem o registro existente pelo nome, sem criar duplicatas.
 
 ## Impacto
 
-| Aspecto | Resultado |
-|---|---|
-| Draft histórico | Re-indexado sem alterar `reviewed_at` / `reviewed_by` |
-| `agent_embeddings` | +1 chunk com `origin: "auto-heal"` e FAQ serializado |
-| Status do draft | Permanece `approved` |
-| Gaps relacionados | Permanecem `resolved` |
-| L.I.A. após re-indexação | Responde "você está online?" e "como entrar em contato com comercial?" com base no FAQ real |
+| Aspecto | Antes | Depois |
+|---|---|---|
+| Produtos duplicados | 97 pares (194 registros redundantes) | 0 |
+| Unicidade | Apenas por `source+external_id` | Também por `source+name` para produtos |
+| Sincronizações futuras | Criam duplicatas | Atualizam o existente |
+| Dados preservados | Registros UUID com CTAs e SEO | Todos mantidos |
 
 ## Arquivos modificados
 
 | Arquivo | Mudança |
 |---|---|
-| `supabase/functions/heal-knowledge-gaps/index.ts` | +ação `reindex` (novo bloco `else if`) |
-| `src/components/AdminDraLIAStats.tsx` | +`handleReindexDraft` handler + botão "Re-indexar" na tabela de histórico |
+| Migração SQL | Limpar os 97 duplicatas numéricas + criar índice único `source,name` para `category='product'` |
+| `supabase/functions/sync-knowledge-base/index.ts` | Alterar `onConflict` para `source,name` quando `category = 'product'` |
 
-Zero migrações SQL. O botão fica disponível para qualquer draft aprovado historicamente que precise ser re-injetado no RAG.
+Nenhuma mudança no frontend necessária. Após a correção, o botão "Sincronizar Agora" funcionará sem criar duplicatas.
