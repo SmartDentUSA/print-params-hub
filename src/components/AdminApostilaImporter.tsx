@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
+import JSZip from "jszip";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Upload, Database, Sparkles, Brain, CheckCircle, AlertCircle, FileJson,
   ChevronDown, ChevronUp, Plus, Trash2, RefreshCw, Zap, BookOpen, Activity,
+  FileUp, FileText, Loader2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -143,6 +145,18 @@ export function AdminApostilaImporter() {
   const [diagLoading, setDiagLoading] = useState(false);
   const [diagLastSync, setDiagLastSync] = useState<string | null>(null);
   const [showFormatGuide, setShowFormatGuide] = useState(false);
+
+  // ── Upload de Documento state ─────────────────────────────────────────────
+  const docUploadRef = useRef<HTMLInputElement>(null);
+  const [docFile, setDocFile] = useState<File | null>(null);
+  const [docFileType, setDocFileType] = useState<"docx" | "pdf" | null>(null);
+  const [docExtractedText, setDocExtractedText] = useState("");
+  const [docExtracting, setDocExtracting] = useState(false);
+  const [docTitle, setDocTitle] = useState("");
+  const [docCategory, setDocCategory] = useState("sdr");
+  const [docSource, setDocSource] = useState("");
+  const [docIndexing, setDocIndexing] = useState(false);
+  const [docResults, setDocResults] = useState<KBResult[]>([]);
 
   // ── Apostila helpers ──────────────────────────────────────────────────────
   const updateStep = (id: string, patch: Partial<Step>) => {
@@ -401,6 +415,105 @@ export function AdminApostilaImporter() {
     }
   };
 
+  // ── Upload helpers ────────────────────────────────────────────────────────
+  const extractDocxText = useCallback(async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    const xmlFile = zip.file("word/document.xml");
+    if (!xmlFile) throw new Error("Arquivo DOCX inválido: word/document.xml não encontrado");
+    const xmlStr = await xmlFile.async("string");
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlStr, "application/xml");
+    const nodes = xmlDoc.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t");
+    const parts: string[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const text = nodes[i].textContent || "";
+      if (text.trim()) parts.push(text);
+    }
+    return parts.join(" ").replace(/\s+/g, " ").trim();
+  }, []);
+
+  const handleDocUpload = useCallback(async (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const type = ext === "pdf" ? "pdf" : ext === "docx" ? "docx" : null;
+    if (!type) {
+      toast({ title: "Formato não suportado", description: "Envie um arquivo .docx ou .pdf", variant: "destructive" });
+      return;
+    }
+    const baseName = file.name.replace(/\.[^.]+$/, "");
+    setDocFile(file);
+    setDocFileType(type);
+    setDocTitle(baseName);
+    setDocSource(baseName);
+    setDocExtractedText("");
+    setDocResults([]);
+    setDocExtracting(true);
+    toast({ title: type === "docx" ? "Extraindo texto do DOCX..." : "Enviando PDF para IA...", description: file.name });
+    try {
+      let text = "";
+      if (type === "docx") {
+        text = await extractDocxText(file);
+      } else {
+        // PDF: send to extract-pdf-text edge function
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        const { data, error } = await supabase.functions.invoke("extract-pdf-text", {
+          body: { pdfBase64: base64 },
+        });
+        if (error) throw new Error(error.message);
+        if (!data?.extractedText) throw new Error("Texto não extraído do PDF");
+        text = data.extractedText;
+      }
+      setDocExtractedText(text);
+      toast({ title: "Texto extraído com sucesso!", description: `${text.length.toLocaleString()} caracteres` });
+    } catch (e: any) {
+      toast({ title: "Erro na extração", description: e.message, variant: "destructive" });
+    } finally {
+      setDocExtracting(false);
+    }
+  }, [extractDocxText, toast]);
+
+  const indexDocText = async () => {
+    if (!docExtractedText.trim() || !docTitle.trim()) {
+      toast({ title: "Preencha título e certifique-se que o texto foi extraído", variant: "destructive" });
+      return;
+    }
+    setDocIndexing(true);
+    setDocResults([]);
+    try {
+      const session = await supabase.auth.getSession();
+      const token = session.data.session?.access_token || "";
+      const resp = await fetch(
+        `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/ingest-knowledge-text`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+            apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk",
+          },
+          body: JSON.stringify({
+            entries: [{ title: docTitle, category: docCategory, source_label: docSource, content: docExtractedText }],
+          }),
+        }
+      );
+      const result = await resp.json();
+      setDocResults(result.results || []);
+      if (resp.ok) {
+        toast({ title: "Documento indexado na L.I.A.!", description: `${result.indexed} chunks gerados` });
+      } else {
+        toast({ title: "Erro na indexação", description: result.error, variant: "destructive" });
+      }
+    } catch (e: any) {
+      toast({ title: "Erro", description: e.message, variant: "destructive" });
+    } finally {
+      setDocIndexing(false);
+    }
+  };
+
   const totalDiagChunks = diagData.reduce((s, d) => s + d.count, 0);
   const productCount = parsedData?.data?.products?.length || parsedData?.products?.length || 0;
   const enrichStats = steps.find((s) => s.id === "enrich")?.stats as EnrichStats | undefined;
@@ -436,6 +549,10 @@ export function AdminApostilaImporter() {
             <TabsTrigger value="cerebro" className="flex-1 gap-2">
               <Brain className="w-4 h-4" />
               Cérebro da L.I.A.
+            </TabsTrigger>
+            <TabsTrigger value="upload" className="flex-1 gap-2">
+              <FileUp className="w-4 h-4" />
+              Upload Documento
             </TabsTrigger>
           </TabsList>
 
@@ -848,6 +965,144 @@ export function AdminApostilaImporter() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* ── ABA 3: Upload de Documento ───────────────────────────────── */}
+          <TabsContent value="upload" className="space-y-6">
+            <p className="text-sm text-muted-foreground">
+              Faça upload de um <strong>DOCX</strong> (extração instantânea no browser) ou <strong>PDF</strong> (IA extrai o texto). Revise, defina metadados e indexe na L.I.A. com 1 clique.
+            </p>
+
+            {/* Drop zone */}
+            <div
+              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+              onClick={() => docUploadRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                const f = e.dataTransfer.files?.[0];
+                if (f) handleDocUpload(f);
+              }}
+            >
+              <input
+                ref={docUploadRef}
+                type="file"
+                accept=".docx,.pdf"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDocUpload(f); }}
+              />
+              {docExtracting ? (
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-sm font-medium">Extraindo texto{docFileType === "pdf" ? " via IA (pode levar ~15s)" : ""}...</p>
+                </div>
+              ) : docFile ? (
+                <div className="space-y-2">
+                  <FileText className="w-8 h-8 mx-auto text-primary" />
+                  <p className="font-medium text-sm">{docFile.name}</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <Badge variant="outline" className="text-xs uppercase">{docFileType}</Badge>
+                    {docExtractedText && (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">
+                        {docExtractedText.length.toLocaleString()} chars extraídos ✓
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Clique para trocar o arquivo</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <FileUp className="w-8 h-8 mx-auto text-muted-foreground" />
+                  <p className="font-medium text-foreground">Arraste um DOCX ou PDF aqui</p>
+                  <p className="text-xs text-muted-foreground">ou clique para selecionar</p>
+                </div>
+              )}
+            </div>
+
+            {/* Text preview + metadata (only shown after extraction) */}
+            {docExtractedText && !docExtracting && (
+              <>
+                {/* Extracted text preview */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs flex items-center justify-between">
+                    <span>Texto extraído (editável)</span>
+                    <span className="text-muted-foreground">{docExtractedText.length.toLocaleString()} chars • ~{Math.ceil(docExtractedText.length / 750)} chunks estimados</span>
+                  </Label>
+                  <Textarea
+                    className="min-h-[200px] font-mono text-xs"
+                    value={docExtractedText}
+                    onChange={(e) => setDocExtractedText(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">⚠️ O texto será dividido automaticamente em chunks de 900 chars com overlap de 150 chars</p>
+                </div>
+
+                {/* Metadata */}
+                <div className="border border-border rounded-lg p-4 space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-primary" />
+                    Metadados para indexação
+                  </h3>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Título *</Label>
+                      <Input
+                        value={docTitle}
+                        onChange={(e) => setDocTitle(e.target.value)}
+                        placeholder="Título do bloco de conhecimento"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Categoria *</Label>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={docCategory}
+                        onChange={(e) => setDocCategory(e.target.value)}
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Fonte (origem do documento)</Label>
+                    <Input
+                      value={docSource}
+                      onChange={(e) => setDocSource(e.target.value)}
+                      placeholder="Ex: Transcrições Reuniões Comerciais"
+                    />
+                  </div>
+
+                  <Button onClick={indexDocText} disabled={docIndexing} className="w-full gap-2">
+                    <Zap className={`w-4 h-4 ${docIndexing ? "animate-pulse" : ""}`} />
+                    {docIndexing ? "Indexando na L.I.A...." : "Indexar na L.I.A."}
+                  </Button>
+                </div>
+
+                {/* Results */}
+                {docResults.length > 0 && (
+                  <div className="space-y-1.5">
+                    {docResults.map((r, i) => (
+                      <div key={i} className={`flex items-center justify-between text-xs rounded px-3 py-2 ${r.saved ? "bg-green-500/10" : "bg-destructive/10"}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {r.saved ? <CheckCircle className="w-3.5 h-3.5 text-green-600 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />}
+                          <span className="truncate">{r.title}</span>
+                        </div>
+                        {r.saved ? (
+                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs shrink-0">
+                            {r.indexed} chunks gerados
+                          </Badge>
+                        ) : (
+                          <span className="text-destructive text-xs shrink-0">{r.error}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
