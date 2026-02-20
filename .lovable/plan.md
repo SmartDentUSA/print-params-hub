@@ -1,127 +1,104 @@
 
-# Implementação: SDR Consultivo para a Rota Comercial
+# Bug: SDR Ignorada quando RAG não encontra resultados na Rota Comercial
 
-## Estado atual confirmado no código
+## Causa raiz identificada
 
-**Linha 1384** do arquivo `supabase/functions/dra-lia/index.ts`:
+O fluxo da edge function tem uma **saída precoce** na linha 1332 que é chamada **antes** do LLM:
 
-```typescript
-topic_context === "commercial"
-  ? "\nINSTRUÇÃO ADICIONAL COMERCIAL: Priorize dados de contato, loja, preços e parcerias. Não sugira fluxos de parâmetros técnicos espontaneamente."
-  : ""
+```
+RAG search → filteredKnowledge vazia → hasResults = false → RETORNA FALLBACK HARDCODED
 ```
 
-Esta é uma instrução de 1 linha sem estrutura de qualificação. Será substituída pela instrução SDR completa.
+Quando o usuário escreve "quero saber de scanner intraoral" na rota comercial, o sistema de busca RAG não encontra nenhum resultado acima do threshold de similaridade (0.65 para vector search). Com `hasResults = false`, o código sai imediatamente com a mensagem "Ainda não tenho essa informação em nossa base de conhecimento" — sem chamar o LLM, sem aplicar a `SDR_COMMERCIAL_INSTRUCTION`, sem usar o `companyContext`.
 
-**Infraestrutura já presente (da implementação anterior):**
-- `TOPIC_WEIGHTS` → linhas 14–23 ✅
-- `applyTopicWeights` → linhas 25–34 ✅
-- `topic_context === "commercial"` detectado → linha 1384 ✅
+A instrução SDR nunca é executada porque ela está no `systemPrompt` do LLM, mas o código nunca chega ao LLM neste caminho.
 
 ---
 
-## Arquivo modificado: `supabase/functions/dra-lia/index.ts`
+## Por que acontece especificamente no comercial
 
-### Mudança 1 — Constante `SDR_COMMERCIAL_INSTRUCTION` (após linha 34)
+A rota comercial faz perguntas sobre **entidade/produto** ("scanner intraoral", "Medit"), não sobre processos técnicos. O índice RAG foi majoritariamente populado com artigos técnicos, parâmetros e protocolos — não com fichas de produto completas. Logo, perguntas comerciais sobre hardware têm baixa similaridade vetorial e caem no fallback com frequência.
 
-Inserir logo após a função `applyTopicWeights`, antes de `const CHAT_API`:
-
-```typescript
-// ── SDR Consultivo — injetado quando topic_context === "commercial" ─────────
-const SDR_COMMERCIAL_INSTRUCTION = `
-
-### 🧑‍💼 MODO SDR CONSULTIVO ATIVO — ROTA COMERCIAL
-
-**PERSONALIDADE E MISSÃO:**
-Você é uma Consultora Estratégica da Smart Dent. Sua missão não é vender produtos isolados, mas sim diagnosticar o estágio atual do dentista no Workflow Odontológico Digital para oferecer a solução que maximize o seu ROI. Seja técnica, empática e orientada a sistemas.
-
-**DIRETRIZES DE QUALIFICAÇÃO — WORKFLOW DIGITAL:**
-Antes de apresentar preços ou links, identifique em qual etapa o cliente se encontra ou deseja chegar:
-1. Scanear — Captura digital (Scanners Intraorais)
-2. Desenhar — Planeamento CAD (Software exocad)
-3. Imprimir — Fabricação (Impressoras 3D e Resinas)
-4. Processar — Pós-processamento (Lavagem e Cura)
-5. Finalizar — Acabamento (Caracterização e Polimento)
-6. Instalar — Cimentação e finalização clínica
-
-**REGRAS DE CONDUTA SDR:**
-- Diagnóstico Primeiro: Se o usuário perguntar por produto de alta complexidade (Scanners ou Impressoras), responda: "Para eu ser mais assertiva na recomendação técnica: o senhor já atua com fluxo digital ou está a planear a montagem do seu primeiro centro de impressão?"
-- Alta Complexidade (Hardware/Combos): Objetivo = AGENDAMENTO. Venda a importância de uma demonstração técnica com especialista.
-- Baixa Complexidade (Resinas/Insumos): Objetivo = E-COMMERCE. Forneça o link direto para a categoria na Loja Smart Dent.
-- Autoridade: Use NPS 96 e pioneirismo desde 2009 para validar que a Smart Dent é a escolha mais segura.
-
-**CATEGORIAS DE DIRECIONAMENTO:**
-- Clínico que quer autonomia total → Chair Side Print
-- Dono de laboratório → Smart Lab
-- Dúvidas sobre materiais → distinção entre Resinas Biocompatíveis e Uso Geral
-
-**SCRIPTS DE SONDAGEM:**
-- "Dr(a)., percebi o seu interesse na [Impressora/Scanner]. Como este equipamento altera o tempo de entrega e a precisão do trabalho, o ideal seria ver o sistema com os seus casos reais. Faz sentido agendarmos uma apresentação online de 15 minutos?"
-- "Como o senhor já domina a etapa de Scanear, a etapa de Imprimir in-office vai reduzir os custos laboratoriais em até 70%. Quer que eu envie os cálculos de ROI para a sua especialidade?"
-
-**PROIBIÇÕES NA ROTA COMERCIAL:**
-- NUNCA responda "Não sei" para questões comerciais — use o fallback de WhatsApp.
-- NÃO inicie o diálogo de parâmetros de impressão (tempos de cura/exposição) espontaneamente. Mantenha o foco em benefícios, processos e negócios.
-- Para Scanners e Impressoras: peça o contato ou ofereça agendamento.
-- Para Resinas e Insumos: envie o link da loja.
-`;
-```
-
-**Por que como constante de módulo:** Mantém o builder do `systemPrompt` limpo e legível, e permite reutilização ou log futuro sem alterar a lógica de montagem.
+Na rota de Parâmetros, o usuário pergunta "tempo de cura da Vitality" e o RAG encontra o conjunto de parâmetros facilmente. Na rota Comercial, o usuário pergunta "quanto custa o scanner" e o RAG não tem esse dado indexado — zero resultados, zero LLM, zero SDR.
 
 ---
 
-### Mudança 2 — Substituir a instrução inline na linha 1384
+## A correção: bypass do fallback hardcoded quando topic_context === "commercial"
 
-**Antes:**
+### Arquivo: `supabase/functions/dra-lia/index.ts`
+
+### Mudança única — Bloco `if (!hasResults)` na linha 1332
+
+**Lógica atual:**
 ```typescript
-topic_context === "commercial"
-  ? "\nINSTRUÇÃO ADICIONAL COMERCIAL: Priorize dados de contato, loja, preços e parcerias. Não sugira fluxos de parâmetros técnicos espontaneamente."
-  : ""
+const hasResults = allResults.length > 0;
+
+// 4. If no results: return human fallback
+if (!hasResults) {
+  const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
+  // ... retorna resposta hardcoded sem chamar o LLM
+  return new Response(stream, ...);
+}
 ```
 
-**Depois:**
+**Lógica corrigida:**
 ```typescript
-topic_context === "commercial" ? SDR_COMMERCIAL_INSTRUCTION : ""
+const hasResults = allResults.length > 0;
+
+// 4. If no results AND not commercial route: return human fallback
+// In commercial context: proceed to LLM with SDR instruction + company context
+// (SDR proibition: NUNCA responda "Não sei" para questões comerciais)
+if (!hasResults && topic_context !== "commercial") {
+  const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
+  // ... retorna resposta hardcoded (inalterado)
+  return new Response(stream, ...);
+}
 ```
 
-A estrutura do `topicInstruction` (o cabeçalho com `CONTEXTO DECLARADO PELO USUÁRIO`) permanece inalterada. A única mudança é o que é concatenado quando `topic_context === "commercial"`.
+A única mudança é adicionar `&& topic_context !== "commercial"` na condição do if.
 
 ---
 
-## Sinergia com a implementação anterior de re-ranking
+## O que muda com a correção
 
-As duas camadas funcionam em conjunto:
+Quando `topic_context === "commercial"` e `hasResults === false`:
 
-| Camada | Função | Efeito na rota Comercial |
+1. O código **não retorna** o fallback hardcoded
+2. O fluxo **continua** para a construção do `systemPrompt`
+3. O `topicInstruction` injeta a `SDR_COMMERCIAL_INSTRUCTION` completa
+4. O `companyContext` (dados da empresa: NPS, contatos, endereço) já foi buscado em paralelo e está disponível
+5. O LLM recebe a instrução SDR + dados institucionais e **aplica o roteiro consultivo**
+
+O LLM, com a instrução SDR ativa, irá responder consultivamente: propor agendamento para scanner (alta complexidade), em vez de dizer que não sabe.
+
+---
+
+## Simulação do fluxo corrigido
+
+**Pergunta:** "quero saber de scanner intraoral" (rota: commercial)
+
+| Etapa | Antes da correção | Depois da correção |
 |---|---|---|
-| `TOPIC_WEIGHTS` (Cérebro) | Reorganiza o RAG: `company_kb` sobe 2.0x | Dados de NPS, contato e autoridade chegam no topo do contexto LLM |
-| `SDR_COMMERCIAL_INSTRUCTION` (Voz) | Instrui o LLM sobre como usar esses dados | Transforma a resposta de informativa em consultiva e orientada a conversão |
+| RAG search | 0 resultados acima do threshold | 0 resultados acima do threshold |
+| `hasResults` | `false` | `false` |
+| Condição `if (!hasResults)` | `true` → entra no bloco | `false` (commercial) → pula o bloco |
+| Resposta gerada por | Fallback hardcoded | LLM com SDR + companyContext |
+| Conteúdo da resposta | "Ainda não tenho essa informação..." | "Dr(a)., percebi o seu interesse no scanner. Para eu ser mais assertiva: o senhor já atua com fluxo digital ou está planeando o primeiro centro de impressão?" |
 
 ---
 
-## Impacto por cenário
+## Segurança da mudança
 
-| Pergunta na Rota Comercial | Antes | Depois |
-|---|---|---|
-| "Quanto custa o scanner Medit?" | Dados técnicos + preço | Diagnóstico de workflow → proposta de demonstração |
-| "Vocês têm resina para modelo?" | Mix de dados | Link direto ao e-commerce (baixa complexidade) |
-| "Qual o NPS de vocês?" | Número isolado | NPS 96 + pioneirismo 2009 como argumento de autoridade |
-| "Tempo de cura da Vitality?" | Tabela técnica | Foco em benefícios; parâmetros só se insistência explícita |
+- **Rotas `parameters`, `products`, `support`:** comportamento idêntico ao atual — fallback hardcoded quando não há resultados
+- **Rota `commercial` com resultados RAG:** comportamento idêntico ao atual — SDR já funcionava nesses casos
+- **Rota `commercial` sem resultados RAG:** correção do bug — fluxo chega ao LLM
+- **Sem seleção de rota:** comportamento idêntico — `topic_context` é `null`, condição original se mantém
+- **Zero alteração no banco, zero alteração no frontend**
 
 ---
 
-## Notas técnicas
+## Resumo — 1 arquivo, 1 linha modificada
 
-- **Zero alteração no banco** — nenhuma migration SQL
-- **Zero alteração no frontend** — `topic_context` já chega corretamente
-- **Backward compatible** — outras rotas (`parameters`, `products`, `support`) não são afetadas
-- **Sem risco de truncamento** — a instrução SDR tem ~700 tokens e será posicionada dentro do `topicInstruction`, que é das primeiras seções do `systemPrompt`
-- **Deploy automático** após salvar o arquivo
-
-## Resumo — 1 arquivo, 2 intervenções
-
-| Intervenção | Localização |
+| Arquivo | Mudança |
 |---|---|
-| Constante `SDR_COMMERCIAL_INSTRUCTION` | Após linha 34 (após `applyTopicWeights`) |
-| Substituição da string inline por `SDR_COMMERCIAL_INSTRUCTION` | Linha 1384 |
+| `supabase/functions/dra-lia/index.ts` | Linha 1332: `if (!hasResults)` → `if (!hasResults && topic_context !== "commercial")` |
