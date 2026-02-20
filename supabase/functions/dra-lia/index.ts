@@ -415,6 +415,15 @@ const DIALOG_BREAK_PATTERNS = [
   /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
   // Perguntas sobre categorias de produto que iniciam novo contexto
   /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
+
+  // ── NOVOS: intenção de compra e curiosidade de produto ──
+
+  // Intenção de compra / interesse em produto
+  /\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
+  // Perguntas sobre características do produto
+  /\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
+  // "sobre a X", "me conta sobre", "fala mais sobre"
+  /\b(fala(r)?(?: mais| um pouco)? sobre|me conta(r)? (mais )?sobre|quero saber (mais )?sobre)\b/i,
 ];
 
 function isOffTopicFromDialog(message: string): boolean {
@@ -546,6 +555,12 @@ async function detectPrinterDialogState(
       await persistState("idle", {});
       return { state: "has_resin", brandSlug, modelSlug, resinName: guess, found: false };
     }
+  }
+
+  // ── Fallback guard: se sessão idle e mensagem é off-topic → não inferir diálogo do histórico ──
+  if (currentState === "idle" && isOffTopicFromDialog(message)) {
+    console.log("[dialog] idle + off-topic message, skipping fallback regex");
+    return { state: "not_in_dialog" };
   }
 
   // ── Fallback: regex on last assistant message (resilience for legacy sessions) ──
