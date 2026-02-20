@@ -1,169 +1,170 @@
 
-# Integração da Knowledge Base API (formato `ai_training`) na Dra. L.I.A.
+# Por que o RAG da L.I.A. não usa as informações do endpoint externo — e como corrigir
 
-## O que o endpoint externo fornece
+## Diagnóstico técnico
 
-O endpoint `https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base?format=ai_training` retorna **dados ao vivo, sem cache**, com conteúdo estruturado em Markdown que cobre:
+O endpoint `ai_training` existe e está funcionando. O problema é arquitetural: a edge function `index-embeddings` foi escrita para ler **exclusivamente tabelas do banco Supabase local** (4 fontes). Ela nunca foi conectada ao endpoint externo.
+
+### O que o RAG indexa hoje (1.073 chunks)
+
+| Fonte | Chunks |
+|---|---|
+| Vídeos locais (knowledge_videos) | 443 |
+| Artigos locais (knowledge_contents) | 307 |
+| Parâmetros (parameter_sets) | 305 |
+| Resinas (resins) | 18 |
+| **Empresa / Depoimentos / Parcerias** | **0** |
+
+### O que o endpoint externo oferece (e está faltando no RAG)
+
+Lendo os 1.438 linhas do `ai_training`, identifiquei 5 blocos ricos que nunca foram indexados:
+
+**1. Perfil da empresa** — Missão, visão, valores, diferenciais, expertise técnica, posicionamento de mercado, áreas de serviço (SP, RJ, MG, PR, SC, RS, GO, BA, PE, AM, DF, EUA, América Latina)
+
+**2. Histórico cronológico de parcerias** — Exatamente o que a L.I.A. não sabia responder:
+- 2009: Fundação na USP São Carlos — primeira Central CAD/CAM do Brasil
+- 2011: Parceria com Medit (escaneamento intraoral)
+- 2012: Distribuidora oficial da Exocad (software CAD alemão)
+- 2022: Resina Vitality + distribuidores ASIGA
+- 2023: ChairSide Print (SCAN • CAD • PRINT • MAKE)
+- 2024: Distribuidores BLZ INO200
+- 2025: Parceria com RayShape + AI nos fluxos
+
+**3. 20 depoimentos de clientes com transcrições completas** — Clientes reais de BA, RJ, SP, MG, RS, CE, DF, RN, PB, identificados pelo nome e cidade
+
+**4. 62 avaliações Google (5 estrelas) com texto** — Permitem L.I.A. citar exemplos reais quando perguntam sobre satisfação
+
+**5. Regras anti-alucinação por categoria** — Regras do tipo "NUNCA afirmar biocompatibilidade sem certificação ISO" que a L.I.A. deveria seguir ao responder sobre cada tipo de produto
+
+**6. Insights NPS** — Protocolos Impressos (57 clientes, 68%), Impressão 3D (35, 42%), Cirurgia Guiada (35, 42%)
+
+## Por que não foi feito antes
+
+A abordagem atual de injetar o `ai_training` no system prompt (implementada nas últimas sessões) foi uma solução de curto prazo — eficiente para dados de contato, mas insuficiente para o volume rico de conteúdo disponível. O system prompt tem limite de tokens e não permite busca semântica: se um usuário perguntar "você tem clientes em Natal?", a L.I.A. não encontra o depoimento do Dr. Allyson André de Natal/RN porque esse texto não está no RAG.
+
+## Solução: Nova stage no `index-embeddings` — `?stage=external_kb`
+
+A estratégia é estender a edge function `index-embeddings` com uma **quinta fonte de dados**: o endpoint externo `ai_training`. Isso segue exatamente o padrão já existente (articles → videos → resins → parameters) e adiciona:
 
 ```text
-PERFIL DA EMPRESA
-  - Nome, Descrição, Missão, Visão, Valores, Diferenciais
-  - Contato: telefone (16993831794), e-mail (comercial@smartdent.com.br)
-  - Endereço, horário, redes sociais, CNPJ, fundador (Marcelo Del Guerra)
-  - NPS Score: 96 | Rating Google: 5.0 | 150 reviews | 84 respostas NPS
-
-INSIGHTS DE CLIENTES (NPS)
-  - Produtos mais demandados: Protocolos Impressos (57), Impressão 3D (35), Cirurgia Guiada (35)
-  - Keywords validadas por demanda real
-
-VÍDEOS DA EMPRESA (YouTube + Instagram)
-  - 13 vídeos de depoimentos de clientes
-  - 11 vídeos de treinamentos/institucional
-
-PARCERIAS INTERNACIONAIS
-  - exocad (Alemanha), FDA (EUA), BLZ Dental (China), RAYSHAPE (China)
-
-AVALIAÇÕES GOOGLE
-  - 62+ avaliações individuais com texto completo (5 estrelas)
-
-CATEGORIAS E SUBCATEGORIAS
-  - 20+ categorias de produto com regras anti-alucinação específicas
-
-LINKS E KEYWORDS ESTRATÉGICOS
-  - Centenas de keywords mapeadas para URLs da loja
-
-NAVEGAÇÃO E FOOTER
-  - Links de menu, redes sociais, localizações
+5. EXTERNAL KB (novo)
+   → Fetch do endpoint ai_training (live, sem cache)
+   → Parse das seções por regex/split em ##
+   → Geração de chunks semânticos por bloco
+   → Inserção em agent_embeddings com source_type = "company_kb"
 ```
 
-## Como a L.I.A. funciona atualmente
+### Chunks que serão gerados (estimativa: ~50–80 chunks novos)
 
-A L.I.A. usa **exclusivamente** dados do banco Supabase local via RAG:
-1. `agent_embeddings` → busca vetorial (pgvector)
-2. `knowledge_contents` → artigos da base de conhecimento
-3. `knowledge_videos` → vídeos com transcrições
-4. `resins` → dados de resinas com instruções de processamento
-5. `parameter_sets` → parâmetros de impressão
+| Bloco | Chunks | source_type |
+|---|---|---|
+| Perfil da empresa (missão, visão, expertise, áreas) | 3–4 | company_kb |
+| Histórico de parcerias (um chunk por marco cronológico) | 7–8 | company_kb |
+| Parcerias internacionais (detalhe de cada parceiro) | 5 | company_kb |
+| Depoimentos de clientes (1 chunk por cliente) | 20 | company_kb |
+| Avaliações Google (agrupadas em lotes de 10) | 6–7 | company_kb |
+| Regras anti-alucinação por categoria | 5–8 | company_kb |
+| NPS Insights | 1–2 | company_kb |
 
-**O que L.I.A. NÃO sabe hoje** (mas o endpoint externo tem):
-- Telefone, e-mail, endereço completo da Smart Dent
-- NPS, satisfação de clientes, produtos mais demandados
-- Parcerias (exocad, FDA, BLZ, RAYSHAPE)
-- Depoimentos reais de clientes
-- Regras anti-alucinação por categoria de produto
-- Links das redes sociais e navegação do site
-
-## Estratégia de integração: Company Context no System Prompt
-
-A abordagem mais eficiente **não é indexar no RAG** (que usaria tokens de embedding para dados que raramente mudam). A estratégia correta é buscar o endpoint `ai_training` diretamente dentro da edge function `dra-lia`, **uma vez por request**, e injetar as informações mais importantes como contexto estático no `systemPrompt`. Isso garante:
-
-- **Dados ao vivo** (sem cache de 3h)
-- **Zero custo de reindexação** — não polui `agent_embeddings`
-- **Resposta imediata** — L.I.A. passa a conhecer contatos e empresa desde o primeiro request
-- **Sem tokens extras de embedding** — o conteúdo vai direto no system prompt
-
-### O que injetar (apenas o essencial — ~800 tokens)
-
-Extrair do JSON `ai_training` apenas o bloco de empresa + contatos + NPS:
+### Exemplo de chunk gerado para busca semântica
 
 ```text
-## CONTEXTO DA EMPRESA (Smart Dent)
-- Telefone: (16) 99383-1794
-- E-mail: comercial@smartdent.com.br
-- WhatsApp: https://wa.me/5516993831794
-- Endereço: Dr. Procópio de Toledo Malta, 62 — São Carlos, SP
-- Horário: Seg–Sex 8h às 18h
-- Fundada em: 2009 | CEO: Marcelo Del Guerra
-- NPS: 96 | Google: 5.0 ⭐ (150 reviews)
-- Parcerias: exocad, RayShape, BLZ Dental, Medit
-- Loja: https://loja.smartdent.com.br/
-- Parâmetros: https://parametros.smartdent.com.br/
-- Cursos: https://smartdentacademy.astronmembers.com/
+source_type: "company_kb"
+chunk_text: "Smart Dent parceria exocad 2012 — Em 2012, a Smart Dent 
+tornou-se distribuidora oficial da Exocad, empresa alemã referência 
+global em softwares CAD para odontologia (DentalCAD, ChairsideCAD, 
+Exoplan). Desde então, consolidou-se como referência em integração 
+digital, levando tecnologia de ponta para clínicas e laboratórios 
+em todo o Brasil. Relevância: 10/10."
+metadata: {
+  title: "Parceria Exocad — Smart Dent",
+  partner: "exocad",
+  since: "2012",
+  url: "https://exocad.com/our-partners/reseller"
+}
 ```
 
-### Fluxo de execução proposto
-
 ```text
-Request chega em dra-lia
-       │
-       ├── [NOVO] Fetch company context do endpoint ai_training
-       │          └── Timeout: 3s (se falhar, usa fallback hardcoded)
-       │
-       ├── Busca RAG (agent_embeddings / FTS / ILIKE)
-       │
-       ├── Busca parâmetros (parameter_sets)
-       │
-       └── Monta systemPrompt
-              └── [NOVO] Inclui bloco COMPANY CONTEXT no topo do systemPrompt
+source_type: "company_kb"
+chunk_text: "Depoimento Dr. Allyson André — Natal e Patos, RN — 
+Especialista em odontologia digital que escolheu a SmartDent 
+para se inserir no mercado de vanguarda. Adquiriu scanner e 
+impressora, fez curso presencial em São Carlos. Recomenda para 
+quem quer precisão, trabalhos de qualidade e tratamentos duradouros."
+metadata: {
+  title: "Depoimento Dr. Allyson André",
+  location: "Natal e Patos — RN",
+  url: "https://www.youtube.com/shorts/ZaJ74X5dRn4"
+}
 ```
 
 ## Implementação técnica
 
-### Arquivo único: `supabase/functions/dra-lia/index.ts`
+### Mudança única: `supabase/functions/index-embeddings/index.ts`
 
-**1. Nova constante no topo do arquivo:**
+**1. Interface Chunk estendida** — adicionar `"company_kb"` como source_type válido:
 ```typescript
-const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
+interface Chunk {
+  source_type: "article" | "video" | "resin" | "parameter" | "company_kb";
+  // ... resto igual
+}
 ```
 
-**2. Nova função `fetchCompanyContext()` (antes do `serve()`):**
+**2. Nova função `fetchExternalKBChunks()`** — chamada antes do processamento de batches:
 
-A função faz um fetch com timeout de 3 segundos ao endpoint `?format=ai_training` (texto plano, sem necessidade de parsear JSON). Extrai por regex simples os campos:
-- `**Telefone de Contato:** (\S+)` → telefone
-- `**Email de Contato:** (\S+)` → e-mail
-- `**NPS Score:** (\d+)` → NPS
-- `**Rating:** ([^\n]+)` → rating Google
-- `**Endereço Completo:**[\s\S]+?(?=\*\*)` → endereço
-- `**Horário de Funcionamento:**[\s\S]+?(?=\n\n)` → horário
-
-Retorna uma string formatada para injeção no systemPrompt. Se o fetch falhar (timeout ou erro de rede), retorna um bloco hardcoded com os valores já conhecidos — garantindo zero impacto em produção.
-
-**3. Modificação no `serve()` — antes das buscas RAG:**
 ```typescript
-const companyContext = await fetchCompanyContext();
+async function fetchExternalKBChunks(): Promise<Chunk[]> {
+  const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
+  try {
+    const res = await fetch(`${EXTERNAL_KB_URL}?format=ai_training`, {
+      signal: AbortSignal.timeout(10000), // 10s — mais tolerante que o dra-lia (3s)
+    });
+    if (!res.ok) return [];
+    const text = await res.text();
+    return parseExternalKBToChunks(text);
+  } catch (err) {
+    console.warn("[external-kb] fetch failed:", err);
+    return [];
+  }
+}
 ```
 
-**4. Modificação no `systemPrompt` — novo bloco antes das 17 diretrizes:**
+**3. Nova função `parseExternalKBToChunks(text)`** — parseia o texto por seções `##` e gera chunks:
+
+- **Bloco PERFIL DA EMPRESA**: divide em 3 sub-chunks (identidade, expertise, áreas de serviço)
+- **Bloco PARCERIAS INTERNACIONAIS**: um chunk por parceiro com nome, país, desde quando, descrição
+- **Bloco VÍDEOS DE DEPOIMENTOS**: um chunk por linha de depoimento (URL + texto completo já transcrito)
+- **Bloco INSIGHTS NPS**: chunk único com produtos demandados e keywords validadas
+- **Bloco REVIEWS**: agrupa 8–10 avaliações por chunk (para não criar 62 chunks individuais)
+- **Bloco CATEGORIAS**: um chunk por categoria com as regras anti-alucinação
+
+**4. Integração no fluxo principal** — após os 4 loops existentes:
 ```typescript
-### 🏢 DADOS DA EMPRESA (fonte: sistema ao vivo)
-${companyContext}
-
-INSTRUÇÃO ESPECIAL: Você está ONLINE e ativa. Quando perguntarem "você está online?", 
-"você funciona?", "você está ativa?" — responda afirmativamente com o horário de atendimento 
-e ofereça o WhatsApp como complemento humano.
-
-Para perguntas sobre contato comercial, retorne SEMPRE:
-- 📞 WhatsApp: (16) 99383-1794
-- ✉️ E-mail: comercial@smartdent.com.br
-- 🕐 Horário: Segunda a Sexta, 8h às 18h
+// ── 5. EXTERNAL KB ──────────────────────────────────────────────
+const externalChunks = await fetchExternalKBChunks();
+console.log(`[external-kb] ${externalChunks.length} chunks from ai_training endpoint`);
+chunks.push(...externalChunks);
 ```
 
-**5. Complementar SUPPORT_FALLBACK:** Hoje o fallback de suporte hardcoda o número. Com o `companyContext` disponível, os dados ficam sempre atualizados.
+**5. Limpeza no modo `full`** — o modo full já deleta tudo antes de reindexar, então os chunks `company_kb` serão automaticamente removidos e recriados a cada reindexação completa. No modo `incremental`, a deduplicação por `chunk_text` existente garante que apenas chunks novos/modificados sejam reinseridos.
 
-## Casos de uso imediatos que passam a funcionar
+## Por que RAG e não apenas system prompt
 
-| Pergunta do usuário | Situação atual | Após implementação |
+| Critério | System prompt (atual) | RAG (proposto) |
 |---|---|---|
-| "Você está online?" | Fallback genérico | "Sim! Estou ativa e pronta para ajudar..." |
-| "Qual o telefone de contato?" | "Não tenho essa informação" | "(16) 99383-1794 / WhatsApp" |
-| "Como entrar em contato com o comercial?" | Resposta vaga | E-mail + WhatsApp + horário |
-| "A Smart Dent tem parceria com a exocad?" | "Não sei" | "Sim, desde 2012..." |
-| "Qual o NPS de vocês?" | "Não sei" | "Nosso NPS é 96..." |
-| "Vocês atendem em todo o Brasil?" | "Não sei" | "Sim, com presença em SP, RJ, MG..." |
-
-## Timeout e resiliência
-
-A função `fetchCompanyContext()` usa `AbortSignal.timeout(3000)`:
-- Se o endpoint externo responder em < 3s → dados ao vivo ✓
-- Se demorar > 3s ou falhar → usa fallback hardcoded com dados estáticos conhecidos ✓
-- Zero risco de quebrar o fluxo principal da L.I.A. ✓
+| Dados de contato rápidos | Excelente — acesso imediato | Desnecessário |
+| "Você tem clientes em Natal?" | Não encontra — o texto não está no RAG | Recupera chunk do depoimento do Dr. Allyson de Natal/RN |
+| "Vocês têm avaliações de laboratórios?" | Não sabe | Recupera avaliações de TPDs como Benedito de Mogi Guaçu |
+| "Qual a regra para vender resinas biocompatíveis?" | Não encontra | Recupera chunk com regras anti-alucinação da categoria |
+| Escalabilidade | Limitado por tokens do prompt | Ilimitado — só os chunks relevantes são recuperados |
+| Atualização | Requer redeploy | Reindexação via botão no admin |
 
 ## Arquivos modificados
 
-| Arquivo | Tipo de mudança |
+| Arquivo | Mudança |
 |---|---|
-| `supabase/functions/dra-lia/index.ts` | + `EXTERNAL_KB_URL` constante + `fetchCompanyContext()` + injeção no systemPrompt |
+| `supabase/functions/index-embeddings/index.ts` | + Interface Chunk com `company_kb` + `fetchExternalKBChunks()` + `parseExternalKBToChunks()` + integração no fluxo de chunks |
 
-Nenhuma migração SQL. Nenhuma mudança no frontend. Nenhuma nova edge function.
+Nenhuma migração SQL necessária — a tabela `agent_embeddings` já aceita qualquer valor em `source_type` (coluna `text`). Nenhuma mudança no frontend ou no `dra-lia`. Deploy automático após a edição.
 
-O deploy é automático após a edição do arquivo.
+Após a implementação, o admin deve executar "Reindexar Tudo" no painel para popular os ~50–80 chunks novos de `company_kb`.
