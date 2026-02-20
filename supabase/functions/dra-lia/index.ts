@@ -436,7 +436,8 @@ async function detectPrinterDialogState(
   supabase: ReturnType<typeof createClient>,
   message: string,
   history: Array<{ role: string; content: string }>,
-  sessionId: string
+  sessionId: string,
+  topic_context?: string
 ): Promise<DialogState> {
   // Always fetch brands (needed for most steps)
   const allBrands = await fetchActiveBrands(supabase);
@@ -487,6 +488,12 @@ async function detectPrinterDialogState(
 
   const currentState = sessionData?.current_state || "idle";
   const entities = sessionData?.extracted_entities || {};
+
+  // ── topic_context override: if user declared "parameters" intent and session is idle, start dialog directly ──
+  if (topic_context === "parameters" && (currentState === "idle" || currentState === "not_in_dialog")) {
+    await persistState("needs_brand", {});
+    return { state: "needs_brand", availableBrands: brandNames };
+  }
 
   // ── Intent-break guard: if active dialog state but message is off-topic → reset silently ──
   const ACTIVE_DIALOG_STATES = ["needs_brand", "brand_not_found", "needs_model", "model_not_found", "needs_resin"];
@@ -1047,7 +1054,7 @@ serve(async (req) => {
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context } = await req.json();
     const session_id = rawSessionId || crypto.randomUUID();
 
     if (!message?.trim()) {
@@ -1086,7 +1093,8 @@ serve(async (req) => {
     }
 
     // 0b. Support question guard — redirect to WhatsApp without RAG
-    if (isSupportQuestion(message)) {
+    // Also triggers directly when topic_context === "support"
+    if (isSupportQuestion(message) || topic_context === "support") {
       const supportText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -1127,7 +1135,8 @@ serve(async (req) => {
     }
 
     // 0c. Guided printer dialog — asks brand → model → sends link
-    const dialogState = await detectPrinterDialogState(supabase, message, history, session_id);
+    // If topic_context === "parameters", force start the dialog immediately
+    const dialogState = await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
 
     if (dialogState.state !== "not_in_dialog") {
       let dialogText: string;
@@ -1334,7 +1343,19 @@ serve(async (req) => {
     const context = contextParts.join("\n\n---\n\n");
     const langInstruction = LANG_INSTRUCTIONS[lang] || LANG_INSTRUCTIONS["pt-BR"];
 
+    // Build topic context instruction for system prompt
+    const TOPIC_LABELS: Record<string, string> = {
+      parameters: "Parâmetros de Impressão 3D (configurações de resinas e impressoras)",
+      commercial: "Informações Comerciais (preços, pedidos, contato, loja, parcerias)",
+      products: "Produtos e Resinas (catálogo, características, indicações clínicas)",
+      support: "Suporte Técnico (problemas com equipamentos ou materiais)",
+    };
+    const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
+      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? "\nINSTRUÇÃO ADICIONAL COMERCIAL: Priorize dados de contato, loja, preços e parcerias. Não sugira fluxos de parâmetros técnicos espontaneamente." : ""}`
+      : "";
+
     const systemPrompt = `Você é a Dra. L.I.A., assistente técnica especialista da Smart Dent. Sua missão é fornecer suporte preciso sobre odontologia digital, impressoras 3D e resinas.
+${topicInstruction}
 
 ### 🏢 DADOS DA EMPRESA (fonte: sistema ao vivo — use sempre que perguntarem sobre contato, localização, horário, NPS, parcerias ou status da L.I.A.)
 ${companyContext}

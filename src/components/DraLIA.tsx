@@ -30,6 +30,45 @@ const localeMap: Record<string, string> = {
   es: 'es-ES',
 };
 
+interface TopicOption {
+  id: string;
+  emoji: string;
+  label: string;
+  description: string;
+  userMessage: string;
+}
+
+const TOPIC_OPTIONS: TopicOption[] = [
+  {
+    id: 'parameters',
+    emoji: '🖨️',
+    label: 'Parâmetros de Impressão',
+    description: 'Configurações de resinas e impressoras 3D',
+    userMessage: 'Quero saber sobre parâmetros de impressão',
+  },
+  {
+    id: 'commercial',
+    emoji: '💼',
+    label: 'Informações Comerciais',
+    description: 'Preços, pedidos, contato e parceiros',
+    userMessage: 'Quero informações comerciais',
+  },
+  {
+    id: 'products',
+    emoji: '🔬',
+    label: 'Produtos e Resinas',
+    description: 'Catálogo, características e indicações',
+    userMessage: 'Quero saber sobre produtos e resinas',
+  },
+  {
+    id: 'support',
+    emoji: '🛠️',
+    label: 'Suporte Técnico',
+    description: 'Problemas com equipamentos ou materiais',
+    userMessage: 'Preciso de suporte técnico',
+  },
+];
+
 // Simple markdown renderer (bold, links, lists)
 function renderMarkdown(text: string): React.ReactNode {
   const lines = text.split('\n');
@@ -206,6 +245,13 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     );
   }, [language, t]);
 
+  const [topicSelected, setTopicSelected] = useState<boolean>(() => {
+    return !!sessionStorage.getItem('dra_lia_topic_context');
+  });
+  const [topicContext, setTopicContext] = useState<string>(() => {
+    return sessionStorage.getItem('dra_lia_topic_context') || '';
+  });
+
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
     if (embedded) return;
@@ -254,6 +300,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           history,
           lang,
           session_id: sessionId.current,
+          topic_context: topicContext || undefined,
         }),
       });
 
@@ -385,6 +432,98 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     [feedbackComments, sendFeedback]
   );
 
+  const handleTopicSelect = useCallback((opt: TopicOption) => {
+    setTopicSelected(true);
+    setTopicContext(opt.id);
+    sessionStorage.setItem('dra_lia_topic_context', opt.id);
+    // Trigger the auto-message as user
+    setInput(opt.userMessage);
+    // We need to send after input is set — use a tiny timeout so state flushes
+    setTimeout(() => {
+      setInput('');
+      const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: opt.userMessage };
+      const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' };
+      setMessages((prev) => [...prev, userMsg, assistantMsg]);
+      setIsLoading(true);
+
+      const history = messages
+        .filter((m) => m.id !== 'welcome')
+        .slice(-8)
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: opt.userMessage,
+          history,
+          lang,
+          session_id: sessionId.current,
+          topic_context: opt.id,
+        }),
+      }).then(async (resp) => {
+        if (!resp.ok || !resp.body) {
+          const errData = await resp.json().catch(() => ({}));
+          const friendlyError = errData.error || t('dra_lia.connection_error');
+          setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: friendlyError } : m));
+          setIsLoading(false);
+          return;
+        }
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let interactionId: string | undefined;
+        let mediaCards: MediaCard[] | undefined;
+        let fullContent = '';
+
+        const processStream = async () => {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let newlineIndex: number;
+            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+              let line = buffer.slice(0, newlineIndex);
+              buffer = buffer.slice(newlineIndex + 1);
+              if (line.endsWith('\r')) line = line.slice(0, -1);
+              if (!line.startsWith('data: ')) continue;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === '[DONE]') break;
+              try {
+                const parsed = JSON.parse(jsonStr);
+                if (parsed.type === 'meta') {
+                  if (parsed.interaction_id) interactionId = parsed.interaction_id;
+                  if (parsed.media_cards) mediaCards = parsed.media_cards;
+                  continue;
+                }
+                const content = parsed.choices?.[0]?.delta?.content;
+                if (content) {
+                  fullContent += content;
+                  setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fullContent, interactionId, mediaCards } : m));
+                }
+              } catch { /* partial JSON */ }
+            }
+          }
+          setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m));
+          setIsLoading(false);
+        };
+
+        processStream().catch(() => setIsLoading(false));
+      }).catch((e) => {
+        setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: e instanceof Error ? e.message : t('dra_lia.connection_error') } : m));
+        setIsLoading(false);
+      });
+    }, 50);
+  }, [messages, lang, t]);
+
+  const resetTopic = useCallback(() => {
+    setTopicSelected(false);
+    setTopicContext('');
+    sessionStorage.removeItem('dra_lia_topic_context');
+    // Reset the welcome message to show buttons again
+    setMessages([{ id: 'welcome', role: 'assistant', content: t('dra_lia.welcome_message') }]);
+  }, [t]);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -440,6 +579,25 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
               </div>
 
+              {/* Topic selection menu — only on welcome message, before topic is selected */}
+              {msg.id === 'welcome' && !topicSelected && !isLoading && (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  {TOPIC_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleTopicSelect(opt)}
+                      className="flex flex-col items-start p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-left text-xs shadow-sm"
+                      style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#1e3a5f')}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+                    >
+                      <span className="text-base mb-1">{opt.emoji}</span>
+                      <span className="font-semibold text-gray-800 leading-tight">{opt.label}</span>
+                      <span className="text-gray-400 leading-tight mt-0.5 text-[10px]">{opt.description}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {/* Media cards strip — videos with thumbnail / articles */}
               {msg.role === 'assistant' && msg.mediaCards && msg.mediaCards.length > 0 && (
                 <div className="mt-2 space-y-2">
@@ -544,8 +702,23 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-gray-100 bg-white shrink-0">
-        <div className="flex gap-2 items-end">
+      <div className="border-t border-gray-100 bg-white shrink-0">
+        {/* "Novo assunto" reset link — only when topic is selected */}
+        {topicSelected && (
+          <div className="px-3 pt-2 pb-0 flex items-center justify-between">
+            <span className="text-[10px] text-gray-400 flex items-center gap-1">
+              <span className="text-[10px]">📌</span>
+              {TOPIC_OPTIONS.find((o) => o.id === topicContext)?.label || 'Assunto selecionado'}
+            </span>
+            <button
+              onClick={resetTopic}
+              className="text-[10px] text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+            >
+              ↩ Novo assunto
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2 items-end p-3 pt-2">
           <textarea
             ref={inputRef}
             className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent max-h-24 min-h-[40px]"
