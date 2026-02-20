@@ -1,116 +1,120 @@
 
-# Corrigir: L.I.A. presa no diálogo de parâmetros ignora perguntas gerais
+# Corrigir: "Quero comprar um RayShape" interceptado como resposta de marca
 
-## Diagnóstico do bug
+## Diagnóstico preciso do bug atual
 
-**O que aconteceu:** O usuário perguntou "quem é o CEO da Smart Dent?" e recebeu a resposta de "marca não encontrada" com lista de marcas de impressoras.
+A mensagem `"Quero comprr um RayShape o que ela tem de tão especial?"` **passa pelo intent-break guard** porque nenhum dos 5 padrões em `DIALOG_BREAK_PATTERNS` a captura. Depois disso, ela entra no **bloco de fallback regex** (linha 588):
 
-**Causa raiz:** A tabela `agent_sessions` armazenou `current_state: "brand_not_found"` de uma conversa anterior sobre parâmetros de impressão. Quando a nova pergunta chegou, a função `detectPrinterDialogState` (linha 467) verificou o estado da sessão **antes** de avaliar se a mensagem era uma pergunta geral — e interceptou a mensagem como se fosse uma resposta ao diálogo de parâmetros.
-
-**Fluxo atual (bugado):**
-```text
-mensagem "quem é o CEO?" 
-  → detectPrinterDialogState() 
-  → session: brand_not_found 
-  → trata como resposta de marca
-  → "Smart Dent" não é marca cadastrada
-  → retorna BRAND_NOT_FOUND com lista de impressoras ← ERRADO
+```
+if (liaAskedBrand && !isOffTopicFromDialog(message)) {
+  const brand = await findBrandInMessage(allBrands, message)
+  → encontra "RayShape" na lista de marcas
+  → retorna state: "brand_not_found" (porque RayShape não está na tabela de IMPRESSORAS)
+  → "Não encontrei a marca Quero comprr um RayShape..."
 ```
 
-**Fluxo correto (após correção):**
-```text
-mensagem "quem é o CEO?"
-  → detectPrinterDialogState()
-  → session: brand_not_found
-  → NOVO: verifica se a mensagem é uma pergunta geral (isOffTopicFromDialog)
-  → detecta palavras como "CEO", "quem", "fundador", "empresa"
-  → reset da sessão → estado: not_in_dialog
-  → mensagem vai para o RAG normalmente ← CORRETO
+O `liaAskedBrand` fica verdadeiro porque a última mensagem da L.I.A. continha "qual marca" — residual da conversa anterior sobre parâmetros. O guard `isOffTopicFromDialog` não bloqueia porque **intenção de compra não está nos padrões**.
+
+### Por que o guard de sessão (linha 484) não ajudou
+
+O guard de sessão foi adicionado corretamente, mas ele só atua quando `currentState` é um dos estados ativos (`brand_not_found`, `needs_brand` etc.). Neste caso, **o currentState era `idle`** — o fallback de regex operou sem proteção.
+
+## Solução: 2 adições cirúrgicas
+
+### 1. Expandir `DIALOG_BREAK_PATTERNS` com padrões de intenção de compra e curiosidade de produto
+
+Adicionar 3 novos padrões ao array existente (linhas 407-418):
+
+**Padrão A — Intenção de compra/aquisição:**
+```typescript
+/\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
 ```
+Captura: "quero comprar", "quero ver", "quero conhecer", "quero saber sobre", "tenho interesse", "como comprar", "onde encontrar"
 
-## A solução: detecção de "saída de contexto" (intent break)
+**Padrão B — Perguntas sobre característica de produto ("o que tem de especial", "quais as vantagens"):**
+```typescript
+/\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
+```
+Captura: "o que tem de especial", "o que ela tem de", "quais as vantagens", "quais os diferenciais", "para que serve", "é indicada para"
 
-### Arquivo: `supabase/functions/dra-lia/index.ts`
+**Padrão C — Perguntas sobre produto específico com artigo ("sobre a RayShape", "sobre o scanner"):**
+```typescript
+/\b(sobre (a|o|as|os) [A-ZÀ-Ÿa-zà-ÿ]|fala(r)? (mais |um pouco )?sobre|quero saber sobre|me conta sobre)\b/i,
+```
+Captura: "sobre a RayShape", "sobre o scanner", "falar sobre", "me conta sobre"
 
-**1. Nova função `isOffTopicFromDialog(message)`** — inserida antes de `detectPrinterDialogState`:
+### 2. Adicionar guard idêntico ao fallback `liaAskedBrand` para o caso `idle`
 
-Identifica mensagens que claramente não são respostas ao diálogo de impressora. Um conjunto de padrões cobre:
-- Perguntas sobre a empresa: "CEO", "fundador", "quem criou", "quem é o dono"
-- Perguntas sobre produtos do catálogo: "impressora", "resina", "scanner" (quando não é continuação do diálogo)
-- Perguntas gerais de odontologia: "protocolo", "como usar", "qual a diferença"
-- Comandos de saída: "cancelar", "esquece", "outra pergunta", "mudando de assunto"
-- Palavras interrogativas que indicam pergunta nova: frases com "quem", "o que é", "como funciona" de 5+ palavras
+O problema raiz é que o fallback de regex (linhas 551-599) pode ativar mesmo quando `currentState === "idle"` se a última mensagem da L.I.A. continha palavras como "marca" e "qual". Adicionar uma verificação adicional antes de todo o bloco de fallback:
 
 ```typescript
-const DIALOG_BREAK_PATTERNS = [
-  // Perguntas sobre a empresa
-  /\b(CEO|fundador|dono|sócio|diretor|quem (criou|fundou|é o))\b/i,
-  // Comandos de reset
-  /\b(cancelar|esquece|esqueça|outra (pergunta|coisa)|muda(ndo)? de assunto|não (quero|preciso) mais|sair)\b/i,
-  // Perguntas gerais de produto (não dentro do diálogo)
-  /^(o que (é|são)|qual (é|a diferença)|como (funciona|usar|se usa)|me fala sobre|me explica)/i,
-  // Perguntas sobre empresa/identidade
-  /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
-  // Perguntas sobre categorias de produto (não é especificação de modelo)
-  /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
-];
-
-function isOffTopicFromDialog(message: string): boolean {
-  return DIALOG_BREAK_PATTERNS.some((p) => p.test(message.trim()));
-}
-```
-
-**2. Modificar `detectPrinterDialogState`** — inserir verificação no início dos estados `brand_not_found` e `needs_brand`:
-
-No início dos blocos que verificam sessão ativa (linhas 467–610), adicionar:
-```typescript
-// Se sessão ativa, mas mensagem é claramente off-topic → reset e retorna not_in_dialog
-if (
-  (currentState === "brand_not_found" || 
-   currentState === "needs_brand" ||
-   currentState === "needs_model" ||
-   currentState === "model_not_found" ||
-   currentState === "needs_resin") &&
-  isOffTopicFromDialog(message)
-) {
-  // Reset silencioso da sessão
-  await persistState("idle", {});
+// ── Fallback regex: só ativa se último estado era de diálogo ──
+// Se sessão está idle e mensagem é off-topic, não usar fallback
+if (currentState === "idle" && isOffTopicFromDialog(message)) {
   return { state: "not_in_dialog" };
 }
 ```
 
-Essa verificação ocorre **antes** das tentativas de `findBrandInMessage`, `findModelInList` etc.
+Essa verificação vai logo antes da linha 552 (`const lastAssistantMsg = ...`), garantindo que perguntas gerais nunca entrem no bloco de fallback.
 
-**3. Também proteger o fallback de regex (linhas 526–603)** — os blocos `liaAskedBrand`, `liaAskedModel`, `liaAskedResin` que operam sobre o histórico de mensagens também precisam do guard:
+## Arquivo modificado: `supabase/functions/dra-lia/index.ts`
+
+### Mudança 1 — Expandir `DIALOG_BREAK_PATTERNS` (linhas 407-418)
 
 ```typescript
-if (liaAskedBrand && !isOffTopicFromDialog(message)) { ... }
-if (liaAskedModel && !isOffTopicFromDialog(message)) { ... }
-if (liaAskedResin && !isOffTopicFromDialog(message)) { ... }
+const DIALOG_BREAK_PATTERNS = [
+  // Perguntas sobre a empresa / pessoas
+  /\b(CEO|fundador|dono|sócio|diretor|quem (criou|fundou|é o))\b/i,
+  // Comandos de reset explícitos
+  /\b(cancelar|esquece|esqueça|outra (pergunta|coisa)|muda(ndo)? de assunto|não (quero|preciso) mais|sair)\b/i,
+  // Perguntas gerais iniciando com "o que é", "como funciona", etc.
+  /^(o que (é|são)|qual (é|a diferença)|como (funciona|usar|se usa)|me fala sobre|me explica)/i,
+  // Referências à empresa / identidade SmartDent
+  /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
+  // Perguntas sobre categorias de produto que iniciam novo contexto
+  /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
+
+  // ── NOVOS (cobertura de intenção de compra e curiosidade de produto) ──
+
+  // Intenção de compra / interesse em produto
+  /\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
+  // Perguntas sobre características do produto
+  /\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
+  // "sobre a X", "me conta sobre", "fala mais sobre"
+  /\b(fala(r)?(?: mais| um pouco)? sobre|me conta(r)? (mais )?sobre|quero saber (mais )?sobre)\b/i,
+];
 ```
 
-## Por que essa abordagem é robusta
+### Mudança 2 — Guard no início do bloco de fallback (antes da linha 552)
 
-A função `isOffTopicFromDialog` é intencional e conservadora: só faz break em padrões que **nunca** seriam respostas válidas ao diálogo de impressoras. Por exemplo:
-- "CEO" — nunca é nome de marca
-- "quais impressoras vocês têm" — inicia novo contexto, não responde a "qual a sua marca?"
-- "cancelar" — sinal explícito do usuário
+```typescript
+// ── Fallback guard: se sessão idle e mensagem claramente off-topic → não inferir diálogo do histórico ──
+if (currentState === "idle" && isOffTopicFromDialog(message)) {
+  return { state: "not_in_dialog" };
+}
 
-Palavras ambíguas como "RayShape", "Phrozen", "Anycubic" **não** estão nos padrões de break — elas continuam sendo tratadas como respostas de marca normalmente.
+// ── Fallback: regex on last assistant message (resilience for legacy sessions) ──
+const lastAssistantMsg = ...
+```
 
-## Arquivo modificado
+## Tabela de resultado esperado
 
-| Arquivo | Mudança |
+| Mensagem | Estado sessão | Antes | Depois |
+|---|---|---|---|
+| "Quero comprar um RayShape" | idle | Brand not found (RayShape) | RAG responde sobre o produto |
+| "O que ela tem de especial?" | idle | Brand not found | RAG responde sobre diferenciais |
+| "Quero saber mais sobre a Edge Mini" | idle | Possível erro | RAG responde |
+| "Phrozen" (respondendo à pergunta de marca) | needs_brand | Detecta marca ✅ | Continua funcionando ✅ |
+| "quero comprar uma Phrozen" | needs_brand | Detecta Phrozen como marca ✅ | **REGRESSÃO?** NÃO — o guard de sessão da linha 484 não checa isOffTopicFromDialog para state=needs_brand neste caminho... na verdade SIM, o guard na linha 484 ativa primeiro e reseta. Mas queremos que "quero comprar Phrozen" enquanto em needs_brand CONTINUE detectando Phrozen como marca... |
+
+### Atenção — caso ambíguo: "quero comprar Phrozen" enquanto em `needs_brand`
+
+Se o usuário está no meio do diálogo (`needs_brand`) e digita "quero comprar uma Phrozen", o guard de sessão (linha 484) vai ativar `isOffTopicFromDialog` e resetar. Isso é **correto** — a L.I.A. vai ir ao RAG e mostrar info sobre a Phrozen, que é mais útil do que entrar no fluxo de parâmetros. O diálogo de parâmetros é iniciado explicitamente pela L.I.A., não pelo usuário.
+
+## Arquivos modificados
+
+| Arquivo | Mudanças |
 |---|---|
-| `supabase/functions/dra-lia/index.ts` | + constante `DIALOG_BREAK_PATTERNS` + função `isOffTopicFromDialog()` + guarda de intent-break no início dos estados ativos de `detectPrinterDialogState` + guarda nos blocos de fallback regex |
+| `supabase/functions/dra-lia/index.ts` | + 3 novos padrões em `DIALOG_BREAK_PATTERNS` + guard no início do bloco de fallback de regex |
 
-Nenhuma migração SQL. Deploy automático após a edição.
-
-## Resultado esperado
-
-| Cenário | Antes | Depois |
-|---|---|---|
-| "quem é o CEO?" (sessão em brand_not_found) | Resposta errada sobre marcas de impressoras | Sessão reseta, vai para RAG, responde "Marcelo Del Guerra, fundado em 2009" |
-| "como funciona o processo de impressão?" (em brand_not_found) | Trata como marca → erro | Reset + resposta sobre impressão via RAG |
-| "Anycubic" (em needs_brand) | Detecta marca corretamente | Continua funcionando igual — sem regressão |
-| "cancelar" (em qualquer estado do diálogo) | Continua no diálogo | Reset, pergunta vai para RAG ou fallback |
+Nenhuma migração SQL. Deploy automático. 2 edições pontuais no mesmo arquivo.
