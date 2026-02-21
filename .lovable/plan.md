@@ -1,61 +1,64 @@
 
 
-# Manter identificacao do lead ao trocar de assunto
+# Corrigir Cards Duplicados na Categoria RESINAS 3D
 
 ## Problema
-Quando o usuario troca de assunto (clica no botao de voltar ou seleciona outro topico), a funcao `resetTopic` no frontend:
-1. Reseta `leadCollected = false`
-2. Limpa o `sessionStorage`
-3. Gera um **novo session ID** (nova sessao)
-4. Reseta as mensagens para o welcome inicial
+A categoria "RESINAS 3D" mostra 41 cards quando deveria mostrar ~14 produtos unicos. Dois problemas:
 
-Como o session ID e novo, o backend nao encontra os dados do lead (`lead_name`, `lead_email`, `lead_id`) na sessao anterior e pede o e-mail novamente.
+1. A tabela `system_a_catalog` tem cada resina duplicada (2 registros por produto com o mesmo nome). Resultado: 28 cards do catalogo em vez de 14.
+2. A deduplicacao entre `system_a_catalog` e `resins` compara nomes exatos (case-insensitive), mas os nomes sao diferentes entre as tabelas. Exemplo:
+   - Catalogo: "Resina 3D Smart Print Bio Bite Splint +Flex"
+   - Resinas: "Smart Print Bio Bite Splint +Flex"
 
 ## Solucao
-Separar "trocar de assunto" de "resetar tudo". Ao trocar de assunto dentro da mesma conversa:
-- Manter o mesmo `session_id`
-- Manter `leadCollected = true` se o lead ja foi identificado
-- Manter as mensagens anteriores (ou limpar mas sem perder a sessao)
-- Apenas resetar o `topicContext` e os fluxos visuais (PrinterFlow, ProductsFlow)
 
-## Detalhe Tecnico
+### Arquivo: `src/components/ProductsFlow.tsx`
 
-### Arquivo: `src/components/DraLIA.tsx`
+**1. Deduplicar resultados do catalogo por nome**
 
-Modificar a funcao `resetTopic` (~linha 570):
+Apos buscar os dados do `system_a_catalog`, usar um `Map` para manter apenas um registro por nome (case-insensitive), eliminando os duplicados internos:
 
-**Antes:**
-```
-const resetTopic = useCallback(() => {
-  setTopicSelected(false);
-  setTopicContext('');
-  setLeadCollected(false);
-  setPrinterFlowStep(null);
-  setProductsFlowStep(null);
-  sessionStorage.removeItem('dra_lia_topic_context');
-  sessionStorage.removeItem('dra_lia_lead_collected');
-  sessionId.current = generateSessionId();
-  setMessages([...welcome...]);
-}, [t]);
+```typescript
+if (catalogData) {
+  const seen = new Map<string, boolean>();
+  catalogData.forEach(p => {
+    const key = p.name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.set(key, true);
+      items.push({ id: p.id, name: p.name, ... });
+    }
+  });
+}
 ```
 
-**Depois:**
-```
-const resetTopic = useCallback(() => {
-  setTopicSelected(false);
-  setTopicContext('');
-  setPrinterFlowStep(null);
-  setProductsFlowStep(null);
-  sessionStorage.removeItem('dra_lia_topic_context');
-  // NAO resetar leadCollected nem session_id
-  // Manter a sessao ativa para o backend reconhecer o lead
-  // Adicionar mensagem da IA perguntando novo assunto
-  setMessages(prev => [
-    ...prev,
-    { id: `topic-reset-${Date.now()}`, role: 'assistant', content: 'Posso te ajudar com mais alguma coisa? Escolha um assunto abaixo 👇' }
-  ]);
-}, []);
+**2. Melhorar deduplicacao entre catalogo e resinas**
+
+Ao verificar se uma resina ja existe nos items do catalogo, usar comparacao parcial (normalizada) em vez de igualdade exata. Normalizar removendo prefixos comuns como "Resina 3D", "Resina Smart", "Smart Print" e comparando o nucleo do nome:
+
+```typescript
+function normalizeProductName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^resina\s*(3d\s*)?/i, '')
+    .replace(/^smart\s*(3d\s*)?print\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 ```
 
-Isso mantem o `session_id` original, o `leadCollected = true`, e o backend vai detectar `from_session` com os dados do lead ja presentes — sem pedir e-mail novamente.
+Ao adicionar resinas, verificar se o nome normalizado ja existe:
+```typescript
+const normalizedExisting = items.map(i => normalizeProductName(i.name));
+if (!normalizedExisting.includes(normalizeProductName(r.name))) {
+  items.push(...);
+}
+```
 
+**3. Corrigir contagem na tela de categorias**
+
+A contagem da categoria "RESINAS 3D" tambem esta inflada porque soma os 28 duplicados do catalogo + 14 resinas. Aplicar a mesma logica de deduplicacao no calculo da contagem (ou simplesmente contar nomes unicos).
+
+## Resultado Esperado
+- RESINAS 3D mostrara ~14 cards unicos (sem duplicatas)
+- A contagem na tela de categorias refletira o numero correto
+- Produtos de outras categorias tambem serao deduplicados por seguranca
