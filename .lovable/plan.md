@@ -1,53 +1,44 @@
 
 
-# Fix: Name detection regex fails due to markdown bold formatting
+# Simplificar a primeira pergunta comercial da Dra. LIA
 
-## Root Cause
+## Problema atual
 
-When the user sends their name after clicking a button, the system checks if the previous assistant message asked for the name using this regex:
+Apos a identificacao (nome/email), a LIA segue a ETAPA 1 do SDR que faz perguntas sobre especialidade e equipamento digital. Isso gera muitas perguntas antes de chegar ao produto que o lead quer.
 
+## Mudanca
+
+### Arquivo: `supabase/functions/dra-lia/index.ts`
+
+Reescrever a ETAPA 1 (Abertura) no `SDR_COMMERCIAL_INSTRUCTION` (linhas 75-78) para ir direto ao ponto:
+
+**Antes:**
 ```text
-/qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i
+ETAPA 1 — ABERTURA (max 2 perguntas, pule as que ja sabe)
+- "Voce ja usa algum equipamento digital ou esta 100% no analogico?"
+- "Qual sua especialidade?"
+Se o lead responder AMBAS numa so mensagem, pule para Etapa 2.
 ```
 
-But the contextAck response (added in the last fix) wraps the text in markdown bold:
-
+**Depois:**
 ```text
-"Antes de começarmos, **qual o seu nome?**"
+ETAPA 1 — ABERTURA (1 unica pergunta)
+- Reconheca o interesse do lead e pergunte DIRETAMENTE: "Em qual produto voce esta interessado em conhecer ou aprender a usa-lo?"
+- NAO pergunte especialidade ou equipamento neste momento.
+- Se o lead nomear um produto especifico -> PULE para ETAPA 3 (apresentacao).
+- Se o lead disser algo generico ("resinas", "impressoras") -> faca UMA pergunta de refinamento e va para ETAPA 3.
 ```
 
-The `**` before "qual" breaks the regex match, so the system thinks it never asked for the name and asks again.
+Tambem ajustar a ETAPA 2 (SPIN) para ser acionada apenas se o lead nao souber o que quer, reduzindo para no maximo 1 pergunta de contexto (dor/desafio atual) antes de apresentar produtos.
 
-## Fix
+### Deploy
 
-### File: `supabase/functions/dra-lia/index.ts`
+Redeployar a edge function `dra-lia`.
 
-**Option A (simpler, recommended): Remove markdown from contextAck responses**
+## Resultado esperado
 
-Change lines ~1475-1479 from:
-```text
-"pt-BR": `Que ótimo que você entrou em contato! ... **qual o seu nome?**`
-```
-to:
-```text
-"pt-BR": `Que ótimo que você entrou em contato! ... qual o seu nome?`
-```
-
-Same for "en" and "es" variants. This keeps consistency with the GREETING_RESPONSES which also don't use markdown bold.
-
-**Option B (alternative): Make regex tolerate markdown**
-
-Update the regex to optionally match `**` around the text. This is more fragile long-term.
-
-## Changes
-
-1. Remove `**` from all three contextAck strings (pt-BR, en, es) in the needs_name response block (~lines 1473-1479)
-2. Deploy edge function `dra-lia`
-
-## Expected Result
-
-- User clicks button -> LIA asks name (without bold)
-- User sends name -> `detectLeadCollectionState` correctly matches the "qual o seu nome" text in history
-- State returns `needs_email` -> LIA asks for email
-- No more duplicate name requests
+- Lead clica "Quero conhecer produtos e resinas" -> LIA responde: "Ola, Danilo! Que otimo que voce esta interessado em conhecer nossos produtos e resinas. Em qual produto voce esta interessado em conhecer ou aprender a usa-lo?"
+- Lead diz "RayShape Edge Mini" -> LIA apresenta o produto direto, sem perguntas SPIN
+- Lead diz "resinas" -> LIA faz UMA pergunta de refinamento e apresenta opcoes
+- Menos perguntas, mais respostas diretas
 
