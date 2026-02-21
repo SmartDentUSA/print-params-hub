@@ -1471,9 +1471,9 @@ serve(async (req) => {
       } else {
         // Reconhecer o contexto do usuário antes de pedir o nome
         const contextAck: Record<string, string> = {
-          "pt-BR": `Que ótimo que você entrou em contato! 😊 Vou te ajudar com isso.\n\nAntes de começarmos, **qual o seu nome?**`,
-          "en": `Great that you reached out! 😊 I'll help you with that.\n\nBefore we start, **what's your name?**`,
-          "es": `¡Qué bueno que nos contactas! 😊 Te voy a ayudar con eso.\n\nAntes de comenzar, **¿cuál es tu nombre?**`,
+          "pt-BR": `Que ótimo que você entrou em contato! 😊 Vou te ajudar com isso.\n\nAntes de começarmos, qual o seu nome?`,
+          "en": `Great that you reached out! 😊 I'll help you with that.\n\nBefore we start, what's your name?`,
+          "es": `¡Qué bueno que nos contactas! 😊 Te voy a ayudar con eso.\n\nAntes de comenzar, ¿cuál es tu nombre?`,
         };
         responseText = contextAck[lang] || contextAck["pt-BR"];
       }
