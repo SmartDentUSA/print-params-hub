@@ -869,16 +869,16 @@ const ASK_NAME: Record<string, string> = {
   "es-ES": `¡Mucho gusto! 😊 No encontré tu registro. ¿Cuál es tu nombre?`,
 };
 
-const RETURNING_LEAD: Record<string, (name: string) => string> = {
-  "pt-BR": (name) => `Que bom te ver de novo, ${name}! 😊 Agora sim, estou pronta para te ajudar.\n\nComo posso te ajudar hoje?`,
-  "en-US": (name) => `Great to see you again, ${name}! 😊 Now I'm ready to help you.\n\nHow can I help you today?`,
-  "es-ES": (name) => `¡Qué bueno verte de nuevo, ${name}! 😊 Ahora sí, estoy lista para ayudarte.\n\n¿Cómo puedo ayudarte hoy?`,
+const RETURNING_LEAD: Record<string, (name: string, topicContext?: string) => string> = {
+  "pt-BR": (name, tc) => `Que bom te ver de novo, ${name}! 😊 Agora sim, estou pronta para te ajudar.\n\n${tc === 'products' ? 'Em relação a qual produto você precisa de ajuda?' : 'Como posso te ajudar hoje?'}`,
+  "en-US": (name, tc) => `Great to see you again, ${name}! 😊 Now I'm ready to help you.\n\n${tc === 'products' ? 'Which product do you need help with?' : 'How can I help you today?'}`,
+  "es-ES": (name, tc) => `¡Qué bueno verte de nuevo, ${name}! 😊 Ahora sí, estoy lista para ayudarte.\n\n${tc === 'products' ? '¿Con qué producto necesitas ayuda?' : '¿Cómo puedo ayudarte hoy?'}`,
 };
 
-const LEAD_CONFIRMED: Record<string, (name: string) => string> = {
-  "pt-BR": (name) => `Perfeito, ${name}! Agora sim, estou pronta para te ajudar. 😊\n\nMe conta: o que você está buscando hoje? Pode ser sobre resinas, impressoras 3D, parâmetros de impressão, protocolos clínicos ou qualquer outro assunto de odontologia digital. 👇`,
-  "en-US": (name) => `Perfect, ${name}! Now I'm ready to help you. 😊\n\nTell me: what are you looking for today? It could be about resins, 3D printers, print parameters, clinical protocols, or any other digital dentistry topic. 👇`,
-  "es-ES": (name) => `¡Perfecto, ${name}! Ahora sí, estoy lista para ayudarte. 😊\n\nCuéntame: ¿qué estás buscando hoy? Puede ser sobre resinas, impresoras 3D, parámetros de impresión, protocolos clínicos o cualquier otro tema de odontología digital. 👇`,
+const LEAD_CONFIRMED: Record<string, (name: string, topicContext?: string) => string> = {
+  "pt-BR": (name, tc) => `Perfeito, ${name}! Agora sim, estou pronta para te ajudar. 😊\n\n${tc === 'products' ? 'Em relação a qual produto você precisa de ajuda?' : 'Me conta: o que você está buscando hoje? Pode ser sobre resinas, impressoras 3D, parâmetros de impressão, protocolos clínicos ou qualquer outro assunto de odontologia digital. 👇'}`,
+  "en-US": (name, tc) => `Perfect, ${name}! Now I'm ready to help you. 😊\n\n${tc === 'products' ? 'Which product do you need help with?' : 'Tell me: what are you looking for today? It could be about resins, 3D printers, print parameters, clinical protocols, or any other digital dentistry topic. 👇'}`,
+  "es-ES": (name, tc) => `¡Perfecto, ${name}! Ahora sí, estoy lista para ayudarte. 😊\n\n${tc === 'products' ? '¿Con qué producto necesitas ayuda?' : 'Cuéntame: ¿qué estás buscando hoy? Puede ser sobre resinas, impresoras 3D, parámetros de impresión, protocolos clínicos o cualquier otro tema de odontología digital. 👇'}`,
 };
 
 // Upsert lead in the database and link to session
@@ -1526,7 +1526,7 @@ serve(async (req) => {
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
           currentLeadId = leadId;
-          responseText = (RETURNING_LEAD[lang] || RETURNING_LEAD["pt-BR"])(existingLead.name);
+          responseText = (RETURNING_LEAD[lang] || RETURNING_LEAD["pt-BR"])(existingLead.name, topic_context);
           console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId}`);
         } else {
           // NEW LEAD — ask for name
@@ -1575,7 +1575,7 @@ serve(async (req) => {
     if (leadState.state === "collected") {
       const leadId = await upsertLead(supabase, leadState.name, leadState.email, session_id);
       currentLeadId = leadId;
-      const confirmText = (LEAD_CONFIRMED[lang] || LEAD_CONFIRMED["pt-BR"])(leadState.name);
+      const confirmText = (LEAD_CONFIRMED[lang] || LEAD_CONFIRMED["pt-BR"])(leadState.name, topic_context);
       try {
         await supabase.from("agent_interactions").insert({
           session_id,

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
+import ProductsFlow from './ProductsFlow';
 import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -259,6 +260,8 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   // Printer guided flow state
   const [printerFlowStep, setPrinterFlowStep] = useState<'brand' | 'model' | 'resin' | null>(null);
+  // Products guided flow state
+  const [productsFlowStep, setProductsFlowStep] = useState<'category' | 'products' | null>(null);
 
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
@@ -273,6 +276,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     window.addEventListener('dra-lia:ask', handler as EventListener);
     return () => window.removeEventListener('dra-lia:ask', handler as EventListener);
   }, [embedded]);
+
+  // pendingProductRef triggers sendMessage after input is set by ProductsFlow
+  const pendingProductRef = useRef<string | null>(null);
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
@@ -385,6 +391,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
         setLeadCollected(true);
         sessionStorage.setItem('dra_lia_lead_collected', 'true');
+        // Activate products flow after lead is confirmed
+        if (topicContext === 'products') {
+          setProductsFlowStep('category');
+        }
       }
     } catch (e) {
       setMessages((prev) =>
@@ -403,6 +413,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   useEffect(() => {
     if (pendingQueryRef.current && input === pendingQueryRef.current) {
       pendingQueryRef.current = null;
+      sendMessage();
+    }
+    if (pendingProductRef.current && input === pendingProductRef.current) {
+      pendingProductRef.current = null;
       sendMessage();
     }
   }, [input, sendMessage]);
@@ -453,6 +467,15 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       sessionStorage.setItem('dra_lia_topic_context', opt.id);
       setPrinterFlowStep('brand');
       return;
+    }
+
+    // Products topic — send to backend for lead collection, then show flow after lead confirmed
+    if (opt.id === 'products') {
+      setTopicSelected(true);
+      setTopicContext(opt.id);
+      sessionStorage.setItem('dra_lia_topic_context', opt.id);
+      // Don't show products flow yet — wait for lead collection first
+      // Send the message to backend so it asks for email
     }
 
     setTopicSelected(true);
@@ -525,10 +548,14 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           }
           setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m));
           // Detect lead collection confirmation from backend
-          if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
-            setLeadCollected(true);
-            sessionStorage.setItem('dra_lia_lead_collected', 'true');
-          }
+           if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
+             setLeadCollected(true);
+             sessionStorage.setItem('dra_lia_lead_collected', 'true');
+             // Activate products flow after lead is confirmed
+             if (topicContext === 'products') {
+               setProductsFlowStep('category');
+             }
+           }
           setIsLoading(false);
         };
 
@@ -545,6 +572,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setTopicContext('');
     setLeadCollected(false);
     setPrinterFlowStep(null);
+    setProductsFlowStep(null);
     sessionStorage.removeItem('dra_lia_topic_context');
     sessionStorage.removeItem('dra_lia_lead_collected');
     // Generate new session ID so backend starts fresh (old session still has lead data)
@@ -745,7 +773,30 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           </div>
         )}
 
-        {/* Typing indicator */}
+        {/* Products guided flow */}
+        {productsFlowStep && topicContext === 'products' && (
+          <div className="flex justify-start">
+            <div className="max-w-[95%] w-full">
+              <ProductsFlow
+                step={productsFlowStep}
+                onStepChange={(newStep) => {
+                  if (newStep === null) {
+                    setProductsFlowStep(null);
+                  } else {
+                    setProductsFlowStep(newStep);
+                  }
+                }}
+                onProductSelect={(productName) => {
+                  setProductsFlowStep(null);
+                  const msg = `Quero saber mais sobre ${productName}`;
+                  pendingProductRef.current = msg;
+                  setInput(msg);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex justify-start">
             <div className="bg-white border border-gray-100 shadow-sm px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1">
