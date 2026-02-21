@@ -608,10 +608,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
               </div>
 
-              {/* Topic selection menu — shown after lead collected (name+email), before topic is selected */}
+              {/* Topic selection menu — shown on welcome message, before topic is selected */}
               {(() => {
                 const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
-                return msg.id === lastAssistantId && leadCollected && !topicSelected && !isLoading;
+                return msg.id === lastAssistantId && !topicSelected && !isLoading;
               })() && (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
