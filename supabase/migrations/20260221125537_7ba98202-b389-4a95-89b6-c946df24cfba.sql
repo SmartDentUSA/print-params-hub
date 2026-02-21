@@ -1,0 +1,1 @@
+UPDATE system_a_catalog SET price = NULL WHERE id = 'bf98b42f-ad19-4776-b595-538c6d7cefdd';
