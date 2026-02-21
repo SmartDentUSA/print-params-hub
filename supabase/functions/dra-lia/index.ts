@@ -764,17 +764,18 @@ async function detectPrinterDialogState(
 }
 
 const GREETING_RESPONSES: Record<string, string> = {
-  "pt-BR": `Olá! 😊 Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent.\n\nAntes de começarmos, qual o seu nome?`,
-  "en-US": `Hello! 😊 I'm Dr. L.I.A., SmartDent's digital dentistry specialist.\n\nBefore we start, what's your name?`,
-  "es-ES": `¡Hola! 😊 Soy la Dra. L.I.A., especialista en odontología digital de SmartDent.\n\nAntes de comenzar, ¿cuál es tu nombre?`,
+  "pt-BR": `Olá! 😊 Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent.\n\nAntes de começarmos, qual o seu melhor e-mail?`,
+  "en-US": `Hello! 😊 I'm Dr. L.I.A., SmartDent's digital dentistry specialist.\n\nBefore we start, what's your best email?`,
+  "es-ES": `¡Hola! 😊 Soy la Dra. L.I.A., especialista en odontología digital de SmartDent.\n\nAntes de comenzar, ¿cuál es tu mejor correo electrónico?`,
 };
 
 // ── LEAD COLLECTION SYSTEM ──────────────────────────────────────────────────
 // Detects whether name/email have been collected from the conversation history
 // Returns: { state, name?, email? }
 type LeadCollectionState =
-  | { state: "needs_name" }
-  | { state: "needs_email"; name: string }
+  | { state: "needs_email_first" }
+  | { state: "needs_name"; email: string }
+  | { state: "needs_email"; name: string }  // kept for compat
   | { state: "collected"; name: string; email: string }
   | { state: "from_session"; name: string; email: string; leadId: string };
 
@@ -793,89 +794,85 @@ function detectLeadCollectionState(
   }
 
   // No history = brand new conversation
-  if (history.length === 0) return { state: "needs_name" };
+  if (history.length === 0) return { state: "needs_email_first" };
 
-  // Analyze history to detect collected data
   const EMAIL_REGEX = /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*/;
-  let detectedName: string | null = null;
   let detectedEmail: string | null = null;
+  let detectedName: string | null = null;
 
+  // Scan for email in user messages
+  for (let i = 0; i < history.length; i++) {
+    const msg = history[i];
+    if (msg.role === "user") {
+      const normalizedContent = msg.content.replace(/\s*@\s*/g, '@');
+      const emailMatch = normalizedContent.match(EMAIL_REGEX);
+      if (emailMatch) detectedEmail = emailMatch[0];
+    }
+  }
+
+  // Scan for name: user response after assistant asked for name
   for (let i = 0; i < history.length; i++) {
     const msg = history[i];
     const prevMsg = i > 0 ? history[i - 1] : null;
-
-    if (msg.role === "user") {
-      // Check if this message contains an email (normalize spaces around @)
-      const normalizedContent = msg.content.replace(/\s*@\s*/g, '@');
-      const emailMatch = normalizedContent.match(EMAIL_REGEX);
-      if (emailMatch) {
-        detectedEmail = emailMatch[0];
+    if (msg.role === "user" && prevMsg?.role === "assistant" && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(prevMsg.content)) {
+      const nameCandidate = msg.content.trim().replace(/[.!?,;:]+$/g, '').trim();
+      if (nameCandidate.length >= 2 && nameCandidate.length <= 80 && !EMAIL_REGEX.test(nameCandidate)) {
+        detectedName = nameCandidate;
       }
+    }
+  }
 
-      // Check if the previous assistant message asked for the name
-      if (prevMsg?.role === "assistant" && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(prevMsg.content)) {
-        // The user's response is likely their name
-        const nameCandidate = msg.content.trim().replace(/[.!?,;:]+$/g, '').trim();
+  // Both collected
+  if (detectedName && detectedEmail) return { state: "collected", name: detectedName, email: detectedEmail };
+
+  // Email found but no name yet — check if assistant already asked for name
+  if (detectedEmail && !detectedName) {
+    const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
+    // If assistant already asked for name, check if latest user msg is the name
+    if (lastAssistant && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(lastAssistant.content)) {
+      const lastUser = [...history].reverse().find(h => h.role === "user");
+      if (lastUser) {
+        const nameCandidate = lastUser.content.trim().replace(/[.!?,;:]+$/g, '').trim();
         if (nameCandidate.length >= 2 && nameCandidate.length <= 80 && !EMAIL_REGEX.test(nameCandidate)) {
-          detectedName = nameCandidate;
+          return { state: "collected", name: nameCandidate, email: detectedEmail };
         }
       }
-
-      // Check if the previous assistant message asked for email
-      if (prevMsg?.role === "assistant" && /e-?mail|email|correo/i.test(prevMsg.content) && /melhor|best|mejor|enviar|acompanhar/i.test(prevMsg.content)) {
-        const normalizedContent2 = msg.content.replace(/\s*@\s*/g, '@');
-        const emailMatch2 = normalizedContent2.match(EMAIL_REGEX);
-        if (emailMatch2) detectedEmail = emailMatch2[0];
-      }
     }
+    return { state: "needs_name", email: detectedEmail };
   }
 
-  // If we have both, collected
-  if (detectedName && detectedEmail) return { state: "collected", name: detectedName, email: detectedEmail };
-  // If we have name but no email yet
-  if (detectedName) return { state: "needs_email", name: detectedName };
-  
-  // Edge case: first message after greeting — the user's response to "qual seu nome?"
-  // Check if the last assistant message asked for name
+  // No email found yet — check if assistant already asked for email
   const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
-  if (lastAssistant && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(lastAssistant.content)) {
-    // The latest user message should be the name
-    const lastUser = [...history].reverse().find(h => h.role === "user");
-    if (lastUser) {
-      const nameCandidate = lastUser.content.trim().replace(/[.!?,;:]+$/g, '').trim();
-      if (nameCandidate.length >= 2 && nameCandidate.length <= 80 && !EMAIL_REGEX.test(nameCandidate)) {
-        return { state: "needs_email", name: nameCandidate };
-      }
-    }
-  }
-
-  // If last assistant asked for email
   if (lastAssistant && /e-?mail|email|correo/i.test(lastAssistant.content) && /melhor|best|mejor|enviar|acompanhar/i.test(lastAssistant.content)) {
-    // Find the name from earlier in the conversation
-    for (let i = 0; i < history.length; i++) {
-      if (history[i].role === "user" && i > 0 && history[i-1].role === "assistant" && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(history[i-1].content)) {
-        detectedName = history[i].content.trim().replace(/[.!?,;:]+$/g, '').trim();
-        break;
-      }
-    }
     const lastUser = [...history].reverse().find(h => h.role === "user");
     if (lastUser) {
       const normalizedLastUser = lastUser.content.replace(/\s*@\s*/g, '@');
       const emailMatch = normalizedLastUser.match(EMAIL_REGEX);
-      if (emailMatch && detectedName) {
-        return { state: "collected", name: detectedName, email: emailMatch[0] };
+      if (emailMatch) {
+        return { state: "needs_name", email: emailMatch[0] };
       }
     }
-    if (detectedName) return { state: "needs_email", name: detectedName };
   }
 
-  return { state: "needs_name" };
+  return { state: "needs_email_first" };
 }
 
 const ASK_EMAIL: Record<string, (name: string) => string> = {
   "pt-BR": (name) => `Prazer, ${name}! 😊 Para eu poder te enviar materiais e acompanhar seu caso, qual seu melhor e-mail?`,
   "en-US": (name) => `Nice to meet you, ${name}! 😊 So I can send you materials and follow up on your case, what's your best email?`,
   "es-ES": (name) => `¡Mucho gusto, ${name}! 😊 Para enviarte materiales y acompañar tu caso, ¿cuál es tu mejor correo electrónico?`,
+};
+
+const ASK_NAME: Record<string, string> = {
+  "pt-BR": `Prazer em te conhecer! 😊 Não encontrei seu cadastro. Qual o seu nome?`,
+  "en-US": `Nice to meet you! 😊 I didn't find your profile. What's your name?`,
+  "es-ES": `¡Mucho gusto! 😊 No encontré tu registro. ¿Cuál es tu nombre?`,
+};
+
+const RETURNING_LEAD: Record<string, (name: string) => string> = {
+  "pt-BR": (name) => `Que bom te ver de novo, ${name}! 😊 Agora sim, estou pronta para te ajudar.\n\nComo posso te ajudar hoje?`,
+  "en-US": (name) => `Great to see you again, ${name}! 😊 Now I'm ready to help you.\n\nHow can I help you today?`,
+  "es-ES": (name) => `¡Qué bueno verte de nuevo, ${name}! 😊 Ahora sí, estoy lista para ayudarte.\n\n¿Cómo puedo ayudarte hoy?`,
 };
 
 const LEAD_CONFIRMED: Record<string, (name: string) => string> = {
@@ -1472,21 +1469,20 @@ serve(async (req) => {
     const historyWithCurrent = [...history, { role: "user", content: message }];
     const leadState = detectLeadCollectionState(historyWithCurrent, sessionEntities);
 
-    // 0. Intent Guard — SEMPRE pedir nome antes de qualquer coisa (ETAPA 0)
-    if (leadState.state === "needs_name") {
+    // 0. Intent Guard — SEMPRE pedir e-mail antes de qualquer coisa (ETAPA 0)
+    if (leadState.state === "needs_email_first") {
       let responseText: string;
       if (isGreeting(message)) {
         responseText = GREETING_RESPONSES[lang] || GREETING_RESPONSES["pt-BR"];
       } else {
-        // Reconhecer o contexto do usuário antes de pedir o nome
+        // Reconhecer o contexto do usuário antes de pedir o e-mail
         const contextAck: Record<string, string> = {
-          "pt-BR": `Que ótimo que você entrou em contato! 😊 Vou te ajudar com isso.\n\nAntes de começarmos, qual o seu nome?`,
-          "en": `Great that you reached out! 😊 I'll help you with that.\n\nBefore we start, what's your name?`,
-          "es": `¡Qué bueno que nos contactas! 😊 Te voy a ayudar con eso.\n\nAntes de comenzar, ¿cuál es tu nombre?`,
+          "pt-BR": `Que ótimo que você entrou em contato! 😊 Vou te ajudar com isso.\n\nAntes de começarmos, qual o seu melhor e-mail?`,
+          "en": `Great that you reached out! 😊 I'll help you with that.\n\nBefore we start, what's your best email?`,
+          "es": `¡Qué bueno que nos contactas! 😊 Te voy a ayudar con eso.\n\nAntes de comenzar, ¿cuál es tu mejor correo electrónico?`,
         };
         responseText = contextAck[lang] || contextAck["pt-BR"];
       }
-      // Save interaction
       try {
         await supabase.from("agent_interactions").insert({
           session_id,
@@ -1497,12 +1493,67 @@ serve(async (req) => {
           unanswered: false,
         });
       } catch (e) {
-        console.error("Failed to insert agent_interaction (greeting):", e);
+        console.error("Failed to insert agent_interaction (ask email first):", e);
       }
       return streamTextResponse(responseText, corsHeaders);
     }
 
-    // 0a. Lead collection: ask for email after receiving name
+    // 0a. Lead collection: email received, check if lead exists in DB
+    if (leadState.state === "needs_name") {
+      // Search for existing lead by email
+      let responseText: string;
+      try {
+        const { data: existingLead } = await supabase
+          .from("leads")
+          .select("id, name")
+          .eq("email", leadState.email)
+          .maybeSingle();
+
+        if (existingLead && existingLead.name) {
+          // RETURNING LEAD — found in DB, skip name collection
+          const leadId = existingLead.id;
+          // Update session with lead info
+          await supabase.from("agent_sessions").upsert({
+            session_id,
+            lead_id: leadId,
+            extracted_entities: {
+              lead_name: existingLead.name,
+              lead_email: leadState.email,
+              lead_id: leadId,
+              spin_stage: "etapa_1",
+            },
+            current_state: "idle",
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+          currentLeadId = leadId;
+          responseText = (RETURNING_LEAD[lang] || RETURNING_LEAD["pt-BR"])(existingLead.name);
+          console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId}`);
+        } else {
+          // NEW LEAD — ask for name
+          responseText = ASK_NAME[lang] || ASK_NAME["pt-BR"];
+        }
+      } catch (e) {
+        console.warn("[lead-collection] Error checking existing lead:", e);
+        responseText = ASK_NAME[lang] || ASK_NAME["pt-BR"];
+      }
+
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: responseText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+          lead_id: currentLeadId,
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (needs_name):", e);
+      }
+      return streamTextResponse(responseText, corsHeaders);
+    }
+
+    // 0b. Legacy: ask for email after receiving name (backward compat)
     if (leadState.state === "needs_email") {
       const emailText = (ASK_EMAIL[lang] || ASK_EMAIL["pt-BR"])(leadState.name);
       try {
@@ -1520,7 +1571,7 @@ serve(async (req) => {
       return streamTextResponse(emailText, corsHeaders);
     }
 
-    // 0b. Lead collection: email received → save lead and confirm
+    // 0c. Lead collection: name+email received → save lead and confirm
     if (leadState.state === "collected") {
       const leadId = await upsertLead(supabase, leadState.name, leadState.email, session_id);
       currentLeadId = leadId;
