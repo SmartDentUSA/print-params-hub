@@ -1,62 +1,116 @@
 
 
-# Fix: Loop infinito de SPIN, prolixidade e bloqueio de preço
+# Captura de Leads e Historico de Conversas da Dra. LIA
 
-## Problemas identificados
+## Visao Geral
 
-1. **Loop infinito**: A LIA reinicia a Etapa 1 (perguntas ja respondidas) porque nao ha instrucao para NUNCA repetir perguntas ja feitas na conversa
-2. **Prolixidade**: Respostas com 4-6 frases quando deveria ser 2-3. A regra diz "2-4 frases" mas nao ha penalizacao por excesso
-3. **SPIN bloqueia preco**: A regra "Diagnostico primeiro: nunca apresente preco antes de entender a dor" e absoluta demais — impede dar preco mesmo quando todo o SPIN ja foi completado e o lead pede explicitamente
+Criar um sistema onde a Dra. LIA pergunta nome e email logo no inicio de cada conversa, registra o lead no banco de dados, e vincula todas as interacoes ao lead. Isso resolve tambem o problema de loop, pois o historico fica persistido e consultavel.
 
-## Solucao
+## Mudancas
 
-Tres alteracoes no arquivo `supabase/functions/dra-lia/index.ts`:
+### 1. Nova tabela `leads` no banco de dados
 
-### 1. Adicionar regra anti-loop apos a REGRA ABSOLUTA (linha 43)
+```sql
+CREATE TABLE public.leads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  email text NOT NULL,
+  phone text,
+  specialty text,
+  equipment_status text,
+  workflow_interest text,
+  pain_point text,
+  spin_completed boolean DEFAULT false,
+  source text DEFAULT 'dra-lia',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 
-Inserir logo apos a regra de 1 pergunta por mensagem:
+CREATE UNIQUE INDEX leads_email_idx ON public.leads(email);
 
-```
-**REGRA ANTI-LOOP:** NUNCA repita uma pergunta que o lead ja respondeu nesta conversa. Releia o historico antes de cada resposta. Se o lead ja disse sua especialidade, equipamento atual ou estrutura, NAO pergunte de novo. Se ja completou as etapas 1-2, avance para etapa 3-4-5.
-```
+ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 
-### 2. Reformular regras de conduta SDR (linhas 93-101)
+-- Admins podem gerenciar
+CREATE POLICY "Admins can manage leads" ON public.leads
+  FOR ALL USING (is_admin(auth.uid()));
 
-Substituir as regras de conduta por versao que reconhece quando SPIN acabou:
-
-```
-**REGRAS DE CONDUTA SDR:**
-- Diagnostico primeiro: nao apresente preco antes de entender a dor — MAS quando o SPIN ja foi feito (lead ja disse dor, especialidade, interesse), RESPONDA sobre preco/produto direto
-- Quando o lead pede preco apos qualificacao completa: de a informacao e avance para agendamento/fechamento
-- Use NPS 96 e pioneirismo desde 2009 para validar seguranca
-- NUNCA repita perguntas ja respondidas — consulte o historico
-- NUNCA despeje dados como formulario
-- NUNCA responda "Nao sei" para questoes comerciais — use fallback WhatsApp
-- Para Scanners e Impressoras: peca contato ou ofereca agendamento
-- Para Resinas e Insumos: envie o link da loja
-- Maximo 2-3 frases por mensagem. Seja CURTA.
-```
-
-### 3. Atualizar regra 5 e regra 8 da personalidade (linhas 1488, 1491)
-
-Regra 5 — de:
-```
-5. **Direta ao Ponto:** 2-4 frases claras. MÁXIMO 1 pergunta por mensagem. Evite paredes de texto.
-```
-Para:
-```
-5. **Direta ao Ponto:** 2-3 frases CURTAS. MÁXIMO 1 pergunta por mensagem. NUNCA mais de 3 frases.
+-- Edge function insere via service_role (bypassa RLS)
 ```
 
-Regra 8 — de:
-```
-8. **Toda resposta importante termina com uma pergunta** que avança a venda ou qualifica o lead.
-```
-Para:
-```
-8. **Toda resposta termina com UMA pergunta que AVANCA** — nunca repita uma pergunta ja feita. Se o SPIN ja foi completado, a pergunta deve ser de fechamento (agendamento, contato, decisao).
+### 2. Adicionar coluna `lead_id` na tabela `agent_interactions`
+
+```sql
+ALTER TABLE public.agent_interactions
+  ADD COLUMN lead_id uuid REFERENCES public.leads(id);
 ```
 
-## Deploy
+### 3. Adicionar coluna `lead_id` na tabela `agent_sessions`
 
-A edge function sera deployada automaticamente apos a edicao.
+```sql
+ALTER TABLE public.agent_sessions
+  ADD COLUMN lead_id uuid REFERENCES public.leads(id);
+```
+
+### 4. Alterar o fluxo da Dra. LIA (`supabase/functions/dra-lia/index.ts`)
+
+**Novo fluxo de abertura (antes de qualquer SPIN):**
+
+- Quando `history` esta vazio (conversa nova), a LIA responde com a saudacao + pergunta do nome
+- Quando o lead responde o nome, a LIA pede o email
+- Quando o lead responde o email, a LIA salva na tabela `leads` (upsert por email), vincula ao `agent_sessions`, e so entao inicia o SPIN
+
+**Implementacao tecnica:**
+
+1. Criar funcao `detectLeadCollectionState(history)` que analisa o historico para saber se nome e email ja foram coletados
+2. Adicionar logica no handler principal: se lead nao identificado, injetar instrucao de coleta antes do SPIN
+3. Ao receber email valido, fazer upsert na tabela `leads` e atualizar `agent_sessions.lead_id`
+4. Nas interacoes subsequentes, incluir `lead_id` no insert de `agent_interactions`
+
+**Mudanca no prompt SDR:**
+
+Adicionar ETAPA 0 antes da ETAPA 1:
+
+```text
+**ETAPA 0 — IDENTIFICACAO DO LEAD (OBRIGATORIA antes de qualquer outra etapa)**
+Na PRIMEIRA mensagem, apresente-se e pergunte o nome do lead:
+"Ola! Sou a Dra. L.I.A., especialista em odontologia digital da Smart Dent. Antes de comecarmos, qual o seu nome?"
+Apos receber o nome, pergunte o email:
+"Prazer, [nome]! Para eu poder te enviar materiais e acompanhar seu caso, qual seu melhor email?"
+Apos receber o email, inicie a ETAPA 1 normalmente.
+NUNCA inicie o SPIN sem ter nome e email.
+```
+
+### 5. Atualizar `extracted_entities` no `agent_sessions`
+
+Ao coletar nome e email, salvar no campo `extracted_entities` do session:
+
+```json
+{
+  "lead_name": "Dr. Marcelo",
+  "lead_email": "marcelo@clinica.com",
+  "lead_id": "uuid-do-lead",
+  "spin_stage": "etapa_1",
+  "specialty": null,
+  "equipment_status": null
+}
+```
+
+Isso permite que a funcao consulte o estado sem depender apenas do historico de mensagens.
+
+### 6. Painel Admin — visualizacao de leads (opcional, fase 2)
+
+Uma nova aba no admin para listar leads capturados com nome, email, especialidade, data, e link para o historico de conversa. Isso pode ser implementado depois.
+
+## Sequencia de implementacao
+
+1. Migracoes SQL (tabela `leads` + colunas `lead_id`)
+2. Atualizar `dra-lia/index.ts` com ETAPA 0 e logica de persistencia
+3. Deploy da edge function
+4. Testar fluxo completo
+
+## Beneficios
+
+- Leads ficam registrados no banco para follow-up comercial
+- Historico de conversa vinculado ao lead (rastreabilidade)
+- SPIN nao repete porque `extracted_entities` persiste os dados coletados
+- Base de dados de leads para o time comercial
