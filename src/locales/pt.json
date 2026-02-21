@@ -221,7 +221,7 @@
   "dra_lia": {
     "button_label": "Dra. L.I.A.",
     "header_subtitle": "Assistente SmartDent",
-    "welcome_message": "Olá! 👋 Sou a **Dra. L.I.A.**, especialista em odontologia digital da SmartDent.\n\nSobre o que você quer conversar hoje? Selecione uma opção abaixo:",
+    "welcome_message": "Olá! Que bom ter você por aqui. Para que eu possa te atender com agilidade, escolha uma das opções abaixo: 👇",
     "input_placeholder": "Digite sua dúvida...",
     "typing": "Digitando...",
     "feedback_helpful": "Isso me ajudou!",
