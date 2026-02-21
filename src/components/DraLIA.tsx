@@ -223,13 +223,14 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const generateSessionId = () => {
+    const id = crypto.randomUUID();
+    sessionStorage.setItem('dra_lia_session', id);
+    return id;
+  };
+
   const sessionId = useRef<string>(
-    sessionStorage.getItem('dra_lia_session') ||
-      (() => {
-        const id = crypto.randomUUID();
-        sessionStorage.setItem('dra_lia_session', id);
-        return id;
-      })()
+    sessionStorage.getItem('dra_lia_session') || generateSessionId()
   );
 
   const lang = localeMap[language] || 'pt-BR';
@@ -546,6 +547,8 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setPrinterFlowStep(null);
     sessionStorage.removeItem('dra_lia_topic_context');
     sessionStorage.removeItem('dra_lia_lead_collected');
+    // Generate new session ID so backend starts fresh (old session still has lead data)
+    sessionId.current = generateSessionId();
     // Reset the welcome message to show name prompt again
     setMessages([{ id: 'welcome', role: 'assistant', content: t('dra_lia.welcome_message') }]);
   }, [t]);
