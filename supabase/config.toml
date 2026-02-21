@@ -149,3 +149,6 @@ verify_jwt = false
 
 [functions.sync-google-drive-kb]
 verify_jwt = false
+
+[functions.archive-daily-chats]
+verify_jwt = false
