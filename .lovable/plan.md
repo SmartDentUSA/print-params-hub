@@ -1,116 +1,97 @@
 
 
-# Captura de Leads e Historico de Conversas da Dra. LIA
+# Fix: Dra. LIA Hallucinating Products + SPIN Loop + Route Confusion
 
-## Visao Geral
+## Root Cause Analysis
 
-Criar um sistema onde a Dra. LIA pergunta nome e email logo no inicio de cada conversa, registra o lead no banco de dados, e vincula todas as interacoes ao lead. Isso resolve tambem o problema de loop, pois o historico fica persistido e consultavel.
+The Dra. LIA is **inventing products** (Smart Print One, Smart Print Pro, RayShape P8/P10, Medit i700, Medit i600) that do NOT exist in the database. The actual catalog contains:
+- **Impressoras:** Rayshape Edge Mini, Asiga MAX 2, Asiga Ultra, Elegoo Mars 5 Ultra
+- **Scanners:** BLZ INO100 Plus, BLZ INO200, Scanner de Bancada Medit T310, Scanner de Bancada BLZ LS100
+- **Combos:** Chair Side Print 4.0 (various configurations)
 
-## Mudancas
+This happens because:
+1. The RAG search in commercial mode returns weak/no results for product queries (company_kb has weight 2.0 but catalog_product only 0.8)
+2. When RAG is empty, the AI fabricates product names from its training data
+3. There is NO direct catalog query for commercial product requests
 
-### 1. Nova tabela `leads` no banco de dados
+Additionally, the SPIN loop persists because the prompt-based anti-loop rules are too long/complex for the LLM to follow reliably.
 
-```sql
-CREATE TABLE public.leads (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  email text NOT NULL,
-  phone text,
-  specialty text,
-  equipment_status text,
-  workflow_interest text,
-  pain_point text,
-  spin_completed boolean DEFAULT false,
-  source text DEFAULT 'dra-lia',
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
+## Changes
 
-CREATE UNIQUE INDEX leads_email_idx ON public.leads(email);
+### 1. Add direct catalog product search for commercial context (`dra-lia/index.ts`)
 
-ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
-
--- Admins podem gerenciar
-CREATE POLICY "Admins can manage leads" ON public.leads
-  FOR ALL USING (is_admin(auth.uid()));
-
--- Edge function insere via service_role (bypassa RLS)
-```
-
-### 2. Adicionar coluna `lead_id` na tabela `agent_interactions`
-
-```sql
-ALTER TABLE public.agent_interactions
-  ADD COLUMN lead_id uuid REFERENCES public.leads(id);
-```
-
-### 3. Adicionar coluna `lead_id` na tabela `agent_sessions`
-
-```sql
-ALTER TABLE public.agent_sessions
-  ADD COLUMN lead_id uuid REFERENCES public.leads(id);
-```
-
-### 4. Alterar o fluxo da Dra. LIA (`supabase/functions/dra-lia/index.ts`)
-
-**Novo fluxo de abertura (antes de qualquer SPIN):**
-
-- Quando `history` esta vazio (conversa nova), a LIA responde com a saudacao + pergunta do nome
-- Quando o lead responde o nome, a LIA pede o email
-- Quando o lead responde o email, a LIA salva na tabela `leads` (upsert por email), vincula ao `agent_sessions`, e so entao inicia o SPIN
-
-**Implementacao tecnica:**
-
-1. Criar funcao `detectLeadCollectionState(history)` que analisa o historico para saber se nome e email ja foram coletados
-2. Adicionar logica no handler principal: se lead nao identificado, injetar instrucao de coleta antes do SPIN
-3. Ao receber email valido, fazer upsert na tabela `leads` e atualizar `agent_sessions.lead_id`
-4. Nas interacoes subsequentes, incluir `lead_id` no insert de `agent_interactions`
-
-**Mudanca no prompt SDR:**
-
-Adicionar ETAPA 0 antes da ETAPA 1:
+Create a new function `searchCatalogProducts()` that queries `system_a_catalog` directly when the user mentions keywords like "impressora", "scanner", "opcoes", "equipamento", "quais tem", "o que voce tem". This ensures the AI has REAL product data.
 
 ```text
-**ETAPA 0 — IDENTIFICACAO DO LEAD (OBRIGATORIA antes de qualquer outra etapa)**
-Na PRIMEIRA mensagem, apresente-se e pergunte o nome do lead:
-"Ola! Sou a Dra. L.I.A., especialista em odontologia digital da Smart Dent. Antes de comecarmos, qual o seu nome?"
-Apos receber o nome, pergunte o email:
-"Prazer, [nome]! Para eu poder te enviar materiais e acompanhar seu caso, qual seu melhor email?"
-Apos receber o email, inicie a ETAPA 1 normalmente.
-NUNCA inicie o SPIN sem ter nome e email.
+async function searchCatalogProducts(supabase, message, history):
+  - Detect product-interest keywords in message
+  - Query system_a_catalog for matching product_category (IMPRESSAO 3D, SCANNERS 3D, POS-IMPRESSAO, SOLUCOES)
+  - Return structured results with name, description (truncated), cta_1_url
+  - Inject as source_type "catalog_product" with high similarity (0.90)
 ```
 
-### 5. Atualizar `extracted_entities` no `agent_sessions`
+Call this function in parallel with other searches when `topic_context === "commercial"`.
 
-Ao coletar nome e email, salvar no campo `extracted_entities` do session:
+### 2. Fix topic weights for commercial context
 
-```json
-{
-  "lead_name": "Dr. Marcelo",
-  "lead_email": "marcelo@clinica.com",
-  "lead_id": "uuid-do-lead",
-  "spin_stage": "etapa_1",
-  "specialty": null,
-  "equipment_status": null
+Change commercial weights so catalog products rank much higher:
+
+```text
+commercial: {
+  parameter_set: 0.2,
+  resin: 0.5,
+  processing_protocol: 0.3,
+  article: 0.4,
+  video: 0.3,
+  catalog_product: 2.5,  // was 0.8
+  company_kb: 1.5         // was 2.0
 }
 ```
 
-Isso permite que a funcao consulte o estado sem depender apenas do historico de mensagens.
+### 3. Add hard anti-hallucination rule for commercial product mentions
 
-### 6. Painel Admin — visualizacao de leads (opcional, fase 2)
+Add to the system prompt SDR section:
 
-Uma nova aba no admin para listar leads capturados com nome, email, especialidade, data, e link para o historico de conversa. Isso pode ser implementado depois.
+```text
+**REGRA ANTI-ALUCINACAO COMERCIAL (CRITICA):**
+Quando o lead perguntar sobre produtos, equipamentos, impressoras ou scanners:
+- CITE APENAS produtos que aparecem nos DADOS DAS FONTES abaixo
+- Se nenhum produto relevante aparece nas fontes, diga: "Deixa eu verificar nosso catalogo atualizado. Para te passar as opcoes certas com valores, posso te conectar com nosso time comercial via WhatsApp?"
+- NUNCA invente nomes de produtos como "Smart Print One", "Smart Print Pro" etc
+- NUNCA cite modelos de scanner ou impressora que NAO estao nas fontes
+```
 
-## Sequencia de implementacao
+### 4. Simplify SPIN anti-loop with extracted_entities persistence
 
-1. Migracoes SQL (tabela `leads` + colunas `lead_id`)
-2. Atualizar `dra-lia/index.ts` com ETAPA 0 e logica de persistencia
-3. Deploy da edge function
-4. Testar fluxo completo
+Instead of relying on regex history analysis, persist SPIN stage in `extracted_entities` after each interaction. Before generating the AI response, load the session's `extracted_entities` and inject a concise "completed stages" summary:
 
-## Beneficios
+```text
+// After AI response, parse for completed stages and update extracted_entities:
+extracted_entities.spin_stage = "etapa_3"  // based on what was discussed
+extracted_entities.specialty = "implantodontia"
+extracted_entities.equipment = "analogico"
+extracted_entities.pain_point = "demora escaneamento"
+```
 
-- Leads ficam registrados no banco para follow-up comercial
-- Historico de conversa vinculado ao lead (rastreabilidade)
-- SPIN nao repete porque `extracted_entities` persiste os dados coletados
-- Base de dados de leads para o time comercial
+Then inject into prompt: "ETAPAS JA COMPLETADAS: especialidade=implantodontia, equipamento=analogico, dor=demora. NAO pergunte sobre estes temas novamente. Avance para etapa 4."
+
+### 5. Reduce max_tokens for commercial responses
+
+Change `max_tokens` from 1024 to 512 when `topic_context === "commercial"` to force shorter responses and prevent verbosity.
+
+## Implementation Sequence
+
+1. Add `searchCatalogProducts()` function
+2. Update commercial topic weights
+3. Add anti-hallucination rule to SDR prompt
+4. Add extracted_entities persistence for SPIN tracking
+5. Reduce max_tokens for commercial
+6. Deploy edge function
+
+## Expected Results
+
+- LIA only mentions products that exist in the database
+- When user asks "quais impressoras voce tem?", LIA lists Rayshape Edge Mini, Asiga MAX 2, Asiga Ultra (real products)
+- SPIN stages are tracked in the database, preventing loops even across sessions
+- Shorter, more direct responses in commercial context
+
