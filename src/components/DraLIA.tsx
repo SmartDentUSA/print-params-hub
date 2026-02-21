@@ -570,16 +570,16 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const resetTopic = useCallback(() => {
     setTopicSelected(false);
     setTopicContext('');
-    setLeadCollected(false);
     setPrinterFlowStep(null);
     setProductsFlowStep(null);
     sessionStorage.removeItem('dra_lia_topic_context');
-    sessionStorage.removeItem('dra_lia_lead_collected');
-    // Generate new session ID so backend starts fresh (old session still has lead data)
-    sessionId.current = generateSessionId();
-    // Reset the welcome message to show name prompt again
-    setMessages([{ id: 'welcome', role: 'assistant', content: t('dra_lia.welcome_message') }]);
-  }, [t]);
+    // Keep sessionId, leadCollected, and sessionStorage lead data intact
+    // so the backend recognizes the lead without asking for email again
+    setMessages(prev => [
+      ...prev,
+      { id: `topic-reset-${Date.now()}`, role: 'assistant' as const, content: 'Posso te ajudar com mais alguma coisa? Escolha um assunto abaixo 👇' }
+    ]);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
