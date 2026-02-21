@@ -176,6 +176,7 @@ export function AdminApostilaImporter() {
   const [archiveResult, setArchiveResult] = useState<any>(null);
   const [archiveLastDate, setArchiveLastDate] = useState<string | null>(null);
   const [archiveCronCopied, setArchiveCronCopied] = useState(false);
+  const [archiveDaysBack, setArchiveDaysBack] = useState(7);
 
   // ── Apostila helpers ──────────────────────────────────────────────────────
   const updateStep = (id: string, patch: Partial<Step>) => {
@@ -464,7 +465,7 @@ export function AdminApostilaImporter() {
     setArchiveRunning(true);
     setArchiveResult(null);
     try {
-      const { data, error } = await supabase.functions.invoke("archive-daily-chats");
+      const { data, error } = await supabase.functions.invoke("archive-daily-chats", { body: { days_back: archiveDaysBack } });
       if (error) throw new Error(error.message);
       setArchiveResult(data);
       if (data?.archived > 0) {
@@ -1489,17 +1490,31 @@ select cron.schedule(
                 </Badge>
               </div>
 
-              <Button
-                onClick={runArchiveNow}
-                disabled={archiveRunning}
-                className="gap-2 bg-purple-600 hover:bg-purple-700"
-              >
-                {archiveRunning ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Arquivando...</>
-                ) : (
-                  <><Activity className="w-4 h-4" /> Exportar Conversas Agora</>
-                )}
-              </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="archiveDays" className="text-sm whitespace-nowrap">Dias:</Label>
+                  <Input
+                    id="archiveDays"
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={archiveDaysBack}
+                    onChange={(e) => setArchiveDaysBack(Math.min(30, Math.max(1, Number(e.target.value) || 1)))}
+                    className="w-20"
+                  />
+                </div>
+                <Button
+                  onClick={runArchiveNow}
+                  disabled={archiveRunning}
+                  className="gap-2 bg-purple-600 hover:bg-purple-700"
+                >
+                  {archiveRunning ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Arquivando...</>
+                  ) : (
+                    <><Activity className="w-4 h-4" /> Exportar Conversas Agora</>
+                  )}
+                </Button>
+              </div>
 
               {archiveResult && archiveResult.by_category && (
                 <div className="space-y-2">
