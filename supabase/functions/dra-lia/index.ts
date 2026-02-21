@@ -131,39 +131,40 @@ async function fetchCompanyContext(): Promise<string> {
 - Instagram: https://www.instagram.com/smartdentbr/
 - YouTube: https://www.youtube.com/@smartdentbr`;
 
-  try {
-    const response = await fetch(`${EXTERNAL_KB_URL}?format=ai_training`, {
-      signal: AbortSignal.timeout(3000),
-      headers: { "Content-Type": "application/json" },
-    });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(`${EXTERNAL_KB_URL}?format=ai_training`, {
+        signal: AbortSignal.timeout(3000),
+        headers: { "Content-Type": "application/json" },
+      });
 
-    if (!response.ok) {
-      console.warn(`[fetchCompanyContext] HTTP ${response.status}, using fallback`);
-      return FALLBACK;
-    }
+      if (!response.ok) {
+        console.warn(`[fetchCompanyContext] HTTP ${response.status} (attempt ${attempt + 1})`);
+        if (attempt === 0) { await new Promise(r => setTimeout(r, 1000)); continue; }
+        break;
+      }
 
-    const text = await response.text();
+      const text = await response.text();
 
-    // Extract key fields from the ai_training text using regex
-    const extract = (pattern: RegExp): string => {
-      const m = text.match(pattern);
-      return m ? m[1].trim() : "";
-    };
+      const extract = (pattern: RegExp): string => {
+        const m = text.match(pattern);
+        return m ? m[1].trim() : "";
+      };
 
-    const phone = extract(/\*\*Telefone[^*]*\*\*[:\s]+([^\n]+)/i) ||
-                  extract(/Telefone[:\s]+([0-9()\s\-+]+)/i) || "(16) 99383-1794";
-    const email = extract(/\*\*E-?mail[^*]*\*\*[:\s]+([^\s\n]+)/i) ||
-                  extract(/E-?mail[:\s]+([^\s\n]+@[^\s\n]+)/i) || "comercial@smartdent.com.br";
-    const nps = extract(/\*\*NPS[^*]*\*\*[:\s]+([^\n|]+)/i) ||
-                extract(/NPS Score[:\s]+(\d+)/i) || "96";
-    const rating = extract(/\*\*Rating[^*]*\*\*[:\s]+([^\n]+)/i) ||
-                   extract(/Rating[:\s]+([^\n]+)/i) || "5.0 ⭐";
-    const horario = extract(/\*\*Hor[áa]rio[^*]*\*\*[:\s]+([^\n]+)/i) ||
-                    extract(/Hor[áa]rio[:\s]+([^\n]+)/i) || "Segunda a Sexta, 8h às 18h";
-    const endereco = extract(/\*\*Endere[çc]o[^*]*\*\*[:\s]+([^\n]+)/i) ||
-                     extract(/Endere[çc]o[:\s]+([^\n]+)/i) || "Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP";
+      const phone = extract(/\*\*Telefone[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                    extract(/Telefone[:\s]+([0-9()\s\-+]+)/i) || "(16) 99383-1794";
+      const email = extract(/\*\*E-?mail[^*]*\*\*[:\s]+([^\s\n]+)/i) ||
+                    extract(/E-?mail[:\s]+([^\s\n]+@[^\s\n]+)/i) || "comercial@smartdent.com.br";
+      const nps = extract(/\*\*NPS[^*]*\*\*[:\s]+([^\n|]+)/i) ||
+                  extract(/NPS Score[:\s]+(\d+)/i) || "96";
+      const rating = extract(/\*\*Rating[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                     extract(/Rating[:\s]+([^\n]+)/i) || "5.0 ⭐";
+      const horario = extract(/\*\*Hor[áa]rio[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                      extract(/Hor[áa]rio[:\s]+([^\n]+)/i) || "Segunda a Sexta, 8h às 18h";
+      const endereco = extract(/\*\*Endere[çc]o[^*]*\*\*[:\s]+([^\n]+)/i) ||
+                       extract(/Endere[çc]o[:\s]+([^\n]+)/i) || "Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP";
 
-    const built = `- Telefone/WhatsApp: ${phone.replace(/\D/g, '').length >= 10 ? phone : "(16) 99383-1794"} | https://wa.me/5516993831794
+      const built = `- Telefone/WhatsApp: ${phone.replace(/\D/g, '').length >= 10 ? phone : "(16) 99383-1794"} | https://wa.me/5516993831794
 - E-mail: ${email.includes('@') ? email : "comercial@smartdent.com.br"}
 - Endereço: ${endereco || "Rua Dr. Procópio de Toledo Malta, 62 — São Carlos, SP"}
 - Horário: ${horario}
@@ -176,12 +177,15 @@ async function fetchCompanyContext(): Promise<string> {
 - Instagram: https://www.instagram.com/smartdentbr/
 - YouTube: https://www.youtube.com/@smartdentbr`;
 
-    console.log(`[fetchCompanyContext] ✓ Live data fetched (${text.length} chars)`);
-    return built;
-  } catch (err) {
-    console.warn(`[fetchCompanyContext] Failed (${err}), using fallback`);
-    return FALLBACK;
+      console.log(`[fetchCompanyContext] ✓ Live data fetched (${text.length} chars)`);
+      return built;
+    } catch (err) {
+      console.warn(`[fetchCompanyContext] Failed attempt ${attempt + 1}: ${err}`);
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
+    }
   }
+  console.warn(`[fetchCompanyContext] ALL ATTEMPTS FAILED — using hardcoded fallback`);
+  return FALLBACK;
 }
 
 // Greeting patterns — detect before triggering RAG
@@ -792,7 +796,7 @@ function detectLeadCollectionState(
   if (history.length === 0) return { state: "needs_name" };
 
   // Analyze history to detect collected data
-  const EMAIL_REGEX = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+  const EMAIL_REGEX = /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*/;
   let detectedName: string | null = null;
   let detectedEmail: string | null = null;
 
@@ -1017,6 +1021,12 @@ async function upsertKnowledgeGap(
   lang: string,
   status: "pending" | "low_confidence" = "pending"
 ) {
+  // Filtro anti-lixo: ignorar mensagens curtas e ruído
+  const NOISE_PATTERNS = /^(oi|ola|olá|hey|hi|hola|obrigad|valeu|ok|sim|não|nao|lia|ooe|tchau|bye|gracias|thanks|tudo bem|beleza|show|legal|massa|top)\b/i;
+  if (question.trim().length < 10 || NOISE_PATTERNS.test(question.trim())) {
+    return; // silently skip noise
+  }
+
   try {
     const truncated = question.slice(0, 500);
     const { data: existing } = await supabase
@@ -1112,7 +1122,15 @@ async function searchCatalogProducts(
       url_publica: p.slug ? `/produtos/${p.slug}` : null,
       cta_1_url: p.cta_1_url,
     },
-    similarity: 0.90, // High priority — real catalog data
+    similarity: (() => {
+        const nameWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+        const descWords = (p.description || '').toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3).slice(0, 20);
+        const allProductWords = [...new Set([...nameWords, ...descWords])];
+        const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
+        const matchedCount = allProductWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+        const totalWords = Math.max(allProductWords.length, 1);
+        return matchedCount / totalWords * 0.6 + 0.3;
+      })()
   }));
 }
 
@@ -1173,7 +1191,13 @@ async function searchProcessingInstructions(
       cta_1_url: r.cta_1_url,
       url_publica: r.slug ? `/resina/${r.slug}` : null,
     },
-    similarity: 0.95, // High priority — source of truth
+    similarity: (() => {
+        const resinWords = `${r.name} ${r.manufacturer}`.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+        const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length > 3);
+        const matchedCount = resinWords.filter((w: string) => queryWords.some((q: string) => q.includes(w) || w.includes(q))).length;
+        const maxPossible = Math.max(resinWords.length, 1);
+        return matchedCount > 0 ? Math.min(matchedCount / maxPossible * 0.5 + 0.5, 0.95) : 0.40;
+      })()
   }));
 }
 
@@ -1239,7 +1263,7 @@ async function searchParameterSets(
           source_type: "parameter_set",
           chunk_text: lines,
           metadata: { title: `${brand.name} ${model.name} + ${p.resin_name}`, url_publica: `/${brand.slug}/${model.slug}` },
-          similarity: resinMatched ? 0.93 : 0.78,
+          similarity: resinMatched ? 0.85 : 0.60,
         });
       }
     }
@@ -1694,9 +1718,9 @@ serve(async (req) => {
       [...catalogResults, ...paramResults, ...protocolResults, ...filteredKnowledge],
       topic_context
     );
-    const topSimilarity = protocolResults.length > 0
-      ? 0.95
-      : (filteredKnowledge[0]?.similarity || knowledgeTopSimilarity);
+    const topSimilarity = allResults.length > 0
+      ? Math.max(...allResults.map((r: { similarity: number }) => r.similarity), 0)
+      : knowledgeTopSimilarity;
 
     const hasResults = allResults.length > 0;
 
@@ -1944,6 +1968,28 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 19. VÍDEOS SEM PÁGINA (VIDEO_SEM_PAGINA): NUNCA descreva, resuma ou infira o conteúdo técnico de um vídeo marcado como VIDEO_SEM_PAGINA. Se o vídeo não tem página interna, você pode mencionar APENAS o título. PROIBIDO dizer "este vídeo ensina X", "este tutorial mostra Y", "o vídeo explica como Z" — você NÃO tem acesso ao conteúdo real do vídeo, apenas ao título. Se o usuário quiser saber o que o vídeo ensina, redirecione para o WhatsApp.
 20. LINKS NUNCA EM NEGRITO: PROIBIDO gerar **[texto](url)** ou [**texto**](url). Links de produto e WhatsApp devem ser SEMPRE no formato simples [texto](url), sem asteriscos. O negrito em volta de links quebra a renderização do chat e o torna não-clicável.
 
+### ⛔ REGRAS ANTI-ALUCINAÇÃO AVANÇADAS (21-23)
+21. CONTEXTO FRACO = FRASE DE SEGURANÇA OBRIGATÓRIA:
+    Se o topSimilarity < 0.50 OU nenhum resultado RAG corresponde ao tema da pergunta,
+    use OBRIGATORIAMENTE uma destas frases:
+    - "Não tenho essa informação específica cadastrada no momento."
+    - "Vou confirmar com o time técnico e te trago a resposta exata."
+    Seguida do link WhatsApp: [Falar com especialista](https://wa.me/5516993831794)
+    NUNCA improvise uma resposta com dados genéricos.
+
+22. PROIBIDO INVENTAR DADOS COMERCIAIS:
+    Preços, prazos de entrega, condições de pagamento, disponibilidade de estoque
+    e garantia só podem ser citados se aparecerem EXPLICITAMENTE nos DADOS DAS FONTES.
+    Para qualquer dado comercial ausente: "Para informações comerciais atualizadas,
+    posso te conectar com nosso time: [Falar com especialista](https://wa.me/5516993831794)"
+
+23. PROIBIDO INVENTAR DADOS TÉCNICOS:
+    Temperaturas, tempos de cura, layer heights, velocidades e protocolos
+    só podem ser citados se aparecerem EXPLICITAMENTE nos DADOS DAS FONTES
+    (campos PROCESSING_PROTOCOL ou PARAMETER_SET).
+    Se ausentes: "Não tenho os parâmetros exatos para essa configuração.
+    Recomendo verificar com nosso suporte técnico: [Falar com suporte](https://wa.me/551634194735)"
+
 --- DADOS DAS FONTES ---
 ${context}
 --- FIM DOS DADOS ---
@@ -1985,7 +2031,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           model,
           messages: msgs,
           stream: true,
-          max_tokens: isCommercial ? 512 : 1024,
+          max_tokens: isCommercial ? 768 : 1024,
         }),
       });
       return resp;
