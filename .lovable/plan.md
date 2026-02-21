@@ -1,47 +1,53 @@
 
 
-# Fix: Dra. LIA deve pedir nome e email em TODAS as rotas
+# Fix: Name detection regex fails due to markdown bold formatting
 
-## Problema
+## Root Cause
 
-A linha 1467 do `dra-lia/index.ts` exige que a mensagem seja uma saudacao simples ("ola", "oi") para acionar a coleta de nome:
+When the user sends their name after clicking a button, the system checks if the previous assistant message asked for the name using this regex:
 
 ```text
-if (isGreeting(message) && leadState.state === "needs_name")
+/qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i
 ```
 
-Quando o usuario clica num botao como "Quero transformar minha vida profissional!" ou "Tenho duvidas tecnicas", a funcao `isGreeting()` retorna `false` e a ETAPA 0 e pulada completamente.
+But the contextAck response (added in the last fix) wraps the text in markdown bold:
 
-## Mudanca
-
-### Arquivo: `supabase/functions/dra-lia/index.ts`
-
-**1. Remover `isGreeting(message)` da condicao (linha 1467)**
-
-Antes:
 ```text
-if (isGreeting(message) && leadState.state === "needs_name")
+"Antes de começarmos, **qual o seu nome?**"
 ```
 
-Depois:
+The `**` before "qual" breaks the regex match, so the system thinks it never asked for the name and asks again.
+
+## Fix
+
+### File: `supabase/functions/dra-lia/index.ts`
+
+**Option A (simpler, recommended): Remove markdown from contextAck responses**
+
+Change lines ~1475-1479 from:
 ```text
-if (leadState.state === "needs_name")
+"pt-BR": `Que ótimo que você entrou em contato! ... **qual o seu nome?**`
+```
+to:
+```text
+"pt-BR": `Que ótimo que você entrou em contato! ... qual o seu nome?`
 ```
 
-Isso garante que, independente do que o usuario digitou ou clicou, se o nome ainda nao foi coletado, a LIA pede o nome primeiro.
+Same for "en" and "es" variants. This keeps consistency with the GREETING_RESPONSES which also don't use markdown bold.
 
-**2. Adaptar a resposta para reconhecer o contexto do usuario**
+**Option B (alternative): Make regex tolerate markdown**
 
-Em vez de usar apenas o `GREETING_RESPONSES` generico, adicionar uma logica que reconhece a mensagem original antes de pedir o nome:
+Update the regex to optionally match `**` around the text. This is more fragile long-term.
 
-- Se a mensagem e uma saudacao simples → resposta padrao ("Ola! Sou a Dra. LIA... qual o seu nome?")
-- Se a mensagem e um pedido comercial/tecnico → reconhecer o interesse e pedir o nome ("Que otimo! Vou te ajudar com isso. Antes de comecarmos, qual o seu nome?")
+## Changes
 
-**3. Deploy da edge function `dra-lia`**
+1. Remove `**` from all three contextAck strings (pt-BR, en, es) in the needs_name response block (~lines 1473-1479)
+2. Deploy edge function `dra-lia`
 
-## Resultado esperado
+## Expected Result
 
-- Qualquer primeira mensagem (botao comercial, botao tecnico, saudacao, pergunta direta) → LIA pede nome primeiro
-- Apos nome → LIA pede email
-- Apos email → fluxo normal (SPIN comercial ou resposta tecnica)
-- Nenhuma informacao de produto ou tecnica e fornecida sem identificacao do lead
+- User clicks button -> LIA asks name (without bold)
+- User sends name -> `detectLeadCollectionState` correctly matches the "qual o seu nome" text in history
+- State returns `needs_email` -> LIA asks for email
+- No more duplicate name requests
+
