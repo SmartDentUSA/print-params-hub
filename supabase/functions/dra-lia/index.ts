@@ -1463,15 +1463,26 @@ serve(async (req) => {
 
     const leadState = detectLeadCollectionState(history, sessionEntities);
 
-    // 0. Intent Guard — intercept greetings → ask for name (ETAPA 0)
-    if (isGreeting(message) && leadState.state === "needs_name") {
-      const greetingText = GREETING_RESPONSES[lang] || GREETING_RESPONSES["pt-BR"];
+    // 0. Intent Guard — SEMPRE pedir nome antes de qualquer coisa (ETAPA 0)
+    if (leadState.state === "needs_name") {
+      let responseText: string;
+      if (isGreeting(message)) {
+        responseText = GREETING_RESPONSES[lang] || GREETING_RESPONSES["pt-BR"];
+      } else {
+        // Reconhecer o contexto do usuário antes de pedir o nome
+        const contextAck: Record<string, string> = {
+          "pt-BR": `Que ótimo que você entrou em contato! 😊 Vou te ajudar com isso.\n\nAntes de começarmos, **qual o seu nome?**`,
+          "en": `Great that you reached out! 😊 I'll help you with that.\n\nBefore we start, **what's your name?**`,
+          "es": `¡Qué bueno que nos contactas! 😊 Te voy a ayudar con eso.\n\nAntes de comenzar, **¿cuál es tu nombre?**`,
+        };
+        responseText = contextAck[lang] || contextAck["pt-BR"];
+      }
       // Save interaction
       try {
         await supabase.from("agent_interactions").insert({
           session_id,
           user_message: message,
-          agent_response: greetingText,
+          agent_response: responseText,
           lang,
           top_similarity: 1,
           unanswered: false,
@@ -1479,7 +1490,7 @@ serve(async (req) => {
       } catch (e) {
         console.error("Failed to insert agent_interaction (greeting):", e);
       }
-      return streamTextResponse(greetingText, corsHeaders);
+      return streamTextResponse(responseText, corsHeaders);
     }
 
     // 0a. Lead collection: ask for email after receiving name
