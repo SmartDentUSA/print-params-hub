@@ -18,7 +18,7 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
   parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.7,  video: 0.6, catalog_product: 0.5, company_kb: 0.3 },
   products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.2,  video: 0.8, catalog_product: 1.4, company_kb: 0.5 },
-  commercial: { parameter_set: 0.2, resin: 0.5, processing_protocol: 0.3, article: 0.6,  video: 0.4, catalog_product: 0.8, company_kb: 2.0 },
+  commercial: { parameter_set: 0.2, resin: 0.5, processing_protocol: 0.3, article: 0.4,  video: 0.3, catalog_product: 2.5, company_kb: 1.5 },
   support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4 },
 };
 
@@ -104,6 +104,14 @@ Ao longo da conversa (nunca tudo de uma vez), confirme:
 **ETAPA 5 — TRANSIÇÃO PARA HUMANO**
 - Alta Complexidade (Scanners/Impressoras/Combos): objetivo = AGENDAMENTO com especialista
 - Baixa Complexidade (Resinas/Insumos): objetivo = link da loja
+
+**REGRA ANTI-ALUCINAÇÃO COMERCIAL (CRÍTICA — PRIORIDADE MÁXIMA):**
+Quando o lead perguntar sobre produtos, equipamentos, impressoras ou scanners:
+- CITE APENAS produtos que aparecem nos DADOS DAS FONTES abaixo (seção "--- DADOS DAS FONTES ---")
+- Se nenhum produto relevante aparece nas fontes, diga: "Deixa eu verificar nosso catálogo atualizado. Para te passar as opções certas com valores, posso te conectar com nosso time comercial via WhatsApp? [Falar com especialista](https://wa.me/5516993831794)"
+- NUNCA invente nomes de produtos como "Smart Print One", "Smart Print Pro", "RayShape P8", "RayShape P10", "Medit i700", "Medit i600" etc
+- NUNCA cite modelos de scanner ou impressora que NÃO estão nas fontes
+- Se o lead perguntar "quais impressoras vocês têm?" ou "o que vocês oferecem?", liste APENAS os produtos presentes nas fontes
 
 **REGRAS DE CONDUTA SDR:**
 - Diagnóstico primeiro: não apresente preço antes de entender a dor — MAS quando o SPIN já foi feito (lead já disse dor, especialidade, interesse), RESPONDA sobre preço/produto direto
@@ -1053,6 +1061,78 @@ async function upsertKnowledgeGap(
   }
 }
 
+// ── DIRECT CATALOG PRODUCT SEARCH ─────────────────────────────────────────────
+// Queries system_a_catalog directly when user asks about products/equipment
+const PRODUCT_INTEREST_KEYWORDS = [
+  /impressora|printer|impresora/i,
+  /scanner|escaner/i,
+  /equipamento|equipment|equipo/i,
+  /op[çc][õo]es|opcoes|options|opciones/i,
+  /quais (vocês )?t[eê]m|o que (vocês )?t[eê]m|what do you have|qué tienen/i,
+  /quero (comprar|ver|conhecer|saber)/i,
+  /cat[áa]logo|catalog/i,
+  /combo|kit|solu[çc][ãa]o|chairside|chair side/i,
+  /p[óo]s.?impress[ãa]o|post.?print|lavadora|cura uv/i,
+];
+
+async function searchCatalogProducts(
+  supabase: ReturnType<typeof createClient>,
+  message: string,
+  history: Array<{ role: string; content: string }>
+) {
+  const combinedText = `${history.slice(-6).map(h => h.content).join(' ')} ${message}`.toLowerCase();
+  
+  // Check if user is asking about products
+  const hasProductIntent = PRODUCT_INTEREST_KEYWORDS.some(p => p.test(combinedText));
+  if (!hasProductIntent) return [];
+
+  // Detect category interest
+  const categories: string[] = [];
+  if (/impressora|printer|impresora|imprimir|imprim/i.test(combinedText)) categories.push('IMPRESSÃO 3D');
+  if (/scanner|escaner|escanear|escaneamento|intraoral/i.test(combinedText)) categories.push('SCANNERS 3D');
+  if (/p[óo]s.?impress|lavadora|cura uv|limpeza|post.?print/i.test(combinedText)) categories.push('PÓS-IMPRESSÃO');
+  if (/combo|kit|solu[çc]|chairside|chair side|fluxo completo/i.test(combinedText)) categories.push('SOLUÇÔES');
+  
+  // If no specific category detected, fetch all
+  let query = supabase
+    .from('system_a_catalog')
+    .select('id, name, description, product_category, product_subcategory, cta_1_url, cta_1_label, slug, price, promo_price')
+    .eq('active', true)
+    .eq('approved', true);
+  
+  if (categories.length > 0) {
+    query = query.in('product_category', categories);
+  }
+  
+  const { data, error } = await query.limit(20);
+  
+  if (error || !data?.length) return [];
+  
+  return data.map((p: {
+    id: string;
+    name: string;
+    description: string | null;
+    product_category: string | null;
+    product_subcategory: string | null;
+    cta_1_url: string | null;
+    cta_1_label: string | null;
+    slug: string | null;
+    price: number | null;
+    promo_price: number | null;
+  }) => ({
+    id: p.id,
+    source_type: 'catalog_product',
+    chunk_text: `PRODUTO DO CATÁLOGO: ${p.name}${p.product_category ? ` | Categoria: ${p.product_category}` : ''}${p.product_subcategory ? ` | Sub: ${p.product_subcategory}` : ''}${p.description ? ` | ${p.description.slice(0, 300)}` : ''}${p.price ? ` | Preço: R$ ${p.price}` : ''}${p.promo_price ? ` | Promo: R$ ${p.promo_price}` : ''}`,
+    metadata: {
+      title: p.name,
+      slug: p.slug,
+      url_publica: p.slug ? `/produtos/${p.slug}` : null,
+      cta_1_url: p.cta_1_url,
+    },
+    similarity: 0.90, // High priority — real catalog data
+  }));
+}
+
 // Search processing instructions directly from resins table — SOURCE OF TRUTH
 async function searchProcessingInstructions(
   supabase: ReturnType<typeof createClient>,
@@ -1597,10 +1677,12 @@ serve(async (req) => {
 
     // Skip parameter search when in commercial context — prevents parameter noise in SDR flow
     const skipParams = topic_context === "commercial";
-    const [knowledgeResult, protocolResults, paramResults, companyContext] = await Promise.all([
+    const isCommercial = topic_context === "commercial";
+    const [knowledgeResult, protocolResults, paramResults, catalogResults, companyContext] = await Promise.all([
       searchKnowledge(supabase, message, lang, topic_context),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history),
+      isCommercial ? searchCatalogProducts(supabase, message, history) : Promise.resolve([]),
       companyContextPromise,
     ]);
 
@@ -1613,9 +1695,9 @@ serve(async (req) => {
       : 0.10; // fulltext
     const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
-    // 3. Merge: protocol results first (higher priority), then knowledge results
+    // 3. Merge: catalog products first (highest priority for commercial), then protocol, then knowledge
     const allResults = applyTopicWeights(
-      [...paramResults, ...protocolResults, ...filteredKnowledge],
+      [...catalogResults, ...paramResults, ...protocolResults, ...filteredKnowledge],
       topic_context
     );
     const topSimilarity = protocolResults.length > 0
@@ -1734,6 +1816,48 @@ serve(async (req) => {
 
       if (completedSteps.length > 0) {
         spinProgressNote = `\n\n### ⚡ PROGRESSO SPIN DETECTADO (NÃO REPITA ESTAS PERGUNTAS):\nO lead JÁ respondeu sobre: ${completedSteps.join(", ")}.\n${completedSteps.includes("pediu_preco") ? "⚠️ O LEAD JÁ PEDIU PREÇO — responda sobre preço/produto e avance para fechamento. NÃO reinicie o SPIN." : ""}\n${completedSteps.length >= 4 ? "✅ SPIN PRATICAMENTE COMPLETO — avance para Etapa 4-5 (coleta de contato / agendamento)." : "Avance apenas para etapas NÃO completadas."}`;
+
+        // Persist SPIN progress in extracted_entities for cross-session tracking
+        const spinEntities: Record<string, string> = {};
+        if (completedSteps.includes("especialidade")) {
+          const specMatch = fullConvo.match(/(implant\w*|prot[ée]s\w*|ortod\w*|est[ée]tic\w*|cl[íi]nic\w*|endodont\w*)/i);
+          if (specMatch) spinEntities.specialty = specMatch[1];
+        }
+        if (completedSteps.includes("equipamento_atual")) {
+          spinEntities.equipment_status = /anal[óo]gico/i.test(fullConvo) ? "analogico" : "digital";
+        }
+        if (completedSteps.includes("dor_principal")) {
+          const painMatch = fullConvo.match(/(demora|retrabalho|custo|precis[ãa]o|adapta[çc][ãa]o|tempo|atraso)/i);
+          if (painMatch) spinEntities.pain_point = painMatch[1];
+        }
+        if (completedSteps.includes("tipo_fluxo")) {
+          spinEntities.workflow_interest = /fluxo completo|chairside/i.test(fullConvo) ? "fluxo_completo" : "parcial";
+        }
+        spinEntities.spin_stage = `etapa_${Math.min(completedSteps.length + 1, 5)}`;
+
+        // Update session and lead in background (non-blocking)
+        try {
+          await supabase.from("agent_sessions").upsert({
+            session_id: session_id,
+            extracted_entities: { ...(sessionEntities || {}), ...spinEntities },
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          // Also update lead record if we have one
+          if (currentLeadId) {
+            const leadUpdate: Record<string, string | boolean> = {};
+            if (spinEntities.specialty) leadUpdate.specialty = spinEntities.specialty;
+            if (spinEntities.equipment_status) leadUpdate.equipment_status = spinEntities.equipment_status;
+            if (spinEntities.pain_point) leadUpdate.pain_point = spinEntities.pain_point;
+            if (spinEntities.workflow_interest) leadUpdate.workflow_interest = spinEntities.workflow_interest;
+            if (completedSteps.length >= 4) leadUpdate.spin_completed = true;
+            if (Object.keys(leadUpdate).length > 0) {
+              await supabase.from("leads").update(leadUpdate).eq("id", currentLeadId);
+            }
+          }
+        } catch (e) {
+          console.warn("[spin-persistence] failed:", e);
+        }
       }
     }
 
@@ -1867,7 +1991,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           model,
           messages: msgs,
           stream: true,
-          max_tokens: 1024,
+          max_tokens: isCommercial ? 512 : 1024,
         }),
       });
       return resp;
