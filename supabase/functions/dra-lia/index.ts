@@ -1468,7 +1468,9 @@ serve(async (req) => {
       console.warn("[lead-collection] session lookup failed:", e);
     }
 
-    const leadState = detectLeadCollectionState(history, sessionEntities);
+    // Include current message in history for lead detection
+    const historyWithCurrent = [...history, { role: "user", content: message }];
+    const leadState = detectLeadCollectionState(historyWithCurrent, sessionEntities);
 
     // 0. Intent Guard — SEMPRE pedir nome antes de qualquer coisa (ETAPA 0)
     if (leadState.state === "needs_name") {
