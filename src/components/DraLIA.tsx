@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import PrinterParamsFlow from './PrinterParamsFlow';
 import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -255,6 +256,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     return sessionStorage.getItem('dra_lia_topic_context') || '';
   });
 
+  // Printer guided flow state
+  const [printerFlowStep, setPrinterFlowStep] = useState<'brand' | 'model' | 'resin' | null>(null);
+
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
     if (embedded) return;
@@ -441,11 +445,18 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   );
 
   const handleTopicSelect = useCallback((opt: TopicOption) => {
+    // Intercept parameters topic — use guided flow instead of AI
+    if (opt.id === 'parameters') {
+      setTopicSelected(true);
+      setTopicContext(opt.id);
+      sessionStorage.setItem('dra_lia_topic_context', opt.id);
+      setPrinterFlowStep('brand');
+      return;
+    }
+
     setTopicSelected(true);
     setTopicContext(opt.id);
     sessionStorage.setItem('dra_lia_topic_context', opt.id);
-    // Trigger the auto-message as user
-    setInput(opt.userMessage);
     // We need to send after input is set — use a tiny timeout so state flushes
     setTimeout(() => {
       setInput('');
@@ -532,6 +543,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setTopicSelected(false);
     setTopicContext('');
     setLeadCollected(false);
+    setPrinterFlowStep(null);
     sessionStorage.removeItem('dra_lia_topic_context');
     sessionStorage.removeItem('dra_lia_lead_collected');
     // Reset the welcome message to show name prompt again
@@ -708,6 +720,27 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
             </div>
           </div>
         ))}
+
+        {/* Printer guided flow */}
+        {printerFlowStep && (
+          <div className="flex justify-start">
+            <div className="max-w-[95%] w-full">
+              <PrinterParamsFlow
+                step={printerFlowStep}
+                onStepChange={(newStep) => {
+                  if (newStep === null) {
+                    setPrinterFlowStep(null);
+                    setTopicSelected(false);
+                    setTopicContext('');
+                    sessionStorage.removeItem('dra_lia_topic_context');
+                  } else {
+                    setPrinterFlowStep(newStep);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Typing indicator */}
         {isLoading && (
