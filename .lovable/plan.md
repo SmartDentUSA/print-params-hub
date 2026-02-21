@@ -1,133 +1,61 @@
 
+# Fluxo Guiado de Parametros na Dra. L.I.A.
 
-# Blindagem Completa da Dra. L.I.A. — 6 Frentes de Correção
+## Objetivo
 
-## Resumo das Mudancas
+Quando o usuario clicar em "Quero acertar na Impressao!", ao inves de enviar a mensagem para a IA, o chat exibe um fluxo interativo 100% frontend com botoes e cards, buscando dados diretamente do Supabase:
 
-Arquivo unico: `supabase/functions/dra-lia/index.ts` (2.209 linhas)
+**Marca** (botoes) -> **Modelo** (cards com imagem) -> **Resinas + Variacoes de layer height** (cards expansiveis com parametros inline)
 
----
+## Fluxo Visual (conforme mockups)
 
-## 1. Blindagem do System Prompt (Regras 21, 22, 23)
+1. **Selecione a Marca**: Header azul "Claro! Para te ajudar com os parametros, qual e a marca da sua impressora?" + grid de botoes com nomes das marcas (Anycubic, Creality, Elegoo, etc.)
+2. **Selecione o Modelo**: Header azul "Selecione o modelo da sua impressora" + label "{Brand} Models" + grid 2 colunas de cards com thumbnail da impressora + nome
+3. **Selecione a Resina e Espessura**: Header azul "Selecione a resina e a espessura das camadas" + imagem do modelo selecionado + lista de resinas, cada uma com botoes de layer height (0.05mm, 0.1mm). Ao clicar numa variacao, expande mostrando os parametros (Camadas Normais e Camadas Inferiores) inline. Clicar em outra resina colapsa a anterior.
 
-Adicionar 3 novas regras ao bloco "REGRAS ANTI-ALUCINACAO" (apos linha 1944):
+## Detalhes Tecnicos
 
-```
-21. CONTEXTO FRACO = FRASE DE SEGURANCA OBRIGATORIA:
-    Se o topSimilarity < 0.50 OU nenhum resultado RAG corresponde ao tema da pergunta,
-    use OBRIGATORIAMENTE uma destas frases:
-    - "Nao tenho essa informacao especifica cadastrada no momento."
-    - "Vou confirmar com o time tecnico e te trago a resposta exata."
-    Seguida do link WhatsApp. NUNCA improvise uma resposta com dados genericos.
+### Arquivo: `src/components/DraLIA.tsx`
 
-22. PROIBIDO INVENTAR DADOS COMERCIAIS:
-    Precos, prazos de entrega, condicoes de pagamento, disponibilidade de estoque
-    e garantia so podem ser citados se aparecerem EXPLICITAMENTE nos DADOS DAS FONTES.
-    Para qualquer dado comercial ausente: "Para informacoes comerciais atualizadas,
-    posso te conectar com nosso time: [Falar com especialista](https://wa.me/5516993831794)"
+**Novos estados**:
+- `printerFlowStep`: `null | 'brand' | 'model' | 'resin'` — controla qual etapa esta ativa
+- `printerFlowData`: objeto com `{ brands, models, resins, params, selectedBrand, selectedModel }` — dados carregados do Supabase
+- `expandedResin`: `string | null` — qual resina esta com parametros expandidos
+- `selectedLayerHeight`: `Record<string, number>` — layer height selecionado por resina
 
-23. PROIBIDO INVENTAR DADOS TECNICOS:
-    Temperaturas, tempos de cura, layer heights, velocidades e protocolos
-    so podem ser citados se aparecerem EXPLICITAMENTE nos DADOS DAS FONTES
-    (campos PROCESSING_PROTOCOL ou PARAMETER_SET).
-    Se ausentes: "Nao tenho os parametros exatos para essa configuracao.
-    Recomendo verificar com nosso suporte tecnico."
-```
+**Mudanca no `handleTopicSelect`**:
+- Quando `opt.id === 'parameters'`, NAO envia mensagem para a IA
+- Em vez disso, seta `printerFlowStep = 'brand'` e faz fetch das marcas via Supabase (query direta no `brands` table filtrado por marcas que existem em `parameter_sets`)
+- Adiciona uma mensagem assistant com texto fixo "Claro! Para te ajudar com os parametros, qual e a marca da sua impressora?"
 
----
+**Queries Supabase por etapa**:
+- Marcas: `SELECT DISTINCT b.name, b.slug FROM brands b INNER JOIN parameter_sets ps ON ps.brand_slug = b.slug WHERE b.active = true AND ps.active = true ORDER BY b.name`
+- Modelos (apos selecionar marca): `SELECT DISTINCT m.name, m.slug, m.image_url FROM models m INNER JOIN parameter_sets ps ON ps.model_slug = m.slug WHERE ps.brand_slug = '{brand}' AND m.active = true AND ps.active = true ORDER BY m.name`
+- Resinas + Params (apos selecionar modelo): `SELECT ps.*, r.image_url as resin_image FROM parameter_sets ps LEFT JOIN resins r ON r.name = ps.resin_name WHERE ps.brand_slug = '{brand}' AND ps.model_slug = '{model}' AND ps.active = true ORDER BY ps.resin_name, ps.layer_height`
 
-## 2. Eliminacao de Scores Magicos
+**Renderizacao condicional no chat**:
+- O fluxo guiado e renderizado como um componente inline dentro do chat (apos a ultima mensagem assistant)
+- Cada etapa e um bloco visual com header azul (#1e3a5f) e conteudo abaixo
+- Botao "Voltar" em cada etapa para retroceder
 
-Substituir todos os similarity fixos por valores calculados reais:
+**Componentes visuais** (inline no DraLIA.tsx, sem criar arquivos separados):
 
-| Local | Antes | Depois |
-|-------|-------|--------|
-| `searchCatalogProducts` (linha 1115) | `similarity: 0.90` | `similarity: matchedWords / totalWords * 0.6 + 0.3` (proporcional a palavras matched no nome/descricao) |
-| `searchProcessingInstructions` (linha 1176) | `similarity: 0.95` | `similarity: score > 0 ? Math.min(score / maxPossible * 0.5 + 0.5, 0.95) : 0.40` (proporcional a palavras da resina na query) |
-| `searchParameterSets` (linha 1242) | `similarity: resinMatched ? 0.93 : 0.78` | `similarity: resinMatched ? 0.85 : 0.60` (reduzidos, sem inflacao) |
-| Video keyword search (linha 1382) | `similarity: 0.50` | Manter 0.50 (ja e baixo, aceitavel) |
-| `topSimilarity` override (linhas 1697-1699) | `protocolResults.length > 0 ? 0.95 : ...` | `Math.max(...allResults.map(r => r.similarity), 0)` (usar o MAX real de todos os resultados) |
+1. **BrandButtons**: grid de botoes outline com nome da marca, hover com borda azul
+2. **ModelCards**: grid 2 colunas, cada card com thumbnail (48x48), nome do modelo, descricao curta
+3. **ResinAccordion**: lista vertical, cada item com:
+   - Thumbnail da resina (32x32)
+   - Nome + fabricante
+   - Botoes de layer height (pills: "0.05mm", "0.1mm")
+   - Ao clicar na pill: expande abaixo mostrando parametros em 2 colunas (Camadas Normais | Camadas Inferiores)
+   - Clicar em outra resina colapsa a anterior automaticamente
 
----
+**Parametros exibidos** (conforme mockup):
+- Camadas Normais: Altura da Camada, Tempo de Cura, Espera antes/apos cura, Intensidade da Luz, Ajuste X/Y
+- Camadas Inferiores: Tempo de Adesao, Camadas base, Espera antes/apos cura base, Espera apos elevacao
 
-## 3. Saneamento de Knowledge Gaps
+### Preservacao do fluxo existente
 
-Adicionar filtro no inicio de `upsertKnowledgeGap` (linha 1020):
-
-```typescript
-// Filtro anti-lixo: ignorar mensagens curtas e ruido
-const NOISE_PATTERNS = /^(oi|ola|olá|hey|hi|hola|obrigad|valeu|ok|sim|não|nao|lia|ooe|tchau|bye|gracias|thanks|tudo bem|beleza|show|legal|massa|top)\b/i;
-if (question.trim().length < 10 || NOISE_PATTERNS.test(question.trim())) {
-  return; // silently skip noise
-}
-```
-
----
-
-## 4. Resiliencia no External KB
-
-Atualizar `fetchCompanyContext` (linhas 119-185):
-
-- Adicionar retry (1x) com delay de 1s antes de usar fallback
-- Adicionar `console.warn` com timestamp quando fallback for ativado
-- Manter timeout de 3s por tentativa (total maximo: 7s)
-
-```typescript
-async function fetchCompanyContext(): Promise<string> {
-  const FALLBACK = `...`; // manter igual
-
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
-      if (response.ok) {
-        // ... parse e retorna
-      }
-      console.warn(`[fetchCompanyContext] HTTP ${response.status} (attempt ${attempt + 1})`);
-    } catch (err) {
-      console.warn(`[fetchCompanyContext] Failed attempt ${attempt + 1}: ${err}`);
-    }
-    if (attempt === 0) await new Promise(r => setTimeout(r, 1000)); // wait 1s before retry
-  }
-  console.warn(`[fetchCompanyContext] ALL ATTEMPTS FAILED — using hardcoded fallback`);
-  return FALLBACK;
-}
-```
-
----
-
-## 5. Refino de Leads e Performance
-
-### 5a. Email Regex RFC-compliant (linha 795)
-
-```
-Antes:  /[\w.+-]+@[\w-]+\.[\w.-]+/
-Depois: /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*/
-```
-
-Suporta dominios `.com.br`, emails com `+`, e caracteres especiais permitidos pelo RFC 5322.
-
-### 5b. max_tokens comercial: 512 -> 768 (linha 1988)
-
-```
-Antes:  max_tokens: isCommercial ? 512 : 1024
-Depois: max_tokens: isCommercial ? 768 : 1024
-```
-
-Garante apresentacoes de ROI e precos completas sem truncamento.
-
----
-
-## 6. Preservacao da Etapa 0 (Lead Collection)
-
-Nenhuma alteracao na logica de coleta de leads. O fluxo Nome -> Email -> Persistencia permanece intacto:
-- `detectLeadCollectionState` (linhas 777-868): mantido
-- `upsertLead` (linhas 884-926): mantido
-- Interceptadores pre-RAG (linhas 1429-1516): mantidos
-- A normalizacao de espacos no email (`.replace(/\s*@\s*/g, '@')`) ja aplicada anteriormente: mantida
-
----
-
-## Deploy
-
-Redeploy da edge function `dra-lia` apos todas as alteracoes.
-
+- Os outros 3 topicos (commercial, products, support) continuam enviando mensagem para a IA normalmente
+- O fluxo de lead collection (nome/email) permanece obrigatorio ANTES de mostrar os topicos
+- O botao "Novo assunto" reseta o fluxo guiado tambem
+- Se o usuario digitar algo no input durante o fluxo guiado, a mensagem vai para a IA normalmente (o fluxo guiado nao bloqueia o input)
