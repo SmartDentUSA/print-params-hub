@@ -17,16 +17,18 @@ serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
     const today = new Date();
-    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const body = await req.json().catch(() => ({}));
+    const daysBack = Math.min(Math.max(body.days_back || 1, 1), 30);
+    const since = new Date(today.getTime() - daysBack * 24 * 60 * 60 * 1000);
     const dateStr = today.toISOString().split("T")[0];
 
-    console.log(`🚀 archive-daily-chats iniciado → ${yesterday.toISOString()} até ${today.toISOString()}`);
+    console.log(`🚀 archive-daily-chats iniciado → ${since.toISOString()} até ${today.toISOString()} (${daysBack} dias)`);
 
     // Fetch valid conversations from last 24h
     const { data: conversations, error } = await supabase
       .from("agent_interactions")
       .select("user_message, agent_response, context_sources, created_at, judge_score")
-      .gte("created_at", yesterday.toISOString())
+      .gte("created_at", since.toISOString())
       .not("agent_response", "is", null)
       .order("created_at", { ascending: true });
 
@@ -39,8 +41,8 @@ serve(async (req) => {
     }
 
     if (!conversations || conversations.length === 0) {
-      console.log("ℹ️ Nenhuma conversa nas últimas 24h");
-      return new Response(JSON.stringify({ message: "Nenhuma conversa nas últimas 24h", total: 0 }), {
+      console.log(`ℹ️ Nenhuma conversa nos últimos ${daysBack} dia(s)`);
+      return new Response(JSON.stringify({ message: `Nenhuma conversa nos últimos ${daysBack} dia(s)`, total: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -93,7 +95,7 @@ serve(async (req) => {
 
     if (archivedCount === 0) {
       return new Response(
-        JSON.stringify({ message: "Nenhuma conversa com score >= 4 nas últimas 24h", total: 0 }),
+        JSON.stringify({ message: `Nenhuma conversa com score >= 4 nos últimos ${daysBack} dia(s)`, total: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -153,6 +155,7 @@ serve(async (req) => {
     const summary = {
       success: true,
       date: dateStr,
+      days_back: daysBack,
       total_conversations_found: conversations.length,
       archived: archivedCount,
       gold_nuggets: goldCount,
