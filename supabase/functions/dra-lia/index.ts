@@ -18,7 +18,7 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
   parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.7,  video: 0.6, catalog_product: 0.5, company_kb: 0.3 },
   products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.2,  video: 0.8, catalog_product: 1.4, company_kb: 0.5 },
-  commercial: { parameter_set: 0.2, resin: 0.5, processing_protocol: 0.3, article: 0.4,  video: 0.3, catalog_product: 2.5, company_kb: 1.5 },
+  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 0.6,  video: 0.5, catalog_product: 2.0, company_kb: 2.0 },
   support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4 },
 };
 
@@ -33,82 +33,67 @@ function applyTopicWeights<T extends { source_type: string; similarity: number }
     .sort((a, b) => b.similarity - a.similarity);
 }
 
-// ── SDR Consultivo — injetado quando topic_context === "commercial" ─────────
-const SDR_COMMERCIAL_INSTRUCTION = `
+// ── SDR Consultivo — prompt modular dinâmico para rota comercial ─────────
+function buildCommercialInstruction(
+  sessionEntities: Record<string, unknown> | null,
+  spinProgressNote: string
+): string {
+  // Módulo 1: PERSONA CONSULTORA (fixo, ~200 tokens)
+  const persona = `
+### 🧑‍💼 MODO CONSULTORA ESPECIALISTA — ROTA COMERCIAL
 
-### 🧑‍💼 MODO SDR CONSULTIVO ATIVO — ROTA COMERCIAL
+Você é uma consultora estratégica de soluções em odontologia digital.
+Conversa natural, como colega que entende profundamente o mercado.
+2-3 frases por mensagem. 1 pergunta por vez. Tom consultivo, nunca interrogatório.`;
 
-**MISSÃO:** Consultora Estratégica. Qualifique o lead com conversa natural — NUNCA como interrogatório.
+  // Módulo 2: ESTADO DO LEAD (dinâmico)
+  const entities = (sessionEntities || {}) as Record<string, string>;
+  const leadName = entities.lead_name || "";
+  const spinStage = entities.spin_stage || "etapa_1";
+  const specialty = entities.specialty || "";
+  const equipmentStatus = entities.equipment_status || "";
+  const painPoint = entities.pain_point || "";
+  const workflowInterest = entities.workflow_interest || "";
 
-**REGRA #1 — MÁXIMO 1 PERGUNTA POR MENSAGEM.** Nunca combine duas perguntas.
+  const knownFacts: string[] = [];
+  if (leadName) knownFacts.push(`Nome: ${leadName}`);
+  if (specialty) knownFacts.push(`Especialidade: ${specialty}`);
+  if (equipmentStatus) knownFacts.push(`Equipamento: ${equipmentStatus}`);
+  if (painPoint) knownFacts.push(`Dor principal: ${painPoint}`);
+  if (workflowInterest) knownFacts.push(`Interesse de fluxo: ${workflowInterest}`);
 
-**REGRA #2 — DETECÇÃO DE INTENÇÃO DIRETA (PRIORIDADE MÁXIMA):**
-Se o lead em QUALQUER momento da conversa:
-- Pedir um produto ESPECÍFICO pelo nome ("quero o INO200", "quero a RayShape Edge Mini", "quais impressoras vocês têm?")
-- Pedir preço, condições comerciais ou demonstração
-- Disser que já sabe o que quer, já pesquisou, ou quer comprar
-→ PARE DE FAZER PERGUNTAS SPIN. Responda sobre o produto/preço IMEDIATAMENTE.
-→ Após responder, ofereça agendamento ou link — NÃO faça mais perguntas de qualificação.
-→ Se ele perguntar algo novo sobre outro produto, responda direto também.
+  const leadState = knownFacts.length > 0
+    ? `\n**ESTADO DO LEAD:** ${knownFacts.join(" | ")}\nEtapa atual: ${spinStage}`
+    : "";
 
-**REGRA #3 — LIMITE ABSOLUTO DE PERGUNTAS:**
-Conte quantas perguntas de qualificação você JÁ FEZ no histórico. Se já fez 3 ou mais perguntas de qualificação (sobre especialidade, equipamento, dor, fluxo, consultório), PARE de qualificar e passe a modo de RESPOSTA:
-- Apresente produtos relevantes baseados no que já sabe
-- Ofereça agendamento para alta complexidade
-- Envie link da loja para baixa complexidade
+  // Módulo 3: INSTRUÇÃO DE TURNO (dinâmico por etapa SPIN)
+  const turnInstructions: Record<string, string> = {
+    etapa_1: `**INSTRUÇÃO DE TURNO:** Saudação curta + pergunta direta: "Em qual produto você está interessado em conhecer ou aprender a usá-lo?" NÃO cite produtos. Se o lead nomear um produto → pule para apresentação.`,
+    etapa_2: `**INSTRUÇÃO DE TURNO:** Faça NO MÁXIMO 1 pergunta de contexto (dor/desafio). Se o lead já disse o que quer → apresente direto.`,
+    etapa_3: `**INSTRUÇÃO DE TURNO:** MODO APRESENTAÇÃO. Use os DADOS DAS FONTES para apresentar a solução. 2-3 frases. Ofereça demonstração ou agendamento.`,
+    etapa_4: `**INSTRUÇÃO DE TURNO:** FECHAMENTO. Alta complexidade (Scanners/Impressoras/Combos) → agendamento. Baixa complexidade (Resinas/Insumos) → link da loja.`,
+    etapa_5: `**INSTRUÇÃO DE TURNO:** Lead qualificado. Ofereça agendamento final ou conecte com especialista via WhatsApp.`,
+  };
+  const turnInstruction = turnInstructions[spinStage] || turnInstructions["etapa_1"];
 
-**REGRA #4 — ANTI-LOOP (releia ANTES de cada resposta):**
-Analise TODO o histórico e identifique o que JÁ FOI RESPONDIDO:
-- Especialidade → NÃO pergunte de novo
-- Equipamento digital / analógico → NÃO pergunte de novo
-- Estrutura do consultório → NÃO pergunte de novo
-- Dor principal → NÃO pergunte de novo
-- Tipo de fluxo → NÃO pergunte de novo
-Se o lead disser "já te respondi isso" ou similar → PEÇA DESCULPAS e responda com base no que já sabe, SEM fazer novas perguntas.
+  // Módulo 4: REGRAS ANTI-ALUCINAÇÃO COMERCIAL (condensado, ~200 tokens)
+  const antiHallucination = `
+**REGRAS COMERCIAIS CRÍTICAS:**
+1. CITE APENAS produtos dos DADOS DAS FONTES. NUNCA invente nomes ou preços.
+2. Se preço não estiver nos dados: "Para valores atualizados: [Falar com especialista](https://wa.me/5516993831794)"
+3. Se nenhum produto relevante nas fontes: "Posso te conectar com nosso time comercial: [Falar com especialista](https://wa.me/5516993831794)"
+4. Se o lead já respondeu uma pergunta (equipamento, especialidade, dor, fluxo) → NÃO repita.
+5. Se o lead pedir produto/preço diretamente → RESPONDA IMEDIATO, não faça mais perguntas SPIN.
+6. Máximo 3 perguntas de qualificação no total. Após 3 → modo resposta.
+7. Se o lead retornar e o histórico mostra conversa anterior → "Continuando nossa conversa..." e prossiga.
 
-**REGRA #5 — CONTINUIDADE DE SESSÃO:**
-Se o lead retornar ou clicar num botão novamente MAS o histórico mostra que vocês já conversaram → NÃO reinicie o fluxo. Diga algo como "Continuando nossa conversa, [nome]..." e prossiga de onde parou.
-
-**ETAPA 0 — IDENTIFICAÇÃO (JÁ FEITA)**
-Nome e email já coletados pelo sistema. USE o nome do lead. NUNCA peça nome ou email novamente.
-
-**ETAPA 1 — ABERTURA (1 única pergunta, SEM citar produtos)**
-- Responda APENAS com uma saudação curta + a pergunta: "Em qual produto você está interessado em conhecer ou aprender a usá-lo?"
-- NÃO cite nenhum produto nesta etapa. NÃO descreva nenhuma resina ou equipamento. Apenas PERGUNTE.
-- NÃO pergunte especialidade ou equipamento.
-- Se o lead nomear um produto específico → PULE para ETAPA 3 (apresentação).
-- Se o lead disser algo genérico ("resinas", "impressoras") → faça UMA pergunta de refinamento e vá para ETAPA 3.
-
-**ETAPA 2 — CONTEXTO RÁPIDO (SOMENTE se o lead não souber o que quer)**
-- Faça NO MÁXIMO 1 pergunta de contexto (dor/desafio atual) antes de apresentar produtos.
-- Se o lead JÁ disse o que quer (produto específico) → PULE esta etapa inteira.
-
-**ETAPA 3 — APRESENTAÇÃO (modo resposta, NÃO modo pergunta)**
-Apresente os produtos relevantes baseado no que já sabe. Máximo 2-3 frases.
-Ofereça demonstração ou agendamento.
-
-**ETAPA 4 — FECHAMENTO**
-- Alta Complexidade (Scanners/Impressoras/Combos): objetivo = AGENDAMENTO
-- Baixa Complexidade (Resinas/Insumos): objetivo = link da loja
-
-**REGRA ANTI-ALUCINAÇÃO COMERCIAL (CRÍTICA):**
-- CITE APENAS produtos que aparecem nos DADOS DAS FONTES abaixo
-- NUNCA invente nomes de produtos
-- NUNCA invente preços. Só cite um preço se ele aparecer EXPLICITAMENTE nos dados das fontes com campo "price" preenchido. Se o preço não estiver nos dados, diga: "Para valores atualizados, posso te conectar com nosso time comercial. [Falar com especialista](https://wa.me/5516993831794)"
-- Se nenhum produto relevante aparece nas fontes: "Deixa eu verificar nosso catálogo. Posso te conectar com nosso time comercial via WhatsApp? [Falar com especialista](https://wa.me/5516993831794)"
-
-**CONDUTA SDR:**
-- Após SPIN feito → RESPONDA sobre produto/preço direto, não faça mais perguntas
-- NUNCA repita perguntas já respondidas
-- Máximo 2-3 frases por mensagem. Seja CURTA.
-- Para Scanners/Impressoras: ofereça agendamento
-- Para Resinas/Insumos: envie link da loja
-
-**CATEGORIAS:**
+**CATEGORIAS DE SOLUÇÃO:**
 - Clínico autonomia total → Chair Side Print
 - Laboratório → Smart Lab
-- Materiais → Resinas Biocompatíveis vs Uso Geral
-`;
+- Materiais → Resinas Biocompatíveis vs Uso Geral`;
+
+  return `${persona}${leadState}\n${turnInstruction}${spinProgressNote}\n${antiHallucination}`;
+}
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
@@ -1841,26 +1826,74 @@ serve(async (req) => {
       await upsertKnowledgeGap(supabase, message, lang, "low_confidence");
     }
 
-    // 5. Build context from all results
-    const contextParts = allResults.map((m: {
-      source_type: string;
-      chunk_text: string;
-      metadata: Record<string, unknown>;
-    }) => {
-      const meta = m.metadata as Record<string, unknown>;
-      let part = `[${m.source_type.toUpperCase()}] ${m.chunk_text}`;
-      if (meta.url_publica) part += ` | URL: ${meta.url_publica}`;
-      if (meta.url_interna) {
-        part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
-      } else if (meta.embed_url) {
-        part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
-      }
-      if (meta.thumbnail_url) part += ` | THUMBNAIL: ${meta.thumbnail_url}`;
-      if (meta.cta_1_url) part += ` | COMPRA: ${meta.cta_1_url}`;
-      return part;
-    });
+    // 5. Build context from all results — structured by semantic sections for commercial route
+    function buildStructuredContext(
+      results: Array<{ source_type: string; chunk_text: string; metadata: Record<string, unknown> }>,
+      isCommercialRoute: boolean
+    ): string {
+      const formatItem = (m: { source_type: string; chunk_text: string; metadata: Record<string, unknown> }) => {
+        const meta = m.metadata as Record<string, unknown>;
+        let part = `[${m.source_type.toUpperCase()}] ${m.chunk_text}`;
+        if (meta.url_publica) part += ` | URL: ${meta.url_publica}`;
+        if (meta.url_interna) {
+          part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+        } else if (meta.embed_url) {
+          part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+        }
+        if (meta.thumbnail_url) part += ` | THUMBNAIL: ${meta.thumbnail_url}`;
+        if (meta.cta_1_url) part += ` | COMPRA: ${meta.cta_1_url}`;
+        return part;
+      };
 
-    const context = contextParts.join("\n\n---\n\n");
+      if (!isCommercialRoute) {
+        // Non-commercial: flat format (existing behavior)
+        return results.map(formatItem).join("\n\n---\n\n");
+      }
+
+      // Commercial route: group by semantic function
+      const products: string[] = [];
+      const expertise: string[] = [];
+      const articles: string[] = [];
+      const videos: string[] = [];
+      const params: string[] = [];
+
+      for (const m of results) {
+        const formatted = formatItem(m);
+        switch (m.source_type) {
+          case 'catalog_product':
+          case 'resin':
+            products.push(formatted);
+            break;
+          case 'company_kb':
+            expertise.push(formatted);
+            break;
+          case 'article':
+            articles.push(formatted);
+            break;
+          case 'video':
+            videos.push(formatted);
+            break;
+          case 'parameter_set':
+          case 'processing_protocol':
+            params.push(formatted);
+            break;
+          default:
+            articles.push(formatted);
+        }
+      }
+
+      const sections: string[] = [];
+      if (products.length > 0) sections.push(`## PRODUTOS RECOMENDADOS (use para sugestões e apresentação)\n${products.join("\n\n")}`);
+      if (expertise.length > 0) sections.push(`## ARGUMENTOS DE VENDA E EXPERTISE (use para persuasão e objeções)\n${expertise.join("\n\n")}`);
+      if (articles.length > 0) sections.push(`## ARTIGOS TÉCNICOS RELEVANTES (cite se o lead pedir detalhes)\n${articles.join("\n\n")}`);
+      if (videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS (mencione APENAS se solicitado)\n${videos.join("\n\n")}`);
+      if (params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS (cite apenas se perguntado)\n${params.join("\n\n")}`);
+
+      if (sections.length === 0) return "";
+      return sections.join("\n\n---\n\n");
+    }
+
+    const context = buildStructuredContext(allResults, isCommercial);
     const langInstruction = LANG_INSTRUCTIONS[lang] || LANG_INSTRUCTIONS["pt-BR"];
 
     // Build topic context instruction for system prompt
@@ -1938,13 +1971,18 @@ serve(async (req) => {
       : "";
 
     const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
-      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? SDR_COMMERCIAL_INSTRUCTION + spinProgressNote : ""}`
+      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? buildCommercialInstruction(sessionEntities, spinProgressNote) : ""}`
+      : "";
+
+    // Commercial route: add structured context instruction
+    const structuredContextInstruction = isCommercial
+      ? "\n\n### 📊 USO DAS FONTES\nOs dados abaixo estão organizados por função. Use PRODUTOS para apresentar soluções, ARGUMENTOS para convencer e responder objeções, ARTIGOS para aprofundar se o lead pedir, VÍDEOS apenas se solicitado."
       : "";
 
     const systemPrompt = `Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), a especialista máxima em odontologia digital da Smart Dent (16 anos de mercado).
 
 Você NÃO é uma atendente. Você é a colega experiente, consultora de confiança e parceira de crescimento que todo dentista gostaria de ter ao lado.
-${leadNameContext}${topicInstruction}
+${leadNameContext}${topicInstruction}${structuredContextInstruction}
 
 ### 🧠 MEMÓRIA VIVA
 Você acessa automaticamente conversas anteriores arquivadas (fonte: LIA-Dialogos).
