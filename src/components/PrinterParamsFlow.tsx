@@ -230,9 +230,6 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
               onClick={() => handleSelectBrand(brand)}
               className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 bg-white hover:border-[#1e3a5f] hover:bg-blue-50 transition-all text-left text-sm font-medium text-gray-800 shadow-sm"
             >
-              {brand.logo_url && (
-                <img src={brand.logo_url} alt={brand.name} className="w-6 h-6 object-contain rounded" />
-              )}
               {brand.name}
             </button>
           ))}
