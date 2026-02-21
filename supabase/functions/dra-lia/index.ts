@@ -42,7 +42,16 @@ const SDR_COMMERCIAL_INSTRUCTION = `
 
 **REGRA ABSOLUTA:** Faça NO MÁXIMO 1 pergunta por mensagem. Nunca combine duas perguntas. Espere a resposta antes de avançar. Cada mensagem sua deve terminar com UMA ÚNICA pergunta.
 
-**REGRA ANTI-LOOP:** NUNCA repita uma pergunta que o lead já respondeu nesta conversa. Releia o histórico antes de cada resposta. Se o lead já disse sua especialidade, equipamento atual ou estrutura, NÃO pergunte de novo. Se já completou as etapas 1-2, avance para etapa 3-4-5.
+**REGRA ANTI-LOOP (CRÍTICA — releia ANTES de cada resposta):**
+Antes de gerar QUALQUER resposta, analise TODO o histórico da conversa e identifique:
+- Especialidade do lead (se já disse) → NÃO pergunte de novo
+- Se já usa equipamento digital ou é analógico (se já disse) → NÃO pergunte de novo
+- Estrutura do consultório (se já disse) → NÃO pergunte de novo
+- Dor principal (se já disse) → NÃO pergunte de novo
+- Tipo de fluxo desejado (se já disse) → NÃO pergunte de novo
+- Se já pediu preço ou produto específico → RESPONDA sobre preço/produto IMEDIATAMENTE, avance para fechamento
+Se QUALQUER dessas informações já foi fornecida, PULE a etapa correspondente e avance para a próxima etapa NÃO completada.
+NUNCA volte a uma etapa já completada. Se todas as etapas 1-3 foram completadas, vá direto para etapa 4-5 (coleta/fechamento).
 
 **FLUXO CONVERSACIONAL DE QUALIFICAÇÃO (5 etapas, 4-7 mensagens no máximo):**
 
@@ -1239,7 +1248,11 @@ serve(async (req) => {
 
     // 0c. Guided printer dialog — asks brand → model → sends link
     // If topic_context === "parameters", force start the dialog immediately
-    const dialogState = await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
+    // SKIP entirely when topic_context === "commercial" — impressora mentions in commercial route
+    // should be handled by the SDR flow, not the parameter dialog
+    const dialogState = topic_context === "commercial"
+      ? { state: "not_in_dialog" as const }
+      : await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
 
     if (dialogState.state !== "not_in_dialog") {
       let dialogText: string;
@@ -1338,10 +1351,12 @@ serve(async (req) => {
     // 1. Parallel search: knowledge base + processing protocols (if protocol question)
     const isProtocol = isProtocolQuestion(message);
 
+    // Skip parameter search when in commercial context — prevents parameter noise in SDR flow
+    const skipParams = topic_context === "commercial";
     const [knowledgeResult, protocolResults, paramResults, companyContext] = await Promise.all([
       searchKnowledge(supabase, message, lang, topic_context),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
-      searchParameterSets(supabase, message, history),
+      skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history),
       companyContextPromise,
     ]);
 
@@ -1457,8 +1472,28 @@ serve(async (req) => {
       products: "Produtos e Resinas (catálogo, características, indicações clínicas)",
       support: "Suporte Técnico (problemas com equipamentos ou materiais)",
     };
+    // Build SPIN progress summary for commercial context by analyzing conversation history
+    let spinProgressNote = "";
+    if (topic_context === "commercial" && history.length > 0) {
+      const fullConvo = history.map((h: { role: string; content: string }) => h.content).join(" ").toLowerCase();
+      const completedSteps: string[] = [];
+      // Check Etapa 1 sub-questions
+      if (/anal[óo]gico|digital|equipamento|scanner|impressora 3d/.test(fullConvo)) completedSteps.push("equipamento_atual");
+      if (/especialidade|implant|prot[ée]s|ortod|est[ée]tic|cl[íi]nic|endodont/.test(fullConvo)) completedSteps.push("especialidade");
+      if (/consult[óo]rio|profissional|espa[çc]o|sozinho|equipe/.test(fullConvo)) completedSteps.push("estrutura");
+      // Check Etapa 2
+      if (/fluxo completo|s[óo] escanear|montar|chairside|workflow/.test(fullConvo)) completedSteps.push("tipo_fluxo");
+      if (/dor|problema|retrabalho|perco paciente|perd|concorr[êe]ncia|custo|demora|atraso/.test(fullConvo)) completedSteps.push("dor_principal");
+      // Check if price was requested
+      if (/pre[çc]o|quanto custa|valor|investimento|pacote/.test(fullConvo)) completedSteps.push("pediu_preco");
+
+      if (completedSteps.length > 0) {
+        spinProgressNote = `\n\n### ⚡ PROGRESSO SPIN DETECTADO (NÃO REPITA ESTAS PERGUNTAS):\nO lead JÁ respondeu sobre: ${completedSteps.join(", ")}.\n${completedSteps.includes("pediu_preco") ? "⚠️ O LEAD JÁ PEDIU PREÇO — responda sobre preço/produto e avance para fechamento. NÃO reinicie o SPIN." : ""}\n${completedSteps.length >= 4 ? "✅ SPIN PRATICAMENTE COMPLETO — avance para Etapa 4-5 (coleta de contato / agendamento)." : "Avance apenas para etapas NÃO completadas."}`;
+      }
+    }
+
     const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
-      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? SDR_COMMERCIAL_INSTRUCTION : ""}`
+      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? SDR_COMMERCIAL_INSTRUCTION + spinProgressNote : ""}`
       : "";
 
     const systemPrompt = `Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), a especialista máxima em odontologia digital da Smart Dent (16 anos de mercado).
