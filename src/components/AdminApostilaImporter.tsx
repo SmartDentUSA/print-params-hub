@@ -171,6 +171,12 @@ export function AdminApostilaImporter() {
   const [driveLogLoading, setDriveLogLoading] = useState(false);
   const [cronCopied, setCronCopied] = useState(false);
 
+  // ── Arquivamento de Diálogos state ────────────────────────────────────────
+  const [archiveRunning, setArchiveRunning] = useState(false);
+  const [archiveResult, setArchiveResult] = useState<any>(null);
+  const [archiveLastDate, setArchiveLastDate] = useState<string | null>(null);
+  const [archiveCronCopied, setArchiveCronCopied] = useState(false);
+
   // ── Apostila helpers ──────────────────────────────────────────────────────
   const updateStep = (id: string, patch: Partial<Step>) => {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -440,6 +446,57 @@ export function AdminApostilaImporter() {
       }
       if (row.key === "drive_kb_source_label" && row.value) setDriveSourceLabel(row.value);
     }
+    loadArchiveStatus();
+  };
+
+  // ── Arquivamento de Diálogos helpers ──────────────────────────────────────
+  const loadArchiveStatus = async () => {
+    const { data } = await supabase
+      .from("company_kb_texts")
+      .select("created_at")
+      .eq("source_label", "LIA-Dialogos")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (data?.[0]) setArchiveLastDate(new Date(data[0].created_at).toLocaleDateString("pt-BR"));
+  };
+
+  const runArchiveNow = async () => {
+    setArchiveRunning(true);
+    setArchiveResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("archive-daily-chats");
+      if (error) throw new Error(error.message);
+      setArchiveResult(data);
+      if (data?.archived > 0) {
+        toast({ title: "Conversas arquivadas!", description: `${data.archived} diálogos indexados (${data.gold_nuggets} gold)` });
+        loadArchiveStatus();
+      } else {
+        toast({ title: "Nenhuma conversa qualificada", description: data?.message || "Sem conversas com score >= 4 nas últimas 24h" });
+      }
+    } catch (e: any) {
+      toast({ title: "Erro no arquivamento", description: e.message, variant: "destructive" });
+    } finally {
+      setArchiveRunning(false);
+    }
+  };
+
+  const copyArchiveCronSQL = () => {
+    const sql = `-- Execute UMA VEZ no SQL Editor do Supabase (Live) para arquivar conversas diariamente às 23:55
+select cron.schedule(
+  'archive-daily-chats',
+  '55 2 * * *',
+  $$
+  select net.http_post(
+    url := 'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/archive-daily-chats',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk"}'::jsonb,
+    body := '{}'::jsonb
+  ) as request_id;
+  $$
+);`;
+    navigator.clipboard.writeText(sql).then(() => {
+      setArchiveCronCopied(true);
+      setTimeout(() => setArchiveCronCopied(false), 3000);
+    });
   };
 
   const saveDriveConfig = async () => {
@@ -1411,6 +1468,95 @@ select cron.schedule(
               <p className="text-xs text-muted-foreground">
                 Pré-requisitos: extensões <code className="bg-muted px-1 rounded">pg_cron</code> e <code className="bg-muted px-1 rounded">pg_net</code> habilitadas em Database → Extensions no Supabase.
               </p>
+            </div>
+
+            {/* ==================== SEÇÃO E – ARQUIVAMENTO DE DIÁLOGOS L.I.A. ==================== */}
+            <div className="border-l-4 border-purple-500 pl-6 py-4 mt-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <Activity className="w-6 h-6 text-purple-500" />
+                <h3 className="text-xl font-semibold">E — Arquivamento Automático de Diálogos L.I.A.</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Todo dia às 23:55 as conversas da Dra. LIA (últimas 24h) são filtradas pelo Judge (score ≥ 4, escala 0-5),
+                classificadas por heurística e transformadas em blocos de conhecimento <strong>LIA-Dialogos</strong>.
+                Respostas perfeitas (score = 5) são marcadas como <code className="bg-muted px-1 rounded">[GOLD]</code> para o RAG priorizar.
+              </p>
+
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">Última execução:</span>
+                <Badge variant="outline" className="font-mono">
+                  {archiveLastDate || "Nunca"}
+                </Badge>
+              </div>
+
+              <Button
+                onClick={runArchiveNow}
+                disabled={archiveRunning}
+                className="gap-2 bg-purple-600 hover:bg-purple-700"
+              >
+                {archiveRunning ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Arquivando...</>
+                ) : (
+                  <><Activity className="w-4 h-4" /> Exportar Conversas Agora</>
+                )}
+              </Button>
+
+              {archiveResult && archiveResult.by_category && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    {archiveResult.archived} diálogos arquivados · {archiveResult.gold_nuggets} gold nuggets
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {archiveResult.by_category.map((item: any) => (
+                      <Badge key={item.category} variant={item.ingested ? "default" : "destructive"} className="gap-1">
+                        {item.category}: {item.count}
+                        {item.gold > 0 && <span className="text-yellow-300">★{item.gold}</span>}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {archiveResult && archiveResult.total === 0 && (
+                <p className="text-sm text-muted-foreground italic">{archiveResult.message}</p>
+              )}
+
+              <div className="border border-border rounded-lg p-4 space-y-3 mt-4">
+                <h4 className="font-medium text-sm flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-purple-500" />
+                  SQL do Cron — Arquivamento diário às 23:55
+                </h4>
+                <p className="text-xs text-muted-foreground">
+                  Execute <strong>uma única vez</strong> no SQL Editor do Supabase (<strong>Live</strong>) para ativar o arquivamento automático via pg_cron.
+                </p>
+                <div className="relative">
+                  <pre className="text-xs bg-muted rounded-lg p-4 overflow-x-auto leading-relaxed whitespace-pre-wrap">
+{`select cron.schedule(
+  'archive-daily-chats',
+  '55 2 * * *',
+  $$
+  select net.http_post(
+    url := 'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/archive-daily-chats',
+    headers := '{"Content-Type":"application/json","Authorization":"Bearer eyJhbGci..."}'::jsonb,
+    body := '{}'::jsonb
+  ) as request_id;
+  $$
+);`}
+                  </pre>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2 gap-1.5"
+                    onClick={copyArchiveCronSQL}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    {archiveCronCopied ? "Copiado ✓" : "Copiar SQL"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pré-requisitos: extensões <code className="bg-muted px-1 rounded">pg_cron</code> e <code className="bg-muted px-1 rounded">pg_net</code> habilitadas.
+                </p>
+              </div>
             </div>
           </TabsContent>
         </Tabs>
