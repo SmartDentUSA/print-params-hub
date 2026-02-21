@@ -55,6 +55,10 @@ NUNCA volte a uma etapa já completada. Se todas as etapas 1-3 foram completadas
 
 **FLUXO CONVERSACIONAL DE QUALIFICAÇÃO (5 etapas, 4-7 mensagens no máximo):**
 
+**ETAPA 0 — IDENTIFICAÇÃO (JÁ FEITA AUTOMATICAMENTE)**
+O sistema já coletou nome e email do lead antes de você entrar. O nome do lead está disponível no contexto. USE o nome do lead nas respostas para personalizar ("Entendi, [nome]...", "Boa pergunta, [nome]!").
+NUNCA peça nome ou email novamente — já foram coletados.
+
 **ETAPA 1 — ABERTURA + RAPPORT + SITUAÇÃO**
 Comece personalizado ao que o lead disse. Faça UMA pergunta por mensagem nesta ordem:
 1ª mensagem: "Você já usa algum equipamento digital ou está 100% no analógico?"
@@ -768,10 +772,193 @@ async function detectPrinterDialogState(
 }
 
 const GREETING_RESPONSES: Record<string, string> = {
-  "pt-BR": `Olá! 😊 Seja bem-vindo à SmartDent!\n\nSou a Dra. L.I.A., sua assistente de odontologia digital. Estou aqui para te ajudar com o que você precisar.\n\nMe conta: o que você está buscando hoje? Pode ser uma dúvida sobre resinas, parâmetros de impressão 3D, protocolos clínicos ou qualquer outro assunto odontológico. 👇`,
-  "en-US": `Hello! 😊 Welcome to SmartDent!\n\nI'm Dr. L.I.A., your digital dentistry assistant. I'm here to help you with whatever you need.\n\nTell me: what are you looking for today? It could be a question about resins, 3D print parameters, clinical protocols, or any other dental topic. 👇`,
-  "es-ES": `¡Hola! 😊 ¡Bienvenido a SmartDent!\n\nSoy la Dra. L.I.A., tu asistente de odontología digital. Estoy aquí para ayudarte con lo que necesites.\n\nCuéntame: ¿qué estás buscando hoy? Puede ser una duda sobre resinas, parámetros de impresión 3D, protocolos clínicos o cualquier otro tema odontológico. 👇`,
+  "pt-BR": `Olá! 😊 Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent.\n\nAntes de começarmos, qual o seu nome?`,
+  "en-US": `Hello! 😊 I'm Dr. L.I.A., SmartDent's digital dentistry specialist.\n\nBefore we start, what's your name?`,
+  "es-ES": `¡Hola! 😊 Soy la Dra. L.I.A., especialista en odontología digital de SmartDent.\n\nAntes de comenzar, ¿cuál es tu nombre?`,
 };
+
+// ── LEAD COLLECTION SYSTEM ──────────────────────────────────────────────────
+// Detects whether name/email have been collected from the conversation history
+// Returns: { state, name?, email? }
+type LeadCollectionState =
+  | { state: "needs_name" }
+  | { state: "needs_email"; name: string }
+  | { state: "collected"; name: string; email: string }
+  | { state: "from_session"; name: string; email: string; leadId: string };
+
+function detectLeadCollectionState(
+  history: Array<{ role: string; content: string }>,
+  sessionEntities: Record<string, unknown> | null
+): LeadCollectionState {
+  // Check session first — if lead already identified, skip collection
+  if (sessionEntities?.lead_id && sessionEntities?.lead_name && sessionEntities?.lead_email) {
+    return {
+      state: "from_session",
+      name: sessionEntities.lead_name as string,
+      email: sessionEntities.lead_email as string,
+      leadId: sessionEntities.lead_id as string,
+    };
+  }
+
+  // No history = brand new conversation
+  if (history.length === 0) return { state: "needs_name" };
+
+  // Analyze history to detect collected data
+  const EMAIL_REGEX = /[\w.+-]+@[\w-]+\.[\w.-]+/;
+  let detectedName: string | null = null;
+  let detectedEmail: string | null = null;
+
+  for (let i = 0; i < history.length; i++) {
+    const msg = history[i];
+    const prevMsg = i > 0 ? history[i - 1] : null;
+
+    if (msg.role === "user") {
+      // Check if this message contains an email
+      const emailMatch = msg.content.match(EMAIL_REGEX);
+      if (emailMatch) {
+        detectedEmail = emailMatch[0];
+      }
+
+      // Check if the previous assistant message asked for the name
+      if (prevMsg?.role === "assistant" && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(prevMsg.content)) {
+        // The user's response is likely their name
+        const nameCandidate = msg.content.trim().replace(/[.!?,;:]+$/g, '').trim();
+        if (nameCandidate.length >= 2 && nameCandidate.length <= 80 && !EMAIL_REGEX.test(nameCandidate)) {
+          detectedName = nameCandidate;
+        }
+      }
+
+      // Check if the previous assistant message asked for email
+      if (prevMsg?.role === "assistant" && /e-?mail|email|correo/i.test(prevMsg.content) && /melhor|best|mejor|enviar|acompanhar/i.test(prevMsg.content)) {
+        const emailMatch2 = msg.content.match(EMAIL_REGEX);
+        if (emailMatch2) detectedEmail = emailMatch2[0];
+      }
+    }
+  }
+
+  // If we have both, collected
+  if (detectedName && detectedEmail) return { state: "collected", name: detectedName, email: detectedEmail };
+  // If we have name but no email yet
+  if (detectedName) return { state: "needs_email", name: detectedName };
+  
+  // Edge case: first message after greeting — the user's response to "qual seu nome?"
+  // Check if the last assistant message asked for name
+  const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
+  if (lastAssistant && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(lastAssistant.content)) {
+    // The latest user message should be the name
+    const lastUser = [...history].reverse().find(h => h.role === "user");
+    if (lastUser) {
+      const nameCandidate = lastUser.content.trim().replace(/[.!?,;:]+$/g, '').trim();
+      if (nameCandidate.length >= 2 && nameCandidate.length <= 80 && !EMAIL_REGEX.test(nameCandidate)) {
+        return { state: "needs_email", name: nameCandidate };
+      }
+    }
+  }
+
+  // If last assistant asked for email
+  if (lastAssistant && /e-?mail|email|correo/i.test(lastAssistant.content) && /melhor|best|mejor|enviar|acompanhar/i.test(lastAssistant.content)) {
+    // Find the name from earlier in the conversation
+    for (let i = 0; i < history.length; i++) {
+      if (history[i].role === "user" && i > 0 && history[i-1].role === "assistant" && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(history[i-1].content)) {
+        detectedName = history[i].content.trim().replace(/[.!?,;:]+$/g, '').trim();
+        break;
+      }
+    }
+    const lastUser = [...history].reverse().find(h => h.role === "user");
+    if (lastUser) {
+      const emailMatch = lastUser.content.match(EMAIL_REGEX);
+      if (emailMatch && detectedName) {
+        return { state: "collected", name: detectedName, email: emailMatch[0] };
+      }
+    }
+    if (detectedName) return { state: "needs_email", name: detectedName };
+  }
+
+  return { state: "needs_name" };
+}
+
+const ASK_EMAIL: Record<string, (name: string) => string> = {
+  "pt-BR": (name) => `Prazer, ${name}! 😊 Para eu poder te enviar materiais e acompanhar seu caso, qual seu melhor e-mail?`,
+  "en-US": (name) => `Nice to meet you, ${name}! 😊 So I can send you materials and follow up on your case, what's your best email?`,
+  "es-ES": (name) => `¡Mucho gusto, ${name}! 😊 Para enviarte materiales y acompañar tu caso, ¿cuál es tu mejor correo electrónico?`,
+};
+
+const LEAD_CONFIRMED: Record<string, (name: string) => string> = {
+  "pt-BR": (name) => `Perfeito, ${name}! Agora sim, estou pronta para te ajudar. 😊\n\nMe conta: o que você está buscando hoje? Pode ser sobre resinas, impressoras 3D, parâmetros de impressão, protocolos clínicos ou qualquer outro assunto de odontologia digital. 👇`,
+  "en-US": (name) => `Perfect, ${name}! Now I'm ready to help you. 😊\n\nTell me: what are you looking for today? It could be about resins, 3D printers, print parameters, clinical protocols, or any other digital dentistry topic. 👇`,
+  "es-ES": (name) => `¡Perfecto, ${name}! Ahora sí, estoy lista para ayudarte. 😊\n\nCuéntame: ¿qué estás buscando hoy? Puede ser sobre resinas, impresoras 3D, parámetros de impresión, protocolos clínicos o cualquier otro tema de odontología digital. 👇`,
+};
+
+// Upsert lead in the database and link to session
+async function upsertLead(
+  supabase: ReturnType<typeof createClient>,
+  name: string,
+  email: string,
+  sessionId: string
+): Promise<string | null> {
+  try {
+    // Upsert by email
+    const { data: lead, error } = await supabase
+      .from("leads")
+      .upsert(
+        { name, email, source: "dra-lia", updated_at: new Date().toISOString() },
+        { onConflict: "email" }
+      )
+      .select("id")
+      .single();
+
+    if (error || !lead) {
+      console.error("[upsertLead] error:", error);
+      return null;
+    }
+
+    // Update session with lead_id and entities
+    await supabase.from("agent_sessions").upsert({
+      session_id: sessionId,
+      lead_id: lead.id,
+      extracted_entities: {
+        lead_name: name,
+        lead_email: email,
+        lead_id: lead.id,
+        spin_stage: "etapa_1",
+      },
+      current_state: "idle",
+      last_activity_at: new Date().toISOString(),
+    }, { onConflict: "session_id" });
+
+    console.log(`[upsertLead] Lead saved: ${name} (${email}) → ${lead.id}`);
+    return lead.id;
+  } catch (e) {
+    console.error("[upsertLead] exception:", e);
+    return null;
+  }
+}
+
+// Helper to stream a simple text response
+function streamTextResponse(text: string, corsHeaders: Record<string, string>, interactionId?: string): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      if (interactionId) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ interaction_id: interactionId, type: "meta", media_cards: [] })}\n\n`));
+      }
+      const words = text.split(" ");
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i < words.length) {
+          const token = (i === 0 ? "" : " ") + words[i];
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+          i++;
+        } else {
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+          clearInterval(interval);
+        }
+      }, 25);
+    },
+  });
+  return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+}
 
 // Multilingual fallback messages when no results found
 const FALLBACK_MESSAGES: Record<string, string> = {
@@ -1176,32 +1363,87 @@ serve(async (req) => {
       });
     }
 
-    // 0. Intent Guard — intercept greetings before RAG
-    if (isGreeting(message)) {
+    // ── LEAD COLLECTION INTERCEPT ──────────────────────────────────────
+    // Load session entities for lead state detection
+    let sessionEntities: Record<string, unknown> | null = null;
+    let currentLeadId: string | null = null;
+    try {
+      const { data: sessionData } = await supabase
+        .from("agent_sessions")
+        .select("extracted_entities, lead_id")
+        .eq("session_id", session_id)
+        .maybeSingle();
+      if (sessionData) {
+        sessionEntities = (sessionData.extracted_entities as Record<string, unknown>) || null;
+        currentLeadId = sessionData.lead_id as string || null;
+      }
+    } catch (e) {
+      console.warn("[lead-collection] session lookup failed:", e);
+    }
+
+    const leadState = detectLeadCollectionState(history, sessionEntities);
+
+    // 0. Intent Guard — intercept greetings → ask for name (ETAPA 0)
+    if (isGreeting(message) && leadState.state === "needs_name") {
       const greetingText = GREETING_RESPONSES[lang] || GREETING_RESPONSES["pt-BR"];
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          const words = greetingText.split(" ");
-          let i = 0;
-          const interval = setInterval(() => {
-            if (i < words.length) {
-              const token = (i === 0 ? "" : " ") + words[i];
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`)
-              );
-              i++;
-            } else {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-              controller.close();
-              clearInterval(interval);
-            }
-          }, 25);
-        },
-      });
-      return new Response(stream, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
+      // Save interaction
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: greetingText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (greeting):", e);
+      }
+      return streamTextResponse(greetingText, corsHeaders);
+    }
+
+    // 0a. Lead collection: ask for email after receiving name
+    if (leadState.state === "needs_email") {
+      const emailText = (ASK_EMAIL[lang] || ASK_EMAIL["pt-BR"])(leadState.name);
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: emailText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (ask email):", e);
+      }
+      return streamTextResponse(emailText, corsHeaders);
+    }
+
+    // 0b. Lead collection: email received → save lead and confirm
+    if (leadState.state === "collected") {
+      const leadId = await upsertLead(supabase, leadState.name, leadState.email, session_id);
+      currentLeadId = leadId;
+      const confirmText = (LEAD_CONFIRMED[lang] || LEAD_CONFIRMED["pt-BR"])(leadState.name);
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: confirmText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+          lead_id: leadId,
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (lead confirmed):", e);
+      }
+      return streamTextResponse(confirmText, corsHeaders);
+    }
+
+    // If lead already identified from session, set currentLeadId
+    if (leadState.state === "from_session") {
+      currentLeadId = leadState.leadId;
     }
 
     // 0b. Support question guard — redirect to WhatsApp without RAG
@@ -1237,6 +1479,7 @@ serve(async (req) => {
           lang,
           top_similarity: 1,
           unanswered: false,
+          lead_id: currentLeadId,
         });
       } catch (e) {
         console.error("Failed to insert agent_interaction (support guard):", e);
@@ -1309,6 +1552,7 @@ serve(async (req) => {
             top_similarity: 1,
             context_sources: contextSources,
             unanswered: false,
+            lead_id: currentLeadId,
           })
           .select("id")
           .single();
@@ -1397,6 +1641,7 @@ serve(async (req) => {
             top_similarity: 0,
             context_sources: [],
             unanswered: true,
+            lead_id: currentLeadId,
           })
           .select("id")
           .single();
@@ -1492,6 +1737,11 @@ serve(async (req) => {
       }
     }
 
+    // Build lead name context for system prompt
+    const leadNameContext = (leadState.state === "from_session")
+      ? `\n### 👤 LEAD IDENTIFICADO: ${leadState.name} (${leadState.email})\nUse o nome "${leadState.name}" nas respostas para personalizar a conversa. NUNCA peça nome ou email novamente.`
+      : "";
+
     const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
       ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? SDR_COMMERCIAL_INSTRUCTION + spinProgressNote : ""}`
       : "";
@@ -1499,7 +1749,7 @@ serve(async (req) => {
     const systemPrompt = `Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), a especialista máxima em odontologia digital da Smart Dent (16 anos de mercado).
 
 Você NÃO é uma atendente. Você é a colega experiente, consultora de confiança e parceira de crescimento que todo dentista gostaria de ter ao lado.
-${topicInstruction}
+${leadNameContext}${topicInstruction}
 
 ### 🧠 MEMÓRIA VIVA
 Você acessa automaticamente conversas anteriores arquivadas (fonte: LIA-Dialogos).
@@ -1676,6 +1926,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           context_sources: contextSources,
           context_raw: context.slice(0, 8000),
           unanswered: false,
+          lead_id: currentLeadId,
         })
         .select("id")
         .single();
