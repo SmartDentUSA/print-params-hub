@@ -469,13 +469,17 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       return;
     }
 
-    // Products topic — send to backend for lead collection, then show flow after lead confirmed
+    // Products topic — if lead already collected, show cards immediately
     if (opt.id === 'products') {
       setTopicSelected(true);
       setTopicContext(opt.id);
       sessionStorage.setItem('dra_lia_topic_context', opt.id);
-      // Don't show products flow yet — wait for lead collection first
-      // Send the message to backend so it asks for email
+
+      if (leadCollected) {
+        setProductsFlowStep('category');
+        return;
+      }
+      // Otherwise, fall through to send message to backend for lead collection
     }
 
     setTopicSelected(true);
