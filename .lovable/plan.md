@@ -1,65 +1,50 @@
 
+# Implementacao: archive-daily-chats + Secao E Admin
 
-# Fix: Google Drive KB Sync 401 Error
+## Resumo
 
-## Root Cause
+Criar a edge function `archive-daily-chats` que arquiva conversas da L.I.A. com filtro de qualidade (judge_score >= 4, escala 0-5), classificacao por heuristica e gold nuggets. Adicionar a Secao E na aba "Cerebro Externo" do Admin.
 
-The `sync-google-drive-kb` function calls `ingest-knowledge-text` passing the **service role key** as Bearer token. However, `ingest-knowledge-text` validates the token using `auth.getClaims()`, which only works with **user JWTs** -- not service role keys. Result: 401 Unauthorized.
+---
 
-## Solution
+## Ficheiros
 
-Update `ingest-knowledge-text` to also accept the **service role key** as a valid authorization method. If the Bearer token matches the service role key, skip the user claims check and proceed directly.
+### 1. CRIAR: `supabase/functions/archive-daily-chats/index.ts`
 
-## Changes
+Edge function production-ready com:
+- Busca `agent_interactions` das ultimas 24h com `agent_response IS NOT NULL`
+- Filtra apenas `judge_score >= 4` (qualidade validada pelo Judge)
+- Classifica por heuristica (8 regras baseadas em `context_sources` e palavras-chave)
+- Marca respostas com `judge_score = 5` como `[GOLD]`
+- Agrupa por categoria e formata em texto puro
+- Chama `ingest-knowledge-text` com formato correto (`{ entries: [...] }`) e `source_label: "LIA-Dialogos"`
+- Retorna resumo JSON com total, por categoria e gold nuggets
 
-### File: `supabase/functions/ingest-knowledge-text/index.ts`
+**Correcao critica vs codigo do usuario:** O `ingest-knowledge-text` espera `{ entries: [{ title, content, category, source_label }] }` e nao campos soltos. O codigo sera ajustado para usar o formato correto.
 
-Replace the auth check block (lines 60-79) with logic that:
+### 2. MODIFICAR: `supabase/config.toml` (linha 151)
 
-1. First checks if the Bearer token equals `SUPABASE_SERVICE_ROLE_KEY` -- if so, skip user validation (trusted server-to-server call)
-2. Otherwise, validate as a user JWT using `getClaims()` as before
-
-```
-Before (simplified):
-  token -> getClaims() -> fail if not user JWT
-
-After (simplified):
-  token == SERVICE_ROLE_KEY ? -> allow (server call)
-  token != SERVICE_ROLE_KEY ? -> getClaims() as before
-```
-
-### No other files need changes
-
-The `sync-google-drive-kb` function already sends the correct Authorization header with the service role key. The UI component (`AdminApostilaImporter`) is also unaffected.
-
-## Technical Detail
-
-The specific code change in the auth block:
-
-```typescript
-const token = authHeader.replace("Bearer ", "");
-
-// Allow service-role calls (server-to-server)
-if (token !== SUPABASE_SERVICE_ROLE_KEY) {
-  const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
-  if (claimsError || !claimsData?.claims) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-}
+Adicionar:
+```toml
+[functions.archive-daily-chats]
+verify_jwt = false
 ```
 
-## What This Fixes
+### 3. MODIFICAR: `src/components/AdminApostilaImporter.tsx`
 
-- The "Erro" status on the sync log for "Smart Print Bio Vitality - SDR" (and any other files)
-- Future syncs from both manual triggers and pg_cron will work correctly
+Alteracoes:
+- **3 novos states** (linhas ~170): `archiveRunning`, `archiveResult`, `archiveLastDate`
+- **2 novas funcoes** (linhas ~500): `loadArchiveStatus()` e `runArchiveNow()`
+- `loadArchiveStatus` chamada dentro do `loadSavedDriveConfig` para carregar junto com a aba drive
+- **Secao E** inserida apos a Secao D (linha 1414, antes do `</TabsContent>` da aba drive):
+  - Borda roxa, icone Activity
+  - Status da ultima execucao
+  - Botao "Exportar Conversas Agora"
+  - Badges com resultado por categoria + gold count
+  - SQL do Cron copiavel (23:55 = 02:55 UTC)
+  - Botao copiar SQL do cron (reutiliza padrao existente)
 
-## Pre-requisite Reminder
-
-The `GOOGLE_DRIVE_API_KEY` secret is still missing from Supabase Edge Function Secrets. You need to add it for the Drive file listing/export to work. The current error happens *after* the Drive API call succeeds, so either the key is set elsewhere or a test file was used. But for production, ensure this secret is configured.
-
+### Nenhuma alteracao em:
+- `dra-lia/index.ts` ou `system-prompt.ts` (conforme solicitado)
+- Schema do banco (nao precisa de migration)
+- O RAG ja busca automaticamente em `company_kb` que inclui os novos `LIA-Dialogos`
