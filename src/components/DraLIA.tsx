@@ -382,7 +382,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       );
 
       // Detect lead collection confirmation from backend
-      if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista/i.test(fullContent)) {
+      if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
         setLeadCollected(true);
         sessionStorage.setItem('dra_lia_lead_collected', 'true');
       }
@@ -525,7 +525,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           }
           setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m));
           // Detect lead collection confirmation from backend
-          if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista/i.test(fullContent)) {
+          if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
             setLeadCollected(true);
             sessionStorage.setItem('dra_lia_lead_collected', 'true');
           }
