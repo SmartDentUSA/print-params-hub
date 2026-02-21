@@ -1,64 +1,39 @@
 
-
-# Corrigir Cards Duplicados na Categoria RESINAS 3D
+# Corrigir cards de produtos que nao aparecem ao voltar para a rota
 
 ## Problema
-A categoria "RESINAS 3D" mostra 41 cards quando deveria mostrar ~14 produtos unicos. Dois problemas:
+Quando o usuario ja foi identificado (lead coletado), sai da rota "Quero conhecer mais dos produtos" e volta, os cards de categoria nao aparecem. Isso acontece porque:
 
-1. A tabela `system_a_catalog` tem cada resina duplicada (2 registros por produto com o mesmo nome). Resultado: 28 cards do catalogo em vez de 14.
-2. A deduplicacao entre `system_a_catalog` e `resins` compara nomes exatos (case-insensitive), mas os nomes sao diferentes entre as tabelas. Exemplo:
-   - Catalogo: "Resina 3D Smart Print Bio Bite Splint +Flex"
-   - Resinas: "Smart Print Bio Bite Splint +Flex"
+1. `resetTopic` preserva `leadCollected = true` (correcao anterior)
+2. `handleTopicSelect` para `products` NAO ativa o fluxo visual — ele apenas envia ao backend e espera a confirmacao do lead
+3. A deteccao de lead (linha 391) tem a condicao `!leadCollected`, entao quando o lead ja esta coletado, ela nunca dispara
+4. Resultado: `productsFlowStep` nunca e setado para `'category'`, e os cards nao aparecem
 
 ## Solucao
 
-### Arquivo: `src/components/ProductsFlow.tsx`
+### Arquivo: `src/components/DraLIA.tsx`
 
-**1. Deduplicar resultados do catalogo por nome**
-
-Apos buscar os dados do `system_a_catalog`, usar um `Map` para manter apenas um registro por nome (case-insensitive), eliminando os duplicados internos:
+Na funcao `handleTopicSelect`, quando `opt.id === 'products'`, verificar se o lead ja foi coletado. Se sim, ativar o fluxo visual imediatamente (sem esperar o backend):
 
 ```typescript
-if (catalogData) {
-  const seen = new Map<string, boolean>();
-  catalogData.forEach(p => {
-    const key = p.name.toLowerCase();
-    if (!seen.has(key)) {
-      seen.set(key, true);
-      items.push({ id: p.id, name: p.name, ... });
-    }
-  });
+if (opt.id === 'products') {
+  setTopicSelected(true);
+  setTopicContext(opt.id);
+  sessionStorage.setItem('dra_lia_topic_context', opt.id);
+
+  // Se o lead ja foi coletado, mostrar os cards direto
+  if (leadCollected) {
+    setProductsFlowStep('category');
+    return;
+  }
+
+  // Senao, enviar ao backend para coleta de e-mail
+  // (o fluxo visual sera ativado apos confirmacao do lead)
 }
 ```
 
-**2. Melhorar deduplicacao entre catalogo e resinas**
-
-Ao verificar se uma resina ja existe nos items do catalogo, usar comparacao parcial (normalizada) em vez de igualdade exata. Normalizar removendo prefixos comuns como "Resina 3D", "Resina Smart", "Smart Print" e comparando o nucleo do nome:
-
-```typescript
-function normalizeProductName(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/^resina\s*(3d\s*)?/i, '')
-    .replace(/^smart\s*(3d\s*)?print\s*/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-```
-
-Ao adicionar resinas, verificar se o nome normalizado ja existe:
-```typescript
-const normalizedExisting = items.map(i => normalizeProductName(i.name));
-if (!normalizedExisting.includes(normalizeProductName(r.name))) {
-  items.push(...);
-}
-```
-
-**3. Corrigir contagem na tela de categorias**
-
-A contagem da categoria "RESINAS 3D" tambem esta inflada porque soma os 28 duplicados do catalogo + 14 resinas. Aplicar a mesma logica de deduplicacao no calculo da contagem (ou simplesmente contar nomes unicos).
+Isso faz com que, na segunda vez que o usuario entra na rota de produtos (com lead ja identificado), os cards de categoria aparecam imediatamente sem precisar passar pelo backend novamente.
 
 ## Resultado Esperado
-- RESINAS 3D mostrara ~14 cards unicos (sem duplicatas)
-- A contagem na tela de categorias refletira o numero correto
-- Produtos de outras categorias tambem serao deduplicados por seguranca
+- Usuario entra em "Produtos" pela primeira vez -> pede e-mail -> confirma lead -> mostra cards
+- Usuario sai e volta para "Produtos" -> cards aparecem imediatamente (sem pedir e-mail)
