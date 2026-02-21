@@ -1,50 +1,31 @@
 
-# Implementacao: archive-daily-chats + Secao E Admin
 
-## Resumo
+# Exportar conversas historicas (sem nova funcionalidade)
 
-Criar a edge function `archive-daily-chats` que arquiva conversas da L.I.A. com filtro de qualidade (judge_score >= 4, escala 0-5), classificacao por heuristica e gold nuggets. Adicionar a Secao E na aba "Cerebro Externo" do Admin.
+Alteracao minima: na edge function, trocar a janela de 24h para aceitar `days_back` opcional no body (default continua 1 dia para o cron). Assim basta invocar uma vez com `days_back: 30` pelo botao do Admin.
 
----
+## Alteracoes
 
-## Ficheiros
+### 1. `supabase/functions/archive-daily-chats/index.ts`
 
-### 1. CRIAR: `supabase/functions/archive-daily-chats/index.ts`
+- Linha 20: ler body opcional e calcular janela dinamica
+- Substituir `const yesterday = new Date(today.getTime() - 24*60*60*1000)` por:
 
-Edge function production-ready com:
-- Busca `agent_interactions` das ultimas 24h com `agent_response IS NOT NULL`
-- Filtra apenas `judge_score >= 4` (qualidade validada pelo Judge)
-- Classifica por heuristica (8 regras baseadas em `context_sources` e palavras-chave)
-- Marca respostas com `judge_score = 5` como `[GOLD]`
-- Agrupa por categoria e formata em texto puro
-- Chama `ingest-knowledge-text` com formato correto (`{ entries: [...] }`) e `source_label: "LIA-Dialogos"`
-- Retorna resumo JSON com total, por categoria e gold nuggets
-
-**Correcao critica vs codigo do usuario:** O `ingest-knowledge-text` espera `{ entries: [{ title, content, category, source_label }] }` e nao campos soltos. O codigo sera ajustado para usar o formato correto.
-
-### 2. MODIFICAR: `supabase/config.toml` (linha 151)
-
-Adicionar:
-```toml
-[functions.archive-daily-chats]
-verify_jwt = false
+```text
+const body = await req.json().catch(() => ({}));
+const daysBack = Math.min(Math.max(body.days_back || 1, 1), 30);
+const since = new Date(today.getTime() - daysBack * 24 * 60 * 60 * 1000);
 ```
 
-### 3. MODIFICAR: `src/components/AdminApostilaImporter.tsx`
+- Usar `since` em vez de `yesterday` na query (linha 29) e nos logs
 
-Alteracoes:
-- **3 novos states** (linhas ~170): `archiveRunning`, `archiveResult`, `archiveLastDate`
-- **2 novas funcoes** (linhas ~500): `loadArchiveStatus()` e `runArchiveNow()`
-- `loadArchiveStatus` chamada dentro do `loadSavedDriveConfig` para carregar junto com a aba drive
-- **Secao E** inserida apos a Secao D (linha 1414, antes do `</TabsContent>` da aba drive):
-  - Borda roxa, icone Activity
-  - Status da ultima execucao
-  - Botao "Exportar Conversas Agora"
-  - Badges com resultado por categoria + gold count
-  - SQL do Cron copiavel (23:55 = 02:55 UTC)
-  - Botao copiar SQL do cron (reutiliza padrao existente)
+### 2. `src/components/AdminApostilaImporter.tsx`
 
-### Nenhuma alteracao em:
-- `dra-lia/index.ts` ou `system-prompt.ts` (conforme solicitado)
-- Schema do banco (nao precisa de migration)
-- O RAG ja busca automaticamente em `company_kb` que inclui os novos `LIA-Dialogos`
+- Adicionar state `archiveDaysBack` (default 7)
+- Adicionar input numerico "Dias" ao lado do botao
+- Passar `{ body: { days_back: archiveDaysBack } }` no invoke
+
+### Resultado
+
+O cron continua funcionando com 1 dia (envia `{}`). Voce clica "Exportar Agora" com 7 dias e as 64 conversas serao arquivadas imediatamente.
+
