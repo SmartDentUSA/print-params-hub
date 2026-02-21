@@ -61,6 +61,7 @@ export type Database = {
           judge_score: number | null
           judge_verdict: string | null
           lang: string | null
+          lead_id: string | null
           session_id: string
           top_similarity: number | null
           unanswered: boolean | null
@@ -79,6 +80,7 @@ export type Database = {
           judge_score?: number | null
           judge_verdict?: string | null
           lang?: string | null
+          lead_id?: string | null
           session_id: string
           top_similarity?: number | null
           unanswered?: boolean | null
@@ -97,12 +99,21 @@ export type Database = {
           judge_score?: number | null
           judge_verdict?: string | null
           lang?: string | null
+          lead_id?: string | null
           session_id?: string
           top_similarity?: number | null
           unanswered?: boolean | null
           user_message?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agent_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agent_knowledge_gaps: {
         Row: {
@@ -144,6 +155,7 @@ export type Database = {
           extracted_entities: Json | null
           id: string
           last_activity_at: string | null
+          lead_id: string | null
           session_id: string
           updated_at: string | null
         }
@@ -153,6 +165,7 @@ export type Database = {
           extracted_entities?: Json | null
           id?: string
           last_activity_at?: string | null
+          lead_id?: string | null
           session_id: string
           updated_at?: string | null
         }
@@ -162,10 +175,19 @@ export type Database = {
           extracted_entities?: Json | null
           id?: string
           last_activity_at?: string | null
+          lead_id?: string | null
           session_id?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       authors: {
         Row: {
@@ -926,6 +948,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leads: {
+        Row: {
+          created_at: string | null
+          email: string
+          equipment_status: string | null
+          id: string
+          name: string
+          pain_point: string | null
+          phone: string | null
+          source: string | null
+          specialty: string | null
+          spin_completed: boolean | null
+          updated_at: string | null
+          workflow_interest: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          equipment_status?: string | null
+          id?: string
+          name: string
+          pain_point?: string | null
+          phone?: string | null
+          source?: string | null
+          specialty?: string | null
+          spin_completed?: boolean | null
+          updated_at?: string | null
+          workflow_interest?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          equipment_status?: string | null
+          id?: string
+          name?: string
+          pain_point?: string | null
+          phone?: string | null
+          source?: string | null
+          specialty?: string | null
+          spin_completed?: boolean | null
+          updated_at?: string | null
+          workflow_interest?: string | null
+        }
+        Relationships: []
       }
       models: {
         Row: {
