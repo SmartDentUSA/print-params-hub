@@ -371,6 +371,7 @@ export function AdminApostilaImporter() {
       }
     };
     reader.readAsText(file);
+    e.target.value = "";
   };
 
   const indexBatch = async () => {
@@ -1036,7 +1037,7 @@ select cron.schedule(
                 className="border-2 border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                 onClick={() => jsonFileInputRef.current?.click()}
               >
-                <input ref={jsonFileInputRef} type="file" accept=".json" className="hidden" onChange={handleBatchFile} />
+                <input ref={jsonFileInputRef} type="file" accept=".json" className="hidden" onChange={handleBatchFile} onClick={(e) => e.stopPropagation()} />
                 <FileJson className="w-6 h-6 mx-auto mb-1 text-muted-foreground" />
                 {batchEntries.length > 0 ? (
                   <div>
