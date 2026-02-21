@@ -15,6 +15,15 @@ interface ProductItem {
   source: 'catalog' | 'resin';
 }
 
+function normalizeProductName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/^resina\s*(3d\s*)?/i, '')
+    .replace(/^smart\s*(3d\s*)?print\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 interface ProductsFlowProps {
   step: 'category' | 'products';
   onStepChange: (step: 'category' | 'products' | null) => void;
@@ -33,37 +42,54 @@ export default function ProductsFlow({ step, onStepChange, onProductSelect }: Pr
       setLoading(true);
       supabase
         .from('system_a_catalog')
-        .select('product_category')
+        .select('name, product_category')
         .eq('active', true)
         .eq('approved', true)
         .not('product_category', 'is', null)
         .then(({ data }) => {
-          if (data) {
-            const countMap = new Map<string, number>();
-            data.forEach((row: { product_category: string | null }) => {
-              const cat = row.product_category;
-              if (cat) countMap.set(cat, (countMap.get(cat) || 0) + 1);
-            });
+          if (!data) { setLoading(false); return; }
 
-            // Also count resins for "RESINAS 3D" category
-            supabase
-              .from('resins')
-              .select('id')
-              .eq('active', true)
-              .then(({ data: resinsData }) => {
-                const resinCount = resinsData?.length || 0;
+          // Count unique names per category
+          const namesByCat = new Map<string, Set<string>>();
+          data.forEach((row: { name: string; product_category: string | null }) => {
+            const cat = row.product_category;
+            if (!cat) return;
+            if (!namesByCat.has(cat)) namesByCat.set(cat, new Set());
+            namesByCat.get(cat)!.add(row.name.toLowerCase());
+          });
+
+          const countMap = new Map<string, number>();
+          namesByCat.forEach((names, cat) => countMap.set(cat, names.size));
+
+          // Also count unique resins for "RESINAS 3D" (deduped against catalog)
+          supabase
+            .from('resins')
+            .select('id, name')
+            .eq('active', true)
+            .then(({ data: resinsData }) => {
+              if (resinsData) {
+                const catalogNormalized = new Set(
+                  (namesByCat.get('RESINAS 3D') || new Set<string>())
+                );
+                const catalogNormalizedNames = new Set<string>();
+                catalogNormalized.forEach(n => catalogNormalizedNames.add(normalizeProductName(n)));
+
+                let extra = 0;
+                resinsData.forEach((r: { name: string }) => {
+                  if (!catalogNormalizedNames.has(normalizeProductName(r.name))) {
+                    extra++;
+                  }
+                });
                 const existing = countMap.get('RESINAS 3D') || 0;
-                countMap.set('RESINAS 3D', existing + resinCount);
+                countMap.set('RESINAS 3D', existing + extra);
+              }
 
-                const cats = Array.from(countMap.entries())
-                  .map(([name, count]) => ({ name, count }))
-                  .sort((a, b) => a.name.localeCompare(b.name));
-                setCategories(cats);
-                setLoading(false);
-              });
-          } else {
-            setLoading(false);
-          }
+              const cats = Array.from(countMap.entries())
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => a.name.localeCompare(b.name));
+              setCategories(cats);
+              setLoading(false);
+            });
         });
     }
   }, [step]);
@@ -85,14 +111,19 @@ export default function ProductsFlow({ step, onStepChange, onProductSelect }: Pr
       .order('name');
 
     if (catalogData) {
+      const seen = new Set<string>();
       catalogData.forEach((p: { id: string; name: string; image_url: string | null; product_subcategory: string | null }) => {
-        items.push({
-          id: p.id,
-          name: p.name,
-          image_url: p.image_url,
-          product_subcategory: p.product_subcategory,
-          source: 'catalog',
-        });
+        const key = p.name.toLowerCase();
+        if (!seen.has(key)) {
+          seen.add(key);
+          items.push({
+            id: p.id,
+            name: p.name,
+            image_url: p.image_url,
+            product_subcategory: p.product_subcategory,
+            source: 'catalog',
+          });
+        }
       });
     }
 
@@ -105,9 +136,9 @@ export default function ProductsFlow({ step, onStepChange, onProductSelect }: Pr
         .order('name');
 
       if (resinsData) {
+        const normalizedExisting = items.map(i => normalizeProductName(i.name));
         resinsData.forEach((r: { id: string; name: string; image_url: string | null; type: string | null }) => {
-          // Avoid duplicates by name
-          if (!items.some(i => i.name.toLowerCase() === r.name.toLowerCase())) {
+          if (!normalizedExisting.includes(normalizeProductName(r.name))) {
             items.push({
               id: r.id,
               name: r.name,
