@@ -800,8 +800,9 @@ function detectLeadCollectionState(
     const prevMsg = i > 0 ? history[i - 1] : null;
 
     if (msg.role === "user") {
-      // Check if this message contains an email
-      const emailMatch = msg.content.match(EMAIL_REGEX);
+      // Check if this message contains an email (normalize spaces around @)
+      const normalizedContent = msg.content.replace(/\s*@\s*/g, '@');
+      const emailMatch = normalizedContent.match(EMAIL_REGEX);
       if (emailMatch) {
         detectedEmail = emailMatch[0];
       }
@@ -817,7 +818,8 @@ function detectLeadCollectionState(
 
       // Check if the previous assistant message asked for email
       if (prevMsg?.role === "assistant" && /e-?mail|email|correo/i.test(prevMsg.content) && /melhor|best|mejor|enviar|acompanhar/i.test(prevMsg.content)) {
-        const emailMatch2 = msg.content.match(EMAIL_REGEX);
+        const normalizedContent2 = msg.content.replace(/\s*@\s*/g, '@');
+        const emailMatch2 = normalizedContent2.match(EMAIL_REGEX);
         if (emailMatch2) detectedEmail = emailMatch2[0];
       }
     }
@@ -853,7 +855,8 @@ function detectLeadCollectionState(
     }
     const lastUser = [...history].reverse().find(h => h.role === "user");
     if (lastUser) {
-      const emailMatch = lastUser.content.match(EMAIL_REGEX);
+      const normalizedLastUser = lastUser.content.replace(/\s*@\s*/g, '@');
+      const emailMatch = normalizedLastUser.match(EMAIL_REGEX);
       if (emailMatch && detectedName) {
         return { state: "collected", name: detectedName, email: emailMatch[0] };
       }
