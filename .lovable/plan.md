@@ -1,39 +1,42 @@
 
 
-# Fix: Email detection fails when user types space before @
+# Reforcar ETAPA 1: Apenas perguntar, sem apresentar produtos
 
-## Problems Identified
+## Problema
 
-### Bug 1: Email with spaces not detected (causes infinite email loop)
-The user typed `Jesus @jesus.com.br` (with a space before `@`). The email regex `[\w.+-]+@[\w-]+\.[\w.-]+` requires characters directly before the `@` with no spaces, so it never matches. The state stays stuck on `needs_email` forever.
+A instrucao da ETAPA 1 ja diz para perguntar diretamente, mas a LIA ainda esta apresentando produtos (ex: "Smart Print Model Plus") na primeira resposta comercial. Isso acontece porque o prompt nao proibe explicitamente citar produtos nesta etapa - a LIA interpreta "reconheca o interesse" como oportunidade para mostrar algo.
 
-### Bug 2: Name asked twice (likely related)
-The name request appears twice in the transcript. This is likely because the client sends the history array and there may be a race condition or the first response wasn't stored before the second request. This is harder to fix without client changes, but we can mitigate it by making the detection more robust.
+## Mudanca
 
-## Changes
+### Arquivo: `supabase/functions/dra-lia/index.ts` (linhas 75-79)
 
-### File: `supabase/functions/dra-lia/index.ts`
+Reescrever ETAPA 1 com proibicao explicita de citar produtos:
 
-**1. Normalize email input before regex matching (lines ~794-822)**
-
-Before applying `EMAIL_REGEX`, strip spaces from the user message to handle cases like `Jesus @jesus.com.br` or `danilo @ gmail.com`:
-
-```typescript
-// Before matching email, normalize: remove spaces around @
-const normalizedContent = msg.content.replace(/\s*@\s*/g, '@');
-const emailMatch = normalizedContent.match(EMAIL_REGEX);
+**Antes:**
+```
+ETAPA 1 — ABERTURA (1 unica pergunta)
+- Reconheca o interesse do lead e pergunte DIRETAMENTE: "Em qual produto voce esta interessado em conhecer ou aprender a usa-lo?"
+- NAO pergunte especialidade ou equipamento neste momento.
+- Se o lead nomear um produto especifico -> PULE para ETAPA 3.
+- Se o lead disser algo generico ("resinas", "impressoras") -> faca UMA pergunta de refinamento e va para ETAPA 3.
 ```
 
-Apply this normalization in all 3 places where `EMAIL_REGEX` is used within `detectLeadCollectionState`:
-- Line ~804 (general email detection in loop)
-- Line ~820 (email after assistant asked for it)
-- Line ~856 (email from last user message)
+**Depois:**
+```
+ETAPA 1 — ABERTURA (1 unica pergunta, SEM citar produtos)
+- Responda APENAS com uma saudacao curta + a pergunta: "Em qual produto voce esta interessado em conhecer ou aprender a usa-lo?"
+- NAO cite nenhum produto nesta etapa. NAO descreva nenhuma resina ou equipamento. Apenas PERGUNTE.
+- NAO pergunte especialidade ou equipamento.
+- Se o lead nomear um produto especifico -> PULE para ETAPA 3.
+- Se o lead disser algo generico ("resinas", "impressoras") -> faca UMA pergunta de refinamento e va para ETAPA 3.
+```
 
-**2. Deploy edge function `dra-lia`**
+### Deploy da edge function `dra-lia`
 
-## Expected Result
+## Resultado esperado
 
-- User types `Jesus @jesus.com.br` -> normalized to `Jesus@jesus.com.br` -> regex matches -> state transitions to `collected`
-- No more infinite email request loop
-- Flow proceeds to commercial conversation after name + email collected
+Lead clica "Quero conhecer produtos e resinas" -> LIA responde:
+"Ola, Danilo! Que otimo que voce esta interessado em conhecer nossos produtos e resinas, em qual produto voce esta interessado em conhecer ou aprender a usa-lo?"
+
+Sem mencionar nenhum produto especifico na primeira mensagem.
 
