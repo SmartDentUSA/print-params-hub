@@ -245,6 +245,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     );
   }, [language, t]);
 
+  const [leadCollected, setLeadCollected] = useState<boolean>(() => {
+    return !!sessionStorage.getItem('dra_lia_lead_collected');
+  });
   const [topicSelected, setTopicSelected] = useState<boolean>(() => {
     return !!sessionStorage.getItem('dra_lia_topic_context');
   });
@@ -288,7 +291,6 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
     try {
       const history = messages
-        .filter((m) => m.id !== 'welcome')
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
@@ -373,6 +375,12 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m
         )
       );
+
+      // Detect lead collection confirmation from backend
+      if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista/i.test(fullContent)) {
+        setLeadCollected(true);
+        sessionStorage.setItem('dra_lia_lead_collected', 'true');
+      }
     } catch (e) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -447,7 +455,6 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       setIsLoading(true);
 
       const history = messages
-        .filter((m) => m.id !== 'welcome')
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
@@ -505,6 +512,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
             }
           }
           setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m));
+          // Detect lead collection confirmation from backend
+          if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista/i.test(fullContent)) {
+            setLeadCollected(true);
+            sessionStorage.setItem('dra_lia_lead_collected', 'true');
+          }
           setIsLoading(false);
         };
 
@@ -519,8 +531,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const resetTopic = useCallback(() => {
     setTopicSelected(false);
     setTopicContext('');
+    setLeadCollected(false);
     sessionStorage.removeItem('dra_lia_topic_context');
-    // Reset the welcome message to show buttons again
+    sessionStorage.removeItem('dra_lia_lead_collected');
+    // Reset the welcome message to show name prompt again
     setMessages([{ id: 'welcome', role: 'assistant', content: t('dra_lia.welcome_message') }]);
   }, [t]);
 
@@ -579,8 +593,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 {msg.role === 'assistant' ? renderMarkdown(msg.content) : msg.content}
               </div>
 
-              {/* Topic selection menu — only on welcome message, before topic is selected */}
-              {msg.id === 'welcome' && !topicSelected && !isLoading && (
+              {/* Topic selection menu — shown after lead collected (name+email), before topic is selected */}
+              {(() => {
+                const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
+                return msg.id === lastAssistantId && leadCollected && !topicSelected && !isLoading;
+              })() && (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
                     {TOPIC_OPTIONS.map((opt) => (
