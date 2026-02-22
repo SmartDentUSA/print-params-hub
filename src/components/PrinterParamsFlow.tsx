@@ -448,7 +448,7 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
                     {/* Description */}
                     {/* Description - Accordion */}
                     {group.resinDescription && (
-                      <ResinAccordionSection title="Informações de uso">
+                      <ResinAccordionSection title="Descrição do produto">
                         <p className="text-[10px] text-gray-500 leading-relaxed">
                           {group.resinDescription}
                         </p>
