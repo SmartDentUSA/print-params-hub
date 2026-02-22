@@ -42,15 +42,8 @@ interface ResinGroup {
   resinManufacturer: string;
   resinImage?: string;
   resinDescription?: string;
+  resinProcessingInstructions?: string;
   resinCTAs: ResinCTA[];
-  params: ParamSet[];
-}
-
-interface ResinGroup {
-  resinKey: string;
-  resinName: string;
-  resinManufacturer: string;
-  resinImage?: string;
   params: ParamSet[];
 }
 
@@ -145,11 +138,12 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
       const resinNames = [...new Set(psData.map(p => p.resin_name))];
       const { data: resinsData } = await supabase
         .from('resins')
-        .select('name, image_url, description, cta_1_enabled, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url')
+        .select('name, image_url, description, processing_instructions, cta_1_enabled, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url')
         .in('name', resinNames);
 
       const resinImageMap = new Map((resinsData || []).map(r => [r.name, r.image_url]));
       const resinDescMap = new Map((resinsData || []).map(r => [r.name, r.description]));
+      const resinProcMap = new Map((resinsData || []).map(r => [r.name, r.processing_instructions]));
       const resinCTAMap = new Map<string, ResinCTA[]>();
       (resinsData || []).forEach(r => {
         const ctas: ResinCTA[] = [];
@@ -170,6 +164,7 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
             resinManufacturer: ps.resin_manufacturer,
             resinImage: resinImageMap.get(ps.resin_name) || undefined,
             resinDescription: resinDescMap.get(ps.resin_name) || undefined,
+            resinProcessingInstructions: resinProcMap.get(ps.resin_name) || undefined,
             resinCTAs: resinCTAMap.get(ps.resin_name) || [],
             params: [],
           });
@@ -443,6 +438,34 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
                             ? group.resinDescription.slice(0, 200) + '…'
                             : group.resinDescription}
                         </p>
+                      </div>
+                    )}
+
+                    {/* Processing Instructions */}
+                    {group.resinProcessingInstructions && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <div className="text-[10px] font-semibold text-gray-600 mb-1">Instruções de Pré/Pós Processamento</div>
+                        <div className="text-[10px] text-gray-500 leading-relaxed space-y-1">
+                          {group.resinProcessingInstructions.split('\n').filter(l => l.trim()).slice(0, 8).map((line, i) => {
+                            const trimmed = line.trim();
+                            if (trimmed.startsWith('##')) {
+                              return <div key={i} className="font-semibold text-gray-600 mt-1">{trimmed.replace(/^#+\s*/, '')}</div>;
+                            }
+                            if (trimmed.startsWith('###')) {
+                              return <div key={i} className="font-medium text-gray-600">{trimmed.replace(/^#+\s*/, '')}</div>;
+                            }
+                            if (trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+                              return <div key={i} className="flex items-start gap-1"><span className="text-primary mt-0.5">•</span><span>{trimmed.replace(/^[-•]\s*/, '')}</span></div>;
+                            }
+                            if (trimmed.startsWith('> ')) {
+                              return <div key={i} className="pl-1.5 border-l-2 border-amber-400 text-amber-700 text-[9px]">⚠️ {trimmed.replace(/^>\s*/, '')}</div>;
+                            }
+                            return <div key={i}>{trimmed}</div>;
+                          })}
+                          {group.resinProcessingInstructions.split('\n').filter(l => l.trim()).length > 8 && (
+                            <div className="text-[9px] text-gray-400 italic">...ver mais na página da resina</div>
+                          )}
+                        </div>
                       </div>
                     )}
 
