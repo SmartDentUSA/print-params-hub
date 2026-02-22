@@ -4,12 +4,19 @@ import { ArrowLeft, Check } from 'lucide-react';
 
 export type CommercialStep = 'qualify' | 'scan' | 'cad' | 'print' | 'make' | 'summary';
 
+interface ProductCTA {
+  label: string;
+  url: string;
+}
+
 interface ProductItem {
   id: string;
   name: string;
   image_url: string | null;
+  description: string | null;
   product_subcategory: string | null;
   source: 'catalog' | 'resin';
+  ctas: ProductCTA[];
 }
 
 interface CommercialFlowProps {
@@ -69,7 +76,7 @@ export default function CommercialFlow({
 
       const { data: catalogData } = await supabase
         .from('system_a_catalog')
-        .select('id, name, image_url, product_subcategory, product_category')
+        .select('id, name, image_url, description, product_subcategory, product_category, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url')
         .eq('active', true)
         .eq('approved', true)
         .in('product_category', categories)
@@ -81,12 +88,18 @@ export default function CommercialFlow({
           const key = p.name.toLowerCase();
           if (!seen.has(key)) {
             seen.add(key);
+            const ctas: ProductCTA[] = [];
+            if (p.cta_1_url && p.cta_1_label) ctas.push({ label: p.cta_1_label, url: p.cta_1_url });
+            if (p.cta_2_url && p.cta_2_label) ctas.push({ label: p.cta_2_label, url: p.cta_2_url });
+            if (p.cta_3_url && p.cta_3_label) ctas.push({ label: p.cta_3_label, url: p.cta_3_url });
             items.push({
               id: p.id,
               name: p.name,
               image_url: p.image_url,
+              description: p.description,
               product_subcategory: p.product_subcategory,
               source: 'catalog',
+              ctas,
             });
           }
         });
@@ -96,7 +109,7 @@ export default function CommercialFlow({
       if (step === 'make') {
         const { data: resinsData } = await supabase
           .from('resins')
-          .select('id, name, image_url, type')
+          .select('id, name, image_url, description, type, cta_1_label, cta_1_url, cta_1_enabled, cta_2_label, cta_2_url, cta_3_label, cta_3_url')
           .eq('active', true)
           .order('name');
 
@@ -104,12 +117,18 @@ export default function CommercialFlow({
           const normalizedExisting = items.map((i) => normalizeProductName(i.name));
           resinsData.forEach((r) => {
             if (!normalizedExisting.includes(normalizeProductName(r.name))) {
+              const ctas: ProductCTA[] = [];
+              if (r.cta_1_enabled && r.cta_1_url && r.cta_1_label) ctas.push({ label: r.cta_1_label, url: r.cta_1_url });
+              if (r.cta_2_url && r.cta_2_label) ctas.push({ label: r.cta_2_label, url: r.cta_2_url });
+              if (r.cta_3_url && r.cta_3_label) ctas.push({ label: r.cta_3_label, url: r.cta_3_url });
               items.push({
                 id: r.id,
                 name: r.name,
                 image_url: r.image_url,
+                description: r.description,
                 product_subcategory: r.type === 'biocompatible' ? 'Biocompatível' : 'Uso Geral',
                 source: 'resin',
+                ctas,
               });
             }
           });
@@ -212,49 +231,83 @@ export default function CommercialFlow({
         {STEP_LABELS[step]} — {products.length} opç{products.length !== 1 ? 'ões' : 'ão'}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
+      <div className="grid grid-cols-1 gap-2 max-h-[400px] overflow-y-auto">
         {products.map((product) => {
           const isSelected = isMake && selectedMake.has(product.name);
+          const truncatedDesc = product.description
+            ? product.description.length > 120
+              ? product.description.slice(0, 120) + '…'
+              : product.description
+            : null;
           return (
-            <button
+            <div
               key={`${product.source}-${product.id}`}
-              onClick={() => {
-                if (isMake) {
-                  handleToggleMake(product.name);
-                } else {
-                  onProductSelect(product.name);
-                }
-              }}
-              className={`flex flex-col items-center gap-2 p-3 rounded-xl border bg-white transition-all text-center shadow-sm ${
+              className={`flex gap-3 p-3 rounded-xl border bg-white transition-all shadow-sm ${
                 isSelected
                   ? 'border-[#1e3a5f] bg-blue-50 ring-1 ring-[#1e3a5f]'
                   : 'border-gray-200 hover:border-[#1e3a5f] hover:bg-blue-50'
               }`}
             >
-              {isMake && (
-                <div className={`self-end w-4 h-4 rounded border flex items-center justify-center text-white ${
-                  isSelected ? 'bg-[#1e3a5f] border-[#1e3a5f]' : 'border-gray-300'
-                }`}>
-                  {isSelected && <Check size={12} />}
-                </div>
-              )}
-              {product.image_url ? (
-                <img
-                  src={product.image_url}
-                  alt={product.name}
-                  className="w-12 h-12 object-contain rounded-lg"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              ) : (
-                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-lg">📦</div>
-              )}
-              <span className="text-[11px] font-medium text-gray-800 leading-tight line-clamp-2">{product.name}</span>
-              {product.product_subcategory && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-50 text-[#1e3a5f] font-medium">
-                  {product.product_subcategory}
-                </span>
-              )}
-            </button>
+              {/* Image */}
+              <button
+                onClick={() => isMake ? handleToggleMake(product.name) : onProductSelect(product.name)}
+                className="flex-shrink-0 flex flex-col items-center gap-1"
+              >
+                {isMake && (
+                  <div className={`w-4 h-4 rounded border flex items-center justify-center text-white ${
+                    isSelected ? 'bg-[#1e3a5f] border-[#1e3a5f]' : 'border-gray-300'
+                  }`}>
+                    {isSelected && <Check size={12} />}
+                  </div>
+                )}
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-14 h-14 object-contain rounded-lg"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-14 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-lg">📦</div>
+                )}
+              </button>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0 text-left">
+                <button
+                  onClick={() => isMake ? handleToggleMake(product.name) : onProductSelect(product.name)}
+                  className="text-left w-full"
+                >
+                  <span className="text-xs font-semibold text-gray-800 leading-tight block">{product.name}</span>
+                  {product.product_subcategory && (
+                    <span className="text-[9px] inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-50 text-[#1e3a5f] font-medium">
+                      {product.product_subcategory}
+                    </span>
+                  )}
+                  {truncatedDesc && (
+                    <p className="text-[10px] text-gray-500 mt-1 leading-snug">{truncatedDesc}</p>
+                  )}
+                </button>
+
+                {/* CTAs */}
+                {product.ctas.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {product.ctas.map((cta, i) => (
+                      <a
+                        key={i}
+                        href={cta.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[9px] px-2 py-0.5 rounded-full border border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f] hover:text-white transition-colors font-medium"
+                      >
+                        {cta.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
