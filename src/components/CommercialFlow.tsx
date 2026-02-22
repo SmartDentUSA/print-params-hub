@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { ExternalLink as ExternalLinkIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Check } from 'lucide-react';
 
