@@ -1,225 +1,127 @@
 
-# Reestruturacao da Rota Comercial da Dra. L.I.A. — Consultora Especialista
 
-## Visao Geral
+# Fluxo Comercial com Botoes de Qualificacao: Scan | CAD | Print | Make + Workflow Completo
 
-Transformar a rota comercial (`topic_context === "commercial"`) de um chatbot reativo com regras rigidas em uma consultora com conversa natural, que usa o maximo dos dados internos (1.377 embeddings, 271 transcrições de video, 273 produtos do catalogo) sem alucinar.
+## O que muda
 
-A implementacao se divide em 3 fases incrementais, cada uma deployavel independentemente.
-
----
-
-## FASE 1 — Reestruturacao do System Prompt Comercial (Impacto Imediato)
-
-### Problema atual
-O `SDR_COMMERCIAL_INSTRUCTION` tem ~2.500 tokens de regras empilhadas (REGRA #1, #2, #3...) que o LLM trata como checklist robotico. O system prompt total passa de 6.000 tokens, competindo com o contexto RAG por espaco de atencao.
-
-### Solucao: Prompt Modular Dinamico
-
-**Arquivo:** `supabase/functions/dra-lia/index.ts`
-
-Substituir o bloco monolitico `SDR_COMMERCIAL_INSTRUCTION` por uma funcao `buildCommercialPrompt()` que monta o prompt em modulos baseados no estado real do lead:
+Quando o usuario seleciona o topico **comercial** ("Quero transformar minha vida profissional..."), em vez da IA fazer perguntas de qualificacao por texto, o chat exibe **botoes visuais** para o usuario escolher em qual parte do fluxo digital quer entrar:
 
 ```text
-Modulo 1: PERSONA (fixo, ~200 tokens)
-  "Voce e a Dra. L.I.A., consultora especialista da Smart Dent.
-   Conversa natural, como colega que entende profundamente.
-   2-3 frases por mensagem. 1 pergunta por vez."
-
-Modulo 2: ESTADO DO LEAD (dinamico, ~100 tokens)
-  Injetado com base nos extracted_entities da sessao:
-  "Lead: [nome], especialidade: [X], equipamento: [Y],
-   Etapa atual: Apresentacao de solucao."
-
-Modulo 3: INSTRUCAO DE TURNO (dinamico, ~150 tokens)
-  Baseado no spin_stage detectado:
-  - etapa_1: "Pergunte qual produto/solucao interessa"
-  - etapa_2: "Faca UMA pergunta de contexto"
-  - etapa_3: "Apresente a solucao usando os DADOS DAS FONTES"
-  - etapa_4+: "Ofereca agendamento/link da loja"
-
-Modulo 4: REGRAS ANTI-ALUCINACAO COMERCIAL (fixo, ~200 tokens)
-  Versao condensada: apenas 3 regras essenciais
-  (nao inventar precos, nao inventar produtos, seguranca p/ scanner)
+Linha 1:  [ Scan ]  [ CAD ]  [ Print ]  [ Make ]
+Linha 2:  [      Workflow Completo       ]
 ```
 
-**Resultado:** Prompt comercial de ~650 tokens (vs ~2.500 atual), liberando espaco para contexto RAG.
+Cada botao leva direto para os cards de produtos da categoria correspondente. O botao "Workflow Completo" inicia o fluxo guiado completo (Scanner -> Impressora -> Resinas -> Consultoria).
 
-### Mudancas tecnicas no codigo
+## Mapeamento dos botoes para categorias do banco
 
-1. Criar funcao `buildCommercialInstruction(sessionEntities, spinStage)` que retorna string
-2. Substituir a constante `SDR_COMMERCIAL_INSTRUCTION` pela chamada dinamica
-3. Mover a logica SPIN progress (linhas 1874-1932) para ANTES da montagem do prompt (ja acontece, apenas reorganizar)
-4. Remover duplicacoes de regras que ja existem nas "17 Diretrizes" do prompt base
+| Botao | Categoria no banco | O que mostra |
+|-------|--------------------|--------------|
+| Scan | SCANNERS 3D (8 produtos) | Cards de scanners |
+| CAD | SOFTWARES (2 produtos) | Cards de softwares CAD |
+| Print | IMPRESSAO 3D (6 produtos) | Cards de impressoras |
+| Make | RESINAS 3D (28+ produtos) + POS-IMPRESSAO (8) + CARACTERIZACAO (27) | Cards de resinas, pos-impressao e caracterizacao (agrupados por subcategoria) |
+| Workflow Completo | Todas as categorias acima, em sequencia guiada | Scan -> CAD -> Print -> Make, passo a passo |
 
----
+## Mudancas tecnicas
 
-## FASE 2 — Contexto RAG Estruturado por Secoes Semanticas
+### 1. Novo componente: `src/components/CommercialFlow.tsx`
 
-### Problema atual
-O contexto e montado como texto corrido (linhas 1845-1863):
-```
-[CATALOG_PRODUCT] Smart Lab + Asiga MAX 2... | URL: /produtos/...
-[ARTICLE] Impressao 3D em Odontologia... | URL: /base-conhecimento/...
-[COMPANY_KB] Script SDR treinamento...
-```
-O LLM nao sabe qual dado usar para persuasao vs informacao tecnica vs resposta direta.
+Componente que gerencia a qualificacao visual e o fluxo guiado comercial:
 
-### Solucao: Contexto Rotulado por Intencao
+- **Props**: `step`, `onStepChange`, `onProductSelect`, `onMultiSelect`
+- **Steps**: `qualify` (botoes iniciais) | `scan` | `cad` | `print` | `make` | `summary`
+- **Qualify step**: Renderiza os 5 botoes (Scan, CAD, Print, Make + Workflow Completo) com icones/emojis
+- **Category steps**: Busca produtos do Supabase por `product_category`, exibe cards clicaveis (reutiliza o estilo visual do `ProductsFlow` existente)
+- **Make step**: Especial - mostra resinas com multi-selecao (checkboxes visuais + botao "Confirmar selecao")
+- **Workflow mode**: Flag interna `isFullWorkflow` que, apos cada selecao, avanca automaticamente para a proxima etapa (scan -> cad -> print -> make -> summary)
+- **Selecao unica** (Scan, CAD, Print): click no card envia o produto escolhido para a LIA explicar e avancar
+- **Selecao multipla** (Make/Resinas): usuario seleciona varios, confirma, e a LIA recebe a lista completa
 
-**Arquivo:** `supabase/functions/dra-lia/index.ts`
-
-Modificar a montagem do contexto (linhas 1845-1863) para agrupar resultados por funcao semantica:
+Layout do step `qualify`:
 
 ```text
-## PRODUTOS RECOMENDADOS (use para sugestoes e apresentacao)
-[dados de catalog_product e resin]
++-------------------------------+
+| Em qual etapa do fluxo voce   |
+| quer comecar?                 |
++-------------------------------+
 
-## ARGUMENTOS DE VENDA E EXPERTISE (use para persuasao e objecoes)
-[dados de company_kb com source_label: sdr, comercial, objecoes]
-
-## ARTIGOS TECNICOS RELEVANTES (cite se o lead pedir detalhes)
-[dados de article]
-
-## VIDEOS DISPONIVEIS (mencione APENAS se solicitado)
-[dados de video — apenas titulo e URL]
-
-## PARAMETROS TECNICOS (cite apenas se perguntado)
-[dados de parameter_set e processing_protocol]
+  [Scan]   [CAD]   [Print]  [Make]
+  [        Workflow Completo       ]
 ```
 
-### Mudancas tecnicas
+### 2. Modificar `src/components/DraLIA.tsx`
 
-1. Criar funcao `buildStructuredContext(allResults)` que agrupa por `source_type` e gera o texto rotulado
-2. Adicionar instrucao no system prompt: "Cada secao tem uma funcao. Use PRODUTOS para apresentar, ARGUMENTOS para convencer, ARTIGOS para aprofundar."
-3. Manter a secao "--- DADOS DAS FONTES ---" mas com a estrutura semantica interna
+- Adicionar estado `commercialFlowStep`: `'qualify' | 'scan' | 'cad' | 'print' | 'make' | 'summary' | null`
+- Adicionar estado `commercialSelections`: objeto acumulando as escolhas do usuario
+- Quando `topicContext === 'commercial'`:
+  - Apos a IA responder a saudacao inicial, mostrar `CommercialFlow` com `step='qualify'`
+  - Quando usuario clica em um botao de categoria (ex: Scan), avancar para `step='scan'` que mostra os cards
+  - Quando usuario clica em um card, enviar para a IA: "Escolhi o [nome]. Me conte sobre ele comparado as outras opcoes." e avancar para proxima etapa se estiver em Workflow Completo
+  - No modo Workflow Completo, apos cada resposta da IA, mostrar cards da proxima etapa automaticamente
+  - No step `make` (resinas), permitir multi-selecao e enviar lista completa para a IA
+  - No step `summary`, enviar todas as selecoes para a IA montar consultoria final (ROI, treinamentos, combo)
 
----
-
-## FASE 3 — Expansao Automatica do Brain Feeder via Transcricoes de Video
-
-### Dados atuais
-- `company_kb_texts`: apenas 5 textos manuais (1 sdr, 1 comercial, 1 suporte, 2 dialogos)
-- 271 videos com transcricoes completas (nao utilizadas para expertise comercial)
-- 273 produtos no catalogo com FAQs e descricoes
-
-### Solucao: Edge Function de Extracao de Expertise
-
-**Novo arquivo:** `supabase/functions/extract-commercial-expertise/index.ts`
-
-Funcao que:
-1. Le transcricoes de videos que mencionam produtos do catalogo
-2. Envia ao LLM com prompt de extracao estruturada (tool calling):
-   - Beneficios-chave do produto
-   - Comparacoes com concorrentes (se mencionadas)
-   - Objecoes respondidas no video
-   - Casos de uso clinico citados
-3. Salva o resultado em `company_kb_texts` com:
-   - `category: 'comercial'`
-   - `source_label: 'expertise-video-[produto]'`
-   - `title: 'Expertise: [Nome do Produto] — [tipo: beneficios/objecoes/casos]'`
-
-### Schema do tool calling para extracao
-
-```typescript
-tools: [{
-  type: "function",
-  function: {
-    name: "extract_expertise",
-    parameters: {
-      type: "object",
-      properties: {
-        product_name: { type: "string" },
-        benefits: { type: "array", items: { type: "string" } },
-        objections_handled: { type: "array", items: {
-          type: "object",
-          properties: {
-            objection: { type: "string" },
-            response: { type: "string" }
-          }
-        }},
-        clinical_cases: { type: "array", items: { type: "string" } },
-        competitive_advantages: { type: "array", items: { type: "string" } }
-      }
-    }
-  }
-}]
-```
-
-### Processo de execucao
-
-- Batch: processar 10 videos por invocacao (evitar timeout de 60s)
-- Filtro: apenas videos com `video_transcript.length > 500` e que mencionem produtos do catalogo
-- Deduplicacao: `UNIQUE(title, source_label)` ja existe na tabela
-- Apos salvar em `company_kb_texts`, chamar `index-embeddings?stage=company_kb` para indexar
-
-### Volume estimado
-
-- 271 transcricoes disponiveis
-- ~40-60% mencionam produtos especificos = ~120 textos de expertise
-- Com chunking de 900 chars = ~200-300 chunks novos no RAG
-- Peso do `company_kb` na rota comercial: 1.5x (ja configurado)
-
----
-
-## FASE 2.5 — Correcao do Judge (evaluate-interaction)
-
-### Problema atual (40% falsos positivos)
-O prompt do Judge nao reconhece dados de `catalog_product` como contexto valido. Quando a LIA cita preco ou FAQ de um produto do catalogo, o Judge classifica como "hallucination" porque so procura dados em format RAG tradicional.
-
-### Solucao
-
-**Arquivo:** `supabase/functions/evaluate-interaction/index.ts`
-
-Adicionar ao `judgePrompt`:
+- Logica de integracao no handleTopicSelect:
 
 ```text
-ATENCAO: O contexto RAG inclui multiplas fontes:
-- [CATALOG_PRODUCT]: dados de produtos com precos, FAQs e descricoes — SAO CONTEXTO VALIDO
-- [PROCESSING_PROTOCOL]: instrucoes de processamento de resinas — SAO CONTEXTO VALIDO
-- [COMPANY_KB]: conhecimento comercial e scripts — SAO CONTEXTO VALIDO
-- [PARAMETER_SET]: parametros de impressao — SAO CONTEXTO VALIDO
-
-Se a IA citou um dado que aparece em QUALQUER uma dessas fontes no contexto, NAO e alucinacao.
-So classifique como "hallucination" se o dado tecnico REALMENTE nao existe em nenhuma parte do contexto.
+if (opt.id === 'commercial') {
+  -> envia mensagem para IA (saudacao)
+  -> apos resposta, ativa commercialFlowStep = 'qualify'
+  -> botoes aparecem abaixo da mensagem da IA
+}
 ```
 
-### Resultado esperado
-- Falsos positivos devem cair de ~40% para ~5-10%
-- Taxa real de hallucination sera mensuravel com precisao
-- Interacoes com score >= 4 aumentarao, populando o dataset de fine-tuning
+### 3. Nenhuma mudanca no backend nesta fase
 
----
+O backend (dra-lia) ja tem o prompt modular (`buildCommercialInstruction`) e o contexto estruturado (`buildStructuredContext`). O frontend controla o fluxo visual e envia as selecoes como mensagens normais. O backend recebe "Escolhi o Medit i700" e responde com dados do RAG normalmente.
 
-## Ajuste nos Topic Weights para Rota Comercial
+Numa fase futura, o backend pode enviar `commercial_step_hint` no SSE para controlar os cards, mas nesta implementacao o frontend gerencia tudo localmente.
 
-### Peso atual
+## Fluxo do usuario (exemplo: Workflow Completo)
+
+```text
+1. Usuario clica "Quero transformar minha vida profissional"
+2. IA: "Oi! Em qual parte do fluxo digital voce quer comecar?"
+3. [Scan] [CAD] [Print] [Make] / [Workflow Completo]
+4. Usuario clica "Workflow Completo"
+5. Cards de SCANNERS aparecem
+6. Usuario clica "Medit i700"
+7. IA: "Otima escolha! O i700 se destaca por..."
+8. Cards de SOFTWARES (CAD) aparecem
+9. Usuario clica "exocad"
+10. IA: "O exocad e o padrao ouro para..."
+11. Cards de IMPRESSORAS aparecem
+12. Usuario clica "Asiga MAX UV"
+13. IA: "A Asiga MAX UV combina perfeitamente com..."
+14. Cards de RESINAS aparecem (multi-selecao)
+15. Usuario seleciona 3 resinas -> Confirmar
+16. IA monta consultoria final: resumo do combo, ROI, treinamentos
 ```
-commercial: { catalog_product: 2.5, company_kb: 1.5, article: 0.4, video: 0.3, ... }
+
+## Fluxo do usuario (exemplo: entrada direta)
+
+```text
+1. Usuario clica "Quero transformar minha vida profissional"
+2. IA: saudacao
+3. [Scan] [CAD] [Print] [Make] / [Workflow Completo]
+4. Usuario clica "Print"
+5. Cards de IMPRESSORAS aparecem
+6. Usuario clica "Asiga PRO 4K"
+7. IA: "A PRO 4K e ideal para... Ja pensou em quais resinas usar?"
+8. (opcional) Cards de resinas aparecem como sugestao
 ```
 
-### Ajuste proposto
-```
-commercial: { catalog_product: 2.0, company_kb: 2.0, article: 0.6, video: 0.5, resin: 0.8, ... }
-```
+## Arquivos
 
-Justificativa: elevar `company_kb` para 2.0 (sera a fonte principal de expertise apos Fase 3), elevar `resin` para 0.8 (resinas sao produtos vendaveis na rota comercial), e subir `article` e `video` levemente para permitir que a LIA cite artigos e videos quando relevantes.
+| Arquivo | Acao |
+|---------|------|
+| `src/components/CommercialFlow.tsx` | NOVO - Componente com botoes de qualificacao + cards por categoria |
+| `src/components/DraLIA.tsx` | MODIFICAR - Adicionar estados e integracao do CommercialFlow |
 
----
+## Ordem de implementacao
 
-## Resumo de Arquivos Modificados
+1. Criar `CommercialFlow.tsx` com step `qualify` (botoes) e steps de categoria (cards)
+2. Integrar no `DraLIA.tsx` com estados e transicoes
+3. Testar fluxo completo e entradas parciais
 
-| Arquivo | Fase | Tipo de Mudanca |
-|---------|------|-----------------|
-| `supabase/functions/dra-lia/index.ts` | 1, 2 | Refatorar prompt comercial + contexto estruturado + pesos |
-| `supabase/functions/evaluate-interaction/index.ts` | 2.5 | Corrigir prompt do Judge |
-| `supabase/functions/extract-commercial-expertise/index.ts` | 3 | Nova edge function |
-
-## Ordem de Implementacao Recomendada
-
-1. **Fase 1** — Prompt modular (impacto imediato, risco baixo)
-2. **Fase 2.5** — Correcao do Judge (desbloqueia metricas reais)
-3. **Fase 2** — Contexto estruturado (melhora qualidade das respostas)
-4. **Fase 3** — Expansao do Brain Feeder (escala o conhecimento)
-
-Cada fase pode ser deployada e testada independentemente. A Fase 1 sozinha ja deve produzir respostas visivelmente mais naturais e menos roboticas na rota comercial.
