@@ -14,6 +14,11 @@ interface ModelItem {
   image_url?: string;
 }
 
+interface ResinCTA {
+  label: string;
+  url: string;
+}
+
 interface ParamSet {
   id: string;
   resin_name: string;
@@ -29,6 +34,16 @@ interface ParamSet {
   wait_time_before_cure?: number;
   wait_time_after_cure?: number;
   wait_time_after_lift?: number;
+}
+
+interface ResinGroup {
+  resinKey: string;
+  resinName: string;
+  resinManufacturer: string;
+  resinImage?: string;
+  resinDescription?: string;
+  resinCTAs: ResinCTA[];
+  params: ParamSet[];
 }
 
 interface ResinGroup {
@@ -130,10 +145,19 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
       const resinNames = [...new Set(psData.map(p => p.resin_name))];
       const { data: resinsData } = await supabase
         .from('resins')
-        .select('name, image_url')
+        .select('name, image_url, description, cta_1_enabled, cta_1_label, cta_1_url, cta_2_label, cta_2_url, cta_3_label, cta_3_url')
         .in('name', resinNames);
 
       const resinImageMap = new Map((resinsData || []).map(r => [r.name, r.image_url]));
+      const resinDescMap = new Map((resinsData || []).map(r => [r.name, r.description]));
+      const resinCTAMap = new Map<string, ResinCTA[]>();
+      (resinsData || []).forEach(r => {
+        const ctas: ResinCTA[] = [];
+        if (r.cta_1_enabled && r.cta_1_url && r.cta_1_label) ctas.push({ label: r.cta_1_label, url: r.cta_1_url });
+        if (r.cta_2_url && r.cta_2_label) ctas.push({ label: r.cta_2_label, url: r.cta_2_url });
+        if (r.cta_3_url && r.cta_3_label) ctas.push({ label: r.cta_3_label, url: r.cta_3_url });
+        resinCTAMap.set(r.name, ctas);
+      });
 
       // Group by resin
       const groups = new Map<string, ResinGroup>();
@@ -145,6 +169,8 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
             resinName: ps.resin_name,
             resinManufacturer: ps.resin_manufacturer,
             resinImage: resinImageMap.get(ps.resin_name) || undefined,
+            resinDescription: resinDescMap.get(ps.resin_name) || undefined,
+            resinCTAs: resinCTAMap.get(ps.resin_name) || [],
             params: [],
           });
         }
@@ -405,6 +431,35 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
                             <ParamRow label="Espera após elevação" value={`${selectedParam.wait_time_after_lift}s`} />
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    {group.resinDescription && (
+                      <div className="pt-2 border-t border-gray-200">
+                        <div className="text-[10px] font-semibold text-gray-600 mb-1">Informações de uso</div>
+                        <p className="text-[10px] text-gray-500 leading-relaxed">
+                          {group.resinDescription.length > 200
+                            ? group.resinDescription.slice(0, 200) + '…'
+                            : group.resinDescription}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* CTAs */}
+                    {group.resinCTAs.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-200">
+                        {group.resinCTAs.map((cta, i) => (
+                          <a
+                            key={i}
+                            href={cta.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full border border-[#1e3a5f] text-[#1e3a5f] hover:bg-[#1e3a5f] hover:text-white transition-colors font-medium"
+                          >
+                            {cta.label}
+                          </a>
+                        ))}
                       </div>
                     )}
                   </div>
