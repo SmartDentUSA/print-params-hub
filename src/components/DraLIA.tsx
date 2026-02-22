@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
 import ProductsFlow from './ProductsFlow';
+import CommercialFlow, { type CommercialStep } from './CommercialFlow';
 import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -262,6 +263,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [printerFlowStep, setPrinterFlowStep] = useState<'brand' | 'model' | 'resin' | null>(null);
   // Products guided flow state
   const [productsFlowStep, setProductsFlowStep] = useState<'category' | 'products' | null>(null);
+  // Commercial guided flow state
+  const [commercialFlowStep, setCommercialFlowStep] = useState<CommercialStep | null>(null);
+  const [commercialFullWorkflow, setCommercialFullWorkflow] = useState(false);
+  const commercialSelectionsRef = useRef<{ scanner?: string; cad?: string; printer?: string; resins: string[] }>({ resins: [] });
+  const pendingCommercialStepRef = useRef<CommercialStep | null>(null);
 
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
@@ -396,6 +402,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           setProductsFlowStep('category');
         }
       }
+      // Activate commercial qualify buttons after AI response
+      if (pendingCommercialStepRef.current) {
+        setCommercialFlowStep(pendingCommercialStepRef.current);
+        pendingCommercialStepRef.current = null;
+      }
     } catch (e) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -467,6 +478,15 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       sessionStorage.setItem('dra_lia_topic_context', opt.id);
       setPrinterFlowStep('brand');
       return;
+    }
+
+    // Commercial topic — send greeting, then show qualify buttons after AI responds
+    if (opt.id === 'commercial') {
+      setTopicSelected(true);
+      setTopicContext(opt.id);
+      sessionStorage.setItem('dra_lia_topic_context', opt.id);
+      pendingCommercialStepRef.current = 'qualify';
+      // Fall through to send message to backend
     }
 
     // Products topic — if lead already collected, show cards immediately
@@ -560,6 +580,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                setProductsFlowStep('category');
              }
            }
+           // Activate commercial qualify buttons after AI greeting
+           if (pendingCommercialStepRef.current) {
+             setCommercialFlowStep(pendingCommercialStepRef.current);
+             pendingCommercialStepRef.current = null;
+           }
           setIsLoading(false);
         };
 
@@ -576,6 +601,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setTopicContext('');
     setPrinterFlowStep(null);
     setProductsFlowStep(null);
+    setCommercialFlowStep(null);
+    setCommercialFullWorkflow(false);
+    commercialSelectionsRef.current = { resins: [] };
     sessionStorage.removeItem('dra_lia_topic_context');
     // Keep sessionId, leadCollected, and sessionStorage lead data intact
     // so the backend recognizes the lead without asking for email again
@@ -793,6 +821,65 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 onProductSelect={(productName) => {
                   setProductsFlowStep(null);
                   const msg = `Quero saber mais sobre ${productName}`;
+                  pendingProductRef.current = msg;
+                  setInput(msg);
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Commercial guided flow */}
+        {commercialFlowStep && topicContext === 'commercial' && (
+          <div className="flex justify-start">
+            <div className="max-w-[95%] w-full">
+              <CommercialFlow
+                step={commercialFlowStep}
+                isFullWorkflow={commercialFullWorkflow}
+                onStepSelect={(selectedStep, fullWorkflow) => {
+                  setCommercialFullWorkflow(fullWorkflow);
+                  setCommercialFlowStep(selectedStep);
+                }}
+                onProductSelect={(productName) => {
+                  // Store selection based on current step
+                  const sel = commercialSelectionsRef.current;
+                  if (commercialFlowStep === 'scan') sel.scanner = productName;
+                  else if (commercialFlowStep === 'cad') sel.cad = productName;
+                  else if (commercialFlowStep === 'print') sel.printer = productName;
+
+                  // Hide cards while AI responds
+                  setCommercialFlowStep(null);
+
+                  // Determine next step for workflow mode
+                  const WORKFLOW_ORDER: CommercialStep[] = ['scan', 'cad', 'print', 'make'];
+                  if (commercialFullWorkflow) {
+                    const currentIdx = WORKFLOW_ORDER.indexOf(commercialFlowStep!);
+                    const nextStep = currentIdx < WORKFLOW_ORDER.length - 1 ? WORKFLOW_ORDER[currentIdx + 1] : 'summary';
+                    pendingCommercialStepRef.current = nextStep;
+                  }
+
+                  const msg = `Escolhi o ${productName}. Me conte sobre ele comparado às outras opções.`;
+                  pendingProductRef.current = msg;
+                  setInput(msg);
+                }}
+                onMultiSelect={(productNames) => {
+                  commercialSelectionsRef.current.resins = productNames;
+                  setCommercialFlowStep(null);
+
+                  if (commercialFullWorkflow) {
+                    pendingCommercialStepRef.current = 'summary';
+                  }
+
+                  const sel = commercialSelectionsRef.current;
+                  const summaryParts: string[] = [];
+                  if (sel.scanner) summaryParts.push(`Scanner: ${sel.scanner}`);
+                  if (sel.cad) summaryParts.push(`CAD: ${sel.cad}`);
+                  if (sel.printer) summaryParts.push(`Impressora: ${sel.printer}`);
+                  summaryParts.push(`Resinas/Materiais: ${productNames.join(', ')}`);
+
+                  const msg = commercialFullWorkflow
+                    ? `Minhas escolhas completas: ${summaryParts.join(' | ')}. Monte uma consultoria personalizada com ROI, treinamentos recomendados e resumo do combo.`
+                    : `Escolhi estas resinas/materiais: ${productNames.join(', ')}. Me conte sobre elas.`;
                   pendingProductRef.current = msg;
                   setInput(msg);
                 }}
