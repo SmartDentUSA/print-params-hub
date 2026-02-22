@@ -52,6 +52,22 @@ interface PrinterParamsFlowProps {
   onStepChange: (step: 'brand' | 'model' | 'resin' | null) => void;
 }
 
+function ResinAccordionSection({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="pt-2 border-t border-gray-200">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="flex items-center justify-between w-full text-[10px] font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+      >
+        <span>{title}</span>
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="mt-1.5">{children}</div>}
+    </div>
+  );
+}
+
 export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsFlowProps) {
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [models, setModels] = useState<ModelItem[]>([]);
@@ -430,23 +446,20 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
                     )}
 
                     {/* Description */}
+                    {/* Description - Accordion */}
                     {group.resinDescription && (
-                      <div className="pt-2 border-t border-gray-200">
-                        <div className="text-[10px] font-semibold text-gray-600 mb-1">Informações de uso</div>
+                      <ResinAccordionSection title="Informações de uso">
                         <p className="text-[10px] text-gray-500 leading-relaxed">
-                          {group.resinDescription.length > 200
-                            ? group.resinDescription.slice(0, 200) + '…'
-                            : group.resinDescription}
+                          {group.resinDescription}
                         </p>
-                      </div>
+                      </ResinAccordionSection>
                     )}
 
-                    {/* Processing Instructions */}
+                    {/* Processing Instructions - Accordion */}
                     {group.resinProcessingInstructions && (
-                      <div className="pt-2 border-t border-gray-200">
-                        <div className="text-[10px] font-semibold text-gray-600 mb-1">Instruções de Pré/Pós Processamento</div>
+                      <ResinAccordionSection title="Instruções de Pré/Pós Processamento">
                         <div className="text-[10px] text-gray-500 leading-relaxed space-y-1">
-                          {group.resinProcessingInstructions.split('\n').filter(l => l.trim()).slice(0, 8).map((line, i) => {
+                          {group.resinProcessingInstructions.split('\n').filter(l => l.trim()).map((line, i) => {
                             const trimmed = line.trim();
                             if (trimmed.startsWith('##')) {
                               return <div key={i} className="font-semibold text-gray-600 mt-1">{trimmed.replace(/^#+\s*/, '')}</div>;
@@ -462,11 +475,8 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
                             }
                             return <div key={i}>{trimmed}</div>;
                           })}
-                          {group.resinProcessingInstructions.split('\n').filter(l => l.trim()).length > 8 && (
-                            <div className="text-[9px] text-gray-400 italic">...ver mais na página da resina</div>
-                          )}
                         </div>
-                      </div>
+                      </ResinAccordionSection>
                     )}
 
                     {/* CTAs */}
