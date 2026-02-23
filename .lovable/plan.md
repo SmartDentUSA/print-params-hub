@@ -1,106 +1,82 @@
 
-# Plano: Alimentar a Dra. L.I.A. com o Playbook da Rayshape Edge Mini
 
-## Analise do Playbook
+# Plano: Fazer a Dra. L.I.A. Encontrar e Compartilhar Videos do Playbook
 
-O JSON/TXT enviado contem um playbook extremamente rico com:
-- Dados basicos do produto (preco, specs, dimensoes)
-- Pitch de vendas e argumentacao comercial
-- Especificacoes tecnicas detalhadas (resolucao 34.4 um, plataformas, tempos de impressao)
-- Tabela comparativa vs concorrentes (Elegoo Mars 5 Ultra, Phrozen Sonic Mighty REVO 14K)
-- Workflow odontologico digital (etapas de impressao, pos-cura, acabamento)
-- Clinical Brain (produtos obrigatorios, produtos proibidos, regras anti-alucinacao)
-- 10+ FAQs com respostas prontas
-- 13 videos (YouTube + Instagram) com legendas e analises
-- Reviews de clientes (50+ avaliacoes 5 estrelas)
-- Conteudo de marketing (WhatsApp, Instagram, TikTok, blog comercial e tecnico)
+## Problema Identificado
 
-## Estado Atual no Banco de Dados
+Tres causas raiz impediram a L.I.A. de mostrar os videos da Edge Mini:
 
-| Camada | Status |
-|--------|--------|
-| `system_a_catalog` (descricao, benefits, FAQ) | Parcialmente populado - tem descricao e benefits, mas falta specs, comparativo, clinical brain |
-| `agent_embeddings` (RAG vetorial) | 3 chunks indexados (descricao, benefits, FAQ) - falta profundidade tecnica |
-| `company_kb_texts` (Brain Feeder) | Sem entrada dedicada ao produto - apenas referencias em dialogos arquivados |
+1. **Embeddings nao indexados**: As 5 entradas do Brain Feeder (`playbook-edge-mini`) tem `indexed_at = null` e `chunks_count = 0`. A busca vetorial nao encontra nada.
+2. **Videos do playbook nao foram inseridos**: O playbook tinha 13 videos (YouTube + Instagram), mas nenhum foi salvo no banco -- nem no `company_kb_texts`, nem na tabela `knowledge_videos`.
+3. **Busca de video ignora contexto da conversa**: Quando o usuario pede "preciso ver videos dela funcionando", a busca de keyword na tabela `knowledge_videos` usa apenas as palavras da mensagem atual ("preciso", "videos", "funcionando"), sem considerar que "Edge Mini" foi mencionada antes no historico.
 
-## Estrategia de Populacao em 4 Camadas
+## Solucao em 3 Partes
 
-### Camada 1: Atualizar `system_a_catalog.extra_data` (Dados Estruturados)
-Enriquecer o campo `extra_data` JSONB do produto existente (id: `faa43292-9ceb-4441-afc5-4757e88fed3b`) com:
-- `technical_specs`: array de specs do JSON (tecnologia, plataformas, resolucao, tempos)
-- `competitor_comparison`: tabela comparativa Edge Mini vs Elegoo vs Phrozen
-- `clinical_brain`: produtos obrigatorios, produtos proibidos, regras anti-alucinacao
-- `workflow_stages`: etapas do workflow odontologico digital
-- `objection_handling`: argumentacao para objecoes de preco/complexidade (extraida do pitch)
+### Parte 1: Adicionar Videos do Playbook ao Brain Feeder
 
-Isso garante que a LIA tenha dados estruturados para consultas diretas.
+Criar uma nova entrada `company_kb_texts` com categoria `videos` e `source_label = 'playbook-edge-mini'` contendo os links dos 13 videos do playbook em formato narrativo otimizado para RAG:
 
-### Camada 2: Alimentar `company_kb_texts` via Brain Feeder (Conhecimento Curado)
-Criar entradas curadas no Brain Feeder com conteudo de alta qualidade, segmentado por categoria:
+```
+Edge Mini — Videos e Demonstracoes
 
-| Titulo | Categoria | Conteudo |
-|--------|-----------|----------|
-| `Edge Mini — Ficha Tecnica Completa` | `comercial` | Specs + plataformas + tempos de impressao + resolucao |
-| `Edge Mini — Pitch SDR e Argumentacao Comercial` | `sdr` | Sales pitch + USPs + argumentacao de objecoes |
-| `Edge Mini — Comparativo Concorrentes` | `comercial` | Tabela comparativa detalhada vs Elegoo/Phrozen |
-| `Edge Mini — Workflow e Produtos Complementares` | `workflow` | Clinical Brain: produtos obrigatorios + workflow digital |
-| `Edge Mini — FAQ Tecnico-Comercial` | `faq` | 10 FAQs estruturadas com respostas |
+Videos de demonstracao da Rayshape Edge Mini:
+- Unboxing e primeiras impressoes: https://youtube.com/...
+- Impressao de guias cirurgicas: https://youtube.com/...
+- (etc. - todos os 13 videos do playbook)
+```
 
-Cada entrada sera automaticamente chunked (900 chars / 150 overlap) e indexada com embeddings no RAG.
+Isso garante que, apos indexacao, a busca vetorial encontre "video edge mini" e retorne os links.
 
-### Camada 3: Re-indexar `agent_embeddings` (RAG Vetorial)
-A indexacao sera feita automaticamente pelo `ingest-knowledge-text` ao criar as entradas da Camada 2. Alem disso, atualizar os chunks existentes de `catalog_product` com dados mais ricos (specs, comparativo).
+### Parte 2: Inserir Videos na Tabela `knowledge_videos`
 
-### Camada 4: Atualizar `system_a_catalog` (Campos Diretos)
-Atualizar campos de primeiro nivel:
-- `description`: substituir pela descricao rica do playbook
-- `meta_description`: SEO description otimizada
-- `keywords`: keywords do playbook
-- `promo_price`: R$ 28.500 (ja pode estar, confirmar)
+Para cada video YouTube do playbook, inserir na tabela `knowledge_videos` com:
+- `title`: titulo descritivo do video
+- `url`: URL do YouTube
+- `video_type`: 'youtube'
+- `product_id`: ID da Edge Mini (`faa43292-9ceb-4441-afc5-4757e88fed3b`)
+- `product_category`: 'IMPRESSAO 3D'
+
+Isso permite que a busca de keyword na tabela `knowledge_videos` tambem encontre os videos.
+
+### Parte 3: Corrigir Busca de Video para Usar Contexto da Conversa
+
+Na edge function `dra-lia/index.ts`, alterar a busca de keyword de videos (linha ~1332) para incluir o historico recente da conversa, nao apenas a mensagem atual:
+
+**Antes:**
+```typescript
+const keywords = query.split(" ").filter((w) => w.length > 3).slice(0, 4);
+```
+
+**Depois:**
+```typescript
+// Incluir historico recente para capturar nome do produto mencionado antes
+const recentContext = history.slice(-6).map(h => h.content).join(' ');
+const fullText = `${recentContext} ${query}`;
+const keywords = fullText.split(/\s+/).filter(w => w.length > 3).slice(0, 6);
+```
+
+Isso resolve o problema de "preciso ver videos" quando "Edge Mini" foi mencionada em mensagens anteriores.
+
+### Parte 4: Indexar Embeddings
+
+Chamar a edge function `index-embeddings` para as entradas do Brain Feeder com `source_label = 'playbook-edge-mini'` (incluindo a nova entrada de videos), gerando os chunks vetoriais no `agent_embeddings`.
 
 ## Detalhes Tecnicos
 
-### Implementacao
-1. **Edge Function**: Criar uma edge function `ingest-product-playbook` que:
-   - Recebe o JSON do playbook
-   - Extrai e organiza os dados por camada
-   - Faz UPDATE no `system_a_catalog.extra_data`
-   - Chama `ingest-knowledge-text` internamente para criar as entradas do Brain Feeder
-   - Retorna um relatorio do que foi populado
+### Migracao SQL
+- INSERT de 1 novo registro em `company_kb_texts` (videos do playbook)
+- INSERT de ~10 registros em `knowledge_videos` (videos YouTube do playbook -- Instagram embeds nao funcionam como links diretos)
 
-2. **Alternativa (mais simples)**: Executar as operacoes diretamente:
-   - SQL UPDATE para `system_a_catalog.extra_data`
-   - Chamadas ao `ingest-knowledge-text` via edge function para o Brain Feeder
-   - Isso pode ser feito com o codigo existente, sem nova edge function
+### Alteracao na Edge Function
+- `supabase/functions/dra-lia/index.ts`: Modificar a funcao `searchKnowledge` na secao de busca por keyword em videos (~linha 1332) para usar `history` como contexto adicional na extracao de keywords
 
-### Formato do Conteudo para Brain Feeder
-Cada texto sera formatado como narrativa estruturada (nao JSON bruto), otimizado para o RAG. Exemplo:
-
-```
-Rayshape Edge Mini — Ficha Tecnica
-Tecnologia: MSLA (Masked Stereolithography Apparatus)
-Resolucao XY: 34,4 um
-Plataforma MiniVat: 74 x 64 x 100 mm (coroas, pontes)
-Plataforma Normal: 130 x 80 x 100 mm (guias, alinhadores)
-Tempos: Faceta 12min | Coroa 17min | 2 Placas 38min | 4 Guias 29min
-Preco: R$ 35.000 (Promo: R$ 28.500)
-```
-
-### Seguranca Anti-Alucinacao
-- Todos os dados serao extraidos LITERALMENTE do playbook
-- Nenhuma informacao sera inventada ou inferida
-- O Clinical Brain (produtos proibidos/obrigatorios) sera indexado para que a LIA saiba o que NAO recomendar junto
-- Os tempos de impressao serao preservados com valores exatos
+### Indexacao
+- Chamar `index-embeddings` para reindexar as 6 entradas do Brain Feeder (5 existentes + 1 nova de videos)
 
 ## Resultado Esperado
 
-Apos a implementacao, a Dra. L.I.A. sera capaz de:
-- Responder perguntas tecnicas (resolucao, plataformas, tempos) com dados precisos
-- Fazer comparativos com concorrentes (Elegoo, Phrozen) sem inventar
-- Recomendar produtos complementares corretos (resinas, pos-cura)
-- NAO recomendar produtos proibidos (Atos Block, scanners concorrentes)
-- Usar argumentacao SDR do pitch para conversas comerciais
-- Citar FAQs prontas com respostas validadas
+Apos a implementacao, quando o usuario pedir "quero ver videos da Edge Mini":
+1. A busca vetorial encontrara a entrada "Edge Mini — Videos e Demonstracoes" no Brain Feeder
+2. A busca de keyword encontrara os videos na tabela `knowledge_videos` pelo contexto da conversa
+3. A L.I.A. respondera com links diretos para os videos do YouTube conforme as regras do system prompt
 
-## Escopo Deste Plano (Somente Edge Mini)
-Este plano cobre APENAS a Rayshape Edge Mini. O mesmo processo pode ser replicado para outros produtos conforme voce enviar os playbooks.
