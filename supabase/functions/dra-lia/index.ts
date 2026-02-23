@@ -189,7 +189,9 @@ const SUPPORT_KEYWORDS = [
   /(não consigo|can't|cannot|no puedo).{0,20}(imprimir|print|salvar|conectar|ligar)/i,
   /(erro|error|falha|falhou|travando|bug|problema).{0,20}(impressora|printer|software|slicer)/i,
   /(garantia|suporte técnico|assistência técnica|reparo|defeito de fábrica)/i,
-  /(peça|peças|replacement part|reposição|componente)/i,
+  /(peça|peças).{0,20}(reposição|substituição|quebr|troc|defeito|danific|falt)/i,
+  /(replacement part|spare part).{0,20}(order|need|broken|replace)/i,
+  /(reposição|componente).{0,20}(quebr|troc|defeito|danific|falt)/i,
   /(impressora).{0,20}(não funciona|parou|trava|tá travando|está travando|quebrou)/i,
   /(resina).{0,20}(não (curou|curar|endureceu|endureceu|polimerizo|aderiu))/i,
 ];
@@ -1342,7 +1344,7 @@ async function searchKnowledge(
   if (keywords.length > 0) {
     const { data: videos } = await supabase
       .from("knowledge_videos")
-      .select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id")
+      .select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id, url")
       .or(keywords.map((k) => `title.ilike.%${k}%`).join(","))
       .limit(5);
 
@@ -1375,6 +1377,7 @@ async function searchKnowledge(
         thumbnail_url: string | null;
         content_id: string | null;
         pandavideo_id: string | null;
+        url: string | null;
       }) => {
         const contentInfo = v.content_id ? contentMap[v.content_id] : null;
         const internalUrl = contentInfo
@@ -1392,6 +1395,7 @@ async function searchKnowledge(
             video_id: v.id,
             url_interna: internalUrl,
             has_internal_page: !!internalUrl,
+            youtube_url: v.url || null,
           },
           similarity: 0.5,
         };
@@ -1845,6 +1849,8 @@ serve(async (req) => {
         if (meta.url_publica) part += ` | URL: ${meta.url_publica}`;
         if (meta.url_interna) {
           part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+        } else if (meta.youtube_url) {
+          part += ` | VIDEO_YOUTUBE: ${meta.youtube_url}`;
         } else if (meta.embed_url) {
           part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
         }
@@ -2040,7 +2046,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 4. Prioridade máxima: Dados de 'processing_instructions' das resinas.
 5. Se o usuário perguntar por "parâmetros", siga o fluxo de marca/modelo/resina. Palavras-chave que indicam pedido explícito: "parâmetro", "configuração", "setting", "tempo", "exposição", "layer", "espessura", "velocidade", "how to print", "cómo imprimir", "como imprimir", "valores".
 6. Nunca mencione IDs de banco de dados ou termos técnicos internos da infraestrutura.
-7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) apontando para a página interna. NUNCA use URLs do PandaVideo como links clicáveis. Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
+7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [▶ Assistir no site](VIDEO_INTERNO_URL) apontando para a página interna. Se tiver VIDEO_YOUTUBE, gere um link Markdown [▶ Assistir no YouTube](VIDEO_YOUTUBE_URL). NUNCA use URLs do PandaVideo como links clicáveis. Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
 8. Se houver vídeos no contexto, cite-os apenas se forem diretamente relevantes à pergunta. Só inclua links de vídeos se o usuário pediu explicitamente (palavras: "vídeo", "video", "assistir", "ver", "watch", "tutorial", "mostrar"). Em todos os outros casos, PROIBIDO mencionar ou sugerir a existência de vídeos. NÃO diga "Também temos um vídeo", "temos um tutorial", "posso te mostrar um vídeo" — a menos que o RAG tenha retornado explicitamente um vídeo com VIDEO_INTERNO ou VIDEO_SEM_PAGINA no contexto desta conversa. CRÍTICO: Ao mencionar um vídeo, o título ou descrição do vídeo DEVE conter palavras diretamente relacionadas ao sub-tema pedido pelo usuário. Exemplo: se o usuário perguntou "Qual vídeo sobre tratamento térmico?" e os vídeos disponíveis no contexto têm títulos sobre "protocolos de implante", "impressoras" ou outros temas não relacionados a "tratamento térmico", "forno" ou "temperatura" — responda exatamente: "Não tenho um vídeo específico sobre [sub-tema pedido] cadastrado no momento." e ofereça o WhatsApp. NUNCA apresente um vídeo de tema diferente como cobrindo o sub-tema pedido.
 
 ⚠️ VERIFICAÇÃO OBRIGATÓRIA ANTES DE CITAR QUALQUER VÍDEO (execute mentalmente este checklist):
