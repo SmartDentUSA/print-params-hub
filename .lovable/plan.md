@@ -1,124 +1,138 @@
 
 
-# Implementacao dos 3 Planos Pendentes
+# Plano: Corrigir Busca RAG para Perguntas Contextuais (Follow-up)
 
-## 1. Corrigir Regex de Suporte que Bloqueia "pecas"
+## Problema Diagnosticado
 
-**Arquivo:** `supabase/functions/dra-lia/index.ts` (linha 192)
+A pergunta "Quanto tempo eu ganho perto do que eu faço hoje, limpopeças 1 a 1" falha em TODAS as 4 camadas de busca:
 
-**Antes:**
-```typescript
-/(peça|peças|replacement part|reposição|componente)/i,
+1. **Vector search**: A query conversacional gera um embedding muito distante dos chunks tecnicos do NanoClean (similarity < 0.65)
+2. **FTS (search_knowledge_base)**: So busca em `knowledge_contents` e `knowledge_videos` -- os dados do NanoClean estao em `company_kb_texts`
+3. **ILIKE (searchByILIKE)**: So busca em `knowledge_contents` -- nunca toca `company_kb_texts` ou `system_a_catalog`
+4. **Keyword video**: "limpopeças" nao bate com nenhum titulo de video
+
+O dado EXISTE no RAG (35 chunks indexados com a tabela comparativa mostrando "1 a 1" vs "35 elementos por vez"), mas a busca nao encontra porque:
+- A mensagem do usuario nao menciona "NanoClean" explicitamente
+- O historico da conversa menciona "NanoClean PoD" mas so e usado no keyword video fallback, nao nas buscas principais
+
+## Causa Raiz
+
+A funcao `searchKnowledge` (linha 1259) recebe `history` como parametro mas so o usa no ultimo fallback (keyword video search, linha 1335). As buscas vetorias e FTS usam APENAS a mensagem atual, ignorando o contexto da conversa.
+
+## Solucao: Enriquecer Query com Contexto do Historico
+
+### Alteracao 1: Augmentar query vetorial com nomes de produto do historico
+
+Na funcao `searchKnowledge`, antes de chamar `generateEmbedding(query)`, extrair nomes de produtos/termos-chave do historico recente e concatenar a query:
+
+```text
+Antes:
+  query = "Quanto tempo eu ganho perto do que eu faço hoje, limpopeças 1 a 1"
+
+Depois (com augmentacao):
+  query = "NanoClean PoD Quanto tempo eu ganho perto do que eu faço hoje, limpopeças 1 a 1"
 ```
 
-**Depois:**
+Implementacao no `searchKnowledge` (apos linha 1265):
+
 ```typescript
-/(peça|peças).{0,20}(reposição|substituição|quebr|troc|defeito|danific|falt)/i,
-/(replacement part|spare part).{0,20}(order|need|broken|replace)/i,
-/(reposição|componente).{0,20}(quebr|troc|defeito|danific|falt)/i,
+// Augment query with product/brand names from recent history for better vector matching
+let augmentedQuery = query;
+if (history && history.length > 0) {
+  const recentText = history.slice(-4).map(h => h.content).join(' ');
+  // Extract product names: capitalized multi-word phrases or known patterns
+  const productMentions = recentText.match(
+    /\b(NanoClean[^.!?\n]{0,20}|Edge Mini[^.!?\n]{0,15}|Vitality[^.!?\n]{0,15}|ShapeWare[^.!?\n]{0,15}|Rayshape[^.!?\n]{0,15}|Scanner BLZ[^.!?\n]{0,15}|Asiga[^.!?\n]{0,15}|Chair Side[^.!?\n]{0,15})/gi
+  );
+  if (productMentions && productMentions.length > 0) {
+    const uniqueProducts = [...new Set(productMentions.map(p => p.trim().slice(0, 30)))];
+    augmentedQuery = `${uniqueProducts.join(' ')} ${query}`;
+  }
+}
+const embedding = await generateEmbedding(augmentedQuery);
 ```
 
-Isso evita que perguntas sobre capacidade de producao ("35 pecas por vez") sejam redirecionadas para suporte. A palavra "pecas" so dispara suporte quando acompanhada de contexto de problema tecnico.
+### Alteracao 2: Buscar tambem em `company_kb_texts` via ILIKE quando a busca principal falha
 
----
+Adicionar uma funcao `searchCompanyKB` que faz ILIKE em `company_kb_texts` usando palavras-chave do historico + query:
 
-## 2. Adicionar Suporte a VIDEO_YOUTUBE
-
-### 2a. Adicionar `url` ao SELECT de videos (linha 1345)
-
-**Antes:**
 ```typescript
-.select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id")
-```
+async function searchCompanyKB(
+  supabase: ReturnType<typeof createClient>,
+  query: string,
+  history: Array<{ role: string; content: string }>
+) {
+  const combinedText = `${history.slice(-4).map(h => h.content).join(' ')} ${query}`;
+  const words = combinedText.toLowerCase()
+    .replace(/[?!.,;:]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !STOPWORDS_PT.includes(w))
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .slice(0, 6);
 
-**Depois:**
-```typescript
-.select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id, url")
-```
+  if (!words.length) return [];
 
-### 2b. Incluir `youtube_url` no metadata (linha 1384-1395)
+  const orFilter = words.map(w => `title.ilike.%${w}%,content.ilike.%${w}%`).join(',');
 
-Adicionar `youtube_url: v.url || null` ao objeto metadata dos resultados de video.
+  const { data } = await supabase
+    .from('company_kb_texts')
+    .select('id, title, content, category, source_label')
+    .eq('active', true)
+    .or(orFilter)
+    .limit(3);
 
-### 2c. Adicionar tag VIDEO_YOUTUBE no buildStructuredContext (linha 1846-1850)
+  if (!data?.length) return [];
 
-**Antes:**
-```typescript
-if (meta.url_interna) {
-  part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
-} else if (meta.embed_url) {
-  part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+  return data.map(d => ({
+    id: d.id,
+    source_type: 'company_kb',
+    chunk_text: `${d.title} | ${d.content.slice(0, 800)}`,
+    metadata: { title: d.title, source_label: d.source_label },
+    similarity: 0.55,
+  }));
 }
 ```
 
-**Depois:**
+### Alteracao 3: Integrar `searchCompanyKB` no fluxo principal
+
+Na linha 1749-1755 (busca paralela), adicionar `searchCompanyKB` quando o vetor falha:
+
 ```typescript
-if (meta.url_interna) {
-  part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
-} else if (meta.youtube_url) {
-  part += ` | VIDEO_YOUTUBE: ${meta.youtube_url}`;
-} else if (meta.embed_url) {
-  part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+// Se knowledge retornou vazio E tem historico, tentar company_kb como fallback
+if (knowledgeResult.results.length === 0 && history && history.length > 0) {
+  const companyKBResults = await searchCompanyKB(supabase, message, history);
+  if (companyKBResults.length > 0) {
+    allResults.push(...companyKBResults);
+  }
 }
 ```
 
-### 2d. Atualizar Regra 7 do system prompt (linha 2043)
+### Alteracao 4: Tambem rodar `searchCatalogProducts` fora da rota comercial quando historico menciona produto
 
-**Antes:**
-```
-7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [...] Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
-```
+Atualmente, `searchCatalogProducts` so roda quando `topic_context === "commercial"` (linha 1753). Mas o usuario esta conversando sobre NanoClean em rota nao-comercial. Alterar para tambem rodar quando o historico menciona um produto do catalogo:
 
-**Depois:**
-```
-7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [Assistir no site](VIDEO_INTERNO_URL).
-   Se tiver VIDEO_YOUTUBE, gere um link Markdown [Assistir no YouTube](VIDEO_YOUTUBE_URL).
-   NUNCA use URLs do PandaVideo como links clicáveis. Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
+```typescript
+const historyMentionsProduct = history?.some(h =>
+  /nanoclean|edge mini|rayshape|scanner blz|asiga|vitality|chair side/i.test(h.content)
+) || false;
+
+const shouldSearchCatalog = isCommercial || historyMentionsProduct;
 ```
 
----
+## Detalhes Tecnicos
 
-## 3. Enriquecer extra_data do NanoClean PoD
+### Arquivo alterado
+- `supabase/functions/dra-lia/index.ts`:
+  - Linhas 1266-1268: Augmentar query vetorial com nomes de produto do historico
+  - Nova funcao `searchCompanyKB` (inserir apos linha 305)
+  - Linhas 1749-1755: Adicionar fallback `searchCompanyKB`
+  - Linha 1753: Expandir condicao de `searchCatalogProducts`
 
-**Tabela:** `system_a_catalog` (ID: `19bc59de-a1f0-4994-b5ab-4c1a2464b7e0`)
+### Resultado esperado
 
-Atualizar o campo `extra_data` com dados tecnicos extraidos do PDF da tabela comparativa:
+Com a augmentacao do historico:
+1. "NanoClean PoD" do historico e concatenado a query → embedding vetorial mais proximo dos chunks → vector search encontra os 35 chunks da tabela comparativa
+2. Se vetor falhar, `searchCompanyKB` encontra pelo ILIKE em `company_kb_texts` com "nanoclean" do historico
+3. `searchCatalogProducts` tambem roda, trazendo o produto NanoClean PoD com `extra_data` enriquecido
 
-```json
-{
-  "technical_specs": {
-    "capacity": "Até 35 peças por ciclo",
-    "cleaning_method": "Ultrassônico + centrifugação",
-    "liquid": "Liquido proprietário (sem álcool isopropílico)",
-    "cycle_time": "10 minutos",
-    "compatibility": "Resinas de alta carga e convencionais"
-  },
-  "competitor_comparison": {
-    "vs_ipa_manual": "Elimina uso de IPA, processo automatizado vs manual",
-    "vs_ultrasonic_only": "Centrifugação adicional remove residuos que ultrassom sozinho não alcança",
-    "key_advantage": "Processo padronizado e reprodutível, sem variação de operador"
-  },
-  "workflow_stages": [
-    "Remover peça da impressora",
-    "Colocar no NanoClean PoD (até 35 peças)",
-    "Ciclo automatico de 10 minutos",
-    "Peça pronta para pós-cura"
-  ]
-}
-```
-
-Isso sera feito via UPDATE SQL usando a ferramenta de insercao de dados.
-
----
-
-## Resumo de Alteracoes
-
-| Item | Tipo | Arquivo/Tabela |
-|------|------|----------------|
-| Regex de suporte | Edge Function | `dra-lia/index.ts` linha 192 |
-| SELECT de url | Edge Function | `dra-lia/index.ts` linha 1345 |
-| youtube_url metadata | Edge Function | `dra-lia/index.ts` linha 1384-1395 |
-| VIDEO_YOUTUBE tag | Edge Function | `dra-lia/index.ts` linha 1846-1850 |
-| Regra 7 do prompt | Edge Function | `dra-lia/index.ts` linha 2043 |
-| NanoClean extra_data | Banco de dados | `system_a_catalog` UPDATE |
-
+A L.I.A. responderia algo como: "Com o NanoClean PoD voce lava ate 35 pecas por ciclo em 60 segundos, enquanto na lavagem manual com IPA voce lava 1 a 4 pecas por vez com multiplas etapas. O ganho de tempo e significativo."
