@@ -1,138 +1,112 @@
 
 
-# Plano: Corrigir Busca RAG para Perguntas Contextuais (Follow-up)
+# Plano: Ingestao da Apostila SPIN "Voce quer imprimir ou ser especialista" no Cerebro da L.I.A.
 
-## Problema Diagnosticado
+## Analise do Documento
 
-A pergunta "Quanto tempo eu ganho perto do que eu faço hoje, limpopeças 1 a 1" falha em TODAS as 4 camadas de busca:
+O documento contem 7 camadas de informacao distintas:
 
-1. **Vector search**: A query conversacional gera um embedding muito distante dos chunks tecnicos do NanoClean (similarity < 0.65)
-2. **FTS (search_knowledge_base)**: So busca em `knowledge_contents` e `knowledge_videos` -- os dados do NanoClean estao em `company_kb_texts`
-3. **ILIKE (searchByILIKE)**: So busca em `knowledge_contents` -- nunca toca `company_kb_texts` ou `system_a_catalog`
-4. **Keyword video**: "limpopeças" nao bate com nenhum titulo de video
+| Secao | Linhas | Conteudo | Valor para L.I.A. |
+|-------|--------|----------|-------------------|
+| Contexto + Pitch | 1-32 | Posicionamento, dores, solucao | Alto (SDR) |
+| Jornada SPIN | 39-64 | Desejo/Dor/Resultado + metricas | Alto (SDR) |
+| 3 Produtos detalhados | 66-600 | Specs, FAQs, anti-alucinacao, comparativos, produtos requeridos/proibidos | Critico |
+| 10 FAQs SDR | 570-611 | Perguntas comerciais com respostas completas | Alto (SDR) |
+| Mensagem WhatsApp | 613-643 | Template de abordagem | Medio (SDR) |
+| Video principal | 646-650 | URL YouTube do video de apresentacao | Medio |
+| 200+ Depoimentos | 652-3855 | Transcritos de clientes com cidade/especialidade | Alto (prova social) |
 
-O dado EXISTE no RAG (35 chunks indexados com a tabela comparativa mostrando "1 a 1" vs "35 elementos por vez"), mas a busca nao encontra porque:
-- A mensagem do usuario nao menciona "NanoClean" explicitamente
-- O historico da conversa menciona "NanoClean PoD" mas so e usado no keyword video fallback, nao nas buscas principais
+## Estrategia de Ingestao: 3 Camadas
 
-## Causa Raiz
+### Camada 1: Enriquecer `system_a_catalog.extra_data` (3 produtos)
 
-A funcao `searchKnowledge` (linha 1259) recebe `history` como parametro mas so o usa no ultimo fallback (keyword video search, linha 1335). As buscas vetorias e FTS usam APENAS a mensagem atual, ignorando o contexto da conversa.
+Atualizar os 3 produtos mencionados no catalogo com dados estruturados extraidos da apostila:
 
-## Solucao: Enriquecer Query com Contexto do Historico
+**1a. Rayshape Edge Mini** - Adicionar ao `extra_data`:
+- `anti_hallucination_rules`: O que NUNCA afirmar, NUNCA misturar, SEMPRE exigir, SEMPRE explicar
+- `required_products`: Lista de resinas e equipamentos compativeis (17 itens)
+- `prohibited_products`: Lista de produtos que NAO devem ser associados (26 itens)
+- `competitor_comparison`: Tabela comparativa vs Elegoo Mars 5 Ultra e Phrozen Sonic Mighty
+- `print_times`: Tempos de impressao por tipo de peca (facetas 12min, coroas 17min, etc.)
+- `platforms`: Specs das 2 plataformas (MiniVat e Normal)
 
-### Alteracao 1: Augmentar query vetorial com nomes de produto do historico
+**1b. Resina Bio Vitality** - Adicionar ao `extra_data`:
+- `anti_hallucination_rules`
+- `required_products` (12 itens)
+- `prohibited_products` (7 itens)
+- `competitor_comparison`: Tabela de resistencia flexural vs 7 concorrentes
+- `mechanical_specs`: 147 MPa, 5.49 GPa, Shore D >92, carga 59.3%
+- `youtube_videos`: 5 URLs de videos
 
-Na funcao `searchKnowledge`, antes de chamar `generateEmbedding(query)`, extrair nomes de produtos/termos-chave do historico recente e concatenar a query:
+**1c. NanoClean PoD** - Ja foi parcialmente enriquecido anteriormente. Complementar com:
+- `anti_hallucination_rules`
+- `required_products`
+- `prohibited_products`
+- `competitor_comparison` (dados da tabela comparativa de lavagem)
 
-```text
-Antes:
-  query = "Quanto tempo eu ganho perto do que eu faço hoje, limpopeças 1 a 1"
+### Camada 2: Ingerir em `company_kb_texts` (5 entradas segmentadas)
 
-Depois (com augmentacao):
-  query = "NanoClean PoD Quanto tempo eu ganho perto do que eu faço hoje, limpopeças 1 a 1"
+Usando a edge function `ingest-knowledge-text` para criar chunks vetoriais:
+
+| Titulo | Categoria | Conteudo |
+|--------|-----------|----------|
+| `SPIN Competitive Edge - Pitch e Jornada` | `comercial` | Pitch de vendas + Jornada SPIN (Desejo/Dor/Resultado) + metricas de dor (ROI 12 meses, economia R$1.800/mes, etc.) |
+| `SPIN Competitive Edge - FAQs SDR` | `sdr` | As 10 perguntas SDR com respostas completas (objecoes de preco, implementacao, ROI, suporte) |
+| `SPIN Competitive Edge - WhatsApp e Abordagem` | `comercial` | Template WhatsApp + storytelling + video principal |
+| `Edge Mini + Vitality + NanoClean - Regras Anti-Alucinacao` | `geral` | Compilado das regras anti-alucinacao dos 3 produtos (o que NUNCA dizer, o que SEMPRE explicar) |
+| `Depoimentos Clientes - Prova Social Consolidada` | `comercial` | Resumo dos ~30 depoimentos mais relevantes (com nome, cidade, especialidade e frase-chave), NAO os 200+ transcritos brutos |
+
+### Camada 3: NAO ingerir (dados descartados)
+
+- **Depoimentos duplicados**: O documento contem cada depoimento 2x (duplicatas). Sera deduplificado.
+- **Transcritos brutos longos**: Os 200+ depoimentos raw sao muito extensos e repetitivos para chunks vetoriais. Sera feito um resumo curado com os 30 mais impactantes.
+- **Listas de imagens CDN**: URLs de imagens de produto nao agregam valor ao RAG textual.
+
+## Implementacao Tecnica
+
+### Passo 1: SQL - Enriquecer `extra_data` dos 3 produtos
+
+Executar 3 UPDATEs no `system_a_catalog` via migration:
+
+```sql
+-- 1a. Edge Mini
+UPDATE system_a_catalog
+SET extra_data = extra_data || '{
+  "anti_hallucination": { ... },
+  "required_products": [...],
+  "prohibited_products": [...],
+  "competitor_comparison": { ... },
+  "print_times": { ... }
+}'::jsonb
+WHERE slug ILIKE '%edge-mini%' OR name ILIKE '%Edge Mini%';
+
+-- 1b. Bio Vitality
+UPDATE system_a_catalog
+SET extra_data = extra_data || '{...}'::jsonb
+WHERE name ILIKE '%Vitality%';
+
+-- 1c. NanoClean PoD (complemento)
+UPDATE system_a_catalog
+SET extra_data = extra_data || '{...}'::jsonb
+WHERE id = '19bc59de-a1f0-4994-b5ab-4c1a2464b7e0';
 ```
 
-Implementacao no `searchKnowledge` (apos linha 1265):
+### Passo 2: Chamar `ingest-knowledge-text` com as 5 entradas
 
-```typescript
-// Augment query with product/brand names from recent history for better vector matching
-let augmentedQuery = query;
-if (history && history.length > 0) {
-  const recentText = history.slice(-4).map(h => h.content).join(' ');
-  // Extract product names: capitalized multi-word phrases or known patterns
-  const productMentions = recentText.match(
-    /\b(NanoClean[^.!?\n]{0,20}|Edge Mini[^.!?\n]{0,15}|Vitality[^.!?\n]{0,15}|ShapeWare[^.!?\n]{0,15}|Rayshape[^.!?\n]{0,15}|Scanner BLZ[^.!?\n]{0,15}|Asiga[^.!?\n]{0,15}|Chair Side[^.!?\n]{0,15})/gi
-  );
-  if (productMentions && productMentions.length > 0) {
-    const uniqueProducts = [...new Set(productMentions.map(p => p.trim().slice(0, 30)))];
-    augmentedQuery = `${uniqueProducts.join(' ')} ${query}`;
-  }
-}
-const embedding = await generateEmbedding(augmentedQuery);
-```
+Usar a edge function existente para criar os 5 registros em `company_kb_texts` e gerar embeddings automaticamente. Cada entrada sera chunked em ~900 chars com 150 overlap.
 
-### Alteracao 2: Buscar tambem em `company_kb_texts` via ILIKE quando a busca principal falha
+### Passo 3: Nenhuma alteracao em codigo
 
-Adicionar uma funcao `searchCompanyKB` que faz ILIKE em `company_kb_texts` usando palavras-chave do historico + query:
+Nao ha necessidade de alterar a edge function `dra-lia/index.ts`. As melhorias de RAG ja implementadas (augmentacao de query com historico, fallback `searchCompanyKB`, catalogo expandido) ja cobrirao esses novos dados automaticamente.
 
-```typescript
-async function searchCompanyKB(
-  supabase: ReturnType<typeof createClient>,
-  query: string,
-  history: Array<{ role: string; content: string }>
-) {
-  const combinedText = `${history.slice(-4).map(h => h.content).join(' ')} ${query}`;
-  const words = combinedText.toLowerCase()
-    .replace(/[?!.,;:]/g, '')
-    .split(/\s+/)
-    .filter(w => w.length >= 4 && !STOPWORDS_PT.includes(w))
-    .filter((v, i, a) => a.indexOf(v) === i)
-    .slice(0, 6);
+## Resultado Esperado
 
-  if (!words.length) return [];
+Apos a ingestao, a L.I.A. sera capaz de:
 
-  const orFilter = words.map(w => `title.ilike.%${w}%,content.ilike.%${w}%`).join(',');
+1. Responder perguntas sobre especificacoes tecnicas dos 3 produtos com dados anti-alucinacao
+2. Fazer comparativos com concorrentes usando dados reais (tabelas)
+3. Citar depoimentos de clientes por nome/cidade como prova social
+4. Conduzir conversas SDR usando o pitch SPIN e responder as 10 objecoes mais comuns
+5. Recomendar produtos complementares e alertar sobre produtos incompativeis
+6. Nunca misturar categorias de produto (ex: resina composta direta vs resina 3D)
 
-  const { data } = await supabase
-    .from('company_kb_texts')
-    .select('id, title, content, category, source_label')
-    .eq('active', true)
-    .or(orFilter)
-    .limit(3);
-
-  if (!data?.length) return [];
-
-  return data.map(d => ({
-    id: d.id,
-    source_type: 'company_kb',
-    chunk_text: `${d.title} | ${d.content.slice(0, 800)}`,
-    metadata: { title: d.title, source_label: d.source_label },
-    similarity: 0.55,
-  }));
-}
-```
-
-### Alteracao 3: Integrar `searchCompanyKB` no fluxo principal
-
-Na linha 1749-1755 (busca paralela), adicionar `searchCompanyKB` quando o vetor falha:
-
-```typescript
-// Se knowledge retornou vazio E tem historico, tentar company_kb como fallback
-if (knowledgeResult.results.length === 0 && history && history.length > 0) {
-  const companyKBResults = await searchCompanyKB(supabase, message, history);
-  if (companyKBResults.length > 0) {
-    allResults.push(...companyKBResults);
-  }
-}
-```
-
-### Alteracao 4: Tambem rodar `searchCatalogProducts` fora da rota comercial quando historico menciona produto
-
-Atualmente, `searchCatalogProducts` so roda quando `topic_context === "commercial"` (linha 1753). Mas o usuario esta conversando sobre NanoClean em rota nao-comercial. Alterar para tambem rodar quando o historico menciona um produto do catalogo:
-
-```typescript
-const historyMentionsProduct = history?.some(h =>
-  /nanoclean|edge mini|rayshape|scanner blz|asiga|vitality|chair side/i.test(h.content)
-) || false;
-
-const shouldSearchCatalog = isCommercial || historyMentionsProduct;
-```
-
-## Detalhes Tecnicos
-
-### Arquivo alterado
-- `supabase/functions/dra-lia/index.ts`:
-  - Linhas 1266-1268: Augmentar query vetorial com nomes de produto do historico
-  - Nova funcao `searchCompanyKB` (inserir apos linha 305)
-  - Linhas 1749-1755: Adicionar fallback `searchCompanyKB`
-  - Linha 1753: Expandir condicao de `searchCatalogProducts`
-
-### Resultado esperado
-
-Com a augmentacao do historico:
-1. "NanoClean PoD" do historico e concatenado a query → embedding vetorial mais proximo dos chunks → vector search encontra os 35 chunks da tabela comparativa
-2. Se vetor falhar, `searchCompanyKB` encontra pelo ILIKE em `company_kb_texts` com "nanoclean" do historico
-3. `searchCatalogProducts` tambem roda, trazendo o produto NanoClean PoD com `extra_data` enriquecido
-
-A L.I.A. responderia algo como: "Com o NanoClean PoD voce lava ate 35 pecas por ciclo em 60 segundos, enquanto na lavagem manual com IPA voce lava 1 a 4 pecas por vez com multiplas etapas. O ganho de tempo e significativo."
