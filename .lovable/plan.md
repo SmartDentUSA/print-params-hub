@@ -1,82 +1,124 @@
 
 
-# Plano: Fazer a Dra. L.I.A. Encontrar e Compartilhar Videos do Playbook
+# Implementacao dos 3 Planos Pendentes
 
-## Problema Identificado
+## 1. Corrigir Regex de Suporte que Bloqueia "pecas"
 
-Tres causas raiz impediram a L.I.A. de mostrar os videos da Edge Mini:
-
-1. **Embeddings nao indexados**: As 5 entradas do Brain Feeder (`playbook-edge-mini`) tem `indexed_at = null` e `chunks_count = 0`. A busca vetorial nao encontra nada.
-2. **Videos do playbook nao foram inseridos**: O playbook tinha 13 videos (YouTube + Instagram), mas nenhum foi salvo no banco -- nem no `company_kb_texts`, nem na tabela `knowledge_videos`.
-3. **Busca de video ignora contexto da conversa**: Quando o usuario pede "preciso ver videos dela funcionando", a busca de keyword na tabela `knowledge_videos` usa apenas as palavras da mensagem atual ("preciso", "videos", "funcionando"), sem considerar que "Edge Mini" foi mencionada antes no historico.
-
-## Solucao em 3 Partes
-
-### Parte 1: Adicionar Videos do Playbook ao Brain Feeder
-
-Criar uma nova entrada `company_kb_texts` com categoria `videos` e `source_label = 'playbook-edge-mini'` contendo os links dos 13 videos do playbook em formato narrativo otimizado para RAG:
-
-```
-Edge Mini — Videos e Demonstracoes
-
-Videos de demonstracao da Rayshape Edge Mini:
-- Unboxing e primeiras impressoes: https://youtube.com/...
-- Impressao de guias cirurgicas: https://youtube.com/...
-- (etc. - todos os 13 videos do playbook)
-```
-
-Isso garante que, apos indexacao, a busca vetorial encontre "video edge mini" e retorne os links.
-
-### Parte 2: Inserir Videos na Tabela `knowledge_videos`
-
-Para cada video YouTube do playbook, inserir na tabela `knowledge_videos` com:
-- `title`: titulo descritivo do video
-- `url`: URL do YouTube
-- `video_type`: 'youtube'
-- `product_id`: ID da Edge Mini (`faa43292-9ceb-4441-afc5-4757e88fed3b`)
-- `product_category`: 'IMPRESSAO 3D'
-
-Isso permite que a busca de keyword na tabela `knowledge_videos` tambem encontre os videos.
-
-### Parte 3: Corrigir Busca de Video para Usar Contexto da Conversa
-
-Na edge function `dra-lia/index.ts`, alterar a busca de keyword de videos (linha ~1332) para incluir o historico recente da conversa, nao apenas a mensagem atual:
+**Arquivo:** `supabase/functions/dra-lia/index.ts` (linha 192)
 
 **Antes:**
 ```typescript
-const keywords = query.split(" ").filter((w) => w.length > 3).slice(0, 4);
+/(peça|peças|replacement part|reposição|componente)/i,
 ```
 
 **Depois:**
 ```typescript
-// Incluir historico recente para capturar nome do produto mencionado antes
-const recentContext = history.slice(-6).map(h => h.content).join(' ');
-const fullText = `${recentContext} ${query}`;
-const keywords = fullText.split(/\s+/).filter(w => w.length > 3).slice(0, 6);
+/(peça|peças).{0,20}(reposição|substituição|quebr|troc|defeito|danific|falt)/i,
+/(replacement part|spare part).{0,20}(order|need|broken|replace)/i,
+/(reposição|componente).{0,20}(quebr|troc|defeito|danific|falt)/i,
 ```
 
-Isso resolve o problema de "preciso ver videos" quando "Edge Mini" foi mencionada em mensagens anteriores.
+Isso evita que perguntas sobre capacidade de producao ("35 pecas por vez") sejam redirecionadas para suporte. A palavra "pecas" so dispara suporte quando acompanhada de contexto de problema tecnico.
 
-### Parte 4: Indexar Embeddings
+---
 
-Chamar a edge function `index-embeddings` para as entradas do Brain Feeder com `source_label = 'playbook-edge-mini'` (incluindo a nova entrada de videos), gerando os chunks vetoriais no `agent_embeddings`.
+## 2. Adicionar Suporte a VIDEO_YOUTUBE
 
-## Detalhes Tecnicos
+### 2a. Adicionar `url` ao SELECT de videos (linha 1345)
 
-### Migracao SQL
-- INSERT de 1 novo registro em `company_kb_texts` (videos do playbook)
-- INSERT de ~10 registros em `knowledge_videos` (videos YouTube do playbook -- Instagram embeds nao funcionam como links diretos)
+**Antes:**
+```typescript
+.select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id")
+```
 
-### Alteracao na Edge Function
-- `supabase/functions/dra-lia/index.ts`: Modificar a funcao `searchKnowledge` na secao de busca por keyword em videos (~linha 1332) para usar `history` como contexto adicional na extracao de keywords
+**Depois:**
+```typescript
+.select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id, url")
+```
 
-### Indexacao
-- Chamar `index-embeddings` para reindexar as 6 entradas do Brain Feeder (5 existentes + 1 nova de videos)
+### 2b. Incluir `youtube_url` no metadata (linha 1384-1395)
 
-## Resultado Esperado
+Adicionar `youtube_url: v.url || null` ao objeto metadata dos resultados de video.
 
-Apos a implementacao, quando o usuario pedir "quero ver videos da Edge Mini":
-1. A busca vetorial encontrara a entrada "Edge Mini — Videos e Demonstracoes" no Brain Feeder
-2. A busca de keyword encontrara os videos na tabela `knowledge_videos` pelo contexto da conversa
-3. A L.I.A. respondera com links diretos para os videos do YouTube conforme as regras do system prompt
+### 2c. Adicionar tag VIDEO_YOUTUBE no buildStructuredContext (linha 1846-1850)
+
+**Antes:**
+```typescript
+if (meta.url_interna) {
+  part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+} else if (meta.embed_url) {
+  part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+}
+```
+
+**Depois:**
+```typescript
+if (meta.url_interna) {
+  part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+} else if (meta.youtube_url) {
+  part += ` | VIDEO_YOUTUBE: ${meta.youtube_url}`;
+} else if (meta.embed_url) {
+  part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+}
+```
+
+### 2d. Atualizar Regra 7 do system prompt (linha 2043)
+
+**Antes:**
+```
+7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [...] Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
+```
+
+**Depois:**
+```
+7. Ao encontrar um VÍDEO: Se tiver VIDEO_INTERNO, gere um link Markdown [Assistir no site](VIDEO_INTERNO_URL).
+   Se tiver VIDEO_YOUTUBE, gere um link Markdown [Assistir no YouTube](VIDEO_YOUTUBE_URL).
+   NUNCA use URLs do PandaVideo como links clicáveis. Se tiver VIDEO_SEM_PAGINA, mencione apenas o título sem gerar link.
+```
+
+---
+
+## 3. Enriquecer extra_data do NanoClean PoD
+
+**Tabela:** `system_a_catalog` (ID: `19bc59de-a1f0-4994-b5ab-4c1a2464b7e0`)
+
+Atualizar o campo `extra_data` com dados tecnicos extraidos do PDF da tabela comparativa:
+
+```json
+{
+  "technical_specs": {
+    "capacity": "Até 35 peças por ciclo",
+    "cleaning_method": "Ultrassônico + centrifugação",
+    "liquid": "Liquido proprietário (sem álcool isopropílico)",
+    "cycle_time": "10 minutos",
+    "compatibility": "Resinas de alta carga e convencionais"
+  },
+  "competitor_comparison": {
+    "vs_ipa_manual": "Elimina uso de IPA, processo automatizado vs manual",
+    "vs_ultrasonic_only": "Centrifugação adicional remove residuos que ultrassom sozinho não alcança",
+    "key_advantage": "Processo padronizado e reprodutível, sem variação de operador"
+  },
+  "workflow_stages": [
+    "Remover peça da impressora",
+    "Colocar no NanoClean PoD (até 35 peças)",
+    "Ciclo automatico de 10 minutos",
+    "Peça pronta para pós-cura"
+  ]
+}
+```
+
+Isso sera feito via UPDATE SQL usando a ferramenta de insercao de dados.
+
+---
+
+## Resumo de Alteracoes
+
+| Item | Tipo | Arquivo/Tabela |
+|------|------|----------------|
+| Regex de suporte | Edge Function | `dra-lia/index.ts` linha 192 |
+| SELECT de url | Edge Function | `dra-lia/index.ts` linha 1345 |
+| youtube_url metadata | Edge Function | `dra-lia/index.ts` linha 1384-1395 |
+| VIDEO_YOUTUBE tag | Edge Function | `dra-lia/index.ts` linha 1846-1850 |
+| Regra 7 do prompt | Edge Function | `dra-lia/index.ts` linha 2043 |
+| NanoClean extra_data | Banco de dados | `system_a_catalog` UPDATE |
 
