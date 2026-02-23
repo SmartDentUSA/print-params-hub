@@ -304,6 +304,44 @@ async function searchByILIKE(
   });
 }
 
+// ── Fallback: search company_kb_texts via ILIKE (uses history context) ────────
+async function searchCompanyKB(
+  supabase: ReturnType<typeof createClient>,
+  query: string,
+  history: Array<{ role: string; content: string }>
+) {
+  const combinedText = `${history.slice(-4).map(h => h.content).join(' ')} ${query}`;
+  const words = combinedText.toLowerCase()
+    .replace(/[?!.,;:™]/g, '')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !STOPWORDS_PT.includes(w))
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .slice(0, 6);
+
+  if (!words.length) return [];
+
+  const orFilter = words.map(w => `title.ilike.%${w}%,content.ilike.%${w}%`).join(',');
+
+  const { data } = await supabase
+    .from('company_kb_texts')
+    .select('id, title, content, category, source_label')
+    .eq('active', true)
+    .or(orFilter)
+    .limit(3);
+
+  if (!data?.length) return [];
+
+  console.log(`[searchCompanyKB] Found ${data.length} results from company_kb_texts`);
+
+  return data.map((d: { id: string; title: string; content: string; category: string; source_label: string | null }) => ({
+    id: d.id,
+    source_type: 'company_kb',
+    chunk_text: `${d.title} | ${d.content.slice(0, 800)}`,
+    metadata: { title: d.title, source_label: d.source_label },
+    similarity: 0.55,
+  }));
+}
+
 // ── GUIDED PRINTER DIALOG ────────────────────────────────────────────────────
 
 // Keywords that indicate the user is asking about print parameters
@@ -1263,8 +1301,22 @@ async function searchKnowledge(
   topicContext?: string,
   history?: Array<{ role: string; content: string }>
 ) {
+  // Augment query with product/brand names from recent history for better vector matching
+  let augmentedQuery = query;
+  if (history && history.length > 0) {
+    const recentText = history.slice(-4).map(h => h.content).join(' ');
+    const productMentions = recentText.match(
+      /\b(NanoClean[^\s.!?\n]{0,20}|Edge Mini[^\s.!?\n]{0,15}|Vitality[^\s.!?\n]{0,15}|ShapeWare[^\s.!?\n]{0,15}|Rayshape[^\s.!?\n]{0,15}|Scanner BLZ[^\s.!?\n]{0,15}|Asiga[^\s.!?\n]{0,15}|Chair Side[^\s.!?\n]{0,15}|MiiCraft[^\s.!?\n]{0,15}|Medit[^\s.!?\n]{0,15})/gi
+    );
+    if (productMentions && productMentions.length > 0) {
+      const uniqueProducts = [...new Set(productMentions.map(p => p.trim().slice(0, 30)))];
+      augmentedQuery = `${uniqueProducts.join(' ')} ${query}`;
+      console.log(`[searchKnowledge] Query augmented with history products: "${augmentedQuery}"`);
+    }
+  }
+
   // Try vector search first
-  const embedding = await generateEmbedding(query);
+  const embedding = await generateEmbedding(augmentedQuery);
 
   if (embedding) {
     const { data, error } = await supabase.rpc("match_agent_embeddings", {
@@ -1746,11 +1798,18 @@ serve(async (req) => {
     // Skip parameter search when in commercial context — prevents parameter noise in SDR flow
     const skipParams = topic_context === "commercial";
     const isCommercial = topic_context === "commercial";
+
+    // Also search catalog when history mentions a known product (even outside commercial route)
+    const historyMentionsProduct = history?.some(h =>
+      /nanoclean|edge mini|rayshape|scanner blz|asiga|vitality|chair side|miicraft|medit/i.test(h.content)
+    ) || false;
+    const shouldSearchCatalog = isCommercial || historyMentionsProduct;
+
     const [knowledgeResult, protocolResults, paramResults, catalogResults, companyContext] = await Promise.all([
       searchKnowledge(supabase, message, lang, topic_context, history),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history),
-      isCommercial ? searchCatalogProducts(supabase, message, history) : Promise.resolve([]),
+      shouldSearchCatalog ? searchCatalogProducts(supabase, message, history) : Promise.resolve([]),
       companyContextPromise,
     ]);
 
@@ -1771,6 +1830,15 @@ serve(async (req) => {
     const topSimilarity = allResults.length > 0
       ? Math.max(...allResults.map((r: { similarity: number }) => r.similarity), 0)
       : knowledgeTopSimilarity;
+
+    // 3b. Fallback: if knowledge returned empty and history exists, try company_kb_texts
+    if (allResults.length === 0 && history && history.length > 0) {
+      const companyKBResults = await searchCompanyKB(supabase, message, history);
+      if (companyKBResults.length > 0) {
+        allResults.push(...companyKBResults);
+        console.log(`[RAG] company_kb fallback added ${companyKBResults.length} results`);
+      }
+    }
 
     const hasResults = allResults.length > 0;
 
