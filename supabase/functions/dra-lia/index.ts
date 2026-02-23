@@ -1258,7 +1258,8 @@ async function searchKnowledge(
   supabase: ReturnType<typeof createClient>,
   query: string,
   lang: string,
-  topicContext?: string
+  topicContext?: string,
+  history?: Array<{ role: string; content: string }>
 ) {
   // Try vector search first
   const embedding = await generateEmbedding(query);
@@ -1328,8 +1329,15 @@ async function searchKnowledge(
     return { results: rerankedFts, method: "fulltext", topSimilarity: rerankedFts[0]?.similarity || 0 };
   }
 
-  // Last resort: keyword search on videos
-  const keywords = query.split(" ").filter((w) => w.length > 3).slice(0, 4);
+  // Include recent conversation history to capture product names mentioned earlier
+  const recentContext = (history || []).slice(-6).map(h => h.content).join(' ');
+  const fullText = `${recentContext} ${query}`;
+  const keywords = fullText
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !STOPWORDS_PT.includes(w.toLowerCase()))
+    .map(w => w.toLowerCase())
+    .filter((v, i, a) => a.indexOf(v) === i) // deduplicate
+    .slice(0, 8);
 
   if (keywords.length > 0) {
     const { data: videos } = await supabase
@@ -1735,7 +1743,7 @@ serve(async (req) => {
     const skipParams = topic_context === "commercial";
     const isCommercial = topic_context === "commercial";
     const [knowledgeResult, protocolResults, paramResults, catalogResults, companyContext] = await Promise.all([
-      searchKnowledge(supabase, message, lang, topic_context),
+      searchKnowledge(supabase, message, lang, topic_context, history),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history),
       isCommercial ? searchCatalogProducts(supabase, message, history) : Promise.resolve([]),
