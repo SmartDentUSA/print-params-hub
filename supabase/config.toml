@@ -158,3 +158,15 @@ verify_jwt = false
 
 [functions.index-spin-entries]
 verify_jwt = false
+
+[functions.smart-ops-ingest-lead]
+verify_jwt = false
+
+[functions.smart-ops-piperun-webhook]
+verify_jwt = false
+
+[functions.smart-ops-cs-processor]
+verify_jwt = false
+
+[functions.smart-ops-sync-piperun]
+verify_jwt = false
