@@ -1919,6 +1919,14 @@ export type Database = {
           percentage: number
         }[]
       }
+      get_rag_stats: {
+        Args: never
+        Returns: {
+          chunk_count: number
+          last_indexed_at: string
+          source_type: string
+        }[]
+      }
       get_user_role: {
         Args: { user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
