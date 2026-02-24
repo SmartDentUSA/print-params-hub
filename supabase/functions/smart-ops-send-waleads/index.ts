@@ -28,13 +28,17 @@ Deno.serve(async (req) => {
     const {
       team_member_id,
       phone,
-      tipo = "text",
+      tipo: rawTipo = "text",
       message,
       media_url,
       caption,
       lead_id,
       test_mode = false,
     } = body;
+
+    // Sanitize tipo
+    const VALID_TIPOS = ["text", "image", "audio", "video", "document"];
+    const tipo = VALID_TIPOS.includes(String(rawTipo).toLowerCase()) ? String(rawTipo).toLowerCase() : "text";
 
     if (!team_member_id || !phone) {
       return new Response(JSON.stringify({ error: "team_member_id e phone são obrigatórios" }), {
@@ -92,7 +96,7 @@ Deno.serve(async (req) => {
     console.log("[send-waleads] Request body:", JSON.stringify(apiBody));
 
     // Call WaLeads API
-    const waRes = await fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
+    const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -107,20 +111,19 @@ Deno.serve(async (req) => {
 
     console.log(`[send-waleads] Response: ${waRes.status}`, waData.slice(0, 500));
 
-    // Log to message_logs (skip if test_mode)
-    if (!test_mode) {
-      await supabase.from("message_logs").insert({
-        lead_id: lead_id || null,
-        team_member_id: member.id,
-        whatsapp_number: member.whatsapp_number,
-        tipo: `waleads_${tipo}`,
-        mensagem_preview: tipo === "text"
-          ? (finalMessage || "").slice(0, 200)
-          : `[${tipo}] ${media_url || ""}`.slice(0, 200),
-        status: messageStatus,
-        error_details: errorDetails,
-      });
-    }
+    // Log to message_logs (always, with _test suffix when test_mode)
+    const logTipo = test_mode ? `waleads_${tipo}_test` : `waleads_${tipo}`;
+    await supabase.from("message_logs").insert({
+      lead_id: lead_id || null,
+      team_member_id: member.id,
+      whatsapp_number: member.whatsapp_number,
+      tipo: logTipo,
+      mensagem_preview: tipo === "text"
+        ? (finalMessage || "").slice(0, 200)
+        : `[${tipo}] ${media_url || ""}`.slice(0, 200),
+      status: messageStatus,
+      error_details: errorDetails,
+    });
 
     return new Response(JSON.stringify({
       success: waRes.ok,
