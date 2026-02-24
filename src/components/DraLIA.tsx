@@ -313,7 +313,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
-    if (!text || isLoading) return;
+    if (!text || text.length < 3 || isLoading) return;
     resetInactivityTimer(); // Reset 5-min timer on every message
 
     const userMsg: Message = {
@@ -971,7 +971,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || input.trim().length < 3 || isLoading}
             aria-label={t('dra_lia.send_aria')}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-white disabled:opacity-40 transition-opacity shrink-0"
             style={{ background: '#1e3a5f' }}
