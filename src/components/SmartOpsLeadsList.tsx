@@ -69,6 +69,20 @@ interface LeadFull {
   ativo_print: boolean | null;
   ativo_cura: boolean | null;
   ativo_insumos: boolean | null;
+  // New CRM fields
+  status_oportunidade: string | null;
+  valor_oportunidade: number | null;
+  tags_crm: string[] | null;
+  temperatura_lead: string | null;
+  motivo_perda: string | null;
+  comentario_perda: string | null;
+  cidade: string | null;
+  uf: string | null;
+  tem_scanner: string | null;
+  data_fechamento_crm: string | null;
+  lead_timing_dias: number | null;
+  itens_proposta_crm: string | null;
+  piperun_link: string | null;
 }
 
 function ActiveIcons({ lead }: { lead: LeadFull }) {
@@ -191,13 +205,14 @@ export function SmartOpsLeadsList() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
+                  <TableHead>Cidade/UF</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Oport.</TableHead>
+                  <TableHead>Valor</TableHead>
+                  <TableHead>Temp.</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Proprietário</TableHead>
-                  <TableHead>Source</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Ativos</TableHead>
                 </TableRow>
@@ -205,14 +220,26 @@ export function SmartOpsLeadsList() {
               <TableBody>
                 {paged.map((lead) => (
                   <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                    <TableCell className="font-medium whitespace-nowrap">{lead.nome}</TableCell>
-                    <TableCell className="text-xs">{lead.email}</TableCell>
-                    <TableCell className="text-xs font-mono">{lead.telefone_normalized || "—"}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">
+                      <div>{lead.nome}</div>
+                      <div className="text-[10px] text-muted-foreground">{lead.email}</div>
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">
+                      {lead.cidade && lead.uf ? `${lead.cidade}/${lead.uf}` : lead.uf || "—"}
+                    </TableCell>
                     <TableCell className="text-xs">{lead.produto_interesse || "—"}</TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">{lead.lead_status}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant={lead.status_oportunidade === "ganha" ? "default" : lead.status_oportunidade === "perdida" ? "destructive" : "secondary"} className="text-[10px]">
+                        {lead.status_oportunidade || "—"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-right font-mono">
+                      {lead.valor_oportunidade ? `R$ ${Number(lead.valor_oportunidade).toLocaleString("pt-BR")}` : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">{lead.temperatura_lead || "—"}</TableCell>
                     <TableCell className="text-center">{lead.score ?? 0}</TableCell>
                     <TableCell className="text-xs">{lead.proprietario_lead_crm || "—"}</TableCell>
-                    <TableCell className="text-xs">{lead.source}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
                     <TableCell><ActiveIcons lead={lead} /></TableCell>
                   </TableRow>

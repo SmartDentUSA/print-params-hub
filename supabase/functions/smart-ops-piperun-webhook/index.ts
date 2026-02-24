@@ -5,7 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Map CRM stage names back to pipeline lead_status
 const STAGE_TO_STATUS: Record<string, string> = {
   "sem contato": "sem_contato",
   "contato feito": "contato_feito",
@@ -17,6 +16,15 @@ const STAGE_TO_STATUS: Record<string, string> = {
   "negociação": "negociacao",
   "negociacao": "negociacao",
   "fechamento": "fechamento",
+  "etapa 01": "est1_0",
+  "etapa 02": "est2_0",
+  "etapa 03": "est3_0",
+};
+
+const STATUS_MAP: Record<string, string> = {
+  open: "aberta",
+  won: "ganha",
+  lost: "perdida",
 };
 
 function mapStageToStatus(stageName: string): string {
@@ -28,11 +36,23 @@ function mapStageToStatus(stageName: string): string {
 }
 
 function isStagnant(stageName: string): boolean {
-  return stageName.toLowerCase().includes("estagnado");
+  return stageName.toLowerCase().includes("estagnado") || stageName.toLowerCase().includes("reativação") || stageName.toLowerCase().includes("reativacao");
 }
 
 function isInStagnantFunnel(leadStatus: string): boolean {
   return leadStatus.startsWith("est") && leadStatus !== "estagnado_final";
+}
+
+function extractCustomField(deal: Record<string, unknown>, fieldName: string): string | null {
+  const customs = (deal.custom_fields || []) as Array<{ name?: string; label?: string; value?: unknown }>;
+  if (Array.isArray(customs)) {
+    const field = customs.find((f) => {
+      const name = (f.name || f.label || "").toLowerCase();
+      return name.includes(fieldName.toLowerCase());
+    });
+    if (field && field.value != null) return String(field.value);
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -50,10 +70,20 @@ Deno.serve(async (req) => {
 
     console.log("[piperun-webhook] Payload:", JSON.stringify(payload).slice(0, 500));
 
-    const dealId = String(payload.deal?.id || payload.id || payload.deal_id || "");
-    const ownerName = payload.deal?.owner?.name || payload.owner_name || null;
-    const ownerEmail = payload.deal?.owner?.email || payload.owner_email || null;
-    const stageName = payload.deal?.stage?.name || payload.stage_name || null;
+    const deal = (payload.deal || payload) as Record<string, unknown>;
+    const dealId = String(deal.id || payload.deal_id || "");
+    const owner = deal.owner as Record<string, unknown> | undefined;
+    const stage = deal.stage as Record<string, unknown> | undefined;
+    const pipeline = deal.pipeline as Record<string, unknown> | undefined;
+    const person = deal.person as Record<string, unknown> | undefined;
+    const city = person?.city as Record<string, unknown> | undefined;
+    const state = person?.state as Record<string, unknown> | undefined;
+    const lossReason = deal.loss_reason as Record<string, unknown> | undefined;
+    const tags = deal.tags as Array<{ name?: string }> | undefined;
+
+    const ownerName = owner?.name ? String(owner.name) : (payload.owner_name || null);
+    const ownerEmail = owner?.email ? String(owner.email) : (payload.owner_email || null);
+    const stageName = stage?.name ? String(stage.name) : (payload.stage_name || null);
 
     if (!dealId) {
       return new Response(JSON.stringify({ error: "deal_id obrigatório" }), {
@@ -61,7 +91,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // First, fetch current lead to check lead_status
+    // Fetch current lead
     const { data: currentLead } = await supabase
       .from("lia_attendances")
       .select("id, nome, telefone_normalized, produto_interesse, lead_status")
@@ -75,20 +105,43 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build update payload
+    // Build expanded update payload
     const updateData: Record<string, unknown> = {};
     if (ownerName) updateData.proprietario_lead_crm = ownerName;
     if (stageName) updateData.status_atual_lead_crm = stageName;
+    if (pipeline?.name) updateData.funil_entrada_crm = String(pipeline.name);
+
+    // New CRM fields
+    if (deal.status) updateData.status_oportunidade = STATUS_MAP[String(deal.status)] || String(deal.status);
+    if (deal.value != null) updateData.valor_oportunidade = Number(deal.value) || null;
+    if (tags && Array.isArray(tags)) updateData.tags_crm = tags.map((t) => t.name).filter(Boolean);
+    if (deal.temperature) updateData.temperatura_lead = String(deal.temperature);
+    if (lossReason?.name) updateData.motivo_perda = String(lossReason.name);
+    if (lossReason?.comment) updateData.comentario_perda = String(lossReason.comment);
+    if (deal.lead_timing != null) updateData.lead_timing_dias = Number(deal.lead_timing) || null;
+    if (deal.closed_at) updateData.data_fechamento_crm = String(deal.closed_at);
+
+    // Person fields
+    if (city?.name) updateData.cidade = String(city.name);
+    if (state?.abbr || state?.name) updateData.uf = String(state?.abbr || state?.name);
+
+    // Custom fields
+    const produtoInteresse = extractCustomField(deal, "produto de interesse");
+    if (produtoInteresse) updateData.produto_interesse = produtoInteresse;
+    const temScanner = extractCustomField(deal, "tem scanner");
+    if (temScanner) updateData.tem_scanner = temScanner;
+    const itensProposta = extractCustomField(deal, "itens da proposta") || extractCustomField(deal, "itens proposta");
+    if (itensProposta) updateData.itens_proposta_crm = itensProposta;
+
+    updateData.piperun_link = `https://app.pipe.run/pipeline/gerenciador/visualizar/${dealId}`;
 
     // Stagnation funnel logic
     if (stageName) {
       if (isStagnant(stageName) && !isInStagnantFunnel(currentLead.lead_status) && currentLead.lead_status !== "estagnado_final") {
-        // CRM moved to "Estagnado" → start funnel
         updateData.lead_status = "est1_0";
         updateData.updated_at = new Date().toISOString();
         console.log("[piperun-webhook] Iniciando funil estagnação para lead:", currentLead.id);
       } else if (!isStagnant(stageName) && (isInStagnantFunnel(currentLead.lead_status) || currentLead.lead_status === "estagnado_final")) {
-        // CRM moved OUT of "Estagnado" → rescue lead back to pipeline
         updateData.lead_status = mapStageToStatus(stageName);
         updateData.updated_at = new Date().toISOString();
         console.log("[piperun-webhook] Resgatando lead do funil estagnação:", currentLead.id, "→", updateData.lead_status);
@@ -114,7 +167,7 @@ Deno.serve(async (req) => {
       const { data } = await supabase
         .from("team_members")
         .select("id, whatsapp_number, nome_completo")
-        .eq("email", ownerEmail)
+        .eq("email", String(ownerEmail))
         .eq("ativo", true)
         .single();
       teamMember = data;

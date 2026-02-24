@@ -1,0 +1,14 @@
+ALTER TABLE lia_attendances
+  ADD COLUMN IF NOT EXISTS status_oportunidade TEXT DEFAULT 'aberta',
+  ADD COLUMN IF NOT EXISTS valor_oportunidade NUMERIC,
+  ADD COLUMN IF NOT EXISTS tags_crm TEXT[] DEFAULT '{}',
+  ADD COLUMN IF NOT EXISTS temperatura_lead TEXT,
+  ADD COLUMN IF NOT EXISTS motivo_perda TEXT,
+  ADD COLUMN IF NOT EXISTS comentario_perda TEXT,
+  ADD COLUMN IF NOT EXISTS cidade TEXT,
+  ADD COLUMN IF NOT EXISTS uf TEXT,
+  ADD COLUMN IF NOT EXISTS tem_scanner TEXT,
+  ADD COLUMN IF NOT EXISTS data_fechamento_crm TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS lead_timing_dias INTEGER,
+  ADD COLUMN IF NOT EXISTS itens_proposta_crm TEXT,
+  ADD COLUMN IF NOT EXISTS piperun_link TEXT;
