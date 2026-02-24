@@ -1,151 +1,165 @@
 
-# Refatoracao e verificacao de todas as referencias da LIA
+# Auditoria e Refatoracao: Ferramentas SEO / GEO / Indexacao / IA Regenerativa
 
-## Escopo da auditoria
+## Escopo auditado
 
-Arquivos auditados: 15+ arquivos entre edge functions, componentes React, locales e configuracoes.
+22 edge functions + 8 componentes React + 5 sitemaps + robots.txt + vercel.json + llms.txt
 
-## Problemas encontrados
+---
 
-### 1. CORS inconsistentes nas edge functions LIA (3 funcoes)
+## PROBLEMAS ENCONTRADOS
 
-As seguintes edge functions usam CORS incompletos (faltam headers do Supabase client):
+### 1. CORS incompletos (14 edge functions)
 
-| Funcao | CORS atual |
+Todas as funcoes abaixo usam CORS sem os headers do Supabase client platform:
+
+| Funcao | Linhas |
 |---|---|
-| `dra-lia/index.ts` (linha 4-7) | Incompleto |
-| `dra-lia-export/index.ts` (linha 4-7) | Incompleto |
-| `archive-daily-chats/index.ts` (linha 4-7) | Incompleto |
+| `seo-proxy/index.ts` | 3-6 |
+| `ai-generate-og-image/index.ts` | 4-7 |
+| `ai-metadata-generator/index.ts` | 5-7 |
+| `ai-content-formatter/index.ts` | 5-8 |
+| `ai-orchestrate-content/index.ts` | 8-11 |
+| `enrich-article-seo/index.ts` | 5-8 |
+| `reformat-article-html/index.ts` | 5-8 |
+| `auto-inject-product-cards/index.ts` | 4-7 |
+| `translate-content/index.ts` | 4-7 |
+| `backfill-keywords/index.ts` | 4-7 |
+| `generate-sitemap/index.ts` | 3-6 |
+| `generate-knowledge-sitemap/index.ts` | 3-6 |
+| `generate-documents-sitemap/index.ts` | 3-6 |
+| `generate-knowledge-sitemap-en/index.ts` | CORS incompleto (verificar) |
+| `generate-knowledge-sitemap-es/index.ts` | CORS incompleto (verificar) |
 
-**Correcao:** Padronizar para o mesmo formato usado nas funcoes Smart Ops ja corrigidas:
+**Correcao:** Padronizar para:
 ```typescript
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 ```
 
-### 2. evaluate-interaction sem CORS
+### 2. URLs hardcoded para projeto Supabase errado (`pgfgripuanuwwolmtknn`)
 
-O `evaluate-interaction/index.ts` nao tem CORS headers porque e chamado via webhook (trigger de banco). Isso e correto e nao precisa de alteracao.
+Encontradas **45 referencias** ao projeto `pgfgripuanuwwolmtknn` em 3 funcoes:
 
-### 3. EXTERNAL_KB_URL hardcoded com projeto errado
+| Funcao | Tipo | Linha | Impacto |
+|---|---|---|---|
+| `seo-proxy/index.ts` | Logo URL (7x) | 133, 482, 566, 672, 822, 1039, 1605 | Referencia a storage de outro projeto para logo |
+| `sync-knowledge-base/index.ts` | API URL | 65 | Busca knowledge-base de projeto errado |
+| `index-embeddings/index.ts` | API URL | 16 | Busca knowledge-base de projeto errado |
 
-No `dra-lia/index.ts` (linha 100):
+**Analise critica:**
+- As URLs de logo (`/storage/v1/object/public/product-images/...`) apontam para o storage do projeto `pgfgripuanuwwolmtknn`. Se a imagem existir la, funciona. Mas e fragil pois depende de outro projeto.
+- As URLs de API (`/functions/v1/knowledge-base`) nas funcoes `sync-knowledge-base` e `index-embeddings` buscam dados de um projeto diferente, similar ao bug ja corrigido na `dra-lia`.
+
+**Correcao para APIs:**
 ```typescript
-const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
-```
+// sync-knowledge-base/index.ts (linha 65)
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const apiUrl = new URL(`${SUPABASE_URL}/functions/v1/knowledge-base`);
 
-Este URL aponta para o projeto Supabase `pgfgripuanuwwolmtknn`, mas o projeto atual e `okeogjgqijbfkudfjadz`. Isso significa que o `fetchCompanyContext()` esta buscando dados de um projeto diferente.
-
-**Correcao:** Usar a variavel de ambiente `SUPABASE_URL` que ja existe:
-```typescript
+// index-embeddings/index.ts (linha 16)
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 ```
 
-### 4. Modelo de IA desatualizado na chain de fallback
+**Correcao para Logo no seo-proxy:**
+Extrair a URL do logo para uma constante no topo do arquivo. Se o storage do projeto correto tiver a mesma imagem, usar `${SUPABASE_URL}/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png`. Caso contrario, manter a URL atual como fallback (a imagem ja existe no outro projeto e funciona).
 
-No `dra-lia/index.ts` (linhas 2221-2238), a chain de fallback usa:
-- Primario: `google/gemini-2.5-flash` 
-- Fallback 1: `google/gemini-2.5-flash-lite`
-- Fallback 2: `openai/gpt-4o-mini`
-- Fallback 3: `openai/gpt-4.1-mini`
+**Decisao recomendada:** Manter a URL do logo como esta (funcional) e corrigir apenas as APIs. Migrar a imagem pode ser feito depois.
 
-No `evaluate-interaction/index.ts` (linha 88), o judge usa:
-- `google/gemini-3-flash-preview`
+### 3. `seo-proxy/index.ts` - Publisher Schema com logo hardcoded
 
-O modelo do judge (`gemini-3-flash-preview`) e mais recente que o modelo principal da LIA (`gemini-2.5-flash`). Isso nao e necessariamente um problema, mas vale o registro.
+Na funcao `buildPublisherSchema` (linha 133), o logo usa URL do projeto errado:
+```typescript
+"url": "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+```
 
-**Nenhuma acao necessaria** neste item. Os modelos estao funcionais.
+**Correcao:** Usar constante LOGO_URL no topo do arquivo para facilitar manutencao futura.
 
-### 5. Referencia duplicada ao `dra-lia:ask` CustomEvent (OK)
+### 4. Sitemaps: `generate-knowledge-sitemap-en` e `generate-knowledge-sitemap-es`
 
-O evento `dra-lia:ask` e emitido em `KnowledgeBase.tsx` (linha 109) e escutado em `DraLIA.tsx` (linha 282). Ambas as referencias estao consistentes.
+Precisam verificacao de CORS (nao foram lidos em detalhe, mas seguem o mesmo padrao das outras funcoes).
 
-### 6. Locales consistentes (OK)
+### 5. `robots.txt` - Referencia a sitemap de documentos
 
-As 3 locales (pt, en, es) tem chaves identicas sob `dra_lia`. Nenhuma chave faltando.
+O robots.txt referencia `generate-documents-sitemap` que esta correto e funcional. Todas as 5 entradas de Sitemap estao consistentes:
+- generate-sitemap (principal)
+- generate-knowledge-sitemap (PT)
+- generate-knowledge-sitemap-en (EN)
+- generate-knowledge-sitemap-es (ES)
+- generate-documents-sitemap (PDFs)
 
-### 7. Routing consistente (OK)
+**Status: OK** - nenhuma correcao necessaria.
 
-- `App.tsx` importa `AgentEmbed` e registra a rota `/embed/dra-lia`
-- `DraLIA` e usado tanto standalone (flutuante) quanto embedded
-- Referencia no `KnowledgeBase.tsx` ao CustomEvent esta correta
+### 6. `vercel.json` - Rewrite de seo-proxy
 
-### 8. sessionStorage keys consistentes (OK)
+A regex de user-agent no vercel.json esta correta e cobre todos os bots listados em `seo-proxy/index.ts`. **Status: OK**.
 
-Todas as chaves de sessionStorage usam o prefixo `dra_lia_`:
-- `dra_lia_session`
-- `dra_lia_lead_collected`
-- `dra_lia_topic_context`
+### 7. Componentes React SEO - Verificacao
 
-### 9. Tabelas e RLS consistentes (OK)
+| Componente | Status |
+|---|---|
+| `SEOHead.tsx` | OK - usa baseUrl correto |
+| `AboutSEOHead.tsx` | OK |
+| `KnowledgeSEOHead.tsx` | OK |
+| `TestimonialSEOHead.tsx` | OK |
+| `OrganizationSchema.tsx` | OK |
+| `VideoSchema.tsx` | OK |
+| `ArticleMeta.tsx` | OK |
 
-As tabelas `agent_interactions`, `agent_sessions`, `agent_embeddings`, `agent_knowledge_gaps`, `leads` e `knowledge_gap_drafts` estao com RLS correto e as referencias no codigo batem com os nomes das colunas.
+**Status: OK** - sem alteracoes necessarias nos componentes React.
 
-### 10. config.toml consistente (OK)
+---
 
-Todas as funcoes LIA estao registradas:
-- `dra-lia`: verify_jwt = false (correto, acesso publico para chat)
-- `dra-lia-export`: verify_jwt = false (faz autenticacao manual no codigo)
-- `evaluate-interaction`: verify_jwt = false (chamado via trigger)
-- `archive-daily-chats`: verify_jwt = false (chamado por cron/admin)
-- `index-embeddings`: verify_jwt = false (faz auth manual)
-- `heal-knowledge-gaps`: verify_jwt = true (apenas admin)
+## PLANO DE CORRECOES
 
-## Plano de correcoes
+### Prioridade 1 - Bug fix (APIs apontando para projeto errado)
 
-| Arquivo | Tipo | Descricao |
+| Arquivo | Mudanca |
+|---|---|
+| `supabase/functions/sync-knowledge-base/index.ts` | Usar `SUPABASE_URL` env var em vez de URL hardcoded (linha 65) |
+| `supabase/functions/index-embeddings/index.ts` | Usar `SUPABASE_URL` env var em vez de URL hardcoded (linha 16) |
+
+### Prioridade 2 - Padronizacao CORS (14 funcoes)
+
+Atualizar `corsHeaders` em todas as 14 funcoes listadas na secao 1 para incluir os headers completos do Supabase client.
+
+Funcoes a atualizar:
+1. `seo-proxy/index.ts`
+2. `ai-generate-og-image/index.ts`
+3. `ai-metadata-generator/index.ts`
+4. `ai-content-formatter/index.ts`
+5. `ai-orchestrate-content/index.ts`
+6. `enrich-article-seo/index.ts`
+7. `reformat-article-html/index.ts`
+8. `auto-inject-product-cards/index.ts`
+9. `translate-content/index.ts`
+10. `backfill-keywords/index.ts`
+11. `generate-sitemap/index.ts`
+12. `generate-knowledge-sitemap/index.ts`
+13. `generate-documents-sitemap/index.ts`
+14. `generate-knowledge-sitemap-en/index.ts`
+15. `generate-knowledge-sitemap-es/index.ts`
+
+### Prioridade 3 - Constante LOGO_URL no seo-proxy
+
+Extrair a URL do logo para uma constante `LOGO_URL` no topo do `seo-proxy/index.ts` para facilitar manutencao futura. A URL continua apontando para o projeto `pgfgripuanuwwolmtknn` onde a imagem existe.
+
+### Deploy
+
+Apos as correcoes, deploy de todas as funcoes modificadas.
+
+---
+
+## RESUMO
+
+| Tipo | Quantidade | Impacto |
 |---|---|---|
-| `supabase/functions/dra-lia/index.ts` | Bug fix | 1) CORS completo (linha 4-7) 2) EXTERNAL_KB_URL usar SUPABASE_URL (linha 100) |
-| `supabase/functions/dra-lia-export/index.ts` | Bug fix | CORS completo (linha 4-7) |
-| `supabase/functions/archive-daily-chats/index.ts` | Bug fix | CORS completo (linha 4-7) |
-
-### Detalhes das correcoes
-
-**dra-lia/index.ts - Linha 4-7:**
-```typescript
-// Antes:
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-// Depois:
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
-```
-
-**dra-lia/index.ts - Linha 100:**
-```typescript
-// Antes:
-const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
-
-// Depois:
-const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
-```
-
-**dra-lia-export/index.ts - Linha 4-7:**
-Mesmo padrao de CORS completo.
-
-**archive-daily-chats/index.ts - Linha 4-7:**
-Mesmo padrao de CORS completo.
-
-## Arquivos ja corretos (sem alteracao)
-
-| Arquivo | Status |
-|---|---|
-| `src/components/DraLIA.tsx` | OK - referencias consistentes |
-| `src/pages/AgentEmbed.tsx` | OK |
-| `src/pages/KnowledgeBase.tsx` | OK - CustomEvent correto |
-| `src/components/AdminDraLIAStats.tsx` | OK - queries e exports corretos |
-| `supabase/functions/evaluate-interaction/index.ts` | OK - sem CORS (webhook) |
-| `src/locales/pt.json`, `en.json`, `es.json` | OK - chaves consistentes |
-| `src/App.tsx` | OK - rota e import corretos |
-| `supabase/config.toml` | OK - todas funcoes registradas |
-
-## Resumo
-
-3 edge functions com CORS incompletos + 1 URL hardcoded apontando para projeto Supabase diferente. Apos as correcoes, todas as funcoes LIA terao CORS padronizado e o `fetchCompanyContext()` buscara dados do projeto correto.
+| APIs apontando para projeto errado | 2 funcoes | Alto - dados de outro projeto |
+| CORS incompletos | ~15 funcoes | Medio - pode causar falha em clients Supabase |
+| Logo hardcoded (outro projeto) | 7 ocorrencias | Baixo - funciona mas fragil |
+| Componentes React | 0 problemas | OK |
+| Sitemaps/robots.txt | 0 problemas | OK |
+| vercel.json | 0 problemas | OK |
