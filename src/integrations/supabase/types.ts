@@ -415,6 +415,7 @@ export type Database = {
           tipo: string | null
           trigger_event: string | null
           waleads_ativo: boolean | null
+          waleads_media_caption: string | null
           waleads_media_url: string | null
           waleads_tipo: string | null
         }
@@ -431,6 +432,7 @@ export type Database = {
           tipo?: string | null
           trigger_event?: string | null
           waleads_ativo?: boolean | null
+          waleads_media_caption?: string | null
           waleads_media_url?: string | null
           waleads_tipo?: string | null
         }
@@ -447,6 +449,7 @@ export type Database = {
           tipo?: string | null
           trigger_event?: string | null
           waleads_ativo?: boolean | null
+          waleads_media_caption?: string | null
           waleads_media_url?: string | null
           waleads_tipo?: string | null
         }

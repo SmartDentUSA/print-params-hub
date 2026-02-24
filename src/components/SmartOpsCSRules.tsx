@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +13,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { WaLeadsVariableBar, HighlightVariables } from "@/components/smartops/WaLeadsVariableBar";
+import { WaLeadsMediaPreview } from "@/components/smartops/WaLeadsMediaPreview";
 
 interface TeamMember {
   id: string;
@@ -36,6 +38,7 @@ interface Rule {
   waleads_tipo: string | null;
   mensagem_waleads: string | null;
   waleads_media_url: string | null;
+  waleads_media_caption: string | null;
   ativo: boolean;
 }
 
@@ -71,6 +74,7 @@ const defaultForm = {
   waleads_tipo: "text",
   mensagem_waleads: "",
   waleads_media_url: "",
+  waleads_media_caption: "",
 };
 
 export function SmartOpsCSRules() {
@@ -81,6 +85,7 @@ export function SmartOpsCSRules() {
   const [editing, setEditing] = useState<Rule | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultForm);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -116,12 +121,36 @@ export function SmartOpsCSRules() {
       waleads_tipo: r.waleads_tipo || "text",
       mensagem_waleads: r.mensagem_waleads || "",
       waleads_media_url: r.waleads_media_url || "",
+      waleads_media_caption: r.waleads_media_caption || "",
     });
     setDialogOpen(true);
   };
 
+  const insertVariable = (varKey: string) => {
+    const textarea = textareaRef.current;
+    const tag = `{{${varKey}}}`;
+    if (!textarea) {
+      setForm(f => ({ ...f, mensagem_waleads: f.mensagem_waleads + tag }));
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = form.mensagem_waleads;
+    const newText = text.substring(0, start) + tag + text.substring(end);
+    setForm(f => ({ ...f, mensagem_waleads: newText }));
+    setTimeout(() => {
+      textarea.focus();
+      const pos = start + tag.length;
+      textarea.setSelectionRange(pos, pos);
+    }, 0);
+  };
+
+  const insertCaptionVariable = (varKey: string) => {
+    setForm(f => ({ ...f, waleads_media_caption: f.waleads_media_caption + `{{${varKey}}}` }));
+  };
+
   const handleSave = async () => {
-    const payload = {
+    const payload: Record<string, unknown> = {
       team_member_id: selectedMemberId,
       trigger_event: form.trigger_event,
       produto_interesse: form.produto_interesse || null,
@@ -133,6 +162,7 @@ export function SmartOpsCSRules() {
       waleads_tipo: form.waleads_tipo,
       mensagem_waleads: form.mensagem_waleads || null,
       waleads_media_url: form.waleads_media_url || null,
+      waleads_media_caption: form.waleads_media_caption || null,
     };
     if (editing) {
       const { error } = await supabase.from("cs_automation_rules").update(payload).eq("id", editing.id);
@@ -188,13 +218,26 @@ export function SmartOpsCSRules() {
             <span className="text-primary">✓ ManyChat: <span className="font-mono">{r.template_manychat || "—"}</span></span>
           )}
           {r.waleads_ativo && (
-            <span className="text-primary">
-              ✓ WaLeads ({WALEADS_TIPOS.find(t => t.value === r.waleads_tipo)?.label}):
-              {r.waleads_tipo === "text"
-                ? <span className="font-mono ml-1">{(r.mensagem_waleads || "").substring(0, 40)}…</span>
-                : <span className="font-mono ml-1">{(r.waleads_media_url || "").substring(0, 40)}…</span>
-              }
-            </span>
+            <div className="flex items-start gap-2">
+              {r.waleads_tipo !== "text" && r.waleads_media_url && (
+                <WaLeadsMediaPreview tipo={r.waleads_tipo || "image"} url={r.waleads_media_url} compact />
+              )}
+              <div className="space-y-0.5">
+                <span className="text-primary">
+                  ✓ WaLeads ({WALEADS_TIPOS.find(t => t.value === r.waleads_tipo)?.label})
+                </span>
+                {r.waleads_tipo === "text" && r.mensagem_waleads && (
+                  <div className="block">
+                    <HighlightVariables text={r.mensagem_waleads.substring(0, 80) + (r.mensagem_waleads.length > 80 ? "…" : "")} />
+                  </div>
+                )}
+                {r.waleads_tipo !== "text" && r.waleads_media_caption && (
+                  <div className="block">
+                    <HighlightVariables text={r.waleads_media_caption.substring(0, 60) + (r.waleads_media_caption.length > 60 ? "…" : "")} />
+                  </div>
+                )}
+              </div>
+            </div>
           )}
           {!r.manychat_ativo && !r.waleads_ativo && (
             <span className="text-muted-foreground">Nenhum canal ativo</span>
@@ -276,7 +319,7 @@ export function SmartOpsCSRules() {
 
       {/* Dialog criar/editar */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Automação" : "Nova Automação"}</DialogTitle>
           </DialogHeader>
@@ -337,13 +380,13 @@ export function SmartOpsCSRules() {
             <Separator />
 
             {/* WaLeads */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="font-semibold">WaLeads</Label>
                 <Switch checked={form.waleads_ativo} onCheckedChange={(v) => setForm({ ...form, waleads_ativo: v })} />
               </div>
               {form.waleads_ativo && (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div>
                     <Label className="text-xs">Tipo de Mensagem</Label>
                     <Select value={form.waleads_tipo} onValueChange={(v) => setForm({ ...form, waleads_tipo: v })}>
@@ -355,15 +398,59 @@ export function SmartOpsCSRules() {
                       </SelectContent>
                     </Select>
                   </div>
+
                   {form.waleads_tipo === "text" ? (
-                    <div>
-                      <Label className="text-xs">Mensagem</Label>
-                      <Textarea value={form.mensagem_waleads} onChange={(e) => setForm({ ...form, mensagem_waleads: e.target.value })} placeholder="Olá! Vi que se interessou pelo..." rows={3} />
+                    <div className="space-y-2">
+                      <WaLeadsVariableBar onInsert={insertVariable} />
+                      <div>
+                        <Label className="text-xs">Mensagem</Label>
+                        <Textarea
+                          ref={textareaRef}
+                          value={form.mensagem_waleads}
+                          onChange={(e) => setForm({ ...form, mensagem_waleads: e.target.value })}
+                          placeholder="Olá {{nome}}! Vi que se interessou pelo {{produto_interesse}}..."
+                          rows={4}
+                        />
+                      </div>
+                      {form.mensagem_waleads && (
+                        <div className="p-2 bg-muted/50 rounded border">
+                          <span className="text-[10px] text-muted-foreground block mb-1">Preview:</span>
+                          <HighlightVariables text={form.mensagem_waleads} />
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    <div>
-                      <Label className="text-xs">URL da mídia ({WALEADS_TIPOS.find(t => t.value === form.waleads_tipo)?.label})</Label>
-                      <Input value={form.waleads_media_url} onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })} placeholder="https://..." />
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs">URL da mídia ({WALEADS_TIPOS.find(t => t.value === form.waleads_tipo)?.label})</Label>
+                        <Input
+                          value={form.waleads_media_url}
+                          onChange={(e) => setForm({ ...form, waleads_media_url: e.target.value })}
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      {form.waleads_media_url && (
+                        <WaLeadsMediaPreview tipo={form.waleads_tipo} url={form.waleads_media_url} />
+                      )}
+
+                      <div className="space-y-2">
+                        <WaLeadsVariableBar onInsert={insertCaptionVariable} />
+                        <div>
+                          <Label className="text-xs">Legenda (opcional)</Label>
+                          <Input
+                            value={form.waleads_media_caption}
+                            onChange={(e) => setForm({ ...form, waleads_media_caption: e.target.value })}
+                            placeholder="Confira {{nome}}! Novidades sobre {{produto_interesse}}"
+                          />
+                        </div>
+                        {form.waleads_media_caption && (
+                          <div className="p-2 bg-muted/50 rounded border">
+                            <span className="text-[10px] text-muted-foreground block mb-1">Preview legenda:</span>
+                            <HighlightVariables text={form.waleads_media_caption} />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
