@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus } from "lucide-react";
+import { Plus, Send } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
@@ -33,6 +34,13 @@ export function SmartOpsTeam() {
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" });
   const { toast } = useToast();
+
+  // WaLeads test state
+  const [testDialogOpen, setTestDialogOpen] = useState(false);
+  const [testMember, setTestMember] = useState<TeamMember | null>(null);
+  const [testPhone, setTestPhone] = useState("");
+  const [testMessage, setTestMessage] = useState("Olá! Esta é uma mensagem de teste do WaLeads. 🚀");
+  const [testSending, setTestSending] = useState(false);
 
   const fetchMembers = async () => {
     const { data } = await supabase.from("team_members").select("*").order("role").order("nome_completo");
@@ -64,6 +72,39 @@ export function SmartOpsTeam() {
   const toggleAtivo = async (m: TeamMember) => {
     await supabase.from("team_members").update({ ativo: !m.ativo }).eq("id", m.id);
     fetchMembers();
+  };
+
+  const openTestWaLeads = (m: TeamMember) => {
+    setTestMember(m);
+    setTestPhone(m.whatsapp_number);
+    setTestMessage("Olá! Esta é uma mensagem de teste do WaLeads. 🚀");
+    setTestDialogOpen(true);
+  };
+
+  const handleTestSend = async () => {
+    if (!testMember || !testPhone) return;
+    setTestSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-send-waleads", {
+        body: {
+          team_member_id: testMember.id,
+          phone: testPhone,
+          tipo: "text",
+          message: testMessage,
+          test_mode: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast({ title: "✅ Mensagem enviada!", description: `Enviado para ${testPhone}` });
+      } else {
+        toast({ title: "⚠️ Falha no envio", description: data?.response || "Verifique a API Key", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Erro", description: String(err), variant: "destructive" });
+    } finally {
+      setTestSending(false);
+    }
   };
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando equipe...</div>;
@@ -134,13 +175,45 @@ export function SmartOpsTeam() {
                   {!m.manychat_api_key && !m.waleads_api_key && <span className="text-muted-foreground text-xs">—</span>}
                 </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
-                <TableCell><Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button></TableCell>
+                <TableCell className="space-x-1">
+                  <Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button>
+                  {m.waleads_api_key && (
+                    <Button variant="outline" size="sm" onClick={() => openTestWaLeads(m)}>
+                      <Send className="w-3 h-3 mr-1" /> Testar WL
+                    </Button>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
     </Card>
+
+    {/* WaLeads Test Dialog */}
+    <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Testar Envio WaLeads — {testMember?.nome_completo}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label>Telefone destino</Label>
+            <Input value={testPhone} onChange={(e) => setTestPhone(e.target.value)} placeholder="+5511999999999" />
+          </div>
+          <div>
+            <Label>Mensagem</Label>
+            <Textarea value={testMessage} onChange={(e) => setTestMessage(e.target.value)} rows={3} />
+          </div>
+          <Button onClick={handleTestSend} disabled={testSending} className="w-full">
+            <Send className="w-4 h-4 mr-2" />
+            {testSending ? "Enviando..." : "Enviar teste"}
+          </Button>
+          <p className="text-xs text-muted-foreground">Modo teste: a mensagem será enviada mas não será registrada nos logs.</p>
+        </div>
+      </DialogContent>
+    </Dialog>
+
     <SmartOpsSellerAutomations />
     </>
   );
