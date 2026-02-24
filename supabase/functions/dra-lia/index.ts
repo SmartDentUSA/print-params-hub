@@ -999,6 +999,25 @@ async function upsertLead(
     }, { onConflict: "session_id" });
 
     console.log(`[upsertLead] Lead saved: ${name} (${email}) → ${lead.id}`);
+
+    // Also upsert into lia_attendances for Smart Ops visibility
+    try {
+      await supabase.from("lia_attendances").upsert(
+        {
+          nome: name,
+          email: email,
+          source: "dra-lia",
+          lead_status: "novo",
+          data_primeiro_contato: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "email" }
+      );
+      console.log(`[upsertLead] lia_attendances synced for ${email}`);
+    } catch (liaErr) {
+      console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
+    }
+
     return lead.id;
   } catch (e) {
     console.error("[upsertLead] exception:", e);
