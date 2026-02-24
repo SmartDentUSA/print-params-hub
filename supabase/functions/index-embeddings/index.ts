@@ -58,7 +58,7 @@ async function sleep(ms: number) {
 
 interface Chunk {
   content_id?: string;
-  source_type: "article" | "video" | "resin" | "parameter" | "company_kb" | "catalog_product";
+  source_type: "article" | "video" | "resin" | "parameter" | "company_kb" | "catalog_product" | "author";
   chunk_text: string;
   metadata: Record<string, unknown>;
 }
@@ -456,6 +456,7 @@ serve(async (req) => {
       parameters: "parameter",
       company_kb: "company_kb",
       catalog_products: "catalog_product",
+      authors: "author",
     };
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -688,6 +689,63 @@ serve(async (req) => {
     }
     console.log(`[company-kb-texts] ${(kbTexts || []).length} blocos de experiência humana processados`);
     } // end if company_kb
+
+    // ── 5b. AUTHORS ──────────────────────────────────────────────
+    if (stage === "all" || stage === "authors") {
+    const { data: authors, error: authorError } = await supabase
+      .from("authors")
+      .select("id, name, specialty, mini_bio, full_bio, photo_url, website_url, instagram_url, youtube_url, lattes_url, linkedin_url")
+      .eq("active", true);
+
+    if (authorError) console.warn("[authors] query error:", authorError.message);
+
+    // Also fetch article count per author
+    const { data: articleCounts } = await supabase
+      .from("knowledge_contents")
+      .select("author_id")
+      .eq("active", true)
+      .not("author_id", "is", null);
+
+    const authorArticleMap: Record<string, number> = {};
+    for (const ac of articleCounts || []) {
+      const aid = (ac as { author_id: string }).author_id;
+      authorArticleMap[aid] = (authorArticleMap[aid] || 0) + 1;
+    }
+
+    for (const author of authors || []) {
+      const a = author as { id: string; name: string; specialty: string | null; mini_bio: string | null; full_bio: string | null; photo_url: string | null; website_url: string | null; instagram_url: string | null; youtube_url: string | null; lattes_url: string | null; linkedin_url: string | null };
+      const articleCount = authorArticleMap[a.id] || 0;
+      const socialLinks = [
+        a.website_url ? `Site: ${a.website_url}` : '',
+        a.instagram_url ? `Instagram: ${a.instagram_url}` : '',
+        a.youtube_url ? `YouTube: ${a.youtube_url}` : '',
+        a.lattes_url ? `Lattes: ${a.lattes_url}` : '',
+        a.linkedin_url ? `LinkedIn: ${a.linkedin_url}` : '',
+      ].filter(Boolean).join(' | ');
+
+      const chunkText = [
+        `KOL/Autor Smart Dent: ${a.name}`,
+        a.specialty ? `Especialidade: ${a.specialty}` : '',
+        a.mini_bio || '',
+        a.full_bio ? a.full_bio.slice(0, 500) : '',
+        articleCount > 0 ? `Publicações na base de conhecimento: ${articleCount} artigos` : '',
+        socialLinks,
+      ].filter(Boolean).join(' | ');
+
+      chunks.push({
+        content_id: a.id,
+        source_type: "author",
+        chunk_text: chunkText,
+        metadata: {
+          title: a.name,
+          specialty: a.specialty,
+          photo_url: a.photo_url,
+          article_count: articleCount,
+        },
+      });
+    }
+    console.log(`[authors] ${(authors || []).length} autores processados`);
+    } // end if authors
 
     // ── 6. CATALOG PRODUCTS (system_a_catalog) ───────────────────
     if (stage === "all" || stage === "catalog_products") {

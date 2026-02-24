@@ -16,10 +16,10 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 // source_types: parameter_set, resin, processing_protocol,
 //               article, video, catalog_product, company_kb
 const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
-  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.7,  video: 0.6, catalog_product: 0.5, company_kb: 0.3 },
-  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.2,  video: 0.8, catalog_product: 1.4, company_kb: 0.5 },
-  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 0.6,  video: 0.5, catalog_product: 2.0, company_kb: 2.0 },
-  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4 },
+  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.9,  video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4 },
+  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.3,  video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6 },
+  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 1.2,  video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0 },
+  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5 },
 };
 
 function applyTopicWeights<T extends { source_type: string; similarity: number }>(
@@ -1076,6 +1076,101 @@ async function upsertKnowledgeGap(
   }
 }
 
+// ── META-QUERY: detect questions about articles, publications, KOLs, authors ──
+const META_ARTICLE_PATTERNS = [
+  /\b(artigos?|publica[çc][õo]es?|conte[úu]dos?|textos?)\b.{0,30}\b(t[eê]m|tem|vocês|voces|disponíveis|existe|publicados?|escreveram|produziram)\b/i,
+  /\b(quais|quantos?|list[ae]|mostr[ae])\b.{0,30}\b(artigos?|publica[çc][õo]es?|conte[úu]dos?)\b/i,
+  /\b(kol|kols|autor|autora|autores|especialista|colunista|quem escreve|quem escreveu)\b/i,
+  /\b(base de conhecimento|knowledge base|blog)\b/i,
+  /\b(artigos? sobre|publica[çc][õo]es? sobre|conte[úu]do sobre)\b/i,
+];
+
+const isMetaArticleQuery = (msg: string) =>
+  META_ARTICLE_PATTERNS.some(p => p.test(msg));
+
+// Direct fetch of articles + authors for meta-queries
+async function searchArticlesAndAuthors(
+  supabase: ReturnType<typeof createClient>,
+  message: string,
+) {
+  const results: Array<{ id: string; source_type: string; chunk_text: string; metadata: Record<string, unknown>; similarity: number }> = [];
+
+  // Fetch recent/popular articles (up to 10)
+  const { data: articles } = await supabase
+    .from('knowledge_contents')
+    .select('id, title, slug, excerpt, category_id, author_id, knowledge_categories:knowledge_categories(letter, name)')
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+    .limit(15);
+
+  if (articles?.length) {
+    // Check if user asks about a specific topic
+    const queryWords = message.toLowerCase().replace(/[?!.,;:]/g, '').split(/\s+/).filter(w => w.length >= 3 && !STOPWORDS_PT.includes(w));
+
+    for (const a of articles as Array<{ id: string; title: string; slug: string; excerpt: string; author_id: string | null; knowledge_categories: { letter: string; name: string } | null }>) {
+      const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+      const categoryName = a.knowledge_categories?.name || '';
+      // Score by topic match if user asks about specific topic
+      const titleLower = a.title.toLowerCase();
+      const matchCount = queryWords.filter(w => titleLower.includes(w)).length;
+      const similarity = queryWords.length > 0 && matchCount > 0
+        ? Math.min(0.5 + (matchCount / queryWords.length) * 0.4, 0.9)
+        : 0.45; // base score for meta-queries
+
+      results.push({
+        id: a.id,
+        source_type: 'article',
+        chunk_text: `PUBLICAÇÃO: ${a.title} | Categoria: ${categoryName} | Resumo: ${a.excerpt}`,
+        metadata: {
+          title: a.title,
+          slug: a.slug,
+          category_letter: letter,
+          url_publica: letter ? `/base-conhecimento/${letter}/${a.slug}` : null,
+        },
+        similarity,
+      });
+    }
+
+    // Sort by similarity and take top 8
+    results.sort((a, b) => b.similarity - a.similarity);
+    results.splice(8);
+  }
+
+  // Fetch authors if KOL/author query
+  if (/\b(kol|kols|autor|autora|autores|especialista|colunista|quem escreve|quem escreveu)\b/i.test(message)) {
+    const { data: authors } = await supabase
+      .from('authors')
+      .select('id, name, specialty, mini_bio, photo_url, website_url, instagram_url, youtube_url, lattes_url')
+      .eq('active', true)
+      .order('order_index');
+
+    if (authors?.length) {
+      for (const author of authors as Array<{ id: string; name: string; specialty: string | null; mini_bio: string | null; photo_url: string | null; website_url: string | null; instagram_url: string | null; youtube_url: string | null; lattes_url: string | null }>) {
+        const socialLinks = [
+          author.website_url ? `Site: ${author.website_url}` : '',
+          author.instagram_url ? `Instagram: ${author.instagram_url}` : '',
+          author.youtube_url ? `YouTube: ${author.youtube_url}` : '',
+          author.lattes_url ? `Lattes: ${author.lattes_url}` : '',
+        ].filter(Boolean).join(' | ');
+
+        results.push({
+          id: author.id,
+          source_type: 'author',
+          chunk_text: `KOL/AUTOR: ${author.name}${author.specialty ? ` — ${author.specialty}` : ''}${author.mini_bio ? ` | ${author.mini_bio}` : ''}${socialLinks ? ` | ${socialLinks}` : ''}`,
+          metadata: {
+            title: author.name,
+            specialty: author.specialty,
+            photo_url: author.photo_url,
+          },
+          similarity: 0.85,
+        });
+      }
+    }
+  }
+
+  return results;
+}
+
 // ── DIRECT CATALOG PRODUCT SEARCH ─────────────────────────────────────────────
 // Queries system_a_catalog directly when user asks about products/equipment
 const PRODUCT_INTEREST_KEYWORDS = [
@@ -1823,6 +1918,7 @@ serve(async (req) => {
 
     // 1. Parallel search: knowledge base + processing protocols (if protocol question)
     const isProtocol = isProtocolQuestion(message);
+    const isMetaArticle = isMetaArticleQuery(message);
 
     // Skip parameter search when in commercial context — prevents parameter noise in SDR flow
     const skipParams = topic_context === "commercial";
@@ -1834,11 +1930,12 @@ serve(async (req) => {
     ) || false;
     const shouldSearchCatalog = isCommercial || historyMentionsProduct;
 
-    const [knowledgeResult, protocolResults, paramResults, catalogResults, companyContext] = await Promise.all([
+    const [knowledgeResult, protocolResults, paramResults, catalogResults, metaArticleResults, companyContext] = await Promise.all([
       searchKnowledge(supabase, message, lang, topic_context, history),
       isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
       skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history),
       shouldSearchCatalog ? searchCatalogProducts(supabase, message, history) : Promise.resolve([]),
+      isMetaArticle ? searchArticlesAndAuthors(supabase, message) : Promise.resolve([]),
       companyContextPromise,
     ]);
 
@@ -1851,9 +1948,21 @@ serve(async (req) => {
       : 0.20; // fulltext (raised from 0.10 to reduce noise)
     const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
-    // 3. Merge: catalog products first (highest priority for commercial), then protocol, then knowledge
+    // 3. Merge: meta-article results first (if meta-query), then catalog, protocol, knowledge
+    // Ensure source diversity: cap company_kb to max 3 results to prevent flooding
+    const cappedKnowledge = (() => {
+      let companyKBCount = 0;
+      return filteredKnowledge.filter((r: { source_type: string }) => {
+        if (r.source_type === 'company_kb') {
+          companyKBCount++;
+          return companyKBCount <= 3;
+        }
+        return true;
+      });
+    })();
+
     const allResults = applyTopicWeights(
-      [...catalogResults, ...paramResults, ...protocolResults, ...filteredKnowledge],
+      [...metaArticleResults, ...catalogResults, ...paramResults, ...protocolResults, ...cappedKnowledge],
       topic_context
     );
     const topSimilarity = allResults.length > 0
@@ -1965,6 +2074,7 @@ serve(async (req) => {
       const products: string[] = [];
       const expertise: string[] = [];
       const articles: string[] = [];
+      const authors: string[] = [];
       const videos: string[] = [];
       const params: string[] = [];
 
@@ -1981,6 +2091,9 @@ serve(async (req) => {
           case 'article':
             articles.push(formatted);
             break;
+          case 'author':
+            authors.push(formatted);
+            break;
           case 'video':
             videos.push(formatted);
             break;
@@ -1996,7 +2109,8 @@ serve(async (req) => {
       const sections: string[] = [];
       if (products.length > 0) sections.push(`## PRODUTOS RECOMENDADOS (use para sugestões e apresentação)\n${products.join("\n\n")}`);
       if (expertise.length > 0) sections.push(`## ARGUMENTOS DE VENDA E EXPERTISE (use para persuasão e objeções)\n${expertise.join("\n\n")}`);
-      if (articles.length > 0) sections.push(`## ARTIGOS TÉCNICOS RELEVANTES (cite se o lead pedir detalhes)\n${articles.join("\n\n")}`);
+      if (articles.length > 0) sections.push(`## ARTIGOS E PUBLICAÇÕES (cite quando relevante ou solicitado)\n${articles.join("\n\n")}`);
+      if (authors.length > 0) sections.push(`## KOLs E AUTORES (apresente quando perguntado sobre autores/especialistas)\n${authors.join("\n\n")}`);
       if (videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS (mencione APENAS se solicitado)\n${videos.join("\n\n")}`);
       if (params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS (cite apenas se perguntado)\n${params.join("\n\n")}`);
 
