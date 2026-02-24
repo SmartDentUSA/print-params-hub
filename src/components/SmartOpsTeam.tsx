@@ -19,6 +19,7 @@ interface TeamMember {
   nome_completo: string;
   email: string;
   whatsapp_number: string;
+  piperun_owner_id: string | null;
   ativo: boolean;
 }
 
@@ -27,7 +28,7 @@ export function SmartOpsTeam() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor" });
+  const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "" });
   const { toast } = useToast();
 
   const fetchMembers = async () => {
@@ -38,8 +39,8 @@ export function SmartOpsTeam() {
 
   useEffect(() => { fetchMembers(); }, []);
 
-  const openAdd = () => { setEditing(null); setForm({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor" }); setDialogOpen(true); };
-  const openEdit = (m: TeamMember) => { setEditing(m); setForm({ nome_completo: m.nome_completo, email: m.email, whatsapp_number: m.whatsapp_number, role: m.role }); setDialogOpen(true); };
+  const openAdd = () => { setEditing(null); setForm({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "" }); setDialogOpen(true); };
+  const openEdit = (m: TeamMember) => { setEditing(m); setForm({ nome_completo: m.nome_completo, email: m.email, whatsapp_number: m.whatsapp_number, role: m.role, piperun_owner_id: m.piperun_owner_id || "" }); setDialogOpen(true); };
 
   const handleSave = async () => {
     if (!form.nome_completo || !form.email || !form.whatsapp_number) {
@@ -79,6 +80,7 @@ export function SmartOpsTeam() {
               <div><Label>Nome Completo</Label><Input value={form.nome_completo} onChange={(e) => setForm({ ...form, nome_completo: e.target.value })} /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
               <div><Label>WhatsApp (+55...)</Label><Input value={form.whatsapp_number} onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })} placeholder="+5511999999999" /></div>
+              <div><Label>ID Vendedor Piperun</Label><Input value={form.piperun_owner_id} onChange={(e) => setForm({ ...form, piperun_owner_id: e.target.value })} placeholder="Ex: 12345" /></div>
               <div>
                 <Label>Função</Label>
                 <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
@@ -102,6 +104,7 @@ export function SmartOpsTeam() {
               <TableHead>Nome</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>WhatsApp</TableHead>
+              <TableHead>Piperun ID</TableHead>
               <TableHead>Função</TableHead>
               <TableHead>Ativo</TableHead>
               <TableHead></TableHead>
@@ -113,6 +116,7 @@ export function SmartOpsTeam() {
                 <TableCell className="font-medium">{m.nome_completo}</TableCell>
                 <TableCell>{m.email}</TableCell>
                 <TableCell className="font-mono text-xs">{m.whatsapp_number}</TableCell>
+                <TableCell className="font-mono text-xs">{m.piperun_owner_id || "—"}</TableCell>
                 <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell><Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button></TableCell>

@@ -1779,6 +1779,7 @@ export type Database = {
           email: string
           id: string
           nome_completo: string
+          piperun_owner_id: string | null
           role: string
           updated_at: string
           whatsapp_number: string
@@ -1789,6 +1790,7 @@ export type Database = {
           email: string
           id?: string
           nome_completo: string
+          piperun_owner_id?: string | null
           role: string
           updated_at?: string
           whatsapp_number: string
@@ -1799,6 +1801,7 @@ export type Database = {
           email?: string
           id?: string
           nome_completo?: string
+          piperun_owner_id?: string | null
           role?: string
           updated_at?: string
           whatsapp_number?: string
