@@ -209,7 +209,7 @@ export function SmartOpsTeam() {
             <Send className="w-4 h-4 mr-2" />
             {testSending ? "Enviando..." : "Enviar teste"}
           </Button>
-          <p className="text-xs text-muted-foreground">Modo teste: a mensagem será enviada mas não será registrada nos logs.</p>
+          <p className="text-xs text-muted-foreground">Modo teste: a mensagem será enviada e registrada nos logs com sufixo _test.</p>
         </div>
       </DialogContent>
     </Dialog>
