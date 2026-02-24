@@ -1887,6 +1887,7 @@ serve(async (req) => {
           lang,
           top_similarity: 1,
           unanswered: false,
+          context_raw: "[INTERCEPTOR] lead_collection:needs_email_first",
         });
       } catch (e) {
         console.error("Failed to insert agent_interaction (ask email first):", e);
@@ -1964,6 +1965,7 @@ serve(async (req) => {
           top_similarity: 1,
           unanswered: false,
           lead_id: currentLeadId,
+          context_raw: "[INTERCEPTOR] lead_collection:needs_name",
         });
       } catch (e) {
         console.error("Failed to insert agent_interaction (needs_name):", e);
@@ -2011,6 +2013,7 @@ serve(async (req) => {
           lang,
           top_similarity: 1,
           unanswered: false,
+          context_raw: "[INTERCEPTOR] lead_collection:needs_email",
         });
       } catch (e) {
         console.error("Failed to insert agent_interaction (ask email):", e);
@@ -2032,6 +2035,7 @@ serve(async (req) => {
           top_similarity: 1,
           unanswered: false,
           lead_id: leadId,
+          context_raw: "[INTERCEPTOR] lead_collection:collected",
         });
       } catch (e) {
         console.error("Failed to insert agent_interaction (lead confirmed):", e);
@@ -2078,6 +2082,7 @@ serve(async (req) => {
           top_similarity: 1,
           unanswered: false,
           lead_id: currentLeadId,
+          context_raw: "[INTERCEPTOR] support_guard",
         });
       } catch (e) {
         console.error("Failed to insert agent_interaction (support guard):", e);

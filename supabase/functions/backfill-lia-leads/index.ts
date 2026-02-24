@@ -9,6 +9,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,6 +18,8 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const { force_summary } = await req.json().catch(() => ({ force_summary: false }));
 
     // 1. Fetch all dra-lia leads
     const { data: leads, error: leadsErr } = await supabase
@@ -49,34 +52,44 @@ serve(async (req) => {
           ? interactions[interactions.length - 1].created_at
           : null;
 
-        // 3. Generate AI summary if there are conversations
+        // 3. Generate AI summary if there are conversations (force_summary bypasses minimum check)
         let summary: string | null = null;
-        if (GOOGLE_AI_KEY && interactions && interactions.length >= 3) {
+        const hasKey = !!LOVABLE_API_KEY;
+        const minMsgs = force_summary ? 1 : 3;
+        const shouldGenerate = hasKey && interactions && interactions.length >= minMsgs;
+        if (!shouldGenerate) {
+          console.log(`[backfill] Skip summary for ${lead.email}: hasKey=${hasKey}, msgs=${interactions?.length || 0}, minMsgs=${minMsgs}`);
+        }
+        if (shouldGenerate) {
           try {
             const conversationText = interactions
               .slice(-30) // last 30 messages
               .map((i) => `User: ${i.user_message}\nAssistant: ${i.agent_response || ""}`)
               .join("\n");
 
-            const geminiRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GOOGLE_AI_KEY}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  contents: [{
-                    parts: [{
-                      text: `Resuma em 1 frase curta (max 15 palavras) o assunto principal desta conversa. Apenas o tema, sem saudações.\n\nConversa:\n${conversationText}`,
-                    }],
-                  }],
-                  generationConfig: { maxOutputTokens: 60, temperature: 0.2 },
-                }),
-              }
-            );
+            const llmRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { role: "system", content: "Resuma em 1 frase curta (max 15 palavras) o assunto principal desta conversa. Apenas o tema, sem saudações." },
+                  { role: "user", content: conversationText },
+                ],
+                max_tokens: 60,
+                temperature: 0.2,
+              }),
+            });
 
-            if (geminiRes.ok) {
-              const geminiData = await geminiRes.json();
-              summary = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+            if (llmRes.ok) {
+              const llmData = await llmRes.json();
+              summary = llmData?.choices?.[0]?.message?.content?.trim() || null;
+              console.log(`[backfill] Summary for ${lead.email}: ${summary}`);
+            } else {
+              console.warn(`[backfill] LLM error for ${lead.email}: ${llmRes.status}`);
             }
           } catch (e) {
             console.warn(`[backfill] Summary generation failed for ${lead.email}:`, e);
