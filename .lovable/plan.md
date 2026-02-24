@@ -1,127 +1,111 @@
 
 
-# Mensagens WaLeads com Variaveis e Preview de Midia
+# Teste de Envio WaLeads - Edge Function de Envio
 
-## Problema atual
+## Situacao atual
 
-O campo de mensagem WaLeads e um simples Textarea ou Input de URL, sem:
-- Variaveis do lead (ex: `{{nome}}`, `{{produto_interesse}}`)
-- Preview de midia (imagem, audio, video, documento) inline
-- Orientacao sobre quais campos estao disponiveis
+- **Paulo Comercial** (`id: 1b1817af...`) esta cadastrado como vendedor ativo, mas **sem `waleads_api_key`** configurada.
+- A UI de automacoes ja suporta configurar mensagens WaLeads (tipo, texto com variaveis, midia).
+- O `smart-ops-cs-processor` so envia via **ManyChat**. Nao existe logica de envio WaLeads.
 
-## Solucao proposta
+## O que precisa ser feito
 
-### 1. Variaveis de template no texto
+### 1. Criar edge function `smart-ops-send-waleads`
 
-Adicionar barra de variaveis clicaveis acima do Textarea. Ao clicar, a variavel e inserida na posicao do cursor.
+Uma edge function dedicada para enviar mensagens via API WaLeads/ChatCenter, que:
 
-Variaveis disponiveis (campos reais de `lia_attendances`):
+- Recebe: `team_member_id`, `phone`, `message` (ou `media_url` + `caption`), `tipo` (text/image/audio/video/document)
+- Busca a `waleads_api_key` do `team_member` no banco
+- Substitui variaveis de template (`{{nome}}`, `{{produto_interesse}}`, etc.) pelos valores reais do lead
+- Chama o endpoint correto da API WaLeads conforme o tipo:
+  - `text` -> POST `/public/message/text`
+  - `image` -> POST `/public/message/image`
+  - `audio` -> POST `/public/message/audio`
+  - `video` -> POST `/public/message/video`
+  - `document` -> POST `/public/message/document`
+- Registra o resultado na tabela `message_logs`
 
-| Variavel | Campo | Exemplo |
-|---|---|---|
-| `{{nome}}` | nome | "Dr. Carlos" |
-| `{{produto_interesse}}` | produto_interesse | "Vitality" |
-| `{{especialidade}}` | especialidade | "Ortodontia" |
-| `{{cidade}}` | cidade | "Sao Paulo" |
-| `{{uf}}` | uf | "SP" |
-| `{{area_atuacao}}` | area_atuacao | "Clinica" |
-| `{{proprietario}}` | proprietario_lead_crm | "Joao Silva" |
+### 2. Atualizar `smart-ops-cs-processor` para usar WaLeads
 
-### 2. Preview de midia inline
+Adicionar logica ao processador de regras CS para, quando `waleads_ativo = true`, chamar a nova funcao de envio WaLeads usando a API key do `team_member` associado a regra.
 
-Quando o tipo de mensagem nao e "text", mostrar preview da midia ao lado do campo URL:
-- **Imagem**: thumbnail da URL inserida (tag `<img>`)
-- **Video**: player embutido (`<video>`) ou thumbnail
-- **Audio**: player de audio (`<audio>`)
-- **Documento**: icone de arquivo + nome extraido da URL
+### 3. Adicionar botao "Testar Envio" na UI
 
-### 3. Layout do card de mensagem melhorado
-
-O card de cada regra no listing tambem mostrara:
-- Preview compacto da midia (thumbnail 48px para imagens)
-- Texto com variaveis destacadas em badge (ex: `Ola {{nome}}!` mostra "nome" em destaque)
+Na aba Equipe ou Automacoes, um botao que permite disparar uma mensagem de teste para um numero especifico, usando as credenciais do vendedor selecionado.
 
 ---
 
-## Alteracoes tecnicas
+## Detalhes tecnicos
 
-### Arquivo: `src/components/SmartOpsCSRules.tsx`
-
-**Secao WaLeads no Dialog (linhas 339-370)**:
-
-Substituir o Textarea simples por um componente com:
+### Edge function: `supabase/functions/smart-ops-send-waleads/index.ts`
 
 ```
-Secao WaLeads (quando ativo)
-├── Tipo de Mensagem [Select: Texto | Imagem | Audio | Video | Documento]
-│
-├── Se "text":
-│   ├── Barra de variaveis: [nome] [produto] [cidade] [uf] [especialidade] [area] [proprietario]
-│   │   (cada badge e clicavel e insere {{variavel}} no cursor do textarea)
-│   ├── Textarea com mensagem
-│   └── Preview: texto renderizado com variaveis em destaque (badges coloridos)
-│
-└── Se midia (image/audio/video/document):
-    ├── Input URL da midia
-    ├── Legenda (Input texto opcional, suporta variaveis)
-    └── Preview inline:
-        ├── image: <img> com fallback
-        ├── audio: <audio controls>
-        ├── video: <video controls> (max 200px)
-        └── document: icone + nome do arquivo
+Entrada (POST body):
+{
+  team_member_id: string,   // UUID do vendedor (busca waleads_api_key)
+  phone: string,            // Numero destino (+5569...)
+  tipo: "text" | "image" | "audio" | "video" | "document",
+  message?: string,         // Texto (para tipo "text")
+  media_url?: string,       // URL da midia
+  caption?: string,         // Legenda da midia
+  lead_id?: string,         // UUID do lead (para substituir variaveis e logar)
+  test_mode?: boolean       // Se true, loga mas nao persiste
+}
 ```
 
-**Secao do renderRuleCard (linhas 161-205)**:
-
-Atualizar para mostrar:
-- Variaveis no texto destacadas com cor
-- Thumbnail compacto para midia
-
-### Migracao SQL
-
-Adicionar coluna para legenda de midia:
-
-```sql
-ALTER TABLE cs_automation_rules
-  ADD COLUMN IF NOT EXISTS waleads_media_caption TEXT;
+API WaLeads (base URL a confirmar, padrao ChatCenter):
+```
+POST https://api.waleads.com/public/message/{tipo}
+Headers: { "Authorization": "Bearer {api_key}", "Content-Type": "application/json" }
+Body (text):    { "phone": "+5511...", "message": "Ola Dr. Carlos..." }
+Body (image):   { "phone": "+5511...", "url": "https://...", "caption": "Legenda" }
+Body (audio):   { "phone": "+5511...", "url": "https://..." }
+Body (video):   { "phone": "+5511...", "url": "https://...", "caption": "..." }
+Body (document):{ "phone": "+5511...", "url": "https://...", "caption": "..." }
 ```
 
-Isso permite enviar legendas junto com imagens/videos/docs (a API WaLeads suporta campo `caption` nos endpoints de midia).
-
-### Constantes de variaveis
-
+Funcao de substituicao de variaveis:
 ```typescript
-const LEAD_VARIABLES = [
-  { key: "nome", label: "Nome" },
-  { key: "produto_interesse", label: "Produto" },
-  { key: "especialidade", label: "Especialidade" },
-  { key: "cidade", label: "Cidade" },
-  { key: "uf", label: "UF" },
-  { key: "area_atuacao", label: "Area" },
-  { key: "proprietario_lead_crm", label: "Proprietario" },
-];
+function replaceVariables(text: string, lead: Record<string, unknown>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    return String(lead[key] || "") || `{{${key}}}`;
+  });
+}
 ```
 
-### Funcao de insercao de variavel
+### Atualizacao: `smart-ops-cs-processor/index.ts`
 
+Adicionar bloco apos o envio ManyChat:
 ```typescript
-const insertVariable = (varKey: string) => {
-  const textarea = textareaRef.current;
-  if (!textarea) return;
-  const start = textarea.selectionStart;
-  const end = textarea.selectionEnd;
-  const text = form.mensagem_waleads;
-  const newText = text.substring(0, start) + `{{${varKey}}}` + text.substring(end);
-  setForm({ ...form, mensagem_waleads: newText });
-};
+// WaLeads sending
+if (rule.waleads_ativo && lead.telefone_normalized) {
+  const teamMember = await getTeamMemberForRule(rule.team_member_id);
+  if (teamMember?.waleads_api_key) {
+    // resolve variables, call WaLeads API
+  }
+}
 ```
+
+### UI: Botao de teste em `SmartOpsTeam.tsx`
+
+Adicionar um botao "Testar WaLeads" ao lado de cada vendedor que tenha `waleads_api_key`. O botao abre um dialog simples:
+- Input: numero de telefone destino (pre-preenchido com o do vendedor)
+- Input: mensagem de teste
+- Botao "Enviar teste"
+- Chama a edge function `smart-ops-send-waleads` com `test_mode: true`
 
 ---
+
+## Pre-requisitos
+
+1. **Paulo precisa ter a `waleads_api_key` cadastrada** na aba Equipe antes do teste
+2. Precisamos confirmar a **URL base da API WaLeads** (ChatCenter) -- o padrao usado sera `https://api.waleads.com` mas pode variar
 
 ## Arquivos afetados
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar -- coluna `waleads_media_caption` |
-| `src/components/SmartOpsCSRules.tsx` | Editar -- barra de variaveis, preview de midia, caption, renderRuleCard melhorado |
+| `supabase/functions/smart-ops-send-waleads/index.ts` | Criar -- edge function de envio |
+| `supabase/functions/smart-ops-cs-processor/index.ts` | Editar -- adicionar envio WaLeads |
+| `src/components/SmartOpsTeam.tsx` | Editar -- botao "Testar WaLeads" |
 
