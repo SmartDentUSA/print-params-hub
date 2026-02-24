@@ -1064,10 +1064,13 @@ export type Database = {
           ativo_print: boolean | null
           ativo_scan: boolean | null
           ativo_smart_slice: boolean | null
+          cidade: string | null
+          comentario_perda: string | null
           como_digitaliza: string | null
           created_at: string
           cs_treinamento: string | null
           data_contrato: string | null
+          data_fechamento_crm: string | null
           data_primeiro_contato: string | null
           data_ultima_compra_cad: string | null
           data_ultima_compra_cad_ia: string | null
@@ -1085,11 +1088,15 @@ export type Database = {
           id_cliente_smart: string | null
           impressora_modelo: string | null
           ip_origem: string | null
+          itens_proposta_crm: string | null
           lead_status: string
+          lead_timing_dias: number | null
+          motivo_perda: string | null
           nome: string
           origem_campanha: string | null
           pais_origem: string | null
           piperun_id: string | null
+          piperun_link: string | null
           produto_interesse: string | null
           proprietario_lead_crm: string | null
           raw_payload: Json | null
@@ -1100,14 +1107,20 @@ export type Database = {
           score: number | null
           source: string
           status_atual_lead_crm: string | null
+          status_oportunidade: string | null
+          tags_crm: string[] | null
           telefone_normalized: string | null
           telefone_raw: string | null
           tem_impressora: string | null
+          tem_scanner: string | null
+          temperatura_lead: string | null
+          uf: string | null
           updated_at: string
           utm_campaign: string | null
           utm_medium: string | null
           utm_source: string | null
           utm_term: string | null
+          valor_oportunidade: number | null
         }
         Insert: {
           area_atuacao?: string | null
@@ -1119,10 +1132,13 @@ export type Database = {
           ativo_print?: boolean | null
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
+          cidade?: string | null
+          comentario_perda?: string | null
           como_digitaliza?: string | null
           created_at?: string
           cs_treinamento?: string | null
           data_contrato?: string | null
+          data_fechamento_crm?: string | null
           data_primeiro_contato?: string | null
           data_ultima_compra_cad?: string | null
           data_ultima_compra_cad_ia?: string | null
@@ -1140,11 +1156,15 @@ export type Database = {
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
           ip_origem?: string | null
+          itens_proposta_crm?: string | null
           lead_status?: string
+          lead_timing_dias?: number | null
+          motivo_perda?: string | null
           nome: string
           origem_campanha?: string | null
           pais_origem?: string | null
           piperun_id?: string | null
+          piperun_link?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
           raw_payload?: Json | null
@@ -1155,14 +1175,20 @@ export type Database = {
           score?: number | null
           source?: string
           status_atual_lead_crm?: string | null
+          status_oportunidade?: string | null
+          tags_crm?: string[] | null
           telefone_normalized?: string | null
           telefone_raw?: string | null
           tem_impressora?: string | null
+          tem_scanner?: string | null
+          temperatura_lead?: string | null
+          uf?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
+          valor_oportunidade?: number | null
         }
         Update: {
           area_atuacao?: string | null
@@ -1174,10 +1200,13 @@ export type Database = {
           ativo_print?: boolean | null
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
+          cidade?: string | null
+          comentario_perda?: string | null
           como_digitaliza?: string | null
           created_at?: string
           cs_treinamento?: string | null
           data_contrato?: string | null
+          data_fechamento_crm?: string | null
           data_primeiro_contato?: string | null
           data_ultima_compra_cad?: string | null
           data_ultima_compra_cad_ia?: string | null
@@ -1195,11 +1224,15 @@ export type Database = {
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
           ip_origem?: string | null
+          itens_proposta_crm?: string | null
           lead_status?: string
+          lead_timing_dias?: number | null
+          motivo_perda?: string | null
           nome?: string
           origem_campanha?: string | null
           pais_origem?: string | null
           piperun_id?: string | null
+          piperun_link?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
           raw_payload?: Json | null
@@ -1210,14 +1243,20 @@ export type Database = {
           score?: number | null
           source?: string
           status_atual_lead_crm?: string | null
+          status_oportunidade?: string | null
+          tags_crm?: string[] | null
           telefone_normalized?: string | null
           telefone_raw?: string | null
           tem_impressora?: string | null
+          tem_scanner?: string | null
+          temperatura_lead?: string | null
+          uf?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
           utm_term?: string | null
+          valor_oportunidade?: number | null
         }
         Relationships: []
       }
