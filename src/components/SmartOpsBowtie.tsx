@@ -1,10 +1,11 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { SmartOpsGoalsButton, fetchGoals, DEFAULT_GOALS, type GoalsData } from "./SmartOpsGoals";
 
 // ─── Types ───
 interface BowtieMetrics {
@@ -34,9 +35,7 @@ interface PipelineHealth {
   saude: number;
 }
 
-// ─── Constants ───
-const GOALS = { mql: 100, sql: 40, vendas: 15, csContratos: 10, csOnboarding: 8, csOngoing: 5 };
-const PIPELINE_META = 50;
+// Goals loaded from DB, with defaults
 
 const FAIXAS = [
   { key: "em_processo", label: "Em Processo", color: "bg-red-700 text-white", minScore: -Infinity, maxScore: 60 },
@@ -133,6 +132,14 @@ export function SmartOpsBowtie() {
   const [allLeads, setAllLeads] = useState<{ score: number | null; created_at: string; status_atual_lead_crm: string | null; lead_status: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
+  const [goals, setGoals] = useState<GoalsData>(DEFAULT_GOALS);
+
+  const loadGoals = useCallback(async () => {
+    const g = await fetchGoals();
+    setGoals(g);
+  }, []);
+
+  useEffect(() => { loadGoals(); }, [loadGoals]);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -211,13 +218,13 @@ export function SmartOpsBowtie() {
       return d >= curStart && d < curEnd && ((l.score ?? 0) >= 100 || l.status_atual_lead_crm === "Ganha");
     }).length;
 
-    const aRealizar = Math.max(PIPELINE_META - conquistado, 0);
+    const aRealizar = Math.max(goals.pipelineMeta - conquistado, 0);
     const pipelineNecessario = aRealizar * 3;
     const pipelineExistente = allLeads.filter((l) => (l.score ?? 0) < 100 && l.lead_status !== "perdido").length;
     const saude = pipelineNecessario > 0 ? (pipelineExistente / pipelineNecessario) * 100 : 300;
 
-    return { meta: PIPELINE_META, conquistado, aRealizar, pipelineNecessario, pipelineExistente, saude };
-  }, [allLeads, selectedMonth]);
+    return { meta: goals.pipelineMeta, conquistado, aRealizar, pipelineNecessario, pipelineExistente, saude };
+  }, [allLeads, selectedMonth, goals]);
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando métricas...</div>;
 
@@ -227,8 +234,9 @@ export function SmartOpsBowtie() {
     <div className="space-y-6">
       {/* ═══ Bowtie original ═══ */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Funil Ampulheta (Bowtie)</CardTitle>
+          <SmartOpsGoalsButton onSaved={loadGoals} />
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
@@ -236,9 +244,9 @@ export function SmartOpsBowtie() {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-red-600 uppercase tracking-wider">Aquisição</h3>
               {[
-                { label: "MQL (Novos)", value: mql, goal: GOALS.mql },
-                { label: "SQL (Qualificados IA)", value: sql, goal: GOALS.sql },
-                { label: "Vendas (Ganha)", value: vendas, goal: GOALS.vendas },
+                { label: "MQL (Novos)", value: mql, goal: goals.mql },
+                { label: "SQL (Qualificados IA)", value: sql, goal: goals.sql },
+                { label: "Vendas (Ganha)", value: vendas, goal: goals.vendas },
               ].map((item, i, arr) => (
                 <div key={item.label}>
                   <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-200">
@@ -268,9 +276,9 @@ export function SmartOpsBowtie() {
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-purple-600 uppercase tracking-wider">Expansão</h3>
               {[
-                { label: "CS-Contratos (Live)", value: csContratos, goal: GOALS.csContratos },
-                { label: "CS-Onboarding (MRR)", value: csOnboarding, goal: GOALS.csOnboarding },
-                { label: "CS-Ongoing (LTV)", value: csOngoing, goal: GOALS.csOngoing },
+                { label: "CS-Contratos (Live)", value: csContratos, goal: goals.csContratos },
+                { label: "CS-Onboarding (MRR)", value: csOnboarding, goal: goals.csOnboarding },
+                { label: "CS-Ongoing (LTV)", value: csOngoing, goal: goals.csOngoing },
               ].map((item, i, arr) => (
                 <div key={item.label}>
                   <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50 border border-purple-200">

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus } from "lucide-react";
+import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
 interface TeamMember {
   id: string;
@@ -64,6 +65,7 @@ export function SmartOpsTeam() {
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando equipe...</div>;
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Equipe Smart Ops</CardTitle>
@@ -120,5 +122,7 @@ export function SmartOpsTeam() {
         </Table>
       </CardContent>
     </Card>
+    <SmartOpsSellerAutomations />
+    </>
   );
 }
