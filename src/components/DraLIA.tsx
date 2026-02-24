@@ -237,6 +237,31 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   const lang = localeMap[language] || 'pt-BR';
   const pendingQueryRef = useRef<string | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Inactivity timer: summarize session after 5 min of no messages
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    // Only set timer if lead was collected and not already summarized
+    if (sessionStorage.getItem('dra_lia_lead_collected') && !sessionStorage.getItem('dra_lia_summarized')) {
+      inactivityTimerRef.current = setTimeout(() => {
+        sessionStorage.setItem('dra_lia_summarized', 'true');
+        // Fire-and-forget: summarize session
+        fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=summarize_session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId.current }),
+        }).catch(() => { /* silent */ });
+      }, 300_000); // 5 minutes
+    }
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -289,6 +314,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const sendMessage = useCallback(async () => {
     const text = input.trim();
     if (!text || isLoading) return;
+    resetInactivityTimer(); // Reset 5-min timer on every message
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -362,10 +388,15 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           try {
             const parsed = JSON.parse(jsonStr);
 
-            // Meta chunk with interaction_id and media_cards
+            // Meta chunk with interaction_id, media_cards, and ui_action
             if (parsed.type === 'meta') {
               if (parsed.interaction_id) interactionId = parsed.interaction_id;
               if (parsed.media_cards) mediaCards = parsed.media_cards;
+              // Returning lead: show topic cards immediately
+              if (parsed.ui_action === 'show_topics') {
+                setLeadCollected(true);
+                sessionStorage.setItem('dra_lia_lead_collected', 'true');
+              }
               continue;
             }
 
@@ -394,7 +425,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       );
 
       // Detect lead collection confirmation from backend
-      if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
+      if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fullContent)) {
         setLeadCollected(true);
         sessionStorage.setItem('dra_lia_lead_collected', 'true');
         // Activate products flow after lead is confirmed
@@ -560,6 +591,10 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 if (parsed.type === 'meta') {
                   if (parsed.interaction_id) interactionId = parsed.interaction_id;
                   if (parsed.media_cards) mediaCards = parsed.media_cards;
+                  if (parsed.ui_action === 'show_topics') {
+                    setLeadCollected(true);
+                    sessionStorage.setItem('dra_lia_lead_collected', 'true');
+                  }
                   continue;
                 }
                 const content = parsed.choices?.[0]?.delta?.content;
@@ -572,7 +607,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           }
           setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m));
           // Detect lead collection confirmation from backend
-           if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo/i.test(fullContent)) {
+           if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fullContent)) {
              setLeadCollected(true);
              sessionStorage.setItem('dra_lia_lead_collected', 'true');
              // Activate products flow after lead is confirmed

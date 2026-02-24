@@ -900,10 +900,59 @@ const ASK_NAME: Record<string, string> = {
   "es-ES": `¡Mucho gusto! 😊 No encontré tu registro. ¿Cuál es tu nombre?`,
 };
 
+// Format date for returning lead greeting
+function formatLastContactDate(isoDate: string, lang: string): { date: string; time: string } {
+  const d = new Date(isoDate);
+  if (lang === "en-US") {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const hours = d.getHours();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h12 = hours % 12 || 12;
+    const mins = d.getMinutes().toString().padStart(2, "0");
+    return { date: `${months[d.getMonth()]} ${d.getDate()}`, time: `${h12}:${mins} ${ampm}` };
+  }
+  if (lang === "es-ES") {
+    return {
+      date: `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}`,
+      time: `${d.getHours().toString().padStart(2,"0")}:${d.getMinutes().toString().padStart(2,"0")}`,
+    };
+  }
+  // pt-BR default
+  return {
+    date: `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}`,
+    time: `${d.getHours().toString().padStart(2,"0")}h${d.getMinutes().toString().padStart(2,"0")}`,
+  };
+}
+
+function buildReturningLeadMessage(name: string, lang: string, lastDate?: string, summary?: string | null): string {
+  const { date, time } = lastDate ? formatLastContactDate(lastDate, lang) : { date: "", time: "" };
+  
+  if (lang === "en-US") {
+    let msg = `Hi, ${name}! Great to have you back! 😊`;
+    if (date) msg += `\nWe last talked on ${date} at ${time}.`;
+    if (summary) msg += `\nLast time we discussed ${summary}.`;
+    msg += `\nHow can I help you today?`;
+    return msg;
+  }
+  if (lang === "es-ES") {
+    let msg = `¡Hola, ${name}! ¡Qué bueno que volviste! 😊`;
+    if (date) msg += `\nHablamos el ${date} a las ${time}.`;
+    if (summary) msg += `\nLa última vez hablamos sobre ${summary}.`;
+    msg += `\n¿En qué puedo ayudarte hoy?`;
+    return msg;
+  }
+  // pt-BR
+  let msg = `Olá, ${name}! Que bom que voltou! 😊`;
+  if (date) msg += `\nNos falamos no dia ${date} às ${time}.`;
+  if (summary) msg += `\nFalamos a última vez sobre ${summary}.`;
+  msg += `\nEm que posso te ajudar hoje?`;
+  return msg;
+}
+
 const RETURNING_LEAD: Record<string, (name: string, topicContext?: string) => string> = {
-  "pt-BR": (name, tc) => `Que bom te ver de novo, ${name}! 😊 Agora sim, estou pronta para te ajudar.\n\n${tc === 'products' ? 'Em relação a qual produto você precisa de ajuda?' : 'Como posso te ajudar hoje?'}`,
-  "en-US": (name, tc) => `Great to see you again, ${name}! 😊 Now I'm ready to help you.\n\n${tc === 'products' ? 'Which product do you need help with?' : 'How can I help you today?'}`,
-  "es-ES": (name, tc) => `¡Qué bueno verte de nuevo, ${name}! 😊 Ahora sí, estoy lista para ayudarte.\n\n${tc === 'products' ? '¿Con qué producto necesitas ayuda?' : '¿Cómo puedo ayudarte hoy?'}`,
+  "pt-BR": (name, _tc) => buildReturningLeadMessage(name, "pt-BR"),
+  "en-US": (name, _tc) => buildReturningLeadMessage(name, "en-US"),
+  "es-ES": (name, _tc) => buildReturningLeadMessage(name, "es-ES"),
 };
 
 const LEAD_CONFIRMED: Record<string, (name: string, topicContext?: string) => string> = {
@@ -1642,6 +1691,119 @@ serve(async (req) => {
       });
     }
 
+    // ── ACTION: summarize_session ───────────────────────────────
+    if (action === "summarize_session") {
+      const { session_id: sumSessionId } = await req.json();
+      if (!sumSessionId) {
+        return new Response(JSON.stringify({ error: "session_id required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        // 1. Fetch session entities (name, email, topic)
+        const { data: sessionData } = await supabase
+          .from("agent_sessions")
+          .select("extracted_entities, lead_id")
+          .eq("session_id", sumSessionId)
+          .maybeSingle();
+
+        const entities = (sessionData?.extracted_entities as Record<string, string>) || {};
+        const leadName = entities.lead_name || "";
+        const leadEmail = entities.lead_email || "";
+        const topicCtx = entities.topic_context || "";
+
+        if (!leadEmail) {
+          console.log("[summarize_session] No email in session, skipping");
+          return new Response(JSON.stringify({ success: true, skipped: "no_email" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // 2. Fetch conversation history
+        const { data: interactions } = await supabase
+          .from("agent_interactions")
+          .select("user_message, agent_response, created_at")
+          .eq("session_id", sumSessionId)
+          .order("created_at", { ascending: true })
+          .limit(50);
+
+        if (!interactions?.length) {
+          console.log("[summarize_session] No interactions found");
+          return new Response(JSON.stringify({ success: true, skipped: "no_interactions" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // 3. Build conversation text
+        const convoText = interactions.map((i: { user_message: string; agent_response: string | null; created_at: string | null }) => {
+          const time = i.created_at ? new Date(i.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+          let line = `[${time}] Usuário: ${i.user_message}`;
+          if (i.agent_response) line += `\n[${time}] LIA: ${i.agent_response.slice(0, 300)}`;
+          return line;
+        }).join("\n\n");
+
+        // 4. Call AI for summary (non-streaming)
+        const aiResp = await fetch(CHAT_API, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+              { role: "system", content: "Resuma em 1 frase curta (máximo 15 palavras) o assunto principal desta conversa entre um assistente de odontologia digital e um potencial cliente. Apenas o tema, sem saudações, sem emojis. Exemplo: 'impressoras 3D e resinas biocompatíveis para prótese'" },
+              { role: "user", content: convoText.slice(0, 4000) },
+            ],
+            stream: false,
+            max_tokens: 60,
+          }),
+        });
+
+        let summary = "";
+        if (aiResp.ok) {
+          const aiData = await aiResp.json();
+          summary = aiData.choices?.[0]?.message?.content?.trim() || "";
+          // Clean up quotes if AI wraps it
+          summary = summary.replace(/^["']|["']$/g, "").trim();
+        } else {
+          console.warn("[summarize_session] AI call failed:", aiResp.status);
+        }
+
+        // 5. Upsert in lia_attendances
+        const { error: upsertError } = await supabase
+          .from("lia_attendances")
+          .upsert({
+            email: leadEmail,
+            nome: leadName || "Lead",
+            source: "dra-lia",
+            resumo_historico_ia: summary || null,
+            rota_inicial_lia: topicCtx || null,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "email" });
+
+        if (upsertError) {
+          console.error("[summarize_session] upsert error:", upsertError);
+        }
+
+        // 6. Update leads.updated_at
+        if (sessionData?.lead_id) {
+          await supabase.from("leads").update({ updated_at: new Date().toISOString() }).eq("id", sessionData.lead_id);
+        }
+
+        console.log(`[summarize_session] Done for ${leadEmail}: "${summary}"`);
+        return new Response(JSON.stringify({ success: true, summary }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        console.error("[summarize_session] error:", e);
+        return new Response(JSON.stringify({ error: "summarize failed" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // ── ACTION: chat ─────────────────────────────────────────────
     const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context } = await req.json();
     const session_id = rawSessionId || crypto.randomUUID();
@@ -1717,6 +1879,7 @@ serve(async (req) => {
     if (leadState.state === "needs_name") {
       // Search for existing lead by email
       let responseText: string;
+      let returningLeadSummary: string | null = null;
       try {
         const { data: existingLead } = await supabase
           .from("leads")
@@ -1727,6 +1890,26 @@ serve(async (req) => {
         if (existingLead && existingLead.name) {
           // RETURNING LEAD — found in DB, skip name collection
           const leadId = existingLead.id;
+
+          // Fetch lia_attendances for resumo_historico_ia
+          const { data: attendance } = await supabase
+            .from("lia_attendances")
+            .select("resumo_historico_ia")
+            .eq("email", leadState.email)
+            .maybeSingle();
+
+          // Fetch last interaction date
+          const { data: lastInteraction } = await supabase
+            .from("agent_interactions")
+            .select("created_at")
+            .eq("lead_id", leadId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          returningLeadSummary = attendance?.resumo_historico_ia || null;
+          const lastDate = lastInteraction?.created_at || null;
+
           // Update session with lead info
           await supabase.from("agent_sessions").upsert({
             session_id,
@@ -1736,13 +1919,14 @@ serve(async (req) => {
               lead_email: leadState.email,
               lead_id: leadId,
               spin_stage: "etapa_1",
+              returning_lead_summary: returningLeadSummary,
             },
             current_state: "idle",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
           currentLeadId = leadId;
-          responseText = (RETURNING_LEAD[lang] || RETURNING_LEAD["pt-BR"])(existingLead.name, topic_context);
-          console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId}`);
+          responseText = buildReturningLeadMessage(existingLead.name, lang, lastDate || undefined, returningLeadSummary);
+          console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId} | summary: ${returningLeadSummary?.slice(0, 50) || "none"}`);
         } else {
           // NEW LEAD — ask for name
           responseText = ASK_NAME[lang] || ASK_NAME["pt-BR"];
@@ -1765,6 +1949,35 @@ serve(async (req) => {
       } catch (e) {
         console.error("Failed to insert agent_interaction (needs_name):", e);
       }
+
+      // For returning leads, send meta chunk to show topic cards immediately
+      if (currentLeadId && returningLeadSummary !== undefined) {
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            // Send meta with ui_action to show topics
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", ui_action: "show_topics" })}\n\n`));
+            // Stream the text
+            const words = responseText.split(/(\s+)/);
+            let i = 0;
+            const interval = setInterval(() => {
+              if (i < words.length) {
+                const chunk = words.slice(i, i + 3).join('');
+                i += 3;
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`));
+              } else {
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                controller.close();
+                clearInterval(interval);
+              }
+            }, 25);
+          },
+        });
+        return new Response(stream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+        });
+      }
+
       return streamTextResponse(responseText, corsHeaders);
     }
 
@@ -2233,8 +2446,12 @@ serve(async (req) => {
     }
 
     // Build lead name context for system prompt
+    const returningLeadSummaryCtx = (sessionEntities as Record<string, string>)?.returning_lead_summary || "";
+    const previousConvoContext = returningLeadSummaryCtx
+      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR\nO lead já conversou anteriormente. Resumo: ${returningLeadSummaryCtx}\nUse esse contexto para personalizar a conversa, mas não repita informações já coletadas.`
+      : "";
     const leadNameContext = (leadState.state === "from_session")
-      ? `\n### 👤 LEAD IDENTIFICADO: ${leadState.name} (${leadState.email})\nUse o nome "${leadState.name}" nas respostas para personalizar a conversa. NUNCA peça nome ou email novamente.`
+      ? `\n### 👤 LEAD IDENTIFICADO: ${leadState.name} (${leadState.email})\nUse o nome "${leadState.name}" nas respostas para personalizar a conversa. NUNCA peça nome ou email novamente.${previousConvoContext}`
       : "";
 
     const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
