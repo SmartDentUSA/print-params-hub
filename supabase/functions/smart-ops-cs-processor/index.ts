@@ -155,19 +155,21 @@ Deno.serve(async (req) => {
                 const leadRecord = lead as Record<string, unknown>;
                 let apiBody: Record<string, unknown>;
 
+                const cleanPhone = (lead.telefone_normalized || "").replace(/\+/g, "");
+
                 if (waleadsTipo === "text") {
                   const msg = replaceVariables(rule.mensagem_waleads || "", leadRecord);
-                  apiBody = { phone: lead.telefone_normalized, message: msg };
+                  apiBody = { phone: cleanPhone, message: msg, isGroup: false };
                   preview = msg.slice(0, 200);
                 } else {
-                  apiBody = { phone: lead.telefone_normalized, url: rule.waleads_media_url };
+                  apiBody = { phone: cleanPhone, url: rule.waleads_media_url, isGroup: false };
                   if (rule.waleads_media_caption) {
                     apiBody.caption = replaceVariables(rule.waleads_media_caption, leadRecord);
                   }
                   preview = `[${waleadsTipo}] ${rule.waleads_media_url || ""}`.slice(0, 200);
                 }
 
-                const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}`, {
+                const waRes = await fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",

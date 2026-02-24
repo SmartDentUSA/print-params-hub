@@ -76,19 +76,23 @@ Deno.serve(async (req) => {
     const finalMessage = message ? replaceVariables(message, leadData) : undefined;
     const finalCaption = caption ? replaceVariables(caption, leadData) : undefined;
 
+    // Normalize phone: remove "+" prefix
+    const cleanPhone = phone.replace(/\+/g, "");
+
     // Build WaLeads API request body
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
-      apiBody = { phone, message: finalMessage };
+      apiBody = { phone: cleanPhone, message: finalMessage, isGroup: false };
     } else {
-      apiBody = { phone, url: media_url };
+      apiBody = { phone: cleanPhone, url: media_url, isGroup: false };
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
-    console.log(`[send-waleads] Sending ${tipo} to ${phone} via ${member.nome_completo}`, { test_mode });
+    console.log(`[send-waleads] Sending ${tipo} to ${cleanPhone} via ${member.nome_completo}`, { test_mode });
+    console.log("[send-waleads] Request body:", JSON.stringify(apiBody));
 
     // Call WaLeads API
-    const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}`, {
+    const waRes = await fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -101,7 +105,7 @@ Deno.serve(async (req) => {
     const messageStatus = waRes.ok ? "enviado" : "erro";
     const errorDetails = waRes.ok ? null : waData.slice(0, 500);
 
-    console.log(`[send-waleads] Status: ${waRes.status}, ok: ${waRes.ok}`);
+    console.log(`[send-waleads] Response: ${waRes.status}`, waData.slice(0, 500));
 
     // Log to message_logs (skip if test_mode)
     if (!test_mode) {
