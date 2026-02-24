@@ -1,165 +1,173 @@
 
-# Auditoria e Refatoracao: Ferramentas SEO / GEO / Indexacao / IA Regenerativa
+# Auditoria Profunda: Mecanismo de Inteligencia da LIA
 
-## Escopo auditado
+## Escopo Auditado
 
-22 edge functions + 8 componentes React + 5 sitemaps + robots.txt + vercel.json + llms.txt
+| Componente | Arquivo | Linhas |
+|---|---|---|
+| Motor principal (RAG + chat) | `dra-lia/index.ts` | 2436 |
+| Judge anti-alucinacao | `evaluate-interaction/index.ts` | 144 |
+| Indexador de embeddings | `index-embeddings/index.ts` | 852 |
+| Auto-heal de lacunas | `heal-knowledge-gaps/index.ts` | 492 |
+| Arquivo de conversas | `archive-daily-chats/index.ts` | 178 |
+| System prompt (SEO) | `_shared/system-prompt.ts` | 220 |
+| Regras de extracao | `_shared/extraction-rules.ts` | 118 |
 
 ---
 
 ## PROBLEMAS ENCONTRADOS
 
-### 1. CORS incompletos (14 edge functions)
+### CRITICO 1: Modelos de fallback invalidos (dra-lia)
 
-Todas as funcoes abaixo usam CORS sem os headers do Supabase client platform:
+**Arquivo:** `dra-lia/index.ts` linhas 2221-2238
 
-| Funcao | Linhas |
-|---|---|
-| `seo-proxy/index.ts` | 3-6 |
-| `ai-generate-og-image/index.ts` | 4-7 |
-| `ai-metadata-generator/index.ts` | 5-7 |
-| `ai-content-formatter/index.ts` | 5-8 |
-| `ai-orchestrate-content/index.ts` | 8-11 |
-| `enrich-article-seo/index.ts` | 5-8 |
-| `reformat-article-html/index.ts` | 5-8 |
-| `auto-inject-product-cards/index.ts` | 4-7 |
-| `translate-content/index.ts` | 4-7 |
-| `backfill-keywords/index.ts` | 4-7 |
-| `generate-sitemap/index.ts` | 3-6 |
-| `generate-knowledge-sitemap/index.ts` | 3-6 |
-| `generate-documents-sitemap/index.ts` | 3-6 |
-| `generate-knowledge-sitemap-en/index.ts` | CORS incompleto (verificar) |
-| `generate-knowledge-sitemap-es/index.ts` | CORS incompleto (verificar) |
+A chain de fallback usa modelos que NAO existem no gateway Lovable AI:
+- Fallback 2: `openai/gpt-4o-mini` -- NAO EXISTE
+- Fallback 3: `openai/gpt-4.1-mini` -- NAO EXISTE
 
-**Correcao:** Padronizar para:
-```typescript
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+Modelos validos sao: `openai/gpt-5-mini`, `openai/gpt-5-nano`, `google/gemini-2.5-flash-lite`.
+
+Se o Gemini falhar, os fallbacks OpenAI vao retornar erro 400/404 e a LIA ficara sem resposta.
+
+**Correcao:**
+```
+Primario:  google/gemini-2.5-flash (manter)
+Fallback 1: google/gemini-2.5-flash-lite (manter)
+Fallback 2: openai/gpt-5-mini (corrigir)
+Fallback 3: openai/gpt-5-nano (corrigir)
 ```
 
-### 2. URLs hardcoded para projeto Supabase errado (`pgfgripuanuwwolmtknn`)
+### CRITICO 2: Playbook `extra_data` NAO chega ao contexto RAG em tempo real
 
-Encontradas **45 referencias** ao projeto `pgfgripuanuwwolmtknn` em 3 funcoes:
+As memorias indicam que Product Playbooks (`technical_specs`, `competitor_comparison`, `clinical_brain`, `workflow_stages`) estao armazenados em `system_a_catalog.extra_data`. Porem:
 
-| Funcao | Tipo | Linha | Impacto |
-|---|---|---|---|
-| `seo-proxy/index.ts` | Logo URL (7x) | 133, 482, 566, 672, 822, 1039, 1605 | Referencia a storage de outro projeto para logo |
-| `sync-knowledge-base/index.ts` | API URL | 65 | Busca knowledge-base de projeto errado |
-| `index-embeddings/index.ts` | API URL | 16 | Busca knowledge-base de projeto errado |
+- `searchCatalogProducts()` (linha 1093-1156) seleciona apenas `id, name, description, product_category, product_subcategory, cta_1_url, slug, price, promo_price` -- **NAO le `extra_data`**.
+- O `index-embeddings` indexa `benefits` e `faq` do `extra_data`, mas NAO indexa `technical_specs`, `competitor_comparison`, `clinical_brain` ou `workflow_stages`.
 
-**Analise critica:**
-- As URLs de logo (`/storage/v1/object/public/product-images/...`) apontam para o storage do projeto `pgfgripuanuwwolmtknn`. Se a imagem existir la, funciona. Mas e fragil pois depende de outro projeto.
-- As URLs de API (`/functions/v1/knowledge-base`) nas funcoes `sync-knowledge-base` e `index-embeddings` buscam dados de um projeto diferente, similar ao bug ja corrigido na `dra-lia`.
+Resultado: regras anti-alucinacao por produto (`clinical_brain`) e comparacoes com concorrentes NUNCA chegam ao agente.
 
-**Correcao para APIs:**
+**Correcao em 2 partes:**
+1. `searchCatalogProducts()`: adicionar `extra_data` ao SELECT e incluir `clinical_brain` + `technical_specs` no `chunk_text`
+2. `index-embeddings`: criar chunks adicionais para `clinical_brain`, `competitor_comparison` e `workflow_stages`
+
+### CRITICO 3: `searchProcessingInstructions` retorna resinas aleatorias quando nenhuma match
+
+**Arquivo:** `dra-lia/index.ts` linhas 1194-1196
+
 ```typescript
-// sync-knowledge-base/index.ts (linha 65)
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const apiUrl = new URL(`${SUPABASE_URL}/functions/v1/knowledge-base`);
-
-// index-embeddings/index.ts (linha 16)
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
+const matched = scored.filter((x) => x.score > 0);
+const targets = matched.length > 0 ? matched : scored; // <-- TODOS os resins!
 ```
 
-**Correcao para Logo no seo-proxy:**
-Extrair a URL do logo para uma constante no topo do arquivo. Se o storage do projeto correto tiver a mesma imagem, usar `${SUPABASE_URL}/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png`. Caso contrario, manter a URL atual como fallback (a imagem ja existe no outro projeto e funciona).
+Se o usuario perguntar "como limpar?" sem mencionar resina, o sistema retorna 3 resinas aleatorias como protocolo. Isso pode causar alucinacao: o LLM pode citar protocolos de uma resina errada.
 
-**Decisao recomendada:** Manter a URL do logo como esta (funcional) e corrigir apenas as APIs. Migrar a imagem pode ser feito depois.
+**Correcao:** Quando `matched.length === 0`, retornar array vazio em vez de resinas aleatorias. O system prompt ja tem regra 21 (contexto fraco = frase de seguranca).
 
-### 3. `seo-proxy/index.ts` - Publisher Schema com logo hardcoded
+### ALTO 4: Modelo desatualizado no `heal-knowledge-gaps`
 
-Na funcao `buildPublisherSchema` (linha 133), o logo usa URL do projeto errado:
-```typescript
-"url": "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
-```
+**Arquivo:** `heal-knowledge-gaps/index.ts` linha 82
 
-**Correcao:** Usar constante LOGO_URL no topo do arquivo para facilitar manutencao futura.
+Usa `google/gemini-2.5-flash` para gerar FAQ drafts. Deveria usar `google/gemini-3-flash-preview` (modelo padrao recomendado).
 
-### 4. Sitemaps: `generate-knowledge-sitemap-en` e `generate-knowledge-sitemap-es`
+### MEDIO 5: `searchCatalogProducts` nao filtra por produto especifico
 
-Precisam verificacao de CORS (nao foram lidos em detalhe, mas seguem o mesmo padrao das outras funcoes).
+Quando o usuario pergunta sobre um produto especifico (ex: "NanoClean Pod"), a funcao retorna ate 20 produtos da mesma categoria, inundando o contexto com dados irrelevantes. Falta um filtro por nome/palavra-chave no `name` do produto.
 
-### 5. `robots.txt` - Referencia a sitemap de documentos
+**Correcao:** Adicionar score de relevancia baseado em match de palavras do `name` contra a query, e filtrar so os top 5 mais relevantes (em vez de 20).
 
-O robots.txt referencia `generate-documents-sitemap` que esta correto e funcional. Todas as 5 entradas de Sitemap estao consistentes:
-- generate-sitemap (principal)
-- generate-knowledge-sitemap (PT)
-- generate-knowledge-sitemap-en (EN)
-- generate-knowledge-sitemap-es (ES)
-- generate-documents-sitemap (PDFs)
+### MEDIO 6: `context_raw` truncado em 8000 chars pode causar falsos positivos no Judge
 
-**Status: OK** - nenhuma correcao necessaria.
+**Arquivo:** `dra-lia/index.ts` linha 2272
 
-### 6. `vercel.json` - Rewrite de seo-proxy
+O `context_raw` e truncado em 8000 chars antes de salvar. O Judge (`evaluate-interaction`) recebe esse contexto truncado. Se dados tecnicos relevantes estiverem alem dos 8000 chars, o Judge classificara como "hallucination" incorretamente.
 
-A regex de user-agent no vercel.json esta correta e cobre todos os bots listados em `seo-proxy/index.ts`. **Status: OK**.
+**Correcao:** Aumentar para 12000 chars ou priorizar os chunks com maior similaridade no contexto salvo.
 
-### 7. Componentes React SEO - Verificacao
+### MEDIO 7: Threshold de similaridade vetorial vs ILIKE inconsistente
 
-| Componente | Status |
-|---|---|
-| `SEOHead.tsx` | OK - usa baseUrl correto |
-| `AboutSEOHead.tsx` | OK |
-| `KnowledgeSEOHead.tsx` | OK |
-| `TestimonialSEOHead.tsx` | OK |
-| `OrganizationSchema.tsx` | OK |
-| `VideoSchema.tsx` | OK |
-| `ArticleMeta.tsx` | OK |
+| Metodo | Threshold | Nota |
+|---|---|---|
+| Vector | 0.65 | OK - rigoroso |
+| FTS | 0.10 | Muito baixo - lixo passa |
+| ILIKE | 0.20 | Baixo |
 
-**Status: OK** - sem alteracoes necessarias nos componentes React.
+A regra 21 do system prompt diz "se topSimilarity < 0.50 use frase de seguranca" mas isso depende do LLM auto-aplicar. Se FTS retorna resultados com similarity 0.15, eles entram no contexto mesmo sendo irrelevantes.
+
+**Correcao:** Aumentar threshold minimo de FTS de 0.10 para 0.20 para reduzir ruido.
+
+### MEDIO 8: `searchByILIKE` e `searchCompanyKB` com filtros de tamanho inconsistentes
+
+- `searchByILIKE` filtra palavras `>= 3` chars
+- `searchCompanyKB` filtra palavras `>= 4` chars
+
+Isso significa que "BLZ" (3 chars, nome de scanner) e encontrado por ILIKE nos artigos mas NAO e encontrado no company_kb.
+
+**Correcao:** Padronizar ambos para `>= 3` chars.
+
+### BAIXO 9: `_shared/system-prompt.ts` nao e usado pela LIA
+
+O arquivo `system-prompt.ts` contem regras anti-alucinacao excelentes (`ANTI_HALLUCINATION_RULES`, `SYSTEM_SUPER_PROMPT`) mas NAO e importado pelo `dra-lia/index.ts`. E usado apenas pelas funcoes de SEO/conteudo.
+
+**Status:** Intencional -- a LIA tem seu proprio system prompt inline. Mas as regras poderiam ser consolidadas para evitar divergencia.
+
+**Acao:** Nenhuma correcao necessaria agora, apenas registro.
+
+### BAIXO 10: `archive-daily-chats` nao inclui `topic_context` na classificacao
+
+O classificador heuristico (`classifyInteraction`) usa apenas `contextSources` e `userMsg`, mas nao usa o `topic_context` que a sessao ja tem. Isso pode classificar uma conversa de rota "commercial" como "suporte" se o usuario perguntou sobre configuracao de produto.
+
+**Acao:** Melhoria futura, nao critica.
 
 ---
 
 ## PLANO DE CORRECOES
 
-### Prioridade 1 - Bug fix (APIs apontando para projeto errado)
+### Prioridade 1 -- Bug Fixes Criticos
 
-| Arquivo | Mudanca |
-|---|---|
-| `supabase/functions/sync-knowledge-base/index.ts` | Usar `SUPABASE_URL` env var em vez de URL hardcoded (linha 65) |
-| `supabase/functions/index-embeddings/index.ts` | Usar `SUPABASE_URL` env var em vez de URL hardcoded (linha 16) |
+| # | Arquivo | Mudanca |
+|---|---|---|
+| 1 | `dra-lia/index.ts` L2229-2238 | Corrigir fallback models para `openai/gpt-5-mini` e `openai/gpt-5-nano` |
+| 2 | `dra-lia/index.ts` L1194-1196 | `searchProcessingInstructions`: retornar `[]` quando nenhuma resina match (em vez de aleatorias) |
 
-### Prioridade 2 - Padronizacao CORS (14 funcoes)
+### Prioridade 2 -- Anti-Alucinacao
 
-Atualizar `corsHeaders` em todas as 14 funcoes listadas na secao 1 para incluir os headers completos do Supabase client.
+| # | Arquivo | Mudanca |
+|---|---|---|
+| 3 | `dra-lia/index.ts` L1093-1156 | `searchCatalogProducts`: adicionar `extra_data` ao SELECT; incluir `clinical_brain` e `technical_specs` no chunk_text |
+| 4 | `dra-lia/index.ts` L1820-1822 | Aumentar threshold FTS de 0.10 para 0.20 |
+| 5 | `dra-lia/index.ts` L2272 | Aumentar truncamento de `context_raw` de 8000 para 12000 |
+| 6 | `dra-lia/index.ts` L1148-1155 | `searchCatalogProducts`: filtrar top 5 por relevancia de nome em vez de retornar 20 |
 
-Funcoes a atualizar:
-1. `seo-proxy/index.ts`
-2. `ai-generate-og-image/index.ts`
-3. `ai-metadata-generator/index.ts`
-4. `ai-content-formatter/index.ts`
-5. `ai-orchestrate-content/index.ts`
-6. `enrich-article-seo/index.ts`
-7. `reformat-article-html/index.ts`
-8. `auto-inject-product-cards/index.ts`
-9. `translate-content/index.ts`
-10. `backfill-keywords/index.ts`
-11. `generate-sitemap/index.ts`
-12. `generate-knowledge-sitemap/index.ts`
-13. `generate-documents-sitemap/index.ts`
-14. `generate-knowledge-sitemap-en/index.ts`
-15. `generate-knowledge-sitemap-es/index.ts`
+### Prioridade 3 -- Consistencia
 
-### Prioridade 3 - Constante LOGO_URL no seo-proxy
+| # | Arquivo | Mudanca |
+|---|---|---|
+| 7 | `dra-lia/index.ts` L314-318 | `searchCompanyKB`: mudar filtro de `>= 4` para `>= 3` chars |
+| 8 | `heal-knowledge-gaps/index.ts` L82 | Atualizar modelo de `gemini-2.5-flash` para `gemini-3-flash-preview` |
 
-Extrair a URL do logo para uma constante `LOGO_URL` no topo do `seo-proxy/index.ts` para facilitar manutencao futura. A URL continua apontando para o projeto `pgfgripuanuwwolmtknn` onde a imagem existe.
+### Prioridade 4 -- Indexacao (index-embeddings)
+
+| # | Arquivo | Mudanca |
+|---|---|---|
+| 9 | `index-embeddings/index.ts` L703-772 | Adicionar chunks para `clinical_brain`, `competitor_comparison` e `workflow_stages` do `extra_data` |
 
 ### Deploy
 
-Apos as correcoes, deploy de todas as funcoes modificadas.
+Apos correcoes, deploy de: `dra-lia`, `heal-knowledge-gaps`, `index-embeddings`
 
 ---
 
-## RESUMO
+## RESUMO EXECUTIVO
 
-| Tipo | Quantidade | Impacto |
+| Tipo | Qtd | Impacto |
 |---|---|---|
-| APIs apontando para projeto errado | 2 funcoes | Alto - dados de outro projeto |
-| CORS incompletos | ~15 funcoes | Medio - pode causar falha em clients Supabase |
-| Logo hardcoded (outro projeto) | 7 ocorrencias | Baixo - funciona mas fragil |
-| Componentes React | 0 problemas | OK |
-| Sitemaps/robots.txt | 0 problemas | OK |
-| vercel.json | 0 problemas | OK |
+| Modelos de fallback invalidos | 2 modelos | CRITICO -- LIA sem resposta se Gemini falhar |
+| Playbook data nao chega ao agente | 4 campos ignorados | CRITICO -- anti-alucinacao por produto nao funciona |
+| Protocolos aleatorios injetados | 1 funcao | CRITICO -- resinas erradas no contexto |
+| Threshold FTS muito baixo | 1 config | MEDIO -- ruido no contexto |
+| context_raw truncado | 1 config | MEDIO -- falsos positivos no Judge |
+| Filtro de catalogo impreciso | 1 funcao | MEDIO -- contexto poluido |
+| Inconsistencia de filtro de palavras | 1 funcao | BAIXO |
+| Modelo desatualizado heal-gaps | 1 funcao | BAIXO |
+
+**Total: 9 correcoes em 3 edge functions + 1 indexador**
