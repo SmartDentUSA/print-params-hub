@@ -284,32 +284,32 @@ export function AdminDraLIAStats() {
 
   const fetchRAGStats = useCallback(async () => {
     try {
-      const [embResult, artResult] = await Promise.all([
-        supabase.from("agent_embeddings").select("source_type, embedding_updated_at").order("embedding_updated_at", { ascending: false }),
+      const [rpcResult, artResult] = await Promise.all([
+        supabase.rpc("get_rag_stats" as never),
         supabase.from("knowledge_contents").select("id", { count: "exact" }).eq("active", true),
       ]);
 
-      const embeddings = embResult.data ?? [];
-      const totalChunks = embeddings.length;
-      const lastIndexedAt = embeddings.length > 0 ? embeddings[0].embedding_updated_at : null;
+      const rows = (rpcResult.data ?? []) as Array<{ source_type: string; chunk_count: number; last_indexed_at: string | null }>;
+      const totalChunks = rows.reduce((sum, r) => sum + Number(r.chunk_count), 0);
+      const bySourceType = rows.map(r => ({
+        source_type: r.source_type,
+        count: Number(r.chunk_count),
+      }));
+      const lastIndexedAt = rows.length > 0
+        ? rows.reduce((max, r) =>
+            r.last_indexed_at && r.last_indexed_at > max ? r.last_indexed_at : max,
+            rows[0].last_indexed_at ?? ""
+          )
+        : null;
 
-      // Count by source_type
-      const typeMap: Record<string, number> = {};
-      embeddings.forEach((e) => {
-        typeMap[e.source_type] = (typeMap[e.source_type] || 0) + 1;
-      });
-      const bySourceType = Object.entries(typeMap).map(([source_type, count]) => ({ source_type, count }));
-
-      // Count unique article content_ids indexed
-      const articleEmbeddings = embeddings.filter((e) => e.source_type === "article");
-      const indexedArticles = new Set(articleEmbeddings.map((e) => (e as { source_type: string; embedding_updated_at: string | null } & { content_id?: string }))).size;
+      const articleEntry = rows.find(r => r.source_type === "article");
 
       setRagStats({
         totalChunks,
         bySourceType,
         lastIndexedAt,
         totalArticles: artResult.count ?? 0,
-        indexedArticles: articleEmbeddings.length,
+        indexedArticles: articleEntry ? Number(articleEntry.chunk_count) : 0,
       });
     } catch (err) {
       console.error("Error fetching RAG stats:", err);
