@@ -1,56 +1,48 @@
 
-# Fix WaLeads Authentication - Key as Query Parameter
+# Corrigir formato do numero de telefone no WaLeads
 
-## Problem
+## Problema
 
-The WaLeads API is ignoring the `key` field sent in the JSON body and returning:
-```text
-"key should not be empty", "key must be a mongodb id"
+O codigo atual remove o `+` do telefone (linha 84 do `send-waleads`):
+```
+const cleanPhone = phone.replace(/\+/g, "");
 ```
 
-The key stored for "Paulo Comercial" (`687fb5b160ced29ac0b3ac9d`) is a valid 24-character MongoDB ObjectId, so the format is correct. The API simply expects it as a **URL query parameter**, not in the request body.
+A API WaLeads retorna status 201 (MESSAGE_SENT) mas a mensagem nao chega ao destinatario. Isso pode ser falha silenciosa por formato incorreto do numero.
 
-## Fix
+## Solucao
 
-### 1. `supabase/functions/smart-ops-send-waleads/index.ts`
+Testar enviando o numero **com** o prefixo `+` no campo `chat`, ja que e assim que o WhatsApp identifica numeros internacionalmente.
 
-**Move `key` from body to URL query parameter:**
+### Arquivo: `supabase/functions/smart-ops-send-waleads/index.ts`
 
-Change line 99 from:
+- **Remover** a linha que faz `phone.replace(/\+/g, "")` 
+- Enviar o telefone **como recebido** (com `+55...`) no campo `chat`
+- Ou seja, mudar de `cleanPhone` para usar o `phone` original diretamente
+
+Antes:
 ```typescript
-const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}`, {
-```
-to:
-```typescript
-const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}?key=${member.waleads_api_key}`, {
-```
-
-**Remove `key` from apiBody** (lines 89, 91):
-```typescript
-// Text
+const cleanPhone = phone.replace(/\+/g, "");
+// ...
 apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
-// Media
-apiBody = { chat: cleanPhone, url: media_url, isGroup: false };
 ```
 
-### 2. `supabase/functions/smart-ops-cs-processor/index.ts`
-
-Same change: move `key` to the URL query parameter on the fetch call, using the team member's `waleads_api_key`.
-
-Current line (~148):
+Depois:
 ```typescript
-const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}`, {
-```
-Change to:
-```typescript
-const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}?key=${waleadsApiKey}`, {
+// Enviar com formato original (+55...)
+apiBody = { chat: phone, message: finalMessage, isGroup: false };
 ```
 
-## Summary
+### Arquivo: `supabase/functions/smart-ops-cs-processor/index.ts`
 
-| File | Change |
+- Mesma correcao: remover o `.replace(/\+/g, "")` do telefone ao montar o payload WaLeads
+- Usar `lead.telefone_normalized` diretamente (que ja vem com `+55`)
+
+### Resumo
+
+| Arquivo | Mudanca |
 |---|---|
-| `smart-ops-send-waleads/index.ts` | Move `key` from JSON body to URL `?key=...`, clean body |
-| `smart-ops-cs-processor/index.ts` | Add `?key=...` to fetch URL |
+| `smart-ops-send-waleads/index.ts` | Parar de remover o `+` do telefone |
+| `smart-ops-cs-processor/index.ts` | Mesma correcao no telefone |
 
-No new secrets needed -- the key is already stored per team member in `team_members.waleads_api_key`.
+Apos o deploy, sera feito um novo teste de envio para confirmar a entrega.
