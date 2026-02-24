@@ -1,66 +1,51 @@
 
 
-# Correcao Final WaLeads - Endpoints Dinamicos e Log de Testes
+# Correcao WaLeads - Campo `chat` no payload
 
-## Problema atual
+## Problema
 
-Os logs mostram repetidamente:
+A API WaLeads retorna 400 com estas mensagens:
 ```text
-Response: 404 {"message":"Cannot POST /api-public/messages/send","error":"Not Found","statusCode":404}
+"Chat is required when not using customerId"
+"chat must be a string"
+"INVALID_PHONE_NUMBER"
 ```
 
-O endpoint `/api-public/messages/send` nao existe. Alem disso, `test_mode: true` pula o registro no `message_logs`, impedindo qualquer visibilidade no painel.
+O codigo atual envia `phone` no body, mas a API espera o campo **`chat`** para o numero do destinatario.
 
-## Correcoes
+## Correcao
 
-### 1. `supabase/functions/smart-ops-send-waleads/index.ts`
+### `supabase/functions/smart-ops-send-waleads/index.ts`
 
-**Endpoint**: trocar a linha do fetch de:
-```text
-fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
-```
-para:
-```text
-fetch(`${WALEADS_BASE_URL}/public/message/${tipo}`, {
-```
+Nas linhas 88-92, trocar `phone: cleanPhone` por `chat: cleanPhone` no objeto `apiBody`:
 
-**Log de testes**: remover o `if (!test_mode)` que envolve o insert em `message_logs`. Sempre registrar, usando tipo diferenciado quando for teste:
+**Texto (atual):**
 ```typescript
-const logTipo = test_mode ? `waleads_${tipo}_test` : `waleads_${tipo}`;
-await supabase.from("message_logs").insert({
-  lead_id: lead_id || null,
-  team_member_id: member.id,
-  whatsapp_number: member.whatsapp_number,
-  tipo: logTipo,
-  mensagem_preview: ...,
-  status: messageStatus,
-  error_details: errorDetails,
-});
+apiBody = { phone: cleanPhone, message: finalMessage, isGroup: false };
 ```
-
-**Sanitizacao do tipo**: validar que `tipo` e um dos valores aceitos antes de chamar a API:
+**Texto (corrigido):**
 ```typescript
-const VALID_TIPOS = ["text", "image", "audio", "video", "document"];
-const tipoNormalized = VALID_TIPOS.includes(tipo.toLowerCase()) ? tipo.toLowerCase() : "text";
+apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
 ```
 
-### 2. `supabase/functions/smart-ops-cs-processor/index.ts`
+**Midia (atual):**
+```typescript
+apiBody = { phone: cleanPhone, url: media_url, isGroup: false };
+```
+**Midia (corrigido):**
+```typescript
+apiBody = { chat: cleanPhone, url: media_url, isGroup: false };
+```
 
-**Endpoint**: trocar de:
-```text
-fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
-```
-para:
-```text
-fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}`, {
-```
+### `supabase/functions/smart-ops-cs-processor/index.ts`
+
+Mesma correcao: trocar `phone` por `chat` no objeto enviado a API WaLeads.
 
 ## Resumo
 
 | Arquivo | Mudanca |
 |---|---|
-| `smart-ops-send-waleads/index.ts` | Endpoint `/public/message/${tipo}`, sanitizacao do tipo, sempre registra log com sufixo `_test` |
-| `smart-ops-cs-processor/index.ts` | Endpoint `/public/message/${waleadsTipo}` |
+| `smart-ops-send-waleads/index.ts` | `phone` -> `chat` no payload da API |
+| `smart-ops-cs-processor/index.ts` | `phone` -> `chat` no payload da API |
 
-Apos deploy, o botao "Testar WL" deve retornar status 200 e o log aparecera na aba de Logs com tipo `waleads_text_test`.
-
+Apenas 2 linhas mudam em cada arquivo. O campo `chat` recebe o numero no formato `5519992612348` (sem +).
