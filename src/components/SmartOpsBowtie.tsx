@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SmartOpsGoalsButton, fetchGoals, DEFAULT_GOALS, type GoalsData } from "./SmartOpsGoals";
 
@@ -38,10 +42,10 @@ interface PipelineHealth {
 // Goals loaded from DB, with defaults
 
 const FAIXAS = [
-  { key: "em_processo", label: "Em Processo", color: "bg-red-700 text-white", minScore: -Infinity, maxScore: 60 },
-  { key: "boas_chances", label: "Boas Chances", color: "bg-orange-500 text-white", minScore: 60, maxScore: 80 },
-  { key: "comprometido", label: "Comprometido", color: "bg-yellow-500 text-white", minScore: 80, maxScore: 100 },
-  { key: "conquistado", label: "Conquistado", color: "bg-green-600 text-white", minScore: 100, maxScore: Infinity },
+  { key: "contato_realizado", label: "Contato Realizado", color: "bg-red-700 text-white", minScore: -Infinity, maxScore: 60 },
+  { key: "em_contato", label: "Em Contato", color: "bg-orange-500 text-white", minScore: 60, maxScore: 80 },
+  { key: "em_negociacao", label: "Em Negociação", color: "bg-yellow-500 text-white", minScore: 80, maxScore: 100 },
+  { key: "fechamento", label: "Fechamento", color: "bg-green-600 text-white", minScore: 100, maxScore: Infinity },
 ];
 
 // ─── Helpers ───
@@ -133,13 +137,52 @@ export function SmartOpsBowtie() {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [goals, setGoals] = useState<GoalsData>(DEFAULT_GOALS);
+  const [pipelineModalOpen, setPipelineModalOpen] = useState(false);
+  const [pipelineOverrides, setPipelineOverrides] = useState<{ meta?: string; conquistado?: string; existente?: string }>({});
+  const [savedOverrides, setSavedOverrides] = useState<{ meta?: number; conquistado?: number; existente?: number }>({});
 
   const loadGoals = useCallback(async () => {
     const g = await fetchGoals();
     setGoals(g);
   }, []);
 
-  useEffect(() => { loadGoals(); }, [loadGoals]);
+  const loadPipelineOverrides = useCallback(async () => {
+    const { data } = await supabase.from("site_settings").select("key, value").in("key", [
+      "smartops_pipeline_meta_override",
+      "smartops_pipeline_conquistado_override",
+      "smartops_pipeline_existente_override",
+    ]);
+    const ov: typeof savedOverrides = {};
+    data?.forEach((r) => {
+      const v = r.value ? Number(r.value) : undefined;
+      if (v !== undefined && !isNaN(v)) {
+        if (r.key === "smartops_pipeline_meta_override") ov.meta = v;
+        if (r.key === "smartops_pipeline_conquistado_override") ov.conquistado = v;
+        if (r.key === "smartops_pipeline_existente_override") ov.existente = v;
+      }
+    });
+    setSavedOverrides(ov);
+  }, []);
+
+  useEffect(() => { loadGoals(); loadPipelineOverrides(); }, [loadGoals, loadPipelineOverrides]);
+
+  const savePipelineOverrides = async () => {
+    const entries = [
+      { key: "smartops_pipeline_meta_override", value: pipelineOverrides.meta },
+      { key: "smartops_pipeline_conquistado_override", value: pipelineOverrides.conquistado },
+      { key: "smartops_pipeline_existente_override", value: pipelineOverrides.existente },
+    ];
+    for (const e of entries) {
+      if (e.value !== undefined && e.value !== "") {
+        await supabase.from("site_settings").upsert({ key: e.key, value: e.value }, { onConflict: "key" });
+      } else {
+        await supabase.from("site_settings").delete().eq("key", e.key);
+      }
+    }
+    await loadPipelineOverrides();
+    setPipelineModalOpen(false);
+    toast.success("Overrides salvos!");
+  };
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -178,10 +221,10 @@ export function SmartOpsBowtie() {
 
     const classify = (score: number | null, status: string | null) => {
       const s = score ?? 0;
-      if (s >= 100 || status === "Ganha") return "conquistado";
-      if (s >= 80) return "comprometido";
-      if (s >= 60) return "boas_chances";
-      return "em_processo";
+      if (s >= 100 || status === "Ganha") return "fechamento";
+      if (s >= 80) return "em_negociacao";
+      if (s >= 60) return "em_contato";
+      return "contato_realizado";
     };
 
     const countByFaixaAndMonth = (monthStart: Date, monthEnd: Date, faixaKey: string) => {
@@ -213,18 +256,21 @@ export function SmartOpsBowtie() {
     const curStart = selectedMonth;
     const curEnd = addMonths(selectedMonth, 1);
 
-    const conquistado = allLeads.filter((l) => {
+    const autoConquistado = allLeads.filter((l) => {
       const d = new Date(l.created_at);
       return d >= curStart && d < curEnd && ((l.score ?? 0) >= 100 || l.status_atual_lead_crm === "Ganha");
     }).length;
 
-    const aRealizar = Math.max(goals.pipelineMeta - conquistado, 0);
+    const meta = savedOverrides.meta ?? goals.pipelineMeta;
+    const conquistado = savedOverrides.conquistado ?? autoConquistado;
+    const aRealizar = Math.max(meta - conquistado, 0);
     const pipelineNecessario = aRealizar * 3;
-    const pipelineExistente = allLeads.filter((l) => (l.score ?? 0) < 100 && l.lead_status !== "perdido").length;
+    const autoPipelineExistente = allLeads.filter((l) => (l.score ?? 0) < 100 && l.lead_status !== "perdido").length;
+    const pipelineExistente = savedOverrides.existente ?? autoPipelineExistente;
     const saude = pipelineNecessario > 0 ? (pipelineExistente / pipelineNecessario) * 100 : 300;
 
-    return { meta: goals.pipelineMeta, conquistado, aRealizar, pipelineNecessario, pipelineExistente, saude };
-  }, [allLeads, selectedMonth, goals]);
+    return { meta, conquistado, aRealizar, pipelineNecessario, pipelineExistente, saude };
+  }, [allLeads, selectedMonth, goals, savedOverrides]);
 
   // ─── Leads por Produto de Interesse ───
   const productStats = useMemo(() => {
@@ -398,8 +444,45 @@ export function SmartOpsBowtie() {
 
       {/* ═══ Saúde do Pipeline ═══ */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Saúde do Pipeline</CardTitle>
+          <Dialog open={pipelineModalOpen} onOpenChange={(open) => {
+            setPipelineModalOpen(open);
+            if (open) {
+              setPipelineOverrides({
+                meta: savedOverrides.meta?.toString() ?? "",
+                conquistado: savedOverrides.conquistado?.toString() ?? "",
+                existente: savedOverrides.existente?.toString() ?? "",
+              });
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Ajustar Saúde do Pipeline</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Deixe vazio para usar o cálculo automático.</p>
+                <div className="space-y-2">
+                  <Label>Meta (override)</Label>
+                  <Input type="number" placeholder="Automático" value={pipelineOverrides.meta ?? ""} onChange={(e) => setPipelineOverrides((p) => ({ ...p, meta: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fechamento (override)</Label>
+                  <Input type="number" placeholder="Automático" value={pipelineOverrides.conquistado ?? ""} onChange={(e) => setPipelineOverrides((p) => ({ ...p, conquistado: e.target.value }))} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Pipeline Existente (override)</Label>
+                  <Input type="number" placeholder="Automático" value={pipelineOverrides.existente ?? ""} onChange={(e) => setPipelineOverrides((p) => ({ ...p, existente: e.target.value }))} />
+                </div>
+                <Button onClick={savePipelineOverrides} className="w-full">Salvar</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
@@ -411,7 +494,7 @@ export function SmartOpsBowtie() {
               </div>
               <div className="text-center text-muted-foreground text-lg">−</div>
               <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                <div className="text-xs text-muted-foreground">Conquistado (−)</div>
+                <div className="text-xs text-muted-foreground">Fechamento (−)</div>
                 <div className="text-2xl font-bold text-blue-700">{pipeline.conquistado}</div>
               </div>
               <div className="text-center text-muted-foreground text-lg">=</div>
