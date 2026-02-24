@@ -16,10 +16,10 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 // source_types: parameter_set, resin, processing_protocol,
 //               article, video, catalog_product, company_kb
 const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
-  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.9,  video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4 },
-  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.3,  video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6 },
-  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 1.2,  video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0 },
-  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5 },
+  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.9,  video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4, faq_autoheal: 0.8 },
+  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.3,  video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6, faq_autoheal: 1.1 },
+  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 1.2,  video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0, faq_autoheal: 1.0 },
+  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5, faq_autoheal: 1.2 },
 };
 
 function applyTopicWeights<T extends { source_type: string; similarity: number }>(

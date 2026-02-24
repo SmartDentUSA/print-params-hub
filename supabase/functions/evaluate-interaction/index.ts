@@ -41,7 +41,7 @@ serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const judgePrompt = `Você é um auditor de qualidade de IA odontológica (SmartDent). Avalie a fidelidade técnica da resposta abaixo com foco em DETECTAR ALUCINAÇÕES de parâmetros técnicos.
+    const judgePrompt = `Você é um auditor de qualidade de IA odontológica (SmartDent). Avalie a fidelidade técnica da resposta abaixo.
 
 PERGUNTA DO USUÁRIO:
 ${record.user_message}
@@ -52,29 +52,42 @@ ${record.context_raw}
 RESPOSTA DA IA:
 ${record.agent_response}
 
-ATENÇÃO — FONTES VÁLIDAS NO CONTEXTO RAG:
-O contexto acima pode conter MÚLTIPLOS tipos de fonte, TODOS são contexto válido:
-- [CATALOG_PRODUCT]: dados de produtos do catálogo com preços, FAQs, descrições e categorias — SÃO CONTEXTO VÁLIDO
-- [PROCESSING_PROTOCOL]: instruções de processamento de resinas (limpeza, cura, térmico) — SÃO CONTEXTO VÁLIDO
-- [COMPANY_KB]: conhecimento comercial, scripts de venda, expertise de produto — SÃO CONTEXTO VÁLIDO
-- [PARAMETER_SET]: parâmetros de impressão 3D (layer height, exposição, etc) — SÃO CONTEXTO VÁLIDO
-- [ARTICLE]: artigos técnicos da base de conhecimento — SÃO CONTEXTO VÁLIDO
-- [VIDEO]: títulos e metadados de vídeos — SÃO CONTEXTO VÁLIDO
-- [RESIN]: dados de resinas com preços e descrições — SÃO CONTEXTO VÁLIDO
-- Seções "## PRODUTOS RECOMENDADOS", "## ARGUMENTOS DE VENDA", etc. — são agrupamentos semânticos do mesmo contexto, TODOS VÁLIDOS
+═══ REGRAS DE AVALIAÇÃO ═══
 
-Se a IA citou um dado que aparece em QUALQUER uma dessas fontes no contexto acima, NÃO é alucinação.
-Só classifique como "hallucination" se o dado técnico/comercial citado pela IA REALMENTE não existe em NENHUMA parte do contexto.
+**IMPORTANTE — RESPOSTAS DE PERSONA/COMPORTAMENTO NÃO SÃO ALUCINAÇÕES:**
+A IA tem uma PERSONA definida (Dra. L.I.A., consultora de odontologia digital). Respostas sobre:
+- Saudações, apresentações, despedidas ("Olá! Sou a Dra. L.I.A...")
+- Perguntas de qualificação SPIN ("Qual sua especialidade?", "Que equipamento usa?")
+- Ofertas de agendamento/contato ("Posso te conectar com nosso time...")
+- Respostas conversacionais ("Fico feliz em ajudar!", "Entendi sua dúvida")
+- Meta-respostas sobre o próprio sistema ("Sou uma assistente virtual...")
+→ São COMPORTAMENTO ESPERADO da persona, NÃO alucinação. Score 4-5.
 
-CRITÉRIOS DE AVALIAÇÃO:
-- score 0 + "hallucination": A IA citou parâmetro técnico (layer height, tempo de exposição, velocidade de lift, intensidade de luz, etc.) ou dado comercial (preço, nome de produto) que NÃO está presente em NENHUMA fonte do contexto acima
-- score 1-2 + "off_topic": Citou produto/impressora/resina não solicitado pelo usuário, ou usou termos vagos proibidos ("geralmente", "provavelmente", "normalmente", "em geral", "costuma ser")
-- score 3 + "incomplete": Resposta tecnicamente correta mas omitiu informações importantes presentes no contexto
-- score 4-5 + "ok": Baseada estritamente no contexto, precisa, direta, sem invenção
+**FONTES VÁLIDAS NO CONTEXTO RAG:**
+O contexto pode conter MÚLTIPLOS tipos de fonte, TODOS são contexto válido:
+- [CATALOG_PRODUCT]: dados de produtos com preços, FAQs, descrições
+- [PROCESSING_PROTOCOL]: instruções de processamento de resinas
+- [COMPANY_KB]: conhecimento comercial, scripts de venda
+- [PARAMETER_SET]: parâmetros de impressão 3D
+- [ARTICLE]: artigos técnicos da base de conhecimento
+- [VIDEO]: títulos e metadados de vídeos
+- [RESIN]: dados de resinas com preços e descrições
+- [AUTHOR]: dados de autores/KOLs
+- Seções agrupadas ("## PRODUTOS RECOMENDADOS", etc.) — TODOS VÁLIDOS
 
-IMPORTANTE: NÃO penalize respostas curtas ou diretas se estiverem tecnicamente corretas.
-NÃO penalize se o usuário fez uma pergunta geral e a IA respondeu de forma geral (sem inventar dados).
-NÃO penalize se a IA citou preço ou FAQ de um [CATALOG_PRODUCT] — isso é contexto válido, não alucinação.
+Se a IA citou dado que aparece em QUALQUER fonte no contexto, NÃO é alucinação.
+
+**CRITÉRIOS DE SCORE:**
+- score 0 + "hallucination": Inventou parâmetro técnico (layer height, exposição, preço, nome de produto) que NÃO existe em NENHUMA parte do contexto
+- score 1-2 + "off_topic": Citou produto/impressora não solicitado, ou usou termos vagos proibidos ("geralmente", "provavelmente", "normalmente")
+- score 3 + "incomplete": Tecnicamente correta mas omitiu informações importantes do contexto
+- score 4-5 + "ok": Baseada no contexto ou comportamento legítimo de persona, precisa, direta
+
+**NÃO PENALIZE:**
+- Respostas curtas/diretas se tecnicamente corretas
+- Perguntas gerais respondidas de forma geral (sem inventar dados)
+- Preços/FAQs de [CATALOG_PRODUCT]
+- Respostas de persona/conversação (saudação, qualificação, agendamento)
 
 Retorne APENAS um JSON válido: {"score": 0-5, "verdict": "hallucination|off_topic|incomplete|ok", "reason": "explicação em 1 frase"}`;
 
