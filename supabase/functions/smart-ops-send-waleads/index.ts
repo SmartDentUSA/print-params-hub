@@ -86,9 +86,9 @@ Deno.serve(async (req) => {
     // Build WaLeads API request body
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
-      apiBody = { key: member.waleads_api_key, chat: cleanPhone, message: finalMessage, isGroup: false };
+      apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
     } else {
-      apiBody = { key: member.waleads_api_key, chat: cleanPhone, url: media_url, isGroup: false };
+      apiBody = { chat: cleanPhone, url: media_url, isGroup: false };
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     console.log("[send-waleads] Request body:", JSON.stringify(apiBody));
 
     // Call WaLeads API
-    const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}`, {
+    const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}?key=${member.waleads_api_key}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
