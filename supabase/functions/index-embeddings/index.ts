@@ -768,6 +768,82 @@ serve(async (req) => {
           },
         });
       }
+
+      // Chunk 4: Clinical Brain (anti-hallucination rules per product)
+      const clinicalBrain = (p.extra_data as Record<string, unknown>)?.clinical_brain as Record<string, unknown> | undefined;
+      if (clinicalBrain) {
+        const mandatory = (clinicalBrain.mandatory_products as string[]) || [];
+        const prohibited = (clinicalBrain.prohibited_products as string[]) || [];
+        const rules = (clinicalBrain.anti_hallucination_rules as string[]) || [];
+        const parts: string[] = [];
+        if (mandatory.length) parts.push(`OBRIGATÓRIO CITAR: ${mandatory.join(', ')}`);
+        if (prohibited.length) parts.push(`PROIBIDO CITAR: ${prohibited.join(', ')}`);
+        if (rules.length) parts.push(`REGRAS: ${rules.join('; ')}`);
+        if (parts.length) {
+          chunks.push({
+            source_type: "catalog_product",
+            chunk_text: `${p.name} — Clinical Brain | ${parts.join(' | ')}`.slice(0, 1500),
+            metadata: {
+              title: `${p.name} — Clinical Brain`,
+              category: categoryLabel,
+              url: productUrl,
+              product_id: p.id,
+              chunk_type: "clinical_brain",
+            },
+          });
+        }
+      }
+
+      // Chunk 5: Technical Specs
+      const technicalSpecs = (p.extra_data as Record<string, unknown>)?.technical_specs as Record<string, unknown> | undefined;
+      if (technicalSpecs && Object.keys(technicalSpecs).length > 0) {
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: `${p.name} — Especificações Técnicas | ${JSON.stringify(technicalSpecs).replace(/[{}"]/g, ' ').replace(/,/g, ' | ').trim()}`.slice(0, 1500),
+          metadata: {
+            title: `${p.name} — Technical Specs`,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "technical_specs",
+          },
+        });
+      }
+
+      // Chunk 6: Competitor Comparison
+      const competitorComparison = (p.extra_data as Record<string, unknown>)?.competitor_comparison as Record<string, unknown> | undefined;
+      if (competitorComparison && Object.keys(competitorComparison).length > 0) {
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: `${p.name} — Comparativo com Concorrentes | ${JSON.stringify(competitorComparison).replace(/[{}"]/g, ' ').replace(/,/g, ' | ').trim()}`.slice(0, 1500),
+          metadata: {
+            title: `${p.name} — Competitor Comparison`,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "competitor_comparison",
+          },
+        });
+      }
+
+      // Chunk 7: Workflow Stages
+      const workflowStages = (p.extra_data as Record<string, unknown>)?.workflow_stages as Array<Record<string, unknown>> | undefined;
+      if (workflowStages && workflowStages.length > 0) {
+        const stagesText = workflowStages.map((s: Record<string, unknown>, i: number) =>
+          `Etapa ${i + 1}: ${s.name || s.title || ''} — ${s.description || ''}`
+        ).join(' | ');
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: `${p.name} — Workflow/Etapas de Uso | ${stagesText}`.slice(0, 1500),
+          metadata: {
+            title: `${p.name} — Workflow Stages`,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "workflow_stages",
+          },
+        });
+      }
     }
     } // end if catalog_products
 

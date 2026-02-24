@@ -314,7 +314,7 @@ async function searchCompanyKB(
   const words = combinedText.toLowerCase()
     .replace(/[?!.,;:™]/g, '')
     .split(/\s+/)
-    .filter(w => w.length >= 4 && !STOPWORDS_PT.includes(w))
+    .filter(w => w.length >= 3 && !STOPWORDS_PT.includes(w))
     .filter((v, i, a) => a.indexOf(v) === i)
     .slice(0, 6);
 
@@ -1111,7 +1111,7 @@ async function searchCatalogProducts(
   // If no specific category detected, fetch all
   let query = supabase
     .from('system_a_catalog')
-    .select('id, name, description, product_category, product_subcategory, cta_1_url, cta_1_label, slug, price, promo_price')
+    .select('id, name, description, product_category, product_subcategory, cta_1_url, cta_1_label, slug, price, promo_price, extra_data')
     .eq('active', true)
     .eq('approved', true);
   
@@ -1123,7 +1123,8 @@ async function searchCatalogProducts(
   
   if (error || !data?.length) return [];
   
-  return data.map((p: {
+  // Score and sort by name relevance, then take top 5
+  const scored = data.map((p: {
     id: string;
     name: string;
     description: string | null;
@@ -1134,26 +1135,53 @@ async function searchCatalogProducts(
     slug: string | null;
     price: number | null;
     promo_price: number | null;
-  }) => ({
-    id: p.id,
-    source_type: 'catalog_product',
-    chunk_text: `PRODUTO DO CATÁLOGO: ${p.name}${p.product_category ? ` | Categoria: ${p.product_category}` : ''}${p.product_subcategory ? ` | Sub: ${p.product_subcategory}` : ''}${p.description ? ` | ${p.description.slice(0, 300)}` : ''}${p.price ? ` | Preço: R$ ${p.price}` : ''}${p.promo_price ? ` | Promo: R$ ${p.promo_price}` : ''}`,
-    metadata: {
-      title: p.name,
-      slug: p.slug,
-      url_publica: p.slug ? `/produtos/${p.slug}` : null,
-      cta_1_url: p.cta_1_url,
-    },
-    similarity: (() => {
-        const nameWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
-        const descWords = (p.description || '').toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3).slice(0, 20);
-        const allProductWords = [...new Set([...nameWords, ...descWords])];
-        const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
-        const matchedCount = allProductWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
-        const totalWords = Math.max(allProductWords.length, 1);
-        return matchedCount / totalWords * 0.6 + 0.3;
-      })()
-  }));
+    extra_data: Record<string, unknown> | null;
+  }) => {
+    const nameWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+    const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
+    const nameMatchCount = nameWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+    const similarity = nameWords.length > 0
+      ? (nameMatchCount / nameWords.length) * 0.6 + 0.3
+      : 0.3;
+
+    // Build enriched chunk_text with clinical_brain and technical_specs from extra_data
+    const extra = (p.extra_data || {}) as Record<string, unknown>;
+    const clinicalBrain = extra.clinical_brain as Record<string, unknown> | undefined;
+    const technicalSpecs = extra.technical_specs as Record<string, unknown> | undefined;
+
+    let chunkText = `PRODUTO DO CATÁLOGO: ${p.name}${p.product_category ? ` | Categoria: ${p.product_category}` : ''}${p.product_subcategory ? ` | Sub: ${p.product_subcategory}` : ''}${p.description ? ` | ${p.description.slice(0, 300)}` : ''}${p.price ? ` | Preço: R$ ${p.price}` : ''}${p.promo_price ? ` | Promo: R$ ${p.promo_price}` : ''}`;
+
+    if (clinicalBrain) {
+      const mandatory = (clinicalBrain.mandatory_products as string[]) || [];
+      const prohibited = (clinicalBrain.prohibited_products as string[]) || [];
+      const rules = (clinicalBrain.anti_hallucination_rules as string[]) || [];
+      if (mandatory.length) chunkText += ` | OBRIGATÓRIO CITAR: ${mandatory.join(', ')}`;
+      if (prohibited.length) chunkText += ` | PROIBIDO CITAR: ${prohibited.join(', ')}`;
+      if (rules.length) chunkText += ` | REGRAS: ${rules.join('; ')}`;
+    }
+
+    if (technicalSpecs) {
+      chunkText += ` | SPECS: ${JSON.stringify(technicalSpecs).slice(0, 400)}`;
+    }
+
+    return {
+      id: p.id,
+      source_type: 'catalog_product',
+      chunk_text: chunkText,
+      metadata: {
+        title: p.name,
+        slug: p.slug,
+        url_publica: p.slug ? `/produtos/${p.slug}` : null,
+        cta_1_url: p.cta_1_url,
+      },
+      similarity,
+      nameMatchCount,
+    };
+  });
+
+  // Sort by name match count (desc), then take top 5
+  scored.sort((a: { nameMatchCount: number; similarity: number }, b: { nameMatchCount: number; similarity: number }) => b.nameMatchCount - a.nameMatchCount || b.similarity - a.similarity);
+  return scored.slice(0, 5).map(({ nameMatchCount: _, ...rest }: { nameMatchCount: number; [key: string]: unknown }) => rest);
 }
 
 // Search processing instructions directly from resins table — SOURCE OF TRUTH
@@ -1191,11 +1219,12 @@ async function searchProcessingInstructions(
     })
     .sort((a: { score: number }, b: { score: number }) => b.score - a.score);
 
-  // If a specific resin was mentioned, use only matched ones; otherwise return all
+  // If a specific resin was mentioned, use only matched ones; otherwise return empty
+  // (returning random resins when no match causes hallucination — rule 21 handles safety phrase)
   const matched = scored.filter((x: { score: number }) => x.score > 0);
-  const targets = matched.length > 0 ? matched : scored;
+  if (matched.length === 0) return [];
 
-  return targets.slice(0, 3).map(({ resin: r }: { resin: {
+  return matched.slice(0, 3).map(({ resin: r }: { resin: {
     id: string;
     name: string;
     manufacturer: string;
@@ -1819,7 +1848,7 @@ serve(async (req) => {
     // Camada 1: Threshold diferenciado por método — ILIKE precisa de score ≥ 0.20, FTS ≥ 0.10
     const MIN_SIMILARITY = method === "vector" ? 0.65
       : method === "ilike" ? 0.20
-      : 0.10; // fulltext
+      : 0.20; // fulltext (raised from 0.10 to reduce noise)
     const filteredKnowledge = knowledgeResults.filter((r: { similarity: number }) => r.similarity >= MIN_SIMILARITY);
 
     // 3. Merge: catalog products first (highest priority for commercial), then protocol, then knowledge
@@ -2226,16 +2255,16 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       aiResponse = await callAI("google/gemini-2.5-flash-lite");
     }
 
-    // Se ainda falhar → fallback com OpenAI gpt-4o-mini (com contexto truncado)
+    // Se ainda falhar → fallback com OpenAI gpt-5-mini (com contexto truncado)
     if (!aiResponse.ok && aiResponse.status !== 429) {
-      console.error(`Gemini models failed, retrying with openai/gpt-4o-mini (truncated)...`);
-      aiResponse = await callAI("openai/gpt-4o-mini", true);
+      console.error(`Gemini models failed, retrying with openai/gpt-5-mini (truncated)...`);
+      aiResponse = await callAI("openai/gpt-5-mini", true);
     }
 
-    // Último fallback: openai/gpt-4.1-mini com contexto mínimo
+    // Último fallback: openai/gpt-5-nano com contexto mínimo
     if (!aiResponse.ok && aiResponse.status !== 429) {
-      console.error(`gpt-4o-mini failed, last resort: openai/gpt-4.1-mini...`);
-      aiResponse = await callAI("openai/gpt-4.1-mini", true);
+      console.error(`gpt-5-mini failed, last resort: openai/gpt-5-nano...`);
+      aiResponse = await callAI("openai/gpt-5-nano", true);
     }
 
     if (!aiResponse.ok) {
@@ -2269,7 +2298,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
           lang,
           top_similarity: topSimilarity,
           context_sources: contextSources,
-          context_raw: context.slice(0, 8000),
+          context_raw: context.slice(0, 12000),
           unanswered: false,
           lead_id: currentLeadId,
         })
