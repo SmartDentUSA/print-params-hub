@@ -401,6 +401,39 @@ export type Database = {
         }
         Relationships: []
       }
+      cs_automation_rules: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          delay_days: number | null
+          id: string
+          produto_interesse: string | null
+          template_manychat: string | null
+          tipo: string | null
+          trigger_event: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          delay_days?: number | null
+          id?: string
+          produto_interesse?: string | null
+          template_manychat?: string | null
+          tipo?: string | null
+          trigger_event?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          delay_days?: number | null
+          id?: string
+          produto_interesse?: string | null
+          template_manychat?: string | null
+          tipo?: string | null
+          trigger_event?: string | null
+        }
+        Relationships: []
+      }
       drive_kb_sync_log: {
         Row: {
           category: string
@@ -994,6 +1027,228 @@ export type Database = {
         }
         Relationships: []
       }
+      lia_attendances: {
+        Row: {
+          area_atuacao: string | null
+          ativo_cad: boolean | null
+          ativo_cad_ia: boolean | null
+          ativo_cura: boolean | null
+          ativo_insumos: boolean | null
+          ativo_notebook: boolean | null
+          ativo_print: boolean | null
+          ativo_scan: boolean | null
+          ativo_smart_slice: boolean | null
+          como_digitaliza: string | null
+          created_at: string
+          cs_treinamento: string | null
+          data_contrato: string | null
+          data_primeiro_contato: string | null
+          data_ultima_compra_cad: string | null
+          data_ultima_compra_cad_ia: string | null
+          data_ultima_compra_cura: string | null
+          data_ultima_compra_insumos: string | null
+          data_ultima_compra_notebook: string | null
+          data_ultima_compra_print: string | null
+          data_ultima_compra_scan: string | null
+          data_ultima_compra_smart_slice: string | null
+          email: string
+          especialidade: string | null
+          form_name: string | null
+          funil_entrada_crm: string | null
+          id: string
+          id_cliente_smart: string | null
+          impressora_modelo: string | null
+          ip_origem: string | null
+          lead_status: string
+          nome: string
+          origem_campanha: string | null
+          pais_origem: string | null
+          piperun_id: string | null
+          produto_interesse: string | null
+          proprietario_lead_crm: string | null
+          raw_payload: Json | null
+          resina_interesse: string | null
+          resumo_historico_ia: string | null
+          reuniao_agendada: boolean | null
+          rota_inicial_lia: string | null
+          score: number | null
+          source: string
+          status_atual_lead_crm: string | null
+          telefone_normalized: string | null
+          telefone_raw: string | null
+          tem_impressora: string | null
+          updated_at: string
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+        }
+        Insert: {
+          area_atuacao?: string | null
+          ativo_cad?: boolean | null
+          ativo_cad_ia?: boolean | null
+          ativo_cura?: boolean | null
+          ativo_insumos?: boolean | null
+          ativo_notebook?: boolean | null
+          ativo_print?: boolean | null
+          ativo_scan?: boolean | null
+          ativo_smart_slice?: boolean | null
+          como_digitaliza?: string | null
+          created_at?: string
+          cs_treinamento?: string | null
+          data_contrato?: string | null
+          data_primeiro_contato?: string | null
+          data_ultima_compra_cad?: string | null
+          data_ultima_compra_cad_ia?: string | null
+          data_ultima_compra_cura?: string | null
+          data_ultima_compra_insumos?: string | null
+          data_ultima_compra_notebook?: string | null
+          data_ultima_compra_print?: string | null
+          data_ultima_compra_scan?: string | null
+          data_ultima_compra_smart_slice?: string | null
+          email: string
+          especialidade?: string | null
+          form_name?: string | null
+          funil_entrada_crm?: string | null
+          id?: string
+          id_cliente_smart?: string | null
+          impressora_modelo?: string | null
+          ip_origem?: string | null
+          lead_status?: string
+          nome: string
+          origem_campanha?: string | null
+          pais_origem?: string | null
+          piperun_id?: string | null
+          produto_interesse?: string | null
+          proprietario_lead_crm?: string | null
+          raw_payload?: Json | null
+          resina_interesse?: string | null
+          resumo_historico_ia?: string | null
+          reuniao_agendada?: boolean | null
+          rota_inicial_lia?: string | null
+          score?: number | null
+          source?: string
+          status_atual_lead_crm?: string | null
+          telefone_normalized?: string | null
+          telefone_raw?: string | null
+          tem_impressora?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Update: {
+          area_atuacao?: string | null
+          ativo_cad?: boolean | null
+          ativo_cad_ia?: boolean | null
+          ativo_cura?: boolean | null
+          ativo_insumos?: boolean | null
+          ativo_notebook?: boolean | null
+          ativo_print?: boolean | null
+          ativo_scan?: boolean | null
+          ativo_smart_slice?: boolean | null
+          como_digitaliza?: string | null
+          created_at?: string
+          cs_treinamento?: string | null
+          data_contrato?: string | null
+          data_primeiro_contato?: string | null
+          data_ultima_compra_cad?: string | null
+          data_ultima_compra_cad_ia?: string | null
+          data_ultima_compra_cura?: string | null
+          data_ultima_compra_insumos?: string | null
+          data_ultima_compra_notebook?: string | null
+          data_ultima_compra_print?: string | null
+          data_ultima_compra_scan?: string | null
+          data_ultima_compra_smart_slice?: string | null
+          email?: string
+          especialidade?: string | null
+          form_name?: string | null
+          funil_entrada_crm?: string | null
+          id?: string
+          id_cliente_smart?: string | null
+          impressora_modelo?: string | null
+          ip_origem?: string | null
+          lead_status?: string
+          nome?: string
+          origem_campanha?: string | null
+          pais_origem?: string | null
+          piperun_id?: string | null
+          produto_interesse?: string | null
+          proprietario_lead_crm?: string | null
+          raw_payload?: Json | null
+          resina_interesse?: string | null
+          resumo_historico_ia?: string | null
+          reuniao_agendada?: boolean | null
+          rota_inicial_lia?: string | null
+          score?: number | null
+          source?: string
+          status_atual_lead_crm?: string | null
+          telefone_normalized?: string | null
+          telefone_raw?: string | null
+          tem_impressora?: string | null
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+        }
+        Relationships: []
+      }
+      message_logs: {
+        Row: {
+          created_at: string
+          data_envio: string | null
+          error_details: string | null
+          id: string
+          lead_id: string | null
+          mensagem_preview: string | null
+          status: string
+          team_member_id: string | null
+          tipo: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          created_at?: string
+          data_envio?: string | null
+          error_details?: string | null
+          id?: string
+          lead_id?: string | null
+          mensagem_preview?: string | null
+          status?: string
+          team_member_id?: string | null
+          tipo?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          created_at?: string
+          data_envio?: string | null
+          error_details?: string | null
+          id?: string
+          lead_id?: string | null
+          mensagem_preview?: string | null
+          status?: string
+          team_member_id?: string | null
+          tipo?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       models: {
         Row: {
           active: boolean
@@ -1514,6 +1769,39 @@ export type Database = {
           source?: string
           updated_at?: string | null
           visible_in_ui?: boolean | null
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          email: string
+          id: string
+          nome_completo: string
+          role: string
+          updated_at: string
+          whatsapp_number: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          nome_completo: string
+          role: string
+          updated_at?: string
+          whatsapp_number: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          nome_completo?: string
+          role?: string
+          updated_at?: string
+          whatsapp_number?: string
         }
         Relationships: []
       }

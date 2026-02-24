@@ -15,7 +15,7 @@ import AdminDocumentsList from "@/components/AdminDocumentsList";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart, FolderOpen, Wrench } from "lucide-react";
+import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart, FolderOpen, Wrench, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
 import { AdminAuthors } from "@/components/AdminAuthors";
@@ -26,6 +26,7 @@ import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 import { ApostilaExport } from "@/components/ApostilaExport";
 import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
+import { SmartOpsTab } from "@/components/SmartOpsTab";
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -193,7 +194,7 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-10' : 'grid-cols-2'}`}>
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-11' : 'grid-cols-2'}`}>
             {isAdmin && (
               <>
                 <TabsTrigger value="models" className="flex items-center gap-2">
@@ -238,6 +239,10 @@ export default function AdminViewSecure() {
                 </TabsTrigger>
                 <TabsTrigger value="pandavideo-test">
                   🧪 PandaVideo Test
+                </TabsTrigger>
+                <TabsTrigger value="smart-ops" className="flex items-center gap-1">
+                  <Zap className="w-4 h-4" />
+                  Smart Ops
                 </TabsTrigger>
               </>
             )}
@@ -302,6 +307,10 @@ export default function AdminViewSecure() {
                 <AdminPandaVideoSync />
                 <AdminPandaVideoTest />
                 <AdminVideoAnalyticsDashboard />
+              </TabsContent>
+
+              <TabsContent value="smart-ops" className="space-y-6">
+                <SmartOpsTab />
               </TabsContent>
             </>
           )}
