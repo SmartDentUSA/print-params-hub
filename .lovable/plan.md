@@ -1,48 +1,28 @@
 
-# Corrigir formato do numero de telefone no WaLeads
+# Corrigir referencia a `cleanPhone` no console.log
 
 ## Problema
 
-O codigo atual remove o `+` do telefone (linha 84 do `send-waleads`):
-```
-const cleanPhone = phone.replace(/\+/g, "");
-```
+Na linha 92 do `smart-ops-send-waleads/index.ts`, o `console.log` ainda usa a variavel `cleanPhone` que foi removida na correcao anterior:
 
-A API WaLeads retorna status 201 (MESSAGE_SENT) mas a mensagem nao chega ao destinatario. Isso pode ser falha silenciosa por formato incorreto do numero.
-
-## Solucao
-
-Testar enviando o numero **com** o prefixo `+` no campo `chat`, ja que e assim que o WhatsApp identifica numeros internacionalmente.
-
-### Arquivo: `supabase/functions/smart-ops-send-waleads/index.ts`
-
-- **Remover** a linha que faz `phone.replace(/\+/g, "")` 
-- Enviar o telefone **como recebido** (com `+55...`) no campo `chat`
-- Ou seja, mudar de `cleanPhone` para usar o `phone` original diretamente
-
-Antes:
 ```typescript
-const cleanPhone = phone.replace(/\+/g, "");
-// ...
-apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
+console.log(`[send-waleads] Sending ${tipo} to ${cleanPhone} via ${member.nome_completo}`, { test_mode });
 ```
 
-Depois:
+Isso causa o `ReferenceError: cleanPhone is not defined` que impede a funcao de executar.
+
+## Correcao
+
+Substituir `cleanPhone` por `phone` na linha 92:
+
 ```typescript
-// Enviar com formato original (+55...)
-apiBody = { chat: phone, message: finalMessage, isGroup: false };
+console.log(`[send-waleads] Sending ${tipo} to ${phone} via ${member.nome_completo}`, { test_mode });
 ```
 
-### Arquivo: `supabase/functions/smart-ops-cs-processor/index.ts`
+## Arquivo
 
-- Mesma correcao: remover o `.replace(/\+/g, "")` do telefone ao montar o payload WaLeads
-- Usar `lead.telefone_normalized` diretamente (que ja vem com `+55`)
+| Arquivo | Linha | Mudanca |
+|---|---|---|
+| `supabase/functions/smart-ops-send-waleads/index.ts` | 92 | Trocar `cleanPhone` por `phone` no console.log |
 
-### Resumo
-
-| Arquivo | Mudanca |
-|---|---|
-| `smart-ops-send-waleads/index.ts` | Parar de remover o `+` do telefone |
-| `smart-ops-cs-processor/index.ts` | Mesma correcao no telefone |
-
-Apos o deploy, sera feito um novo teste de envio para confirmar a entrega.
+Apos o deploy, a funcao vai parar de dar erro e finalmente enviar a mensagem para a API WaLeads.
