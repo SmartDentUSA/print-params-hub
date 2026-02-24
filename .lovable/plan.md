@@ -1,37 +1,69 @@
 
 
-# Edge Function de Teste Piperun API
-
-## O que sera feito
-
-Criar uma edge function `piperun-api-test` que permite explorar a API do Piperun livremente, retornando o JSON bruto completo para inspecao dos campos disponiveis.
-
-## Alteracoes
-
-### 1. Novo arquivo: `supabase/functions/piperun-api-test/index.ts`
-
-Edge function que aceita um `action` no body e chama a API do Piperun correspondente:
-
-- `list_deals` -- `GET /v1/deals?show=1` (retorna 1 deal com todos os campos)
-- `get_deal` -- `GET /v1/deals/{dealId}` (deal especifico com expansoes)
-- `list_users` -- `GET /v1/users` (lista vendedores/owners do Piperun)
-- `list_stages` -- `GET /v1/stages` (lista etapas/funis)
-- `list_pipelines` -- `GET /v1/pipelines` (lista pipelines)
-- `raw_get` -- `GET /v1/{path}` (chamada livre para qualquer endpoint)
-
-Cada chamada inclui o header `Token: {PIPERUN_API_KEY}` (secret ja configurada) e retorna o JSON bruto completo sem filtro.
-
-### 2. Registrar no `supabase/config.toml`
-
-```toml
-[functions.piperun-api-test]
-verify_jwt = false
-```
+# Ajustes no Smart Ops: Renomear Faixas do Funil + Modal Saude do Pipeline
 
 ## Resumo
 
+Tres ajustes no componente `SmartOpsBowtie.tsx`:
+
+1. **Renomear as faixas do Funil de Oportunidades** para refletir as etapas do Piperun
+2. **Adicionar modal de edicao dos campos de Saude do Pipeline** (Meta, Conquistado, etc.)
+3. **Kanbans de reativacao** -- ja existem no componente `SmartOpsKanban.tsx` na aba "Kanban". Eles aparecem abaixo do pipeline principal quando ha leads com status `est*`. Se nao aparecem, e porque nenhum lead possui esse status no banco. Nenhuma alteracao necessaria aqui.
+
+---
+
+## Alteracao 1: Renomear faixas do Funil de Oportunidades
+
+No arquivo `src/components/SmartOpsBowtie.tsx`, alterar o array `FAIXAS` (linhas 40-45):
+
+| De (atual) | Para (novo) | Etapas Piperun correspondentes |
+|---|---|---|
+| Em Processo | Contato Realizado | Sem Contato |
+| Boas Chances | Em Contato | Em Contato, Apresentacao/Visita |
+| Comprometido | Em Negociacao | Proposta Enviada, Negociacao |
+| Conquistado | Fechamento | Fechamento |
+
+Atualizar tambem a funcao `classify` (linhas 179-184) e os labels correspondentes na secao "Saude do Pipeline" (linha 414 "Conquistado" vira "Fechamento").
+
+## Alteracao 2: Modal de edicao dos campos de Saude do Pipeline
+
+Atualmente a secao "Saude do Pipeline" (linhas 399-441) exibe Meta, Conquistado, A Realizar, Pipeline Necessario e Pipeline Existente -- mas nao tem como editar esses valores diretamente.
+
+Adicionar um botao de engrenagem no header do card "Saude do Pipeline" que abre um modal para editar:
+
+- **Meta** (ja existe no modal de Metas como `pipelineMeta`, mas colocar acesso direto aqui)
+- **Conquistado** (campo manual override, salvo em `site_settings` como `smartops_pipeline_conquistado_override`)
+- **Pipeline Existente** (campo manual override, salvo em `site_settings` como `smartops_pipeline_existente_override`)
+
+Se os overrides estiverem preenchidos, usam o valor manual; caso contrario, mantem o calculo automatico.
+
+---
+
+## Detalhes tecnicos
+
+### Arquivo: `src/components/SmartOpsBowtie.tsx`
+
+1. **FAIXAS** -- renomear labels e keys:
+```
+em_processo -> contato_realizado, "Contato Realizado"
+boas_chances -> em_contato, "Em Contato"  
+comprometido -> em_negociacao, "Em Negociacao"
+conquistado -> fechamento, "Fechamento"
+```
+
+2. **classify()** -- atualizar retorno para novos keys
+
+3. **pipeline section** -- atualizar labels ("Conquistado" -> "Fechamento", etc.)
+
+4. **Novo modal** -- adicionar Dialog com campos editaveis para override manual dos valores de saude do pipeline, salvando/lendo de `site_settings`
+
+### Arquivo: `src/components/SmartOpsGoals.tsx`
+
+Nenhuma alteracao necessaria -- as metas do bowtie continuam funcionando como estao.
+
+## Arquivos afetados
+
 | Arquivo | Acao |
 |---|---|
-| `supabase/functions/piperun-api-test/index.ts` | Criar -- proxy de teste para API Piperun |
-| `supabase/config.toml` | Editar -- registrar nova function |
+| `src/components/SmartOpsBowtie.tsx` | Editar -- renomear faixas, adicionar modal saude pipeline |
 
