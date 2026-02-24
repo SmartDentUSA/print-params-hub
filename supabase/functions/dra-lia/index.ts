@@ -807,6 +807,8 @@ type LeadCollectionState =
   | { state: "needs_name"; email: string }
   | { state: "needs_email"; name: string }  // kept for compat
   | { state: "collected"; name: string; email: string }
+  | { state: "needs_area"; name: string; email: string; leadId: string }
+  | { state: "needs_specialty"; name: string; email: string; leadId: string; area: string }
   | { state: "from_session"; name: string; email: string; leadId: string };
 
 function detectLeadCollectionState(
@@ -815,11 +817,25 @@ function detectLeadCollectionState(
 ): LeadCollectionState {
   // Check session first — if lead already identified, skip collection
   if (sessionEntities?.lead_id && sessionEntities?.lead_name && sessionEntities?.lead_email) {
+    // Check if area/specialty still need to be collected
+    const leadId = sessionEntities.lead_id as string;
+    const leadName = sessionEntities.lead_name as string;
+    const leadEmail = sessionEntities.lead_email as string;
+    const leadArea = sessionEntities.lead_area as string | undefined;
+    const leadSpecialty = sessionEntities.lead_specialty as string | undefined;
+
+    if (!leadArea && sessionEntities.awaiting_area) {
+      return { state: "needs_area", name: leadName, email: leadEmail, leadId };
+    }
+    if (leadArea && !leadSpecialty && sessionEntities.awaiting_specialty) {
+      return { state: "needs_specialty", name: leadName, email: leadEmail, leadId, area: leadArea };
+    }
+
     return {
       state: "from_session",
-      name: sessionEntities.lead_name as string,
-      email: sessionEntities.lead_email as string,
-      leadId: sessionEntities.lead_id as string,
+      name: leadName,
+      email: leadEmail,
+      leadId,
     };
   }
 
@@ -892,6 +908,35 @@ const ASK_EMAIL: Record<string, (name: string) => string> = {
   "pt-BR": (name) => `Prazer, ${name}! 😊 Para eu poder te enviar materiais e acompanhar seu caso, qual seu melhor e-mail?`,
   "en-US": (name) => `Nice to meet you, ${name}! 😊 So I can send you materials and follow up on your case, what's your best email?`,
   "es-ES": (name) => `¡Mucho gusto, ${name}! 😊 Para enviarte materiales y acompañar tu caso, ¿cuál es tu mejor correo electrónico?`,
+};
+
+// ── AREA / SPECIALTY OPTIONS ─────────────────────────────────────────────────
+const AREA_OPTIONS = [
+  "Clínica Odontológica",
+  "Laboratório de Prótese",
+  "Universidade/Docência",
+  "Indústria/Pesquisa",
+  "Estudante",
+];
+
+const SPECIALTY_MAP: Record<string, string[]> = {
+  "Clínica Odontológica": ["Implantodontia", "Prótese Dentária", "Ortodontia", "Endodontia", "Dentística/Estética", "Clínica Geral", "Cirurgia"],
+  "Laboratório de Prótese": ["Prótese Fixa", "Prótese Removível", "Prótese sobre Implante", "Ortodontia", "Estética"],
+  "Universidade/Docência": ["Implantodontia", "Prótese Dentária", "Ortodontia", "Materiais Dentários", "Cirurgia", "Outras"],
+  "Indústria/Pesquisa": ["P&D", "Controle de Qualidade", "Produção", "Outras"],
+  "Estudante": ["Graduação", "Especialização", "Mestrado/Doutorado"],
+};
+
+const ASK_AREA: Record<string, (name: string) => string> = {
+  "pt-BR": (name) => `Obrigada, ${name}! 😊 Para personalizar o atendimento, qual é sua **área de atuação**?`,
+  "en-US": (name) => `Thank you, ${name}! 😊 To personalize your experience, what is your **field of work**?`,
+  "es-ES": (name) => `¡Gracias, ${name}! 😊 Para personalizar tu atención, ¿cuál es tu **área de actuación**?`,
+};
+
+const ASK_SPECIALTY: Record<string, (name: string, area: string) => string> = {
+  "pt-BR": (_name, area) => `Ótimo! Atuando em **${area}**, qual é sua **especialidade** principal?`,
+  "en-US": (_name, area) => `Great! Working in **${area}**, what is your main **specialty**?`,
+  "es-ES": (_name, area) => `¡Genial! Trabajando en **${area}**, ¿cuál es tu **especialidad** principal?`,
 };
 
 const ASK_NAME: Record<string, string> = {
@@ -2035,11 +2080,204 @@ serve(async (req) => {
       return streamTextResponse(emailText, corsHeaders);
     }
 
-    // 0c. Lead collection: name+email received → save lead and confirm
+    // 0c. Lead collection: name+email received → save lead, then ask area
     if (leadState.state === "collected") {
       const leadId = await upsertLead(supabase, leadState.name, leadState.email, session_id);
       currentLeadId = leadId;
+
+      // Mark session as awaiting area
+      try {
+        await supabase.from("agent_sessions").upsert({
+          session_id,
+          lead_id: leadId,
+          extracted_entities: {
+            lead_name: leadState.name,
+            lead_email: leadState.email,
+            lead_id: leadId,
+            spin_stage: "etapa_1",
+            awaiting_area: true,
+          },
+          current_state: "idle",
+          last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+      } catch { /* ignore */ }
+
+      const areaText = (ASK_AREA[lang] || ASK_AREA["pt-BR"])(leadState.name);
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: areaText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+          lead_id: leadId,
+          context_raw: "[INTERCEPTOR] lead_collection:collected→needs_area",
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (ask area):", e);
+      }
+
+      // Stream with ui_action to show area grid
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: "meta",
+            ui_action: "show_area_grid",
+            area_options: AREA_OPTIONS,
+          })}\n\n`));
+          const words = areaText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    }
+
+    // 0d. Lead collection: area selection received → save area, ask specialty
+    if (leadState.state === "needs_area") {
+      const selectedArea = message.trim();
+      // Validate against known options (fuzzy)
+      const matchedArea = AREA_OPTIONS.find(a => a.toLowerCase() === selectedArea.toLowerCase()) || selectedArea;
+
+      // Update session entities
+      try {
+        const { data: sess } = await supabase.from("agent_sessions")
+          .select("extracted_entities")
+          .eq("session_id", session_id)
+          .single();
+        const entities = (sess?.extracted_entities || {}) as Record<string, unknown>;
+        await supabase.from("agent_sessions").upsert({
+          session_id,
+          extracted_entities: {
+            ...entities,
+            lead_area: matchedArea,
+            awaiting_area: false,
+            awaiting_specialty: true,
+          },
+          last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+      } catch { /* ignore */ }
+
+      // Save area in lia_attendances immediately
+      try {
+        await supabase.from("lia_attendances").upsert({
+          email: leadState.email,
+          nome: leadState.name,
+          source: "dra-lia",
+          area_atuacao: matchedArea,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "email" });
+        console.log(`[lead-collection] area_atuacao saved: ${matchedArea} for ${leadState.email}`);
+      } catch (e) {
+        console.warn("[lead-collection] lia_attendances area update failed:", e);
+      }
+
+      const specialties = SPECIALTY_MAP[matchedArea] || SPECIALTY_MAP["Clínica Odontológica"];
+      const specialtyText = (ASK_SPECIALTY[lang] || ASK_SPECIALTY["pt-BR"])(leadState.name, matchedArea);
+
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: specialtyText,
+          lang,
+          top_similarity: 1,
+          unanswered: false,
+          lead_id: leadState.leadId,
+          context_raw: "[INTERCEPTOR] lead_collection:needs_area→needs_specialty",
+        });
+      } catch (e) {
+        console.error("Failed to insert agent_interaction (ask specialty):", e);
+      }
+
+      // Stream with ui_action to show specialty grid
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            type: "meta",
+            ui_action: "show_specialty_grid",
+            specialty_options: specialties,
+            selected_area: matchedArea,
+          })}\n\n`));
+          const words = specialtyText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    }
+
+    // 0e. Lead collection: specialty selected → save and show topics
+    if (leadState.state === "needs_specialty") {
+      const selectedSpecialty = message.trim();
+      const specialties = SPECIALTY_MAP[leadState.area] || [];
+      const matchedSpecialty = specialties.find(s => s.toLowerCase() === selectedSpecialty.toLowerCase()) || selectedSpecialty;
+
+      // Update session entities — clear awaiting flags
+      try {
+        const { data: sess } = await supabase.from("agent_sessions")
+          .select("extracted_entities")
+          .eq("session_id", session_id)
+          .single();
+        const entities = (sess?.extracted_entities || {}) as Record<string, unknown>;
+        await supabase.from("agent_sessions").upsert({
+          session_id,
+          extracted_entities: {
+            ...entities,
+            lead_specialty: matchedSpecialty,
+            awaiting_specialty: false,
+          },
+          last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+      } catch { /* ignore */ }
+
+      // Save specialty in lia_attendances and leads
+      try {
+        await supabase.from("lia_attendances").upsert({
+          email: leadState.email,
+          nome: leadState.name,
+          source: "dra-lia",
+          especialidade: matchedSpecialty,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "email" });
+
+        // Also update leads table
+        await supabase.from("leads")
+          .update({ specialty: matchedSpecialty, updated_at: new Date().toISOString() })
+          .eq("email", leadState.email);
+
+        console.log(`[lead-collection] especialidade saved: ${matchedSpecialty} for ${leadState.email}`);
+      } catch (e) {
+        console.warn("[lead-collection] specialty update failed:", e);
+      }
+
+      // Now confirm and show topics
       const confirmText = (LEAD_CONFIRMED[lang] || LEAD_CONFIRMED["pt-BR"])(leadState.name, topic_context);
+      currentLeadId = leadState.leadId;
+
       try {
         await supabase.from("agent_interactions").insert({
           session_id,
@@ -2048,13 +2286,34 @@ serve(async (req) => {
           lang,
           top_similarity: 1,
           unanswered: false,
-          lead_id: leadId,
-          context_raw: "[INTERCEPTOR] lead_collection:collected",
+          lead_id: leadState.leadId,
+          context_raw: "[INTERCEPTOR] lead_collection:needs_specialty→confirmed",
         });
       } catch (e) {
-        console.error("Failed to insert agent_interaction (lead confirmed):", e);
+        console.error("Failed to insert agent_interaction (specialty confirmed):", e);
       }
-      return streamTextResponse(confirmText, corsHeaders);
+
+      // Stream with show_topics ui_action
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", ui_action: "show_topics" })}\n\n`));
+          const words = confirmText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
     // If lead already identified from session, set currentLeadId

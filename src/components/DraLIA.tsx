@@ -293,6 +293,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [commercialFullWorkflow, setCommercialFullWorkflow] = useState(false);
   const commercialSelectionsRef = useRef<{ scanner?: string; cad?: string; printer?: string; resins: string[] }>({ resins: [] });
   const pendingCommercialStepRef = useRef<CommercialStep | null>(null);
+  // Area/Specialty qualification grid state
+  const [areaGridOptions, setAreaGridOptions] = useState<string[] | null>(null);
+  const [specialtyGridOptions, setSpecialtyGridOptions] = useState<string[] | null>(null);
 
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
@@ -396,6 +399,16 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
               if (parsed.ui_action === 'show_topics') {
                 setLeadCollected(true);
                 sessionStorage.setItem('dra_lia_lead_collected', 'true');
+                setAreaGridOptions(null);
+                setSpecialtyGridOptions(null);
+              }
+              if (parsed.ui_action === 'show_area_grid' && parsed.area_options) {
+                setAreaGridOptions(parsed.area_options);
+                setSpecialtyGridOptions(null);
+              }
+              if (parsed.ui_action === 'show_specialty_grid' && parsed.specialty_options) {
+                setSpecialtyGridOptions(parsed.specialty_options);
+                setAreaGridOptions(null);
               }
               continue;
             }
@@ -594,6 +607,16 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                   if (parsed.ui_action === 'show_topics') {
                     setLeadCollected(true);
                     sessionStorage.setItem('dra_lia_lead_collected', 'true');
+                    setAreaGridOptions(null);
+                    setSpecialtyGridOptions(null);
+                  }
+                  if (parsed.ui_action === 'show_area_grid' && parsed.area_options) {
+                    setAreaGridOptions(parsed.area_options);
+                    setSpecialtyGridOptions(null);
+                  }
+                  if (parsed.ui_action === 'show_specialty_grid' && parsed.specialty_options) {
+                    setSpecialtyGridOptions(parsed.specialty_options);
+                    setAreaGridOptions(null);
                   }
                   continue;
                 }
@@ -818,6 +841,185 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
             </div>
           </div>
         ))}
+
+        {/* Area of Activity grid */}
+        {areaGridOptions && areaGridOptions.length > 0 && !isLoading && (
+          <div className="flex justify-start">
+            <div className="max-w-[95%] w-full">
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {areaGridOptions.map((area) => (
+                  <button
+                    key={area}
+                    onClick={() => {
+                      setAreaGridOptions(null);
+                      setInput(area);
+                      setTimeout(() => {
+                        const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: area };
+                        const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' };
+                        setMessages((prev) => [...prev, userMsg, assistantMsg]);
+                        setIsLoading(true);
+                        const hist = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+                        fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ message: area, history: hist, lang, session_id: sessionId.current, topic_context: topicContext || undefined }),
+                        }).then(async (resp) => {
+                          if (!resp.ok || !resp.body) {
+                            const errData = await resp.json().catch(() => ({}));
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: errData.error || t('dra_lia.connection_error') } : m));
+                            setIsLoading(false);
+                            return;
+                          }
+                          const reader = resp.body.getReader();
+                          const decoder = new TextDecoder();
+                          let buf = '';
+                          let iid: string | undefined;
+                          let mc: MediaCard[] | undefined;
+                          let fc = '';
+                          const processS = async () => {
+                            while (true) {
+                              const { done, value } = await reader.read();
+                              if (done) break;
+                              buf += decoder.decode(value, { stream: true });
+                              let ni: number;
+                              while ((ni = buf.indexOf('\n')) !== -1) {
+                                let ln = buf.slice(0, ni);
+                                buf = buf.slice(ni + 1);
+                                if (ln.endsWith('\r')) ln = ln.slice(0, -1);
+                                if (!ln.startsWith('data: ')) continue;
+                                const js = ln.slice(6).trim();
+                                if (js === '[DONE]') break;
+                                try {
+                                  const p = JSON.parse(js);
+                                  if (p.type === 'meta') {
+                                    if (p.interaction_id) iid = p.interaction_id;
+                                    if (p.media_cards) mc = p.media_cards;
+                                    if (p.ui_action === 'show_specialty_grid' && p.specialty_options) {
+                                      setSpecialtyGridOptions(p.specialty_options);
+                                    }
+                                    if (p.ui_action === 'show_topics') {
+                                      setLeadCollected(true);
+                                      sessionStorage.setItem('dra_lia_lead_collected', 'true');
+                                    }
+                                    continue;
+                                  }
+                                  const c = p.choices?.[0]?.delta?.content;
+                                  if (c) {
+                                    fc += c;
+                                    setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fc, interactionId: iid, mediaCards: mc } : m));
+                                  }
+                                } catch { /* partial */ }
+                              }
+                            }
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId: iid, mediaCards: mc } : m));
+                            setIsLoading(false);
+                          };
+                          processS().catch(() => setIsLoading(false));
+                        }).catch(() => setIsLoading(false));
+                      }, 50);
+                    }}
+                    className="flex items-center justify-center p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-center text-xs shadow-sm font-medium text-gray-800"
+                    style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#1e3a5f')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+                  >
+                    {area}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Specialty grid */}
+        {specialtyGridOptions && specialtyGridOptions.length > 0 && !isLoading && (
+          <div className="flex justify-start">
+            <div className="max-w-[95%] w-full">
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {specialtyGridOptions.map((spec) => (
+                  <button
+                    key={spec}
+                    onClick={() => {
+                      setSpecialtyGridOptions(null);
+                      setInput(spec);
+                      setTimeout(() => {
+                        const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: spec };
+                        const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' };
+                        setMessages((prev) => [...prev, userMsg, assistantMsg]);
+                        setIsLoading(true);
+                        const hist = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+                        fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ message: spec, history: hist, lang, session_id: sessionId.current, topic_context: topicContext || undefined }),
+                        }).then(async (resp) => {
+                          if (!resp.ok || !resp.body) {
+                            const errData = await resp.json().catch(() => ({}));
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: errData.error || t('dra_lia.connection_error') } : m));
+                            setIsLoading(false);
+                            return;
+                          }
+                          const reader = resp.body.getReader();
+                          const decoder = new TextDecoder();
+                          let buf = '';
+                          let iid: string | undefined;
+                          let mc: MediaCard[] | undefined;
+                          let fc = '';
+                          const processS = async () => {
+                            while (true) {
+                              const { done, value } = await reader.read();
+                              if (done) break;
+                              buf += decoder.decode(value, { stream: true });
+                              let ni: number;
+                              while ((ni = buf.indexOf('\n')) !== -1) {
+                                let ln = buf.slice(0, ni);
+                                buf = buf.slice(ni + 1);
+                                if (ln.endsWith('\r')) ln = ln.slice(0, -1);
+                                if (!ln.startsWith('data: ')) continue;
+                                const js = ln.slice(6).trim();
+                                if (js === '[DONE]') break;
+                                try {
+                                  const p = JSON.parse(js);
+                                  if (p.type === 'meta') {
+                                    if (p.interaction_id) iid = p.interaction_id;
+                                    if (p.media_cards) mc = p.media_cards;
+                                    if (p.ui_action === 'show_topics') {
+                                      setLeadCollected(true);
+                                      sessionStorage.setItem('dra_lia_lead_collected', 'true');
+                                    }
+                                    continue;
+                                  }
+                                  const c = p.choices?.[0]?.delta?.content;
+                                  if (c) {
+                                    fc += c;
+                                    setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fc, interactionId: iid, mediaCards: mc } : m));
+                                  }
+                                } catch { /* partial */ }
+                              }
+                            }
+                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId: iid, mediaCards: mc } : m));
+                            if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista/i.test(fc)) {
+                              setLeadCollected(true);
+                              sessionStorage.setItem('dra_lia_lead_collected', 'true');
+                            }
+                            setIsLoading(false);
+                          };
+                          processS().catch(() => setIsLoading(false));
+                        }).catch(() => setIsLoading(false));
+                      }, 50);
+                    }}
+                    className="flex items-center justify-center p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-center text-xs shadow-sm font-medium text-gray-800"
+                    style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#1e3a5f')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+                  >
+                    {spec}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Printer guided flow */}
         {printerFlowStep && (
