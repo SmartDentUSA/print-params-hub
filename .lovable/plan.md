@@ -1,64 +1,96 @@
 
-# Adicionar campos ManyChat e WaLeads por membro da equipe
 
-## Contexto das APIs
+# Reestruturar Automacoes + Kanban de Reativacao
 
-**ManyChat**: Usa autenticacao via Bearer Token na API. Cada vendedor tera sua propria API Key para enviar mensagens/flows individuais.
-- Header: `Authorization: Bearer {API_KEY}`
-- Endpoint principal: `https://api.manychat.com/fb/sending/sendFlow`
+## 1. Kanban de Reativacao sempre visivel
 
-**WaLeads (ChatCenter)**: Usa autenticacao via API Key passada como query parameter `?key=API_KEY`.
-- Base URL: `https://waleads.roote.com.br`
-- Endpoints: enviar texto (`POST /public/message/text`), imagem, audio, gerenciar cards, funis, etc.
+**Arquivo**: `src/components/SmartOpsKanban.tsx`
 
-Cada membro da equipe tera suas proprias chaves configuradas individualmente.
+- Linha 182: remover condicao `(stagnantLeads.length > 0 || finalLeads.length > 0)` -- renderizar sempre
+- Linha 195: remover condicao que esconde EST2/EST3 vazios
 
 ---
 
-## Alteracoes
+## 2. Renomear aba
 
-### 1. Migration SQL -- novas colunas na tabela `team_members`
+**Arquivo**: `src/components/SmartOpsTab.tsx`
+- "Reguas CS" vira "Automacoes"
+
+---
+
+## 3. Reescrever SmartOpsCSRules com suporte completo WaLeads
+
+### Migration SQL
 
 ```sql
-ALTER TABLE team_members ADD COLUMN manychat_api_key TEXT;
-ALTER TABLE team_members ADD COLUMN waleads_api_key TEXT;
+ALTER TABLE cs_automation_rules ADD COLUMN IF NOT EXISTS team_member_id UUID REFERENCES team_members(id);
+ALTER TABLE cs_automation_rules ADD COLUMN IF NOT EXISTS mensagem_waleads TEXT;
+ALTER TABLE cs_automation_rules ADD COLUMN IF NOT EXISTS waleads_ativo BOOLEAN DEFAULT false;
+ALTER TABLE cs_automation_rules ADD COLUMN IF NOT EXISTS manychat_ativo BOOLEAN DEFAULT true;
+ALTER TABLE cs_automation_rules ADD COLUMN IF NOT EXISTS waleads_tipo TEXT DEFAULT 'text';
+ALTER TABLE cs_automation_rules ADD COLUMN IF NOT EXISTS waleads_media_url TEXT;
 ```
 
-Ambas nullable -- nem todo membro precisara ter as duas integracoes.
+### Tipos de mensagem WaLeads suportados
 
-### 2. Arquivo: `src/components/SmartOpsTeam.tsx`
+A API WaLeads oferece 5 endpoints de envio, todos autenticados via `?key=API_KEY`:
 
-**Interface `TeamMember`**: adicionar os dois novos campos.
+| Tipo | Endpoint | Body |
+|---|---|---|
+| Texto | `POST /public/message/text` | `{ message, chat }` |
+| Imagem | `POST /public/message/image` | `{ url, chat }` (URL publica da imagem) |
+| Audio | `POST /public/message/audio` | `{ url, chat }` (URL publica do audio) |
+| Video | `POST /public/message/video` | `{ url, chat }` (URL publica do video) |
+| Documento | `POST /public/message/document` | `{ url, chat }` (URL publica do arquivo) |
 
-**Estado `form`**: incluir `manychat_api_key` e `waleads_api_key` (string vazia por padrao).
+### Novo layout do componente SmartOpsCSRules
 
-**Dialog de edicao/criacao**: expandir com duas secoes visuais separadas por `Separator`:
+Organizado em tres secoes por funcao, com campos para **Trigger Event** e **Produto de Interesse**:
 
 ```
---- Dados do Membro ---
-[Nome Completo]
-[Email]
-[WhatsApp]
-[ID Vendedor Piperun]
-[Funcao]
-
---- Configuracoes ManyChat ---
-[API Key ManyChat] (input type=password, placeholder="Bearer token do ManyChat")
-
---- Configuracoes WaLeads ---
-[API Key WaLeads] (input type=password, placeholder="API Key do ChatCenter/WaLeads")
+Automacoes
+├── Vendedores (role = "vendedor")
+│   ├── [Membro 1]
+│   │   ├── Regra 1: Trigger "novo_lead" | Produto "Vitality" | Delay 0d
+│   │   │   ├── [Switch] ManyChat | Template: ___
+│   │   │   └── [Switch] WaLeads | Tipo: [text/image/audio/video/document]
+│   │   │       ├── Se text: Textarea mensagem
+│   │   │       └── Se image/audio/video/document: Input URL da midia
+│   │   └── [+ Nova Automacao]
+├── CS (role = "cs")
+│   └── ...
+└── Suporte (role = "suporte")
+    └── ...
 ```
 
-**Tabela principal**: adicionar coluna "Integracoes" entre "Funcao" e "Ativo", mostrando badges indicativas:
-- Badge verde "MC" se `manychat_api_key` preenchida
-- Badge azul "WL" se `waleads_api_key` preenchida
-- Traco "---" se nenhuma configurada
+### Modal de criar/editar automacao
 
-**Funcoes `openAdd` e `openEdit`**: incluir inicializacao dos novos campos.
+Campos:
 
-### 3. Edge function `smart-ops-cs-processor` (referencia futura)
+- **Trigger Event** (Select: novo_lead, ganho, estagnado, perdido)
+- **Produto de Interesse** (Input texto livre: Vitality, EdgeMini, etc.)
+- **Delay** (numero em dias, 0 = imediato)
 
-Nenhuma alteracao agora, mas o processador de automacoes CS ja podera buscar a `manychat_api_key` individual de cada membro ao enviar mensagens, em vez de usar a chave global. Isso sera feito em etapa futura.
+Separator -- Secao ManyChat:
+- **ManyChat Ativo** (Switch)
+- **Template ManyChat** (Input texto)
+
+Separator -- Secao WaLeads:
+- **WaLeads Ativo** (Switch)
+- **Tipo de Mensagem** (Select: Texto, Imagem, Audio, Video, Documento)
+- Se "Texto": **Textarea** para o corpo da mensagem
+- Se outro tipo: **Input URL** da midia (URL publica do arquivo)
+
+### Webhook WaLeads (referencia futura)
+
+O WaLeads tambem suporta webhooks que disparam eventos automaticamente:
+- `card-move` -- quando card muda de lista
+- `card-end` -- quando card e encerrado (com valor de ganho)
+- `atm-assign-user` -- quando atendimento e transferido
+- `atm-end` -- quando atendimento finaliza
+- `tags-change` -- quando tags mudam
+
+Estes webhooks poderao ser integrados futuramente para sincronizar status dos leads automaticamente. Nao serao implementados agora.
 
 ---
 
@@ -66,5 +98,8 @@ Nenhuma alteracao agora, mas o processador de automacoes CS ja podera buscar a `
 
 | Arquivo | Acao |
 |---|---|
-| Migration SQL | Criar -- colunas `manychat_api_key` e `waleads_api_key` em `team_members` |
-| `src/components/SmartOpsTeam.tsx` | Editar -- interface, form, dialog com secoes MC/WL, coluna integracoes na tabela |
+| Migration SQL | Criar -- colunas `team_member_id`, `mensagem_waleads`, `waleads_ativo`, `manychat_ativo`, `waleads_tipo`, `waleads_media_url` |
+| `src/components/SmartOpsTab.tsx` | Editar -- renomear aba |
+| `src/components/SmartOpsCSRules.tsx` | Reescrever -- layout por funcao, dual ManyChat/WaLeads com 5 tipos de mensagem |
+| `src/components/SmartOpsKanban.tsx` | Editar -- remover condicoes que escondem funis vazios |
+
