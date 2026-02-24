@@ -80,15 +80,12 @@ Deno.serve(async (req) => {
     const finalMessage = message ? replaceVariables(message, leadData) : undefined;
     const finalCaption = caption ? replaceVariables(caption, leadData) : undefined;
 
-    // Normalize phone: remove "+" prefix
-    const cleanPhone = phone.replace(/\+/g, "");
-
-    // Build WaLeads API request body
+    // Build WaLeads API request body (send phone with original format, e.g. +55...)
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
-      apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
+      apiBody = { chat: phone, message: finalMessage, isGroup: false };
     } else {
-      apiBody = { chat: cleanPhone, url: media_url, isGroup: false };
+      apiBody = { chat: phone, url: media_url, isGroup: false };
       if (finalCaption) apiBody.caption = finalCaption;
     }
 

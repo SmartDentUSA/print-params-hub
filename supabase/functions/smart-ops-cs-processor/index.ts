@@ -155,14 +155,14 @@ Deno.serve(async (req) => {
                 const leadRecord = lead as Record<string, unknown>;
                 let apiBody: Record<string, unknown>;
 
-                const cleanPhone = (lead.telefone_normalized || "").replace(/\+/g, "");
+                const chatPhone = lead.telefone_normalized || "";
 
                 if (waleadsTipo === "text") {
                   const msg = replaceVariables(rule.mensagem_waleads || "", leadRecord);
-                  apiBody = { chat: cleanPhone, message: msg, isGroup: false };
+                  apiBody = { chat: chatPhone, message: msg, isGroup: false };
                   preview = msg.slice(0, 200);
                 } else {
-                  apiBody = { chat: cleanPhone, url: rule.waleads_media_url, isGroup: false };
+                  apiBody = { chat: chatPhone, url: rule.waleads_media_url, isGroup: false };
                   if (rule.waleads_media_caption) {
                     apiBody.caption = replaceVariables(rule.waleads_media_caption, leadRecord);
                   }
