@@ -902,6 +902,22 @@ serve(async (req) => {
           },
         });
       }
+
+      // Chunk 8: Sales Pitch (argumentação comercial)
+      const salesPitch = (p.extra_data as Record<string, unknown>)?.sales_pitch as string | undefined;
+      if (salesPitch && salesPitch.length > 30) {
+        chunks.push({
+          source_type: "catalog_product",
+          chunk_text: `${p.name} — Argumento Comercial / Sales Pitch | ${salesPitch.slice(0, 1200)}`,
+          metadata: {
+            title: `${p.name} — Sales Pitch`,
+            category: categoryLabel,
+            url: productUrl,
+            product_id: p.id,
+            chunk_type: "sales_pitch",
+          },
+        });
+      }
     }
     } // end if catalog_products
 

@@ -1002,18 +1002,31 @@ async function upsertLead(
 
     // Also upsert into lia_attendances for Smart Ops visibility
     try {
+      // Fetch topic_context from session for rota_inicial_lia
+      let rotaInicial: string | null = null;
+      try {
+        const { data: sessionData } = await supabase
+          .from("agent_sessions")
+          .select("extracted_entities")
+          .eq("session_id", sessionId)
+          .single();
+        const entities = (sessionData?.extracted_entities || {}) as Record<string, unknown>;
+        rotaInicial = (entities.topic_context as string) || null;
+      } catch { /* ignore */ }
+
       await supabase.from("lia_attendances").upsert(
         {
           nome: name,
           email: email,
           source: "dra-lia",
           lead_status: "novo",
+          rota_inicial_lia: rotaInicial,
           data_primeiro_contato: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
         { onConflict: "email" }
       );
-      console.log(`[upsertLead] lia_attendances synced for ${email}`);
+      console.log(`[upsertLead] lia_attendances synced for ${email} (rota: ${rotaInicial})`);
     } catch (liaErr) {
       console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
     }
@@ -1318,7 +1331,8 @@ async function searchCatalogProducts(
     const clinicalBrain = extra.clinical_brain as Record<string, unknown> | undefined;
     const technicalSpecs = extra.technical_specs as Record<string, unknown> | undefined;
 
-    let chunkText = `PRODUTO DO CATÁLOGO: ${p.name}${p.product_category ? ` | Categoria: ${p.product_category}` : ''}${p.product_subcategory ? ` | Sub: ${p.product_subcategory}` : ''}${p.description ? ` | ${p.description.slice(0, 300)}` : ''}${p.price ? ` | Preço: R$ ${p.price}` : ''}${p.promo_price ? ` | Promo: R$ ${p.promo_price}` : ''}`;
+    const salesPitch = (extra.sales_pitch as string) || '';
+    let chunkText = `PRODUTO DO CATÁLOGO: ${p.name}${p.product_category ? ` | Categoria: ${p.product_category}` : ''}${p.product_subcategory ? ` | Sub: ${p.product_subcategory}` : ''}${p.description ? ` | ${p.description.slice(0, 300)}` : ''}${p.price ? ` | Preço: R$ ${p.price}` : ''}${p.promo_price ? ` | Promo: R$ ${p.promo_price}` : ''}${salesPitch ? ` | ARGUMENTO COMERCIAL: ${salesPitch.slice(0, 400)}` : ''}`;
 
     if (clinicalBrain) {
       const mandatory = (clinicalBrain.mandatory_products as string[]) || [];
@@ -2154,6 +2168,7 @@ serve(async (req) => {
             lang,
             top_similarity: 1,
             context_sources: contextSources,
+            context_raw: `[INTERCEPTOR] guided_dialog:${dialogState.state}`,
             unanswered: false,
             lead_id: currentLeadId,
           })

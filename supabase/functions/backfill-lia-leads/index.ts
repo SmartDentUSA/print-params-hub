@@ -96,7 +96,22 @@ serve(async (req) => {
           }
         }
 
-        // 4. Upsert into lia_attendances
+        // 4. Fetch rota_inicial_lia from latest session
+        let rotaInicial: string | null = null;
+        try {
+          const { data: sessions } = await supabase
+            .from("agent_sessions")
+            .select("extracted_entities")
+            .eq("lead_id", lead.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (sessions?.length) {
+            const entities = (sessions[0].extracted_entities || {}) as Record<string, unknown>;
+            rotaInicial = (entities.topic_context as string) || null;
+          }
+        } catch { /* ignore */ }
+
+        // 5. Upsert into lia_attendances
         const { error: upsertErr } = await supabase
           .from("lia_attendances")
           .upsert(
@@ -108,6 +123,7 @@ serve(async (req) => {
               data_primeiro_contato: lead.created_at,
               lead_status: "novo",
               resumo_historico_ia: summary,
+              rota_inicial_lia: rotaInicial,
               updated_at: new Date().toISOString(),
             },
             { onConflict: "email" }
