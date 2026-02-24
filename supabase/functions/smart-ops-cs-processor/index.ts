@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
                   preview = `[${waleadsTipo}] ${rule.waleads_media_url || ""}`.slice(0, 200);
                 }
 
-                const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}`, {
+                const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}?key=${waleadsApiKey}`, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
