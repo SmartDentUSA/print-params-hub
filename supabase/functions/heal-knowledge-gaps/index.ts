@@ -354,7 +354,7 @@ serve(async (req) => {
       const { error: embError } = await adminSupabase
         .from("agent_embeddings")
         .insert({
-          source_type: "article",
+          source_type: "faq_autoheal",
           chunk_text: chunkText,
           embedding,
           metadata: {
@@ -430,7 +430,7 @@ serve(async (req) => {
       const { error: embError } = await adminSupabase
         .from("agent_embeddings")
         .insert({
-          source_type: "article",
+          source_type: "faq_autoheal",
           chunk_text: chunkText,
           embedding,
           metadata: {
