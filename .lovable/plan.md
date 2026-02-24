@@ -1,24 +1,37 @@
 
-# Adicionar campo "ID Vendedor Piperun" ao cadastro de membros da equipe
+
+# Edge Function de Teste Piperun API
 
 ## O que sera feito
 
-Adicionar o campo `piperun_owner_id` na tabela `team_members` e no formulario de cadastro/edicao de membros. Esse campo permite vincular cada membro da equipe ao seu ID de proprietario no Piperun, essencial para a atribuicao automatica de leads.
+Criar uma edge function `piperun-api-test` que permite explorar a API do Piperun livremente, retornando o JSON bruto completo para inspecao dos campos disponiveis.
 
 ## Alteracoes
 
-### 1. Migration -- nova coluna na tabela `team_members`
+### 1. Novo arquivo: `supabase/functions/piperun-api-test/index.ts`
 
-```sql
-ALTER TABLE team_members ADD COLUMN piperun_owner_id TEXT;
+Edge function que aceita um `action` no body e chama a API do Piperun correspondente:
+
+- `list_deals` -- `GET /v1/deals?show=1` (retorna 1 deal com todos os campos)
+- `get_deal` -- `GET /v1/deals/{dealId}` (deal especifico com expansoes)
+- `list_users` -- `GET /v1/users` (lista vendedores/owners do Piperun)
+- `list_stages` -- `GET /v1/stages` (lista etapas/funis)
+- `list_pipelines` -- `GET /v1/pipelines` (lista pipelines)
+- `raw_get` -- `GET /v1/{path}` (chamada livre para qualquer endpoint)
+
+Cada chamada inclui o header `Token: {PIPERUN_API_KEY}` (secret ja configurada) e retorna o JSON bruto completo sem filtro.
+
+### 2. Registrar no `supabase/config.toml`
+
+```toml
+[functions.piperun-api-test]
+verify_jwt = false
 ```
 
-Coluna nullable, pois nem todo membro tera ID no Piperun.
+## Resumo
 
-### 2. Arquivo: `src/components/SmartOpsTeam.tsx`
+| Arquivo | Acao |
+|---|---|
+| `supabase/functions/piperun-api-test/index.ts` | Criar -- proxy de teste para API Piperun |
+| `supabase/config.toml` | Editar -- registrar nova function |
 
-- Adicionar `piperun_owner_id: string | null` na interface `TeamMember`
-- Expandir o estado `form` para incluir `piperun_owner_id: ""`
-- Adicionar campo "ID Vendedor Piperun" no dialog de edicao/criacao, entre WhatsApp e Funcao
-- Adicionar coluna "Piperun ID" na tabela principal, exibindo o valor em fonte mono
-- Atualizar `openAdd` e `openEdit` para incluir o novo campo
