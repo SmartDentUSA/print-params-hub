@@ -170,3 +170,6 @@ verify_jwt = false
 
 [functions.smart-ops-sync-piperun]
 verify_jwt = false
+
+[functions.smart-ops-stagnant-processor]
+verify_jwt = false

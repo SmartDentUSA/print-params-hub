@@ -5,6 +5,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const STAGE_TO_STATUS: Record<string, string> = {
+  "sem contato": "sem_contato",
+  "contato feito": "contato_feito",
+  "em contato": "em_contato",
+  "apresentação": "apresentacao",
+  "apresentacao": "apresentacao",
+  "visita": "apresentacao",
+  "proposta enviada": "proposta_enviada",
+  "negociação": "negociacao",
+  "negociacao": "negociacao",
+  "fechamento": "fechamento",
+};
+
+function mapStageToStatus(stageName: string): string {
+  const normalized = stageName.toLowerCase().trim();
+  for (const [key, value] of Object.entries(STAGE_TO_STATUS)) {
+    if (normalized.includes(key)) return value;
+  }
+  return "sem_contato";
+}
+
+function isStagnant(stageName: string): boolean {
+  return stageName.toLowerCase().includes("estagnado");
+}
+
+function isInStagnantFunnel(leadStatus: string): boolean {
+  return leadStatus.startsWith("est") && leadStatus !== "estagnado_final";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -42,6 +71,8 @@ Deno.serve(async (req) => {
     const piperunData = await piperunRes.json();
     const deals = piperunData?.data || [];
     let updated = 0;
+    let stagnantStarted = 0;
+    let stagnantRescued = 0;
 
     for (const deal of deals) {
       const dealId = String(deal.id);
@@ -54,6 +85,27 @@ Deno.serve(async (req) => {
 
       if (Object.keys(updatePayload).length === 0) continue;
 
+      // Fetch current lead_status before updating
+      if (stageName) {
+        const { data: currentLead } = await supabase
+          .from("lia_attendances")
+          .select("lead_status")
+          .eq("piperun_id", dealId)
+          .single();
+
+        if (currentLead) {
+          if (isStagnant(stageName) && !isInStagnantFunnel(currentLead.lead_status) && currentLead.lead_status !== "estagnado_final") {
+            updatePayload.lead_status = "est1_0";
+            updatePayload.updated_at = new Date().toISOString();
+            stagnantStarted++;
+          } else if (!isStagnant(stageName) && (isInStagnantFunnel(currentLead.lead_status) || currentLead.lead_status === "estagnado_final")) {
+            updatePayload.lead_status = mapStageToStatus(stageName);
+            updatePayload.updated_at = new Date().toISOString();
+            stagnantRescued++;
+          }
+        }
+      }
+
       const { error } = await supabase
         .from("lia_attendances")
         .update(updatePayload)
@@ -62,8 +114,14 @@ Deno.serve(async (req) => {
       if (!error) updated++;
     }
 
-    console.log(`[sync-piperun] Sincronizados: ${updated}/${deals.length}`);
-    return new Response(JSON.stringify({ success: true, synced: updated, total_deals: deals.length }), {
+    console.log(`[sync-piperun] Sincronizados: ${updated}/${deals.length}, estagnados iniciados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
+    return new Response(JSON.stringify({
+      success: true,
+      synced: updated,
+      total_deals: deals.length,
+      stagnant_started: stagnantStarted,
+      stagnant_rescued: stagnantRescued,
+    }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

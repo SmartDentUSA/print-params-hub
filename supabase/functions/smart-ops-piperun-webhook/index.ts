@@ -5,6 +5,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Map CRM stage names back to pipeline lead_status
+const STAGE_TO_STATUS: Record<string, string> = {
+  "sem contato": "sem_contato",
+  "contato feito": "contato_feito",
+  "em contato": "em_contato",
+  "apresentação": "apresentacao",
+  "apresentacao": "apresentacao",
+  "visita": "apresentacao",
+  "proposta enviada": "proposta_enviada",
+  "negociação": "negociacao",
+  "negociacao": "negociacao",
+  "fechamento": "fechamento",
+};
+
+function mapStageToStatus(stageName: string): string {
+  const normalized = stageName.toLowerCase().trim();
+  for (const [key, value] of Object.entries(STAGE_TO_STATUS)) {
+    if (normalized.includes(key)) return value;
+  }
+  return "sem_contato";
+}
+
+function isStagnant(stageName: string): boolean {
+  return stageName.toLowerCase().includes("estagnado");
+}
+
+function isInStagnantFunnel(leadStatus: string): boolean {
+  return leadStatus.startsWith("est") && leadStatus !== "estagnado_final";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -31,22 +61,50 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update lead CRM fields
+    // First, fetch current lead to check lead_status
+    const { data: currentLead } = await supabase
+      .from("lia_attendances")
+      .select("id, nome, telefone_normalized, produto_interesse, lead_status")
+      .eq("piperun_id", dealId)
+      .single();
+
+    if (!currentLead) {
+      console.warn("[piperun-webhook] Lead não encontrado para deal:", dealId);
+      return new Response(JSON.stringify({ error: "Lead não encontrado" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Build update payload
     const updateData: Record<string, unknown> = {};
     if (ownerName) updateData.proprietario_lead_crm = ownerName;
     if (stageName) updateData.status_atual_lead_crm = stageName;
 
-    const { data: lead, error: updateError } = await supabase
+    // Stagnation funnel logic
+    if (stageName) {
+      if (isStagnant(stageName) && !isInStagnantFunnel(currentLead.lead_status) && currentLead.lead_status !== "estagnado_final") {
+        // CRM moved to "Estagnado" → start funnel
+        updateData.lead_status = "est1_0";
+        updateData.updated_at = new Date().toISOString();
+        console.log("[piperun-webhook] Iniciando funil estagnação para lead:", currentLead.id);
+      } else if (!isStagnant(stageName) && (isInStagnantFunnel(currentLead.lead_status) || currentLead.lead_status === "estagnado_final")) {
+        // CRM moved OUT of "Estagnado" → rescue lead back to pipeline
+        updateData.lead_status = mapStageToStatus(stageName);
+        updateData.updated_at = new Date().toISOString();
+        console.log("[piperun-webhook] Resgatando lead do funil estagnação:", currentLead.id, "→", updateData.lead_status);
+      }
+    }
+
+    // Update lead
+    const { error: updateError } = await supabase
       .from("lia_attendances")
       .update(updateData)
-      .eq("piperun_id", dealId)
-      .select("id, nome, telefone_normalized, produto_interesse")
-      .single();
+      .eq("id", currentLead.id);
 
-    if (updateError || !lead) {
-      console.warn("[piperun-webhook] Lead não encontrado para deal:", dealId);
-      return new Response(JSON.stringify({ error: "Lead não encontrado" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (updateError) {
+      console.error("[piperun-webhook] Update error:", updateError);
+      return new Response(JSON.stringify({ error: updateError.message }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -66,7 +124,7 @@ Deno.serve(async (req) => {
     let messageStatus = "skipped";
     let errorDetails: string | null = null;
 
-    if (MANYCHAT_API_KEY && lead.telefone_normalized) {
+    if (MANYCHAT_API_KEY && currentLead.telefone_normalized) {
       try {
         const mcRes = await fetch("https://api.manychat.com/fb/sending/sendFlow", {
           method: "POST",
@@ -75,7 +133,7 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${MANYCHAT_API_KEY}`,
           },
           body: JSON.stringify({
-            subscriber_id: lead.telefone_normalized,
+            subscriber_id: currentLead.telefone_normalized,
             flow_ns: "boas_vindas_lead",
           }),
         });
@@ -92,16 +150,21 @@ Deno.serve(async (req) => {
 
     // Log message
     await supabase.from("message_logs").insert({
-      lead_id: lead.id,
+      lead_id: currentLead.id,
       team_member_id: teamMember?.id || null,
       whatsapp_number: teamMember?.whatsapp_number || null,
       tipo: "boas_vindas",
-      mensagem_preview: `Atribuição de ${ownerName || "vendedor"} para ${lead.nome}`,
+      mensagem_preview: `Atribuição de ${ownerName || "vendedor"} para ${currentLead.nome}`,
       status: messageStatus,
       error_details: errorDetails,
     });
 
-    return new Response(JSON.stringify({ success: true, lead_id: lead.id, message_status: messageStatus }), {
+    return new Response(JSON.stringify({
+      success: true,
+      lead_id: currentLead.id,
+      message_status: messageStatus,
+      stagnant_funnel: updateData.lead_status?.toString().startsWith("est") ? updateData.lead_status : null,
+    }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
