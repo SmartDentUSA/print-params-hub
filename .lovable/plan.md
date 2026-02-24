@@ -1,90 +1,78 @@
 
 
-# Kanban com 7 Etapas do Piperun + Funil de Oportunidades + Saude do Pipeline
+# Plano: Automacoes por Vendedor + Metas Editaveis + Lista de Leads
 
-## Verificacao da Tabela
+## O que sera implementado
 
-A tabela `lia_attendances` ja possui **todos os 52 campos** solicitados. Nenhuma coluna esta faltando. Nenhuma migration necessaria.
+### 1. Nova aba "Leads" no SmartOpsTab
 
----
+Uma tabela paginada completa com todos os leads da `lia_attendances`, mostrando os campos mais relevantes com scroll horizontal.
 
-## 1. Kanban com 7 Etapas do Piperun
-
-### Arquivo: `src/components/SmartOpsKanban.tsx`
-
-Substituir as 3 colunas atuais (Novo, Em Contato, Qualificado) pelas 7 etapas reais do funil do Piperun:
-
-| Coluna | key (lead_status) | Cor |
-|---|---|---|
-| Sem Contato | `sem_contato` | azul claro |
-| Contato Feito | `contato_feito` | azul |
-| Em Contato | `em_contato` | amarelo |
-| Apresentacao/Visita | `apresentacao` | laranja |
-| Proposta Enviada | `proposta_enviada` | roxo |
-| Negociacao | `negociacao` | indigo |
-| Fechamento | `fechamento` | verde |
-
-Alteracoes:
-- Atualizar constante `COLUMNS` com as 7 etapas e cores
-- Mudar grid de `md:grid-cols-3` para scroll horizontal com `overflow-x-auto` e colunas de largura fixa (`min-w-[220px]`)
-- Atualizar query `.in("lead_status", [...])` para incluir os 7 valores
-- Cada coluna mostra contador e cards com drag-and-drop
-- Manter alerta de 15 min para leads na coluna "Sem Contato"
-
----
-
-## 2. Funil de Oportunidades (abaixo do Bowtie)
-
-### Arquivo: `src/components/SmartOpsBowtie.tsx`
-
-Adicionar novo Card "Funil de Oportunidades" abaixo do funil ampulheta existente.
-
-Tabela com 4 faixas baseadas no campo `score`:
-
-| Temperatura | Faixa | Cor | Criterio |
-|---|---|---|---|
-| < 60 | Em Processo | vermelho escuro | `score < 60` |
-| 60-80 | Boas Chances | laranja | `score >= 60 AND score < 80` |
-| 90 | Comprometido | dourado | `score >= 80 AND score < 100` |
-| 100 | Conquistado | verde | `score >= 100` ou `status_atual_lead_crm = 'Ganha'` |
-
-Colunas da tabela: Temperatura | Status | Mes Atual (count) | Mes Seguinte (count) | Meses Seguintes (count)
+**Arquivo:** Novo `src/components/SmartOpsLeadsList.tsx`
 
 Funcionalidades:
-- Navegacao por mes com setas (estado `selectedMonth`)
-- Contagem agrupada por faixa de score e mes de `created_at`
-- Layout visual com barras coloridas (como triangulo invertido do Piperun)
+- Tabela com colunas: Nome, Email, Telefone, Produto Interesse, Status, Score, Proprietario CRM, Source, Data Contato, Ativos (icones)
+- Busca por nome/email
+- Filtro por `lead_status` (dropdown com as 7 etapas do Piperun)
+- Filtro por `source`
+- Paginacao client-side (50 por pagina)
+- Clique na linha abre dialog com TODOS os 52 campos do lead (somente leitura)
+- Exportar CSV dos leads filtrados
+
+**Arquivo:** `src/components/SmartOpsTab.tsx`
+- Adicionar nova aba "Leads" (7 abas no total, `grid-cols-7`)
+- Importar e renderizar `SmartOpsLeadsList`
 
 ---
 
-## 3. Saude do Pipeline (abaixo do Funil de Oportunidades)
+### 2. Metas editaveis via `site_settings`
 
-### Arquivo: `src/components/SmartOpsBowtie.tsx`
+Em vez de constantes hardcoded, as metas serao salvas na tabela `site_settings` (ja existente) com chaves prefixadas `smartops_`.
 
-Adicionar novo Card "Saude do Pipeline" com:
+**Arquivo:** Novo `src/components/SmartOpsGoals.tsx`
+- Dialog/modal acessivel por botao "Configurar Metas" no `SmartOpsBowtie`
+- Campos editaveis: MQL, SQL, Vendas, CS Contratos, CS Onboarding, CS Ongoing, Pipeline Meta
+- Salva na tabela `site_settings` via upsert com chaves: `smartops_goal_mql`, `smartops_goal_sql`, etc.
+- Ao abrir, carrega valores existentes
 
-**Lado esquerdo** - 3 caixas empilhadas:
-- Meta (+): constante configuravel (ex: 50 leads/mes)
-- Conquistado (-): count de `score >= 100` no mes
-- A Realizar (=): Meta - Conquistado
-
-Seta "x3" conectando A Realizar ao Pipeline Necessario.
-
-**Lado direito** - Gauge SVG:
-- Pipeline Necessario = A Realizar x 3
-- Pipeline Existente = count de leads ativos com `score < 100`
-- Saude = (Pipeline Existente / Pipeline Necessario) x 100
-- Gauge semicircular SVG com escala 0-300 e gradiente vermelho->amarelo->verde
-- Ponteiro indicando o valor atual
+**Arquivo:** `src/components/SmartOpsBowtie.tsx`
+- Substituir constantes `GOALS` e `PIPELINE_META` por estado carregado de `site_settings`
+- Adicionar `useEffect` para buscar metas do banco
+- Adicionar botao "Configurar Metas" (icone engrenagem) no header do Card principal
+- Fallback para valores default caso nao existam no banco
 
 ---
 
-## Resumo de Alteracoes
+### 3. Painel de automacoes por vendedor
 
-| Arquivo | O que muda |
+**Arquivo:** Novo `src/components/SmartOpsSellerAutomations.tsx`
+
+Exibido dentro da aba "Equipe" (abaixo da tabela de membros) ou como sub-tab.
+
+Funcionalidades:
+- Para cada vendedor ativo, mostra um card com:
+  - Nome e WhatsApp
+  - Quantidade de leads atribuidos (`proprietario_lead_crm = nome_completo`)
+  - Leads por status (mini grafico de barras ou badges)
+  - Taxa de conversao individual (leads ganhos / leads totais)
+  - Ultimo lead recebido (data)
+- Resumo geral: ranking de vendedores por performance
+
+**Arquivo:** `src/components/SmartOpsTeam.tsx`
+- Importar e renderizar `SmartOpsSellerAutomations` abaixo da tabela de equipe
+
+---
+
+## Resumo de arquivos
+
+| Arquivo | Acao |
 |---|---|
-| `src/components/SmartOpsKanban.tsx` | 3 colunas -> 7 colunas do Piperun, scroll horizontal |
-| `src/components/SmartOpsBowtie.tsx` | Adicionar Funil de Oportunidades + Saude do Pipeline abaixo do Bowtie |
+| `src/components/SmartOpsLeadsList.tsx` | Criar - tabela completa de leads |
+| `src/components/SmartOpsGoals.tsx` | Criar - modal de metas editaveis |
+| `src/components/SmartOpsSellerAutomations.tsx` | Criar - painel por vendedor |
+| `src/components/SmartOpsTab.tsx` | Editar - adicionar aba "Leads" |
+| `src/components/SmartOpsBowtie.tsx` | Editar - carregar metas do banco + botao config |
+| `src/components/SmartOpsTeam.tsx` | Editar - incluir painel por vendedor |
 
-Nenhuma migration necessaria - todos os campos ja existem na tabela.
+Nenhuma migration necessaria - usa tabelas existentes (`lia_attendances`, `site_settings`, `team_members`).
 
