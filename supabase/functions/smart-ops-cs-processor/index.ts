@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const WALEADS_BASE_URL = "https://api.waleads.com";
+const WALEADS_BASE_URL = "https://waleads.roote.com.br";
 
 function replaceVariables(text: string, lead: Record<string, unknown>): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => {
