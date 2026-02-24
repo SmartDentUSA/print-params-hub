@@ -179,3 +179,6 @@ verify_jwt = false
 
 [functions.smart-ops-send-waleads]
 verify_jwt = false
+
+[functions.backfill-lia-leads]
+verify_jwt = false

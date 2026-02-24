@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, Check, X } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Brain, Route } from "lucide-react";
 
 const STATUS_OPTIONS = [
   { key: "all", label: "Todos" },
@@ -69,7 +70,6 @@ interface LeadFull {
   ativo_print: boolean | null;
   ativo_cura: boolean | null;
   ativo_insumos: boolean | null;
-  // New CRM fields
   status_oportunidade: string | null;
   valor_oportunidade: number | null;
   tags_crm: string[] | null;
@@ -107,12 +107,42 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
+function formatDateTime(d: string | null) {
+  if (!d) return "—";
+  const dt = new Date(d);
+  return `${dt.toLocaleDateString("pt-BR")} ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 function formatValue(v: unknown): string {
   if (v === null || v === undefined) return "—";
   if (typeof v === "boolean") return v ? "Sim" : "Não";
   if (typeof v === "object") return JSON.stringify(v);
   return String(v);
 }
+
+function TruncatedText({ text, maxLen = 40 }: { text: string | null; maxLen?: number }) {
+  if (!text) return <span className="text-muted-foreground">—</span>;
+  if (text.length <= maxLen) return <span className="text-xs">{text}</span>;
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-xs cursor-help">{text.slice(0, maxLen)}…</span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-sm">
+          <p className="text-sm">{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+const ROUTE_LABELS: Record<string, string> = {
+  parameters: "Parâmetros",
+  products: "Produtos",
+  commercial: "Comercial",
+  support: "Suporte",
+};
 
 export function SmartOpsLeadsList() {
   const [leads, setLeads] = useState<LeadFull[]>([]);
@@ -156,7 +186,7 @@ export function SmartOpsLeadsList() {
   useEffect(() => { setPage(0); }, [search, statusFilter, sourceFilter]);
 
   const exportCSV = () => {
-    const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "score", "proprietario_lead_crm", "source", "created_at"];
+    const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
     const csv = [headers.join(","), ...filtered.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -208,9 +238,10 @@ export function SmartOpsLeadsList() {
                   <TableHead>Cidade/UF</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Rota LIA</TableHead>
+                  <TableHead>Resumo IA</TableHead>
                   <TableHead>Oport.</TableHead>
                   <TableHead>Valor</TableHead>
-                  <TableHead>Temp.</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Proprietário</TableHead>
                   <TableHead>Data</TableHead>
@@ -230,6 +261,17 @@ export function SmartOpsLeadsList() {
                     <TableCell className="text-xs">{lead.produto_interesse || "—"}</TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">{lead.lead_status}</Badge></TableCell>
                     <TableCell>
+                      {lead.rota_inicial_lia ? (
+                        <Badge variant="secondary" className="text-[10px] gap-0.5">
+                          <Route className="w-3 h-3" />
+                          {ROUTE_LABELS[lead.rota_inicial_lia] || lead.rota_inicial_lia}
+                        </Badge>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell className="max-w-[200px]">
+                      <TruncatedText text={lead.resumo_historico_ia} maxLen={35} />
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={lead.status_oportunidade === "ganha" ? "default" : lead.status_oportunidade === "perdida" ? "destructive" : "secondary"} className="text-[10px]">
                         {lead.status_oportunidade || "—"}
                       </Badge>
@@ -237,7 +279,6 @@ export function SmartOpsLeadsList() {
                     <TableCell className="text-xs text-right font-mono">
                       {lead.valor_oportunidade ? `R$ ${Number(lead.valor_oportunidade).toLocaleString("pt-BR")}` : "—"}
                     </TableCell>
-                    <TableCell className="text-xs">{lead.temperatura_lead || "—"}</TableCell>
                     <TableCell className="text-center">{lead.score ?? 0}</TableCell>
                     <TableCell className="text-xs">{lead.proprietario_lead_crm || "—"}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
@@ -270,13 +311,45 @@ export function SmartOpsLeadsList() {
             <DialogTitle>Detalhes — {selectedLead?.nome}</DialogTitle>
           </DialogHeader>
           {selectedLead && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {Object.entries(selectedLead).filter(([k]) => k !== "raw_payload").map(([key, val]) => (
-                <div key={key} className="p-2 rounded bg-muted/30 border">
-                  <div className="text-[10px] text-muted-foreground font-mono">{key}</div>
-                  <div className="text-sm break-all">{formatValue(val)}</div>
+            <div className="space-y-4">
+              {/* AI Summary highlight */}
+              {selectedLead.resumo_historico_ia && (
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Brain className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-semibold text-primary">Resumo IA do Histórico</span>
+                  </div>
+                  <p className="text-sm">{selectedLead.resumo_historico_ia}</p>
                 </div>
-              ))}
+              )}
+
+              {/* Route + Specialty badges */}
+              <div className="flex gap-2 flex-wrap">
+                {selectedLead.rota_inicial_lia && (
+                  <Badge variant="secondary" className="gap-1">
+                    <Route className="w-3 h-3" />
+                    Rota: {ROUTE_LABELS[selectedLead.rota_inicial_lia] || selectedLead.rota_inicial_lia}
+                  </Badge>
+                )}
+                {selectedLead.especialidade && (
+                  <Badge variant="outline">Especialidade: {selectedLead.especialidade}</Badge>
+                )}
+                {selectedLead.data_primeiro_contato && (
+                  <Badge variant="outline">1º contato: {formatDateTime(selectedLead.data_primeiro_contato)}</Badge>
+                )}
+              </div>
+
+              {/* All fields grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(selectedLead)
+                  .filter(([k]) => k !== "raw_payload" && k !== "resumo_historico_ia")
+                  .map(([key, val]) => (
+                    <div key={key} className="p-2 rounded bg-muted/30 border">
+                      <div className="text-[10px] text-muted-foreground font-mono">{key}</div>
+                      <div className="text-sm break-all">{formatValue(val)}</div>
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
         </DialogContent>
