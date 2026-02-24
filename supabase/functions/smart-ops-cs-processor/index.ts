@@ -159,10 +159,10 @@ Deno.serve(async (req) => {
 
                 if (waleadsTipo === "text") {
                   const msg = replaceVariables(rule.mensagem_waleads || "", leadRecord);
-                  apiBody = { phone: cleanPhone, message: msg, isGroup: false };
+                  apiBody = { chat: cleanPhone, message: msg, isGroup: false };
                   preview = msg.slice(0, 200);
                 } else {
-                  apiBody = { phone: cleanPhone, url: rule.waleads_media_url, isGroup: false };
+                  apiBody = { chat: cleanPhone, url: rule.waleads_media_url, isGroup: false };
                   if (rule.waleads_media_caption) {
                     apiBody.caption = replaceVariables(rule.waleads_media_caption, leadRecord);
                   }

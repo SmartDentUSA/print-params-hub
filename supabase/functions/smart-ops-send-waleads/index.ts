@@ -86,9 +86,9 @@ Deno.serve(async (req) => {
     // Build WaLeads API request body
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
-      apiBody = { phone: cleanPhone, message: finalMessage, isGroup: false };
+      apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
     } else {
-      apiBody = { phone: cleanPhone, url: media_url, isGroup: false };
+      apiBody = { chat: cleanPhone, url: media_url, isGroup: false };
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
