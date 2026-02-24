@@ -1778,10 +1778,12 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          manychat_api_key: string | null
           nome_completo: string
           piperun_owner_id: string | null
           role: string
           updated_at: string
+          waleads_api_key: string | null
           whatsapp_number: string
         }
         Insert: {
@@ -1789,10 +1791,12 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          manychat_api_key?: string | null
           nome_completo: string
           piperun_owner_id?: string | null
           role: string
           updated_at?: string
+          waleads_api_key?: string | null
           whatsapp_number: string
         }
         Update: {
@@ -1800,10 +1804,12 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          manychat_api_key?: string | null
           nome_completo?: string
           piperun_owner_id?: string | null
           role?: string
           updated_at?: string
+          waleads_api_key?: string | null
           whatsapp_number?: string
         }
         Relationships: []

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Plus } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { SmartOpsSellerAutomations } from "./SmartOpsSellerAutomations";
 
 interface TeamMember {
@@ -20,6 +21,8 @@ interface TeamMember {
   email: string;
   whatsapp_number: string;
   piperun_owner_id: string | null;
+  manychat_api_key: string | null;
+  waleads_api_key: string | null;
   ativo: boolean;
 }
 
@@ -28,7 +31,7 @@ export function SmartOpsTeam() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
-  const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "" });
+  const [form, setForm] = useState({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" });
   const { toast } = useToast();
 
   const fetchMembers = async () => {
@@ -39,8 +42,8 @@ export function SmartOpsTeam() {
 
   useEffect(() => { fetchMembers(); }, []);
 
-  const openAdd = () => { setEditing(null); setForm({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "" }); setDialogOpen(true); };
-  const openEdit = (m: TeamMember) => { setEditing(m); setForm({ nome_completo: m.nome_completo, email: m.email, whatsapp_number: m.whatsapp_number, role: m.role, piperun_owner_id: m.piperun_owner_id || "" }); setDialogOpen(true); };
+  const openAdd = () => { setEditing(null); setForm({ nome_completo: "", email: "", whatsapp_number: "", role: "vendedor", piperun_owner_id: "", manychat_api_key: "", waleads_api_key: "" }); setDialogOpen(true); };
+  const openEdit = (m: TeamMember) => { setEditing(m); setForm({ nome_completo: m.nome_completo, email: m.email, whatsapp_number: m.whatsapp_number, role: m.role, piperun_owner_id: m.piperun_owner_id || "", manychat_api_key: m.manychat_api_key || "", waleads_api_key: m.waleads_api_key || "" }); setDialogOpen(true); };
 
   const handleSave = async () => {
     if (!form.nome_completo || !form.email || !form.whatsapp_number) {
@@ -92,6 +95,12 @@ export function SmartOpsTeam() {
                   </SelectContent>
                 </Select>
               </div>
+              <Separator className="my-2" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações ManyChat</p>
+              <div><Label>API Key ManyChat</Label><Input type="password" value={form.manychat_api_key} onChange={(e) => setForm({ ...form, manychat_api_key: e.target.value })} placeholder="Bearer token do ManyChat" /></div>
+              <Separator className="my-2" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Configurações WaLeads</p>
+              <div><Label>API Key WaLeads</Label><Input type="password" value={form.waleads_api_key} onChange={(e) => setForm({ ...form, waleads_api_key: e.target.value })} placeholder="API Key do ChatCenter/WaLeads" /></div>
               <Button onClick={handleSave} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
@@ -106,6 +115,7 @@ export function SmartOpsTeam() {
               <TableHead>WhatsApp</TableHead>
               <TableHead>Piperun ID</TableHead>
               <TableHead>Função</TableHead>
+              <TableHead>Integrações</TableHead>
               <TableHead>Ativo</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -118,6 +128,11 @@ export function SmartOpsTeam() {
                 <TableCell className="font-mono text-xs">{m.whatsapp_number}</TableCell>
                 <TableCell className="font-mono text-xs">{m.piperun_owner_id || "—"}</TableCell>
                 <TableCell><Badge variant="outline">{m.role}</Badge></TableCell>
+                <TableCell className="space-x-1">
+                  {m.manychat_api_key ? <Badge className="bg-green-600 text-white text-[10px]">MC</Badge> : null}
+                  {m.waleads_api_key ? <Badge className="bg-blue-600 text-white text-[10px]">WL</Badge> : null}
+                  {!m.manychat_api_key && !m.waleads_api_key && <span className="text-muted-foreground text-xs">—</span>}
+                </TableCell>
                 <TableCell><Switch checked={m.ativo} onCheckedChange={() => toggleAtivo(m)} /></TableCell>
                 <TableCell><Button variant="ghost" size="sm" onClick={() => openEdit(m)}>Editar</Button></TableCell>
               </TableRow>
