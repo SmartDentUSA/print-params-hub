@@ -129,7 +129,7 @@ function GaugeSVG({ value, max = 300 }: { value: number; max?: number }) {
 // ─── Main Component ───
 export function SmartOpsBowtie() {
   const [metrics, setMetrics] = useState<BowtieMetrics>({ mql: 0, sql: 0, vendas: 0, csContratos: 0, csOnboarding: 0, csOngoing: 0 });
-  const [allLeads, setAllLeads] = useState<{ score: number | null; created_at: string; status_atual_lead_crm: string | null; lead_status: string }[]>([]);
+  const [allLeads, setAllLeads] = useState<{ score: number | null; created_at: string; status_atual_lead_crm: string | null; lead_status: string; produto_interesse: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [goals, setGoals] = useState<GoalsData>(DEFAULT_GOALS);
@@ -153,7 +153,7 @@ export function SmartOpsBowtie() {
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).not("data_contrato", "is", null).gte("data_contrato", thirtyDaysAgo),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).eq("cs_treinamento", "concluido").or("ativo_scan.eq.true,ativo_notebook.eq.true,ativo_cad.eq.true,ativo_cad_ia.eq.true,ativo_smart_slice.eq.true,ativo_print.eq.true,ativo_cura.eq.true,ativo_insumos.eq.true"),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).gte("data_ultima_compra_insumos", ninetyDaysAgo),
-        supabase.from("lia_attendances").select("score, created_at, status_atual_lead_crm, lead_status").limit(1000),
+        supabase.from("lia_attendances").select("score, created_at, status_atual_lead_crm, lead_status, produto_interesse").limit(1000),
       ]);
 
       setMetrics({
@@ -225,6 +225,38 @@ export function SmartOpsBowtie() {
 
     return { meta: goals.pipelineMeta, conquistado, aRealizar, pipelineNecessario, pipelineExistente, saude };
   }, [allLeads, selectedMonth, goals]);
+
+  // ─── Leads por Produto de Interesse ───
+  const productStats = useMemo(() => {
+    const now = new Date();
+    const curMonthStart = startOfMonth(now);
+    const prevMonthStart = addMonths(curMonthStart, -1);
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+
+    const groups: Record<string, { prev: number; prevWon: number; cur: number; curWon: number; year: number; yearWon: number }> = {};
+
+    allLeads.forEach((l) => {
+      const prod = l.produto_interesse || "Não Informado";
+      if (!groups[prod]) groups[prod] = { prev: 0, prevWon: 0, cur: 0, curWon: 0, year: 0, yearWon: 0 };
+      const d = new Date(l.created_at);
+      const won = l.status_atual_lead_crm === "Ganha";
+
+      if (d >= prevMonthStart && d < curMonthStart) { groups[prod].prev++; if (won) groups[prod].prevWon++; }
+      if (d >= curMonthStart) { groups[prod].cur++; if (won) groups[prod].curWon++; }
+      if (d >= yearStart) { groups[prod].year++; if (won) groups[prod].yearWon++; }
+    });
+
+    const rows = Object.entries(groups)
+      .map(([name, s]) => ({ name, ...s }))
+      .sort((a, b) => b.year - a.year);
+
+    const totals = rows.reduce(
+      (t, r) => ({ prev: t.prev + r.prev, prevWon: t.prevWon + r.prevWon, cur: t.cur + r.cur, curWon: t.curWon + r.curWon, year: t.year + r.year, yearWon: t.yearWon + r.yearWon }),
+      { prev: 0, prevWon: 0, cur: 0, curWon: 0, year: 0, yearWon: 0 }
+    );
+
+    return { rows, totals };
+  }, [allLeads]);
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando métricas...</div>;
 
@@ -404,6 +436,52 @@ export function SmartOpsBowtie() {
             <div className="flex justify-center">
               <GaugeSVG value={pipeline.saude} />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ═══ Leads por Produto de Interesse ═══ */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Leads por Produto de Interesse</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Produto de Interesse</TableHead>
+                  <TableHead className="text-center">Mês Anterior</TableHead>
+                  <TableHead className="text-center">% Conversão</TableHead>
+                  <TableHead className="text-center">Mês Atual</TableHead>
+                  <TableHead className="text-center">% Conversão</TableHead>
+                  <TableHead className="text-center">Total Ano</TableHead>
+                  <TableHead className="text-center">% Conversão (Ano)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {productStats.rows.map((row) => (
+                  <TableRow key={row.name}>
+                    <TableCell className="font-medium">{row.name}</TableCell>
+                    <TableCell className="text-center">{row.prev}</TableCell>
+                    <TableCell className="text-center">{conversionPct(row.prev, row.prevWon)}</TableCell>
+                    <TableCell className="text-center">{row.cur}</TableCell>
+                    <TableCell className="text-center">{conversionPct(row.cur, row.curWon)}</TableCell>
+                    <TableCell className="text-center font-semibold">{row.year}</TableCell>
+                    <TableCell className="text-center font-semibold">{conversionPct(row.year, row.yearWon)}</TableCell>
+                  </TableRow>
+                ))}
+                <TableRow className="border-t-2 font-bold bg-muted/50">
+                  <TableCell>Total</TableCell>
+                  <TableCell className="text-center">{productStats.totals.prev}</TableCell>
+                  <TableCell className="text-center">{conversionPct(productStats.totals.prev, productStats.totals.prevWon)}</TableCell>
+                  <TableCell className="text-center">{productStats.totals.cur}</TableCell>
+                  <TableCell className="text-center">{conversionPct(productStats.totals.cur, productStats.totals.curWon)}</TableCell>
+                  <TableCell className="text-center">{productStats.totals.year}</TableCell>
+                  <TableCell className="text-center">{conversionPct(productStats.totals.year, productStats.totals.yearWon)}</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </CardContent>
       </Card>
