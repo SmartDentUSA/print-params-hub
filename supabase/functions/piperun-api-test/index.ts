@@ -55,11 +55,16 @@ Deno.serve(async (req) => {
     let data;
     try { data = JSON.parse(text); } catch { data = { raw: text }; }
 
+    // Capture all response headers
+    const responseHeaders: Record<string, string> = {};
+    res.headers.forEach((v, k) => { responseHeaders[k] = v; });
+
     return new Response(JSON.stringify({
       success: res.ok,
       status: res.status,
       action,
       url,
+      response_headers: responseHeaders,
       data,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
