@@ -1,137 +1,160 @@
 
 
-## Auditoria Tecnica: Dados Coletados pela LIA para Aprendizado
+## Auditoria Completa: Todas as Ferramentas da Dra. LIA
 
-### Diagnostico atual (dados reais de 2026-02-24)
-
-```text
-METRICAS CRITICAS
-─────────────────────────────────────────────────────
-Interacoes totais:        1.008
-Com resposta:               999
-Avaliadas pelo Judge:       511 (50.7%)
-NAO avaliadas:              488 (48.4%)  ← PROBLEMA
-  - Sem context_raw:        398
-  - Mensagem curta (<10):   146
-  - Unanswered:              56
-
-JUDGE VERDICTS (dos 511 avaliados)
-─────────────────────────────────────────────────────
-ok:               263 (51.5%)
-hallucination:    195 (38.2%)  ← INFLADO por falsos positivos
-off_topic:         --
-incomplete:        --
-
-SIMILARIDADE MEDIA:   1.12 (deveria ser max 1.0)
-Acima de 1.0:        351 registros (34.8%)  ← BUG DE CALCULO
-
-HUMAN REVIEWED:       32 total
-  - Sem verdict:      11 (revisadas mas Judge nao rodou)
-  - hallucination:    20 (provavelmente ~8-10 sao falsos positivos)
-  - off_topic:         1
-
-EXPORTAVEIS (reviewed + score>=4): 0  ← DATASET VAZIO
-
-KNOWLEDGE GAPS:      100 total
-  - Lixo (<10 chars): 20 registros poluindo o sistema
-
-EMBEDDINGS:        2.039 chunks (100% com embedding)
-faq_autoheal:      0 chunks  ← heal-knowledge-gaps nao indexou nada
-
-LIA_ATTENDANCES:   16 registros, ZERO com resumo IA
-```
-
-### Problemas identificados (priorizados)
+### Diagnostico por camada (dados reais 2026-02-24)
 
 ```text
-🔴 VERMELHO — Bloqueiam o aprendizado
+CAMADA 1 — BASE DE DADOS (Matéria-Prima)
+═════════════════════════════════════════
+✅ OK    2.039 embeddings (100% com embedding)
+✅ OK    304 artigos ativos (96% com keywords, 86% com ai_context)
+⚠️ PROB  505 vídeos mas só 274 com transcript (54%) → 231 vídeos invisíveis pro RAG
+🔴 CRIT  14 resinas ativas mas só 3 com processing_instructions (21%)
+🔴 CRIT  14 resinas: apenas 3 com ai_context (21%)
+⚠️ PROB  359 produtos catálogo: só 106 com FAQ/benefits/tech_specs (30%)
+⚠️ PROB  0 produtos com clinical_brain (campo existe mas ninguém preencheu)
+🔴 CRIT  8 textos company_kb com chunks_count=0 (não indexados)
+           → 6 playbooks Edge Mini + 2 expertises de vídeo
+           → Conteúdo COMERCIAL CRÍTICO que a LIA não consegue acessar
 
-1. 488 interacoes NAO avaliadas pelo Judge
-   Causa: 398 nao tem context_raw salvo (interceptadores pre-RAG
-   como lead collection, support guard nao salvam contexto).
-   O trigger trg_evaluate_interaction pula records sem context_raw.
-   Impacto: quase metade das conversas nao tem nota de qualidade.
+CAMADA 2 — BUSCA RAG (Recuperação)
+═════════════════════════════════════════
+✅ OK    Cascata Vector → FTS → ILIKE → Keyword funcional
+✅ OK    top_similarity corrigido (0 registros > 1.0)
+✅ OK    company_kb cap em 3 chunks por query
+⚠️ PROB  company_kb com 397 chunks (era 76) — LIA-Dialogos injetando ruído
+           → 10 textos com source_label "LIA-Dialogos" gerando 234 chunks
+           → Conversas arquivadas competem com conteúdo técnico real
+⚠️ PROB  searchCatalogProducts não indexa extra_data.sales_pitch (93 produtos)
+           → Campo rico para argumentação comercial, ignorado na busca
 
-2. top_similarity SOMA em vez de MAX → 351 registros com score > 1.0
-   Valores como 2.9, 3.3, 4.8 distorcem completamente as metricas.
-   O Judge recebe contexto com similarity inflada e nao consegue
-   avaliar corretamente a relevancia real.
+CAMADA 3 — PRÉ-RAG (Interceptadores)
+═════════════════════════════════════════
+🔴 CRIT  Guided Dialog (marca/modelo/resina) NÃO salva context_raw
+           → Linha 2148-2159: insert SEM context_raw
+           → Essas interações NUNCA serão avaliadas pelo Judge
+✅ OK    Lead collection salva context_raw "[INTERCEPTOR] lead_collection:*"
+✅ OK    Support guard salva context_raw "[INTERCEPTOR] support_guard"
+⚠️ PROB  398 interações históricas SEM context_raw (antes do fix)
+           → Não há como avaliar retroativamente
 
-3. 20 knowledge gaps com lixo
-   "Lia", "Ooe", "Clinica", "obrigado", "Que merda", "Olá"
-   O filtro anti-noise JA EXISTE (linha 1121) mas esses 20 sao
-   anteriores ao filtro. Precisam ser deletados.
+CAMADA 4 — GERAÇÃO (LLM)
+═════════════════════════════════════════
+✅ OK    Modelo primário: gemini-2.5-flash
+✅ OK    3 fallbacks: flash-lite → gpt-5-mini → gpt-5-nano
+✅ OK    max_tokens: 1024 (geral) / 768 (comercial)
+✅ OK    System prompt robusto com 24 regras anti-alucinação
+✅ OK    SPIN progress detection funcional (7 leads com SPIN completo)
+✅ OK    Regra anti-preço de scanners/equipamentos ativa
+⚠️ PROB  Histórico limitado a últimas 8 mensagens no prompt
+           → Conversas longas perdem contexto inicial
 
-4. Dataset de fine-tuning VAZIO
-   32 revisadas: 20 hallucination (score 0), 11 sem verdict, 1 off_topic.
-   ZERO com score >= 4. A funcao dra-lia-export retorna 404.
+CAMADA 5 — AVALIAÇÃO (Judge)
+═════════════════════════════════════════
+✅ OK    491 avaliadas: 263 ok (54%), 175 halluc (36%), 34 off_topic, 19 incomplete
+⚠️ PROB  508 NÃO avaliadas (50.4% do total)
+           Causas: 398 sem context_raw + 147 msg curtas + 56 unanswered
+🔴 CRIT  32 human_reviewed: 31 SEM verdict (Judge nunca rodou nelas)
+           → Apenas 1 tem verdict (off_topic, score 2)
+           → As 31 foram marcadas como revisadas ANTES do Judge avaliar
+           → ZERO exportáveis para fine-tuning
+⚠️ PROB  Judge pode classificar respostas de dialog guiado como hallucination
+           (pois não tem context_raw para comparar)
 
-5. ZERO resumos IA em lia_attendances
-   O timer de 5 min de inatividade foi implementado mas
-   nenhum resumo foi gerado ainda. 16 leads sem contexto para
-   o time comercial.
+CAMADA 6 — APRENDIZADO CONTÍNUO
+═════════════════════════════════════════
+🔴 CRIT  Dataset fine-tuning: ZERO interações exportáveis
+           → dra-lia-export retorna 404 (precisa reviewed + score >= 4)
+✅ OK    80 knowledge gaps (0 com lixo após limpeza)
+✅ OK    15 leads com resumo IA gerado
+⚠️ PROB  16 lia_attendances: ZERO com rota_inicial_lia preenchida
+✅ OK    Timer inatividade 5min → summarize_session implementado
+⚠️ PROB  faq_autoheal: 0 chunks indexados (heal-knowledge-gaps nunca rodou)
 
-🟡 AMARELO — Degradam a qualidade
-
-6. Judge com ~40% de falsos positivos nas "hallucinations"
-   Respostas com dados de CATALOG_PRODUCT marcadas como alucinacao
-   (mesmo com o prompt corrigido). Exemplos reais:
-   - "Ioconnect vc conhece?" → LIA citou dados do catalogo → score 0
-   - "Como podemos agendar?" → resposta de persona → score 0
-   - "Dr Weber Ricci da aula?" → resposta sobre autor/KOL → score 0
-
-7. company_kb com 397 chunks (era 76) — crescimento explosivo
-   Conversas da LIA sendo indexadas via Google Drive sync estao
-   poluindo o RAG com dialogos internos. Cada conversa gera
-   multiplos chunks que competem com conteudo tecnico real.
-
-8. 147 mensagens curtas (<10 chars) nao avaliadas nem filtradas
-   "ok", "sim", "Danilo", emails — poluem agent_interactions
-   sem contribuir para aprendizado.
+CAMADA 7 — DADOS NÃO UTILIZADOS (Desperdício)
+═════════════════════════════════════════
+🔴 CRIT  231 vídeos SEM transcript → invisíveis para vector search
+           → Só aparecem via keyword search no título (fraco)
+🔴 CRIT  11 resinas SEM processing_instructions
+           → LIA inventa protocolos quando perguntam sobre essas resinas
+🔴 CRIT  8 playbooks/expertises company_kb NÃO indexados (chunks_count=0)
+           → Edge Mini: ficha técnica, pitch SDR, comparativo, FAQ, workflow
+           → NanoClean PoD: expertise de vídeo
+           → SmartGum: expertise de vídeo
+⚠️ PROB  253 produtos catálogo SEM FAQ/benefits enriquecidos
+⚠️ PROB  93 produtos com sales_pitch não usado pelo searchCatalogProducts
+⚠️ PROB  0 produtos com clinical_brain (regras anti-alucinação por produto)
+⚠️ PROB  0 produtos com competitor_comparison (apenas 2 no banco todo)
 ```
 
-### Plano de remediacoes
+### Problemas priorizados e remediações
 
-#### 1. Limpar knowledge gaps com lixo (SQL direto)
+#### PRIORIDADE 1 — Bloqueiam o aprendizado
 
-Deletar os 20 registros com `LENGTH(question) < 10` da tabela `agent_knowledge_gaps`. Sao agradecimentos, interjeicoes e ruido que nao representam lacunas reais de conhecimento.
+**P1.1: Guided Dialog não salva context_raw**
+O handler do dialog guiado (marca→modelo→resina) nas linhas 2148-2159 faz `insert` sem `context_raw`. Essas interações nunca são avaliadas pelo Judge. Adicionar `context_raw: "[INTERCEPTOR] guided_dialog:${dialogState.state}"`.
 
-#### 2. Corrigir calculo de top_similarity no `dra-lia/index.ts`
+**P1.2: 8 textos company_kb não indexados**
+Os 6 playbooks Edge Mini + 2 expertises de vídeo têm `chunks_count = 0`. O `index-embeddings` processa `company_kb_texts` mas esses nunca foram indexados. Precisa re-rodar `index-embeddings?stage=company_kb&mode=full` para indexar.
 
-Localizar onde `topSimilarity` e calculado (soma de scores de multiplas fontes) e trocar para `Math.max()` com teto de 1.0. Isso corrige os 351 registros futuros e permite metricas confiaveis.
+**P1.3: 11 resinas sem processing_instructions**
+Apenas 3 de 14 resinas ativas têm protocolos de processamento. Quando alguém pergunta "como processar a Smart Print Bio Clear Guide?", a LIA inventa o protocolo. Isso é a maior fonte de alucinações reais.
 
-#### 3. Gerar resumos IA para os 16 leads existentes
+**P1.4: Human-reviewed sem verdict do Judge**
+31 de 32 interações `human_reviewed = true` nunca foram avaliadas pelo Judge (`judge_verdict = NULL`). Precisam ter `judge_evaluated_at` resetado e o trigger re-disparado para o Judge avaliar.
 
-Rodar o `backfill-lia-leads` novamente (ou criar script especifico) para gerar `resumo_historico_ia` para todos os leads com conversas. Atualmente os 16 registros em `lia_attendances` tem `has_summary = false`.
+#### PRIORIDADE 2 — Degradam a qualidade
 
-#### 4. Re-avaliar interacoes revisadas pelo Judge
+**P2.1: 231 vídeos sem transcript**
+54% dos vídeos só são encontrados por keyword match no título. Sem transcript, o vector search não os encontra. Os transcripts precisam ser extraídos via PandaVideo API ou Whisper.
 
-Apos corrigir o top_similarity, re-rodar o `evaluate-interaction` nas 32 interacoes `human_reviewed = true` para obter scores mais precisos. Com o prompt corrigido + similarity real, muitas das 20 "hallucinations" devem virar "ok" (score 4-5), desbloqueando o dataset de fine-tuning.
+**P2.2: LIA-Dialogos poluindo o RAG**
+10 textos com source_label "LIA-Dialogos" geram 234 chunks de conversas arquivadas. Esses chunks competem com conteúdo técnico real. O cap de 3 por query ajuda, mas o volume dilui a relevância.
 
-#### 5. Salvar context_raw em interceptadores pre-RAG
+**P2.3: extra_data.sales_pitch não usado na busca**
+93 produtos têm `sales_pitch` no extra_data — argumentação comercial pronta. Mas `searchCatalogProducts` não inclui esse campo na construção do chunk_text da busca direta, nem o `index-embeddings` indexa como chunk separado.
 
-Modificar os handlers de lead collection (`needs_name`, `needs_email`, `collected`) e support guard para salvar um `context_raw` minimo (ex: `"[INTERCEPTOR] lead_collection"`) antes de retornar. Isso permite que o Judge avalie todas as interacoes, nao apenas as que passam pelo RAG.
+**P2.4: rota_inicial_lia nunca preenchida**
+O `upsertLead` em lia_attendances não preenche `rota_inicial_lia`. O campo existe mas fica NULL para todos os 16 leads.
 
-#### 6. Filtrar mensagens curtas de agent_interactions
+#### PRIORIDADE 3 — Otimizações
 
-Adicionar filtro no frontend (`DraLIA.tsx`) para nao enviar mensagens com menos de 3 caracteres. No backend, marcar interacoes com `user_message < 10 chars` com um flag para que nao poluam metricas.
+**P3.1: Resinas sem ai_context**
+11 de 14 resinas não têm `ai_context`, que seria o resumo semântico para melhorar a busca RAG.
 
-#### 7. Limitar chunks de company_kb por consulta
+**P3.2: faq_autoheal nunca executado**
+O source_type `faq_autoheal` tem 0 chunks. A edge function `heal-knowledge-gaps` deveria gerar FAQs a partir dos gaps resolvidos e indexá-las.
 
-Ja existe cap de 3 chunks por query (mencionado na memory). Verificar se esta ativo e se conversas arquivadas (LIA-Dialogos) estao recebendo peso adequado no re-ranking para nao suprimir conteudo tecnico real.
+**P3.3: clinical_brain vazio**
+Nenhum produto do catálogo tem `clinical_brain` preenchido — campo projetado para regras anti-alucinação por produto (obrigatório citar X, proibido citar Y).
 
-### Arquivos modificados
+### Plano de remediações
 
-| Arquivo | Mudanca |
+#### Código (3 arquivos)
+
+| Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/dra-lia/index.ts` | Corrigir calculo topSimilarity (MAX em vez de soma, teto 1.0); salvar context_raw minimo em interceptadores pre-RAG; filtrar msgs curtas |
-| `supabase/functions/evaluate-interaction/index.ts` | Sem mudanca — prompt ja esta correto, problema e nos dados de entrada |
-| `supabase/functions/backfill-lia-leads/index.ts` | Adicionar flag para forcar geracao de resumo IA em leads existentes |
-| `src/components/DraLIA.tsx` | Filtro de mensagens curtas no frontend (< 3 chars) |
+| `supabase/functions/dra-lia/index.ts` | (1) Adicionar `context_raw: "[INTERCEPTOR] guided_dialog:${state}"` no insert do dialog guiado (linha 2150). (2) Preencher `rota_inicial_lia` no upsert de `lia_attendances` dentro de `upsertLead`. (3) Incluir `extra_data.sales_pitch` no chunk_text do `searchCatalogProducts` para enriquecer busca comercial. |
+| `supabase/functions/index-embeddings/index.ts` | (1) Adicionar chunk tipo `sales_pitch` para produtos que têm `extra_data.sales_pitch`. (2) Indexar `extra_data.technical_specifications` como campo nomeado (atualmente usa JSON bruto). |
+| `supabase/functions/backfill-lia-leads/index.ts` | Adicionar preenchimento de `rota_inicial_lia` buscando o `topic_context` da sessão mais recente de cada lead. |
 
-### Acoes de banco (SQL one-shot, sem migracao)
+#### Ações de banco (SQL one-shot)
 
-1. `DELETE FROM agent_knowledge_gaps WHERE LENGTH(question) < 10` — limpar 20 gaps com lixo
-2. `UPDATE agent_interactions SET top_similarity = LEAST(top_similarity, 1.0) WHERE top_similarity > 1.0` — normalizar os 351 registros historicos
-3. `UPDATE agent_interactions SET judge_evaluated_at = NULL WHERE human_reviewed = true AND judge_verdict = 'hallucination'` — forcar re-avaliacao das 20 falsas hallucinations
+1. **Re-disparar Judge nas 31 human_reviewed sem verdict:**
+   `UPDATE agent_interactions SET judge_evaluated_at = NULL WHERE human_reviewed = true AND judge_verdict IS NULL;`
+   Isso faz o trigger `trg_evaluate_interaction` re-avaliar (precisa de um UPDATE no `agent_response` para disparar).
+
+2. **Re-indexar company_kb para capturar os 8 textos não indexados:**
+   Chamar `index-embeddings?stage=company_kb&mode=full` via curl.
+
+#### Dados que precisam ser preenchidos manualmente (fora do código)
+
+| Dado | Impacto | Qtd |
+|------|---------|-----|
+| `resins.processing_instructions` | Elimina alucinações de protocolo | 11 resinas |
+| `resins.ai_context` | Melhora busca semântica | 11 resinas |
+| `knowledge_videos.video_transcript` | Torna vídeos encontráveis | 231 vídeos |
+| `system_a_catalog.extra_data.clinical_brain` | Anti-alucinação por produto | 359 produtos |
+| `system_a_catalog.extra_data.faq/benefits` | Enriquece respostas comerciais | 253 produtos |
 
