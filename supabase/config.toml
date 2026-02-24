@@ -176,3 +176,6 @@ verify_jwt = false
 
 [functions.piperun-api-test]
 verify_jwt = false
+
+[functions.smart-ops-send-waleads]
+verify_jwt = false
