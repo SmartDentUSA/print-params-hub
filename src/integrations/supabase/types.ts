@@ -407,32 +407,58 @@ export type Database = {
           created_at: string
           delay_days: number | null
           id: string
+          manychat_ativo: boolean | null
+          mensagem_waleads: string | null
           produto_interesse: string | null
+          team_member_id: string | null
           template_manychat: string | null
           tipo: string | null
           trigger_event: string | null
+          waleads_ativo: boolean | null
+          waleads_media_url: string | null
+          waleads_tipo: string | null
         }
         Insert: {
           ativo?: boolean
           created_at?: string
           delay_days?: number | null
           id?: string
+          manychat_ativo?: boolean | null
+          mensagem_waleads?: string | null
           produto_interesse?: string | null
+          team_member_id?: string | null
           template_manychat?: string | null
           tipo?: string | null
           trigger_event?: string | null
+          waleads_ativo?: boolean | null
+          waleads_media_url?: string | null
+          waleads_tipo?: string | null
         }
         Update: {
           ativo?: boolean
           created_at?: string
           delay_days?: number | null
           id?: string
+          manychat_ativo?: boolean | null
+          mensagem_waleads?: string | null
           produto_interesse?: string | null
+          team_member_id?: string | null
           template_manychat?: string | null
           tipo?: string | null
           trigger_event?: string | null
+          waleads_ativo?: boolean | null
+          waleads_media_url?: string | null
+          waleads_tipo?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cs_automation_rules_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       drive_kb_sync_log: {
         Row: {

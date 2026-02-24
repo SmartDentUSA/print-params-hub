@@ -179,8 +179,7 @@ export function SmartOpsKanban() {
       </div>
 
       {/* Stagnation Funnels */}
-      {(stagnantLeads.length > 0 || finalLeads.length > 0) && (
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="border-t pt-4">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
               🔄 Leads Estagnados — Funis de Reativação
@@ -192,7 +191,7 @@ export function SmartOpsKanban() {
 
           {STAGNANT_FUNNELS.map((funnel) => {
             const funnelLeads = stagnantLeads.filter((l) => l.lead_status.startsWith(funnel.id + "_"));
-            if (funnelLeads.length === 0 && finalLeads.length === 0 && funnel.id !== "est1") return null;
+            
 
             return (
               <div key={funnel.id} className="space-y-2">
@@ -231,25 +230,25 @@ export function SmartOpsKanban() {
           })}
 
           {/* Estagnado Final column */}
-          {finalLeads.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-semibold text-muted-foreground">Estagnado Final</h3>
-                <Badge variant="secondary" className="text-[10px]">{finalLeads.length}</Badge>
-              </div>
-              <div
-                className="rounded-lg border-2 bg-gray-50 border-gray-300 p-3 min-h-[100px] max-w-[300px]"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop("estagnado_final")}
-              >
-                <div className="space-y-1.5">
-                  {finalLeads.map((lead) => renderLeadCard(lead, true))}
-                </div>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-muted-foreground">Estagnado Final</h3>
+              <Badge variant="secondary" className="text-[10px]">{finalLeads.length}</Badge>
+            </div>
+            <div
+              className="rounded-lg border-2 bg-muted border-border p-3 min-h-[100px] max-w-[300px]"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop("estagnado_final")}
+            >
+              <div className="space-y-1.5">
+                {finalLeads.map((lead) => renderLeadCard(lead, true))}
+                {finalLeads.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground text-center py-6">—</p>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </div>
-      )}
     </div>
   );
 }
