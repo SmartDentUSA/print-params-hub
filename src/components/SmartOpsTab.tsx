@@ -33,7 +33,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="leads">Leads</TabsTrigger>
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
-          <TabsTrigger value="reguas">Réguas CS</TabsTrigger>
+          <TabsTrigger value="reguas">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
         </TabsList>
