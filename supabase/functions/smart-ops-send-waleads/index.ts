@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
-    console.log(`[send-waleads] Sending ${tipo} to ${cleanPhone} via ${member.nome_completo}`, { test_mode });
+    console.log(`[send-waleads] Sending ${tipo} to ${phone} via ${member.nome_completo}`, { test_mode });
     console.log("[send-waleads] Request body:", JSON.stringify(apiBody));
 
     // Call WaLeads API
