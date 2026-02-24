@@ -29,7 +29,7 @@ function applyTopicWeights<T extends { source_type: string; similarity: number }
   if (!topicContext || !TOPIC_WEIGHTS[topicContext]) return results;
   const weights = TOPIC_WEIGHTS[topicContext];
   return results
-    .map(r => ({ ...r, similarity: r.similarity * (weights[r.source_type] ?? 1.0) }))
+    .map(r => ({ ...r, similarity: Math.min(r.similarity * (weights[r.source_type] ?? 1.0), 1.0) }))
     .sort((a, b) => b.similarity - a.similarity);
 }
 
@@ -338,7 +338,12 @@ async function searchCompanyKB(
     source_type: 'company_kb',
     chunk_text: `${d.title} | ${d.content.slice(0, 800)}`,
     metadata: { title: d.title, source_label: d.source_label },
-    similarity: 0.55,
+    similarity: (() => {
+      const titleWords = d.title.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+      const queryWords = query.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+      const matchCount = titleWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+      return matchCount > 0 ? Math.min(matchCount / Math.max(titleWords.length, 1) * 0.4 + 0.3, 0.75) : 0.30;
+    })(),
   }));
 }
 
@@ -821,7 +826,8 @@ function detectLeadCollectionState(
   // No history = brand new conversation
   if (history.length === 0) return { state: "needs_email_first" };
 
-  const EMAIL_REGEX = /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*/;
+  // RFC 5322 compliant regex — supports international TLDs, subdomains, and special chars
+  const EMAIL_REGEX = /[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+/;
   let detectedEmail: string | null = null;
   let detectedName: string | null = null;
 
@@ -1409,7 +1415,13 @@ async function searchParameterSets(
           source_type: "parameter_set",
           chunk_text: lines,
           metadata: { title: `${brand.name} ${model.name} + ${p.resin_name}`, url_publica: `/${brand.slug}/${model.slug}` },
-          similarity: resinMatched ? 0.85 : 0.60,
+      similarity: (() => {
+            const resinWords = p.resin_name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+            const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
+            const matchCount = resinWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+            const baseScore = resinMatched ? 0.55 : 0.35;
+            return matchCount > 0 ? Math.min(baseScore + (matchCount / Math.max(resinWords.length, 1)) * 0.35, 0.90) : baseScore;
+          })(),
         });
       }
     }
@@ -1573,7 +1585,11 @@ async function searchKnowledge(
             has_internal_page: !!internalUrl,
             youtube_url: v.url || null,
           },
-          similarity: 0.5,
+          similarity: (() => {
+            const titleWords = v.title.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+            const matchCount = keywords.filter(k => titleWords.some((tw: string) => tw.includes(k) || k.includes(tw))).length;
+            return matchCount > 0 ? Math.min(0.30 + (matchCount / Math.max(keywords.length, 1)) * 0.35, 0.70) : 0.25;
+          })(),
         };
       });
       const rerankedKeyword = applyTopicWeights(results, topicContext);
@@ -1582,6 +1598,23 @@ async function searchKnowledge(
   }
 
   return { results: [], method: "none", topSimilarity: 0 };
+}
+
+// ── In-memory rate limiter (per-session, resets on cold start) ────────────────
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_MAX = 30; // max requests per window
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+
+function checkRateLimit(identifier: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(identifier);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(identifier, { count: 1, windowStart: now });
+    return true;
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT_MAX) return false;
+  return true;
 }
 
 serve(async (req) => {
@@ -1612,6 +1645,15 @@ serve(async (req) => {
     // ── ACTION: chat ─────────────────────────────────────────────
     const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context } = await req.json();
     const session_id = rawSessionId || crypto.randomUUID();
+
+    // ── RATE LIMITING ─────────────────────────────────────────────
+    const rateLimitKey = session_id || req.headers.get("x-forwarded-for") || "anonymous";
+    if (!checkRateLimit(rateLimitKey)) {
+      return new Response(
+        JSON.stringify({ error: "Muitas requisições. Aguarde um momento antes de enviar outra mensagem." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!message?.trim()) {
       return new Response(JSON.stringify({ error: "Message is required" }), {
