@@ -147,12 +147,11 @@ Deno.serve(async (req) => {
     const maxPages = fullSync ? 50 : 3; // limit pages for safety
 
     while (page <= maxPages) {
-      const params = new URLSearchParams({ show: "100", page: String(page) });
+      const params = new URLSearchParams({ token: PIPERUN_API_KEY, show: "100", page: String(page) });
       if (since) params.set("updated_since", since);
 
       const piperunRes = await fetch(
-        `https://api.pipe.run/v1/deals?${params.toString()}`,
-        { headers: { "Token": PIPERUN_API_KEY } }
+        `https://api.pipe.run/v1/deals?${params.toString()}`
       );
 
       if (!piperunRes.ok) {

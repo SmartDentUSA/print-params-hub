@@ -22,24 +22,25 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case "list_deals":
-        url = `${base}/v1/deals?show=${show || 1}`;
+        url = `${base}/v1/deals?token=${PIPERUN_API_KEY}&show=${show || 1}`;
         break;
       case "get_deal":
         if (!dealId) throw new Error("dealId required");
-        url = `${base}/v1/deals/${dealId}?with=items,persons,companies,customForms,users`;
+        url = `${base}/v1/deals/${dealId}?token=${PIPERUN_API_KEY}&with=items,persons,companies,customForms,users`;
         break;
       case "list_users":
-        url = `${base}/v1/users`;
+        url = `${base}/v1/users?token=${PIPERUN_API_KEY}`;
         break;
       case "list_stages":
-        url = `${base}/v1/stages`;
+        url = `${base}/v1/stages?token=${PIPERUN_API_KEY}`;
         break;
       case "list_pipelines":
-        url = `${base}/v1/pipelines`;
+        url = `${base}/v1/pipelines?token=${PIPERUN_API_KEY}`;
         break;
       case "raw_get":
         if (!path) throw new Error("path required for raw_get");
         url = `${base}/v1/${path.replace(/^\/+/, "")}`;
+        url += (url.includes("?") ? "&" : "?") + `token=${PIPERUN_API_KEY}`;
         break;
       default:
         throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get`);
@@ -48,11 +49,7 @@ Deno.serve(async (req) => {
     console.log(`[piperun-api-test] ${action} -> ${url}`);
 
     const res = await fetch(url, {
-      headers: {
-        "Token": PIPERUN_API_KEY,
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "application/json",
-      },
+      headers: { "Accept": "application/json" },
     });
 
     const text = await res.text();
