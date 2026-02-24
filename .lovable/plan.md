@@ -1,160 +1,115 @@
 
 
-## Auditoria Completa: Todas as Ferramentas da Dra. LIA
+## Auditoria do Fluxo de Qualificação da LIA
 
-### Diagnostico por camada (dados reais 2026-02-24)
+### Fluxo Documentado (conforme memória do projeto)
+
+O fluxo de qualificação deveria seguir **4 etapas sequenciais**:
+1. **E-mail** — primeira coisa pedida
+2. **Nome** — se lead novo (não encontrado no banco)
+3. **Área de Atuação** — selecionada via grade de botões no frontend, acionada por `ui_action`
+4. **Especialidade** — selecionada via grade de botões no frontend, acionada por `ui_action`
+
+Os dados coletados deveriam ser sincronizados imediatamente via upsert na `lia_attendances` (campos `area_atuacao` e `especialidade`).
+
+### Fluxo Real (código atual)
 
 ```text
-CAMADA 1 — BASE DE DADOS (Matéria-Prima)
-═════════════════════════════════════════
-✅ OK    2.039 embeddings (100% com embedding)
-✅ OK    304 artigos ativos (96% com keywords, 86% com ai_context)
-⚠️ PROB  505 vídeos mas só 274 com transcript (54%) → 231 vídeos invisíveis pro RAG
-🔴 CRIT  14 resinas ativas mas só 3 com processing_instructions (21%)
-🔴 CRIT  14 resinas: apenas 3 com ai_context (21%)
-⚠️ PROB  359 produtos catálogo: só 106 com FAQ/benefits/tech_specs (30%)
-⚠️ PROB  0 produtos com clinical_brain (campo existe mas ninguém preencheu)
-🔴 CRIT  8 textos company_kb com chunks_count=0 (não indexados)
-           → 6 playbooks Edge Mini + 2 expertises de vídeo
-           → Conteúdo COMERCIAL CRÍTICO que a LIA não consegue acessar
+ETAPA 1: E-mail
+├── ✅ IMPLEMENTADO (needs_email_first)
+├── ✅ Salva context_raw "[INTERCEPTOR] lead_collection:needs_email_first"
+└── ✅ Reconhece contexto antes de pedir email
 
-CAMADA 2 — BUSCA RAG (Recuperação)
-═════════════════════════════════════════
-✅ OK    Cascata Vector → FTS → ILIKE → Keyword funcional
-✅ OK    top_similarity corrigido (0 registros > 1.0)
-✅ OK    company_kb cap em 3 chunks por query
-⚠️ PROB  company_kb com 397 chunks (era 76) — LIA-Dialogos injetando ruído
-           → 10 textos com source_label "LIA-Dialogos" gerando 234 chunks
-           → Conversas arquivadas competem com conteúdo técnico real
-⚠️ PROB  searchCatalogProducts não indexa extra_data.sales_pitch (93 produtos)
-           → Campo rico para argumentação comercial, ignorado na busca
+ETAPA 2: Nome (se lead novo)
+├── ✅ IMPLEMENTADO (needs_name)
+├── ✅ Busca lead existente por email na tabela leads
+├── ✅ Se encontra → returning lead com resumo IA + show_topics
+├── ✅ Se não encontra → pede nome
+└── ✅ Salva context_raw
 
-CAMADA 3 — PRÉ-RAG (Interceptadores)
-═════════════════════════════════════════
-🔴 CRIT  Guided Dialog (marca/modelo/resina) NÃO salva context_raw
-           → Linha 2148-2159: insert SEM context_raw
-           → Essas interações NUNCA serão avaliadas pelo Judge
-✅ OK    Lead collection salva context_raw "[INTERCEPTOR] lead_collection:*"
-✅ OK    Support guard salva context_raw "[INTERCEPTOR] support_guard"
-⚠️ PROB  398 interações históricas SEM context_raw (antes do fix)
-           → Não há como avaliar retroativamente
+ETAPA 3: Área de Atuação
+├── ❌ NÃO IMPLEMENTADO
+├── ❌ Nenhum ui_action "show_area_grid" existe no backend
+├── ❌ Nenhum componente de grade de área no frontend (DraLIA.tsx)
+├── ❌ Campo area_atuacao NUNCA é preenchido pela LIA
+└── ❌ O upsertLead não salva area_atuacao
 
-CAMADA 4 — GERAÇÃO (LLM)
-═════════════════════════════════════════
-✅ OK    Modelo primário: gemini-2.5-flash
-✅ OK    3 fallbacks: flash-lite → gpt-5-mini → gpt-5-nano
-✅ OK    max_tokens: 1024 (geral) / 768 (comercial)
-✅ OK    System prompt robusto com 24 regras anti-alucinação
-✅ OK    SPIN progress detection funcional (7 leads com SPIN completo)
-✅ OK    Regra anti-preço de scanners/equipamentos ativa
-⚠️ PROB  Histórico limitado a últimas 8 mensagens no prompt
-           → Conversas longas perdem contexto inicial
-
-CAMADA 5 — AVALIAÇÃO (Judge)
-═════════════════════════════════════════
-✅ OK    491 avaliadas: 263 ok (54%), 175 halluc (36%), 34 off_topic, 19 incomplete
-⚠️ PROB  508 NÃO avaliadas (50.4% do total)
-           Causas: 398 sem context_raw + 147 msg curtas + 56 unanswered
-🔴 CRIT  32 human_reviewed: 31 SEM verdict (Judge nunca rodou nelas)
-           → Apenas 1 tem verdict (off_topic, score 2)
-           → As 31 foram marcadas como revisadas ANTES do Judge avaliar
-           → ZERO exportáveis para fine-tuning
-⚠️ PROB  Judge pode classificar respostas de dialog guiado como hallucination
-           (pois não tem context_raw para comparar)
-
-CAMADA 6 — APRENDIZADO CONTÍNUO
-═════════════════════════════════════════
-🔴 CRIT  Dataset fine-tuning: ZERO interações exportáveis
-           → dra-lia-export retorna 404 (precisa reviewed + score >= 4)
-✅ OK    80 knowledge gaps (0 com lixo após limpeza)
-✅ OK    15 leads com resumo IA gerado
-⚠️ PROB  16 lia_attendances: ZERO com rota_inicial_lia preenchida
-✅ OK    Timer inatividade 5min → summarize_session implementado
-⚠️ PROB  faq_autoheal: 0 chunks indexados (heal-knowledge-gaps nunca rodou)
-
-CAMADA 7 — DADOS NÃO UTILIZADOS (Desperdício)
-═════════════════════════════════════════
-🔴 CRIT  231 vídeos SEM transcript → invisíveis para vector search
-           → Só aparecem via keyword search no título (fraco)
-🔴 CRIT  11 resinas SEM processing_instructions
-           → LIA inventa protocolos quando perguntam sobre essas resinas
-🔴 CRIT  8 playbooks/expertises company_kb NÃO indexados (chunks_count=0)
-           → Edge Mini: ficha técnica, pitch SDR, comparativo, FAQ, workflow
-           → NanoClean PoD: expertise de vídeo
-           → SmartGum: expertise de vídeo
-⚠️ PROB  253 produtos catálogo SEM FAQ/benefits enriquecidos
-⚠️ PROB  93 produtos com sales_pitch não usado pelo searchCatalogProducts
-⚠️ PROB  0 produtos com clinical_brain (regras anti-alucinação por produto)
-⚠️ PROB  0 produtos com competitor_comparison (apenas 2 no banco todo)
+ETAPA 4: Especialidade
+├── ❌ NÃO IMPLEMENTADO como etapa de coleta ativa
+├── ⚠️  Detectada PASSIVAMENTE via regex no SPIN progress (linha 2432)
+├── ❌ Nenhum ui_action "show_specialty_grid" existe
+├── ❌ Nenhum componente de grade de especialidade no frontend
+└── ❌ Campo especialidade só é preenchido se o lead mencionar
+      espontaneamente durante a conversa comercial
 ```
 
-### Problemas priorizados e remediações
+### Problemas Identificados
 
-#### PRIORIDADE 1 — Bloqueiam o aprendizado
+**P1: Etapas 3 e 4 nunca foram implementadas no código**
+A memória do projeto documenta que Área de Atuação e Especialidade deveriam ser coletadas via grades de botões (`ui_action`), mas essa funcionalidade não existe — nem no backend (`dra-lia/index.ts`) nem no frontend (`DraLIA.tsx`).
 
-**P1.1: Guided Dialog não salva context_raw**
-O handler do dialog guiado (marca→modelo→resina) nas linhas 2148-2159 faz `insert` sem `context_raw`. Essas interações nunca são avaliadas pelo Judge. Adicionar `context_raw: "[INTERCEPTOR] guided_dialog:${dialogState.state}"`.
+**P2: Dados de qualificação incompletos em `lia_attendances`**
+Dos 16 leads, todos têm `area_atuacao = NULL` e `especialidade = NULL` (vindos da LIA). Apenas leads ingeridos pelo webhook externo (`smart-ops-ingest-lead`) podem ter esses campos preenchidos.
 
-**P1.2: 8 textos company_kb não indexados**
-Os 6 playbooks Edge Mini + 2 expertises de vídeo têm `chunks_count = 0`. O `index-embeddings` processa `company_kb_texts` mas esses nunca foram indexados. Precisa re-rodar `index-embeddings?stage=company_kb&mode=full` para indexar.
+**P3: Especialidade detectada passivamente é frágil**
+O SPIN progress detecta especialidade via regex (`/implant|prótese|ortodont.../`), mas isso só funciona se o lead mencionar espontaneamente. A detecção é salva apenas em `extracted_entities` da sessão, sem persistir em `lia_attendances`.
 
-**P1.3: 11 resinas sem processing_instructions**
-Apenas 3 de 14 resinas ativas têm protocolos de processamento. Quando alguém pergunta "como processar a Smart Print Bio Clear Guide?", a LIA inventa o protocolo. Isso é a maior fonte de alucinações reais.
+**P4: Fluxo pula direto para seleção de tópico**
+Após coletar email+nome (ou reconhecer lead existente), o fluxo vai direto para os 4 cards de tópico (Parâmetros, Comercial, Produtos, Suporte), pulando a coleta ativa de Área e Especialidade.
 
-**P1.4: Human-reviewed sem verdict do Judge**
-31 de 32 interações `human_reviewed = true` nunca foram avaliadas pelo Judge (`judge_verdict = NULL`). Precisam ter `judge_evaluated_at` resetado e o trigger re-disparado para o Judge avaliar.
+### Plano de Implementação
 
-#### PRIORIDADE 2 — Degradam a qualidade
+#### 1. Backend (`dra-lia/index.ts`)
 
-**P2.1: 231 vídeos sem transcript**
-54% dos vídeos só são encontrados por keyword match no título. Sem transcript, o vector search não os encontra. Os transcripts precisam ser extraídos via PandaVideo API ou Whisper.
+Adicionar duas novas etapas no fluxo de lead collection, entre o "collected" e o "show_topics":
 
-**P2.2: LIA-Dialogos poluindo o RAG**
-10 textos com source_label "LIA-Dialogos" geram 234 chunks de conversas arquivadas. Esses chunks competem com conteúdo técnico real. O cap de 3 por query ajuda, mas o volume dilui a relevância.
+- **Estado `needs_area`**: Após confirmar nome+email de um lead NOVO, enviar `ui_action: "show_area_grid"` com as opções de área de atuação (Clínica, Laboratório, Docência, Indústria, Estudante, etc.)
+- **Estado `needs_specialty`**: Após receber a área, enviar `ui_action: "show_specialty_grid"` com especialidades filtradas pela área (ex: se Clínica → Implantodontia, Prótese, Ortodontia, Endodontia, Estética, Clínica Geral)
+- Persistir ambos os campos em `lia_attendances` e `leads` imediatamente via upsert
+- Para leads RETORNANTES (já têm area/especialidade), pular essas etapas
 
-**P2.3: extra_data.sales_pitch não usado na busca**
-93 produtos têm `sales_pitch` no extra_data — argumentação comercial pronta. Mas `searchCatalogProducts` não inclui esse campo na construção do chunk_text da busca direta, nem o `index-embeddings` indexa como chunk separado.
+O `detectLeadCollectionState` precisará de dois novos estados:
+```text
+| { state: "needs_area"; name: string; email: string; leadId: string }
+| { state: "needs_specialty"; name: string; email: string; leadId: string; area: string }
+```
 
-**P2.4: rota_inicial_lia nunca preenchida**
-O `upsertLead` em lia_attendances não preenche `rota_inicial_lia`. O campo existe mas fica NULL para todos os 16 leads.
+#### 2. Frontend (`DraLIA.tsx`)
 
-#### PRIORIDADE 3 — Otimizações
+Criar dois novos componentes de grade de botões:
+- **AreaGrid**: Grade com 5-6 opções de área de atuação, renderizada quando `ui_action === "show_area_grid"`
+- **SpecialtyGrid**: Grade com especialidades filtradas pela área selecionada, renderizada quando `ui_action === "show_specialty_grid"`
 
-**P3.1: Resinas sem ai_context**
-11 de 14 resinas não têm `ai_context`, que seria o resumo semântico para melhorar a busca RAG.
+Ao clicar em uma opção, enviar a seleção como mensagem do usuário para o backend (ex: "Clínica" ou "Implantodontia").
 
-**P3.2: faq_autoheal nunca executado**
-O source_type `faq_autoheal` tem 0 chunks. A edge function `heal-knowledge-gaps` deveria gerar FAQs a partir dos gaps resolvidos e indexá-las.
+#### 3. Dados (`lia_attendances` sync)
 
-**P3.3: clinical_brain vazio**
-Nenhum produto do catálogo tem `clinical_brain` preenchido — campo projetado para regras anti-alucinação por produto (obrigatório citar X, proibido citar Y).
+Modificar o `upsertLead` para aceitar `area_atuacao` e `especialidade` como parâmetros opcionais, e persistir no upsert de `lia_attendances`. Criar um handler separado que atualiza esses campos quando o lead responde as grades.
 
-### Plano de remediações
-
-#### Código (3 arquivos)
+### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/dra-lia/index.ts` | (1) Adicionar `context_raw: "[INTERCEPTOR] guided_dialog:${state}"` no insert do dialog guiado (linha 2150). (2) Preencher `rota_inicial_lia` no upsert de `lia_attendances` dentro de `upsertLead`. (3) Incluir `extra_data.sales_pitch` no chunk_text do `searchCatalogProducts` para enriquecer busca comercial. |
-| `supabase/functions/index-embeddings/index.ts` | (1) Adicionar chunk tipo `sales_pitch` para produtos que têm `extra_data.sales_pitch`. (2) Indexar `extra_data.technical_specifications` como campo nomeado (atualmente usa JSON bruto). |
-| `supabase/functions/backfill-lia-leads/index.ts` | Adicionar preenchimento de `rota_inicial_lia` buscando o `topic_context` da sessão mais recente de cada lead. |
+| `supabase/functions/dra-lia/index.ts` | Adicionar estados `needs_area` e `needs_specialty` no `detectLeadCollectionState`; handlers para cada estado com `ui_action`; persistência em `lia_attendances` |
+| `src/components/DraLIA.tsx` | Adicionar renderização de `AreaGrid` e `SpecialtyGrid` via `ui_action`; handlers de clique que enviam seleção ao backend |
 
-#### Ações de banco (SQL one-shot)
+### Detalhes técnicos
 
-1. **Re-disparar Judge nas 31 human_reviewed sem verdict:**
-   `UPDATE agent_interactions SET judge_evaluated_at = NULL WHERE human_reviewed = true AND judge_verdict IS NULL;`
-   Isso faz o trigger `trg_evaluate_interaction` re-avaliar (precisa de um UPDATE no `agent_response` para disparar).
+Opções de Área de Atuação:
+- Clínica Odontológica
+- Laboratório de Prótese
+- Universidade/Docência
+- Indústria/Pesquisa
+- Estudante
 
-2. **Re-indexar company_kb para capturar os 8 textos não indexados:**
-   Chamar `index-embeddings?stage=company_kb&mode=full` via curl.
+Especialidades por área (Clínica):
+- Implantodontia
+- Prótese Dentária
+- Ortodontia
+- Endodontia
+- Dentística/Estética
+- Clínica Geral
+- Cirurgia
 
-#### Dados que precisam ser preenchidos manualmente (fora do código)
-
-| Dado | Impacto | Qtd |
-|------|---------|-----|
-| `resins.processing_instructions` | Elimina alucinações de protocolo | 11 resinas |
-| `resins.ai_context` | Melhora busca semântica | 11 resinas |
-| `knowledge_videos.video_transcript` | Torna vídeos encontráveis | 231 vídeos |
-| `system_a_catalog.extra_data.clinical_brain` | Anti-alucinação por produto | 359 produtos |
-| `system_a_catalog.extra_data.faq/benefits` | Enriquece respostas comerciais | 253 produtos |
+Para leads retornantes que já têm `area_atuacao` e `especialidade` preenchidos, o fluxo pula direto para o `show_topics` como já acontece hoje.
 
