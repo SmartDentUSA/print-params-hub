@@ -1,69 +1,66 @@
 
 
-# Correção da Integração WaLeads - Formato de Payload e Endpoint
+# Correcao Final WaLeads - Endpoints Dinamicos e Log de Testes
 
-## Problemas Identificados
+## Problema atual
 
-1. **Endpoint incorreto**: O código usa `/public/message/{tipo}` mas a documentação indica `/api-public/messages/send`
-2. **Telefone com "+"**: A API espera `5547999999999` (apenas dígitos), mas o código envia `+5547999999999`
-3. **Campo `isGroup` ausente**: A API exige `isGroup: false` no payload
-4. **Logs insuficientes**: Não estamos logando o corpo da resposta de erro da API
+Os logs mostram repetidamente:
+```text
+Response: 404 {"message":"Cannot POST /api-public/messages/send","error":"Not Found","statusCode":404}
+```
 
-## Mudanças
+O endpoint `/api-public/messages/send` nao existe. Alem disso, `test_mode: true` pula o registro no `message_logs`, impedindo qualquer visibilidade no painel.
+
+## Correcoes
 
 ### 1. `supabase/functions/smart-ops-send-waleads/index.ts`
 
-- Alterar endpoint de `${WALEADS_BASE_URL}/public/message/${tipo}` para `${WALEADS_BASE_URL}/api-public/messages/send`
-- Remover o `+` do telefone antes de enviar: `phone.replace(/\+/g, "")`
-- Adicionar `isGroup: false` ao payload
-- Adicionar `console.log` do body enviado e da resposta completa para depuração
-- Formato do payload corrigido:
-
+**Endpoint**: trocar a linha do fetch de:
 ```text
-{
-  "phone": "5519992612348",
-  "message": "Olá, sou o consultor...",
-  "isGroup": false
-}
+fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
+```
+para:
+```text
+fetch(`${WALEADS_BASE_URL}/public/message/${tipo}`, {
+```
+
+**Log de testes**: remover o `if (!test_mode)` que envolve o insert em `message_logs`. Sempre registrar, usando tipo diferenciado quando for teste:
+```typescript
+const logTipo = test_mode ? `waleads_${tipo}_test` : `waleads_${tipo}`;
+await supabase.from("message_logs").insert({
+  lead_id: lead_id || null,
+  team_member_id: member.id,
+  whatsapp_number: member.whatsapp_number,
+  tipo: logTipo,
+  mensagem_preview: ...,
+  status: messageStatus,
+  error_details: errorDetails,
+});
+```
+
+**Sanitizacao do tipo**: validar que `tipo` e um dos valores aceitos antes de chamar a API:
+```typescript
+const VALID_TIPOS = ["text", "image", "audio", "video", "document"];
+const tipoNormalized = VALID_TIPOS.includes(tipo.toLowerCase()) ? tipo.toLowerCase() : "text";
 ```
 
 ### 2. `supabase/functions/smart-ops-cs-processor/index.ts`
 
-- Mesmas correções de endpoint, formato de telefone e campo `isGroup`
-
-## Detalhes Tecnicos
-
-### Endpoint corrigido
+**Endpoint**: trocar de:
 ```text
-POST https://waleads.roote.com.br/api-public/messages/send
+fetch(`${WALEADS_BASE_URL}/api-public/messages/send`, {
+```
+para:
+```text
+fetch(`${WALEADS_BASE_URL}/public/message/${waleadsTipo}`, {
 ```
 
-### Normalizacao do telefone
-```typescript
-const cleanPhone = phone.replace(/\+/g, "");
-// "+5519992612348" -> "5519992612348"
-```
+## Resumo
 
-### Payload para mensagem de texto
-```typescript
-apiBody = { phone: cleanPhone, message: finalMessage, isGroup: false };
-```
-
-### Payload para midia (imagem, video, etc)
-```typescript
-apiBody = { phone: cleanPhone, url: media_url, isGroup: false };
-if (finalCaption) apiBody.caption = finalCaption;
-```
-
-### Logs de depuracao adicionados
-```typescript
-console.log("[send-waleads] Request body:", JSON.stringify(apiBody));
-console.log("[send-waleads] Response:", waRes.status, waData.slice(0, 500));
-```
-
-## Arquivos afetados
-
-| Arquivo | Acao |
+| Arquivo | Mudanca |
 |---|---|
-| `supabase/functions/smart-ops-send-waleads/index.ts` | Corrigir endpoint, payload e logs |
-| `supabase/functions/smart-ops-cs-processor/index.ts` | Mesmas correcoes de endpoint e payload |
+| `smart-ops-send-waleads/index.ts` | Endpoint `/public/message/${tipo}`, sanitizacao do tipo, sempre registra log com sufixo `_test` |
+| `smart-ops-cs-processor/index.ts` | Endpoint `/public/message/${waleadsTipo}` |
+
+Apos deploy, o botao "Testar WL" deve retornar status 200 e o log aparecera na aba de Logs com tipo `waleads_text_test`.
+
