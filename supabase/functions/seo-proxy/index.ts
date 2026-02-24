@@ -2,8 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+const LOGO_URL = "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png";
 
 // Bots de IA / LLM
 const AI_BOTS = [
@@ -130,7 +132,7 @@ function buildPublisherSchema(baseUrl: string) {
     "url": baseUrl,
     "logo": {
       "@type": "ImageObject",
-      "url": "https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png",
+      "url": LOGO_URL,
       "width": 512,
       "height": 512
     },
@@ -479,7 +481,7 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
-        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        src="${LOGO_URL}"
         alt="Smart Dent Logo"
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"
@@ -563,7 +565,7 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
-        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        src="${LOGO_URL}"
         alt="Smart Dent Logo"
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"
@@ -669,7 +671,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
-        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        src="${LOGO_URL}"
         alt="Smart Dent Logo"
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"
@@ -819,7 +821,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
-        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        src="${LOGO_URL}"
         alt="Smart Dent Logo"
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"
@@ -1036,7 +1038,7 @@ async function generateSystemACatalogHTML(
   <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
-        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        src="${LOGO_URL}"
         alt="Smart Dent Logo"
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"
@@ -1602,7 +1604,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
       <img 
-        src="https://pgfgripuanuwwolmtknn.supabase.co/storage/v1/object/public/product-images/h7stblp3qxn_1760720051743.png"
+        src="${LOGO_URL}"
         alt="Smart Dent Logo"
         onerror="this.style.display='none'"
         style="height:48px;max-height:48px;width:auto;object-fit:contain"

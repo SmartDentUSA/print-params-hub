@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -13,7 +13,7 @@ const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 const BATCH_SIZE = 5;
 const DELAY_MS = 2000; // 2s between batches to avoid rate limits
 
-const EXTERNAL_KB_URL = "https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base";
+const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 
 async function generateEmbedding(text: string): Promise<number[]> {
   const modelsToTry = [

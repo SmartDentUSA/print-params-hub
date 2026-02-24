@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 }
 
 serve(async (req) => {
@@ -62,7 +62,8 @@ serve(async (req) => {
 })
 
 async function fetchKnowledgeBaseAPI() {
-  const apiUrl = new URL('https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base')
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+  const apiUrl = new URL(`${SUPABASE_URL}/functions/v1/knowledge-base`)
   apiUrl.searchParams.set('format', 'system_b')
   apiUrl.searchParams.append('include_company', 'true')
   apiUrl.searchParams.append('include_categories', 'true')
