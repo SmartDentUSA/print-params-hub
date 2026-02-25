@@ -19,6 +19,13 @@ interface Lead {
   score: number | null;
   status_oportunidade: string | null;
   valor_oportunidade: number | null;
+  cidade: string | null;
+  uf: string | null;
+  area_atuacao: string | null;
+  temperatura_lead: string | null;
+  piperun_link: string | null;
+  especialidade: string | null;
+  motivo_perda: string | null;
 }
 
 const COLUMNS = [
@@ -73,7 +80,7 @@ export function SmartOpsKanban() {
   const fetchLeads = async () => {
     const { data } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade")
+      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda")
       .in("lead_status", STATUS_KEYS)
       .order("created_at", { ascending: false })
       .limit(2000);
@@ -110,21 +117,41 @@ export function SmartOpsKanban() {
     >
       <CardContent className="p-2.5 space-y-1">
         <div className="flex items-center justify-between">
-          <span className="font-medium text-xs truncate">{lead.nome}</span>
+          {lead.piperun_link ? (
+            <a href={lead.piperun_link} target="_blank" rel="noopener noreferrer" className="font-medium text-xs truncate text-primary hover:underline">{lead.nome}</a>
+          ) : (
+            <span className="font-medium text-xs truncate">{lead.nome}</span>
+          )}
           {lead.lead_status === "sem_contato" && isStale(lead.created_at) && (
             <Badge variant="destructive" className="text-[10px] ml-1">⏰</Badge>
           )}
           {showDaysStagnant && (
             <Badge variant="outline" className="text-[10px] ml-1">{daysAgo(lead.updated_at)}d</Badge>
           )}
+          {lead.temperatura_lead && (
+            <Badge variant="outline" className="text-[10px] ml-1">
+              {lead.temperatura_lead === "hot" ? "🔥" : lead.temperatura_lead === "warm" ? "🌡️" : "❄️"}
+            </Badge>
+          )}
         </div>
         <div className="text-[10px] text-muted-foreground truncate">{lead.email}</div>
         {lead.telefone_normalized && (
           <div className="text-[10px] text-muted-foreground">{lead.telefone_normalized}</div>
         )}
+        {(lead.cidade || lead.uf) && (
+          <div className="text-[10px] text-muted-foreground">
+            📍 {[lead.cidade, lead.uf].filter(Boolean).join(" - ")}
+          </div>
+        )}
         <div className="flex flex-wrap gap-1 mt-1">
           {lead.produto_interesse && (
             <Badge variant="outline" className="text-[10px]">{lead.produto_interesse}</Badge>
+          )}
+          {lead.area_atuacao && (
+            <Badge variant="secondary" className="text-[10px]">{lead.area_atuacao}</Badge>
+          )}
+          {lead.especialidade && (
+            <Badge variant="secondary" className="text-[10px]">{lead.especialidade}</Badge>
           )}
           {lead.score != null && lead.score > 0 && (
             <Badge className="text-[10px] bg-primary/10 text-primary">{lead.score}pts</Badge>
@@ -134,12 +161,15 @@ export function SmartOpsKanban() {
               {lead.status_oportunidade === "ganha" ? "✅ Ganha" : "❌ Perdida"}
             </Badge>
           )}
+          {lead.motivo_perda && (
+            <Badge variant="outline" className="text-[10px] border-destructive text-destructive">{lead.motivo_perda}</Badge>
+          )}
           {lead.valor_oportunidade != null && lead.valor_oportunidade > 0 && (
-            <Badge variant="outline" className="text-[10px]">{formatCurrency(lead.valor_oportunidade)}</Badge>
+            <Badge variant="outline" className="text-[10px] font-semibold">{formatCurrency(lead.valor_oportunidade)}</Badge>
           )}
         </div>
         {lead.proprietario_lead_crm && (
-          <div className="text-[10px] text-muted-foreground">{lead.proprietario_lead_crm}</div>
+          <div className="text-[10px] text-muted-foreground">👤 {lead.proprietario_lead_crm}</div>
         )}
         <div className="text-[10px] text-muted-foreground">
           {lead.source} · {new Date(lead.created_at).toLocaleDateString("pt-BR")}
