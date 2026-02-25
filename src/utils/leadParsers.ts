@@ -372,6 +372,86 @@ function parsePiperunFull(rows: RawRow[]): NormalizedLead[] {
   });
 }
 
+/* ─── LEGACY TAG MIGRATION (SellFlux → standardized) ─── */
+const LEGACY_TAG_MAP_CLIENT: Record<string, string[]> = {
+  "compra-realizada": ["EC_PAGAMENTO_APROVADO", "J04_COMPRA"],
+  "pedido-pago": ["EC_PAGAMENTO_APROVADO"],
+  "cancelado": ["EC_PEDIDO_CANCELADO"],
+  "pedido-cancelado": ["EC_PEDIDO_CANCELADO"],
+  "aguardando-pagamento": ["EC_INICIOU_CHECKOUT"],
+  "gerou-boleto": ["EC_GEROU_BOLETO"],
+  "gerouboleto": ["EC_GEROU_BOLETO"],
+  "iniciou-pagamento-cartao": ["EC_INICIOU_CHECKOUT"],
+  "cancelado-cartao-credito": ["EC_PEDIDO_CANCELADO"],
+  "cancelado-boleto": ["EC_BOLETO_VENCIDO"],
+  "bought-resin-auto": ["EC_PROD_RESINA"],
+  "resina-comprado": ["EC_PROD_RESINA"],
+  "ios-comprado": ["Q_TEM_SCANNER"],
+  "smartmakegum-comprado": ["EC_PROD_SMARTMAKE"],
+  "cliente-smart": ["J05_RETENCAO"],
+  "plataforma-confirmada": ["CS_ONBOARDING_INICIO"],
+  "chatbot-client-enviado": ["LIA_ATENDEU"],
+};
+
+const LEGACY_TAG_FIELD_CLIENT: Record<string, Record<string, string>> = {
+  "clinica-consul": { area_atuacao: "Clínica" },
+  "labproteses": { area_atuacao: "Laboratório" },
+  "outras-areas": { area_atuacao: "Outras" },
+  "professor": { area_atuacao: "Professor" },
+  "sem-imp": { tem_impressora: "não" },
+  "sem-scanner": { tem_scanner: "não" },
+};
+
+function migrateSellFluxTags(rawTags: string[]): { tags: string[]; fields: Record<string, string> } {
+  const standardized = new Set<string>();
+  const fields: Record<string, string> = {};
+  for (const tag of rawTags) {
+    const t = tag.trim().toLowerCase();
+    if (!t) continue;
+    if (LEGACY_TAG_MAP_CLIENT[t]) { for (const s of LEGACY_TAG_MAP_CLIENT[t]) standardized.add(s); continue; }
+    if (LEGACY_TAG_FIELD_CLIENT[t]) { Object.assign(fields, LEGACY_TAG_FIELD_CLIENT[t]); continue; }
+    if (/^estagnados?-/i.test(tag) || /\d+stagnant$/i.test(tag)) { standardized.add(tag.includes("15") ? "A_ESTAGNADO_15D" : "A_ESTAGNADO_7D"); continue; }
+    if (/^produto-\d+$/i.test(tag)) { standardized.add("EC_PROD_INSUMO"); continue; }
+    if (/^compra-realizada-\d+$/i.test(tag)) { standardized.add("EC_PAGAMENTO_APROVADO"); continue; }
+    if (/^cancelado-?\d+$/i.test(tag) || /^canceladoboleto\d+$/i.test(tag)) { standardized.add("EC_PEDIDO_CANCELADO"); continue; }
+    if (/^aguardando-pagamento-\d+$/i.test(tag)) { standardized.add("EC_INICIOU_CHECKOUT"); continue; }
+    if (/^lead-/i.test(tag) || /-enviado$/i.test(tag) || /^webhook-/i.test(tag)) continue;
+    if (/^(J0|EC_|Q_|C_|CS_|LIA_|A_)/.test(tag)) { standardized.add(tag); continue; }
+    standardized.add(tag);
+  }
+  return { tags: [...standardized].sort(), fields };
+}
+
+/* ─── PARSER: sellflux (Export CSV from SellFlux) ─── */
+function parseSellFlux(rows: RawRow[]): NormalizedLead[] {
+  return rows.map((r) => {
+    const rawTagsStr = String(r["Tags"] || r["tags"] || "");
+    const rawTags = rawTagsStr.split(",").map((t) => t.trim()).filter(Boolean);
+    const { tags: migratedTags, fields: extractedFields } = migrateSellFluxTags(rawTags);
+    const hasLojaTag = rawTags.some((t) => t.toLowerCase().includes("loja") || t.toLowerCase().includes("integrada"));
+    const boughtResin = cleanStr(r["bought-resin"] || r["Bought Resin"]);
+    let leadStatus = "novo";
+    if (migratedTags.includes("EC_PAGAMENTO_APROVADO") || migratedTags.includes("J04_COMPRA")) leadStatus = "contato_feito";
+    else if (migratedTags.includes("J05_RETENCAO")) leadStatus = "contato_feito";
+    else if (migratedTags.some((t) => t.startsWith("A_ESTAGNADO"))) leadStatus = "est_etapa1";
+    return {
+      nome: cleanStr(r["Name"] || r["name"] || r["Nome"]) || "Sem Nome",
+      email: cleanEmail(r["Email"] || r["email"]),
+      telefone_raw: cleanPhone(r["Phone"] || r["phone"] || r["Telefone"]),
+      source: hasLojaTag ? "loja_integrada" : "sellflux",
+      lead_status: leadStatus,
+      tags_crm: migratedTags.length > 0 ? migratedTags : null,
+      resina_interesse: boughtResin || null,
+      piperun_id: cleanStr(r["atual-id-pipe"] || r["Atual Id Pipe"]) || null,
+      proprietario_lead_crm: cleanStr(r["proprietario"] || r["Proprietario"]) || null,
+      area_atuacao: extractedFields.area_atuacao || null,
+      tem_impressora: extractedFields.tem_impressora || null,
+      tem_scanner: extractedFields.tem_scanner || null,
+      ativo_insumos: migratedTags.includes("EC_PAGAMENTO_APROVADO") || migratedTags.includes("EC_PROD_RESINA"),
+    };
+  });
+}
+
 /* ─── Export map ─── */
 export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = {
   master: parseMaster,
@@ -385,12 +465,14 @@ export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = 
   omie_vendas: parseOmieVendas,
   piperun_estagnados: parsePiperunEstagnados,
   piperun_full: parsePiperunFull,
+  sellflux: parseSellFlux,
 };
 
 export const PARSER_OPTIONS = [
   { key: "piperun_full", label: "PipeRun Export Completo", override: false },
   { key: "master", label: "Master Leads (PipeRun)", override: false },
   { key: "piperun_estagnados", label: "PipeRun Funil Estagnados", override: false },
+  { key: "sellflux", label: "SellFlux Export (CSV)", override: false },
   { key: "manychat", label: "ManyChat", override: false },
   { key: "facebook", label: "Facebook Ads (DH/Edge/IoConnect)", override: false },
   { key: "involveme", label: "InvolveMe (Ebook/Orçamento)", override: false },

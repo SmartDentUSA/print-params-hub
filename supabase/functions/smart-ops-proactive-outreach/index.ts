@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendViaSellFlux, mergeTagsCrm } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,23 +25,27 @@ interface OutreachCandidate {
   proprietario_lead_crm: string | null;
   score: number | null;
   ultima_etapa_comercial: string | null;
+  tags_crm: string[] | null;
+  [key: string]: unknown;
 }
 
 type OutreachType = "acompanhamento" | "reengajamento" | "primeira_duvida" | "recuperacao";
 
 interface OutreachRule {
   type: OutreachType;
+  sellflux_template_id: string; // placeholder — fill with real IDs
+  lia_tag: string;
   filter: (lead: OutreachCandidate, nowMs: number) => boolean;
-  messageBuilder: (lead: OutreachCandidate) => string;
+  messageBuilder: (lead: OutreachCandidate) => string; // WaLeads fallback
 }
 
 const OUTREACH_RULES: OutreachRule[] = [
   {
     type: "acompanhamento",
+    sellflux_template_id: "PROACTIVE_ACOMPANHAMENTO",
+    lia_tag: "LIA_PROATIVO_1",
     filter: (lead, nowMs) => {
-      // Lead com proposta enviada há > 7 dias sem interação
-      const hasProposal = lead.ultima_etapa_comercial === "proposta_enviada" ||
-        lead.lead_status === "proposta_enviada";
+      const hasProposal = lead.ultima_etapa_comercial === "proposta_enviada" || lead.lead_status === "proposta_enviada";
       const daysSinceUpdate = (nowMs - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24);
       return hasProposal && daysSinceUpdate > 7;
     },
@@ -49,8 +54,9 @@ const OUTREACH_RULES: OutreachRule[] = [
   },
   {
     type: "reengajamento",
+    sellflux_template_id: "PROACTIVE_REENGAJAMENTO",
+    lia_tag: "LIA_PROATIVO_1",
     filter: (lead, nowMs) => {
-      // Lead quente que não voltou há > 3 dias
       const isHot = lead.temperatura_lead === "quente" || (lead.score || 0) >= 60;
       const daysSinceUpdate = (nowMs - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24);
       return isHot && daysSinceUpdate > 3 && daysSinceUpdate <= 15;
@@ -60,8 +66,9 @@ const OUTREACH_RULES: OutreachRule[] = [
   },
   {
     type: "primeira_duvida",
+    sellflux_template_id: "PROACTIVE_PRIMEIRA_DUVIDA",
+    lia_tag: "LIA_PROATIVO_1",
     filter: (lead, nowMs) => {
-      // Lead novo que completou qualificação mas não interagiu mais
       const isNew = lead.lead_status === "qualificado" || lead.lead_status === "novo";
       const daysSinceUpdate = (nowMs - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24);
       return isNew && daysSinceUpdate > 2 && daysSinceUpdate <= 10 && (lead.proactive_count || 0) === 0;
@@ -71,8 +78,9 @@ const OUTREACH_RULES: OutreachRule[] = [
   },
   {
     type: "recuperacao",
+    sellflux_template_id: "PROACTIVE_RECUPERACAO",
+    lia_tag: "LIA_PROATIVO_1",
     filter: (lead, nowMs) => {
-      // Lead com status Perdida há < 30 dias (1x só)
       const isLost = lead.lead_status === "perdida" || lead.lead_status === "perdido";
       const daysSinceUpdate = (nowMs - new Date(lead.updated_at).getTime()) / (1000 * 60 * 60 * 24);
       return isLost && daysSinceUpdate <= 30 && (lead.proactive_count || 0) === 0;
@@ -90,6 +98,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json().catch(() => ({}));
@@ -99,12 +108,9 @@ Deno.serve(async (req) => {
     const nowMs = Date.now();
     const cutoffDate = new Date(nowMs - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch candidate leads (updated in last 30 days, with phone, not sent in last 5 days)
     const { data: candidates, error: fetchErr } = await supabase
       .from("lia_attendances")
-      .select(
-        "id, nome, email, telefone_normalized, lead_status, temperatura_lead, produto_interesse, impressora_modelo, area_atuacao, resumo_historico_ia, proactive_sent_at, proactive_count, updated_at, proprietario_lead_crm, score, ultima_etapa_comercial"
-      )
+      .select("id, nome, email, telefone_normalized, lead_status, temperatura_lead, produto_interesse, impressora_modelo, area_atuacao, resumo_historico_ia, proactive_sent_at, proactive_count, updated_at, proprietario_lead_crm, score, ultima_etapa_comercial, tags_crm, piperun_id, especialidade, cidade, uf, tem_scanner, resina_interesse, software_cad, volume_mensal_pecas, principal_aplicacao, valor_oportunidade")
       .not("telefone_normalized", "is", null)
       .gte("updated_at", cutoffDate)
       .neq("lead_status", "estagnado_final")
@@ -115,8 +121,7 @@ Deno.serve(async (req) => {
     if (fetchErr) {
       console.error("[proactive-outreach] Fetch error:", fetchErr);
       return new Response(JSON.stringify({ error: fetchErr.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -125,34 +130,70 @@ Deno.serve(async (req) => {
     let sent = 0;
     let skipped = 0;
     let errors = 0;
-    const results: Array<{ lead: string; type: string; status: string }> = [];
+    const results: Array<{ lead: string; type: string; status: string; provider?: string }> = [];
 
     for (const lead of (candidates || []) as OutreachCandidate[]) {
       if (sent >= maxMessages) break;
 
-      // Anti-spam: skip if proactive sent in last 5 days
       if (lead.proactive_sent_at) {
         const lastSentMs = new Date(lead.proactive_sent_at).getTime();
-        if (nowMs - lastSentMs < FIVE_DAYS_MS) {
-          skipped++;
-          continue;
-        }
+        if (nowMs - lastSentMs < FIVE_DAYS_MS) { skipped++; continue; }
       }
 
-      // Find first matching rule
       let matchedRule: OutreachRule | null = null;
       for (const rule of OUTREACH_RULES) {
-        if (rule.filter(lead, nowMs)) {
-          matchedRule = rule;
-          break;
-        }
+        if (rule.filter(lead, nowMs)) { matchedRule = rule; break; }
       }
-
       if (!matchedRule) continue;
 
+      // Determine LIA proactive tag level
+      const count = lead.proactive_count || 0;
+      const liaTag = count === 0 ? "LIA_PROATIVO_1" : count === 1 ? "LIA_PROATIVO_2" : "LIA_PROATIVO_3";
+      if (count >= 3) { skipped++; continue; } // Max 3 proactives
+
+      if (dryRun) {
+        results.push({ lead: lead.nome, type: matchedRule.type, status: "dry_run" });
+        sent++;
+        continue;
+      }
+
+      // ─── SellFlux path (preferred) ───
+      if (SELLFLUX_API_TOKEN) {
+        try {
+          const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, lead as Record<string, unknown>, matchedRule.sellflux_template_id);
+
+          if (result.success) {
+            sent++;
+            const newTags = mergeTagsCrm(lead.tags_crm, [liaTag]);
+            await supabase.from("lia_attendances").update({
+              proactive_sent_at: new Date().toISOString(),
+              proactive_count: count + 1,
+              tags_crm: newTags,
+            }).eq("id", lead.id);
+            results.push({ lead: lead.nome, type: matchedRule.type, status: "sent", provider: "sellflux" });
+          } else {
+            errors++;
+            results.push({ lead: lead.nome, type: matchedRule.type, status: "error", provider: "sellflux" });
+          }
+
+          await supabase.from("message_logs").insert({
+            lead_id: lead.id,
+            tipo: `proactive_${matchedRule.type}`,
+            mensagem_preview: `[SellFlux] ${matchedRule.sellflux_template_id}`.slice(0, 200),
+            status: result.success ? "enviado" : "erro",
+            error_details: result.success ? null : result.response,
+          });
+        } catch (sendErr) {
+          errors++;
+          console.error(`[proactive-outreach] SellFlux error for ${lead.nome}:`, sendErr);
+          results.push({ lead: lead.nome, type: matchedRule.type, status: "exception", provider: "sellflux" });
+        }
+        continue;
+      }
+
+      // ─── WaLeads fallback ───
       const message = matchedRule.messageBuilder(lead);
 
-      // Find the lead owner's team member for WaLeads sending
       let teamMemberId: string | null = null;
       if (lead.proprietario_lead_crm) {
         const { data: member } = await supabase
@@ -161,12 +202,9 @@ Deno.serve(async (req) => {
           .eq("nome_completo", lead.proprietario_lead_crm)
           .eq("ativo", true)
           .single();
-        if (member?.waleads_api_key) {
-          teamMemberId = member.id;
-        }
+        if (member?.waleads_api_key) teamMemberId = member.id;
       }
 
-      // Fallback: find any active team member with waleads key
       if (!teamMemberId) {
         const { data: fallback } = await supabase
           .from("team_members")
@@ -178,25 +216,14 @@ Deno.serve(async (req) => {
         if (fallback) teamMemberId = fallback.id;
       }
 
-      if (!teamMemberId) {
-        console.warn(`[proactive-outreach] No team member with WaLeads key found for ${lead.nome}`);
-        skipped++;
-        continue;
-      }
+      if (!teamMemberId) { skipped++; continue; }
 
-      if (dryRun) {
-        results.push({ lead: lead.nome, type: matchedRule.type, status: "dry_run" });
-        sent++;
-        continue;
-      }
-
-      // Send via smart-ops-send-waleads
       try {
         const sendRes = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+            Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({
             team_member_id: teamMemberId,
@@ -212,22 +239,18 @@ Deno.serve(async (req) => {
 
         if (success) {
           sent++;
-          // Update proactive control fields
-          await supabase
-            .from("lia_attendances")
-            .update({
-              proactive_sent_at: new Date().toISOString(),
-              proactive_count: (lead.proactive_count || 0) + 1,
-            })
-            .eq("id", lead.id);
-
-          results.push({ lead: lead.nome, type: matchedRule.type, status: "sent" });
+          const newTags = mergeTagsCrm(lead.tags_crm, [liaTag]);
+          await supabase.from("lia_attendances").update({
+            proactive_sent_at: new Date().toISOString(),
+            proactive_count: count + 1,
+            tags_crm: newTags,
+          }).eq("id", lead.id);
+          results.push({ lead: lead.nome, type: matchedRule.type, status: "sent", provider: "waleads" });
         } else {
           errors++;
-          results.push({ lead: lead.nome, type: matchedRule.type, status: "error" });
+          results.push({ lead: lead.nome, type: matchedRule.type, status: "error", provider: "waleads" });
         }
 
-        // Log outreach
         await supabase.from("message_logs").insert({
           lead_id: lead.id,
           team_member_id: teamMemberId,
@@ -239,30 +262,19 @@ Deno.serve(async (req) => {
       } catch (sendErr) {
         errors++;
         console.error(`[proactive-outreach] Send error for ${lead.nome}:`, sendErr);
-        results.push({ lead: lead.nome, type: matchedRule.type, status: "exception" });
+        results.push({ lead: lead.nome, type: matchedRule.type, status: "exception", provider: "waleads" });
       }
     }
 
-    const summary = {
-      success: true,
-      dry_run: dryRun,
-      total_candidates: candidates?.length || 0,
-      sent,
-      skipped,
-      errors,
-      results,
-    };
-
+    const summary = { success: true, dry_run: dryRun, total_candidates: candidates?.length || 0, sent, skipped, errors, results };
     console.log("[proactive-outreach] Summary:", JSON.stringify(summary));
     return new Response(JSON.stringify(summary), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[proactive-outreach] Error:", err);
     return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

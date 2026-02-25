@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { computeTagsFromStage, mergeTagsCrm, sendViaSellFlux, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,7 +45,6 @@ function isInStagnantFunnel(leadStatus: string): boolean {
 }
 
 function extractCustomField(deal: Record<string, unknown>, fieldName: string): string | null {
-  // PipeRun stores custom fields on Person (camelCase: customFields), not on deal
   const person = deal.person as Record<string, unknown> | undefined;
   const customs = (
     person?.customFields || deal.customFields || deal.custom_fields || []
@@ -71,6 +71,7 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const MANYCHAT_API_KEY = Deno.env.get("MANYCHAT_API_KEY");
+    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const payload = await req.json();
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
     // Fetch current lead
     const { data: currentLead } = await supabase
       .from("lia_attendances")
-      .select("id, nome, telefone_normalized, produto_interesse, lead_status")
+      .select("id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm")
       .eq("piperun_id", dealId)
       .single();
 
@@ -110,21 +111,21 @@ Deno.serve(async (req) => {
     let leadTelefone: string | null;
     let leadProduto: string | null;
     let leadStatus: string;
+    let currentTagsCrm: string[] | null;
 
     if (!currentLead) {
-      // AUTO-CREATE: Extrair dados do deal para criar lead novo
+      // AUTO-CREATE
       const personName = person?.name ? String(person.name) : (deal.title ? String(deal.title).split(" - ")[0] : "Lead PipeRun");
       const personEmail = (person?.email ? String(person.email) : null) as string | null;
       const personPhone = person?.phone ? String(person.phone) : (person?.mobile ? String(person.mobile) : null);
 
       if (!personEmail) {
-        console.warn("[piperun-webhook] Deal sem email, não é possível criar lead:", dealId);
-        return new Response(JSON.stringify({ error: "Deal sem email - impossível criar lead" }), {
+        console.warn("[piperun-webhook] Deal sem email:", dealId);
+        return new Response(JSON.stringify({ error: "Deal sem email" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Normalizar telefone
       let phoneNormalized: string | null = null;
       if (personPhone) {
         let digits = personPhone.replace(/\D/g, "");
@@ -133,8 +134,8 @@ Deno.serve(async (req) => {
         if (digits.length >= 12 && digits.length <= 13) phoneNormalized = "+" + digits;
       }
 
-      const produtoInteresseNew = extractCustomField(deal, "produto de interesse");
-      const areaAtuacao = person?.job_title ? String(person.job_title) : null;
+      const mappedStatus = stageName ? mapStageToStatus(stageName) : "novo";
+      const { tags: initialTags } = computeTagsFromStage(mappedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
 
       const newLeadData: Record<string, unknown> = {
         nome: personName,
@@ -144,24 +145,24 @@ Deno.serve(async (req) => {
         piperun_id: dealId,
         piperun_link: `https://app.pipe.run/pipeline/gerenciador/visualizar/${dealId}`,
         source: "piperun_webhook",
-        lead_status: stageName ? mapStageToStatus(stageName) : "novo",
-        produto_interesse: produtoInteresseNew || null,
-        area_atuacao: areaAtuacao,
+        lead_status: mappedStatus,
+        produto_interesse: extractCustomField(deal, "produto de interesse") || null,
+        area_atuacao: person?.job_title ? String(person.job_title) : null,
         proprietario_lead_crm: ownerName || null,
         status_atual_lead_crm: stageName || null,
         funil_entrada_crm: pipeline?.name ? String(pipeline.name) : null,
-        cidade: (person?.city as Record<string, unknown>)?.name ? String((person?.city as Record<string, unknown>).name) : null,
-        uf: (person?.state as Record<string, unknown>)?.abbr ? String((person?.state as Record<string, unknown>).abbr) : ((person?.state as Record<string, unknown>)?.name ? String((person?.state as Record<string, unknown>).name) : null),
+        cidade: city?.name ? String(city.name) : null,
+        uf: state?.abbr ? String(state.abbr) : (state?.name ? String(state.name) : null),
+        tags_crm: initialTags,
       };
 
       if (deal.status) newLeadData.status_oportunidade = STATUS_MAP[String(deal.status)] || String(deal.status);
       if (deal.value != null) newLeadData.valor_oportunidade = Number(deal.value) || null;
-      if (tags && Array.isArray(tags)) newLeadData.tags_crm = tags.map((t) => t.name).filter(Boolean);
 
       const { data: newLead, error: insertError } = await supabase
         .from("lia_attendances")
         .upsert(newLeadData, { onConflict: "email" })
-        .select("id, nome, telefone_normalized, produto_interesse, lead_status")
+        .select("id, nome, telefone_normalized, produto_interesse, lead_status, tags_crm")
         .single();
 
       if (insertError || !newLead) {
@@ -171,41 +172,37 @@ Deno.serve(async (req) => {
         });
       }
 
-      console.log("[piperun-webhook] Lead CRIADO automaticamente:", newLead.id, "| deal:", dealId);
+      console.log("[piperun-webhook] Lead CRIADO:", newLead.id, "| deal:", dealId);
       leadId = newLead.id;
       leadNome = newLead.nome;
       leadTelefone = newLead.telefone_normalized;
       leadProduto = newLead.produto_interesse;
       leadStatus = newLead.lead_status;
+      currentTagsCrm = newLead.tags_crm;
     } else {
       leadId = currentLead.id;
       leadNome = currentLead.nome;
       leadTelefone = currentLead.telefone_normalized;
       leadProduto = currentLead.produto_interesse;
       leadStatus = currentLead.lead_status;
+      currentTagsCrm = currentLead.tags_crm;
     }
 
-    // Build expanded update payload
+    // Build update payload
     const updateData: Record<string, unknown> = {};
     if (ownerName) updateData.proprietario_lead_crm = ownerName;
     if (stageName) updateData.status_atual_lead_crm = stageName;
     if (pipeline?.name) updateData.funil_entrada_crm = String(pipeline.name);
-
-    // New CRM fields
     if (deal.status) updateData.status_oportunidade = STATUS_MAP[String(deal.status)] || String(deal.status);
     if (deal.value != null) updateData.valor_oportunidade = Number(deal.value) || null;
-    if (tags && Array.isArray(tags)) updateData.tags_crm = tags.map((t) => t.name).filter(Boolean);
     if (deal.temperature) updateData.temperatura_lead = String(deal.temperature);
     if (lossReason?.name) updateData.motivo_perda = String(lossReason.name);
     if (lossReason?.comment) updateData.comentario_perda = String(lossReason.comment);
     if (deal.lead_timing != null) updateData.lead_timing_dias = Number(deal.lead_timing) || null;
     if (deal.closed_at) updateData.data_fechamento_crm = String(deal.closed_at);
-
-    // Person fields
     if (city?.name) updateData.cidade = String(city.name);
     if (state?.abbr || state?.name) updateData.uf = String(state?.abbr || state?.name);
 
-    // Custom fields (now correctly searching person.customFields)
     const produtoInteresse = extractCustomField(deal, "produto de interesse");
     if (produtoInteresse) updateData.produto_interesse = produtoInteresse;
     const temScanner = extractCustomField(deal, "tem scanner");
@@ -214,23 +211,67 @@ Deno.serve(async (req) => {
     if (itensProposta) updateData.itens_proposta_crm = itensProposta;
     const idCliente = extractCustomField(deal, "banco de dados") || extractCustomField(deal, "id banco");
     if (idCliente) updateData.id_cliente_smart = idCliente;
-
-    // job_title on person = area de atuação
     if (person?.job_title) updateData.area_atuacao = String(person.job_title);
 
     updateData.piperun_link = `https://app.pipe.run/pipeline/gerenciador/visualizar/${dealId}`;
 
-    // Stagnation funnel logic
+    // ─── Journey TAG logic ───
+    let journeyTagsAdded: string[] = [];
+    let newStatus: string | null = null;
+
     if (stageName) {
       if (isStagnant(stageName) && !isInStagnantFunnel(leadStatus) && leadStatus !== "estagnado_final") {
         updateData.ultima_etapa_comercial = leadStatus;
         updateData.lead_status = "est1_0";
+        newStatus = "est1_0";
         updateData.updated_at = new Date().toISOString();
-        console.log("[piperun-webhook] Iniciando funil estagnação para lead:", leadId, "| Etapa anterior:", leadStatus);
+        console.log("[piperun-webhook] Iniciando funil estagnação:", leadId);
       } else if (!isStagnant(stageName) && (isInStagnantFunnel(leadStatus) || leadStatus === "estagnado_final")) {
-        updateData.lead_status = mapStageToStatus(stageName);
+        const mapped = mapStageToStatus(stageName);
+        updateData.lead_status = mapped;
+        newStatus = mapped;
         updateData.updated_at = new Date().toISOString();
-        console.log("[piperun-webhook] Resgatando lead do funil estagnação:", leadId, "→", updateData.lead_status);
+        // Recovered from stagnation — add C_RECUPERADO, remove stagnation tags
+        const { tags: recoveredTags } = computeTagsFromStage(mapped, currentTagsCrm);
+        const finalTags = mergeTagsCrm(recoveredTags, ["C_RECUPERADO"], ALL_STAGNATION_TAGS);
+        updateData.tags_crm = finalTags;
+        journeyTagsAdded = ["C_RECUPERADO"];
+        console.log("[piperun-webhook] Resgatando lead:", leadId, "→", mapped, "+C_RECUPERADO");
+      } else {
+        // Normal stage change — compute journey tags
+        const mapped = mapStageToStatus(stageName);
+        if (mapped !== leadStatus) {
+          updateData.lead_status = mapped;
+          newStatus = mapped;
+        }
+        const { tags: updatedTags, add } = computeTagsFromStage(mapped, currentTagsCrm);
+        updateData.tags_crm = updatedTags;
+        journeyTagsAdded = add;
+      }
+    }
+
+    // Deal won/lost special tags
+    if (deal.status === "won") {
+      const wonTags = mergeTagsCrm(
+        (updateData.tags_crm as string[]) || currentTagsCrm,
+        [JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO"],
+        [JOURNEY_TAGS.J03_NEGOCIACAO]
+      );
+      updateData.tags_crm = wonTags;
+    } else if (deal.status === "lost") {
+      const lostTags = mergeTagsCrm(
+        (updateData.tags_crm as string[]) || currentTagsCrm,
+        ["C_PERDIDO"]
+      );
+      updateData.tags_crm = lostTags;
+    }
+
+    // PipeRun tags merge (keep both PipeRun tags and our standardized tags)
+    if (tags && Array.isArray(tags)) {
+      const piperunTags = tags.map((t) => t.name).filter(Boolean) as string[];
+      if (piperunTags.length > 0) {
+        const base = (updateData.tags_crm as string[]) || currentTagsCrm || [];
+        updateData.tags_crm = mergeTagsCrm(base, piperunTags);
       }
     }
 
@@ -247,7 +288,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Find team member by owner email
+    // Find team member
     let teamMember = null;
     if (ownerEmail) {
       const { data } = await supabase
@@ -259,17 +300,31 @@ Deno.serve(async (req) => {
       teamMember = data;
     }
 
-    // Send ManyChat message if we have the subscriber phone
+    // ─── SellFlux welcome (preferred) ───
     let messageStatus = "skipped";
     let errorDetails: string | null = null;
 
-    if (MANYCHAT_API_KEY && leadTelefone) {
+    if (SELLFLUX_API_TOKEN && leadTelefone && !currentLead) {
+      // New lead — send welcome via SellFlux
+      const { data: fullLead } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("id", leadId)
+        .single();
+
+      if (fullLead) {
+        const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, fullLead as Record<string, unknown>, "BOAS_VINDAS_NOVO_LEAD");
+        messageStatus = result.success ? "enviado" : "erro";
+        if (!result.success) errorDetails = result.response;
+      }
+    } else if (MANYCHAT_API_KEY && leadTelefone) {
+      // ─── ManyChat fallback ───
       try {
         const mcRes = await fetch("https://api.manychat.com/fb/sending/sendFlow", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${MANYCHAT_API_KEY}`,
+            Authorization: `Bearer ${MANYCHAT_API_KEY}`,
           },
           body: JSON.stringify({
             subscriber_id: leadTelefone,
@@ -279,11 +334,9 @@ Deno.serve(async (req) => {
         const mcData = await mcRes.json();
         messageStatus = mcRes.ok ? "enviado" : "erro";
         if (!mcRes.ok) errorDetails = JSON.stringify(mcData).slice(0, 500);
-        console.log("[piperun-webhook] ManyChat response:", messageStatus);
       } catch (mcErr) {
         messageStatus = "erro";
         errorDetails = String(mcErr);
-        console.error("[piperun-webhook] ManyChat error:", mcErr);
       }
     }
 
@@ -293,7 +346,7 @@ Deno.serve(async (req) => {
       team_member_id: teamMember?.id || null,
       whatsapp_number: teamMember?.whatsapp_number || null,
       tipo: "boas_vindas",
-      mensagem_preview: `Atribuição de ${ownerName || "vendedor"} para ${leadNome}`,
+      mensagem_preview: `Atribuição de ${ownerName || "vendedor"} para ${leadNome}${journeyTagsAdded.length ? ` +TAGs: ${journeyTagsAdded.join(",")}` : ""}`,
       status: messageStatus,
       error_details: errorDetails,
     });
@@ -302,7 +355,8 @@ Deno.serve(async (req) => {
       success: true,
       lead_id: leadId,
       message_status: messageStatus,
-      stagnant_funnel: updateData.lead_status?.toString().startsWith("est") ? updateData.lead_status : null,
+      tags_added: journeyTagsAdded,
+      stagnant_funnel: newStatus?.startsWith("est") ? newStatus : null,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

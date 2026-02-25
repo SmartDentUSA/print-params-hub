@@ -1,11 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendViaSellFlux, mergeTagsCrm, computeStagnationTag } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Progression chain: est_etapa1 → ... → est_apresentacao → est_proposta → estagnado_final
 const PROGRESSION: Record<string, string> = {
   est_etapa1: "est_etapa2",
   est_etapa2: "est_etapa3",
@@ -26,13 +26,13 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const MANYCHAT_API_KEY = Deno.env.get("MANYCHAT_API_KEY");
+    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-    // Fetch all leads in stagnant funnel (exclude estagnado_final)
     const { data: leads, error: fetchError } = await supabase
       .from("lia_attendances")
-      .select("id, nome, telefone_normalized, lead_status, updated_at, produto_interesse")
+      .select("id, nome, email, telefone_normalized, lead_status, updated_at, produto_interesse, tags_crm, piperun_id, proprietario_lead_crm, area_atuacao, especialidade, cidade, uf, impressora_modelo, tem_scanner, resina_interesse, score, temperatura_lead, ultima_etapa_comercial, software_cad, volume_mensal_pecas, principal_aplicacao, valor_oportunidade, resumo_historico_ia")
       .like("lead_status", "est%")
       .neq("lead_status", "estagnado_final")
       .order("updated_at", { ascending: true })
@@ -50,19 +50,19 @@ Deno.serve(async (req) => {
     let messagesSent = 0;
     let messagesError = 0;
 
-    // Fetch all automation rules for stagnant stages
     const { data: rules } = await supabase
       .from("cs_automation_rules")
-      .select("trigger_event, template_manychat, produto_interesse")
+      .select("trigger_event, template_manychat, mensagem_waleads, produto_interesse")
       .eq("ativo", true)
       .like("trigger_event", "est%");
 
-    const rulesMap = new Map<string, { template: string; produto?: string }>();
+    const rulesMap = new Map<string, { template: string; sellflux_template?: string; produto?: string }>();
     if (rules) {
       for (const r of rules) {
-        if (r.trigger_event && r.template_manychat) {
+        if (r.trigger_event && (r.template_manychat || r.mensagem_waleads)) {
           rulesMap.set(r.trigger_event, {
-            template: r.template_manychat,
+            template: r.template_manychat || "",
+            sellflux_template: r.mensagem_waleads || undefined,
             produto: r.produto_interesse || undefined,
           });
         }
@@ -72,17 +72,24 @@ Deno.serve(async (req) => {
     for (const lead of leads || []) {
       const updatedAt = new Date(lead.updated_at).getTime();
       const elapsed = now - updatedAt;
-
       if (elapsed < FIVE_DAYS_MS) continue;
 
       const currentStatus = lead.lead_status;
       const nextStatus = PROGRESSION[currentStatus];
       if (!nextStatus) continue;
 
-      // Advance lead
+      // Compute stagnation tag for new stage
+      const stagnationTag = computeStagnationTag(nextStatus);
+      const tagsToAdd = stagnationTag ? [stagnationTag] : [];
+      const newTags = mergeTagsCrm(lead.tags_crm, tagsToAdd);
+
       const { error: updateError } = await supabase
         .from("lia_attendances")
-        .update({ lead_status: nextStatus, updated_at: new Date().toISOString() })
+        .update({
+          lead_status: nextStatus,
+          updated_at: new Date().toISOString(),
+          tags_crm: newTags,
+        })
         .eq("id", lead.id);
 
       if (updateError) {
@@ -91,11 +98,35 @@ Deno.serve(async (req) => {
       }
 
       advanced++;
-      console.log(`[stagnant-processor] ${lead.nome}: ${currentStatus} → ${nextStatus}`);
+      console.log(`[stagnant-processor] ${lead.nome}: ${currentStatus} → ${nextStatus}${stagnationTag ? ` +TAG:${stagnationTag}` : ""}`);
 
-      // Check if there's a ManyChat rule for the NEW stage
+      // Check automation rule for new stage
       const rule = rulesMap.get(nextStatus);
-      if (rule && MANYCHAT_API_KEY && lead.telefone_normalized) {
+      if (!rule || !lead.telefone_normalized) continue;
+
+      // ─── SellFlux path (preferred) ───
+      if (SELLFLUX_API_TOKEN && rule.sellflux_template) {
+        const result = await sendViaSellFlux(
+          SELLFLUX_API_TOKEN,
+          lead as Record<string, unknown>,
+          rule.sellflux_template
+        );
+
+        await supabase.from("message_logs").insert({
+          lead_id: lead.id,
+          tipo: `estagnacao_${nextStatus}`,
+          mensagem_preview: `[SellFlux] Estagnação: ${lead.nome} → ${nextStatus} (template: ${rule.sellflux_template})`.slice(0, 200),
+          status: result.success ? "enviado" : "erro",
+          error_details: result.success ? null : result.response,
+        });
+
+        if (result.success) messagesSent++;
+        else messagesError++;
+        continue;
+      }
+
+      // ─── ManyChat fallback ───
+      if (MANYCHAT_API_KEY && rule.template) {
         let msgStatus = "skipped";
         let errorDetails: string | null = null;
 
@@ -104,7 +135,7 @@ Deno.serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Authorization": `Bearer ${MANYCHAT_API_KEY}`,
+              Authorization: `Bearer ${MANYCHAT_API_KEY}`,
             },
             body: JSON.stringify({
               subscriber_id: lead.telefone_normalized,
@@ -122,7 +153,6 @@ Deno.serve(async (req) => {
           messagesError++;
         }
 
-        // Log message
         await supabase.from("message_logs").insert({
           lead_id: lead.id,
           tipo: `estagnacao_${nextStatus}`,
