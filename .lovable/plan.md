@@ -1,49 +1,77 @@
 
 
-## Problema: LIA afirma que resina concorrente e "parceira"
+## Plano: Acumular Historico de Resumos + Contador de Interacoes
 
-### Diagnostico
+### Problema Atual
 
-A LIA disse **"A VoxelPrint e uma de nossas resinas parceiras"** — isso e uma alucinacao grave. A VoxelPrint nao existe no banco de dados (todas as resinas ativas sao `manufacturer = 'Smart Dent'`). A LIA inventou que era parceira porque:
+O `summarize_session` sobrescreve `resumo_historico_ia` a cada sessao. Se o lead teve 10 sessoes, so o ultimo resumo sobrevive. Perde-se todo o historico de evolucao do lead (quando pesquisou, quando comparou, quando pediu proposta).
 
-1. **Lista de concorrentes incompleta** (linha 1207): so tem `["formlabs", "nextdent", "keystone", "bego", "detax", "gc", "dentsply"]` — faltam dezenas de marcas como VoxelPrint, SprintRay, Anycubic resins, etc.
-2. **Nenhuma regra no system prompt** que diga: "Se o usuario mencionar uma resina que NAO esta nos dados das fontes, NAO afirme que e parceira/nossa. Diga que nao temos dados sobre ela."
-3. A LIA assume que qualquer resina mencionada e do portfolio SmartDent se nao esta na lista de concorrentes.
+Alem disso, nao ha campo de contagem de interacoes/sessoes — informacao basica para scoring e priorizacao comercial.
 
-### Correcao — 2 entregas
+### Solucao — 3 entregas
 
-#### 1. Expandir lista de concorrentes e adicionar regra de "resina desconhecida"
+#### 1. Migracao: novos campos em `lia_attendances`
 
-**Arquivo**: `supabase/functions/dra-lia/index.ts`
-
-**Linha 1207** — Expandir a lista `concorrentes` para incluir marcas conhecidas do mercado:
-```
-const concorrentes = [
-  "formlabs", "nextdent", "keystone", "bego", "detax", "gc", "dentsply",
-  "voxelprint", "voxel print", "sprintray", "dentca", "asiga", "ackuretta",
-  "graphy", "desktop health", "liqcreate", "shining3d", "uniz", "stratasys",
-  "envisiontec", "saremco", "kulzer"
-];
+```sql
+ALTER TABLE lia_attendances
+  ADD COLUMN IF NOT EXISTS total_sessions integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS total_messages integer DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS historico_resumos jsonb DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS ultima_sessao_at timestamptz;
 ```
 
-#### 2. Adicionar regra anti-alucinacao no system prompt
+- `total_sessions`: incrementado a cada `summarize_session`
+- `total_messages`: total acumulado de mensagens do lead
+- `historico_resumos`: array JSON com os ultimos N resumos, formato:
+  ```json
+  [
+    { "data": "2026-02-25", "resumo": "ASSUNTOS: SmartGum cores | PENDENCIAS: nenhuma | INTERESSE: 2", "msgs": 8 },
+    { "data": "2026-02-24", "resumo": "ASSUNTOS: ioConnect TruAbutment, Rayshape | PENDENCIAS: comparativo | INTERESSE: 2", "msgs": 5 }
+  ]
+  ```
+- `ultima_sessao_at`: timestamp da ultima sessao (util para filtros de inatividade)
 
-**Arquivo**: `supabase/functions/dra-lia/index.ts` (system prompt, apos a regra 23)
+#### 2. Modificar `summarize_session` em `dra-lia/index.ts`
 
-Adicionar regra **25**:
+Antes de gerar o resumo:
+
+1. Buscar o registro atual de `lia_attendances` (`resumo_historico_ia`, `historico_resumos`, `total_sessions`, `total_messages`)
+2. Incluir o `resumo_historico_ia` anterior no prompt da IA para que o novo resumo faça merge inteligente
+3. Apos gerar o resumo, fazer o upsert com:
+   - `resumo_historico_ia` = novo resumo (merged)
+   - `total_sessions` = anterior + 1
+   - `total_messages` = anterior + count de interacoes desta sessao
+   - `historico_resumos` = prepend do novo resumo no array (manter max 20 entradas, dropar as mais antigas)
+   - `ultima_sessao_at` = now()
+4. Aumentar `max_tokens` para 150 para acomodar o merge
+
+Prompt atualizado:
+```text
+System: "Resuma esta conversa para continuidade. Se houver RESUMO ANTERIOR, incorpore temas relevantes que nao foram rediscutidos. Formato: 'ASSUNTOS: [...] | PENDENCIAS: [...] | INTERESSE: [1-3]'. Max 200 chars."
+User: "RESUMO ANTERIOR: {resumo_existente ou 'Nenhum'}\n\nCONVERSA ATUAL:\n{convoText}"
 ```
-25. RESINAS/PRODUTOS DESCONHECIDOS:
-    Se o usuario mencionar uma resina, produto ou marca que NAO aparece nos DADOS DAS FONTES,
-    NUNCA afirme que e "parceira", "do nosso portfolio" ou "nossa resina".
-    Responda: "Nao temos dados da [nome] no nosso sistema. 
-    Posso te ajudar com as resinas do portfolio SmartDent — temos opcoes para [aplicacao mencionada]. 
-    Quer que eu te mostre?"
-    PROIBIDO inventar que um produto externo faz parte do portfolio da SmartDent.
+
+#### 3. Resetar flag `dra_lia_summarized` no frontend
+
+No `DraLIA.tsx`, dentro de `handleSend`, adicionar:
+```typescript
+sessionStorage.removeItem('dra_lia_summarized');
 ```
+
+E no `visibilitychange`, so disparar se houver pelo menos 2 mensagens enviadas na sessao (evita trigger prematuro ao abrir e fechar a aba).
 
 ### Resumo de arquivos
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | `supabase/functions/dra-lia/index.ts` | Expandir lista de concorrentes (linha 1207) + nova regra 25 no system prompt |
+| 1 | Migracao SQL | Adicionar `total_sessions`, `total_messages`, `historico_resumos`, `ultima_sessao_at` em `lia_attendances` |
+| 2 | `supabase/functions/dra-lia/index.ts` | Buscar historico anterior, merge no prompt, acumular contadores e array de resumos, resetar flag |
+| 3 | `src/components/DraLIA.tsx` | Resetar `dra_lia_summarized` a cada mensagem; gate `visibilitychange` por msg count |
+
+### Resultado esperado
+
+- Cada sessao com a LIA incrementa `total_sessions` e `total_messages`
+- O `resumo_historico_ia` sempre contem o contexto acumulado (merged)
+- O `historico_resumos` guarda os ultimos 20 resumos individuais com data e contagem de mensagens — permitindo reconstruir a jornada completa do lead
+- No painel SmartOps, sera possivel ordenar leads por numero de interacoes e ver a evolucao temporal
 
