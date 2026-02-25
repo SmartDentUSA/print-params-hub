@@ -185,3 +185,6 @@ verify_jwt = false
 
 [functions.import-leads-csv]
 verify_jwt = false
+
+[functions.smart-ops-proactive-outreach]
+verify_jwt = false
