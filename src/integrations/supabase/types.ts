@@ -123,7 +123,9 @@ export type Database = {
           lang: string | null
           question: string
           resolution_note: string | null
+          rota: string | null
           status: string | null
+          tema: string | null
           updated_at: string | null
         }
         Insert: {
@@ -133,7 +135,9 @@ export type Database = {
           lang?: string | null
           question: string
           resolution_note?: string | null
+          rota?: string | null
           status?: string | null
+          tema?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -143,7 +147,9 @@ export type Database = {
           lang?: string | null
           question?: string
           resolution_note?: string | null
+          rota?: string | null
           status?: string | null
+          tema?: string | null
           updated_at?: string | null
         }
         Relationships: []

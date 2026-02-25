@@ -12,6 +12,7 @@ import { SmartOpsCSRules } from "./SmartOpsCSRules";
 import { SmartOpsLogs } from "./SmartOpsLogs";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
+import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -62,13 +63,14 @@ export function SmartOpsTab() {
       </div>
 
       <Tabs defaultValue="bowtie" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="leads">Leads</TabsTrigger>
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           <TabsTrigger value="reguas">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
+          <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
         </TabsList>
 
@@ -89,6 +91,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="logs">
           <SmartOpsLogs key={`logs-${refreshKey}`} />
+        </TabsContent>
+        <TabsContent value="conteudo">
+          <SmartOpsContentProduction key={`conteudo-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="relatorios">
           <SmartOpsReports key={`relatorios-${refreshKey}`} />

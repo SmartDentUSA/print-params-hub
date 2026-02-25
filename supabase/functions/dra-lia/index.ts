@@ -1371,13 +1371,24 @@ async function upsertKnowledgeGap(
   supabase: ReturnType<typeof createClient>,
   question: string,
   lang: string,
-  status: "pending" | "low_confidence" = "pending"
+  status: "pending" | "low_confidence" = "pending",
+  rota?: string | null,
+  tema?: string | null,
 ) {
   // Filtro anti-lixo: ignorar mensagens curtas e ruído
   const NOISE_PATTERNS = /^(oi|ola|olá|hey|hi|hola|obrigad|valeu|ok|sim|não|nao|lia|ooe|tchau|bye|gracias|thanks|tudo bem|beleza|show|legal|massa|top)\b/i;
   if (question.trim().length < 10 || NOISE_PATTERNS.test(question.trim())) {
     return; // silently skip noise
   }
+
+  // Auto-extract tema from question if not provided
+  const extractedTema = tema || (() => {
+    const cleaned = question
+      .replace(/^(como|what|how|qual|quais|por que|why|onde|where|quando|when|o que|que)\s+/i, "")
+      .replace(/[?!.]/g, "")
+      .trim();
+    return cleaned.split(/\s+/).slice(0, 5).join(" ");
+  })();
 
   try {
     const truncated = question.slice(0, 500);
@@ -1388,17 +1399,29 @@ async function upsertKnowledgeGap(
       .maybeSingle();
 
     if (existing) {
+      const updatePayload: Record<string, unknown> = {
+        frequency: (existing.frequency ?? 1) + 1,
+        updated_at: new Date().toISOString(),
+      };
+      // Update rota/tema if provided and not set before
+      if (rota) updatePayload.rota = rota;
+      if (extractedTema) updatePayload.tema = extractedTema;
+
       await supabase
         .from("agent_knowledge_gaps")
-        .update({
-          frequency: (existing.frequency ?? 1) + 1,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", existing.id);
     } else {
       await supabase
         .from("agent_knowledge_gaps")
-        .insert({ question: truncated, lang, frequency: 1, status });
+        .insert({
+          question: truncated,
+          lang,
+          frequency: 1,
+          status,
+          rota: rota || null,
+          tema: extractedTema || null,
+        });
     }
   } catch (e) {
     console.error("[upsertKnowledgeGap] error:", e);
@@ -3103,7 +3126,7 @@ serve(async (req) => {
       }
 
       // Track knowledge gap (Bug fix: was using invalid .onConflict?.() syntax)
-      await upsertKnowledgeGap(supabase, message, lang, "pending");
+      await upsertKnowledgeGap(supabase, message, lang, "pending", topic_context);
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -3136,7 +3159,7 @@ serve(async (req) => {
 
     // Track low-confidence results as knowledge gaps (Bug fix: was never captured before)
     if (topSimilarity < 0.35) {
-      await upsertKnowledgeGap(supabase, message, lang, "low_confidence");
+      await upsertKnowledgeGap(supabase, message, lang, "low_confidence", topic_context);
     }
 
     // 5. Build context from all results — structured by semantic sections for commercial route
