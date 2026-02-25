@@ -1,96 +1,176 @@
 
 
-## Plano: Redesenhar Funil Estagnados com Etapas Reais do Piperun
+## Plano: Ajustar Kanban com Etapas Reais do CRM Completo + Importar Leads
 
 ### Diagnostico
 
-A planilha exportada do Piperun contem **~907 leads** no "Funil Estagnados" com **5 etapas reais**:
+A planilha exportada contem **~1590 leads** de **4 funis reais** do Piperun:
 
 ```text
-Etapa 01 - Reativacao  (maioria dos leads, os mais recentes)
-Etapa 02 - Reativacao  (lead-timing ~7-8 dias)
-Etapa 03 - Reativacao  (lead-timing ~1-2 dias)
-Etapa 04 - Reativacao  (lead-timing ~14-15 dias)
-Proposta Enviada - Estag (lead-timing ~16 dias)
+FUNIL DE VENDAS (pipeline principal):
+  Sem contato, Contato Feito, Em Contato, Apresentação/Visita,
+  Proposta Enviada, Negociação, Fechamento
+
+FUNIL ESTAGNADOS (reativacao):
+  Etapa 01 - Reativação, Etapa 02 - Reativação,
+  Etapa 03 - Reativação, Etapa 04 - Reativação,
+  Proposta Enviada - Estag, Apresentação/Visita - Estag  ← NOVO
+
+CS ONBOARDING (pos-venda):
+  Em espera, Sem Data / Agendar treinamento  ← NOVOS
+
+FUNIL E-BOOK:
+  Ebook Message Helper  ← NOVO
 ```
 
-O Kanban atual usa **3 funis x 6 etapas = 18 etapas ficticias** (`est1_0` a `est3_5`) que NAO correspondem ao Piperun real. Alem disso, existem **24 leads demo** com emails `@demo.com` poluindo o banco.
+Status das oportunidades: **Aberta**, **Perdida**, **Ganha**
 
-### Acoes
+### Problemas Atuais
 
-**Frente 1 — Redesenhar Funil Estagnados no Kanban**
+1. O Kanban nao tem a etapa "Apresentacao/Visita - Estag" nos estagnados
+2. Nao existe secao CS Onboarding no Kanban
+3. Nao existe parser para o export COMPLETO do Piperun (todos os funis juntos)
+4. Leads Perdidos/Ganhos nao sao rastreados visualmente
+5. No banco so existem 18 leads com `lead_status: "sem_contato"`
 
-Arquivo: `src/components/SmartOpsKanban.tsx`
+---
 
-Substituir os 3 `STAGNANT_FUNNELS` (18 etapas) por um unico funil com 5 etapas reais:
+### Frente 1 — Novo Parser "piperun_full" para Export Completo
+
+**Arquivo: `src/utils/leadParsers.ts`**
+
+Criar `parsePiperunFull()` que mapeia Funil + Etapa para `lead_status`:
 
 ```text
-ANTES (18 etapas ficticias):
-  est1_0, est1_1, ..., est1_5
-  est2_0, est2_1, ..., est2_5
-  est3_0, est3_1, ..., est3_5
-
-DEPOIS (5 etapas reais do Piperun):
-  est_etapa1  → "Etapa 01 - Reativacao"
-  est_etapa2  → "Etapa 02 - Reativacao"
-  est_etapa3  → "Etapa 03 - Reativacao"
-  est_etapa4  → "Etapa 04 - Reativacao"
-  est_proposta → "Proposta Enviada"
-  estagnado_final (manter)
+MAPEAMENTO:
+  "Funil de vendas" + "Sem contato"              → sem_contato
+  "Funil de vendas" + "Contato Feito"             → contato_feito
+  "Funil de vendas" + "Em Contato"                → em_contato
+  "Funil de vendas" + "Apresentação/Visita"       → apresentacao
+  "Funil de vendas" + "Proposta Enviada"          → proposta_enviada
+  "Funil de vendas" + "Negociação"                → negociacao
+  "Funil de vendas" + "Fechamento"                → fechamento
+  "Funil Estagnados" + "Etapa 01*"                → est_etapa1
+  "Funil Estagnados" + "Etapa 02*"                → est_etapa2
+  "Funil Estagnados" + "Etapa 03*"                → est_etapa3
+  "Funil Estagnados" + "Etapa 04*"                → est_etapa4
+  "Funil Estagnados" + "Proposta Enviada*"        → est_proposta
+  "Funil Estagnados" + "Apresentação/Visita*"     → est_apresentacao
+  "CS Onboarding" + "Em espera"                   → cs_em_espera
+  "CS Onboarding" + "Sem Data*"                   → cs_agendar
+  "Funil E-book" + *                              → ebook
 ```
 
-Mudancas:
-- Remover `STAGNANT_FUNNELS` array e `FUNNEL_COLORS`
-- Criar `STAGNANT_COLUMNS` com as 5 etapas reais
-- Atualizar `STATUS_KEYS` e `ALL_STAGNANT_KEYS`
-- Simplificar o render para um unico bloco horizontal (sem 3 secoes separadas)
+Campos mapeados da planilha:
+- `nome`: extraido de "Titulo" (remove sufixo " - 2026-...")
+- `email`: "E-mail (Pessoa)"
+- `telefone_raw`: "Telefone Principal (Pessoa)" ou "Telefone (Pessoa)"
+- `piperun_id`: "ID"
+- `piperun_link`: "Link"
+- `proprietario_lead_crm`: "Nome do dono da oportunidade"
+- `produto_interesse`: "Produto de interesse"
+- `area_atuacao`: "ÁREA DE ATUAÇÃO" ou "Área de Atuação"
+- `especialidade`: "Especialidade principal" ou "Especialidade"
+- `valor_oportunidade`: "Valor de P&S"
+- `status_oportunidade`: "Status" (Aberta/Perdida/Ganha)
+- `motivo_perda`: "(MP) Motivo de perda"
+- `comentario_perda`: "(MP) Comentário"
+- `temperatura_lead`: "Temperatura"
+- `funil_entrada_crm`: "Funil"
+- `lead_timing_dias`: "Lead-Timing"
+- `cidade`: "Endereço - Cidade (Pessoa)"
+- `uf`: "Endereço - Estado (UF) (Pessoa)"
+- `tags_crm`: "Tags"
+- `itens_proposta_crm`: "Itens da proposta"
 
-**Frente 2 — Atualizar Stagnant Processor Edge Function**
+Adicionar ao PARSER_OPTIONS como "PipeRun Export Completo".
 
-Arquivo: `supabase/functions/smart-ops-stagnant-processor/index.ts`
+---
 
-Atualizar a cadeia de progressao:
+### Frente 2 — Atualizar Kanban com Novas Secoes
+
+**Arquivo: `src/components/SmartOpsKanban.tsx`**
+
+**2a. Adicionar etapa "Apresentacao/Visita - Estag" aos estagnados:**
 
 ```text
-ANTES: est1_0 → est1_1 → ... → est1_5 → est2_0 → ... → est3_5 → estagnado_final
-DEPOIS: est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_proposta → estagnado_final
+STAGNANT_COLUMNS (atualizado):
+  est_etapa1      → "Etapa 01 - Reativação"
+  est_etapa2      → "Etapa 02 - Reativação"
+  est_etapa3      → "Etapa 03 - Reativação"
+  est_etapa4      → "Etapa 04 - Reativação"
+  est_apresentacao → "Apresentação/Visita - Estag"   ← NOVO
+  est_proposta    → "Proposta Enviada - Estag"
 ```
 
-**Frente 3 — Limpar Dados Demo**
+**2b. Adicionar secao CS Onboarding:**
 
-Deletar os 24 leads demo (`@demo.com`) do banco.
+Novo array:
+```text
+CS_COLUMNS:
+  cs_em_espera  → "Em Espera"        (bg-teal-50 border-teal-300)
+  cs_agendar    → "Agendar Treinamento" (bg-cyan-50 border-cyan-300)
+```
 
-**Frente 4 — Importar Leads Reais**
+**2c. Adicionar secao Ebook:**
 
-Inserir os ~907 leads da planilha no `lia_attendances` com:
-- `lead_status` mapeado: "Etapa 01" → `est_etapa1`, "Etapa 02" → `est_etapa2`, etc.
-- `nome`: extraido do campo "Titulo" (nome do lead)
-- `email`: campo "E-mail (Pessoa)"
-- `telefone_normalized`: campo "Telefone (Pessoa)"
-- `produto_interesse`: campo "Produto de interesse"
-- `proprietario_lead_crm`: campo "Nome do dono da oportunidade"
-- `area_atuacao`: campo "Area de Atuacao"
-- `piperun_id`: campo "ID"
-- `piperun_link`: campo "Link"
-- `lead_timing_dias`: campo "Lead-Timing"
-- `funil_entrada_crm`: "Funil Estagnados"
-- `source`: "piperun"
+Coluna simples para leads vindos do funil de e-book.
 
-A importacao sera feita via edge function `import-leads-csv` em batches.
+**2d. Indicador visual de Status (Ganha/Perdida):**
 
-### Resumo
+No card do lead, exibir badge verde "Ganha" ou vermelho "Perdida" quando `status_oportunidade != "aberta"`. Adicionar `status_oportunidade` e `valor_oportunidade` a interface Lead e ao select da query.
+
+**2e. Atualizar STATUS_KEYS** para incluir todos os novos status no filtro da query.
+
+---
+
+### Frente 3 — Atualizar Stagnant Processor
+
+**Arquivo: `supabase/functions/smart-ops-stagnant-processor/index.ts`**
+
+Adicionar `est_apresentacao` na cadeia de progressao:
+
+```text
+ANTES:  est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_proposta → estagnado_final
+DEPOIS: est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_apresentacao → est_proposta → estagnado_final
+```
+
+---
+
+### Frente 4 — Importar os ~1590 Leads
+
+Apos criar o parser, o usuario podera usar o botao "Importar" no Smart Ops, selecionar "PipeRun Export Completo" e carregar o arquivo XLSX. A importacao sera feita em batches de 500 via `import-leads-csv`.
+
+---
+
+### Resumo de Alteracoes
 
 ```text
 MODIFICAR:
+  src/utils/leadParsers.ts
+    - Novo parser parsePiperunFull()
+    - Nova opcao "PipeRun Export Completo" em PARSER_OPTIONS
+
   src/components/SmartOpsKanban.tsx
-    - Substituir 3 funis x 6 etapas por 1 funil x 5 etapas reais
-    - Atualizar STATUS_KEYS, render simplificado
+    - STAGNANT_COLUMNS: adicionar est_apresentacao
+    - Novo CS_COLUMNS (cs_em_espera, cs_agendar)
+    - Novo EBOOK status
+    - STATUS_KEYS atualizado
+    - Interface Lead: adicionar status_oportunidade, valor_oportunidade
+    - Cards: badge Ganha/Perdida + valor quando disponivel
+    - Nova secao "CS Onboarding" no render
 
   supabase/functions/smart-ops-stagnant-processor/index.ts
-    - Nova cadeia: est_etapa1 → est_etapa2 → ... → estagnado_final
+    - Adicionar est_apresentacao na cadeia PROGRESSION
 
-DATA OPS:
-  DELETE leads demo (@demo.com)
-  INSERT ~907 leads reais da planilha Piperun
+DEPLOY:
+  smart-ops-stagnant-processor
 ```
+
+### Ordem de Execucao
+
+1. Criar parser `parsePiperunFull` em leadParsers.ts
+2. Atualizar Kanban com novos status e secoes
+3. Atualizar stagnant processor e deploy
+4. Importar leads via UI do Smart Ops
 
