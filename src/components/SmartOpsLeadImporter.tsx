@@ -133,7 +133,7 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
   };
 
   const previewCols = preview && preview.length > 0
-    ? ["nome", "email", "telefone_raw", "produto_interesse", "source"].filter((c) => preview.some((r) => r[c] !== null && r[c] !== undefined))
+    ? ["nome", "email", "telefone_raw", "produto_interesse", "lead_status", "source"].filter((c) => preview.some((r) => r[c] !== null && r[c] !== undefined))
     : [];
 
   return (

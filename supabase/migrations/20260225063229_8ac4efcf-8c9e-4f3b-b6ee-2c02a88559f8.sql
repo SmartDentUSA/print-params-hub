@@ -1,0 +1,1 @@
+DELETE FROM lia_attendances WHERE email LIKE '%demo@smartdent.com' OR email LIKE '%demo@clinica%.com' OR email LIKE '%@demo.com';

@@ -265,6 +265,49 @@ function parseOmieVendas(rows: RawRow[]): NormalizedLead[] {
   return Object.values(groups);
 }
 
+/* ─── PARSER: piperun_estagnados (Funil Estagnados export) ─── */
+function parsePiperunEstagnados(rows: RawRow[]): NormalizedLead[] {
+  const stageMap: Record<string, string> = {
+    "Etapa 01 - Reativação": "est_etapa1",
+    "Etapa 01 - Reativção": "est_etapa1",  // typo in source
+    "Etapa 02 - Reativação": "est_etapa2",
+    "Etapa 02 - Reativção": "est_etapa2",
+    "Etapa 03 - Reativação": "est_etapa3",
+    "Etapa 03 - Reativção": "est_etapa3",
+    "Etapa 04 - Reativação": "est_etapa4",
+    "Etapa 04 - Reativção": "est_etapa4",
+    "Proposta Enviada - Estag": "est_proposta",
+    "Proposta Enviada - Estagnado": "est_proposta",
+  };
+
+  return rows.map((r) => {
+    const titulo = cleanStr(r["Titulo"] || r["Título"]);
+    // Extract name from "Nome - 2026-02-01 ..." pattern
+    const nome = titulo?.split(" - 20")[0]?.trim() || titulo || "Sem Nome";
+    const etapa = cleanStr(r["Etapa"]);
+    const leadTiming = r["Lead-Timing"];
+
+    return {
+      nome,
+      email: cleanEmail(r["E-mail (Pessoa)"] || r["Email (Pessoa)"]),
+      telefone_raw: cleanPhone(r["Telefone (Pessoa)"] || r["Telefone Principal (Pessoa)"]),
+      source: "piperun",
+      lead_status: (etapa && stageMap[etapa]) || "est_etapa1",
+      proprietario_lead_crm: cleanStr(r["Nome do dono da oportunidade"]),
+      piperun_id: cleanStr(r["ID"]),
+      piperun_link: cleanStr(r["Link"]),
+      lead_timing_dias: leadTiming != null ? Number(leadTiming) || null : null,
+      funil_entrada_crm: "Funil Estagnados",
+      produto_interesse: cleanStr(r["Produto de interesse"]),
+      area_atuacao: cleanStr(r["Área de Atuação"] || r["ÁREA DE ATUAÇÃO"] || r["Area de Atuação"]),
+      especialidade: cleanStr(r["Especialidade"] || r["Especialidade principal"]),
+      valor_oportunidade: cleanMoney(r["Valor de P&S"]),
+      cidade: cleanStr(r["Endereço - Cidade (Pessoa)"]),
+      uf: cleanStr(r["Endereço - Estado (UF) (Pessoa)"]),
+    };
+  });
+}
+
 /* ─── Export map ─── */
 export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = {
   master: parseMaster,
@@ -276,10 +319,12 @@ export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = 
   facebook_kommo: parseFacebookKommo,
   hadron_vendas: parseHadronVendas,
   omie_vendas: parseOmieVendas,
+  piperun_estagnados: parsePiperunEstagnados,
 };
 
 export const PARSER_OPTIONS = [
   { key: "master", label: "Master Leads (PipeRun)", override: false },
+  { key: "piperun_estagnados", label: "PipeRun Funil Estagnados", override: false },
   { key: "manychat", label: "ManyChat", override: false },
   { key: "facebook", label: "Facebook Ads (DH/Edge/IoConnect)", override: false },
   { key: "involveme", label: "InvolveMe (Ebook/Orçamento)", override: false },
