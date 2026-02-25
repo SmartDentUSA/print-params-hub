@@ -1158,7 +1158,7 @@ async function extractImplicitLeadData(
   }
 
   // Specific models
-  const impressoraModels = ["phrozen", "anycubic", "elegoo", "rayshape", "asiga", "formlabs", "prusa", "creality", "miicraft"];
+  const impressoraModels = ["phrozen", "anycubic", "elegoo", "rayshape", "asiga", "formlabs", "prusa", "creality", "miicraft", "blz", "envisiontec", "bego", "dentsply"];
   for (const m of impressoraModels) {
     if (text.includes(m)) { updates.impressora_modelo = m.charAt(0).toUpperCase() + m.slice(1); break; }
   }
@@ -2165,7 +2165,7 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
     // 6. Send via SellFlux/WaLeads if API key available
     if (teamMember.waleads_api_key) {
       try {
-        // Use smart-ops-send-waleads to send notification
+        // Use smart-ops-send-waleads to send notification to seller
         const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
           method: "POST",
           headers: {
@@ -2173,9 +2173,11 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({
+            team_member_id: teamMember.id,
             phone: teamMember.whatsapp_number,
+            tipo: "text",
             message: notificationMsg,
-            api_key: teamMember.waleads_api_key,
+            lead_id: attendance.id,
           }),
           signal: AbortSignal.timeout(5000),
         });
