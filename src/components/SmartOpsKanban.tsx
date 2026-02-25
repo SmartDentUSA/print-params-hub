@@ -76,7 +76,7 @@ export function SmartOpsKanban() {
       .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade")
       .in("lead_status", STATUS_KEYS)
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(2000);
     setLeads((data as Lead[]) || []);
     setLoading(false);
   };

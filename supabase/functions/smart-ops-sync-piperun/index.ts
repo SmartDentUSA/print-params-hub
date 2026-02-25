@@ -5,20 +5,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const STAGE_TO_STATUS: Record<string, string> = {
+const SALES_STAGE_MAP: Record<string, string> = {
   "sem contato": "sem_contato",
   "contato feito": "contato_feito",
   "em contato": "em_contato",
   "apresentação": "apresentacao",
   "apresentacao": "apresentacao",
+  "apresentação/visita": "apresentacao",
   "visita": "apresentacao",
   "proposta enviada": "proposta_enviada",
   "negociação": "negociacao",
   "negociacao": "negociacao",
   "fechamento": "fechamento",
-  "etapa 01": "est1_0",
-  "etapa 02": "est2_0",
-  "etapa 03": "est3_0",
+};
+
+const STAGNANT_STAGE_MAP: Record<string, string> = {
+  "etapa 01": "est_etapa1",
+  "etapa 02": "est_etapa2",
+  "etapa 03": "est_etapa3",
+  "etapa 04": "est_etapa4",
+  "proposta enviada": "est_proposta",
+  "apresentação": "est_apresentacao",
+  "apresentacao": "est_apresentacao",
+  "apresentação/visita": "est_apresentacao",
+};
+
+const CS_STAGE_MAP: Record<string, string> = {
+  "em espera": "cs_em_espera",
+  "sem data": "cs_agendar",
+  "agendar": "cs_agendar",
 };
 
 const STATUS_MAP: Record<string, string> = {
@@ -27,12 +42,42 @@ const STATUS_MAP: Record<string, string> = {
   lost: "perdida",
 };
 
-function mapStageToStatus(stageName: string): string {
+function mapStageToStatus(stageName: string, pipelineName: string | null): string {
   const normalized = stageName.toLowerCase().trim();
-  for (const [key, value] of Object.entries(STAGE_TO_STATUS)) {
+  const funnel = (pipelineName || "").toLowerCase();
+
+  // Stagnant funnel
+  if (funnel.includes("estagnado") || funnel.includes("stagnado")) {
+    for (const [key, value] of Object.entries(STAGNANT_STAGE_MAP)) {
+      if (normalized.includes(key)) return value;
+    }
+    return "est_etapa1";
+  }
+
+  // CS Onboarding funnel
+  if (funnel.includes("cs") || funnel.includes("onboarding")) {
+    for (const [key, value] of Object.entries(CS_STAGE_MAP)) {
+      if (normalized.includes(key)) return value;
+    }
+    return "cs_em_espera";
+  }
+
+  // E-book funnel
+  if (funnel.includes("e-book") || funnel.includes("ebook")) {
+    return "ebook";
+  }
+
+  // Sales funnel (default)
+  for (const [key, value] of Object.entries(SALES_STAGE_MAP)) {
     if (normalized.includes(key)) return value;
   }
   return "sem_contato";
+}
+
+function isStagnantFunnel(pipelineName: string | null): boolean {
+  if (!pipelineName) return false;
+  const lower = pipelineName.toLowerCase();
+  return lower.includes("estagnado") || lower.includes("stagnado") || lower.includes("reativação") || lower.includes("reativacao");
 }
 
 function isStagnant(stageName: string): boolean {
@@ -40,7 +85,7 @@ function isStagnant(stageName: string): boolean {
 }
 
 function isInStagnantFunnel(leadStatus: string): boolean {
-  return leadStatus.startsWith("est") && leadStatus !== "estagnado_final";
+  return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
 }
 
 function extractCustomField(deal: Record<string, unknown>, fieldName: string): string | null {
@@ -195,11 +240,19 @@ Deno.serve(async (req) => {
     for (const deal of allDeals) {
       const dealId = String(deal.id);
       const stageName = (deal.stage as Record<string, unknown>)?.name as string || null;
+      const pipelineName = (deal.pipeline as Record<string, unknown>)?.name as string || null;
 
       const updatePayload = buildUpdatePayload(deal);
       if (Object.keys(updatePayload).length === 0) continue;
 
-      // Check if lead exists
+      // Always set lead_status from the current Piperun stage+funnel
+      if (stageName) {
+        const mappedStatus = mapStageToStatus(stageName, pipelineName);
+        updatePayload.lead_status = mappedStatus;
+        updatePayload.updated_at = new Date().toISOString();
+      }
+
+      // Check if lead exists by piperun_id
       const { data: currentLead } = await supabase
         .from("lia_attendances")
         .select("id, lead_status, email")
@@ -207,17 +260,14 @@ Deno.serve(async (req) => {
         .single();
 
       if (currentLead) {
-        // Stagnation funnel logic
+        // Track stagnation transitions
         if (stageName) {
-          if (isStagnant(stageName) && !isInStagnantFunnel(currentLead.lead_status) && currentLead.lead_status !== "estagnado_final") {
-            // Save current commercial stage before entering stagnation
+          const newIsStagnant = isStagnantFunnel(pipelineName) || isStagnant(stageName);
+          const wasStagnant = isInStagnantFunnel(currentLead.lead_status);
+          if (newIsStagnant && !wasStagnant && currentLead.lead_status !== "estagnado_final") {
             updatePayload.ultima_etapa_comercial = currentLead.lead_status;
-            updatePayload.lead_status = "est1_0";
-            updatePayload.updated_at = new Date().toISOString();
             stagnantStarted++;
-          } else if (!isStagnant(stageName) && (isInStagnantFunnel(currentLead.lead_status) || currentLead.lead_status === "estagnado_final")) {
-            updatePayload.lead_status = mapStageToStatus(stageName);
-            updatePayload.updated_at = new Date().toISOString();
+          } else if (!newIsStagnant && wasStagnant) {
             stagnantRescued++;
           }
         }
@@ -228,19 +278,18 @@ Deno.serve(async (req) => {
           .eq("id", currentLead.id);
 
         if (!error) updated++;
-      } else if (fullSync) {
-        // In full sync mode, create leads that don't exist yet
+      } else {
+        // Lead doesn't exist by piperun_id — try to find by email or create
         const person = deal.person as Record<string, unknown> | undefined;
-        const email = person?.email ? String(person.email) : null;
+        const email = person?.email ? String(person.email).trim().toLowerCase() : null;
         const nome = person?.name ? String(person.name) : null;
 
         if (email && nome) {
-          // Check if email already exists (avoid duplicates)
           const { data: existingByEmail } = await supabase
             .from("lia_attendances")
             .select("id")
             .eq("email", email)
-            .single();
+            .maybeSingle();
 
           if (existingByEmail) {
             // Link existing lead to piperun_id
@@ -250,13 +299,14 @@ Deno.serve(async (req) => {
               .eq("id", existingByEmail.id);
             updated++;
           } else {
+            // Create new lead
             const insertPayload = {
               ...updatePayload,
               piperun_id: dealId,
               nome,
               email,
               source: "piperun_sync",
-              lead_status: stageName ? mapStageToStatus(stageName) : "sem_contato",
+              lead_status: stageName ? mapStageToStatus(stageName, pipelineName) : "sem_contato",
             };
 
             const { error } = await supabase.from("lia_attendances").insert(insertPayload);
