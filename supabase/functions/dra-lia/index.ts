@@ -2394,6 +2394,121 @@ serve(async (req) => {
           extractImplicitLeadData(supabase, leadEmail, fullConvoText).catch(e => console.warn("[summarize_session] implicit extraction error:", e));
         }
 
+        // 8. Extract PENDENCIAS from summary and create content_requests
+        if (summary) {
+          try {
+            const pendMatch = summary.match(/PEND[ÊE]NCIAS:\s*(.+?)(?:\s*\||$)/i);
+            if (pendMatch && pendMatch[1]?.trim()) {
+              const rawPendencia = pendMatch[1].trim();
+              // Skip trivial pendencias
+              if (rawPendencia.length > 10 && !rawPendencia.match(/^(nenhuma|none|sem pend|n\/a)/i)) {
+                console.log(`[summarize_session] Found PENDENCIA: "${rawPendencia}"`);
+                
+                // Classify with AI
+                const assuntosMatch = summary.match(/ASSUNTOS:\s*(.+?)(?:\s*\||$)/i);
+                const assuntos = assuntosMatch?.[1]?.trim() || "";
+                
+                const classifyResp = await fetch(CHAT_API, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    model: "google/gemini-2.5-flash-lite",
+                    messages: [
+                      { role: "system", content: `Classifique esta pendência de um usuário de odontologia digital. Responda APENAS com JSON válido, sem markdown.
+Campos:
+- "tema": título curto e descritivo (max 60 chars)
+- "tipo_conteudo": um de "artigo", "comparativo", "tutorial", "faq", "ficha_tecnica", "video"
+- "prioridade": 1-5 (5=mais urgente, baseado na especificidade e impacto comercial)
+- "produto_relacionado": nome do produto mencionado ou null` },
+                      { role: "user", content: `Pendência: "${rawPendencia}"\nAssuntos da conversa: "${assuntos}"` },
+                    ],
+                    stream: false,
+                    max_tokens: 150,
+                  }),
+                });
+
+                if (classifyResp.ok) {
+                  const classifyData = await classifyResp.json();
+                  const classifyText = classifyData.choices?.[0]?.message?.content?.trim() || "";
+                  // Parse JSON from response (handle possible markdown wrapping)
+                  const jsonMatch = classifyText.match(/\{[\s\S]*\}/);
+                  if (jsonMatch) {
+                    const classification = JSON.parse(jsonMatch[0]);
+                    const tema = (classification.tema || rawPendencia).slice(0, 200);
+                    const tipoConteudo = classification.tipo_conteudo || "artigo";
+                    const prioridade = Math.min(5, Math.max(1, classification.prioridade || 1));
+                    const produtoRelacionado = classification.produto_relacionado || null;
+
+                    // Normalize tema for matching
+                    const temaNorm = tema.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+
+                    // Check if similar content_request exists
+                    const { data: existingReqs } = await supabase
+                      .from("content_requests")
+                      .select("id, frequency, source_sessions, source_leads, tema")
+                      .limit(100);
+
+                    let matched = false;
+                    if (existingReqs) {
+                      for (const req of existingReqs) {
+                        const reqNorm = (req.tema || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, "").trim();
+                        // Simple similarity: check if one contains the other or they share >60% words
+                        if (reqNorm === temaNorm || reqNorm.includes(temaNorm) || temaNorm.includes(reqNorm)) {
+                          // Update existing
+                          const sessions = Array.isArray(req.source_sessions) ? req.source_sessions : [];
+                          const leads = Array.isArray(req.source_leads) ? req.source_leads : [];
+                          if (!sessions.includes(sumSessionId)) sessions.push(sumSessionId);
+                          if (leadEmail && !leads.includes(leadEmail)) leads.push(leadEmail);
+
+                          await supabase
+                            .from("content_requests")
+                            .update({
+                              frequency: (req.frequency || 1) + 1,
+                              source_sessions: sessions,
+                              source_leads: leads,
+                              updated_at: new Date().toISOString(),
+                              prioridade: Math.max(prioridade, req.frequency || 1 >= 3 ? 4 : prioridade),
+                            })
+                            .eq("id", req.id);
+                          matched = true;
+                          console.log(`[summarize_session] Updated content_request ${req.id} (freq+1)`);
+                          break;
+                        }
+                      }
+                    }
+
+                    if (!matched) {
+                      const { error: insertErr } = await supabase
+                        .from("content_requests")
+                        .insert({
+                          tema,
+                          pendencia_original: rawPendencia,
+                          tipo_conteudo: tipoConteudo,
+                          prioridade,
+                          frequency: 1,
+                          status: "solicitado",
+                          source_sessions: [sumSessionId],
+                          source_leads: leadEmail ? [leadEmail] : [],
+                          produto_relacionado: produtoRelacionado,
+                        });
+                      if (insertErr) {
+                        console.error("[summarize_session] content_request insert error:", insertErr);
+                      } else {
+                        console.log(`[summarize_session] Created content_request: "${tema}"`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } catch (pendError) {
+            console.warn("[summarize_session] content_request extraction error:", pendError);
+          }
+        }
+
         console.log(`[summarize_session] Done for ${leadEmail}: "${summary}"`);
         return new Response(JSON.stringify({ success: true, summary }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -3125,8 +3240,8 @@ serve(async (req) => {
         // fail silently — stream continues regardless
       }
 
-      // Track knowledge gap (Bug fix: was using invalid .onConflict?.() syntax)
-      await upsertKnowledgeGap(supabase, message, lang, "pending", topic_context);
+      // Knowledge gap tracking moved to summarize_session (extracts from PENDENCIAS in summary)
+      // Old: await upsertKnowledgeGap(supabase, message, lang, "pending", topic_context);
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
@@ -3157,10 +3272,8 @@ serve(async (req) => {
       });
     }
 
-    // Track low-confidence results as knowledge gaps (Bug fix: was never captured before)
-    if (topSimilarity < 0.35) {
-      await upsertKnowledgeGap(supabase, message, lang, "low_confidence", topic_context);
-    }
+    // Knowledge gap tracking moved to summarize_session (extracts from PENDENCIAS in summary)
+    // Old: if (topSimilarity < 0.35) { await upsertKnowledgeGap(...) }
 
     // 5. Build context from all results — structured by semantic sections for commercial route
     function buildStructuredContext(
