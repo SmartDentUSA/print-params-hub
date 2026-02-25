@@ -308,6 +308,70 @@ function parsePiperunEstagnados(rows: RawRow[]): NormalizedLead[] {
   });
 }
 
+/* ─── PARSER: piperun_full (Export completo — todos os funis) ─── */
+function parsePiperunFull(rows: RawRow[]): NormalizedLead[] {
+  function resolveStatus(funil: string | null, etapa: string | null): string {
+    if (!funil || !etapa) return "novo";
+    const fl = funil.trim();
+    const el = etapa.trim();
+    const vendasMap: Record<string, string> = {
+      "Sem contato": "sem_contato", "Contato Feito": "contato_feito",
+      "Em Contato": "em_contato", "Apresentação/Visita": "apresentacao",
+      "Proposta Enviada": "proposta_enviada", "Negociação": "negociacao",
+      "Fechamento": "fechamento",
+    };
+    if (fl.toLowerCase().includes("vendas")) return vendasMap[el] || "novo";
+    if (fl.toLowerCase().includes("estagnado") || fl.toLowerCase().includes("stagnado")) {
+      if (el.startsWith("Etapa 01")) return "est_etapa1";
+      if (el.startsWith("Etapa 02")) return "est_etapa2";
+      if (el.startsWith("Etapa 03")) return "est_etapa3";
+      if (el.startsWith("Etapa 04")) return "est_etapa4";
+      if (el.toLowerCase().includes("proposta")) return "est_proposta";
+      if (el.toLowerCase().includes("apresenta")) return "est_apresentacao";
+      return "est_etapa1";
+    }
+    if (fl.includes("CS") || fl.toLowerCase().includes("onboarding")) {
+      if (el.toLowerCase().includes("espera")) return "cs_em_espera";
+      return "cs_agendar";
+    }
+    if (fl.toLowerCase().includes("e-book") || fl.toLowerCase().includes("ebook")) return "ebook";
+    return "novo";
+  }
+
+  return rows.map((r) => {
+    const titulo = cleanStr(r["Titulo"] || r["Título"]);
+    const nome = titulo?.split(" - 20")[0]?.trim() || titulo || "Sem Nome";
+    const funil = cleanStr(r["Funil"]);
+    const etapa = cleanStr(r["Etapa"] || r["Etapa atual"]);
+    const status = cleanStr(r["Status"]);
+    return {
+      nome,
+      email: cleanEmail(r["E-mail (Pessoa)"] || r["Email (Pessoa)"] || r["Email"]),
+      telefone_raw: cleanPhone(r["Telefone Principal (Pessoa)"] || r["Telefone (Pessoa)"]),
+      source: "piperun",
+      lead_status: resolveStatus(funil, etapa),
+      proprietario_lead_crm: cleanStr(r["Nome do dono da oportunidade"]),
+      piperun_id: cleanStr(r["ID"]),
+      piperun_link: cleanStr(r["Link"]),
+      produto_interesse: cleanStr(r["Produto de interesse"]),
+      area_atuacao: cleanStr(r["ÁREA DE ATUAÇÃO"] || r["Área de Atuação"] || r["area_atuacao"]),
+      especialidade: cleanStr(r["Especialidade principal"] || r["Especialidade"]),
+      valor_oportunidade: cleanMoney(r["Valor de P&S"] || r["Valor"]),
+      status_oportunidade: status ? status.toLowerCase() : "aberta",
+      motivo_perda: cleanStr(r["(MP) Motivo de perda"]),
+      comentario_perda: cleanStr(r["(MP) Comentário"]),
+      temperatura_lead: cleanStr(r["Temperatura"]),
+      funil_entrada_crm: funil,
+      lead_timing_dias: r["Lead-Timing"] != null ? Number(r["Lead-Timing"]) || null : null,
+      cidade: cleanStr(r["Endereço - Cidade (Pessoa)"]),
+      uf: cleanStr(r["Endereço - Estado (UF) (Pessoa)"]),
+      tags_crm: r["Tags"] ? String(r["Tags"]).split(",").map((t) => t.trim()).filter(Boolean) : null,
+      itens_proposta_crm: cleanStr(r["Itens da proposta"]),
+      ultima_etapa_comercial: cleanStr(etapa),
+    };
+  });
+}
+
 /* ─── Export map ─── */
 export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = {
   master: parseMaster,
@@ -320,9 +384,11 @@ export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = 
   hadron_vendas: parseHadronVendas,
   omie_vendas: parseOmieVendas,
   piperun_estagnados: parsePiperunEstagnados,
+  piperun_full: parsePiperunFull,
 };
 
 export const PARSER_OPTIONS = [
+  { key: "piperun_full", label: "PipeRun Export Completo", override: false },
   { key: "master", label: "Master Leads (PipeRun)", override: false },
   { key: "piperun_estagnados", label: "PipeRun Funil Estagnados", override: false },
   { key: "manychat", label: "ManyChat", override: false },

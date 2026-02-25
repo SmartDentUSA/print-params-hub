@@ -5,12 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Progression chain: est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_proposta → estagnado_final
+// Progression chain: est_etapa1 → ... → est_apresentacao → est_proposta → estagnado_final
 const PROGRESSION: Record<string, string> = {
   est_etapa1: "est_etapa2",
   est_etapa2: "est_etapa3",
   est_etapa3: "est_etapa4",
-  est_etapa4: "est_proposta",
+  est_etapa4: "est_apresentacao",
+  est_apresentacao: "est_proposta",
   est_proposta: "estagnado_final",
 };
 
