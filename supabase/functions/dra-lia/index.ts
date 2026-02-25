@@ -36,7 +36,8 @@ function applyTopicWeights<T extends { source_type: string; similarity: number }
 // ── SDR Consultivo — prompt modular dinâmico para rota comercial ─────────
 function buildCommercialInstruction(
   sessionEntities: Record<string, unknown> | null,
-  spinProgressNote: string
+  spinProgressNote: string,
+  leadMaturity?: "MQL" | "SAL" | "SQL" | "CLIENTE" | null
 ): string {
   // Módulo 1: PERSONA CONSULTORA (fixo, ~200 tokens)
   const persona = `
@@ -62,7 +63,7 @@ Conversa natural, como colega que entende profundamente o mercado.
   if (painPoint) knownFacts.push(`Dor principal: ${painPoint}`);
   if (workflowInterest) knownFacts.push(`Interesse de fluxo: ${workflowInterest}`);
 
-  const leadState = knownFacts.length > 0
+  const leadStateStr = knownFacts.length > 0
     ? `\n**ESTADO DO LEAD:** ${knownFacts.join(" | ")}\nEtapa atual: ${spinStage}`
     : "";
 
@@ -92,7 +93,45 @@ Conversa natural, como colega que entende profundamente o mercado.
 - Laboratório → Smart Lab
 - Materiais → Resinas Biocompatíveis vs Uso Geral`;
 
-  return `${persona}${leadState}\n${turnInstruction}${spinProgressNote}\n${antiHallucination}`;
+  // Módulo 5: RÉGUA DE CONHECIMENTO (dinâmico por maturidade do lead)
+  const maturityInstructions: Record<string, string> = {
+    MQL: `
+**RÉGUA: CONSCIENTIZAÇÃO (MQL) — Apoiando a Jornada Inicial**
+OBJETIVO: Ajudar o colega a enxergar desafios operacionais que muitas vezes não são ditos.
+TOM: Educativo e protetor. "Quero que você tenha sucesso real". Foco em evitar desperdício de tempo e recursos.
+ABORDAGEM: "Entendo que o preço inicial atrai, mas meu papel é te mostrar que a tecnologia só brilha com um fluxo de trabalho sólido por trás. Comprar o hardware é o primeiro passo; o desafio real é garantir que sua agenda e seus processos estejam integrados para o equipamento não ficar parado."
+FOCO: Mostrar que a Smart Dent se preocupa com a sustentabilidade do consultório dele. Se ele ainda não estiver pronto para avançar, tudo bem. Diga: "Cada profissional tem seu tempo, e estarei aqui para te apoiar quando você decidir dar o próximo passo."
+PROIBIDO: NÃO envie calculadora ROI, depoimentos ou links de venda. O lead ainda não está pronto.`,
+
+    SAL: `
+**RÉGUA: CONSIDERAÇÃO (SAL) — Parceria e Transparência**
+OBJETIVO: Demonstrar o compromisso da Smart Dent com o resultado clínico e financeiro do lead.
+TOM: Transparente e baseado em fatos. "Nosso sucesso depende do seu".
+ABORDAGEM: "Como somos fabricantes de resinas, nosso maior interesse é que sua impressora nunca pare de produzir com qualidade. Se você não tiver retorno, nós também não temos. É por isso que focamos tanto no treinamento e no suporte."
+ENFATIZE: A verdade dos nossos clientes. Nossos speakers são dentistas que vivem o consultório, como ele.
+ENVIE: Casos de sucesso reais, Instagram @smartdentbr e calculadora de ROI para planejamento.`,
+
+    SQL: `
+**RÉGUA: DECISÃO (SQL) — Viabilizando o Projeto**
+OBJETIVO: Facilitar a transição definitiva para o digital com segurança.
+TOM: Resolutivo e entusiasmado. "Vamos transformar sua odontologia agora".
+ABORDAGEM: "Fico feliz que você chegou até aqui com clareza. Agora que os números fazem sentido e a confiança na solução está estabelecida, vamos cuidar da viabilização logística e comercial para você começar a colher os frutos da odontologia digital o quanto antes."
+ENVIE: Condições facilitadas, link de agendamento com especialista e calculadora de ROI final.
+FOCO: Mostrar que a Smart Dent está pronta para ser o braço direito na implementação.`,
+
+    CLIENTE: `
+**RÉGUA: RELACIONAMENTO (CLIENTE) — Crescimento Contínuo**
+OBJETIVO: Evoluir o fluxo de trabalho e fortalecer o vínculo.
+TOM: De parceiro para parceiro. "Como podemos ir além?".
+ABORDAGEM: "Sua estrutura já está rodando, que tal explorarmos novas aplicações para otimizar ainda mais seu investimento?"
+AÇÃO: Sugira novos materiais (Resinas de alta performance), cursos avançados ou novas integrações.`,
+  };
+
+  const maturityInstruction = leadMaturity && maturityInstructions[leadMaturity]
+    ? `\n${maturityInstructions[leadMaturity]}`
+    : "";
+
+  return `${persona}${leadStateStr}\n${turnInstruction}${spinProgressNote}${maturityInstruction}\n${antiHallucination}`;
 }
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -794,9 +833,9 @@ async function detectPrinterDialogState(
 }
 
 const GREETING_RESPONSES: Record<string, string> = {
-  "pt-BR": `Olá! 😊 Sou a Dra. L.I.A., especialista em odontologia digital da SmartDent.\n\nAntes de começarmos, qual o seu melhor e-mail?`,
-  "en-US": `Hello! 😊 I'm Dr. L.I.A., SmartDent's digital dentistry specialist.\n\nBefore we start, what's your best email?`,
-  "es-ES": `¡Hola! 😊 Soy la Dra. L.I.A., especialista en odontología digital de SmartDent.\n\nAntes de comenzar, ¿cuál es tu mejor correo electrónico?`,
+  "pt-BR": `Para que eu possa te reconhecer, informe seu **e-mail**.`,
+  "en-US": `So I can recognize you, please provide your **email**.`,
+  "es-ES": `Para que pueda reconocerte, infórmame tu **correo electrónico**.`,
 };
 
 // ── LEAD COLLECTION SYSTEM ──────────────────────────────────────────────────
@@ -928,21 +967,21 @@ const SPECIALTY_MAP: Record<string, string[]> = {
 };
 
 const ASK_AREA: Record<string, (name: string) => string> = {
-  "pt-BR": (name) => `Obrigada, ${name}! 😊 Para personalizar o atendimento, qual é sua **área de atuação**?`,
-  "en-US": (name) => `Thank you, ${name}! 😊 To personalize your experience, what is your **field of work**?`,
-  "es-ES": (name) => `¡Gracias, ${name}! 😊 Para personalizar tu atención, ¿cuál es tu **área de actuación**?`,
+  "pt-BR": (name) => `Prazer em te conhecer, ${name}! Agora, para que eu execute uma análise do seu perfil e conecte com nossa base de conhecimento com a sua realidade profissional, preciso saber: qual é sua **área de atuação**?`,
+  "en-US": (name) => `Nice to meet you, ${name}! Now, so I can analyze your profile and connect our knowledge base with your professional reality, I need to know: what is your **field of work**?`,
+  "es-ES": (name) => `¡Encantada de conocerte, ${name}! Ahora, para que pueda analizar tu perfil y conectar nuestra base de conocimiento con tu realidad profesional, necesito saber: ¿cuál es tu **área de actuación**?`,
 };
 
 const ASK_SPECIALTY: Record<string, (name: string, area: string) => string> = {
-  "pt-BR": (_name, area) => `Ótimo! Atuando em **${area}**, qual é sua **especialidade** principal?`,
-  "en-US": (_name, area) => `Great! Working in **${area}**, what is your main **specialty**?`,
-  "es-ES": (_name, area) => `¡Genial! Trabajando en **${area}**, ¿cuál es tu **especialidad** principal?`,
+  "pt-BR": (_name, _area) => `Qual é a sua **especialidade**?`,
+  "en-US": (_name, _area) => `What is your **specialty**?`,
+  "es-ES": (_name, _area) => `¿Cuál es tu **especialidad**?`,
 };
 
 const ASK_NAME: Record<string, string> = {
-  "pt-BR": `Prazer em te conhecer! 😊 Não encontrei seu cadastro. Qual o seu nome?`,
-  "en-US": `Nice to meet you! 😊 I didn't find your profile. What's your name?`,
-  "es-ES": `¡Mucho gusto! 😊 No encontré tu registro. ¿Cuál es tu nombre?`,
+  "pt-BR": `Ainda não sei o seu nome! Como devo te chamar?`,
+  "en-US": `I don't know your name yet! What should I call you?`,
+  "es-ES": `¡Aún no sé tu nombre! ¿Cómo debo llamarte?`,
 };
 
 // Format date for returning lead greeting
@@ -973,24 +1012,24 @@ function buildReturningLeadMessage(name: string, lang: string, lastDate?: string
   const { date, time } = lastDate ? formatLastContactDate(lastDate, lang) : { date: "", time: "" };
   
   if (lang === "en-US") {
-    let msg = `Hi, ${name}! Great to have you back! 😊`;
+    let msg = `Hi, ${name}! Great to see you again. 😊`;
     if (date) msg += `\nWe last talked on ${date} at ${time}.`;
-    if (summary) msg += `\nLast time we discussed ${summary}.`;
-    msg += `\nHow can I help you today?`;
+    if (summary) msg += `\nAbout ${summary}.`;
+    msg += `\nWhat shall we talk about today?`;
     return msg;
   }
   if (lang === "es-ES") {
-    let msg = `¡Hola, ${name}! ¡Qué bueno que volviste! 😊`;
-    if (date) msg += `\nHablamos el ${date} a las ${time}.`;
-    if (summary) msg += `\nLa última vez hablamos sobre ${summary}.`;
-    msg += `\n¿En qué puedo ayudarte hoy?`;
+    let msg = `¡Hola, ${name}! Qué bueno verte de nuevo. 😊`;
+    if (date) msg += `\nNos hablamos el ${date} a las ${time}.`;
+    if (summary) msg += `\nSobre ${summary}.`;
+    msg += `\n¿Sobre qué vamos a conversar hoy?`;
     return msg;
   }
   // pt-BR
-  let msg = `Olá, ${name}! Que bom que voltou! 😊`;
+  let msg = `Olá, ${name}! Que bom te ver por aqui novamente. 😊`;
   if (date) msg += `\nNos falamos no dia ${date} às ${time}.`;
-  if (summary) msg += `\nFalamos a última vez sobre ${summary}.`;
-  msg += `\nEm que posso te ajudar hoje?`;
+  if (summary) msg += `\nSobre ${summary}.`;
+  msg += `\nSobre o que vamos conversar hoje?`;
   return msg;
 }
 
@@ -1000,10 +1039,10 @@ const RETURNING_LEAD: Record<string, (name: string, topicContext?: string) => st
   "es-ES": (name, _tc) => buildReturningLeadMessage(name, "es-ES"),
 };
 
-const LEAD_CONFIRMED: Record<string, (name: string, topicContext?: string) => string> = {
-  "pt-BR": (name, tc) => `Perfeito, ${name}! Agora sim, estou pronta para te ajudar. 😊\n\n${tc === 'products' ? 'Em relação a qual produto você precisa de ajuda?' : 'Me conta: o que você está buscando hoje? Pode ser sobre resinas, impressoras 3D, parâmetros de impressão, protocolos clínicos ou qualquer outro assunto de odontologia digital. 👇'}`,
-  "en-US": (name, tc) => `Perfect, ${name}! Now I'm ready to help you. 😊\n\n${tc === 'products' ? 'Which product do you need help with?' : 'Tell me: what are you looking for today? It could be about resins, 3D printers, print parameters, clinical protocols, or any other digital dentistry topic. 👇'}`,
-  "es-ES": (name, tc) => `¡Perfecto, ${name}! Ahora sí, estoy lista para ayudarte. 😊\n\n${tc === 'products' ? '¿Con qué producto necesitas ayuda?' : 'Cuéntame: ¿qué estás buscando hoy? Puede ser sobre resinas, impresoras 3D, parámetros de impresión, protocolos clínicos o cualquier otro tema de odontología digital. 👇'}`,
+const LEAD_CONFIRMED: Record<string, (name: string, email: string, topicContext?: string) => string> = {
+  "pt-BR": (name, email, _tc) => `Acesso validado, seu token é o **${email}**, use-o sempre que me chamar para que possamos dar continuidade nas nossas conversas e eu aprender um pouco mais sobre você.\n\nComo posso te ajudar hoje, **${name}**?`,
+  "en-US": (name, email, _tc) => `Access validated, your token is **${email}**, use it whenever you reach out so we can continue our conversations and I can learn more about you.\n\nHow can I help you today, **${name}**?`,
+  "es-ES": (name, email, _tc) => `Acceso validado, tu token es **${email}**, úsalo siempre que me contactes para que podamos continuar nuestras conversaciones y yo pueda aprender más sobre ti.\n\n¿Cómo puedo ayudarte hoy, **${name}**?`,
 };
 
 // Upsert lead in the database and link to session
@@ -1081,6 +1120,130 @@ async function upsertLead(
     console.error("[upsertLead] exception:", e);
     return null;
   }
+}
+
+// ── IMPLICIT DATA EXTRACTION ────────────────────────────────────────────
+async function extractImplicitLeadData(
+  supabaseClient: ReturnType<typeof createClient>,
+  email: string,
+  conversationText: string
+): Promise<void> {
+  const text = conversationText.toLowerCase();
+  const updates: Record<string, unknown> = {};
+
+  // UF detection
+  const ufMap: Record<string, string> = {
+    "são paulo": "SP", "rio de janeiro": "RJ", "minas gerais": "MG",
+    "bahia": "BA", "paraná": "PR", "rio grande do sul": "RS",
+    "santa catarina": "SC", "goiás": "GO", "pernambuco": "PE",
+    "ceará": "CE", "pará": "PA", "maranhão": "MA",
+    "mato grosso do sul": "MS", "mato grosso": "MT", "distrito federal": "DF",
+    "espírito santo": "ES", "amazonas": "AM", "paraíba": "PB",
+    "sergipe": "SE", "alagoas": "AL", "piauí": "PI",
+    "rio grande do norte": "RN", "tocantins": "TO", "rondônia": "RO",
+    "acre": "AC", "amapá": "AP", "roraima": "RR",
+  };
+  for (const [nome, sigla] of Object.entries(ufMap)) {
+    if (text.includes(nome)) { updates.uf = sigla; break; }
+  }
+  const ufMatch = text.match(/\b(?:sou de|moro em|estou em|atendo em)\s+([A-Z]{2})\b/i);
+  if (ufMatch && !updates.uf) updates.uf = ufMatch[1].toUpperCase();
+
+  // Equipment detection
+  if (/\b(?:tenho|comprei|possuo|uso|adquiri)\b.{0,30}\b(?:impressora|printer)\b/i.test(text)) {
+    updates.tem_impressora = "sim";
+  }
+  if (/\b(?:tenho|comprei|possuo|uso|adquiri)\b.{0,30}\b(?:scanner|escaner|escâner)\b/i.test(text)) {
+    updates.tem_scanner = "sim";
+  }
+
+  // Specific models
+  const impressoraModels = ["phrozen", "anycubic", "elegoo", "rayshape", "asiga", "formlabs", "prusa", "creality", "miicraft"];
+  for (const m of impressoraModels) {
+    if (text.includes(m)) { updates.impressora_modelo = m.charAt(0).toUpperCase() + m.slice(1); break; }
+  }
+  const scannerModels = ["medit", "3shape", "trios", "itero", "primescan", "aoralscan", "shining3d"];
+  for (const m of scannerModels) {
+    if (text.includes(m)) { updates.como_digitaliza = m.charAt(0).toUpperCase() + m.slice(1); break; }
+  }
+
+  // Raw payload enrichment
+  const rawUpdates: Record<string, unknown> = {};
+  const concorrentes = ["formlabs", "nextdent", "keystone", "bego", "detax", "gc", "dentsply"];
+  const found = concorrentes.filter(c => text.includes(c));
+  if (found.length > 0) rawUpdates.marcas_concorrentes = found;
+
+  if (/\b(?:sozinho|trabalho sozinho|atendo sozinho)\b/i.test(text)) rawUpdates.estrutura_consultorio = "sozinho";
+  if (/\b(?:equipe|parceiro|sócio|sócia|associado)\b/i.test(text)) rawUpdates.estrutura_consultorio = "equipe";
+  if (/\b(?:já conheço|conheço a smart|uso smart|cliente smart)\b/i.test(text)) rawUpdates.conhece_smart_dent = true;
+  if (/\b(?:nunca usei|parei de usar|deixei de|não uso mais)\b/i.test(text)) rawUpdates.motivo_nao_usa_smart = "mencionou que parou/nunca usou";
+
+  const imprime = text.match(/\b(?:imprimo|faço|produzo)\b.{0,30}\b(placas?|guias?|provisórios?|modelos?|próteses?|coroas?)\b/i);
+  if (imprime) rawUpdates.o_que_imprime = imprime[1];
+  const querImprimir = text.match(/\b(?:quero imprimir|gostaria de|pretendo)\b.{0,30}\b(placas?|guias?|provisórios?|modelos?|próteses?|coroas?)\b/i);
+  if (querImprimir) rawUpdates.o_que_quer_imprimir = querImprimir[1];
+
+  if (Object.keys(rawUpdates).length > 0) updates.raw_payload = rawUpdates;
+  if (Object.keys(updates).length === 0) return;
+
+  // Fetch current record, apply COALESCE logic
+  const { data: current } = await supabaseClient
+    .from("lia_attendances")
+    .select("uf, tem_impressora, tem_scanner, impressora_modelo, como_digitaliza, raw_payload")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (!current) return;
+
+  const safeUpdates: Record<string, unknown> = {};
+  for (const [field, value] of Object.entries(updates)) {
+    if (field === "raw_payload") {
+      safeUpdates.raw_payload = { ...(current.raw_payload as Record<string, unknown> || {}), ...(value as Record<string, unknown>) };
+    } else if ((current as Record<string, unknown>)[field] === null || (current as Record<string, unknown>)[field] === undefined) {
+      safeUpdates[field] = value;
+    }
+  }
+
+  if (Object.keys(safeUpdates).length === 0) return;
+
+  await supabaseClient.from("lia_attendances")
+    .update({ ...safeUpdates, updated_at: new Date().toISOString() })
+    .eq("email", email);
+
+  console.log(`[extractImplicit] Updated ${Object.keys(safeUpdates).join(", ")} for ${email}`);
+}
+
+// ── LEAD MATURITY CLASSIFICATION ────────────────────────────────────────
+async function classifyLeadMaturity(
+  supabaseClient: ReturnType<typeof createClient>,
+  email: string
+): Promise<"MQL" | "SAL" | "SQL" | "CLIENTE" | null> {
+  const { data } = await supabaseClient
+    .from("lia_attendances")
+    .select("ultima_etapa_comercial, status_atual_lead_crm, funil_entrada_crm, status_oportunidade")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const etapa = (data.ultima_etapa_comercial || "").toLowerCase();
+  const funil = (data.funil_entrada_crm || "").toLowerCase();
+  const status = (data.status_oportunidade || "").toLowerCase();
+
+  if (status === "ganha") return "CLIENTE";
+
+  if (funil.includes("estagnado") || funil.includes("stagnant")) {
+    if (/contato feito|sem contato|sem resposta/.test(etapa)) return "MQL";
+    if (/em contato|apresenta[çc][ãa]o agendada/.test(etapa)) return "SAL";
+    if (/proposta enviada|negocia[çc][ãa]o|fechamento/.test(etapa)) return "SQL";
+  }
+
+  // Fallback by stage alone
+  if (/proposta|negocia|fechamento/.test(etapa)) return "SQL";
+  if (/em contato|apresenta/.test(etapa)) return "SAL";
+  if (/contato feito|sem contato|novo/.test(etapa)) return "MQL";
+
+  return null;
 }
 
 // Helper to stream a simple text response
@@ -1831,7 +1994,7 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-lite",
             messages: [
-              { role: "system", content: "Resuma em 1 frase curta (máximo 15 palavras) o assunto principal desta conversa entre um assistente de odontologia digital e um potencial cliente. Apenas o tema, sem saudações, sem emojis. Exemplo: 'impressoras 3D e resinas biocompatíveis para prótese'" },
+              { role: "system", content: "Resuma em 2 frases curtas: 1) O assunto principal desta conversa (máx 15 palavras). 2) Nível de interesse do lead: pesquisando (1), comparando (2), ou pronto para comprar (3). Formato: 'RESUMO | NÍVEL: X'. Sem saudações, sem emojis." },
               { role: "user", content: convoText.slice(0, 4000) },
             ],
             stream: false,
@@ -1868,6 +2031,12 @@ serve(async (req) => {
         // 6. Update leads.updated_at
         if (sessionData?.lead_id) {
           await supabase.from("leads").update({ updated_at: new Date().toISOString() }).eq("id", sessionData.lead_id);
+        }
+
+        // 7. Extract implicit data from full conversation
+        if (leadEmail) {
+          const fullConvoText = interactions.map((i: { user_message: string; agent_response: string | null }) => `${i.user_message} ${i.agent_response || ""}`).join(" ");
+          extractImplicitLeadData(supabase, leadEmail, fullConvoText).catch(e => console.warn("[summarize_session] implicit extraction error:", e));
         }
 
         console.log(`[summarize_session] Done for ${leadEmail}: "${summary}"`);
@@ -1932,9 +2101,9 @@ serve(async (req) => {
       } else {
         // Reconhecer o contexto do usuário antes de pedir o e-mail
         const contextAck: Record<string, string> = {
-          "pt-BR": `Que ótimo que você entrou em contato! 😊 Vou te ajudar com isso.\n\nAntes de começarmos, qual o seu melhor e-mail?`,
-          "en": `Great that you reached out! 😊 I'll help you with that.\n\nBefore we start, what's your best email?`,
-          "es": `¡Qué bueno que nos contactas! 😊 Te voy a ayudar con eso.\n\nAntes de comenzar, ¿cuál es tu mejor correo electrónico?`,
+          "pt-BR": `Para que eu possa te reconhecer, informe seu **e-mail**.`,
+          "en": `So I can recognize you, please provide your **email**.`,
+          "es": `Para que pueda reconocerte, infórmame tu **correo electrónico**.`,
         };
         responseText = contextAck[lang] || contextAck["pt-BR"];
       }
@@ -2275,7 +2444,7 @@ serve(async (req) => {
       }
 
       // Now confirm and show topics
-      const confirmText = (LEAD_CONFIRMED[lang] || LEAD_CONFIRMED["pt-BR"])(leadState.name, topic_context);
+      const confirmText = (LEAD_CONFIRMED[lang] || LEAD_CONFIRMED["pt-BR"])(leadState.name, leadState.email, topic_context);
       currentLeadId = leadState.leadId;
 
       try {
@@ -2752,8 +2921,15 @@ serve(async (req) => {
       ? `\n### 👤 LEAD IDENTIFICADO: ${leadState.name} (${leadState.email})\nUse o nome "${leadState.name}" nas respostas para personalizar a conversa. NUNCA peça nome ou email novamente.${previousConvoContext}`
       : "";
 
+    // Classify lead maturity for commercial route
+    let leadMaturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null = null;
+    if (topic_context === "commercial" && leadState.state === "from_session") {
+      leadMaturity = await classifyLeadMaturity(supabase, leadState.email);
+      console.log(`[maturity] ${leadState.email} → ${leadMaturity || "unknown"}`);
+    }
+
     const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
-      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? buildCommercialInstruction(sessionEntities, spinProgressNote) : ""}`
+      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? buildCommercialInstruction(sessionEntities, spinProgressNote, leadMaturity) : ""}`
       : "";
 
     // Commercial route: add structured context instruction
@@ -3103,6 +3279,11 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                   .from("agent_interactions")
                   .update({ agent_response: fullResponse })
                   .eq("id", interactionId);
+              }
+              // Fire-and-forget: extract implicit lead data
+              if (currentLeadId && leadState.state === "from_session") {
+                const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
+                extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
               }
               controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();

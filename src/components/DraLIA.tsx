@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import draLiaGif from '@/assets/dra-lia-avatar.gif';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
 import ProductsFlow from './ProductsFlow';
@@ -691,9 +692,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         style={{ background: '#1e3a5f' }}
       >
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-sm">
-            🦷
-          </div>
+          <img src={draLiaGif} alt="Dra. L.I.A." className="w-8 h-8 rounded-full object-cover" />
           <div>
             <div className="font-semibold text-sm leading-tight">{t('dra_lia.button_label')}</div>
             <div className="text-xs text-white/70 leading-tight">{t('dra_lia.header_subtitle')}</div>
@@ -1199,7 +1198,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 text-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95"
           style={{ background: '#1e3a5f' }}
         >
-          <span className="text-base">🦷</span>
+          <img src={draLiaGif} alt="Dra. L.I.A." className="w-6 h-6 rounded-full object-cover" />
           <span className="text-sm font-semibold">{t('dra_lia.button_label')}</span>
           <MessageCircle size={16} className="opacity-80" />
         </button>
