@@ -1,5 +1,4 @@
 
-
 ## Plano: Remover WaLeads e Integrar SellFlux
 
 ### Contexto
@@ -103,4 +102,3 @@ cs-processor roda (cron ou manual)
         { data: { nome, produto_interesse, ... }, template_id: 42, phone: "+55..." }
   ↓ registra em message_logs
 ```
-
