@@ -44,13 +44,20 @@ function isInStagnantFunnel(leadStatus: string): boolean {
 }
 
 function extractCustomField(deal: Record<string, unknown>, fieldName: string): string | null {
-  const customs = (deal.custom_fields || []) as Array<{ name?: string; label?: string; value?: unknown }>;
+  // PipeRun stores custom fields on Person (camelCase: customFields), not on deal
+  const person = deal.person as Record<string, unknown> | undefined;
+  const customs = (
+    person?.customFields || deal.customFields || deal.custom_fields || []
+  ) as Array<{ name?: string; label?: string; value?: unknown; raw_value?: unknown }>;
   if (Array.isArray(customs)) {
     const field = customs.find((f) => {
       const name = (f.name || f.label || "").toLowerCase();
       return name.includes(fieldName.toLowerCase());
     });
-    if (field && field.value != null) return String(field.value);
+    if (field) {
+      const val = field.value ?? field.raw_value;
+      if (val != null) return String(val);
+    }
   }
   return null;
 }
@@ -125,22 +132,29 @@ Deno.serve(async (req) => {
     if (city?.name) updateData.cidade = String(city.name);
     if (state?.abbr || state?.name) updateData.uf = String(state?.abbr || state?.name);
 
-    // Custom fields
+    // Custom fields (now correctly searching person.customFields)
     const produtoInteresse = extractCustomField(deal, "produto de interesse");
     if (produtoInteresse) updateData.produto_interesse = produtoInteresse;
     const temScanner = extractCustomField(deal, "tem scanner");
     if (temScanner) updateData.tem_scanner = temScanner;
     const itensProposta = extractCustomField(deal, "itens da proposta") || extractCustomField(deal, "itens proposta");
     if (itensProposta) updateData.itens_proposta_crm = itensProposta;
+    const idCliente = extractCustomField(deal, "banco de dados") || extractCustomField(deal, "id banco");
+    if (idCliente) updateData.id_cliente_smart = idCliente;
+
+    // job_title on person = area de atuação
+    if (person?.job_title) updateData.area_atuacao = String(person.job_title);
 
     updateData.piperun_link = `https://app.pipe.run/pipeline/gerenciador/visualizar/${dealId}`;
 
     // Stagnation funnel logic
     if (stageName) {
       if (isStagnant(stageName) && !isInStagnantFunnel(currentLead.lead_status) && currentLead.lead_status !== "estagnado_final") {
+        // Save current commercial stage before entering stagnation
+        updateData.ultima_etapa_comercial = currentLead.lead_status;
         updateData.lead_status = "est1_0";
         updateData.updated_at = new Date().toISOString();
-        console.log("[piperun-webhook] Iniciando funil estagnação para lead:", currentLead.id);
+        console.log("[piperun-webhook] Iniciando funil estagnação para lead:", currentLead.id, "| Etapa anterior:", currentLead.lead_status);
       } else if (!isStagnant(stageName) && (isInStagnantFunnel(currentLead.lead_status) || currentLead.lead_status === "estagnado_final")) {
         updateData.lead_status = mapStageToStatus(stageName);
         updateData.updated_at = new Date().toISOString();
