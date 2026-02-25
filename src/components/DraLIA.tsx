@@ -239,6 +239,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const lang = localeMap[language] || 'pt-BR';
   const pendingQueryRef = useRef<string | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sentMsgCountRef = useRef(0);
 
   // Fire summarize_session (fire-and-forget, idempotent via sessionStorage flag)
   const fireSummarize = useCallback(() => {
@@ -263,11 +264,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     }
   }, [fireSummarize]);
 
-  // Also fire summarize on page unload / tab switch
+  // Also fire summarize on page unload / tab switch (only if >=2 msgs sent)
   useEffect(() => {
     const handleUnload = () => fireSummarize();
     const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') fireSummarize();
+      if (document.visibilityState === 'hidden' && sentMsgCountRef.current >= 2) fireSummarize();
     };
     window.addEventListener('beforeunload', handleUnload);
     document.addEventListener('visibilitychange', handleVisibility);
@@ -335,7 +336,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const sendMessage = useCallback(async () => {
     const text = input.trim();
     if (!text || text.length < 3 || isLoading) return;
-    resetInactivityTimer(); // Reset 5-min timer on every message
+    sessionStorage.removeItem('dra_lia_summarized'); // Allow re-summarization with updated conversation
+    sentMsgCountRef.current += 1;
+    resetInactivityTimer(); // Reset inactivity timer on every message
 
     const userMsg: Message = {
       id: crypto.randomUUID(),

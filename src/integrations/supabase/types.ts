@@ -1144,6 +1144,7 @@ export type Database = {
           especialidade: string | null
           form_name: string | null
           funil_entrada_crm: string | null
+          historico_resumos: Json | null
           id: string
           id_cliente_smart: string | null
           impressora_modelo: string | null
@@ -1178,8 +1179,11 @@ export type Database = {
           tem_impressora: string | null
           tem_scanner: string | null
           temperatura_lead: string | null
+          total_messages: number | null
+          total_sessions: number | null
           uf: string | null
           ultima_etapa_comercial: string | null
+          ultima_sessao_at: string | null
           updated_at: string
           utm_campaign: string | null
           utm_medium: string | null
@@ -1218,6 +1222,7 @@ export type Database = {
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
+          historico_resumos?: Json | null
           id?: string
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
@@ -1252,8 +1257,11 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          total_messages?: number | null
+          total_sessions?: number | null
           uf?: string | null
           ultima_etapa_comercial?: string | null
+          ultima_sessao_at?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_medium?: string | null
@@ -1292,6 +1300,7 @@ export type Database = {
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
+          historico_resumos?: Json | null
           id?: string
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
@@ -1326,8 +1335,11 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          total_messages?: number | null
+          total_sessions?: number | null
           uf?: string | null
           ultima_etapa_comercial?: string | null
+          ultima_sessao_at?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_medium?: string | null
