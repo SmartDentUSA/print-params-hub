@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { replaceVariables, sendViaSellFlux } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,13 +7,6 @@ const corsHeaders = {
 };
 
 const WALEADS_BASE_URL = "https://waleads.roote.com.br";
-
-function replaceVariables(text: string, lead: Record<string, unknown>): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-    const val = lead[key];
-    return val ? String(val) : `{{${key}}}`;
-  });
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -22,6 +16,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json();
@@ -34,19 +29,66 @@ Deno.serve(async (req) => {
       caption,
       lead_id,
       test_mode = false,
+      sellflux_template_id,
     } = body;
 
     // Sanitize tipo
     const VALID_TIPOS = ["text", "image", "audio", "video", "document"];
     const tipo = VALID_TIPOS.includes(String(rawTipo).toLowerCase()) ? String(rawTipo).toLowerCase() : "text";
 
+    // Fetch lead data for variable replacement if lead_id provided
+    let leadData: Record<string, unknown> = {};
+    if (lead_id) {
+      const { data: lead } = await supabase
+        .from("lia_attendances")
+        .select("*")
+        .eq("id", lead_id)
+        .single();
+      if (lead) leadData = lead as Record<string, unknown>;
+    }
+
+    // ─── SellFlux path (preferred when token + template_id available) ───
+    const templateId = sellflux_template_id || message;
+    const useSellFlux = SELLFLUX_API_TOKEN && templateId && phone;
+
+    if (useSellFlux) {
+      // Ensure leadData has phone
+      if (!leadData.telefone_normalized) leadData.telefone_normalized = phone;
+      if (!leadData.nome) leadData.nome = "Lead";
+
+      console.log(`[send-waleads] SellFlux: template=${templateId} phone=${phone}`, { test_mode });
+
+      const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, leadData, templateId);
+
+      // Log
+      await supabase.from("message_logs").insert({
+        lead_id: lead_id || null,
+        team_member_id: team_member_id || null,
+        tipo: test_mode ? `sellflux_${tipo}_test` : `sellflux_${tipo}`,
+        mensagem_preview: `[SellFlux] template: ${templateId}`.slice(0, 200),
+        status: result.success ? "enviado" : "erro",
+        error_details: result.success ? null : result.response,
+      });
+
+      return new Response(JSON.stringify({
+        success: result.success,
+        provider: "sellflux",
+        status: result.success ? "enviado" : "erro",
+        api_status: result.status,
+        response: result.response,
+        test_mode,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── WaLeads fallback path ───
     if (!team_member_id || !phone) {
-      return new Response(JSON.stringify({ error: "team_member_id e phone são obrigatórios" }), {
+      return new Response(JSON.stringify({ error: "team_member_id e phone são obrigatórios (WaLeads mode)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Fetch team member's WaLeads API key
     const { data: member, error: memberErr } = await supabase
       .from("team_members")
       .select("id, waleads_api_key, nome_completo, whatsapp_number")
@@ -65,22 +107,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch lead data for variable replacement if lead_id provided
-    let leadData: Record<string, unknown> = {};
-    if (lead_id) {
-      const { data: lead } = await supabase
-        .from("lia_attendances")
-        .select("*")
-        .eq("id", lead_id)
-        .single();
-      if (lead) leadData = lead as Record<string, unknown>;
-    }
-
-    // Build message with variable replacement
     const finalMessage = message ? replaceVariables(message, leadData) : undefined;
     const finalCaption = caption ? replaceVariables(caption, leadData) : undefined;
 
-    // Build WaLeads API request body (send phone with original format, e.g. +55...)
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
       apiBody = { chat: phone, message: finalMessage, isGroup: false };
@@ -89,15 +118,11 @@ Deno.serve(async (req) => {
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
-    console.log(`[send-waleads] Sending ${tipo} to ${phone} via ${member.nome_completo}`, { test_mode });
-    console.log("[send-waleads] Request body:", JSON.stringify(apiBody));
+    console.log(`[send-waleads] WaLeads: ${tipo} to ${phone} via ${member.nome_completo}`, { test_mode });
 
-    // Call WaLeads API
     const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}?key=${member.waleads_api_key}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(apiBody),
     });
 
@@ -105,9 +130,6 @@ Deno.serve(async (req) => {
     const messageStatus = waRes.ok ? "enviado" : "erro";
     const errorDetails = waRes.ok ? null : waData.slice(0, 500);
 
-    console.log(`[send-waleads] Response: ${waRes.status}`, waData.slice(0, 500));
-
-    // Log to message_logs (always, with _test suffix when test_mode)
     const logTipo = test_mode ? `waleads_${tipo}_test` : `waleads_${tipo}`;
     await supabase.from("message_logs").insert({
       lead_id: lead_id || null,
@@ -123,6 +145,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: waRes.ok,
+      provider: "waleads",
       status: messageStatus,
       api_status: waRes.status,
       response: waData.slice(0, 500),

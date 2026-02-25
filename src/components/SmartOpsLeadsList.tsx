@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, Brain, Route } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 
 const STATUS_OPTIONS = [
@@ -93,6 +93,142 @@ interface LeadFull {
   itens_proposta_crm: string | null;
   piperun_link: string | null;
   ultima_etapa_comercial: string | null;
+  software_cad: string | null;
+  volume_mensal_pecas: string | null;
+  principal_aplicacao: string | null;
+  pais_origem: string | null;
+  ip_origem: string | null;
+  proactive_sent_at: string | null;
+  proactive_count: number | null;
+}
+
+// ─── TAG Color System ───
+const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  J: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
+  EC: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
+  Q: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-300" },
+  C: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-300" },
+  CS: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-300" },
+  LIA: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-300" },
+  A: { bg: "bg-red-50", text: "text-red-700", border: "border-red-300" },
+};
+
+function getTagColor(tag: string) {
+  if (tag.startsWith("J0")) return TAG_COLORS.J;
+  if (tag.startsWith("EC_")) return TAG_COLORS.EC;
+  if (tag.startsWith("Q_")) return TAG_COLORS.Q;
+  if (tag.startsWith("CS_")) return TAG_COLORS.CS;
+  if (tag.startsWith("C_")) return TAG_COLORS.C;
+  if (tag.startsWith("LIA_")) return TAG_COLORS.LIA;
+  if (tag.startsWith("A_")) return TAG_COLORS.A;
+  return { bg: "bg-muted/50", text: "text-muted-foreground", border: "border-muted" };
+}
+
+function getTagCategory(tag: string): string {
+  if (tag.startsWith("J0")) return "Jornada";
+  if (tag.startsWith("EC_")) return "E-commerce";
+  if (tag.startsWith("Q_")) return "Qualificação";
+  if (tag.startsWith("CS_")) return "CS/Onboarding";
+  if (tag.startsWith("C_")) return "Comercial";
+  if (tag.startsWith("LIA_")) return "LIA";
+  if (tag.startsWith("A_")) return "Alerta";
+  return "Outros";
+}
+
+// Journey step visualization
+const JOURNEY_STEPS = [
+  { tag: "J01_CONSCIENCIA", label: "Consciência", emoji: "👀" },
+  { tag: "J02_CONSIDERACAO", label: "Consideração", emoji: "🤔" },
+  { tag: "J03_NEGOCIACAO", label: "Negociação", emoji: "🤝" },
+  { tag: "J04_COMPRA", label: "Compra", emoji: "💰" },
+  { tag: "J05_RETENCAO", label: "Retenção", emoji: "🔄" },
+  { tag: "J06_APOIO", label: "Apoio", emoji: "⭐" },
+];
+
+function JourneyVisualizer({ tags }: { tags: string[] | null }) {
+  if (!tags?.length) return null;
+  const activeJourney = JOURNEY_STEPS.findIndex((s) => tags.includes(s.tag));
+  if (activeJourney === -1) return null;
+
+  return (
+    <div className="flex items-center gap-1 py-2">
+      {JOURNEY_STEPS.map((step, i) => {
+        const isActive = tags.includes(step.tag);
+        const isPast = i < activeJourney;
+        return (
+          <div key={step.tag} className="flex items-center">
+            {i > 0 && <div className={`w-4 h-0.5 ${isPast || isActive ? "bg-primary" : "bg-muted"}`} />}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium border-2 ${
+                    isActive ? "bg-primary text-primary-foreground border-primary" :
+                    isPast ? "bg-primary/20 text-primary border-primary/40" :
+                    "bg-muted text-muted-foreground border-muted"
+                  }`}>
+                    {step.emoji}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent><p className="text-xs">{step.label}</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TagsBadges({ tags }: { tags: string[] | null }) {
+  if (!tags?.length) return <span className="text-muted-foreground text-[10px]">—</span>;
+
+  // Group by category
+  const grouped: Record<string, string[]> = {};
+  for (const tag of tags) {
+    const cat = getTagCategory(tag);
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(tag);
+  }
+
+  return (
+    <div className="space-y-2">
+      {Object.entries(grouped).map(([category, catTags]) => (
+        <div key={category}>
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{category}</div>
+          <div className="flex gap-1 flex-wrap">
+            {catTags.map((tag) => {
+              const color = getTagColor(tag);
+              return (
+                <Badge key={tag} variant="outline" className={`text-[9px] px-1.5 py-0 ${color.bg} ${color.text} ${color.border}`}>
+                  {tag}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TagsSummaryBadges({ tags }: { tags: string[] | null }) {
+  if (!tags?.length) return null;
+  const shown = tags.slice(0, 3);
+  return (
+    <div className="flex gap-0.5 flex-wrap">
+      {shown.map((tag) => {
+        const color = getTagColor(tag);
+        return (
+          <Badge key={tag} variant="outline" className={`text-[8px] px-1 py-0 ${color.bg} ${color.text} ${color.border}`}>
+            {tag.replace(/_/g, " ").slice(0, 12)}
+          </Badge>
+        );
+      })}
+      {tags.length > 3 && (
+        <Badge variant="outline" className="text-[8px] px-1 py-0">+{tags.length - 3}</Badge>
+      )}
+    </div>
+  );
 }
 
 function ActiveIcons({ lead }: { lead: LeadFull }) {
@@ -298,7 +434,7 @@ export function SmartOpsLeadsList() {
                   <TableHead>Status</TableHead>
                   <TableHead>🌡️</TableHead>
                   <TableHead>Etapa</TableHead>
-                  <TableHead>Rota LIA</TableHead>
+                  <TableHead>TAGs</TableHead>
                   <TableHead>Resumo IA</TableHead>
                   <TableHead>Oport.</TableHead>
                   <TableHead>Valor</TableHead>
@@ -324,13 +460,8 @@ export function SmartOpsLeadsList() {
                     <TableCell className="text-xs max-w-[100px]">
                       <TruncatedText text={lead.ultima_etapa_comercial} maxLen={20} />
                     </TableCell>
-                    <TableCell>
-                      {lead.rota_inicial_lia ? (
-                        <Badge variant="secondary" className="text-[10px] gap-0.5">
-                          <Route className="w-3 h-3" />
-                          {ROUTE_LABELS[lead.rota_inicial_lia] || lead.rota_inicial_lia}
-                        </Badge>
-                      ) : "—"}
+                    <TableCell className="max-w-[150px]">
+                      <TagsSummaryBadges tags={lead.tags_crm} />
                     </TableCell>
                     <TableCell className="max-w-[200px]">
                       <TruncatedText text={lead.resumo_historico_ia} maxLen={35} />
@@ -368,7 +499,7 @@ export function SmartOpsLeadsList() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog — Reorganized in sections */}
+      {/* Detail Dialog */}
       <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -387,6 +518,17 @@ export function SmartOpsLeadsList() {
                 </div>
               )}
 
+              {/* Journey Visualizer */}
+              {selectedLead.tags_crm && selectedLead.tags_crm.some((t) => t.startsWith("J0")) && (
+                <div className="p-3 rounded-lg bg-muted/30 border">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Route className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">Jornada do Cliente</span>
+                  </div>
+                  <JourneyVisualizer tags={selectedLead.tags_crm} />
+                </div>
+              )}
+
               {/* Route + badges */}
               <div className="flex gap-2 flex-wrap">
                 {selectedLead.rota_inicial_lia && (
@@ -401,14 +543,27 @@ export function SmartOpsLeadsList() {
                 )}
               </div>
 
+              {/* TAGs Section */}
+              {selectedLead.tags_crm && selectedLead.tags_crm.length > 0 && (
+                <div className="p-3 rounded-lg bg-muted/20 border">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Tag className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">TAGs ({selectedLead.tags_crm.length})</span>
+                  </div>
+                  <TagsBadges tags={selectedLead.tags_crm} />
+                </div>
+              )}
+
               {/* Sections */}
               <DetailSection title="Dados Pessoais" fields={[
                 { label: "Nome", value: selectedLead.nome },
                 { label: "Email", value: selectedLead.email },
                 { label: "Telefone", value: selectedLead.telefone_normalized || selectedLead.telefone_raw },
                 { label: "Cidade/UF", value: selectedLead.cidade && selectedLead.uf ? `${selectedLead.cidade}/${selectedLead.uf}` : selectedLead.uf },
+                { label: "País", value: selectedLead.pais_origem },
                 { label: "Área de atuação", value: selectedLead.area_atuacao },
                 { label: "Especialidade", value: selectedLead.especialidade },
+                { label: "Aplicação principal", value: selectedLead.principal_aplicacao },
               ]} />
 
               <DetailSection title="CRM / PipeRun" fields={[
@@ -419,7 +574,6 @@ export function SmartOpsLeadsList() {
                 { label: "Funil", value: selectedLead.funil_entrada_crm },
                 { label: "Última Etapa", value: selectedLead.ultima_etapa_comercial },
                 { label: "Temperatura", value: selectedLead.temperatura_lead },
-                { label: "Tags CRM", value: selectedLead.tags_crm?.join(", ") },
               ]} />
 
               <DetailSection title="Oportunidade" fields={[
@@ -439,13 +593,16 @@ export function SmartOpsLeadsList() {
                 { label: "utm_medium", value: selectedLead.utm_medium },
                 { label: "utm_campaign", value: selectedLead.utm_campaign },
                 { label: "utm_term", value: selectedLead.utm_term },
+                { label: "IP Origem", value: selectedLead.ip_origem },
               ]} />
 
               <DetailSection title="Equipamentos" fields={[
                 { label: "Tem impressora", value: selectedLead.tem_impressora },
                 { label: "Modelo impressora", value: selectedLead.impressora_modelo },
+                { label: "Software CAD", value: selectedLead.software_cad },
                 { label: "Como digitaliza", value: selectedLead.como_digitaliza },
                 { label: "Tem scanner", value: selectedLead.tem_scanner },
+                { label: "Volume mensal peças", value: selectedLead.volume_mensal_pecas },
                 { label: "Produto de interesse", value: selectedLead.produto_interesse },
                 { label: "Resina de interesse", value: selectedLead.resina_interesse },
               ]} />
@@ -454,6 +611,8 @@ export function SmartOpsLeadsList() {
                 { label: "Rota Inicial LIA", value: selectedLead.rota_inicial_lia },
                 { label: "Score", value: selectedLead.score },
                 { label: "ID Cliente Smart", value: selectedLead.id_cliente_smart },
+                { label: "Proativo enviado em", value: selectedLead.proactive_sent_at ? formatDateTime(selectedLead.proactive_sent_at) : null },
+                { label: "Proativos enviados", value: selectedLead.proactive_count },
               ]} />
 
               <DetailSection title="Ativos" fields={[

@@ -188,3 +188,6 @@ verify_jwt = false
 
 [functions.smart-ops-proactive-outreach]
 verify_jwt = false
+
+[functions.smart-ops-ecommerce-webhook]
+verify_jwt = false
