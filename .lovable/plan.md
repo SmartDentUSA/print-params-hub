@@ -186,10 +186,10 @@ PERFIL DO LEAD:
 2. Garantir sumarização salva no campo correto
 3. Buscar últimas interações como contexto
 
-### Fase 2 — Personalização (complementa Fase 1)
-4. Construir bloco de perfil do lead no prompt
-5. Adicionar estratégias por perfil ao system prompt
-6. Migration para novos campos de captura
+### Fase 2 — Personalização (complementa Fase 1) ✅ IMPLEMENTADO
+4. ✅ Construir bloco de perfil do lead no prompt (enriched com software_cad, volume, aplicação)
+5. ✅ Adicionar estratégias por perfil ao system prompt (9 arquétipos: clinica_com/sem_impressora, lab_com/sem, lead_frio, lead_quente, cliente_ativo, estudante, novo)
+6. ✅ Migration para novos campos de captura (software_cad, volume_mensal_pecas, principal_aplicacao)
 
 ### Fase 3 — Escalonamento (requer Fase 1+2)
 7. Implementar régua de escalonamento no system prompt

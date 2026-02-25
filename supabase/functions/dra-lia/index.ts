@@ -1167,6 +1167,41 @@ async function extractImplicitLeadData(
     if (text.includes(m)) { updates.como_digitaliza = m.charAt(0).toUpperCase() + m.slice(1); break; }
   }
 
+  // ── NEW: Software CAD detection ──
+  const cadSoftware = ["exocad", "3shape", "blender", "meshmixer", "dental system", "ceramill", "zirkonzahn", "hyperdent", "dental cad"];
+  for (const sw of cadSoftware) {
+    if (text.includes(sw)) { updates.software_cad = sw.charAt(0).toUpperCase() + sw.slice(1); break; }
+  }
+
+  // ── NEW: Monthly volume detection ──
+  const volumeMatch = text.match(/\b(?:faço|imprimo|produzo|fabrico)\b.{0,30}(\d+)\s*(?:peças?|unidades?|trabalhos?|casos?)\b/i);
+  if (volumeMatch) {
+    const qty = parseInt(volumeMatch[1]);
+    if (qty <= 10) updates.volume_mensal_pecas = "até 10 peças/mês";
+    else if (qty <= 50) updates.volume_mensal_pecas = "10-50 peças/mês";
+    else if (qty <= 100) updates.volume_mensal_pecas = "50-100 peças/mês";
+    else updates.volume_mensal_pecas = "100+ peças/mês";
+  }
+  // Qualitative volume
+  if (!updates.volume_mensal_pecas) {
+    if (/\b(?:muito|bastante|grande volume|alta produção|produção alta)\b/i.test(text)) updates.volume_mensal_pecas = "alto volume";
+    if (/\b(?:pouco|poucos?|baixo volume|começ|iniciando)\b/i.test(text)) updates.volume_mensal_pecas = "baixo volume";
+  }
+
+  // ── NEW: Primary application detection ──
+  const appPatterns: [RegExp, string][] = [
+    [/\b(?:provisórios?|provisorio|temporári|temporario|temp crown)\b/i, "provisórios"],
+    [/\b(?:guias? cir[úu]rgic|surgical guide)\b/i, "guias cirúrgicos"],
+    [/\b(?:modelos? de estudo|modelo diagnóstico|study model)\b/i, "modelos de estudo"],
+    [/\b(?:placa.{0,10}miorrelaxante|placa.{0,10}bruxismo|night guard|splint)\b/i, "placas miorrelaxantes"],
+    [/\b(?:coroas? definitiv|prótese fixa|permanent crown)\b/i, "próteses definitivas"],
+    [/\b(?:alinhador|clear aligner|ortodont)\b/i, "alinhadores"],
+    [/\b(?:moldeira|tray|cubeta)\b/i, "moldeiras individuais"],
+  ];
+  for (const [pattern, app] of appPatterns) {
+    if (pattern.test(text)) { updates.principal_aplicacao = app; break; }
+  }
+
   // Raw payload enrichment
   const rawUpdates: Record<string, unknown> = {};
   const concorrentes = ["formlabs", "nextdent", "keystone", "bego", "detax", "gc", "dentsply"];
@@ -1189,7 +1224,7 @@ async function extractImplicitLeadData(
   // Fetch current record, apply COALESCE logic
   const { data: current } = await supabaseClient
     .from("lia_attendances")
-    .select("uf, tem_impressora, tem_scanner, impressora_modelo, como_digitaliza, raw_payload")
+    .select("uf, tem_impressora, tem_scanner, impressora_modelo, como_digitaliza, raw_payload, software_cad, volume_mensal_pecas, principal_aplicacao")
     .eq("email", email)
     .maybeSingle();
 
@@ -1890,6 +1925,100 @@ async function searchKnowledge(
   return { results: [], method: "none", topSimilarity: 0 };
 }
 
+// ── LEAD ARCHETYPE DETERMINATION ─────────────────────────────────────────
+// Maps lead profile data → archetype for strategy-based personalization
+function determineLeadArchetype(attendance: Record<string, unknown> | null): string {
+  if (!attendance) return "novo_desconhecido";
+
+  const area = ((attendance.area_atuacao as string) || "").toLowerCase();
+  const temImpressora = ((attendance.tem_impressora as string) || "").toLowerCase();
+  const temScanner = ((attendance.tem_scanner as string) || "").toLowerCase();
+  const temperatura = ((attendance.temperatura_lead as string) || "").toLowerCase();
+  const status = ((attendance.status_oportunidade as string) || "").toLowerCase();
+  const score = (attendance.score as number) || 0;
+
+  // Client with active products
+  if (status === "ganha" || (attendance.ativo_print && attendance.ativo_scan)) return "cliente_ativo";
+
+  // Lab with old printer (upgrade opportunity)
+  if (area.includes("laboratório") || area.includes("laboratorio")) {
+    if (temImpressora === "sim") return "lab_com_impressora";
+    return "lab_sem_impressora";
+  }
+
+  // Prosthodontist with printer → focus on resins/protocols
+  if ((area.includes("clínica") || area.includes("clinica")) && temImpressora === "sim") {
+    return "clinica_com_impressora";
+  }
+
+  // Orthodontist without printer → ROI focus
+  if ((area.includes("clínica") || area.includes("clinica")) && temImpressora !== "sim") {
+    return "clinica_sem_impressora";
+  }
+
+  // Cold lead / ebook download → educational, no pressure
+  if (temperatura === "frio" || score < 20) return "lead_frio_educativo";
+
+  // Hot lead with proposal → objection resolution
+  if (temperatura === "quente" || score > 70) return "lead_quente_decisao";
+
+  // Student
+  if (area.includes("estudante") || area.includes("universidade")) return "estudante_academico";
+
+  return "novo_desconhecido";
+}
+
+// Strategy instructions per lead archetype
+const ARCHETYPE_STRATEGIES: Record<string, string> = {
+  clinica_com_impressora: `**ESTRATÉGIA: CLÍNICA COM IMPRESSORA**
+Foco em resinas, protocolos de processamento, workflow completo ChairSide.
+Explore quais aplicações ele já faz (provisórios, guias, modelos) e sugira expansão.
+Pergunte sobre volume mensal para dimensionar consumo de resina.
+Tom: colega técnico que domina o fluxo.`,
+
+  clinica_sem_impressora: `**ESTRATÉGIA: CLÍNICA SEM IMPRESSORA**
+Foco em ROI, casos/mês mínimo para viabilizar, comparativo de investimento.
+Entenda como digitaliza hoje (moldagem? scanner?).
+Mostre que o ecossistema SmartDent reduz curva de aprendizado.
+Tom: consultor de negócios que entende a realidade do consultório.`,
+
+  lab_com_impressora: `**ESTRATÉGIA: LABORATÓRIO COM IMPRESSORA**
+Foco em upgrade, velocidade, novos materiais, produtividade.
+Pergunte qual impressora usa hoje e volume de produção.
+Compare especificações técnicas se dados disponíveis.
+Tom: especialista em eficiência produtiva.`,
+
+  lab_sem_impressora: `**ESTRATÉGIA: LABORATÓRIO SEM IMPRESSORA**
+Foco em transição digital, ganho de produtividade, redução de retrabalho.
+Entenda o fluxo atual (analógico? terceiriza impressão?).
+Tom: parceiro de modernização.`,
+
+  lead_frio_educativo: `**ESTRATÉGIA: LEAD FRIO/EDUCATIVO**
+Conteúdo educativo, sem pressão comercial. Compartilhe artigos e conhecimento.
+Objetivo: nutrir interesse, criar confiança. NÃO ofereça agendamento ou preço.
+Tom: professora generosa que compartilha conhecimento.`,
+
+  lead_quente_decisao: `**ESTRATÉGIA: LEAD QUENTE/DECISÃO**
+Resolução de objeções, urgência sutil, facilitação da decisão.
+Foque em remover barreiras: prazo, suporte pós-venda, treinamento incluso.
+Tom: consultora resolutiva que quer viabilizar o projeto dele.`,
+
+  cliente_ativo: `**ESTRATÉGIA: CLIENTE ATIVO**
+Foco em cross-sell, novas aplicações, resinas complementares.
+Pergunte sobre satisfação e explore expansão do fluxo.
+Tom: parceira de evolução contínua.`,
+
+  estudante_academico: `**ESTRATÉGIA: ESTUDANTE/ACADÊMICO**
+Foco em educação, fundamentos, primeiros passos na odontologia digital.
+Compartilhe artigos, vídeos e conceitos básicos.
+Tom: mentora acessível e didática.`,
+
+  novo_desconhecido: `**ESTRATÉGIA: LEAD NOVO**
+Faça perguntas de qualificação naturalmente (área, especialidade, equipamento).
+Objetivo: entender o perfil antes de recomendar qualquer solução.
+Tom: curiosa e atenciosa.`,
+};
+
 // ── In-memory rate limiter (per-session, resets on cold start) ────────────────
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_MAX = 30; // max requests per window
@@ -2142,7 +2271,7 @@ serve(async (req) => {
           // Fetch lia_attendances for full lead profile + resumo
           const { data: attendance } = await supabase
             .from("lia_attendances")
-            .select("resumo_historico_ia, area_atuacao, especialidade, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia")
+            .select("resumo_historico_ia, area_atuacao, especialidade, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad")
             .eq("email", leadState.email)
             .maybeSingle();
 
@@ -2181,12 +2310,22 @@ serve(async (req) => {
           if (attendance?.especialidade) profileFields.push(`Especialidade: ${attendance.especialidade}`);
           if (attendance?.tem_impressora && attendance.tem_impressora !== "não") profileFields.push(`Impressora: ${attendance.impressora_modelo || attendance.tem_impressora}`);
           if (attendance?.tem_scanner && attendance.tem_scanner !== "não") profileFields.push(`Scanner: ${attendance.como_digitaliza || attendance.tem_scanner}`);
+          if (attendance?.software_cad) profileFields.push(`Software CAD: ${attendance.software_cad}`);
+          if (attendance?.volume_mensal_pecas) profileFields.push(`Volume mensal: ${attendance.volume_mensal_pecas}`);
+          if (attendance?.principal_aplicacao) profileFields.push(`Aplicação principal: ${attendance.principal_aplicacao}`);
           if (attendance?.produto_interesse) profileFields.push(`Interesse: ${attendance.produto_interesse}`);
+          if (attendance?.resina_interesse) profileFields.push(`Resina interesse: ${attendance.resina_interesse}`);
           if (attendance?.cidade && attendance?.uf) profileFields.push(`Local: ${attendance.cidade}-${attendance.uf}`);
           if (attendance?.temperatura_lead) profileFields.push(`Temperatura: ${attendance.temperatura_lead}`);
           if (attendance?.score && attendance.score > 0) profileFields.push(`Score: ${attendance.score}`);
+          if (attendance?.ativo_print) profileFields.push(`Possui impressora ativa`);
+          if (attendance?.ativo_scan) profileFields.push(`Possui scanner ativo`);
+          if (attendance?.ativo_cad) profileFields.push(`Possui CAD ativo`);
 
-          // Update session with lead info + profile + recent history
+          // Determine lead archetype for strategy
+          const leadArchetype = determineLeadArchetype(attendance);
+
+          // Update session with lead info + profile + recent history + archetype
           await supabase.from("agent_sessions").upsert({
             session_id,
             lead_id: leadId,
@@ -2197,6 +2336,7 @@ serve(async (req) => {
               spin_stage: "etapa_1",
               returning_lead_summary: returningLeadSummary,
               lead_profile: profileFields.join(" | "),
+              lead_archetype: leadArchetype,
               recent_history: recentHistoryCompact,
             },
             current_state: "idle",
@@ -2946,13 +3086,19 @@ serve(async (req) => {
     const returningLeadSummaryCtx = (sessionEntities as Record<string, string>)?.returning_lead_summary || "";
     const leadProfileCtx = (sessionEntities as Record<string, string>)?.lead_profile || "";
     const recentHistoryCtx = (sessionEntities as Record<string, string>)?.recent_history || "";
+    const leadArchetypeCtx = (sessionEntities as Record<string, string>)?.lead_archetype || "";
 
     const previousConvoContext = returningLeadSummaryCtx
       ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR\nResumo da última sessão: ${returningLeadSummaryCtx}\nUse esse contexto para dar continuidade natural. NÃO repita informações já coletadas.`
       : "";
     
+    // Build strategy instruction based on archetype
+    const archetypeStrategy = leadArchetypeCtx && ARCHETYPE_STRATEGIES[leadArchetypeCtx]
+      ? `\n${ARCHETYPE_STRATEGIES[leadArchetypeCtx]}`
+      : "";
+
     const leadProfileBlock = leadProfileCtx
-      ? `\n### 📋 PERFIL DO LEAD\n${leadProfileCtx}\nAdapte seu tom e recomendações a este perfil. Se for protesista com impressora, foque em resinas e protocolos. Se for dentista sem impressora, foque em ROI e workflow completo.`
+      ? `\n### 📋 PERFIL DO LEAD\n${leadProfileCtx}${archetypeStrategy}`
       : "";
     
     const recentHistoryBlock = recentHistoryCtx
