@@ -133,7 +133,7 @@ function GaugeSVG({ value, max = 300 }: { value: number; max?: number }) {
 // ─── Main Component ───
 export function SmartOpsBowtie() {
   const [metrics, setMetrics] = useState<BowtieMetrics>({ mql: 0, sql: 0, vendas: 0, csContratos: 0, csOnboarding: 0, csOngoing: 0 });
-  const [allLeads, setAllLeads] = useState<{ score: number | null; created_at: string; status_atual_lead_crm: string | null; lead_status: string; produto_interesse: string | null }[]>([]);
+  const [allLeads, setAllLeads] = useState<{ score: number | null; created_at: string; status_atual_lead_crm: string | null; lead_status: string; produto_interesse: string | null; ultima_etapa_comercial: string | null; temperatura_lead: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [goals, setGoals] = useState<GoalsData>(DEFAULT_GOALS);
@@ -196,7 +196,7 @@ export function SmartOpsBowtie() {
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).not("data_contrato", "is", null).gte("data_contrato", thirtyDaysAgo),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).eq("cs_treinamento", "concluido").or("ativo_scan.eq.true,ativo_notebook.eq.true,ativo_cad.eq.true,ativo_cad_ia.eq.true,ativo_smart_slice.eq.true,ativo_print.eq.true,ativo_cura.eq.true,ativo_insumos.eq.true"),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).gte("data_ultima_compra_insumos", ninetyDaysAgo),
-        supabase.from("lia_attendances").select("score, created_at, status_atual_lead_crm, lead_status, produto_interesse").limit(1000),
+        supabase.from("lia_attendances").select("score, created_at, status_atual_lead_crm, lead_status, produto_interesse, ultima_etapa_comercial, temperatura_lead").limit(1000),
       ]);
 
       setMetrics({
@@ -219,9 +219,20 @@ export function SmartOpsBowtie() {
     const nextStart = addMonths(selectedMonth, 1);
     const futureStart = addMonths(selectedMonth, 2);
 
-    const classify = (score: number | null, status: string | null) => {
-      const s = score ?? 0;
-      if (s >= 100 || status === "Ganha") return "fechamento";
+    const classify = (lead: typeof allLeads[0]) => {
+      // Prefer CRM stage-based classification when available
+      const etapa = (lead.ultima_etapa_comercial || "").toLowerCase();
+      const temp = (lead.temperatura_lead || "").toLowerCase();
+      const status = lead.status_atual_lead_crm;
+      const s = lead.score ?? 0;
+
+      if (status === "Ganha" || etapa.includes("fechamento") || etapa.includes("ganho")) return "fechamento";
+      if (etapa.includes("negociação") || etapa.includes("negociacao") || etapa.includes("proposta") || temp === "quente") return "em_negociacao";
+      if (etapa.includes("contato") || etapa.includes("apresentação") || etapa.includes("apresentacao") || temp === "morno") return "em_contato";
+      if (etapa || temp) return "contato_realizado";
+
+      // Fallback to score-based
+      if (s >= 100) return "fechamento";
       if (s >= 80) return "em_negociacao";
       if (s >= 60) return "em_contato";
       return "contato_realizado";
@@ -230,14 +241,14 @@ export function SmartOpsBowtie() {
     const countByFaixaAndMonth = (monthStart: Date, monthEnd: Date, faixaKey: string) => {
       return allLeads.filter((l) => {
         const d = new Date(l.created_at);
-        return d >= monthStart && d < monthEnd && classify(l.score, l.status_atual_lead_crm) === faixaKey;
+        return d >= monthStart && d < monthEnd && classify(l) === faixaKey;
       }).length;
     };
 
     const countFuture = (afterDate: Date, faixaKey: string) => {
       return allLeads.filter((l) => {
         const d = new Date(l.created_at);
-        return d >= afterDate && classify(l.score, l.status_atual_lead_crm) === faixaKey;
+        return d >= afterDate && classify(l) === faixaKey;
       }).length;
     };
 
