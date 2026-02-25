@@ -1994,11 +1994,11 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-lite",
             messages: [
-              { role: "system", content: "Resuma em 2 frases curtas: 1) O assunto principal desta conversa (máx 15 palavras). 2) Nível de interesse do lead: pesquisando (1), comparando (2), ou pronto para comprar (3). Formato: 'RESUMO | NÍVEL: X'. Sem saudações, sem emojis." },
+              { role: "system", content: "Resuma esta conversa em 2-3 frases curtas para continuidade na próxima sessão. Formato: 'ASSUNTOS: [tópicos discutidos] | PENDÊNCIAS: [dúvidas não resolvidas ou próximos passos] | INTERESSE: [nível 1-3, onde 1=pesquisando, 2=comparando, 3=pronto para comprar]'. Sem saudações, sem emojis. Máximo 150 caracteres." },
               { role: "user", content: convoText.slice(0, 4000) },
             ],
             stream: false,
-            max_tokens: 60,
+            max_tokens: 100,
           }),
         });
 
@@ -2139,12 +2139,20 @@ serve(async (req) => {
           // RETURNING LEAD — found in DB, skip name collection
           const leadId = existingLead.id;
 
-          // Fetch lia_attendances for resumo_historico_ia
+          // Fetch lia_attendances for full lead profile + resumo
           const { data: attendance } = await supabase
             .from("lia_attendances")
-            .select("resumo_historico_ia")
+            .select("resumo_historico_ia, area_atuacao, especialidade, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia")
             .eq("email", leadState.email)
             .maybeSingle();
+
+          // Fetch last 5 interactions for conversational memory
+          const { data: recentInteractions } = await supabase
+            .from("agent_interactions")
+            .select("user_message, agent_response, created_at")
+            .eq("lead_id", leadId)
+            .order("created_at", { ascending: false })
+            .limit(5);
 
           // Fetch last interaction date
           const { data: lastInteraction } = await supabase
@@ -2158,7 +2166,27 @@ serve(async (req) => {
           returningLeadSummary = attendance?.resumo_historico_ia || null;
           const lastDate = lastInteraction?.created_at || null;
 
-          // Update session with lead info
+          // Build compact history from recent interactions
+          const recentHistoryCompact = (recentInteractions || [])
+            .reverse()
+            .map((i: { user_message: string; agent_response: string | null; created_at: string | null }) => {
+              const d = i.created_at ? new Date(i.created_at).toLocaleDateString("pt-BR") : "";
+              return `[${d}] Lead: ${i.user_message.slice(0, 120)}${i.agent_response ? ` → LIA: ${i.agent_response.slice(0, 120)}` : ""}`;
+            })
+            .join("\n");
+
+          // Build lead profile snapshot
+          const profileFields: string[] = [];
+          if (attendance?.area_atuacao) profileFields.push(`Área: ${attendance.area_atuacao}`);
+          if (attendance?.especialidade) profileFields.push(`Especialidade: ${attendance.especialidade}`);
+          if (attendance?.tem_impressora && attendance.tem_impressora !== "não") profileFields.push(`Impressora: ${attendance.impressora_modelo || attendance.tem_impressora}`);
+          if (attendance?.tem_scanner && attendance.tem_scanner !== "não") profileFields.push(`Scanner: ${attendance.como_digitaliza || attendance.tem_scanner}`);
+          if (attendance?.produto_interesse) profileFields.push(`Interesse: ${attendance.produto_interesse}`);
+          if (attendance?.cidade && attendance?.uf) profileFields.push(`Local: ${attendance.cidade}-${attendance.uf}`);
+          if (attendance?.temperatura_lead) profileFields.push(`Temperatura: ${attendance.temperatura_lead}`);
+          if (attendance?.score && attendance.score > 0) profileFields.push(`Score: ${attendance.score}`);
+
+          // Update session with lead info + profile + recent history
           await supabase.from("agent_sessions").upsert({
             session_id,
             lead_id: leadId,
@@ -2168,6 +2196,8 @@ serve(async (req) => {
               lead_id: leadId,
               spin_stage: "etapa_1",
               returning_lead_summary: returningLeadSummary,
+              lead_profile: profileFields.join(" | "),
+              recent_history: recentHistoryCompact,
             },
             current_state: "idle",
             last_activity_at: new Date().toISOString(),
@@ -2914,11 +2944,23 @@ serve(async (req) => {
 
     // Build lead name context for system prompt
     const returningLeadSummaryCtx = (sessionEntities as Record<string, string>)?.returning_lead_summary || "";
+    const leadProfileCtx = (sessionEntities as Record<string, string>)?.lead_profile || "";
+    const recentHistoryCtx = (sessionEntities as Record<string, string>)?.recent_history || "";
+
     const previousConvoContext = returningLeadSummaryCtx
-      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR\nO lead já conversou anteriormente. Resumo: ${returningLeadSummaryCtx}\nUse esse contexto para personalizar a conversa, mas não repita informações já coletadas.`
+      ? `\n### 🔄 CONTEXTO DE CONVERSA ANTERIOR\nResumo da última sessão: ${returningLeadSummaryCtx}\nUse esse contexto para dar continuidade natural. NÃO repita informações já coletadas.`
       : "";
+    
+    const leadProfileBlock = leadProfileCtx
+      ? `\n### 📋 PERFIL DO LEAD\n${leadProfileCtx}\nAdapte seu tom e recomendações a este perfil. Se for protesista com impressora, foque em resinas e protocolos. Se for dentista sem impressora, foque em ROI e workflow completo.`
+      : "";
+    
+    const recentHistoryBlock = recentHistoryCtx
+      ? `\n### 💬 ÚLTIMAS INTERAÇÕES (memória conversacional)\n${recentHistoryCtx}\nUse este histórico para retomar assuntos pendentes e evitar repetições. Se o lead perguntou algo antes, você pode referenciar: "Como conversamos anteriormente..."`
+      : "";
+
     const leadNameContext = (leadState.state === "from_session")
-      ? `\n### 👤 LEAD IDENTIFICADO: ${leadState.name} (${leadState.email})\nUse o nome "${leadState.name}" nas respostas para personalizar a conversa. NUNCA peça nome ou email novamente.${previousConvoContext}`
+      ? `\n### 👤 LEAD IDENTIFICADO: ${leadState.name} (${leadState.email})\nUse o nome "${leadState.name}" nas respostas para personalizar a conversa. NUNCA peça nome ou email novamente.${previousConvoContext}${leadProfileBlock}${recentHistoryBlock}`
       : "";
 
     // Classify lead maturity for commercial route
