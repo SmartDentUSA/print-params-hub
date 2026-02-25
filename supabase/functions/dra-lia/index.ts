@@ -1204,7 +1204,13 @@ async function extractImplicitLeadData(
 
   // Raw payload enrichment
   const rawUpdates: Record<string, unknown> = {};
-  const concorrentes = ["formlabs", "nextdent", "keystone", "bego", "detax", "gc", "dentsply"];
+  const concorrentes = [
+    "formlabs", "nextdent", "keystone", "bego", "detax", "gc", "dentsply",
+    "voxelprint", "voxel print", "sprintray", "dentca", "asiga", "ackuretta",
+    "graphy", "desktop health", "liqcreate", "shining3d", "uniz", "stratasys",
+    "envisiontec", "saremco", "kulzer", "dmg", "vlc", "amann girrbach",
+    "ivoclar", "huge dental", "yucera", "harz labs", "dreve"
+  ];
   const found = concorrentes.filter(c => text.includes(c));
   if (found.length > 0) rawUpdates.marcas_concorrentes = found;
 
@@ -3609,6 +3615,14 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     (campos PROCESSING_PROTOCOL ou PARAMETER_SET).
     Se ausentes: "Não tenho os parâmetros exatos para essa configuração.
     Recomendo verificar com nosso suporte técnico: [Falar com suporte](https://wa.me/551634194735)"
+
+24. RESINAS/PRODUTOS DESCONHECIDOS:
+    Se o usuário mencionar uma resina, produto ou marca que NÃO aparece nos DADOS DAS FONTES abaixo,
+    NUNCA afirme que é "parceira", "do nosso portfólio", "nossa resina" ou qualquer variação.
+    Responda: "Não temos dados da [nome] no nosso sistema.
+    Posso te ajudar com as resinas do portfólio SmartDent — temos opções para [aplicação mencionada].
+    Quer que eu te mostre?"
+    PROIBIDO inventar que um produto externo faz parte do portfólio da SmartDent.
 
 --- DADOS DAS FONTES ---
 ${context}
