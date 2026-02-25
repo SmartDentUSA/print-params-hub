@@ -221,7 +221,7 @@
   "dra_lia": {
     "button_label": "Dra. L.I.A.",
     "header_subtitle": "I.A. generativa alimentada por 16 años de experiencia en odontología digital",
-    "welcome_message": "¡Hola! 👋 Soy la Dra. L.I.A., tu consultora en odontología digital. ¿Cómo puedo ayudarte?",
+    "welcome_message": "¡Hola! 👋 Soy la Dra. L.I.A., tu consultora en odontología digital.\n\nPara comenzar, ingresa tu correo electrónico profesional:",
     "input_placeholder": "Escribe tu pregunta...",
     "typing": "Escribiendo...",
     "feedback_helpful": "¡Esto me ayudó!",

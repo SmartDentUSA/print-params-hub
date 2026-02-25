@@ -221,7 +221,7 @@
   "dra_lia": {
     "button_label": "Dr. L.I.A.",
     "header_subtitle": "Generative AI powered by 16 years of digital dentistry expertise",
-    "welcome_message": "Hi! 👋 I'm Dr. L.I.A., your digital dentistry consultant. How can I help you?",
+    "welcome_message": "Hi! 👋 I'm Dr. L.I.A., your digital dentistry consultant.\n\nTo get started, please enter your professional email:",
     "input_placeholder": "Type your question...",
     "typing": "Typing...",
     "feedback_helpful": "This helped me!",
