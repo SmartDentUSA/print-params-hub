@@ -1100,6 +1100,7 @@ export type Database = {
           pais_origem: string | null
           piperun_id: string | null
           piperun_link: string | null
+          principal_aplicacao: string | null
           produto_interesse: string | null
           proprietario_lead_crm: string | null
           raw_payload: Json | null
@@ -1108,6 +1109,7 @@ export type Database = {
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
           score: number | null
+          software_cad: string | null
           source: string
           status_atual_lead_crm: string | null
           status_oportunidade: string | null
@@ -1125,6 +1127,7 @@ export type Database = {
           utm_source: string | null
           utm_term: string | null
           valor_oportunidade: number | null
+          volume_mensal_pecas: string | null
         }
         Insert: {
           area_atuacao?: string | null
@@ -1169,6 +1172,7 @@ export type Database = {
           pais_origem?: string | null
           piperun_id?: string | null
           piperun_link?: string | null
+          principal_aplicacao?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
           raw_payload?: Json | null
@@ -1177,6 +1181,7 @@ export type Database = {
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
           status_oportunidade?: string | null
@@ -1194,6 +1199,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           valor_oportunidade?: number | null
+          volume_mensal_pecas?: string | null
         }
         Update: {
           area_atuacao?: string | null
@@ -1238,6 +1244,7 @@ export type Database = {
           pais_origem?: string | null
           piperun_id?: string | null
           piperun_link?: string | null
+          principal_aplicacao?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
           raw_payload?: Json | null
@@ -1246,6 +1253,7 @@ export type Database = {
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
           status_oportunidade?: string | null
@@ -1263,6 +1271,7 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
           valor_oportunidade?: number | null
+          volume_mensal_pecas?: string | null
         }
         Relationships: []
       }
