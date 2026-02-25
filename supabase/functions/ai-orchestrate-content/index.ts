@@ -997,7 +997,7 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
         messages: [
           { role: 'user', content: ORCHESTRATOR_PROMPT }
         ],
-        max_completion_tokens: 12000,
+        max_completion_tokens: 16000,
         // Temperatura dinâmica: depoimentos = mais criativo, expansionWarning = menos criativo
         temperature: isTestimonial ? 0.8 : (expansionWarning ? 0.1 : 0.3),
       }),
@@ -1058,9 +1058,56 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
         parsedResponse = JSON.parse(cleanedContent);
         console.log('✅ JSON parseado com sucesso após limpeza');
       } catch (secondError) {
-        console.error('❌ Falha total no parse do JSON:', secondError);
-        console.error('📄 JSON extraído (primeiros 500 chars):', cleanedContent.substring(0, 500));
-        throw new Error('IA não retornou JSON válido após limpeza. Tente novamente.');
+        console.error('⚠️ Segundo parse falhou, tentando reparo avançado...', secondError);
+        
+        // Reparar problemas comuns no JSON
+        let repairedContent = cleanedContent
+          // Remover trailing commas
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          // Remover caracteres de controle (exceto \n \r \t que são válidos em strings JSON)
+          .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        
+        // Tentar detectar truncamento e fechar JSON incompleto
+        const openBraces = (repairedContent.match(/{/g) || []).length;
+        const closeBraces = (repairedContent.match(/}/g) || []).length;
+        const openBrackets = (repairedContent.match(/\[/g) || []).length;
+        const closeBrackets = (repairedContent.match(/]/g) || []).length;
+        
+        if (openBraces > closeBraces || openBrackets > closeBrackets) {
+          console.warn('⚠️ JSON truncado detectado, tentando fechar...');
+          // Fechar strings abertas e estruturas JSON
+          // Encontrar se estamos dentro de uma string (aspas ímpares)
+          const quoteCount = (repairedContent.match(/(?<!\\)"/g) || []).length;
+          if (quoteCount % 2 !== 0) {
+            repairedContent += '"';
+          }
+          // Fechar brackets e braces faltantes
+          for (let i = 0; i < openBrackets - closeBrackets; i++) repairedContent += ']';
+          for (let i = 0; i < openBraces - closeBraces; i++) repairedContent += '}';
+        }
+        
+        try {
+          parsedResponse = JSON.parse(repairedContent);
+          console.log('✅ JSON parseado com sucesso após reparo avançado');
+        } catch (thirdError) {
+          console.error('❌ Falha total no parse do JSON:', thirdError);
+          console.error('📄 JSON extraído (primeiros 500 chars):', cleanedContent.substring(0, 500));
+          
+          // Última tentativa: extrair apenas o campo html via regex
+          const htmlMatch = cleanedContent.match(/"html"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"faqs"|"\s*})/);
+          if (htmlMatch) {
+            console.log('🔧 Extraindo HTML via regex como fallback...');
+            const extractedHtml = htmlMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n');
+            parsedResponse = {
+              html: extractedHtml,
+              faqs: []
+            };
+            console.log(`✅ HTML extraído via fallback: ${extractedHtml.length} chars (sem FAQs)`);
+          } else {
+            throw new Error('IA não retornou JSON válido após limpeza. Tente novamente.');
+          }
+        }
       }
     }
 
