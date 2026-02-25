@@ -1,176 +1,226 @@
 
+# Plano: Sistema Autônomo Dra. L.I.A. — 4 Pilares
 
-## Plano: Ajustar Kanban com Etapas Reais do CRM Completo + Importar Leads
+## Visão Geral
 
-### Diagnostico
-
-A planilha exportada contem **~1590 leads** de **4 funis reais** do Piperun:
-
-```text
-FUNIL DE VENDAS (pipeline principal):
-  Sem contato, Contato Feito, Em Contato, Apresentação/Visita,
-  Proposta Enviada, Negociação, Fechamento
-
-FUNIL ESTAGNADOS (reativacao):
-  Etapa 01 - Reativação, Etapa 02 - Reativação,
-  Etapa 03 - Reativação, Etapa 04 - Reativação,
-  Proposta Enviada - Estag, Apresentação/Visita - Estag  ← NOVO
-
-CS ONBOARDING (pos-venda):
-  Em espera, Sem Data / Agendar treinamento  ← NOVOS
-
-FUNIL E-BOOK:
-  Ebook Message Helper  ← NOVO
-```
-
-Status das oportunidades: **Aberta**, **Perdida**, **Ganha**
-
-### Problemas Atuais
-
-1. O Kanban nao tem a etapa "Apresentacao/Visita - Estag" nos estagnados
-2. Nao existe secao CS Onboarding no Kanban
-3. Nao existe parser para o export COMPLETO do Piperun (todos os funis juntos)
-4. Leads Perdidos/Ganhos nao sao rastreados visualmente
-5. No banco so existem 18 leads com `lead_status: "sem_contato"`
+Transformar a Dra. L.I.A. de uma FAQ inteligente em uma **consultora autônoma** que:
+- Lembra o contexto de cada lead
+- Inicia conversas proativamente
+- Decide quando escalar para humano
+- Adapta discurso ao perfil do profissional
 
 ---
 
-### Frente 1 — Novo Parser "piperun_full" para Export Completo
+## Pilar 1 — Memória Conversacional Persistente
 
-**Arquivo: `src/utils/leadParsers.ts`**
+### Objetivo
+Lead volta → LIA retoma com contexto da última conversa, sem repetir qualificação.
 
-Criar `parsePiperunFull()` que mapeia Funil + Etapa para `lead_status`:
+### Implementação
 
-```text
-MAPEAMENTO:
-  "Funil de vendas" + "Sem contato"              → sem_contato
-  "Funil de vendas" + "Contato Feito"             → contato_feito
-  "Funil de vendas" + "Em Contato"                → em_contato
-  "Funil de vendas" + "Apresentação/Visita"       → apresentacao
-  "Funil de vendas" + "Proposta Enviada"          → proposta_enviada
-  "Funil de vendas" + "Negociação"                → negociacao
-  "Funil de vendas" + "Fechamento"                → fechamento
-  "Funil Estagnados" + "Etapa 01*"                → est_etapa1
-  "Funil Estagnados" + "Etapa 02*"                → est_etapa2
-  "Funil Estagnados" + "Etapa 03*"                → est_etapa3
-  "Funil Estagnados" + "Etapa 04*"                → est_etapa4
-  "Funil Estagnados" + "Proposta Enviada*"        → est_proposta
-  "Funil Estagnados" + "Apresentação/Visita*"     → est_apresentacao
-  "CS Onboarding" + "Em espera"                   → cs_em_espera
-  "CS Onboarding" + "Sem Data*"                   → cs_agendar
-  "Funil E-book" + *                              → ebook
-```
+**1a. Usar `resumo_historico_ia` no `lia_attendances`** (campo já existe)
 
-Campos mapeados da planilha:
-- `nome`: extraido de "Titulo" (remove sufixo " - 2026-...")
-- `email`: "E-mail (Pessoa)"
-- `telefone_raw`: "Telefone Principal (Pessoa)" ou "Telefone (Pessoa)"
-- `piperun_id`: "ID"
-- `piperun_link`: "Link"
-- `proprietario_lead_crm`: "Nome do dono da oportunidade"
-- `produto_interesse`: "Produto de interesse"
-- `area_atuacao`: "ÁREA DE ATUAÇÃO" ou "Área de Atuação"
-- `especialidade`: "Especialidade principal" ou "Especialidade"
-- `valor_oportunidade`: "Valor de P&S"
-- `status_oportunidade`: "Status" (Aberta/Perdida/Ganha)
-- `motivo_perda`: "(MP) Motivo de perda"
-- `comentario_perda`: "(MP) Comentário"
-- `temperatura_lead`: "Temperatura"
-- `funil_entrada_crm`: "Funil"
-- `lead_timing_dias`: "Lead-Timing"
-- `cidade`: "Endereço - Cidade (Pessoa)"
-- `uf`: "Endereço - Estado (UF) (Pessoa)"
-- `tags_crm`: "Tags"
-- `itens_proposta_crm`: "Itens da proposta"
+- No `dra-lia` edge function, ao detectar lead retornante (email match):
+  - Buscar `resumo_historico_ia` do lead
+  - Injetar no system prompt: "Histórico: {resumo}"
+  - Gerar saudação contextual: "Dr. João, da última vez conversamos sobre X. Decidiu algo?"
 
-Adicionar ao PARSER_OPTIONS como "PipeRun Export Completo".
+**1b. Sumarização automática ao final de sessão** (já existe via inactivity timer)
+
+- Garantir que o `summarize_session` salve em `resumo_historico_ia` do `lia_attendances`
+- Formato do resumo: tópicos discutidos, produtos mencionados, dúvidas pendentes, próximo passo
+
+**1c. Histórico de interações como contexto**
+
+- Buscar últimas 3-5 interações do lead em `agent_interactions` (via `lead_id`)
+- Incluir como contexto compacto no prompt
+
+### Arquivos a modificar
+- `supabase/functions/dra-lia/index.ts` — injetar resumo + histórico no prompt
+- `supabase/functions/archive-daily-chats/index.ts` — garantir que resumo salva em `lia_attendances`
 
 ---
 
-### Frente 2 — Atualizar Kanban com Novas Secoes
+## Pilar 2 — Outreach Proativo via WaLeads
 
-**Arquivo: `src/components/SmartOpsKanban.tsx`**
+### Objetivo
+Sistema inicia contato com leads que esfriaram, usando mensagens geradas pela IA.
 
-**2a. Adicionar etapa "Apresentacao/Visita - Estag" aos estagnados:**
+### Implementação
 
-```text
-STAGNANT_COLUMNS (atualizado):
-  est_etapa1      → "Etapa 01 - Reativação"
-  est_etapa2      → "Etapa 02 - Reativação"
-  est_etapa3      → "Etapa 03 - Reativação"
-  est_etapa4      → "Etapa 04 - Reativação"
-  est_apresentacao → "Apresentação/Visita - Estag"   ← NOVO
-  est_proposta    → "Proposta Enviada - Estag"
+**2a. Criar edge function `smart-ops-proactive-outreach`**
+
+Lógica de triggers:
+```
+Lead com proposta_enviada há > 7 dias sem interação → Outreach "acompanhamento"
+Lead quente que não voltou há > 3 dias → Outreach "reengajamento"  
+Lead novo que completou qualificação mas não perguntou nada → Outreach "primeira dúvida"
+Lead com status Perdida há < 30 dias → Outreach "recuperação" (1x só)
 ```
 
-**2b. Adicionar secao CS Onboarding:**
+**2b. Mensagens inteligentes (não templates fixos)**
 
-Novo array:
-```text
-CS_COLUMNS:
-  cs_em_espera  → "Em Espera"        (bg-teal-50 border-teal-300)
-  cs_agendar    → "Agendar Treinamento" (bg-cyan-50 border-cyan-300)
-```
+- Usar IA para gerar mensagem personalizada baseada em:
+  - `produto_interesse`
+  - `impressora_modelo`
+  - `area_atuacao`
+  - `resumo_historico_ia`
+- Guardar em `cs_automation_rules` com `tipo: 'proactive_ai'`
 
-**2c. Adicionar secao Ebook:**
+**2c. Integrar com WaLeads existente**
 
-Coluna simples para leads vindos do funil de e-book.
+- Usar `smart-ops-send-waleads` já existente
+- Adicionar campo `proactive_sent_at` no `lia_attendances` para evitar spam
+- Máximo 1 outreach a cada 5 dias por lead
 
-**2d. Indicador visual de Status (Ganha/Perdida):**
-
-No card do lead, exibir badge verde "Ganha" ou vermelho "Perdida" quando `status_oportunidade != "aberta"`. Adicionar `status_oportunidade` e `valor_oportunidade` a interface Lead e ao select da query.
-
-**2e. Atualizar STATUS_KEYS** para incluir todos os novos status no filtro da query.
+### Arquivos a criar/modificar
+- `supabase/functions/smart-ops-proactive-outreach/index.ts` — NOVO
+- Migration: adicionar `proactive_sent_at` e `proactive_count` ao `lia_attendances`
 
 ---
 
-### Frente 3 — Atualizar Stagnant Processor
+## Pilar 3 — Régua de Escalonamento IA → Humano
 
-**Arquivo: `supabase/functions/smart-ops-stagnant-processor/index.ts`**
+### Objetivo
+LIA decide automaticamente quando resolver sozinha vs escalar para vendedor/CS.
 
-Adicionar `est_apresentacao` na cadeia de progressao:
+### Implementação
 
-```text
-ANTES:  est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_proposta → estagnado_final
-DEPOIS: est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_apresentacao → est_proposta → estagnado_final
+**3a. Definir régua no system prompt da LIA**
+
 ```
+RESOLVO SOZINHA:
+- Dúvida técnica (resina, parâmetro, protocolo, workflow)
+- Comparativo de produtos/resinas
+- Informações de catálogo e preço público
+- Orientação de pós-processamento
+
+ESCALO PARA VENDEDOR:
+- Pedido de desconto ou negociação
+- Lead com score > 80 pedindo orçamento
+- Solicitação de visita/reunião
+- Lead menciona concorrente com intenção de compra
+
+ESCALO PARA CS/SUPORTE:
+- Problema com equipamento (peça, defeito, reposição)
+- Reclamação de produto
+- Solicitação de treinamento
+
+ESCALO PARA ESPECIALISTA:
+- 3+ interações sem resolução na mesma sessão
+- Lead expressa frustração/insatisfação
+```
+
+**3b. Ação de escalonamento**
+
+- Quando decidir escalar:
+  1. Identificar vendedor responsável via `proprietario_lead_crm` → `team_members`
+  2. Enviar notificação via WaLeads para o vendedor com resumo
+  3. Marcar `lia_attendances.ultima_etapa_comercial = 'escalado_lia'`
+  4. Informar o lead: "Vou conectar você com [Nome], nosso especialista para esse assunto."
+
+**3c. Auto-agendamento de reunião**
+
+- Lead quente + score alto + pediu demo/reunião:
+  - LIA coleta data/horário preferido
+  - Cria registro no `message_logs` com tipo `agendamento`
+  - Notifica vendedor com os detalhes
+
+### Arquivos a modificar
+- `supabase/functions/dra-lia/index.ts` — adicionar lógica de escalonamento
+- `supabase/functions/_shared/system-prompt.ts` — régua de escalonamento
 
 ---
 
-### Frente 4 — Importar os ~1590 Leads
+## Pilar 4 — Personalização por Perfil
 
-Apos criar o parser, o usuario podera usar o botao "Importar" no Smart Ops, selecionar "PipeRun Export Completo" e carregar o arquivo XLSX. A importacao sera feita em batches de 500 via `import-leads-csv`.
+### Objetivo
+LIA adapta tom, conteúdo e recomendações baseado no perfil completo do lead.
+
+### Implementação
+
+**4a. Perfil como contexto no prompt**
+
+Ao identificar lead, construir bloco de contexto:
+```
+PERFIL DO LEAD:
+- Área: Protesista
+- Especialidade: Implantodontia
+- Equipamento: MiiCraft 125 Ultra
+- Scanner: Medit i700
+- Temperatura: Quente
+- Produto de interesse: Cosmos Temp
+- Score: 85 (SQL)
+- Último contato: há 3 dias
+- Histórico: Perguntou sobre protocolo de facetas com Cosmos Temp
+```
+
+**4b. Estratégias por perfil**
+
+| Perfil | Estratégia da LIA |
+|--------|-------------------|
+| Protesista com impressora | Foco em resinas, protocolos, workflow completo |
+| Ortodontista sem impressora | ROI, casos/mês, comparativo de investimento |
+| Lab com impressora antiga | Upgrade, velocidade, novos materiais |
+| Dentista generalista curioso | Educação, primeiros passos, custo-benefício |
+| Lead frio/ebook | Conteúdo educativo, sem pressão comercial |
+| Lead quente/proposta | Resolução de objeções, urgência sutil |
+
+**4c. Enriquecer perfil durante conversa**
+
+- Detectar menções a equipamentos, softwares, concorrentes via regex
+- Atualizar `lia_attendances` em background (já implementado parcialmente)
+- Novos campos a capturar: `software_cad`, `volume_mensal_pecas`, `principal_aplicacao`
+
+### Arquivos a modificar
+- `supabase/functions/dra-lia/index.ts` — construir bloco de perfil
+- `supabase/functions/_shared/system-prompt.ts` — estratégias por perfil
+- Migration: adicionar `software_cad`, `volume_mensal_pecas`, `principal_aplicacao` ao `lia_attendances`
 
 ---
 
-### Resumo de Alteracoes
+## Ordem de Execução
 
-```text
-MODIFICAR:
-  src/utils/leadParsers.ts
-    - Novo parser parsePiperunFull()
-    - Nova opcao "PipeRun Export Completo" em PARSER_OPTIONS
+### Fase 1 — Memória (impacto imediato, baixo esforço)
+1. Injetar `resumo_historico_ia` no prompt de leads retornantes
+2. Garantir sumarização salva no campo correto
+3. Buscar últimas interações como contexto
 
-  src/components/SmartOpsKanban.tsx
-    - STAGNANT_COLUMNS: adicionar est_apresentacao
-    - Novo CS_COLUMNS (cs_em_espera, cs_agendar)
-    - Novo EBOOK status
-    - STATUS_KEYS atualizado
-    - Interface Lead: adicionar status_oportunidade, valor_oportunidade
-    - Cards: badge Ganha/Perdida + valor quando disponivel
-    - Nova secao "CS Onboarding" no render
+### Fase 2 — Personalização (complementa Fase 1)
+4. Construir bloco de perfil do lead no prompt
+5. Adicionar estratégias por perfil ao system prompt
+6. Migration para novos campos de captura
 
-  supabase/functions/smart-ops-stagnant-processor/index.ts
-    - Adicionar est_apresentacao na cadeia PROGRESSION
+### Fase 3 — Escalonamento (requer Fase 1+2)
+7. Implementar régua de escalonamento no system prompt
+8. Criar ação de notificação ao vendedor
+9. Lógica de auto-agendamento
 
-DEPLOY:
-  smart-ops-stagnant-processor
-```
+### Fase 4 — Outreach Proativo (requer Fases anteriores)
+10. Criar `smart-ops-proactive-outreach`
+11. Migration para campos de controle de outreach
+12. Integrar com WaLeads existente
+13. Configurar cron job para execução diária
 
-### Ordem de Execucao
+---
 
-1. Criar parser `parsePiperunFull` em leadParsers.ts
-2. Atualizar Kanban com novos status e secoes
-3. Atualizar stagnant processor e deploy
-4. Importar leads via UI do Smart Ops
+## Métricas de Sucesso
 
+| Métrica | Atual | Meta |
+|---------|-------|------|
+| Taxa de resolução sem humano | ~60% | 85% |
+| Leads que retornam | desconhecido | 40%+ |
+| Tempo médio de resposta a lead quente | manual | < 5 min (automático) |
+| Leads escalados com contexto | 0% | 100% |
+| Outreach proativo com resposta | 0 | 20%+ taxa de resposta |
+
+---
+
+## Dependências
+
+- WaLeads API key já configurada ✅
+- Piperun sync funcionando ✅
+- Sistema de sumarização existente ✅
+- RAG com 8 fontes ✅
+- Judge + Auto-learning ✅
+- `lia_attendances` com dados ricos ✅
