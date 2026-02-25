@@ -240,29 +240,43 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const pendingQueryRef = useRef<string | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Inactivity timer: summarize session after 5 min of no messages
-  const resetInactivityTimer = useCallback(() => {
-    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
-    // Only set timer if lead was collected and not already summarized
+  // Fire summarize_session (fire-and-forget, idempotent via sessionStorage flag)
+  const fireSummarize = useCallback(() => {
     if (sessionStorage.getItem('dra_lia_lead_collected') && !sessionStorage.getItem('dra_lia_summarized')) {
-      inactivityTimerRef.current = setTimeout(() => {
-        sessionStorage.setItem('dra_lia_summarized', 'true');
-        // Fire-and-forget: summarize session
-        fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=summarize_session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ session_id: sessionId.current }),
-        }).catch(() => { /* silent */ });
-      }, 300_000); // 5 minutes
+      sessionStorage.setItem('dra_lia_summarized', 'true');
+      const url = `${SUPABASE_URL}/functions/v1/dra-lia?action=summarize_session`;
+      const body = JSON.stringify({ session_id: sessionId.current });
+      // Prefer sendBeacon for page unload (works even when tab is closing)
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+      } else {
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {});
+      }
     }
   }, []);
 
-  // Cleanup timer on unmount
+  // Inactivity timer: summarize session after 2 min of no messages
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+    if (sessionStorage.getItem('dra_lia_lead_collected') && !sessionStorage.getItem('dra_lia_summarized')) {
+      inactivityTimerRef.current = setTimeout(fireSummarize, 120_000); // 2 minutes
+    }
+  }, [fireSummarize]);
+
+  // Also fire summarize on page unload / tab switch
   useEffect(() => {
+    const handleUnload = () => fireSummarize();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') fireSummarize();
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      window.removeEventListener('beforeunload', handleUnload);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [fireSummarize]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
