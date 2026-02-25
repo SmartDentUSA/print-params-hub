@@ -26,6 +26,14 @@ interface Lead {
   piperun_link: string | null;
   especialidade: string | null;
   motivo_perda: string | null;
+  tem_impressora: string | null;
+  impressora_modelo: string | null;
+  tem_scanner: string | null;
+  como_digitaliza: string | null;
+  itens_proposta_crm: string | null;
+  tags_crm: string[] | null;
+  funil_entrada_crm: string | null;
+  comentario_perda: string | null;
 }
 
 const COLUMNS = [
@@ -80,7 +88,7 @@ export function SmartOpsKanban() {
   const fetchLeads = async () => {
     const { data } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda")
+      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda")
       .in("lead_status", STATUS_KEYS)
       .order("created_at", { ascending: false })
       .limit(2000);
@@ -153,6 +161,15 @@ export function SmartOpsKanban() {
           {lead.especialidade && (
             <Badge variant="secondary" className="text-[10px]">{lead.especialidade}</Badge>
           )}
+          {lead.tem_impressora && lead.tem_impressora !== "não" && (
+            <Badge variant="outline" className="text-[10px]">🖨️ {lead.impressora_modelo || lead.tem_impressora}</Badge>
+          )}
+          {lead.tem_scanner && lead.tem_scanner !== "não" && (
+            <Badge variant="outline" className="text-[10px]">📷 {lead.tem_scanner}</Badge>
+          )}
+          {lead.como_digitaliza && (
+            <Badge variant="outline" className="text-[10px]">🔍 {lead.como_digitaliza}</Badge>
+          )}
           {lead.score != null && lead.score > 0 && (
             <Badge className="text-[10px] bg-primary/10 text-primary">{lead.score}pts</Badge>
           )}
@@ -164,8 +181,17 @@ export function SmartOpsKanban() {
           {lead.motivo_perda && (
             <Badge variant="outline" className="text-[10px] border-destructive text-destructive">{lead.motivo_perda}</Badge>
           )}
+          {lead.comentario_perda && (
+            <div className="text-[10px] text-destructive italic truncate w-full">"{lead.comentario_perda}"</div>
+          )}
           {lead.valor_oportunidade != null && lead.valor_oportunidade > 0 && (
             <Badge variant="outline" className="text-[10px] font-semibold">{formatCurrency(lead.valor_oportunidade)}</Badge>
+          )}
+          {lead.itens_proposta_crm && (
+            <Badge variant="outline" className="text-[10px]">📋 {lead.itens_proposta_crm}</Badge>
+          )}
+          {lead.tags_crm && lead.tags_crm.length > 0 && (
+            <Badge variant="secondary" className="text-[10px]">🏷️ {lead.tags_crm.join(", ")}</Badge>
           )}
         </div>
         {lead.proprietario_lead_crm && (
