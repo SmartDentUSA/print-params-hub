@@ -1101,6 +1101,8 @@ export type Database = {
           piperun_id: string | null
           piperun_link: string | null
           principal_aplicacao: string | null
+          proactive_count: number | null
+          proactive_sent_at: string | null
           produto_interesse: string | null
           proprietario_lead_crm: string | null
           raw_payload: Json | null
@@ -1173,6 +1175,8 @@ export type Database = {
           piperun_id?: string | null
           piperun_link?: string | null
           principal_aplicacao?: string | null
+          proactive_count?: number | null
+          proactive_sent_at?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
           raw_payload?: Json | null
@@ -1245,6 +1249,8 @@ export type Database = {
           piperun_id?: string | null
           piperun_link?: string | null
           principal_aplicacao?: string | null
+          proactive_count?: number | null
+          proactive_sent_at?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
           raw_payload?: Json | null

@@ -198,11 +198,11 @@ PERFIL DO LEAD:
 10. ✅ CTA de escalonamento injetado automaticamente na resposta da LIA
 11. ✅ Atualização de lia_attendances.ultima_etapa_comercial com tipo de escalonamento
 
-### Fase 4 — Outreach Proativo (requer Fases anteriores)
-10. Criar `smart-ops-proactive-outreach`
-11. Migration para campos de controle de outreach
-12. Integrar com WaLeads existente
-13. Configurar cron job para execução diária
+### Fase 4 — Outreach Proativo (requer Fases anteriores) ✅ IMPLEMENTADO
+10. ✅ Criar `smart-ops-proactive-outreach` (4 regras: acompanhamento, reengajamento, primeira_dúvida, recuperação)
+11. ✅ Migration para campos de controle de outreach (proactive_sent_at, proactive_count)
+12. ✅ Integrar com WaLeads existente (via smart-ops-send-waleads)
+13. ⏳ Configurar cron job para execução diária (requer SQL manual com anon key)
 
 ---
 
