@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Download, ChevronLeft, ChevronRight, Brain, Route } from "lucide-react";
+import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 
 const STATUS_OPTIONS = [
   { key: "all", label: "Todos" },
@@ -20,6 +22,13 @@ const STATUS_OPTIONS = [
   { key: "proposta_enviada", label: "Proposta Enviada" },
   { key: "negociacao", label: "Negociação" },
   { key: "fechamento", label: "Fechamento" },
+];
+
+const TEMP_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "quente", label: "🔥 Quente" },
+  { key: "morno", label: "🌤 Morno" },
+  { key: "frio", label: "❄️ Frio" },
 ];
 
 const PAGE_SIZE = 50;
@@ -83,23 +92,32 @@ interface LeadFull {
   lead_timing_dias: number | null;
   itens_proposta_crm: string | null;
   piperun_link: string | null;
+  ultima_etapa_comercial: string | null;
 }
 
 function ActiveIcons({ lead }: { lead: LeadFull }) {
+  const active = PRODUCT_FLAGS.filter((p) => lead[`ativo_${p}`] === true);
+  if (active.length === 0) return <span className="text-muted-foreground text-[10px]">—</span>;
   return (
     <div className="flex gap-0.5 flex-wrap">
-      {PRODUCT_FLAGS.map((p) => {
-        const key = `ativo_${p}` as keyof LeadFull;
-        const active = lead[key] === true;
-        if (!active) return null;
-        return (
-          <Badge key={p} variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
-            {p.replace("_", " ").toUpperCase()}
-          </Badge>
-        );
-      })}
+      {active.slice(0, 3).map((p) => (
+        <Badge key={p} variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
+          {p.replace("_", " ").toUpperCase()}
+        </Badge>
+      ))}
+      {active.length > 3 && (
+        <Badge variant="outline" className="text-[9px] px-1 py-0">+{active.length - 3}</Badge>
+      )}
     </div>
   );
+}
+
+function TempBadge({ temp }: { temp: string | null }) {
+  if (!temp) return <span className="text-muted-foreground text-[10px]">—</span>;
+  const t = temp.toLowerCase();
+  if (t === "quente") return <Badge className="bg-red-500 text-white text-[10px] px-1.5">🔥</Badge>;
+  if (t === "morno") return <Badge className="bg-amber-400 text-white text-[10px] px-1.5">🌤</Badge>;
+  return <Badge className="bg-blue-400 text-white text-[10px] px-1.5">❄️</Badge>;
 }
 
 function formatDate(d: string | null) {
@@ -129,9 +147,7 @@ function TruncatedText({ text, maxLen = 40 }: { text: string | null; maxLen?: nu
         <TooltipTrigger asChild>
           <span className="text-xs cursor-help">{text.slice(0, maxLen)}…</span>
         </TooltipTrigger>
-        <TooltipContent className="max-w-sm">
-          <p className="text-sm">{text}</p>
-        </TooltipContent>
+        <TooltipContent className="max-w-sm"><p className="text-sm">{text}</p></TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
@@ -144,49 +160,78 @@ const ROUTE_LABELS: Record<string, string> = {
   support: "Suporte",
 };
 
+/* ─── Detail Modal Sections ─── */
+function DetailSection({ title, fields }: { title: string; fields: { label: string; value: unknown }[] }) {
+  const nonEmpty = fields.filter((f) => f.value !== null && f.value !== undefined && f.value !== "");
+  if (nonEmpty.length === 0) return null;
+  return (
+    <div>
+      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</h4>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        {nonEmpty.map((f) => (
+          <div key={f.label} className="p-2 rounded bg-muted/30 border">
+            <div className="text-[10px] text-muted-foreground font-mono">{f.label}</div>
+            <div className="text-sm break-all">{formatValue(f.value)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SmartOpsLeadsList() {
   const [leads, setLeads] = useState<LeadFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [tempFilter, setTempFilter] = useState("all");
+  const [stagnantOnly, setStagnantOnly] = useState(false);
   const [page, setPage] = useState(0);
   const [selectedLead, setSelectedLead] = useState<LeadFull | null>(null);
 
-  useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
-        .from("lia_attendances")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1000);
-      setLeads((data as LeadFull[]) || []);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+  const fetchLeads = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("lia_attendances")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    setLeads((data as LeadFull[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchLeads(); }, []);
 
   const sources = useMemo(() => [...new Set(leads.map((l) => l.source))].sort(), [leads]);
+
+  const thirtyDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString();
+  }, []);
 
   const filtered = useMemo(() => {
     return leads.filter((l) => {
       if (statusFilter !== "all" && l.lead_status !== statusFilter) return false;
       if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
+      if (tempFilter !== "all" && (l.temperatura_lead || "").toLowerCase() !== tempFilter) return false;
+      if (stagnantOnly && l.updated_at > thirtyDaysAgo) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!l.nome.toLowerCase().includes(q) && !l.email.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [leads, search, statusFilter, sourceFilter]);
+  }, [leads, search, statusFilter, sourceFilter, tempFilter, stagnantOnly, thirtyDaysAgo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, sourceFilter]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, sourceFilter, tempFilter, stagnantOnly]);
 
   const exportCSV = () => {
-    const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
+    const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "temperatura_lead", "ultima_etapa_comercial", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
     const csv = [headers.join(","), ...filtered.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -205,9 +250,12 @@ export function SmartOpsLeadsList() {
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
             <CardTitle className="text-lg">Lista de Leads ({filtered.length})</CardTitle>
-            <Button variant="outline" size="sm" onClick={exportCSV}>
-              <Download className="w-4 h-4 mr-1" /> CSV
-            </Button>
+            <div className="flex gap-2">
+              <SmartOpsLeadImporter onComplete={fetchLeads} />
+              <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Download className="w-4 h-4 mr-1" /> CSV
+              </Button>
+            </div>
           </div>
           <div className="flex flex-col md:flex-row gap-2 mt-2">
             <div className="relative flex-1">
@@ -227,6 +275,16 @@ export function SmartOpsLeadsList() {
                 {sources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={tempFilter} onValueChange={setTempFilter}>
+              <SelectTrigger className="w-[140px]"><SelectValue placeholder="Temp." /></SelectTrigger>
+              <SelectContent>
+                {TEMP_OPTIONS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1.5">
+              <Checkbox id="stagnant" checked={stagnantOnly} onCheckedChange={(c) => setStagnantOnly(!!c)} />
+              <label htmlFor="stagnant" className="text-xs whitespace-nowrap cursor-pointer">Estagnados (&gt;30d)</label>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -238,6 +296,8 @@ export function SmartOpsLeadsList() {
                   <TableHead>Cidade/UF</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>🌡️</TableHead>
+                  <TableHead>Etapa</TableHead>
                   <TableHead>Rota LIA</TableHead>
                   <TableHead>Resumo IA</TableHead>
                   <TableHead>Oport.</TableHead>
@@ -260,6 +320,10 @@ export function SmartOpsLeadsList() {
                     </TableCell>
                     <TableCell className="text-xs">{lead.produto_interesse || "—"}</TableCell>
                     <TableCell><Badge variant="outline" className="text-[10px]">{lead.lead_status}</Badge></TableCell>
+                    <TableCell><TempBadge temp={lead.temperatura_lead} /></TableCell>
+                    <TableCell className="text-xs max-w-[100px]">
+                      <TruncatedText text={lead.ultima_etapa_comercial} maxLen={20} />
+                    </TableCell>
                     <TableCell>
                       {lead.rota_inicial_lia ? (
                         <Badge variant="secondary" className="text-[10px] gap-0.5">
@@ -304,7 +368,7 @@ export function SmartOpsLeadsList() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog — Reorganized in sections */}
       <Dialog open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -312,7 +376,7 @@ export function SmartOpsLeadsList() {
           </DialogHeader>
           {selectedLead && (
             <div className="space-y-4">
-              {/* AI Summary highlight */}
+              {/* AI Summary */}
               {selectedLead.resumo_historico_ia && (
                 <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <div className="flex items-center gap-1.5 mb-1">
@@ -323,7 +387,7 @@ export function SmartOpsLeadsList() {
                 </div>
               )}
 
-              {/* Route + Specialty badges */}
+              {/* Route + badges */}
               <div className="flex gap-2 flex-wrap">
                 {selectedLead.rota_inicial_lia && (
                   <Badge variant="secondary" className="gap-1">
@@ -331,25 +395,83 @@ export function SmartOpsLeadsList() {
                     Rota: {ROUTE_LABELS[selectedLead.rota_inicial_lia] || selectedLead.rota_inicial_lia}
                   </Badge>
                 )}
+                {selectedLead.temperatura_lead && <TempBadge temp={selectedLead.temperatura_lead} />}
                 {selectedLead.especialidade && (
                   <Badge variant="outline">Especialidade: {selectedLead.especialidade}</Badge>
                 )}
-                {selectedLead.data_primeiro_contato && (
-                  <Badge variant="outline">1º contato: {formatDateTime(selectedLead.data_primeiro_contato)}</Badge>
-                )}
               </div>
 
-              {/* All fields grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {Object.entries(selectedLead)
-                  .filter(([k]) => k !== "raw_payload" && k !== "resumo_historico_ia")
-                  .map(([key, val]) => (
-                    <div key={key} className="p-2 rounded bg-muted/30 border">
-                      <div className="text-[10px] text-muted-foreground font-mono">{key}</div>
-                      <div className="text-sm break-all">{formatValue(val)}</div>
-                    </div>
-                  ))}
-              </div>
+              {/* Sections */}
+              <DetailSection title="Dados Pessoais" fields={[
+                { label: "Nome", value: selectedLead.nome },
+                { label: "Email", value: selectedLead.email },
+                { label: "Telefone", value: selectedLead.telefone_normalized || selectedLead.telefone_raw },
+                { label: "Cidade/UF", value: selectedLead.cidade && selectedLead.uf ? `${selectedLead.cidade}/${selectedLead.uf}` : selectedLead.uf },
+                { label: "Área de atuação", value: selectedLead.area_atuacao },
+                { label: "Especialidade", value: selectedLead.especialidade },
+              ]} />
+
+              <DetailSection title="CRM / PipeRun" fields={[
+                { label: "PipeRun ID", value: selectedLead.piperun_id },
+                { label: "PipeRun Link", value: selectedLead.piperun_link },
+                { label: "Proprietário", value: selectedLead.proprietario_lead_crm },
+                { label: "Status CRM", value: selectedLead.status_atual_lead_crm },
+                { label: "Funil", value: selectedLead.funil_entrada_crm },
+                { label: "Última Etapa", value: selectedLead.ultima_etapa_comercial },
+                { label: "Temperatura", value: selectedLead.temperatura_lead },
+                { label: "Tags CRM", value: selectedLead.tags_crm?.join(", ") },
+              ]} />
+
+              <DetailSection title="Oportunidade" fields={[
+                { label: "Status Oportunidade", value: selectedLead.status_oportunidade },
+                { label: "Valor", value: selectedLead.valor_oportunidade ? `R$ ${Number(selectedLead.valor_oportunidade).toLocaleString("pt-BR")}` : null },
+                { label: "Itens Proposta", value: selectedLead.itens_proposta_crm },
+                { label: "Data Fechamento", value: selectedLead.data_fechamento_crm ? formatDate(selectedLead.data_fechamento_crm) : null },
+                { label: "Motivo Perda", value: selectedLead.motivo_perda },
+                { label: "Comentário Perda", value: selectedLead.comentario_perda },
+              ]} />
+
+              <DetailSection title="Campanha / UTM" fields={[
+                { label: "Source", value: selectedLead.source },
+                { label: "Form Name", value: selectedLead.form_name },
+                { label: "Origem Campanha", value: selectedLead.origem_campanha },
+                { label: "utm_source", value: selectedLead.utm_source },
+                { label: "utm_medium", value: selectedLead.utm_medium },
+                { label: "utm_campaign", value: selectedLead.utm_campaign },
+                { label: "utm_term", value: selectedLead.utm_term },
+              ]} />
+
+              <DetailSection title="Equipamentos" fields={[
+                { label: "Tem impressora", value: selectedLead.tem_impressora },
+                { label: "Modelo impressora", value: selectedLead.impressora_modelo },
+                { label: "Como digitaliza", value: selectedLead.como_digitaliza },
+                { label: "Tem scanner", value: selectedLead.tem_scanner },
+                { label: "Produto de interesse", value: selectedLead.produto_interesse },
+                { label: "Resina de interesse", value: selectedLead.resina_interesse },
+              ]} />
+
+              <DetailSection title="IA / LIA" fields={[
+                { label: "Rota Inicial LIA", value: selectedLead.rota_inicial_lia },
+                { label: "Score", value: selectedLead.score },
+                { label: "ID Cliente Smart", value: selectedLead.id_cliente_smart },
+              ]} />
+
+              <DetailSection title="Ativos" fields={[
+                ...PRODUCT_FLAGS.map((p) => ({
+                  label: `Ativo ${p.replace("_", " ").toUpperCase()}`,
+                  value: selectedLead[`ativo_${p}`] === true ? "Sim" : null,
+                })),
+              ]} />
+
+              <DetailSection title="Datas" fields={[
+                { label: "Criado em", value: formatDateTime(selectedLead.created_at) },
+                { label: "Atualizado em", value: formatDateTime(selectedLead.updated_at) },
+                { label: "1º Contato", value: selectedLead.data_primeiro_contato ? formatDateTime(selectedLead.data_primeiro_contato) : null },
+                { label: "Data Contrato", value: selectedLead.data_contrato ? formatDate(selectedLead.data_contrato) : null },
+                { label: "Lead Timing (dias)", value: selectedLead.lead_timing_dias },
+                { label: "CS Treinamento", value: selectedLead.cs_treinamento },
+                { label: "Reunião Agendada", value: selectedLead.reuniao_agendada },
+              ]} />
             </div>
           )}
         </DialogContent>
