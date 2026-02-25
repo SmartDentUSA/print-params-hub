@@ -17,6 +17,8 @@ interface Lead {
   updated_at: string;
   data_primeiro_contato: string | null;
   score: number | null;
+  status_oportunidade: string | null;
+  valor_oportunidade: number | null;
 }
 
 const COLUMNS = [
@@ -35,14 +37,31 @@ const STAGNANT_COLUMNS = [
   { key: "est_etapa2", label: "Etapa 02 - Reativação", color: "bg-rose-100 border-rose-400" },
   { key: "est_etapa3", label: "Etapa 03 - Reativação", color: "bg-amber-50 border-amber-300" },
   { key: "est_etapa4", label: "Etapa 04 - Reativação", color: "bg-amber-100 border-amber-400" },
-  { key: "est_proposta", label: "Proposta Enviada", color: "bg-slate-50 border-slate-300" },
+  { key: "est_apresentacao", label: "Apresentação/Visita - Estag", color: "bg-orange-100 border-orange-400" },
+  { key: "est_proposta", label: "Proposta Enviada - Estag", color: "bg-slate-50 border-slate-300" },
+];
+
+const CS_COLUMNS = [
+  { key: "cs_em_espera", label: "Em Espera", color: "bg-teal-50 border-teal-300" },
+  { key: "cs_agendar", label: "Agendar Treinamento", color: "bg-cyan-50 border-cyan-300" },
 ];
 
 const ALL_STAGNANT_KEYS = STAGNANT_COLUMNS.map((c) => c.key);
-const STATUS_KEYS = [...COLUMNS.map((c) => c.key), ...ALL_STAGNANT_KEYS, "estagnado_final"];
+const ALL_CS_KEYS = CS_COLUMNS.map((c) => c.key);
+const STATUS_KEYS = [
+  ...COLUMNS.map((c) => c.key),
+  ...ALL_STAGNANT_KEYS,
+  ...ALL_CS_KEYS,
+  "estagnado_final",
+  "ebook",
+];
 
 function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatCurrency(val: number): string {
+  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
 
 export function SmartOpsKanban() {
@@ -54,7 +73,7 @@ export function SmartOpsKanban() {
   const fetchLeads = async () => {
     const { data } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score")
+      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade")
       .in("lead_status", STATUS_KEYS)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -110,6 +129,14 @@ export function SmartOpsKanban() {
           {lead.score != null && lead.score > 0 && (
             <Badge className="text-[10px] bg-primary/10 text-primary">{lead.score}pts</Badge>
           )}
+          {lead.status_oportunidade && lead.status_oportunidade !== "aberta" && (
+            <Badge className={`text-[10px] ${lead.status_oportunidade === "ganha" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+              {lead.status_oportunidade === "ganha" ? "✅ Ganha" : "❌ Perdida"}
+            </Badge>
+          )}
+          {lead.valor_oportunidade != null && lead.valor_oportunidade > 0 && (
+            <Badge variant="outline" className="text-[10px]">{formatCurrency(lead.valor_oportunidade)}</Badge>
+          )}
         </div>
         {lead.proprietario_lead_crm && (
           <div className="text-[10px] text-muted-foreground">{lead.proprietario_lead_crm}</div>
@@ -121,81 +148,68 @@ export function SmartOpsKanban() {
     </Card>
   );
 
+  const renderColumnSection = (
+    columns: { key: string; label: string; color: string }[],
+    filteredLeads: Lead[],
+    showDays = false,
+    minWidth = 220,
+    minHeight = 250,
+  ) => (
+    <div className="overflow-x-auto pb-2">
+      <div className="flex gap-3" style={{ minWidth: `${columns.length * (minWidth + 16)}px` }}>
+        {columns.map((col) => {
+          const colLeads = filteredLeads.filter((l) => l.lead_status === col.key);
+          return (
+            <div
+              key={col.key}
+              className={`rounded-lg border-2 ${col.color} p-3 min-w-[${minWidth}px] flex-1`}
+              style={{ minHeight: `${minHeight}px`, minWidth: `${minWidth}px` }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop(col.key)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-xs truncate">{col.label}</h4>
+                <Badge variant="secondary" className="text-[10px]">{colLeads.length}</Badge>
+              </div>
+              <div className="space-y-2">
+                {colLeads.map((lead) => renderLeadCard(lead, showDays))}
+                {colLeads.length === 0 && (
+                  <p className="text-[10px] text-muted-foreground text-center py-6">—</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando leads...</div>;
 
   const pipelineLeads = leads.filter((l) => COLUMNS.some((c) => c.key === l.lead_status));
   const stagnantLeads = leads.filter((l) => ALL_STAGNANT_KEYS.includes(l.lead_status));
+  const csLeads = leads.filter((l) => ALL_CS_KEYS.includes(l.lead_status));
+  const ebookLeads = leads.filter((l) => l.lead_status === "ebook");
   const finalLeads = leads.filter((l) => l.lead_status === "estagnado_final");
 
   return (
     <div className="space-y-6">
       {/* Main Pipeline Kanban */}
-      <div className="overflow-x-auto pb-2">
-        <div className="flex gap-3" style={{ minWidth: `${COLUMNS.length * 236}px` }}>
-          {COLUMNS.map((col) => {
-            const colLeads = pipelineLeads.filter((l) => l.lead_status === col.key);
-            return (
-              <div
-                key={col.key}
-                className={`rounded-lg border-2 ${col.color} p-3 min-h-[300px] min-w-[220px] flex-1`}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => handleDrop(col.key)}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-xs truncate">{col.label}</h3>
-                  <Badge variant="secondary" className="text-xs">{colLeads.length}</Badge>
-                </div>
-                <div className="space-y-2">
-                  {colLeads.map((lead) => renderLeadCard(lead))}
-                  {colLeads.length === 0 && (
-                    <p className="text-[10px] text-muted-foreground text-center py-8">Nenhum lead</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {renderColumnSection(COLUMNS, pipelineLeads, false, 220, 300)}
 
-      {/* Stagnation Funnel - 5 real Piperun stages */}
-      <div className="space-y-4">
+      {/* Stagnation Funnel */}
+      <div className="space-y-3">
         <div className="border-t pt-4">
           <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
             🔄 Funil Estagnados — Reativação
           </h2>
-          <p className="text-[11px] text-muted-foreground mb-4">
+          <p className="text-[11px] text-muted-foreground mb-3">
             {stagnantLeads.length} leads em reativação · {finalLeads.length} finalizados
           </p>
         </div>
+        {renderColumnSection(STAGNANT_COLUMNS, stagnantLeads, true, 200, 250)}
 
-        <div className="overflow-x-auto pb-1">
-          <div className="flex gap-3" style={{ minWidth: `${STAGNANT_COLUMNS.length * 220}px` }}>
-            {STAGNANT_COLUMNS.map((col) => {
-              const colLeads = stagnantLeads.filter((l) => l.lead_status === col.key);
-              return (
-                <div
-                  key={col.key}
-                  className={`rounded-lg border-2 ${col.color} p-3 min-h-[250px] min-w-[200px] flex-1`}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => handleDrop(col.key)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-[11px]">{col.label}</h4>
-                    <Badge variant="secondary" className="text-[10px]">{colLeads.length}</Badge>
-                  </div>
-                  <div className="space-y-1.5">
-                    {colLeads.map((lead) => renderLeadCard(lead, true))}
-                    {colLeads.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground text-center py-6">—</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Estagnado Final column */}
+        {/* Estagnado Final */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <h3 className="text-xs font-semibold text-muted-foreground">Estagnado Final</h3>
@@ -215,6 +229,51 @@ export function SmartOpsKanban() {
           </div>
         </div>
       </div>
+
+      {/* CS Onboarding */}
+      {(csLeads.length > 0 || true) && (
+        <div className="space-y-3">
+          <div className="border-t pt-4">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              🎓 CS Onboarding
+            </h2>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              {csLeads.length} leads em onboarding
+            </p>
+          </div>
+          {renderColumnSection(CS_COLUMNS, csLeads, false, 220, 200)}
+        </div>
+      )}
+
+      {/* Ebook Funnel */}
+      {(ebookLeads.length > 0 || true) && (
+        <div className="space-y-3">
+          <div className="border-t pt-4">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              📚 Funil E-book
+            </h2>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              {ebookLeads.length} leads
+            </p>
+          </div>
+          <div
+            className="rounded-lg border-2 bg-violet-50 border-violet-300 p-3 min-h-[150px] max-w-[300px]"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleDrop("ebook")}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold text-xs">Ebook</h4>
+              <Badge variant="secondary" className="text-[10px]">{ebookLeads.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {ebookLeads.map((lead) => renderLeadCard(lead))}
+              {ebookLeads.length === 0 && (
+                <p className="text-[10px] text-muted-foreground text-center py-6">—</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
