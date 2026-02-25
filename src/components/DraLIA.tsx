@@ -439,7 +439,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       );
 
       // Detect lead collection confirmation from backend
-      if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fullContent)) {
+      if (!leadCollected && /Acesso validado|Access validated|Acceso validado|Que bom te ver por aqui novamente|Great to see you again|Qué bueno verte de nuevo|Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fullContent)) {
         setLeadCollected(true);
         sessionStorage.setItem('dra_lia_lead_collected', 'true');
         // Activate products flow after lead is confirmed
@@ -631,7 +631,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           }
           setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId, mediaCards } : m));
           // Detect lead collection confirmation from backend
-           if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Great to see you again|Qué bueno verte de nuevo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fullContent)) {
+           if (!leadCollected && /Acesso validado|Access validated|Acceso validado|Que bom te ver por aqui novamente|Great to see you again|Qué bueno verte de nuevo|Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fullContent)) {
              setLeadCollected(true);
              sessionStorage.setItem('dra_lia_lead_collected', 'true');
              // Activate products flow after lead is confirmed
@@ -728,7 +728,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
               {/* Topic selection menu — shown on welcome message, before topic is selected */}
               {(() => {
                 const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id;
-                return msg.id === lastAssistantId && !topicSelected && !isLoading;
+                return msg.id === lastAssistantId && !topicSelected && !isLoading && leadCollected;
               })() && (
                 <div className="mt-3">
                   <div className="grid grid-cols-2 gap-2">
@@ -997,7 +997,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                               }
                             }
                             setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId: iid, mediaCards: mc } : m));
-                            if (!leadCollected && /Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista/i.test(fc)) {
+                            if (!leadCollected && /Acesso validado|Access validated|Acceso validado|Que bom te ver por aqui novamente|Great to see you again|Qué bueno verte de nuevo|Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fc)) {
                               setLeadCollected(true);
                               sessionStorage.setItem('dra_lia_lead_collected', 'true');
                             }
