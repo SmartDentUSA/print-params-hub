@@ -2337,6 +2337,19 @@ serve(async (req) => {
           });
         }
 
+        // 2b. Fetch existing attendance data for history merge
+        const { data: existingAttendance } = await supabase
+          .from("lia_attendances")
+          .select("resumo_historico_ia, historico_resumos, total_sessions, total_messages")
+          .eq("email", leadEmail)
+          .maybeSingle();
+
+        const previousSummary = existingAttendance?.resumo_historico_ia || "";
+        const previousHistorico = Array.isArray(existingAttendance?.historico_resumos) ? existingAttendance.historico_resumos : [];
+        const previousSessions = existingAttendance?.total_sessions || 0;
+        const previousMessages = existingAttendance?.total_messages || 0;
+        const sessionMsgCount = interactions.length;
+
         // 3. Build conversation text
         const convoText = interactions.map((i: { user_message: string; agent_response: string | null; created_at: string | null }) => {
           const time = i.created_at ? new Date(i.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
@@ -2345,7 +2358,7 @@ serve(async (req) => {
           return line;
         }).join("\n\n");
 
-        // 4. Call AI for summary (non-streaming)
+        // 4. Call AI for summary with history merge
         const aiResp = await fetch(CHAT_API, {
           method: "POST",
           headers: {
@@ -2355,11 +2368,11 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-lite",
             messages: [
-              { role: "system", content: "Resuma esta conversa em 2-3 frases curtas para continuidade na próxima sessão. Formato: 'ASSUNTOS: [tópicos discutidos] | PENDÊNCIAS: [dúvidas não resolvidas ou próximos passos] | INTERESSE: [nível 1-3, onde 1=pesquisando, 2=comparando, 3=pronto para comprar]'. Sem saudações, sem emojis. Máximo 150 caracteres." },
-              { role: "user", content: convoText.slice(0, 4000) },
+              { role: "system", content: "Resuma esta conversa para continuidade na próxima sessão. Se houver RESUMO ANTERIOR, incorpore temas relevantes que não foram rediscutidos na conversa atual. Formato: 'ASSUNTOS: [tópicos discutidos] | PENDÊNCIAS: [dúvidas não resolvidas ou próximos passos] | INTERESSE: [nível 1-3, onde 1=pesquisando, 2=comparando, 3=pronto para comprar]'. Sem saudações, sem emojis. Máximo 200 caracteres." },
+              { role: "user", content: `RESUMO ANTERIOR: ${previousSummary || "Nenhum"}\n\nCONVERSA ATUAL:\n${convoText.slice(0, 4000)}` },
             ],
             stream: false,
-            max_tokens: 100,
+            max_tokens: 150,
           }),
         });
 
@@ -2367,13 +2380,17 @@ serve(async (req) => {
         if (aiResp.ok) {
           const aiData = await aiResp.json();
           summary = aiData.choices?.[0]?.message?.content?.trim() || "";
-          // Clean up quotes if AI wraps it
           summary = summary.replace(/^["']|["']$/g, "").trim();
         } else {
           console.warn("[summarize_session] AI call failed:", aiResp.status);
         }
 
-        // 5. Upsert in lia_attendances
+        // 5. Build historico_resumos array (prepend new, keep max 20)
+        const today = new Date().toISOString().slice(0, 10);
+        const newHistoricoEntry = { data: today, resumo: summary || "(sem resumo)", msgs: sessionMsgCount };
+        const updatedHistorico = [newHistoricoEntry, ...previousHistorico].slice(0, 20);
+
+        // 6. Upsert in lia_attendances with accumulated data
         const { error: upsertError } = await supabase
           .from("lia_attendances")
           .upsert({
@@ -2382,6 +2399,10 @@ serve(async (req) => {
             source: "dra-lia",
             resumo_historico_ia: summary || null,
             rota_inicial_lia: topicCtx || null,
+            total_sessions: previousSessions + 1,
+            total_messages: previousMessages + sessionMsgCount,
+            historico_resumos: updatedHistorico,
+            ultima_sessao_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }, { onConflict: "email" });
 
