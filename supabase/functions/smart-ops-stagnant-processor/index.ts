@@ -5,14 +5,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Progression chain: est1_0 → est1_1 → ... → est1_5 → est2_0 → ... → est3_5 → estagnado_final
+// Progression chain: est_etapa1 → est_etapa2 → est_etapa3 → est_etapa4 → est_proposta → estagnado_final
 const PROGRESSION: Record<string, string> = {
-  est1_0: "est1_1", est1_1: "est1_2", est1_2: "est1_3", est1_3: "est1_4", est1_4: "est1_5",
-  est1_5: "est2_0",
-  est2_0: "est2_1", est2_1: "est2_2", est2_2: "est2_3", est2_3: "est2_4", est2_4: "est2_5",
-  est2_5: "est3_0",
-  est3_0: "est3_1", est3_1: "est3_2", est3_2: "est3_3", est3_3: "est3_4", est3_4: "est3_5",
-  est3_5: "estagnado_final",
+  est_etapa1: "est_etapa2",
+  est_etapa2: "est_etapa3",
+  est_etapa3: "est_etapa4",
+  est_etapa4: "est_proposta",
+  est_proposta: "estagnado_final",
 };
 
 const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
