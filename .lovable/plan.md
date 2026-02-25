@@ -1,82 +1,86 @@
 
 
-## Plano: Aba "Producao de Conteudo" no Smart Ops
+## Plano: Reformular Sistema de Pendencias — Extrair de Resumos, Nao de Mensagens Brutas
 
-### Contexto
+### Diagnostico
 
-A LIA ja registra lacunas de conhecimento na tabela `agent_knowledge_gaps` (80 registros: 42 low_confidence, 2 pending, 36 resolved). A tabela tem: `question`, `frequency`, `status`, `updated_at`, `lang`, `resolution_note`. Porem falta a visao orientada a **producao de conteudo** que o usuario descreveu, com campos como "Tema", "Rota" e um botao para gerar conteudo diretamente.
+O problema e claro: as duas fontes de dados que alimentam tanto o "Top 10 Perguntas Sem Resposta" (AdminDraLIAStats) quanto a aba "Producao de Conteudo" (SmartOpsContentProduction) leem da mesma tabela `agent_knowledge_gaps`, que e alimentada pela funcao `upsertKnowledgeGap`. Essa funcao registra **toda mensagem** com `topSimilarity < 0.35` ou sem resultado RAG — incluindo respostas SPIN ("100% analogico", "Implantodontista"), dados pessoais (emails, telefones), e ruido conversacional ("ja respondi isso").
 
-A tabela atual nao tem campo `tema` (topico agregado) nem `rota` (origem da pergunta). Precisamos enriquecer o registro ou derivar esses dados.
+A fonte correta ja existe: o campo `resumo_historico_ia` em `lia_attendances` gera resumos estruturados com `PENDENCIAS:` reais. Exemplos encontrados no banco:
 
-### Decisao de Arquitetura
+- `PENDENCIAS: Obter mais informacoes sobre equipamentos, sistemas e GlazeON.`
+- `PENDENCIAS: Detalhes do combo, inclusao de resina.`
 
-Em vez de criar uma tabela nova, vamos **adicionar 2 colunas** a `agent_knowledge_gaps`:
-
-- `tema` (text, nullable) — topico/tema extraido da pergunta (ex: "ioConnect TruAbutment", "Scanner Intraoral")
-- `rota` (text, nullable) — rota/pagina de onde veio a pergunta (ja disponivel como contexto no DraLIA)
-
-E um status adicional: o campo `status` ja aceita text livre, entao `"solicitado"` e `"publicado"` funcionam sem migracoes de enum.
-
-### Entregas
+Esses sao os pedidos reais de conteudo. E de la que a aba deve se alimentar.
 
 ---
 
-#### 1. Migracao: adicionar colunas `tema` e `rota` a `agent_knowledge_gaps`
+### Arquitetura Nova — 4 Entregas
+
+#### 1. Nova tabela `content_requests`
 
 ```sql
-ALTER TABLE agent_knowledge_gaps
-  ADD COLUMN IF NOT EXISTS tema text,
-  ADD COLUMN IF NOT EXISTS rota text;
+CREATE TABLE content_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tema text NOT NULL,
+  pendencia_original text NOT NULL,
+  tipo_conteudo text DEFAULT 'artigo',
+  prioridade integer DEFAULT 1,
+  frequency integer DEFAULT 1,
+  status text DEFAULT 'solicitado',
+  source_sessions text[] DEFAULT '{}',
+  source_leads text[] DEFAULT '{}',
+  produto_relacionado text,
+  resolution_note text,
+  published_content_id uuid,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE content_requests ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "admin_only" ON content_requests FOR ALL USING (is_admin(auth.uid()));
 ```
 
----
+#### 2. Modificar `summarize_session` em `dra-lia/index.ts`
 
-#### 2. Novo componente: `src/components/SmartOpsContentProduction.tsx`
+Apos gerar o resumo (linha 2365), adicionar logica:
 
-Tabela com as colunas solicitadas:
+1. Parsear `PENDENCIAS:` do texto via regex
+2. Se houver pendencias, chamar a IA com prompt curto para classificar:
+   ```
+   Classifique esta pendencia de usuario de odontologia digital.
+   Pendencia: "Obter mais informacoes sobre GlazeON"
+   Assuntos: "GlazeON - Splint, resinas"
+   
+   JSON: { "tema": "...", "tipo_conteudo": "artigo|comparativo|tutorial|faq|ficha_tecnica", "prioridade": 1-5, "produto_relacionado": "..." }
+   ```
+3. Upsert em `content_requests`: se ja existe tema similar (match por texto normalizado), incrementar `frequency` e adicionar session/email aos arrays; senao, criar novo registro
 
-| Data Atualiz. | Tema | Rota | Pendencia | Solicitacoes | Status | Acao |
-|---|---|---|---|---|---|---|
+Tambem: **remover** as duas chamadas a `upsertKnowledgeGap` no fluxo principal de mensagens (linhas 3129 e 3162). Isso para imediatamente de poluir `agent_knowledge_gaps` com lixo. O pipeline de `heal-knowledge-gaps` e `evaluate-interaction` continuam funcionando com os registros existentes.
 
-- **Data Atualizacao**: `updated_at` formatado
-- **Tema**: `tema` (se preenchido) ou extraido automaticamente das primeiras palavras da `question`
-- **Rota**: `rota` (pagina de onde veio)
-- **Pendencia**: `question` (texto completo da lacuna)
-- **Solicitacoes**: `frequency` (badge com cor: verde <3, amarelo 3-5, vermelho >5)
-- **Status**: Badge colorido — "solicitado" (amarelo), "publicado" (verde), "low_confidence" (cinza), "resolved" (azul)
-- **Gerar Conteudo**: Botao que abre o `DocumentContentGeneratorModal` pre-preenchido com o titulo = tema/question, sem documento vinculado (modo "texto livre" usando `rawText` como source)
+#### 3. Refazer `SmartOpsContentProduction.tsx`
 
-Cards de resumo no topo:
-- Total de pendencias abertas (status != "resolved" e != "publicado")
-- Top 3 temas mais solicitados
-- Pendencias novas (ultimos 7 dias)
+Mudar a fonte de `agent_knowledge_gaps` para `content_requests`:
 
-Filtros: por status, ordenacao por frequency ou data.
+| Data | Tema | Tipo | Pendencia | Leads | Freq. | Prioridade | Status | Acao |
+|---|---|---|---|---|---|---|---|---|
 
----
+- **Tema**: campo `tema` classificado pela IA (ex: "GlazeON - Splint para ferulizacao")
+- **Tipo**: badge colorido (comparativo, tutorial, FAQ, ficha tecnica, artigo)
+- **Pendencia**: texto original do resumo
+- **Leads**: count de `source_leads[]` distintos (tooltip com emails)
+- **Frequencia**: total de sessoes que mencionaram
+- **Prioridade**: 1-5 com icones de estrela ou badge
+- **Status**: solicitado / em_producao / publicado / descartado
+- **Acao**: botao "Gerar" (abre modal pre-preenchido, igual ao atual)
 
-#### 3. Atualizar `SmartOpsTab.tsx`
+Cards de resumo: pedidos abertos, top temas, alta prioridade (>=4).
 
-- Adicionar nova aba "Conteudo" entre "Logs" e "Relatorios" (total: 8 abas)
-- Importar e renderizar `SmartOpsContentProduction`
-- Ajustar grid de `grid-cols-7` para `grid-cols-8`
+#### 4. Limpar `agent_knowledge_gaps` e atualizar `AdminDraLIAStats.tsx`
 
----
-
-#### 4. Atualizar `supabase/functions/dra-lia/index.ts`
-
-Na funcao `upsertKnowledgeGap`, adicionar o parametro `rota` (extraido do contexto da conversa — a rota inicial do usuario que ja existe em `agent_sessions` e `lia_attendances.rota_inicial_lia`).
-
-Opcionalmente, extrair `tema` da pergunta automaticamente (primeiras keywords significativas).
-
----
-
-#### 5. Botao "Gerar Conteudo" — Integrar com modal existente
-
-Criar um modal simplificado (ou reutilizar `DocumentContentGeneratorModal` em modo "texto livre") que:
-1. Pre-preenche o titulo com o `tema` ou `question` da lacuna
-2. Usa `ai-orchestrate-content` com `rawText` como source (a pendencia como contexto)
-3. Ao salvar o artigo com sucesso, atualiza o `status` da lacuna para `"publicado"` e grava o `resolution_note` com o link/ID do conteudo criado
+- SQL DELETE para remover os ~60 registros de lixo da `agent_knowledge_gaps` (telefones, emails, respostas SPIN com < 25 chars sem `?`)
+- Opcionalmente: migrar os poucos gaps reais (glazeON, softwares CAD, etc.) como seed para `content_requests`
+- O "Top 10 Perguntas Sem Resposta" em `AdminDraLIAStats` continuara lendo de `agent_knowledge_gaps`, mas sem novos registros de lixo entrando
 
 ---
 
@@ -84,8 +88,17 @@ Criar um modal simplificado (ou reutilizar `DocumentContentGeneratorModal` em mo
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | Migracao SQL | Adicionar `tema` e `rota` a `agent_knowledge_gaps` |
-| 2 | `src/components/SmartOpsContentProduction.tsx` | **Novo** — componente da aba |
-| 3 | `src/components/SmartOpsTab.tsx` | Adicionar aba "Conteudo" |
-| 4 | `supabase/functions/dra-lia/index.ts` | Passar `rota` ao `upsertKnowledgeGap` |
+| 1 | Migracao SQL | Criar `content_requests` + RLS + limpar lixo de `agent_knowledge_gaps` |
+| 2 | `supabase/functions/dra-lia/index.ts` | Parsear PENDENCIAS no `summarize_session`, classificar com IA, upsert em `content_requests`. Remover chamadas a `upsertKnowledgeGap` nas linhas 3129 e 3162 |
+| 3 | `src/components/SmartOpsContentProduction.tsx` | Refazer para ler de `content_requests` |
+| 4 | `src/integrations/supabase/types.ts` | Atualizado automaticamente |
+
+### Resultado esperado
+
+A aba "Producao de Conteudo" mostrara apenas pedidos reais extraidos dos resumos da LIA:
+- "GlazeON - informacoes sobre aplicacao e indicacoes" (ficha_tecnica, prioridade 3)
+- "Comparativo ioConnect TruAbutment vs outras opcoes" (comparativo, prioridade 4)
+- "Combo scanner + CAD + impressora - detalhes" (tutorial, prioridade 5)
+
+E nunca mais "100% analogico", "5519992612348" ou "ja respondi isso".
 
