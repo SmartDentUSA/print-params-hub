@@ -191,10 +191,12 @@ PERFIL DO LEAD:
 5. ✅ Adicionar estratégias por perfil ao system prompt (9 arquétipos: clinica_com/sem_impressora, lab_com/sem, lead_frio, lead_quente, cliente_ativo, estudante, novo)
 6. ✅ Migration para novos campos de captura (software_cad, volume_mensal_pecas, principal_aplicacao)
 
-### Fase 3 — Escalonamento (requer Fase 1+2)
-7. Implementar régua de escalonamento no system prompt
-8. Criar ação de notificação ao vendedor
-9. Lógica de auto-agendamento
+### Fase 3 — Escalonamento (complementa Fase 1+2) ✅ IMPLEMENTADO
+7. ✅ Régua de escalonamento no system prompt (3 tipos: vendedor, cs_suporte, especialista)
+8. ✅ Detecção automática via regex (desconto, negociação, defeito, frustração)
+9. ✅ Notificação ao vendedor via WaLeads + log em message_logs
+10. ✅ CTA de escalonamento injetado automaticamente na resposta da LIA
+11. ✅ Atualização de lia_attendances.ultima_etapa_comercial com tipo de escalonamento
 
 ### Fase 4 — Outreach Proativo (requer Fases anteriores)
 10. Criar `smart-ops-proactive-outreach`

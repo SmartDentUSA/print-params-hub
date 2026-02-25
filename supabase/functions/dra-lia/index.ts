@@ -2019,6 +2019,207 @@ Objetivo: entender o perfil antes de recomendar qualquer solução.
 Tom: curiosa e atenciosa.`,
 };
 
+// ── ESCALATION ENGINE — Phase 3: IA → Humano ────────────────────────────────
+// Detects when LIA should hand off to a human seller/CS/specialist
+
+const ESCALATION_TRIGGERS = {
+  // → VENDEDOR: intenção de compra, negociação, desconto
+  vendedor: [
+    /\b(desconto|negocia[çc]|condi[çc][ãa]o especial|pre[çc]o menor|melhor pre[çc]o|quanto fica|parcel[ao]|pagamento)\b/i,
+    /\b(or[çc]amento|proposta|cotação|cota[çc]ao)\b/i,
+    /\b(quero comprar|vou comprar|vou fechar|fecha[r]? neg[óo]cio|agendar reuni[ãa]o|visita|demo(nstra[çc][ãa]o)?)\b/i,
+    /\b(concorr[êe]ncia|concorrente|formlabs|dentsply|keystone|stratasys|bego)\b.{0,30}\b(melhor|mais barato|prefer[oe]|considerar|comparar)\b/i,
+  ],
+  // → CS/SUPORTE: problemas técnicos pós-venda
+  cs_suporte: [
+    /\b(defeito|garantia|assist[êe]ncia|reclama[çc]|insatisf|problema com.{0,20}(produto|equipamento|impressora|scanner))\b/i,
+    /\b(troca[r]?|devolu[çc]|reembolso|pe[çc]a.{0,15}reposi[çc])\b/i,
+    /\b(treinamento|capacita[çc]|curso|academy)\b/i,
+  ],
+  // → ESPECIALISTA: frustração ou muitas tentativas sem resolução
+  especialista: [
+    /\b(frustra|irritad|decepcion|insatisfeit|raiva|absurdo|p[ée]ssim|horrível|hor[íi]vel|nunca mais)\b/i,
+    /\b(j[áa] perguntei|j[áa] falei|n[ãa]o resolveu|n[ãa]o funciona|n[ãa]o ajudou|n[ãa]o entendeu)\b/i,
+  ],
+};
+
+type EscalationType = "vendedor" | "cs_suporte" | "especialista" | null;
+
+function detectEscalationIntent(message: string, history: Array<{ role: string; content: string }>): EscalationType {
+  // Check current message first
+  for (const [type, patterns] of Object.entries(ESCALATION_TRIGGERS)) {
+    if (patterns.some(p => p.test(message))) {
+      return type as EscalationType;
+    }
+  }
+  
+  // Check for specialist escalation: 3+ unanswered questions in session
+  const userMessages = history.filter(h => h.role === "user");
+  const assistantMessages = history.filter(h => h.role === "assistant");
+  if (userMessages.length >= 3) {
+    // Check if last 3 assistant responses contain fallback/redirect phrases
+    const lastAssistants = assistantMessages.slice(-3);
+    const fallbackCount = lastAssistants.filter(a => 
+      /não tenho essa informação|falar com especialista|falar com suporte|wa\.me/i.test(a.content)
+    ).length;
+    if (fallbackCount >= 2) return "especialista";
+  }
+  
+  return null;
+}
+
+// Notify the responsible seller via SellFlux/WaLeads
+async function notifySellerEscalation(
+  supabase: ReturnType<typeof createClient>,
+  leadEmail: string,
+  leadName: string,
+  escalationType: EscalationType,
+  resumo: string,
+  message: string
+): Promise<void> {
+  if (!escalationType) return;
+  
+  try {
+    // 1. Find the responsible seller from lia_attendances → proprietario_lead_crm → team_members
+    const { data: attendance } = await supabase
+      .from("lia_attendances")
+      .select("proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, id")
+      .eq("email", leadEmail)
+      .maybeSingle();
+    
+    if (!attendance) {
+      console.warn(`[escalation] No attendance found for ${leadEmail}`);
+      return;
+    }
+    
+    // 2. Find team member by proprietario_lead_crm
+    let teamMember: { id: string; nome_completo: string; whatsapp_number: string; waleads_api_key: string | null } | null = null;
+    if (attendance.proprietario_lead_crm) {
+      const { data: tm } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, whatsapp_number, waleads_api_key")
+        .eq("piperun_owner_id", attendance.proprietario_lead_crm)
+        .eq("ativo", true)
+        .maybeSingle();
+      teamMember = tm;
+    }
+    
+    // Fallback: get first active team member with vendedor role
+    if (!teamMember) {
+      const { data: tm } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, whatsapp_number, waleads_api_key")
+        .eq("ativo", true)
+        .eq("role", "vendedor")
+        .limit(1)
+        .maybeSingle();
+      teamMember = tm;
+    }
+    
+    if (!teamMember) {
+      console.warn(`[escalation] No team member found for escalation`);
+      return;
+    }
+    
+    // 3. Build notification message
+    const typeLabels: Record<string, string> = {
+      vendedor: "🟢 OPORTUNIDADE COMERCIAL",
+      cs_suporte: "🟡 SUPORTE TÉCNICO",
+      especialista: "🔴 ESCALONAMENTO URGENTE",
+    };
+    
+    const notificationMsg = `${typeLabels[escalationType] || "📋 ESCALONAMENTO"}
+
+👤 Lead: ${leadName}
+📧 Email: ${leadEmail}
+${attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : ""}
+${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
+${attendance.temperatura_lead ? `🌡️ Temp: ${attendance.temperatura_lead}` : ""}
+${attendance.score ? `📊 Score: ${attendance.score}` : ""}
+
+💬 Última msg: "${message.slice(0, 200)}"
+${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
+
+⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}`;
+
+    // 4. Log in message_logs
+    await supabase.from("message_logs").insert({
+      lead_id: attendance.id,
+      team_member_id: teamMember.id,
+      tipo: `escalation_${escalationType}`,
+      mensagem_preview: notificationMsg.slice(0, 500),
+      whatsapp_number: teamMember.whatsapp_number,
+      status: "pendente",
+    });
+    
+    // 5. Update lia_attendances with escalation status
+    await supabase.from("lia_attendances")
+      .update({ 
+        ultima_etapa_comercial: `escalado_lia_${escalationType}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("email", leadEmail);
+    
+    console.log(`[escalation] ${escalationType} escalation logged for ${leadEmail} → ${teamMember.nome_completo}`);
+    
+    // 6. Send via SellFlux/WaLeads if API key available
+    if (teamMember.waleads_api_key) {
+      try {
+        // Use smart-ops-send-waleads to send notification
+        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            phone: teamMember.whatsapp_number,
+            message: notificationMsg,
+            api_key: teamMember.waleads_api_key,
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+        
+        if (sendResp.ok) {
+          await supabase.from("message_logs")
+            .update({ status: "enviado", data_envio: new Date().toISOString() })
+            .eq("lead_id", attendance.id)
+            .eq("tipo", `escalation_${escalationType}`)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          console.log(`[escalation] WaLeads notification sent to ${teamMember.nome_completo}`);
+        } else {
+          const errText = await sendResp.text();
+          console.warn(`[escalation] WaLeads send failed: ${sendResp.status} ${errText}`);
+        }
+      } catch (e) {
+        console.warn(`[escalation] WaLeads send error:`, e);
+      }
+    }
+  } catch (e) {
+    console.error(`[escalation] Error:`, e);
+  }
+}
+
+// Escalation response messages injected by LIA when she decides to escalate
+const ESCALATION_RESPONSES: Record<string, Record<string, string>> = {
+  vendedor: {
+    "pt-BR": `\n\n---\n💼 Vou conectar você com um de nossos especialistas comerciais para discutir as melhores condições. Eles poderão preparar uma proposta personalizada para sua realidade.\n\n👉 [Falar com especialista comercial](https://wa.me/5516993831794)`,
+    "en-US": `\n\n---\n💼 I'll connect you with one of our commercial specialists to discuss the best conditions. They can prepare a customized proposal for you.\n\n👉 [Talk to commercial specialist](https://wa.me/5516993831794)`,
+    "es-ES": `\n\n---\n💼 Voy a conectarte con uno de nuestros especialistas comerciales para discutir las mejores condiciones.\n\n👉 [Hablar con especialista comercial](https://wa.me/5516993831794)`,
+  },
+  cs_suporte: {
+    "pt-BR": `\n\n---\n🛠️ Para essa questão, nosso time de suporte técnico é o mais indicado. Eles têm acesso direto ao sistema e podem resolver rapidamente.\n\n👉 [Falar com suporte técnico](https://wa.me/551634194735)`,
+    "en-US": `\n\n---\n🛠️ For this issue, our technical support team is best suited. They have direct system access and can resolve it quickly.\n\n👉 [Contact technical support](https://wa.me/551634194735)`,
+    "es-ES": `\n\n---\n🛠️ Para esta cuestión, nuestro equipo de soporte técnico es el más indicado.\n\n👉 [Contactar soporte técnico](https://wa.me/551634194735)`,
+  },
+  especialista: {
+    "pt-BR": `\n\n---\n🎯 Percebi que sua dúvida precisa de um atendimento mais aprofundado. Vou acionar um especialista que pode te dar atenção dedicada.\n\n👉 [Falar com especialista](https://wa.me/5516993831794)`,
+    "en-US": `\n\n---\n🎯 I noticed your question needs more in-depth attention. I'll connect you with a specialist who can give you dedicated support.\n\n👉 [Talk to specialist](https://wa.me/5516993831794)`,
+    "es-ES": `\n\n---\n🎯 Noté que tu duda necesita una atención más profunda. Voy a conectarte con un especialista.\n\n👉 [Hablar con especialista](https://wa.me/5516993831794)`,
+  },
+};
+
 // ── In-memory rate limiter (per-session, resets on cold start) ────────────────
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_MAX = 30; // max requests per window
@@ -3125,10 +3326,46 @@ serve(async (req) => {
       ? "\n\n### 📊 USO DAS FONTES\nOs dados abaixo estão organizados por função. Use PRODUTOS para apresentar soluções, ARGUMENTOS para convencer e responder objeções, ARTIGOS para aprofundar se o lead pedir, VÍDEOS apenas se solicitado."
       : "";
 
+    // Detect escalation intent BEFORE building prompt
+    const escalationIntent = (leadState.state === "from_session")
+      ? detectEscalationIntent(message, history)
+      : null;
+
+    // Build escalation rules for system prompt
+    const escalationRules = `
+### 🔀 RÉGUA DE ESCALONAMENTO (IA → Humano)
+
+RESOLVO SOZINHA (NÃO escalar):
+- Dúvida técnica (resina, parâmetro, protocolo, workflow)
+- Comparativo de produtos/resinas
+- Informações de catálogo e preço público
+- Orientação de pós-processamento
+- Educação sobre odontologia digital
+
+ESCALO PARA VENDEDOR (detectado automaticamente):
+- Pedido de desconto ou negociação
+- Lead com score > 80 pedindo orçamento
+- Solicitação de visita/reunião/demo
+- Lead menciona concorrente com intenção de compra
+→ Quando isso acontecer, responda a dúvida técnica normalmente e ADICIONE ao final: "Para condições comerciais personalizadas, nosso time pode te atender diretamente."
+
+ESCALO PARA CS/SUPORTE (detectado automaticamente):
+- Problema com equipamento (peça, defeito, reposição)
+- Reclamação de produto
+- Solicitação de treinamento
+→ Quando isso acontecer, demonstre empatia e redirecione ao suporte.
+
+ESCALO PARA ESPECIALISTA (detectado automaticamente):
+- 3+ interações sem resolução na mesma sessão
+- Lead expressa frustração/insatisfação
+→ Quando isso acontecer, peça desculpas pela limitação e conecte com humano.
+
+IMPORTANTE: O sistema detecta automaticamente a necessidade de escalonamento. Você deve COMPLEMENTAR a resposta técnica com a orientação de contato humano quando necessário, mas NUNCA substituir a resposta técnica pelo redirecionamento.`;
+
     const systemPrompt = `Você é a Dra. L.I.A. (Linguagem de Inteligência Artificial), a especialista máxima em odontologia digital da Smart Dent (16 anos de mercado).
 
 Você NÃO é uma atendente. Você é a colega experiente, consultora de confiança e parceira de crescimento que todo dentista gostaria de ter ao lado.
-${leadNameContext}${topicInstruction}${structuredContextInstruction}
+${leadNameContext}${topicInstruction}${structuredContextInstruction}${escalationRules}
 
 ### 🧠 MEMÓRIA VIVA
 Você acessa automaticamente conversas anteriores arquivadas (fonte: LIA-Dialogos).
@@ -3462,6 +3699,19 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
             const jsonStr = line.slice(6).trim();
             if (jsonStr === "[DONE]") {
+              // Append escalation CTA if detected
+              if (escalationIntent) {
+                const escalationCTA = ESCALATION_RESPONSES[escalationIntent]?.[lang] || ESCALATION_RESPONSES[escalationIntent]?.["pt-BR"] || "";
+                if (escalationCTA) {
+                  fullResponse += escalationCTA;
+                  // Stream the escalation CTA tokens
+                  const ctaWords = escalationCTA.split(" ");
+                  for (const word of ctaWords) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: " " + word } }] })}\n\n`));
+                  }
+                }
+              }
+
               if (fullResponse && interactionId) {
                 await supabase
                   .from("agent_interactions")
@@ -3472,6 +3722,12 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
               if (currentLeadId && leadState.state === "from_session") {
                 const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
                 extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+              }
+              // Fire-and-forget: notify seller on escalation
+              if (escalationIntent && leadState.state === "from_session") {
+                const resumo = (sessionEntities as Record<string, string>)?.returning_lead_summary || "";
+                notifySellerEscalation(supabase, leadState.email, leadState.name, escalationIntent, resumo, message)
+                  .catch(e => console.warn("[escalation] notification error:", e));
               }
               controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
