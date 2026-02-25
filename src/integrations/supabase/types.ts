@@ -407,6 +407,57 @@ export type Database = {
         }
         Relationships: []
       }
+      content_requests: {
+        Row: {
+          created_at: string | null
+          frequency: number | null
+          id: string
+          pendencia_original: string
+          prioridade: number | null
+          produto_relacionado: string | null
+          published_content_id: string | null
+          resolution_note: string | null
+          source_leads: string[] | null
+          source_sessions: string[] | null
+          status: string | null
+          tema: string
+          tipo_conteudo: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          frequency?: number | null
+          id?: string
+          pendencia_original: string
+          prioridade?: number | null
+          produto_relacionado?: string | null
+          published_content_id?: string | null
+          resolution_note?: string | null
+          source_leads?: string[] | null
+          source_sessions?: string[] | null
+          status?: string | null
+          tema: string
+          tipo_conteudo?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          frequency?: number | null
+          id?: string
+          pendencia_original?: string
+          prioridade?: number | null
+          produto_relacionado?: string | null
+          published_content_id?: string | null
+          resolution_note?: string | null
+          source_leads?: string[] | null
+          source_sessions?: string[] | null
+          status?: string | null
+          tema?: string
+          tipo_conteudo?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cs_automation_rules: {
         Row: {
           ativo: boolean
