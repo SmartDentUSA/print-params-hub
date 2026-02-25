@@ -900,7 +900,7 @@ function detectLeadCollectionState(
   for (let i = 0; i < history.length; i++) {
     const msg = history[i];
     const prevMsg = i > 0 ? history[i - 1] : null;
-    if (msg.role === "user" && prevMsg?.role === "assistant" && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(prevMsg.content)) {
+    if (msg.role === "user" && prevMsg?.role === "assistant" && /qual (o seu |seu )?nome|como devo te chamar|what's your name|what should I call you|cuál es tu nombre|cómo debo llamarte/i.test(prevMsg.content)) {
       const nameCandidate = msg.content.trim().replace(/[.!?,;:]+$/g, '').trim();
       if (nameCandidate.length >= 2 && nameCandidate.length <= 80 && !EMAIL_REGEX.test(nameCandidate)) {
         detectedName = nameCandidate;
@@ -915,7 +915,7 @@ function detectLeadCollectionState(
   if (detectedEmail && !detectedName) {
     const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
     // If assistant already asked for name, check if latest user msg is the name
-    if (lastAssistant && /qual (o seu |seu )?nome|what's your name|cuál es tu nombre/i.test(lastAssistant.content)) {
+    if (lastAssistant && /qual (o seu |seu )?nome|como devo te chamar|what's your name|what should I call you|cuál es tu nombre|cómo debo llamarte/i.test(lastAssistant.content)) {
       const lastUser = [...history].reverse().find(h => h.role === "user");
       if (lastUser) {
         const nameCandidate = lastUser.content.trim().replace(/[.!?,;:]+$/g, '').trim();
@@ -929,7 +929,7 @@ function detectLeadCollectionState(
 
   // No email found yet — check if assistant already asked for email
   const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
-  if (lastAssistant && /e-?mail|email|correo/i.test(lastAssistant.content) && /melhor|best|mejor|enviar|acompanhar/i.test(lastAssistant.content)) {
+  if (lastAssistant && /e-?mail|email|correo/i.test(lastAssistant.content) && /melhor|best|mejor|enviar|acompanhar|reconhecer|recognize|reconocerte|informe|provide/i.test(lastAssistant.content)) {
     const lastUser = [...history].reverse().find(h => h.role === "user");
     if (lastUser) {
       const normalizedLastUser = lastUser.content.replace(/\s*@\s*/g, '@');

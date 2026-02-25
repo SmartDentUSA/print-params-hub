@@ -20,6 +20,7 @@ interface Lead {
 }
 
 const COLUMNS = [
+  { key: "novo", label: "Novo", color: "bg-emerald-50 border-emerald-300" },
   { key: "sem_contato", label: "Sem Contato", color: "bg-sky-50 border-sky-300" },
   { key: "contato_feito", label: "Contato Feito", color: "bg-blue-50 border-blue-300" },
   { key: "em_contato", label: "Em Contato", color: "bg-yellow-50 border-yellow-300" },
