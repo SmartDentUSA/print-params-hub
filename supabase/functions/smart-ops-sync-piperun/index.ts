@@ -44,14 +44,20 @@ function isInStagnantFunnel(leadStatus: string): boolean {
 }
 
 function extractCustomField(deal: Record<string, unknown>, fieldName: string): string | null {
-  // PipeRun stores custom fields in different locations depending on API version
-  const customs = (deal.custom_fields || deal.person?.custom_fields || []) as Array<{ name?: string; label?: string; value?: unknown }>;
+  // PipeRun stores custom fields on Person (camelCase: customFields), not on deal
+  const person = deal.person as Record<string, unknown> | undefined;
+  const customs = (
+    person?.customFields || deal.customFields || deal.custom_fields || []
+  ) as Array<{ name?: string; label?: string; value?: unknown; raw_value?: unknown }>;
   if (Array.isArray(customs)) {
     const field = customs.find((f) => {
       const name = (f.name || f.label || "").toLowerCase();
       return name.includes(fieldName.toLowerCase());
     });
-    if (field && field.value != null) return String(field.value);
+    if (field) {
+      const val = field.value ?? field.raw_value;
+      if (val != null) return String(val);
+    }
   }
   return null;
 }
@@ -89,6 +95,9 @@ function buildUpdatePayload(deal: Record<string, unknown>): Record<string, unkno
   if (person?.phone) payload.telefone_raw = String(person.phone);
   if (city?.name) payload.cidade = String(city.name);
   if (state?.abbr || state?.name) payload.uf = String(state?.abbr || state?.name);
+
+  // job_title on person = area de atuação
+  if (person?.job_title) payload.area_atuacao = String(person.job_title);
 
   // Link
   payload.piperun_link = `https://app.pipe.run/pipeline/gerenciador/visualizar/${deal.id}`;
@@ -201,6 +210,8 @@ Deno.serve(async (req) => {
         // Stagnation funnel logic
         if (stageName) {
           if (isStagnant(stageName) && !isInStagnantFunnel(currentLead.lead_status) && currentLead.lead_status !== "estagnado_final") {
+            // Save current commercial stage before entering stagnation
+            updatePayload.ultima_etapa_comercial = currentLead.lead_status;
             updatePayload.lead_status = "est1_0";
             updatePayload.updated_at = new Date().toISOString();
             stagnantStarted++;

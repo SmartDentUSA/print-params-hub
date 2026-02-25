@@ -1118,6 +1118,7 @@ export type Database = {
           tem_scanner: string | null
           temperatura_lead: string | null
           uf: string | null
+          ultima_etapa_comercial: string | null
           updated_at: string
           utm_campaign: string | null
           utm_medium: string | null
@@ -1186,6 +1187,7 @@ export type Database = {
           tem_scanner?: string | null
           temperatura_lead?: string | null
           uf?: string | null
+          ultima_etapa_comercial?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_medium?: string | null
@@ -1254,6 +1256,7 @@ export type Database = {
           tem_scanner?: string | null
           temperatura_lead?: string | null
           uf?: string | null
+          ultima_etapa_comercial?: string | null
           updated_at?: string
           utm_campaign?: string | null
           utm_medium?: string | null
