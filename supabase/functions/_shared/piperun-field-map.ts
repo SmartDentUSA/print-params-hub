@@ -221,6 +221,10 @@ export interface PipeRunDealData {
   created_at?: string;
   closed_at?: string;
   lost_reason?: string;
+  reference?: string;
+  rdstation_reference?: string;
+  person_id?: number;
+  company_id?: number;
   person?: {
     name?: string;
     emails?: Array<{ email: string }>;
@@ -228,6 +232,11 @@ export interface PipeRunDealData {
     job_title?: string;
     city?: { name?: string };
     state?: { initials?: string };
+  };
+  company?: {
+    name?: string;
+    phones?: Array<{ phone: string }>;
+    emails?: Array<{ email: string }>;
   };
   custom_fields?: Array<{
     custom_field_id: number;
