@@ -20,6 +20,54 @@ function isInStagnantStatus(leadStatus: string): boolean {
   return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
 }
 
+// Pipelines to sync in full mode (all relevant ones)
+const SYNC_PIPELINES = [
+  PIPELINES.VENDAS,
+  PIPELINES.ESTAGNADOS,
+  PIPELINES.CS_ONBOARDING,
+  PIPELINES.INSUMOS,
+  PIPELINES.INTERESSE_CURSOS,
+  PIPELINES.EBOOK,
+];
+
+async function fetchDealsForPipeline(
+  apiKey: string,
+  pipelineId: number,
+  since: string | null,
+  maxPages: number
+): Promise<PipeRunDealData[]> {
+  let allDeals: PipeRunDealData[] = [];
+  let page = 1;
+
+  while (page <= maxPages) {
+    const params: Record<string, string | number> = {
+      show: 100,
+      page,
+      "with[]": "person",
+      pipeline_id: pipelineId,
+    };
+    if (since) params.updated_since = since;
+
+    const result = await piperunGet(apiKey, "deals", params);
+
+    if (!result.success) {
+      console.error(`[sync-piperun] API error pipeline=${pipelineId} page=${page}:`, result.status);
+      break;
+    }
+
+    const piperunData = result.data as { data?: PipeRunDealData[]; meta?: { current_page: number; last_page: number } };
+    const deals = piperunData?.data || [];
+    if (deals.length === 0) break;
+
+    allDeals = allDeals.concat(deals);
+
+    if (piperunData?.meta && piperunData.meta.current_page >= piperunData.meta.last_page) break;
+    page++;
+  }
+
+  return allDeals;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -40,36 +88,28 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const fullSync = url.searchParams.get("full") === "true";
+    const singlePipeline = url.searchParams.get("pipeline_id");
     const since = fullSync ? null : new Date(Date.now() - 35 * 60 * 1000).toISOString();
 
+    // Determine which pipelines to sync
+    let pipelinesToSync: number[];
+    if (singlePipeline) {
+      pipelinesToSync = [Number(singlePipeline)];
+    } else {
+      pipelinesToSync = [...SYNC_PIPELINES];
+    }
+
+    const maxPagesPerPipeline = fullSync ? 50 : 10;
+
+    // Fetch deals per pipeline
     let allDeals: PipeRunDealData[] = [];
-    let page = 1;
-    const maxPages = fullSync ? 50 : 3;
+    const pipelineResults: Record<number, number> = {};
 
-    while (page <= maxPages) {
-      const params: Record<string, string | number> = { show: 100, page, "with[]": "person" };
-      if (since) params.updated_since = since;
-
-      const result = await piperunGet(PIPERUN_API_KEY, "deals", params);
-
-      if (!result.success) {
-        console.error("[sync-piperun] API error:", result.status, String(result.data).slice(0, 300));
-        if (page === 1) {
-          return new Response(JSON.stringify({ error: `Piperun API ${result.status}` }), {
-            status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        break;
-      }
-
-      const piperunData = result.data as { data?: PipeRunDealData[]; meta?: { current_page: number; last_page: number } };
-      const deals = piperunData?.data || [];
-      if (deals.length === 0) break;
-
+    for (const pid of pipelinesToSync) {
+      const deals = await fetchDealsForPipeline(PIPERUN_API_KEY, pid, since, maxPagesPerPipeline);
+      pipelineResults[pid] = deals.length;
       allDeals = allDeals.concat(deals);
-
-      if (piperunData?.meta && piperunData.meta.current_page >= piperunData.meta.last_page) break;
-      page++;
+      console.log(`[sync-piperun] Pipeline ${pid}: ${deals.length} deals fetched`);
     }
 
     let updated = 0;
@@ -78,11 +118,6 @@ Deno.serve(async (req) => {
     let stagnantRescued = 0;
     let skippedNoData = 0;
     let notFound = 0;
-
-    // Debug: log first 3 deals
-    for (const d of allDeals.slice(0, 3)) {
-      console.log(`[sync-piperun] Sample deal id=${d.id}, person=${JSON.stringify(d.person?.name)}, reference=${JSON.stringify((d as any).reference)}, title=${JSON.stringify(d.title)}, stage=${d.stage_id}, pipeline=${d.pipeline_id}`);
-    }
 
     for (const deal of allDeals) {
       const dealId = String(deal.id);
@@ -105,7 +140,6 @@ Deno.serve(async (req) => {
         .single();
 
       if (currentLead) {
-        // found by piperun_id
         // Track stagnation transitions
         if (deal.stage_id) {
           const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
@@ -161,7 +195,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[sync-piperun] Total deals: ${allDeals.length}, updated: ${updated}, created: ${created}, notFound: ${notFound}, skippedNoData: ${skippedNoData}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
+    console.log(`[sync-piperun] Total: ${allDeals.length}, updated: ${updated}, created: ${created}, notFound: ${notFound}, skippedNoData: ${skippedNoData}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
     return new Response(JSON.stringify({
       success: true,
       synced: updated,
@@ -169,7 +203,7 @@ Deno.serve(async (req) => {
       not_found_by_piperun_id: notFound,
       skipped_no_email_nome: skippedNoData,
       total_deals: allDeals.length,
-      pages_fetched: page,
+      pipeline_results: pipelineResults,
       stagnant_started: stagnantStarted,
       stagnant_rescued: stagnantRescued,
     }), {
