@@ -200,6 +200,44 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       throw updateError;
     }
 
+    // ── Push cognitive note to PipeRun deal ──
+    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
+    if (PIPERUN_API_KEY) {
+      // Find piperun_id for this lead
+      const { data: piperunLead } = await supabase
+        .from("lia_attendances")
+        .select("piperun_id")
+        .eq("id", leadData.id)
+        .single();
+
+      if (piperunLead?.piperun_id) {
+        const noteLines = [
+          `🧠 Análise Cognitiva L.I.A. (${new Date().toLocaleDateString("pt-BR")})`,
+          `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+          `📊 Estágio: ${cognitiveData.lead_stage_detected || "N/I"}`,
+          `⏱️ Timeline: ${cognitiveData.interest_timeline || "N/I"}`,
+          `🔥 Urgência: ${cognitiveData.urgency_level || "N/I"}`,
+          `🧬 Perfil: ${cognitiveData.psychological_profile || "N/I"}`,
+          `💡 Motivação: ${cognitiveData.primary_motivation || "N/I"}`,
+          `⚠️ Objeção provável: ${cognitiveData.objection_risk || "N/I"}`,
+          `📋 Abordagem: ${cognitiveData.recommended_approach || "N/I"}`,
+          `📈 Confiança: ${cognitiveData.confidence_score_analysis || 0}%`,
+        ];
+
+        const noteResult = await addDealNote(
+          PIPERUN_API_KEY,
+          Number(piperunLead.piperun_id),
+          noteLines.join("\n")
+        );
+
+        if (noteResult.success) {
+          console.log(`[cognitive] ✅ Nota PipeRun inserida deal ${piperunLead.piperun_id}`);
+        } else {
+          console.warn(`[cognitive] ⚠️ Nota PipeRun falhou deal ${piperunLead.piperun_id}:`, noteResult.data);
+        }
+      }
+    }
+
     clearTimeout(timeoutId);
     console.log(`[cognitive] ✅ ${leadData.email} → ${cognitiveData.lead_stage_detected} (confidence: ${cognitiveData.confidence_score_analysis})`);
 
