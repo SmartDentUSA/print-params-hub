@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag, Zap, Target } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 
 const STATUS_OPTIONS = [
@@ -29,6 +29,14 @@ const TEMP_OPTIONS = [
   { key: "quente", label: "🔥 Quente" },
   { key: "morno", label: "🌤 Morno" },
   { key: "frio", label: "❄️ Frio" },
+];
+
+const STAGE_OPTIONS = [
+  { key: "all", label: "Todos Estágios" },
+  { key: "MQL_pesquisador", label: "🔍 MQL" },
+  { key: "SAL_comparador", label: "🔄 SAL" },
+  { key: "SQL_decisor", label: "✅ SQL" },
+  { key: "CLIENTE_ativo", label: "👑 Cliente" },
 ];
 
 const PAGE_SIZE = 50;
@@ -100,6 +108,18 @@ interface LeadFull {
   ip_origem: string | null;
   proactive_sent_at: string | null;
   proactive_count: number | null;
+  // Cognitive fields
+  cognitive_analysis: Record<string, unknown> | null;
+  cognitive_updated_at: string | null;
+  lead_stage_detected: string | null;
+  interest_timeline: string | null;
+  urgency_level: string | null;
+  psychological_profile: string | null;
+  primary_motivation: string | null;
+  objection_risk: string | null;
+  recommended_approach: string | null;
+  confidence_score_analysis: number | null;
+  prediction_accuracy: number | null;
 }
 
 // ─── TAG Color System ───
@@ -251,9 +271,28 @@ function ActiveIcons({ lead }: { lead: LeadFull }) {
 function TempBadge({ temp }: { temp: string | null }) {
   if (!temp) return <span className="text-muted-foreground text-[10px]">—</span>;
   const t = temp.toLowerCase();
-  if (t === "quente") return <Badge className="bg-red-500 text-white text-[10px] px-1.5">🔥</Badge>;
-  if (t === "morno") return <Badge className="bg-amber-400 text-white text-[10px] px-1.5">🌤</Badge>;
-  return <Badge className="bg-blue-400 text-white text-[10px] px-1.5">❄️</Badge>;
+  if (t === "quente") return <Badge className="bg-destructive text-destructive-foreground text-[10px] px-1.5">🔥</Badge>;
+  if (t === "morno") return <Badge className="bg-accent text-accent-foreground text-[10px] px-1.5">🌤</Badge>;
+  return <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5">❄️</Badge>;
+}
+
+function StageBadge({ stage }: { stage: string | null }) {
+  if (!stage) return null;
+  const config: Record<string, { label: string; className: string }> = {
+    MQL_pesquisador: { label: "MQL", className: "bg-muted text-muted-foreground border-muted" },
+    SAL_comparador: { label: "SAL", className: "bg-primary/10 text-primary border-primary/30" },
+    SQL_decisor: { label: "SQL", className: "bg-green-50 text-green-700 border-green-300" },
+    CLIENTE_ativo: { label: "CLIENTE", className: "bg-purple-50 text-purple-700 border-purple-300" },
+  };
+  const c = config[stage] || { label: stage, className: "bg-muted text-muted-foreground" };
+  return <Badge variant="outline" className={`text-[9px] px-1.5 ${c.className}`}>{c.label}</Badge>;
+}
+
+function UrgencyIcon({ urgency }: { urgency: string | null }) {
+  if (!urgency) return null;
+  if (urgency === "alta") return <span title="Urgência alta" className="text-destructive">🔴</span>;
+  if (urgency === "media") return <span title="Urgência média" className="text-accent-foreground">🟡</span>;
+  return <span title="Urgência baixa" className="text-primary">🟢</span>;
 }
 
 function formatDate(d: string | null) {
@@ -322,6 +361,7 @@ export function SmartOpsLeadsList() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [tempFilter, setTempFilter] = useState("all");
+  const [stageFilter, setStageFilter] = useState("all");
   const [stagnantOnly, setStagnantOnly] = useState(false);
   const [page, setPage] = useState(0);
   const [selectedLead, setSelectedLead] = useState<LeadFull | null>(null);
@@ -352,6 +392,7 @@ export function SmartOpsLeadsList() {
       if (statusFilter !== "all" && l.lead_status !== statusFilter) return false;
       if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
       if (tempFilter !== "all" && (l.temperatura_lead || "").toLowerCase() !== tempFilter) return false;
+      if (stageFilter !== "all" && l.lead_stage_detected !== stageFilter) return false;
       if (stagnantOnly && l.updated_at > thirtyDaysAgo) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -359,12 +400,12 @@ export function SmartOpsLeadsList() {
       }
       return true;
     });
-  }, [leads, search, statusFilter, sourceFilter, tempFilter, stagnantOnly, thirtyDaysAgo]);
+  }, [leads, search, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly, thirtyDaysAgo]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, sourceFilter, tempFilter, stagnantOnly]);
+  useEffect(() => { setPage(0); }, [search, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly]);
 
   const exportCSV = () => {
     const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "temperatura_lead", "ultima_etapa_comercial", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
@@ -417,6 +458,12 @@ export function SmartOpsLeadsList() {
                 {TEMP_OPTIONS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Select value={stageFilter} onValueChange={setStageFilter}>
+              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Estágio Cogn." /></SelectTrigger>
+              <SelectContent>
+                {STAGE_OPTIONS.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <div className="flex items-center gap-1.5">
               <Checkbox id="stagnant" checked={stagnantOnly} onCheckedChange={(c) => setStagnantOnly(!!c)} />
               <label htmlFor="stagnant" className="text-xs whitespace-nowrap cursor-pointer">Estagnados (&gt;30d)</label>
@@ -440,6 +487,7 @@ export function SmartOpsLeadsList() {
                   <TableHead>Valor</TableHead>
                   <TableHead>Score</TableHead>
                   <TableHead>Proprietário</TableHead>
+                  <TableHead>Cognitivo</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Ativos</TableHead>
                 </TableRow>
@@ -476,6 +524,20 @@ export function SmartOpsLeadsList() {
                     </TableCell>
                     <TableCell className="text-center">{lead.score ?? 0}</TableCell>
                     <TableCell className="text-xs">{lead.proprietario_lead_crm || "—"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <StageBadge stage={lead.lead_stage_detected} />
+                        <UrgencyIcon urgency={lead.urgency_level} />
+                        {lead.recommended_approach && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild><Target className="w-3 h-3 text-muted-foreground cursor-help" /></TooltipTrigger>
+                              <TooltipContent className="max-w-xs"><p className="text-xs">{lead.recommended_approach}</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
                     <TableCell><ActiveIcons lead={lead} /></TableCell>
                   </TableRow>
@@ -515,6 +577,31 @@ export function SmartOpsLeadsList() {
                     <span className="text-xs font-semibold text-primary">Resumo IA do Histórico</span>
                   </div>
                   <p className="text-sm">{selectedLead.resumo_historico_ia}</p>
+                </div>
+              )}
+
+              {/* Cognitive Analysis */}
+              {selectedLead.lead_stage_detected && (
+                <div className="p-3 rounded-lg bg-accent/30 border border-accent">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-semibold text-primary">Análise Cognitiva</span>
+                    {selectedLead.confidence_score_analysis != null && (
+                      <Badge variant="outline" className="text-[9px] ml-auto">Confiança: {selectedLead.confidence_score_analysis}%</Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-muted-foreground">Estágio:</span> <StageBadge stage={selectedLead.lead_stage_detected} /></div>
+                    <div><span className="text-muted-foreground">Urgência:</span> <UrgencyIcon urgency={selectedLead.urgency_level} /> {selectedLead.urgency_level}</div>
+                    <div><span className="text-muted-foreground">Timeline:</span> {selectedLead.interest_timeline || "—"}</div>
+                    <div><span className="text-muted-foreground">Perfil:</span> {selectedLead.psychological_profile || "—"}</div>
+                    <div className="col-span-2"><span className="text-muted-foreground">Motivação:</span> {selectedLead.primary_motivation || "—"}</div>
+                    <div className="col-span-2"><span className="text-muted-foreground">Risco objeção:</span> {selectedLead.objection_risk || "—"}</div>
+                    <div className="col-span-2 p-2 rounded bg-muted/50 border"><span className="text-muted-foreground font-semibold">Abordagem:</span> {selectedLead.recommended_approach || "—"}</div>
+                  </div>
+                  {selectedLead.cognitive_updated_at && (
+                    <div className="text-[10px] text-muted-foreground mt-2">Atualizado: {formatDateTime(selectedLead.cognitive_updated_at)}</div>
+                  )}
                 </div>
               )}
 

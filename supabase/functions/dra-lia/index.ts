@@ -1259,33 +1259,56 @@ async function extractImplicitLeadData(
 async function classifyLeadMaturity(
   supabaseClient: ReturnType<typeof createClient>,
   email: string
-): Promise<"MQL" | "SAL" | "SQL" | "CLIENTE" | null> {
+): Promise<{ maturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null; cognitiveData: Record<string, unknown> | null }> {
   const { data } = await supabaseClient
     .from("lia_attendances")
-    .select("ultima_etapa_comercial, status_atual_lead_crm, funil_entrada_crm, status_oportunidade")
+    .select("ultima_etapa_comercial, status_atual_lead_crm, funil_entrada_crm, status_oportunidade, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach, cognitive_analysis")
     .eq("email", email)
     .maybeSingle();
 
-  if (!data) return null;
+  if (!data) return { maturity: null, cognitiveData: null };
 
+  // Cognitive override: if cognitive analysis exists, use it as primary source
+  const cognitiveData = data.cognitive_analysis ? {
+    lead_stage_detected: data.lead_stage_detected,
+    urgency_level: data.urgency_level,
+    psychological_profile: data.psychological_profile,
+    primary_motivation: data.primary_motivation,
+    objection_risk: data.objection_risk,
+    recommended_approach: data.recommended_approach,
+  } : null;
+
+  // Map cognitive stage to maturity level
+  if (data.lead_stage_detected) {
+    const stageMap: Record<string, "MQL" | "SAL" | "SQL" | "CLIENTE"> = {
+      "MQL_pesquisador": "MQL",
+      "SAL_comparador": "SAL",
+      "SQL_decisor": "SQL",
+      "CLIENTE_ativo": "CLIENTE",
+    };
+    if (stageMap[data.lead_stage_detected]) {
+      return { maturity: stageMap[data.lead_stage_detected], cognitiveData };
+    }
+  }
+
+  // Fallback: CRM-based classification
   const etapa = (data.ultima_etapa_comercial || "").toLowerCase();
   const funil = (data.funil_entrada_crm || "").toLowerCase();
   const status = (data.status_oportunidade || "").toLowerCase();
 
-  if (status === "ganha") return "CLIENTE";
+  if (status === "ganha") return { maturity: "CLIENTE", cognitiveData };
 
   if (funil.includes("estagnado") || funil.includes("stagnant")) {
-    if (/contato feito|sem contato|sem resposta/.test(etapa)) return "MQL";
-    if (/em contato|apresenta[çc][ãa]o agendada/.test(etapa)) return "SAL";
-    if (/proposta enviada|negocia[çc][ãa]o|fechamento/.test(etapa)) return "SQL";
+    if (/contato feito|sem contato|sem resposta/.test(etapa)) return { maturity: "MQL", cognitiveData };
+    if (/em contato|apresenta[çc][ãa]o agendada/.test(etapa)) return { maturity: "SAL", cognitiveData };
+    if (/proposta enviada|negocia[çc][ãa]o|fechamento/.test(etapa)) return { maturity: "SQL", cognitiveData };
   }
 
-  // Fallback by stage alone
-  if (/proposta|negocia|fechamento/.test(etapa)) return "SQL";
-  if (/em contato|apresenta/.test(etapa)) return "SAL";
-  if (/contato feito|sem contato|novo/.test(etapa)) return "MQL";
+  if (/proposta|negocia|fechamento/.test(etapa)) return { maturity: "SQL", cognitiveData };
+  if (/em contato|apresenta/.test(etapa)) return { maturity: "SAL", cognitiveData };
+  if (/contato feito|sem contato|novo/.test(etapa)) return { maturity: "MQL", cognitiveData };
 
-  return null;
+  return { maturity: null, cognitiveData };
 }
 
 // Helper to stream a simple text response
@@ -2420,6 +2443,19 @@ serve(async (req) => {
         if (leadEmail) {
           const fullConvoText = interactions.map((i: { user_message: string; agent_response: string | null }) => `${i.user_message} ${i.agent_response || ""}`).join(" ");
           extractImplicitLeadData(supabase, leadEmail, fullConvoText).catch(e => console.warn("[summarize_session] implicit extraction error:", e));
+
+          // Fire-and-forget cognitive analysis
+          const totalMsgs = previousMessages + sessionMsgCount;
+          if (totalMsgs >= 5) {
+            fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ email: leadEmail }),
+            }).catch(e => console.warn("[cognitive] fire-and-forget error:", e));
+          }
         }
 
         // 8. Extract PENDENCIAS from summary and create content_requests
@@ -3478,13 +3514,30 @@ Campos:
 
     // Classify lead maturity for commercial route
     let leadMaturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null = null;
+    let cognitiveData: Record<string, unknown> | null = null;
     if (topic_context === "commercial" && leadState.state === "from_session") {
-      leadMaturity = await classifyLeadMaturity(supabase, leadState.email);
-      console.log(`[maturity] ${leadState.email} → ${leadMaturity || "unknown"}`);
+      const result = await classifyLeadMaturity(supabase, leadState.email);
+      leadMaturity = result.maturity;
+      cognitiveData = result.cognitiveData;
+      console.log(`[maturity] ${leadState.email} → ${leadMaturity || "unknown"} | cognitive: ${cognitiveData ? "yes" : "no"}`);
     }
 
+    // Build cognitive imperative block
+    const cognitiveBlock = cognitiveData ? `
+### ESTADO COGNITIVO DO LEAD (ESTRITAMENTE OBRIGATÓRIO)
+Estágio: ${(cognitiveData as Record<string, unknown>).lead_stage_detected}
+Perfil: ${(cognitiveData as Record<string, unknown>).psychological_profile}
+Urgência: ${(cognitiveData as Record<string, unknown>).urgency_level}
+Motivação: ${(cognitiveData as Record<string, unknown>).primary_motivation}
+Risco objeção: ${(cognitiveData as Record<string, unknown>).objection_risk}
+ABORDAGEM OBRIGATÓRIA: ${(cognitiveData as Record<string, unknown>).recommended_approach}
+- Se MQL: Foque em educação e riscos invisíveis (Persona Auditora).
+- Se SAL: Foque em Prova Social e Modelo Smart Dent (Persona Mentora).
+- Se SQL: Seja direta, remova fricção, use gatilhos de fechamento.
+SIGA esta abordagem. NÃO contrarie.` : "";
+
     const topicInstruction = topic_context && TOPIC_LABELS[topic_context]
-      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? buildCommercialInstruction(sessionEntities, spinProgressNote, leadMaturity) : ""}`
+      ? `\n### 🎯 CONTEXTO DECLARADO PELO USUÁRIO: ${TOPIC_LABELS[topic_context]}\nO usuário selecionou este tema no início da conversa. Priorize respostas relacionadas a este contexto. Se a pergunta sair deste tema, responda normalmente mas mantenha o foco no assunto declarado.${topic_context === "commercial" ? buildCommercialInstruction(sessionEntities, spinProgressNote, leadMaturity) + cognitiveBlock : ""}`
       : "";
 
     // Commercial route: add structured context instruction

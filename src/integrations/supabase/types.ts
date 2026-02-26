@@ -1125,8 +1125,11 @@ export type Database = {
           ativo_scan: boolean | null
           ativo_smart_slice: boolean | null
           cidade: string | null
+          cognitive_analysis: Json | null
+          cognitive_updated_at: string | null
           comentario_perda: string | null
           como_digitaliza: string | null
+          confidence_score_analysis: number | null
           created_at: string
           cs_treinamento: string | null
           data_contrato: string | null
@@ -1148,22 +1151,29 @@ export type Database = {
           id: string
           id_cliente_smart: string | null
           impressora_modelo: string | null
+          interest_timeline: string | null
           ip_origem: string | null
           itens_proposta_crm: string | null
+          lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
           motivo_perda: string | null
           nome: string
+          objection_risk: string | null
           origem_campanha: string | null
           pais_origem: string | null
           piperun_id: string | null
           piperun_link: string | null
+          prediction_accuracy: number | null
+          primary_motivation: string | null
           principal_aplicacao: string | null
           proactive_count: number | null
           proactive_sent_at: string | null
           produto_interesse: string | null
           proprietario_lead_crm: string | null
+          psychological_profile: string | null
           raw_payload: Json | null
+          recommended_approach: string | null
           resina_interesse: string | null
           resumo_historico_ia: string | null
           reuniao_agendada: boolean | null
@@ -1185,6 +1195,7 @@ export type Database = {
           ultima_etapa_comercial: string | null
           ultima_sessao_at: string | null
           updated_at: string
+          urgency_level: string | null
           utm_campaign: string | null
           utm_medium: string | null
           utm_source: string | null
@@ -1203,8 +1214,11 @@ export type Database = {
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
           cidade?: string | null
+          cognitive_analysis?: Json | null
+          cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
+          confidence_score_analysis?: number | null
           created_at?: string
           cs_treinamento?: string | null
           data_contrato?: string | null
@@ -1226,22 +1240,29 @@ export type Database = {
           id?: string
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
+          interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
+          lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
           motivo_perda?: string | null
           nome: string
+          objection_risk?: string | null
           origem_campanha?: string | null
           pais_origem?: string | null
           piperun_id?: string | null
           piperun_link?: string | null
+          prediction_accuracy?: number | null
+          primary_motivation?: string | null
           principal_aplicacao?: string | null
           proactive_count?: number | null
           proactive_sent_at?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
+          psychological_profile?: string | null
           raw_payload?: Json | null
+          recommended_approach?: string | null
           resina_interesse?: string | null
           resumo_historico_ia?: string | null
           reuniao_agendada?: boolean | null
@@ -1263,6 +1284,7 @@ export type Database = {
           ultima_etapa_comercial?: string | null
           ultima_sessao_at?: string | null
           updated_at?: string
+          urgency_level?: string | null
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
@@ -1281,8 +1303,11 @@ export type Database = {
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
           cidade?: string | null
+          cognitive_analysis?: Json | null
+          cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
+          confidence_score_analysis?: number | null
           created_at?: string
           cs_treinamento?: string | null
           data_contrato?: string | null
@@ -1304,22 +1329,29 @@ export type Database = {
           id?: string
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
+          interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
+          lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
           motivo_perda?: string | null
           nome?: string
+          objection_risk?: string | null
           origem_campanha?: string | null
           pais_origem?: string | null
           piperun_id?: string | null
           piperun_link?: string | null
+          prediction_accuracy?: number | null
+          primary_motivation?: string | null
           principal_aplicacao?: string | null
           proactive_count?: number | null
           proactive_sent_at?: string | null
           produto_interesse?: string | null
           proprietario_lead_crm?: string | null
+          psychological_profile?: string | null
           raw_payload?: Json | null
+          recommended_approach?: string | null
           resina_interesse?: string | null
           resumo_historico_ia?: string | null
           reuniao_agendada?: boolean | null
@@ -1341,6 +1373,7 @@ export type Database = {
           ultima_etapa_comercial?: string | null
           ultima_sessao_at?: string | null
           updated_at?: string
+          urgency_level?: string | null
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
