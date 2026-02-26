@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendViaSellFlux, mergeTagsCrm, computeStagnationTag } from "../_shared/sellflux-field-map.ts";
+import { moveDealToStage, ETAPA_TO_STAGE } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
