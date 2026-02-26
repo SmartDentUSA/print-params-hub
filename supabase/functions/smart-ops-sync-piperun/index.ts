@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const maxPages = fullSync ? 50 : 3;
 
     while (page <= maxPages) {
-      const params: Record<string, string | number> = { show: 100, page };
+      const params: Record<string, string | number> = { show: 100, page, "with[]": "person" };
       if (since) params.updated_since = since;
 
       const result = await piperunGet(PIPERUN_API_KEY, "deals", params);
@@ -76,6 +76,13 @@ Deno.serve(async (req) => {
     let created = 0;
     let stagnantStarted = 0;
     let stagnantRescued = 0;
+    let skippedNoData = 0;
+    let notFound = 0;
+
+    // Debug: log first 3 deals
+    for (const d of allDeals.slice(0, 3)) {
+      console.log(`[sync-piperun] Sample deal id=${d.id}, person=${JSON.stringify(d.person?.name)}, email=${JSON.stringify(d.person?.emails?.[0]?.email)}, stage=${d.stage_id}, pipeline=${d.pipeline_id}`);
+    }
 
     for (const deal of allDeals) {
       const dealId = String(deal.id);
@@ -98,6 +105,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (currentLead) {
+        // found by piperun_id
         // Track stagnation transitions
         if (deal.stage_id) {
           const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
@@ -117,6 +125,7 @@ Deno.serve(async (req) => {
 
         if (!error) updated++;
       } else {
+        notFound++;
         // Try to find by email or create
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
         const nome = updatePayload.nome ? String(updatePayload.nome) : null;
@@ -144,16 +153,21 @@ Deno.serve(async (req) => {
 
             const { error } = await supabase.from("lia_attendances").insert(insertPayload);
             if (!error) created++;
+            else console.error(`[sync-piperun] Insert error for deal ${dealId}:`, error.message);
           }
+        } else {
+          skippedNoData++;
         }
       }
     }
 
-    console.log(`[sync-piperun] Total deals: ${allDeals.length}, updated: ${updated}, created: ${created}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
+    console.log(`[sync-piperun] Total deals: ${allDeals.length}, updated: ${updated}, created: ${created}, notFound: ${notFound}, skippedNoData: ${skippedNoData}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
     return new Response(JSON.stringify({
       success: true,
       synced: updated,
       created,
+      not_found_by_piperun_id: notFound,
+      skipped_no_email_nome: skippedNoData,
       total_deals: allDeals.length,
       pages_fetched: page,
       stagnant_started: stagnantStarted,
