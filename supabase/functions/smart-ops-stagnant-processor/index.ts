@@ -100,6 +100,24 @@ Deno.serve(async (req) => {
       }
 
       advanced++;
+
+      // ── Push stage change to PipeRun ──
+      if (PIPERUN_API_KEY && lead.piperun_id) {
+        const stageMapping = ETAPA_TO_STAGE[nextStatus];
+        if (stageMapping) {
+          const moveResult = await moveDealToStage(
+            PIPERUN_API_KEY,
+            Number(lead.piperun_id),
+            stageMapping.stage_id
+          );
+          if (moveResult.success) {
+            console.log(`[stagnant-processor] ✅ PipeRun deal ${lead.piperun_id} → stage ${stageMapping.stage_id}`);
+          } else {
+            console.warn(`[stagnant-processor] ⚠️ PipeRun move falhou deal ${lead.piperun_id}:`, moveResult.data);
+          }
+        }
+      }
+
       console.log(`[stagnant-processor] ${lead.nome}: ${currentStatus} → ${nextStatus}${stagnationTag ? ` +TAG:${stagnationTag}` : ""}`);
 
       // Check automation rule for new stage
