@@ -575,11 +575,13 @@ export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = 
   omie_vendas: parseOmieVendas,
   piperun_estagnados: parsePiperunEstagnados,
   piperun_full: parsePiperunFull,
+  piperun_cs: parsePiperunCS,
   sellflux: parseSellFlux,
 };
 
 export const PARSER_OPTIONS = [
   { key: "piperun_full", label: "PipeRun Export Completo", override: false },
+  { key: "piperun_cs", label: "PipeRun Funil CS Onboarding", override: false },
   { key: "master", label: "Master Leads (PipeRun)", override: false },
   { key: "piperun_estagnados", label: "PipeRun Funil Estagnados", override: false },
   { key: "sellflux", label: "SellFlux Export (CSV)", override: false },
