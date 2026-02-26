@@ -2091,7 +2091,7 @@ const ESCALATION_TRIGGERS = {
   cs_suporte: [
     /\b(defeito|garantia|assist[êe]ncia|reclama[çc]|insatisf|problema com.{0,20}(produto|equipamento|impressora|scanner))\b/i,
     /\b(troca[r]?|devolu[çc]|reembolso|pe[çc]a.{0,15}reposi[çc])\b/i,
-    /\b(treinamento|capacita[çc]|curso|academy)\b/i,
+    // REMOVED: "treinamento" — users asking ABOUT training are not support cases
   ],
   // → ESPECIALISTA: frustração ou muitas tentativas sem resolução
   especialista: [
@@ -3805,7 +3805,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     "O grande diferencial da SmartDent é que, diferente de outras empresas, não vendemos apenas equipamentos e softwares isolados — nós entregamos um **ecossistema lucrativo e funcional** para sua clínica ou laboratório. Isso inclui equipamento, treinamento, suporte técnico contínuo e todo o acompanhamento para você ter resultados reais."
     Seguido de: "Quer conhecer como funciona nosso ecossistema? [Falar com especialista](https://wa.me/5516993831794)"
 
-### ⛔ REGRAS ANTI-ALUCINAÇÃO AVANÇADAS (21-23)
+### ⛔ REGRAS ANTI-ALUCINAÇÃO AVANÇADAS (21-28)
 21. CONTEXTO FRACO = FRASE DE SEGURANÇA OBRIGATÓRIA:
     Se o topSimilarity < 0.50 OU nenhum resultado RAG corresponde ao tema da pergunta,
     use OBRIGATORIAMENTE uma destas frases:
@@ -3834,6 +3834,33 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     Posso te ajudar com as resinas do portfólio SmartDent — temos opções para [aplicação mencionada].
     Quer que eu te mostre?"
     PROIBIDO inventar que um produto externo faz parte do portfólio da SmartDent.
+
+25. MARCAS PARCEIRAS — CLASSIFICAÇÃO CORRETA (CRÍTICO):
+    - **BLZ Dental** = marca de **SCANNERS INTRAORAIS** (ex: BLZ INO100, BLZ INO200). NUNCA diga "impressora BLZ". BLZ NÃO fabrica impressoras.
+    - **RayShape** = marca de **IMPRESSORAS 3D** (ex: Edge Mini, Shape 1+). NUNCA confunda com scanner.
+    - **Medit** = marca de **SCANNERS INTRAORAIS** (ex: Medit i700, T310). NUNCA confunda com impressora.
+    - **exocad** = marca de **SOFTWARE CAD**. NUNCA confunda com hardware.
+    Se o usuário disser "tenho uma BLZ", ele tem um SCANNER, não uma impressora. CORRIJA se necessário.
+
+26. COMPOSIÇÃO DE COMBOS/KITS — PROIBIDO INVENTAR COMPONENTES:
+    Quando o usuário perguntar "o que vem no combo?" ou "quais componentes?":
+    - Liste APENAS os itens que aparecem EXPLICITAMENTE nos DADOS DAS FONTES.
+    - Se os dados NÃO listam os componentes individuais do kit, diga EXATAMENTE:
+      "Para te dar a lista completa e atualizada de tudo que acompanha o combo, o ideal é falar diretamente com nosso consultor: [Falar com especialista](https://wa.me/5516993831794)"
+    - NUNCA invente itens como "computador", "notebook", "kit de resinas" se não estiver nos dados.
+    - NUNCA assuma que um combo inclui determinado item sem confirmação nos dados.
+
+27. TREINAMENTO — PROIBIDO INVENTAR FORMATOS OU DURAÇÃO:
+    - A SmartDent oferece treinamento PRESENCIAL (imersão em São Carlos-SP) e pós-venda prático.
+    - NUNCA afirme que existe treinamento "online", "EAD", "remoto" ou "à distância" a menos que os DADOS DAS FONTES mencionem explicitamente.
+    - NUNCA invente carga horária (ex: "8 a 16 horas") sem dados explícitos.
+    - Se perguntarem sobre formato/duração do treinamento, responda:
+      "O treinamento é presencial, geralmente em formato de imersão no nosso centro em São Carlos-SP. Para detalhes sobre duração e agenda, nosso time pode personalizar: [Falar com especialista](https://wa.me/5516993831794)"
+
+28. MÁXIMO UM BLOCO DE ESCALONAMENTO POR RESPOSTA:
+    Se a resposta já contém um link de "Falar com especialista" ou "Falar com suporte", 
+    NÃO adicione outro bloco de escalonamento. Um único link de contato humano por resposta, sempre.
+    NUNCA finalize com mais de um bloco "---" de redirecionamento.
 
 --- DADOS DAS FONTES ---
 ${context}
@@ -4062,8 +4089,8 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
             const jsonStr = line.slice(6).trim();
             if (jsonStr === "[DONE]") {
-              // Append escalation CTA if detected
-              if (escalationIntent) {
+              // Append escalation CTA if detected AND response doesn't already contain a WhatsApp/escalation link
+              if (escalationIntent && !fullResponse.includes("wa.me/") && !fullResponse.includes("Falar com")) {
                 const escalationCTA = ESCALATION_RESPONSES[escalationIntent]?.[lang] || ESCALATION_RESPONSES[escalationIntent]?.["pt-BR"] || "";
                 if (escalationCTA) {
                   fullResponse += escalationCTA;
