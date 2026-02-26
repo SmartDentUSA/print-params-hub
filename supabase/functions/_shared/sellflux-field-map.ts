@@ -242,6 +242,19 @@ export function migrateLegacyTags(legacyTags: string[]): {
   };
 }
 
+// ─── Phone normalization helpers ───
+
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
+
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
+}
+
 // ─── SellFlux API helpers ───
 
 const SELLFLUX_API_BASE = "https://api.sellflux.com/v1";

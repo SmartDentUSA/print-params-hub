@@ -194,3 +194,6 @@ verify_jwt = false
 
 [functions.cognitive-lead-analysis]
 verify_jwt = false
+
+[functions.smart-ops-wa-inbox-webhook]
+verify_jwt = false
