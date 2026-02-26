@@ -34,6 +34,25 @@ interface Lead {
   tags_crm: string[] | null;
   funil_entrada_crm: string | null;
   comentario_perda: string | null;
+  // Additional fields
+  software_cad: string | null;
+  volume_mensal_pecas: string | null;
+  principal_aplicacao: string | null;
+  resina_interesse: string | null;
+  reuniao_agendada: boolean | null;
+  cs_treinamento: string | null;
+  lead_stage_detected: string | null;
+  urgency_level: string | null;
+  psychological_profile: string | null;
+  primary_motivation: string | null;
+  recommended_approach: string | null;
+  rota_inicial_lia: string | null;
+  origem_campanha: string | null;
+  utm_source: string | null;
+  piperun_id: string | null;
+  total_messages: number | null;
+  total_sessions: number | null;
+  confidence_score_analysis: number | null;
 }
 
 const COLUMNS = [
@@ -88,7 +107,7 @@ export function SmartOpsKanban() {
   const fetchLeads = async () => {
     const { data } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda")
+      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis")
       .in("lead_status", STATUS_KEYS)
       .order("created_at", { ascending: false })
       .limit(2000);
@@ -193,12 +212,58 @@ export function SmartOpsKanban() {
           {lead.tags_crm && lead.tags_crm.length > 0 && (
             <Badge variant="secondary" className="text-[10px]">🏷️ {lead.tags_crm.join(", ")}</Badge>
           )}
+          {lead.software_cad && (
+            <Badge variant="outline" className="text-[10px]">💻 {lead.software_cad}</Badge>
+          )}
+          {lead.volume_mensal_pecas && (
+            <Badge variant="outline" className="text-[10px]">📦 {lead.volume_mensal_pecas}</Badge>
+          )}
+          {lead.principal_aplicacao && (
+            <Badge variant="outline" className="text-[10px]">🎯 {lead.principal_aplicacao}</Badge>
+          )}
+          {lead.resina_interesse && (
+            <Badge variant="outline" className="text-[10px]">🧪 {lead.resina_interesse}</Badge>
+          )}
+          {lead.reuniao_agendada && (
+            <Badge className="text-[10px] bg-primary/10 text-primary">📅 Reunião</Badge>
+          )}
+          {lead.lead_stage_detected && (
+            <Badge variant="secondary" className="text-[10px]">🧠 {lead.lead_stage_detected}</Badge>
+          )}
+          {lead.urgency_level && (
+            <Badge variant={lead.urgency_level === "alta" ? "destructive" : "outline"} className="text-[10px]">
+              {lead.urgency_level === "alta" ? "🚨" : lead.urgency_level === "media" ? "⚡" : "🕐"} {lead.urgency_level}
+            </Badge>
+          )}
+          {lead.confidence_score_analysis != null && lead.confidence_score_analysis > 0 && (
+            <Badge variant="outline" className="text-[10px]">🎯 {lead.confidence_score_analysis}%</Badge>
+          )}
+          {lead.rota_inicial_lia && (
+            <Badge variant="outline" className="text-[10px]">🛤️ {lead.rota_inicial_lia}</Badge>
+          )}
+          {lead.origem_campanha && (
+            <Badge variant="outline" className="text-[10px]">📣 {lead.origem_campanha}</Badge>
+          )}
+          {lead.cs_treinamento && lead.cs_treinamento !== "pendente" && (
+            <Badge variant="secondary" className="text-[10px]">🎓 {lead.cs_treinamento}</Badge>
+          )}
         </div>
+        {lead.psychological_profile && (
+          <div className="text-[10px] text-muted-foreground italic truncate">🧠 {lead.psychological_profile}</div>
+        )}
+        {lead.recommended_approach && (
+          <div className="text-[10px] text-muted-foreground truncate">💡 {lead.recommended_approach}</div>
+        )}
         {lead.proprietario_lead_crm && (
           <div className="text-[10px] text-muted-foreground">👤 {lead.proprietario_lead_crm}</div>
         )}
+        {lead.funil_entrada_crm && (
+          <div className="text-[10px] text-muted-foreground">🔄 {lead.funil_entrada_crm}</div>
+        )}
         <div className="text-[10px] text-muted-foreground">
-          {lead.source} · {new Date(lead.created_at).toLocaleDateString("pt-BR")}
+          {lead.source}{lead.utm_source ? ` (${lead.utm_source})` : ""} · {new Date(lead.created_at).toLocaleDateString("pt-BR")}
+          {lead.total_messages != null && lead.total_messages > 0 && ` · ${lead.total_messages}msg`}
+          {lead.piperun_id && ` · PR#${lead.piperun_id}`}
         </div>
       </CardContent>
     </Card>
