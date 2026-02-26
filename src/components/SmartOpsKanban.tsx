@@ -206,9 +206,11 @@ export function SmartOpsKanban() {
           {lead.valor_oportunidade != null && lead.valor_oportunidade > 0 && (
             <Badge variant="outline" className="text-[10px] font-semibold">{formatCurrency(lead.valor_oportunidade)}</Badge>
           )}
-          {lead.itens_proposta_crm && (
-            <Badge variant="outline" className="text-[10px]">📋 {lead.itens_proposta_crm}</Badge>
-          )}
+          {lead.itens_proposta_crm && (() => {
+            const m = lead.itens_proposta_crm.match(/(?:\((\d+)\)\s*)?(PRO\s*\d+)/);
+            const label = m ? (m[1] ? `(${m[1]}) ${m[2]}` : m[2]) : "Proposta";
+            return <Badge variant="outline" className="text-[10px]">📋 {label}</Badge>;
+          })()}
           {lead.tags_crm && lead.tags_crm.length > 0 && (
             <Badge variant="secondary" className="text-[10px]">🏷️ {lead.tags_crm.join(", ")}</Badge>
           )}
