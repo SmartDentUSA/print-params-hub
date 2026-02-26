@@ -89,28 +89,70 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const fullSync = url.searchParams.get("full") === "true";
     const singlePipeline = url.searchParams.get("pipeline_id");
+    const orchestrate = url.searchParams.get("orchestrate") === "true";
     const since = fullSync ? null : new Date(Date.now() - 35 * 60 * 1000).toISOString();
 
-    // Determine which pipelines to sync
-    let pipelinesToSync: number[];
-    if (singlePipeline) {
-      pipelinesToSync = [Number(singlePipeline)];
-    } else {
-      pipelinesToSync = [...SYNC_PIPELINES];
+    // ── Orchestrator mode: call self once per pipeline sequentially ──
+    if (orchestrate) {
+      const pipelinesToSync = singlePipeline
+        ? [Number(singlePipeline)]
+        : [...SYNC_PIPELINES];
+
+      const allResults: Record<string, unknown> = {};
+      let totalUpdated = 0, totalCreated = 0, totalDeals = 0;
+
+      for (const pid of pipelinesToSync) {
+        try {
+          const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?pipeline_id=${pid}${fullSync ? "&full=true" : ""}`;
+          const res = await fetch(fnUrl, {
+            headers: {
+              "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+          });
+          const data = await res.json();
+          allResults[`pipeline_${pid}`] = data;
+          if (data.synced) totalUpdated += data.synced;
+          if (data.created) totalCreated += data.created;
+          if (data.total_deals) totalDeals += data.total_deals;
+        } catch (e) {
+          allResults[`pipeline_${pid}`] = { error: String(e) };
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "orchestrated",
+        total_updated: totalUpdated,
+        total_created: totalCreated,
+        total_deals: totalDeals,
+        pipeline_details: allResults,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    const maxPagesPerPipeline = fullSync ? 50 : 10;
-
-    // Fetch deals per pipeline
-    let allDeals: PipeRunDealData[] = [];
-    const pipelineResults: Record<number, number> = {};
-
-    for (const pid of pipelinesToSync) {
-      const deals = await fetchDealsForPipeline(PIPERUN_API_KEY, pid, since, maxPagesPerPipeline);
-      pipelineResults[pid] = deals.length;
-      allDeals = allDeals.concat(deals);
-      console.log(`[sync-piperun] Pipeline ${pid}: ${deals.length} deals fetched`);
+    // ── Single pipeline mode (default) ──
+    if (!singlePipeline) {
+      // If no pipeline specified and not orchestrating, default to orchestrate
+      const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?orchestrate=true${fullSync ? "&full=true" : ""}`;
+      const res = await fetch(fnUrl, {
+        headers: {
+          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json();
+      return new Response(JSON.stringify(data), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+
+    const pipelineId = Number(singlePipeline);
+    const maxPages = fullSync ? 20 : 5;
+
+    const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages);
+    console.log(`[sync-piperun] Pipeline ${pipelineId}: ${allDeals.length} deals fetched`);
 
     let updated = 0;
     let created = 0;
@@ -123,7 +165,6 @@ Deno.serve(async (req) => {
       const dealId = String(deal.id);
       const updatePayload = mapDealToAttendance(deal);
 
-      // Set lead_status from stage mapping
       if (deal.stage_id) {
         const mappedStatus = STAGE_TO_ETAPA[deal.stage_id];
         if (mappedStatus) {
@@ -132,7 +173,6 @@ Deno.serve(async (req) => {
         updatePayload.updated_at = new Date().toISOString();
       }
 
-      // Check if lead exists by piperun_id
       const { data: currentLead } = await supabase
         .from("lia_attendances")
         .select("id, lead_status, email")
@@ -140,7 +180,6 @@ Deno.serve(async (req) => {
         .single();
 
       if (currentLead) {
-        // Track stagnation transitions
         if (deal.stage_id) {
           const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
           const wasStagnant = isInStagnantStatus(currentLead.lead_status);
@@ -160,7 +199,6 @@ Deno.serve(async (req) => {
         if (!error) updated++;
       } else {
         notFound++;
-        // Try to find by email or create
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
         const nome = updatePayload.nome ? String(updatePayload.nome) : null;
 
@@ -195,7 +233,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(`[sync-piperun] Total: ${allDeals.length}, updated: ${updated}, created: ${created}, notFound: ${notFound}, skippedNoData: ${skippedNoData}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
+    console.log(`[sync-piperun] Pipeline ${pipelineId}: updated=${updated}, created=${created}, notFound=${notFound}, skipped=${skippedNoData}`);
     return new Response(JSON.stringify({
       success: true,
       synced: updated,
@@ -203,7 +241,7 @@ Deno.serve(async (req) => {
       not_found_by_piperun_id: notFound,
       skipped_no_email_nome: skippedNoData,
       total_deals: allDeals.length,
-      pipeline_results: pipelineResults,
+      pipeline_id: pipelineId,
       stagnant_started: stagnantStarted,
       stagnant_rescued: stagnantRescued,
     }), {
