@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const maxPages = fullSync ? 50 : 3;
 
     while (page <= maxPages) {
-      const params: Record<string, string | number> = { show: 100, page };
+      const params: Record<string, string | number> = { show: 100, page, "with[]": "person" };
       if (since) params.updated_since = since;
 
       const result = await piperunGet(PIPERUN_API_KEY, "deals", params);
