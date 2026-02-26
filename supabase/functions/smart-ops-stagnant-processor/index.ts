@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendViaSellFlux, mergeTagsCrm, computeStagnationTag } from "../_shared/sellflux-field-map.ts";
+import { moveDealToStage, ETAPA_TO_STAGE } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,7 @@ Deno.serve(async (req) => {
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const MANYCHAT_API_KEY = Deno.env.get("MANYCHAT_API_KEY");
     const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
+    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
@@ -98,6 +100,24 @@ Deno.serve(async (req) => {
       }
 
       advanced++;
+
+      // ── Push stage change to PipeRun ──
+      if (PIPERUN_API_KEY && lead.piperun_id) {
+        const stageMapping = ETAPA_TO_STAGE[nextStatus];
+        if (stageMapping) {
+          const moveResult = await moveDealToStage(
+            PIPERUN_API_KEY,
+            Number(lead.piperun_id),
+            stageMapping.stage_id
+          );
+          if (moveResult.success) {
+            console.log(`[stagnant-processor] ✅ PipeRun deal ${lead.piperun_id} → stage ${stageMapping.stage_id}`);
+          } else {
+            console.warn(`[stagnant-processor] ⚠️ PipeRun move falhou deal ${lead.piperun_id}:`, moveResult.data);
+          }
+        }
+      }
+
       console.log(`[stagnant-processor] ${lead.nome}: ${currentStatus} → ${nextStatus}${stagnationTag ? ` +TAG:${stagnationTag}` : ""}`);
 
       // Check automation rule for new stage
