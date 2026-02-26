@@ -267,6 +267,19 @@ export function getCustomFieldValue(
 }
 
 /**
+ * Clean deal title to extract real name
+ * Deals often have format "Name - 12345 - Nova Interação" or "Name - timestamp"
+ */
+export function cleanDealName(title: string | undefined): string | null {
+  if (!title) return null;
+  // Remove common suffixes: " - 1234567890", " - Nova Interação", " - New Interaction"
+  let name = title.split(" - ")[0].trim();
+  // If result is empty or just numbers, return null
+  if (!name || /^\d+$/.test(name)) return null;
+  return name;
+}
+
+/**
  * Map PipeRun deal data to lia_attendances fields
  */
 export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unknown> {
