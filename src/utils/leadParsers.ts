@@ -308,6 +308,34 @@ function parsePiperunEstagnados(rows: RawRow[]): NormalizedLead[] {
   });
 }
 
+/* ─── Company fallback helpers ─── */
+function emailWithFallback(r: RawRow): string | null {
+  return cleanEmail(r["E-mail (Pessoa)"] || r["Email (Pessoa)"] || r["Email"])
+    || cleanEmail(r["E-mail de contato (Empresa)"])
+    || cleanEmail(r["Email de contato (Empresa)"]);
+}
+
+function phoneWithFallback(r: RawRow): string | null {
+  return cleanPhone(r["Telefone Principal (Pessoa)"] || r["Telefone (Pessoa)"])
+    || cleanPhone(r["Whatsapp"] || r["WHATSAPP"] || r["WhatsApp"])
+    || cleanPhone(r["Telefone principal (Empresa)"] || r["Telefones (Empresa)"]);
+}
+
+function cityWithFallback(r: RawRow): string | null {
+  return cleanStr(r["Endereço - Cidade (Pessoa)"])
+    || cleanStr(r["Endereço - Cidade (Empresa)"]);
+}
+
+function ufWithFallback(r: RawRow): string | null {
+  return cleanStr(r["Endereço - Estado (UF) (Pessoa)"])
+    || cleanStr(r["Endereço - Estado (UF) (Empresa)"]);
+}
+
+function cleanDealName(titulo: string | null): string {
+  if (!titulo) return "Sem Nome";
+  return titulo.split(" - 20")[0]?.trim() || titulo;
+}
+
 /* ─── PARSER: piperun_full (Export completo — todos os funis) ─── */
 function parsePiperunFull(rows: RawRow[]): NormalizedLead[] {
   function resolveStatus(funil: string | null, etapa: string | null): string {
@@ -340,14 +368,15 @@ function parsePiperunFull(rows: RawRow[]): NormalizedLead[] {
 
   return rows.map((r) => {
     const titulo = cleanStr(r["Titulo"] || r["Título"]);
-    const nome = titulo?.split(" - 20")[0]?.trim() || titulo || "Sem Nome";
+    const nomePessoa = cleanStr(r["Nome completo (Pessoa)"]);
+    const nome = nomePessoa || cleanDealName(titulo);
     const funil = cleanStr(r["Funil"]);
     const etapa = cleanStr(r["Etapa"] || r["Etapa atual"]);
     const status = cleanStr(r["Status"]);
     return {
       nome,
-      email: cleanEmail(r["E-mail (Pessoa)"] || r["Email (Pessoa)"] || r["Email"]),
-      telefone_raw: cleanPhone(r["Telefone Principal (Pessoa)"] || r["Telefone (Pessoa)"]),
+      email: emailWithFallback(r),
+      telefone_raw: phoneWithFallback(r),
       source: "piperun",
       lead_status: resolveStatus(funil, etapa),
       proprietario_lead_crm: cleanStr(r["Nome do dono da oportunidade"]),
@@ -363,11 +392,92 @@ function parsePiperunFull(rows: RawRow[]): NormalizedLead[] {
       temperatura_lead: cleanStr(r["Temperatura"]),
       funil_entrada_crm: funil,
       lead_timing_dias: r["Lead-Timing"] != null ? Number(r["Lead-Timing"]) || null : null,
-      cidade: cleanStr(r["Endereço - Cidade (Pessoa)"]),
-      uf: cleanStr(r["Endereço - Estado (UF) (Pessoa)"]),
+      cidade: cityWithFallback(r),
+      uf: ufWithFallback(r),
       tags_crm: r["Tags"] ? String(r["Tags"]).split(",").map((t) => t.trim()).filter(Boolean) : null,
       itens_proposta_crm: cleanStr(r["Itens da proposta"]),
       ultima_etapa_comercial: cleanStr(etapa),
+    };
+  });
+}
+
+/* ─── PARSER: piperun_cs (Funil CS Onboarding) ─── */
+function parsePiperunCS(rows: RawRow[]): NormalizedLead[] {
+  const csStageMap: Record<string, string> = {
+    "CS - Em espera": "cs_em_espera",
+    "CS - Sem data (Agendar)": "cs_sem_data_agendar",
+    "CS - Sem Data": "cs_sem_data_agendar",
+    "CS - Sem Data (Agendar)": "cs_sem_data_agendar",
+    "CS - Agendado": "cs_treinamento_agendado",
+    "CS - Treinamento Agendado": "cs_treinamento_agendado",
+    "CS - Treinamento realizado": "cs_treinamento_realizado",
+    "CS - Não quer imersão": "cs_nao_quer_imersao",
+    "CS - Enviar imp3D": "cs_enviar_imp3d",
+    "CS - Equipamentos entregues": "cs_equipamentos_entregues",
+    "CS - Acompanhamento 15 dias": "cs_acompanhamento_15d",
+    "CS - Acompanhamento finalizado": "cs_finalizado",
+    "Auxiliar E-mail": "cs_auxiliar_email",
+    "CS - Sem Retorno": "cs_sem_retorno",
+  };
+
+  // Training tag → cs_treinamento value
+  const TRAINING_STARTED = ["cursos-onboarding", "plataforma-confirmada"];
+  const TRAINING_DONE = ["cursos-lives", "cursos-caracterizacao", "cursos-kit-imp"];
+  const TRAINING_PENDING = ["bot-treinamento"];
+
+  function deriveCsTreinamento(tags: string[]): string {
+    const lower = tags.map((t) => t.toLowerCase().trim());
+    if (lower.some((t) => TRAINING_DONE.includes(t))) return "realizado";
+    if (lower.some((t) => TRAINING_STARTED.includes(t))) return "iniciado";
+    if (lower.some((t) => TRAINING_PENDING.includes(t))) return "pendente";
+    return "pendente";
+  }
+
+  return rows.map((r) => {
+    const titulo = cleanStr(r["Titulo"] || r["Título"]);
+    const nomePessoa = cleanStr(r["Nome completo (Pessoa)"]);
+    const nome = nomePessoa || cleanDealName(titulo);
+    const etapa = cleanStr(r["Etapa"] || r["Etapa atual"]);
+    const rawTagsStr = String(r["Tags"] || "");
+    const rawTags = rawTagsStr.split(",").map((t) => t.trim()).filter(Boolean);
+    const { tags: migratedTags, fields: extractedFields } = migrateSellFluxTags(rawTags);
+    const status = cleanStr(r["Status"]);
+
+    return {
+      nome,
+      email: emailWithFallback(r),
+      telefone_raw: phoneWithFallback(r),
+      source: "piperun",
+      lead_status: (etapa && csStageMap[etapa]) || "cs_em_espera",
+      proprietario_lead_crm: cleanStr(r["Nome do dono da oportunidade"]),
+      piperun_id: cleanStr(r["ID"]),
+      piperun_link: cleanStr(r["Link"]),
+      funil_entrada_crm: "CS Onboarding",
+      ultima_etapa_comercial: cleanStr(etapa),
+      cs_treinamento: deriveCsTreinamento(rawTags),
+      tags_crm: migratedTags.length > 0 ? migratedTags : null,
+
+      // CS-specific fields
+      id_cliente_smart: cleanStr(r["Banco de Dados ID"] || r["BANCO DE DADOS ID"]),
+      data_contrato: cleanStr(r["CÓDIGO CONTRATO"] || r["Código Contrato"] || r["DATA TREINAMENTO"] || r["Data Treinamento"]),
+
+      // Standard fields with company fallback
+      produto_interesse: cleanStr(r["Produto de interesse"]),
+      area_atuacao: extractedFields.area_atuacao || cleanStr(r["Área de Atuação"] || r["ÁREA DE ATUAÇÃO"] || r["Area de Atuação"]),
+      especialidade: cleanStr(r["Especialidade principal"] || r["Especialidade"]),
+      tem_impressora: extractedFields.tem_impressora || cleanStr(r["Tem impressora"]),
+      tem_scanner: extractedFields.tem_scanner || cleanStr(r["Tem scanner"]),
+      valor_oportunidade: cleanMoney(r["Valor de P&S"] || r["Valor"]),
+      status_oportunidade: status ? status.toLowerCase() : "aberta",
+      motivo_perda: cleanStr(r["(MP) Motivo de perda"]),
+      comentario_perda: cleanStr(r["(MP) Comentário"]),
+      temperatura_lead: cleanStr(r["Temperatura"]),
+      lead_timing_dias: r["Lead-Timing"] != null ? Number(r["Lead-Timing"]) || null : null,
+      cidade: cityWithFallback(r),
+      uf: ufWithFallback(r),
+      itens_proposta_crm: cleanStr(r["Itens da proposta"]),
+      software_cad: cleanStr(r["Software CAD"] || r["SOFTWARE CAD"]),
+      impressora_modelo: cleanStr(r["Impressora Modelo"] || r["IMPRESSORA MODELO"]),
     };
   });
 }
@@ -465,11 +575,13 @@ export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = 
   omie_vendas: parseOmieVendas,
   piperun_estagnados: parsePiperunEstagnados,
   piperun_full: parsePiperunFull,
+  piperun_cs: parsePiperunCS,
   sellflux: parseSellFlux,
 };
 
 export const PARSER_OPTIONS = [
   { key: "piperun_full", label: "PipeRun Export Completo", override: false },
+  { key: "piperun_cs", label: "PipeRun Funil CS Onboarding", override: false },
   { key: "master", label: "Master Leads (PipeRun)", override: false },
   { key: "piperun_estagnados", label: "PipeRun Funil Estagnados", override: false },
   { key: "sellflux", label: "SellFlux Export (CSV)", override: false },
