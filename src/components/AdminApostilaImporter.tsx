@@ -77,6 +77,7 @@ const CATEGORIES = [
   { value: "campanhas", label: "Campanhas" },
   { value: "pos_venda", label: "Pós-Venda" },
   { value: "geral", label: "Geral" },
+  { value: "dados_estrategicos", label: "Dados Estratégicos" },
 ];
 
 interface KBEntry {
