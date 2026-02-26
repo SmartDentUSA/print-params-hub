@@ -2964,7 +2964,7 @@ Campos:
       const leadId = await upsertLead(supabase, leadState.name, leadState.email, session_id);
       currentLeadId = leadId;
 
-      // Mark session as awaiting area
+      // Mark session as awaiting phone (NEW leads now collect phone before area)
       try {
         await supabase.from("agent_sessions").upsert({
           session_id,
@@ -2974,54 +2974,35 @@ Campos:
             lead_email: leadState.email,
             lead_id: leadId,
             spin_stage: "etapa_1",
-            awaiting_area: true,
+            awaiting_phone: true,
           },
           current_state: "idle",
           last_activity_at: new Date().toISOString(),
         }, { onConflict: "session_id" });
       } catch { /* ignore */ }
 
-      const areaText = (ASK_AREA[lang] || ASK_AREA["pt-BR"])(leadState.name);
+      const phoneAskText: Record<string, string> = {
+        "pt-BR": `Prazer em te conhecer, ${leadState.name}! Agora, para manter seu cadastro completo, qual é o seu **telefone** com DDD? (ex: 11999998888)`,
+        "en-US": `Nice to meet you, ${leadState.name}! Now, to complete your profile, what's your **phone number** with area code?`,
+        "es-ES": `¡Encantada de conocerte, ${leadState.name}! Ahora, para completar tu registro, ¿cuál es tu **teléfono** con código de área?`,
+      };
+      const phoneText = phoneAskText[lang] || phoneAskText["pt-BR"];
       try {
         await supabase.from("agent_interactions").insert({
           session_id,
           user_message: message,
-          agent_response: areaText,
+          agent_response: phoneText,
           lang,
           top_similarity: 1,
           unanswered: false,
           lead_id: leadId,
-          context_raw: "[INTERCEPTOR] lead_collection:collected→needs_area",
+          context_raw: "[INTERCEPTOR] lead_collection:collected→needs_phone",
         });
       } catch (e) {
-        console.error("Failed to insert agent_interaction (ask area):", e);
+        console.error("Failed to insert agent_interaction (ask phone):", e);
       }
 
-      // Stream with ui_action to show area grid
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-            type: "meta",
-            ui_action: "show_area_grid",
-            area_options: AREA_OPTIONS,
-          })}\n\n`));
-          const words = areaText.split(" ");
-          let i = 0;
-          const interval = setInterval(() => {
-            if (i < words.length) {
-              const token = (i === 0 ? "" : " ") + words[i];
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
-              i++;
-            } else {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-              controller.close();
-              clearInterval(interval);
-            }
-          }, 25);
-        },
-      });
-      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      return streamTextResponse(phoneText, corsHeaders);
     }
 
     // 0d. Lead collection: area selection received → save area, ask specialty
