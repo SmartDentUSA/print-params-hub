@@ -1,162 +1,172 @@
 
 
-# Plano de Implementacao: Sistema de Qualificacao Cognitiva
+# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
 
-## Resumo
+## Diagnostico do Estado Atual
 
-Implementar o motor de interpretacao estrategica de conversa que analisa padroes linguisticos, cruza com dados CRM e gera perfil psicologico + recomendacao de abordagem para cada lead. O sistema e desacoplado (edge function propria), assincrono (fire-and-forget) e persistente (JSONB + campos desnormalizados).
+| Componente | Status | Onde |
+|------------|--------|------|
+| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
+| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
+| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
+| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
+| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
+| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
+| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+
+**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
 
 ---
 
-## Fase 1: Migracao SQL
+## Fase 1: Tabela `whatsapp_inbox`
 
-Adicionar 11 colunas + 3 CHECK constraints + 3 indices em `lia_attendances`:
+Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
 
 ```sql
-ALTER TABLE lia_attendances
-  ADD COLUMN IF NOT EXISTS cognitive_analysis jsonb DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS cognitive_updated_at timestamptz DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS lead_stage_detected text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS interest_timeline text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS urgency_level text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS psychological_profile text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS primary_motivation text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS objection_risk text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS recommended_approach text DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS confidence_score_analysis integer DEFAULT NULL,
-  ADD COLUMN IF NOT EXISTS prediction_accuracy numeric DEFAULT NULL;
+CREATE TABLE IF NOT EXISTS whatsapp_inbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  phone text NOT NULL,
+  phone_normalized text,
+  message_text text,
+  media_url text,
+  media_type text,
+  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
+  lead_id uuid REFERENCES lia_attendances(id),
+  matched_by text,
+  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
+    'interesse_imediato', 'interesse_futuro', 'pedido_info',
+    'objecao', 'sem_interesse', 'suporte', 'indefinido'
+  )),
+  confidence_score integer,
+  seller_notified boolean DEFAULT false,
+  processed_at timestamptz,
+  raw_payload jsonb DEFAULT '{}'
+);
 
-ALTER TABLE lia_attendances
-  ADD CONSTRAINT check_lead_stage CHECK (lead_stage_detected IS NULL OR lead_stage_detected IN ('MQL_pesquisador','SAL_comparador','SQL_decisor','CLIENTE_ativo'));
-ALTER TABLE lia_attendances
-  ADD CONSTRAINT check_urgency_level CHECK (urgency_level IS NULL OR urgency_level IN ('alta','media','baixa'));
-ALTER TABLE lia_attendances
-  ADD CONSTRAINT check_interest_timeline CHECK (interest_timeline IS NULL OR interest_timeline IN ('imediato','3_6_meses','6_12_meses','indefinido'));
-
-CREATE INDEX IF NOT EXISTS idx_lia_lead_stage ON lia_attendances(lead_stage_detected);
-CREATE INDEX IF NOT EXISTS idx_lia_urgency ON lia_attendances(urgency_level);
-CREATE INDEX IF NOT EXISTS idx_lia_cognitive_updated ON lia_attendances(cognitive_updated_at);
+CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
+CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
+CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
+CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
 ```
 
----
-
-## Fase 2: Edge Function `cognitive-lead-analysis/index.ts` (nova, ~170 linhas)
-
-Funcao isolada com:
-
-1. **Input**: `{ email }` ou `{ leadId }`
-2. **Guard Clause 1**: Busca lead em `lia_attendances` — se nao encontrar, retorna skip
-3. **Guard Clause 2**: Conta `agent_interactions` via join `agent_sessions` — se < 5, retorna `{ skip: "insufficient_messages" }`
-4. **Guard Clause 3**: Busca timestamp da ultima interacao — se `cognitive_updated_at >= ultima_interacao.created_at`, retorna `{ skip: "already_current" }`
-5. **Busca**: Ultimas 50 interacoes formatadas como `Usuário: {user_message}\nLIA: {agent_response}`
-6. **Dados CRM**: nome, area_atuacao, tem_impressora, tem_scanner, impressora_modelo, volume_mensal_pecas, ultima_etapa_comercial, resumo_historico_ia, status_oportunidade
-7. **Prompt**: 7 niveis de classificacao com padroes linguisticos especificos do mercado odontologico (MQL_pesquisador, SAL_comparador, SQL_decisor, CLIENTE_ativo + timeline + urgencia emocional + perfil + motivacao + objecao + abordagem)
-8. **LLM**: Via `https://ai.gateway.lovable.dev/v1/chat/completions` com `LOVABLE_API_KEY`, modelo `google/gemini-2.5-flash-lite`, `max_tokens: 300`, `AbortController` 10s
-9. **Sanitizacao 3 camadas**: Regex `{...}` → limpeza markdown → parse defensivo
-10. **Validacao enums**: Arrays `VALID_STAGES`, `VALID_URGENCY`, `VALID_TIMELINE` — valores invalidos se tornam NULL (evita violacao de CHECK constraint)
-11. **Upsert**: `cognitive_updated_at = now()` APENAS apos sucesso do parse + validacao. Campos desnormalizados + `cognitive_analysis` JSONB completo
-12. **Auth**: `SUPABASE_SERVICE_ROLE_KEY` para bypass RLS
+RLS: `admin_only` (mesma policy de `lia_attendances`).
 
 ---
 
-## Fase 3: Config TOML
+## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
 
-Adicionar ao `supabase/config.toml`:
-```toml
-[functions.cognitive-lead-analysis]
-verify_jwt = false
-```
+Endpoint publico que recebe POST do WaLeads quando lead responde.
+
+**Fluxo:**
+
+1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
+2. Normaliza telefone (ultimos 8-9 digitos para match)
+3. Busca lead em `lia_attendances` via `telefone_normalized`
+4. Classifica mensagem (rule-based v1):
+   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
+   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
+   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
+   - `objecao`: "caro", "vou pensar", "falar com socio"
+   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
+   - `suporte`: "problema", "defeito", "troca", "garantia"
+5. Insere em `whatsapp_inbox`
+6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
+7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
+8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
+
+**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
 
 ---
 
-## Fase 4: Integracao `dra-lia/index.ts` — Fire-and-forget no `summarize_session`
+## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
 
-Apos linha 2422 (apos `extractImplicitLeadData`), inserir ~8 linhas:
+Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
 
 ```typescript
-const totalMsgs = previousMessages + sessionMsgCount;
-if (totalMsgs >= 5 && leadEmail) {
-  fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email: leadEmail }),
-  }).catch(e => console.warn("[cognitive] fire-and-forget error:", e));
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Extrair ultimos 8-9 digitos para match
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
+
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
 }
 ```
 
+O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
+
 ---
 
-## Fase 5: Integracao `dra-lia/index.ts` — Bloco cognitivo imperativo no prompt
+## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
 
-Na zona da linha 3480-3488, apos `classifyLeadMaturity`:
+Quando `intent_detected === 'interesse_imediato'`:
 
-1. Buscar `cognitive_analysis` de `lia_attendances` (mesma query, adicionar campos cognitivos ao select existente na `classifyLeadMaturity`)
-2. Modificar `buildCommercialInstruction` para aceitar parametro `cognitiveData` opcional
-3. Injetar bloco imperativo quando disponivel:
+1. Buscar `proprietario_lead_crm` em `lia_attendances`
+2. Buscar `team_member` correspondente
+3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
 
-```typescript
-const cognitiveBlock = cognitiveData ? `
-### ESTADO COGNITIVO DO LEAD (ESTRITAMENTE OBRIGATORIO)
-Estagio: ${cognitiveData.lead_stage_detected}
-Perfil: ${cognitiveData.psychological_profile}
-Urgencia: ${cognitiveData.urgency_level}
-Motivacao: ${cognitiveData.primary_motivation}
-Risco objecao: ${cognitiveData.objection_risk}
-ABORDAGEM OBRIGATORIA: ${cognitiveData.recommended_approach}
-- Se MQL: Foque em educacao e riscos invisiveis (Persona Auditora).
-- Se SAL: Foque em Prova Social e Modelo Smart Dent (Persona Mentora).
-- Se SQL: Seja direta, remova friccao, use gatilhos de fechamento.
-SIGA esta abordagem. NAO contrarie.` : "";
+```
+OPORTUNIDADE QUENTE
+Lead: {nome} ({especialidade})
+Owner: {proprietario_lead_crm}
+Resposta: "{message_text}" (truncado 200 chars)
+Etapa CRM: {ultima_etapa_comercial}
+Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
+Acao: {recommended_approach}
 ```
 
-4. Quando `lead_stage_detected` existir, usar como override de `leadMaturity` (ex: `SQL_decisor` → `SQL`)
+4. Marcar `seller_notified = true` em `whatsapp_inbox`
 
 ---
 
-## Fase 6: Feedback Loop no `smart-ops-piperun-webhook/index.ts`
+## Fase 5: Limpeza Automatica (Clean-up Job)
 
-Apos linha 254 (bloco `deal.status === "won"`), adicionar ~15 linhas:
+Adicionar logica no `smart-ops-stagnant-processor` existente:
 
-1. Buscar `cognitive_analysis` de `lia_attendances` para o lead
-2. Calcular `prediction_accuracy` comparando previsoes com resultado real
-3. Disparar reanálise cognitiva fire-and-forget quando estagio CRM muda (linha 243)
-
----
-
-## Fase 7: Dashboard `SmartOpsLeadsList.tsx`
-
-1. Adicionar campos cognitivos ao interface `LeadFull` (linhas 38-103)
-2. Adicionar filtro dropdown por `lead_stage_detected`
-3. Renderizar na tabela:
-   - Badge `lead_stage_detected`: MQL (cinza), SAL (azul), SQL (verde), CLIENTE (roxo)
-   - Icone urgencia: vermelho (alta), amarelo (media), verde (baixa)
-   - Tooltip em `recommended_approach` ao hover
-4. Modal de detalhe: adicionar secao "Analise Cognitiva" com JSON formatado
+- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
+- E lead nao tem outras interacoes positivas
+- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
 
 ---
 
-## Arquivos Modificados
+## Resumo de Arquivos
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | Migracao SQL | 11 colunas + 3 constraints + 3 indices |
-| 2 | `supabase/functions/cognitive-lead-analysis/index.ts` | NOVO (~170 linhas) |
-| 3 | `supabase/config.toml` | +3 linhas |
-| 4 | `supabase/functions/dra-lia/index.ts` | Fire-and-forget (~8 linhas) + cognitivo no prompt (~30 linhas) + ampliar `classifyLeadMaturity` select |
-| 5 | `supabase/functions/smart-ops-piperun-webhook/index.ts` | Feedback loop (~15 linhas) + reanálise fire-and-forget (~5 linhas) |
-| 6 | `src/components/SmartOpsLeadsList.tsx` | Badges, filtro, tooltip, modal cognitivo (~60 linhas) |
+| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
+| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
+| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
+| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
+| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
 
 ## Ordem de Execucao
 
 ```text
-1. Migracao SQL
-2. Criar cognitive-lead-analysis/index.ts + deploy
-3. Atualizar config.toml
-4. Modificar dra-lia/index.ts
-5. Modificar smart-ops-piperun-webhook/index.ts
-6. Atualizar SmartOpsLeadsList.tsx
+1. Migracao SQL (whatsapp_inbox)
+2. Helpers de normalizacao em sellflux-field-map.ts
+3. Edge function smart-ops-wa-inbox-webhook + config.toml
+4. Integracao clean-up no stagnant-processor
+5. Deploy
 ```
+
+## Payload WaLeads Esperado
+
+O webhook do WaLeads envia POST com:
+
+```json
+{
+  "event": "message_received",
+  "phone": "5511999887766",
+  "message": "Tenho interesse sim, como funciona?",
+  "media_url": null,
+  "timestamp": "2026-02-26T10:30:00Z"
+}
+```
+
+O endpoint a ser configurado no painel WaLeads sera:
+`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
 
