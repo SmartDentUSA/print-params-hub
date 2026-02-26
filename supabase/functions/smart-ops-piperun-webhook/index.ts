@@ -1,65 +1,92 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { computeTagsFromStage, mergeTagsCrm, sendViaSellFlux, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
+import {
+  PIPELINES,
+  STAGE_TO_ETAPA,
+  DEAL_STATUS_MAP,
+  DEAL_CUSTOM_FIELDS,
+  PIPELINE_NAMES,
+  PIPERUN_USERS,
+  getCustomFieldValue,
+} from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const STAGE_TO_STATUS: Record<string, string> = {
-  "sem contato": "sem_contato",
-  "contato feito": "contato_feito",
-  "em contato": "em_contato",
-  "apresentação": "apresentacao",
-  "apresentacao": "apresentacao",
-  "visita": "apresentacao",
-  "proposta enviada": "proposta_enviada",
-  "negociação": "negociacao",
-  "negociacao": "negociacao",
-  "fechamento": "fechamento",
-  "etapa 01": "est1_0",
-  "etapa 02": "est2_0",
-  "etapa 03": "est3_0",
-};
+function isStagnantPipeline(pipelineId: number | undefined): boolean {
+  return pipelineId === PIPELINES.ESTAGNADOS;
+}
 
-const STATUS_MAP: Record<string, string> = {
-  open: "aberta",
-  won: "ganha",
-  lost: "perdida",
-};
+function isInStagnantStatus(leadStatus: string): boolean {
+  return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
+}
 
-function mapStageToStatus(stageName: string): string {
-  const normalized = stageName.toLowerCase().trim();
-  for (const [key, value] of Object.entries(STAGE_TO_STATUS)) {
-    if (normalized.includes(key)) return value;
+/**
+ * Extract deal/stage/pipeline IDs from webhook payload (handles nested objects)
+ */
+function extractIds(deal: Record<string, unknown>) {
+  const stage = deal.stage as Record<string, unknown> | undefined;
+  const pipeline = deal.pipeline as Record<string, unknown> | undefined;
+  const owner = deal.owner as Record<string, unknown> | undefined;
+
+  return {
+    stageId: Number(stage?.id || deal.stage_id) || undefined,
+    stageName: stage?.name ? String(stage.name) : null,
+    pipelineId: Number(pipeline?.id || deal.pipeline_id) || undefined,
+    pipelineName: pipeline?.name ? String(pipeline.name) : null,
+    ownerId: Number(owner?.id || deal.owner_id) || undefined,
+    ownerName: owner?.name ? String(owner.name) : null,
+    ownerEmail: owner?.email ? String(owner.email) : null,
+  };
+}
+
+/**
+ * Extract custom fields from webhook payload (supports both ID-based and name-based)
+ */
+function extractWebhookCustomFields(deal: Record<string, unknown>) {
+  // Try ID-based extraction first (custom_fields array with custom_field_id)
+  const cfArray = deal.custom_fields as Array<{ custom_field_id: number; value?: string | number | null }> | undefined;
+
+  if (cfArray && Array.isArray(cfArray) && cfArray.length > 0 && cfArray[0]?.custom_field_id) {
+    return {
+      produtoInteresse: getCustomFieldValue(cfArray, DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE),
+      temScanner: getCustomFieldValue(cfArray, DEAL_CUSTOM_FIELDS.TEM_SCANNER),
+      temImpressora: getCustomFieldValue(cfArray, DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA),
+      idCliente: getCustomFieldValue(cfArray, DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID),
+      especialidade: getCustomFieldValue(cfArray, DEAL_CUSTOM_FIELDS.ESPECIALIDADE),
+      paisOrigem: getCustomFieldValue(cfArray, DEAL_CUSTOM_FIELDS.PAIS_ORIGEM),
+    };
   }
-  return "sem_contato";
-}
 
-function isStagnant(stageName: string): boolean {
-  return stageName.toLowerCase().includes("estagnado") || stageName.toLowerCase().includes("reativação") || stageName.toLowerCase().includes("reativacao");
-}
-
-function isInStagnantFunnel(leadStatus: string): boolean {
-  return leadStatus.startsWith("est") && leadStatus !== "estagnado_final";
-}
-
-function extractCustomField(deal: Record<string, unknown>, fieldName: string): string | null {
-  const person = deal.person as Record<string, unknown> | undefined;
-  const customs = (
-    person?.customFields || deal.customFields || deal.custom_fields || []
-  ) as Array<{ name?: string; label?: string; value?: unknown; raw_value?: unknown }>;
-  if (Array.isArray(customs)) {
-    const field = customs.find((f) => {
-      const name = (f.name || f.label || "").toLowerCase();
-      return name.includes(fieldName.toLowerCase());
-    });
-    if (field) {
-      const val = field.value ?? field.raw_value;
-      if (val != null) return String(val);
+  // Fallback: name-based extraction for legacy webhook format
+  const extractByName = (fieldName: string): string | null => {
+    const person = deal.person as Record<string, unknown> | undefined;
+    const customs = (
+      person?.customFields || deal.customFields || deal.custom_fields || []
+    ) as Array<{ name?: string; label?: string; value?: unknown; raw_value?: unknown }>;
+    if (Array.isArray(customs)) {
+      const field = customs.find((f) => {
+        const name = (f.name || f.label || "").toLowerCase();
+        return name.includes(fieldName.toLowerCase());
+      });
+      if (field) {
+        const val = field.value ?? field.raw_value;
+        if (val != null) return String(val);
+      }
     }
-  }
-  return null;
+    return null;
+  };
+
+  return {
+    produtoInteresse: extractByName("produto de interesse"),
+    temScanner: extractByName("tem scanner"),
+    temImpressora: extractByName("tem impressora"),
+    idCliente: extractByName("banco de dados") || extractByName("id banco"),
+    especialidade: extractByName("especialidade"),
+    paisOrigem: extractByName("pais de origem") || extractByName("país de origem"),
+  };
 }
 
 Deno.serve(async (req) => {
@@ -80,18 +107,17 @@ Deno.serve(async (req) => {
 
     const deal = (payload.deal || payload) as Record<string, unknown>;
     const dealId = String(deal.id || payload.deal_id || "");
-    const owner = deal.owner as Record<string, unknown> | undefined;
-    const stage = deal.stage as Record<string, unknown> | undefined;
-    const pipeline = deal.pipeline as Record<string, unknown> | undefined;
     const person = deal.person as Record<string, unknown> | undefined;
     const city = person?.city as Record<string, unknown> | undefined;
     const state = person?.state as Record<string, unknown> | undefined;
     const lossReason = deal.loss_reason as Record<string, unknown> | undefined;
     const tags = deal.tags as Array<{ name?: string }> | undefined;
 
-    const ownerName = owner?.name ? String(owner.name) : (payload.owner_name || null);
-    const ownerEmail = owner?.email ? String(owner.email) : (payload.owner_email || null);
-    const stageName = stage?.name ? String(stage.name) : (payload.stage_name || null);
+    const { stageId, stageName, pipelineId, pipelineName, ownerId, ownerName, ownerEmail } = extractIds(deal);
+    const customFields = extractWebhookCustomFields(deal);
+
+    // Resolve lead_status from stage ID (preferred) or fallback to name
+    const resolvedStatus = stageId ? (STAGE_TO_ETAPA[stageId] || "sem_contato") : "sem_contato";
 
     if (!dealId) {
       return new Response(JSON.stringify({ error: "deal_id obrigatório" }), {
@@ -134,8 +160,7 @@ Deno.serve(async (req) => {
         if (digits.length >= 12 && digits.length <= 13) phoneNormalized = "+" + digits;
       }
 
-      const mappedStatus = stageName ? mapStageToStatus(stageName) : "novo";
-      const { tags: initialTags } = computeTagsFromStage(mappedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
+      const { tags: initialTags } = computeTagsFromStage(resolvedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
 
       const newLeadData: Record<string, unknown> = {
         nome: personName,
@@ -143,20 +168,25 @@ Deno.serve(async (req) => {
         telefone_raw: personPhone,
         telefone_normalized: phoneNormalized,
         piperun_id: dealId,
-        piperun_link: `https://app.pipe.run/pipeline/gerenciador/visualizar/${dealId}`,
+        piperun_link: `https://app.pipe.run/#/deals/${dealId}`,
         source: "piperun_webhook",
-        lead_status: mappedStatus,
-        produto_interesse: extractCustomField(deal, "produto de interesse") || null,
+        lead_status: resolvedStatus,
+        produto_interesse: customFields.produtoInteresse || null,
         area_atuacao: person?.job_title ? String(person.job_title) : null,
-        proprietario_lead_crm: ownerName || null,
+        proprietario_lead_crm: ownerName || (ownerId ? PIPERUN_USERS[ownerId]?.name : null) || null,
         status_atual_lead_crm: stageName || null,
-        funil_entrada_crm: pipeline?.name ? String(pipeline.name) : null,
+        funil_entrada_crm: pipelineName || (pipelineId ? PIPELINE_NAMES[pipelineId] : null) || null,
         cidade: city?.name ? String(city.name) : null,
         uf: state?.abbr ? String(state.abbr) : (state?.name ? String(state.name) : null),
         tags_crm: initialTags,
       };
 
-      if (deal.status) newLeadData.status_oportunidade = STATUS_MAP[String(deal.status)] || String(deal.status);
+      // Deal status (numeric in API: 0=open, 1=won, 2=lost)
+      const dealStatus = deal.status;
+      if (dealStatus !== undefined) {
+        const numStatus = typeof dealStatus === "number" ? dealStatus : (dealStatus === "won" ? 1 : dealStatus === "lost" ? 2 : 0);
+        newLeadData.status_oportunidade = DEAL_STATUS_MAP[numStatus] || "aberta";
+      }
       if (deal.value != null) newLeadData.valor_oportunidade = Number(deal.value) || null;
 
       const { data: newLead, error: insertError } = await supabase
@@ -191,9 +221,17 @@ Deno.serve(async (req) => {
     // Build update payload
     const updateData: Record<string, unknown> = {};
     if (ownerName) updateData.proprietario_lead_crm = ownerName;
+    else if (ownerId && PIPERUN_USERS[ownerId]) updateData.proprietario_lead_crm = PIPERUN_USERS[ownerId].name;
     if (stageName) updateData.status_atual_lead_crm = stageName;
-    if (pipeline?.name) updateData.funil_entrada_crm = String(pipeline.name);
-    if (deal.status) updateData.status_oportunidade = STATUS_MAP[String(deal.status)] || String(deal.status);
+    if (pipelineName) updateData.funil_entrada_crm = pipelineName;
+    else if (pipelineId && PIPELINE_NAMES[pipelineId]) updateData.funil_entrada_crm = PIPELINE_NAMES[pipelineId];
+
+    // Deal status
+    const dealStatus = deal.status;
+    if (dealStatus !== undefined) {
+      const numStatus = typeof dealStatus === "number" ? dealStatus : (dealStatus === "won" ? 1 : dealStatus === "lost" ? 2 : 0);
+      updateData.status_oportunidade = DEAL_STATUS_MAP[numStatus] || "aberta";
+    }
     if (deal.value != null) updateData.valor_oportunidade = Number(deal.value) || null;
     if (deal.temperature) updateData.temperatura_lead = String(deal.temperature);
     if (lossReason?.name) updateData.motivo_perda = String(lossReason.name);
@@ -203,65 +241,67 @@ Deno.serve(async (req) => {
     if (city?.name) updateData.cidade = String(city.name);
     if (state?.abbr || state?.name) updateData.uf = String(state?.abbr || state?.name);
 
-    const produtoInteresse = extractCustomField(deal, "produto de interesse");
-    if (produtoInteresse) updateData.produto_interesse = produtoInteresse;
-    const temScanner = extractCustomField(deal, "tem scanner");
-    if (temScanner) updateData.tem_scanner = temScanner;
-    const itensProposta = extractCustomField(deal, "itens da proposta") || extractCustomField(deal, "itens proposta");
-    if (itensProposta) updateData.itens_proposta_crm = itensProposta;
-    const idCliente = extractCustomField(deal, "banco de dados") || extractCustomField(deal, "id banco");
-    if (idCliente) updateData.id_cliente_smart = idCliente;
+    // Custom fields from shared mapping
+    if (customFields.produtoInteresse) updateData.produto_interesse = customFields.produtoInteresse;
+    if (customFields.temScanner) updateData.tem_scanner = customFields.temScanner;
+    if (customFields.temImpressora) updateData.tem_impressora = customFields.temImpressora;
+    if (customFields.idCliente) updateData.id_cliente_smart = customFields.idCliente;
+    if (customFields.especialidade) updateData.especialidade = customFields.especialidade;
+    if (customFields.paisOrigem) updateData.pais_origem = customFields.paisOrigem;
     if (person?.job_title) updateData.area_atuacao = String(person.job_title);
 
-    updateData.piperun_link = `https://app.pipe.run/pipeline/gerenciador/visualizar/${dealId}`;
+    updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
 
     // ─── Journey TAG logic ───
     let journeyTagsAdded: string[] = [];
     let newStatus: string | null = null;
 
-    if (stageName) {
-      if (isStagnant(stageName) && !isInStagnantFunnel(leadStatus) && leadStatus !== "estagnado_final") {
+    if (stageId) {
+      const mappedStatus = STAGE_TO_ETAPA[stageId] || "sem_contato";
+
+      if (isStagnantPipeline(pipelineId) && !isInStagnantStatus(leadStatus) && leadStatus !== "estagnado_final") {
         updateData.ultima_etapa_comercial = leadStatus;
-        updateData.lead_status = "est1_0";
-        newStatus = "est1_0";
+        updateData.lead_status = mappedStatus;
+        newStatus = mappedStatus;
         updateData.updated_at = new Date().toISOString();
         console.log("[piperun-webhook] Iniciando funil estagnação:", leadId);
-      } else if (!isStagnant(stageName) && (isInStagnantFunnel(leadStatus) || leadStatus === "estagnado_final")) {
-        const mapped = mapStageToStatus(stageName);
-        updateData.lead_status = mapped;
-        newStatus = mapped;
+      } else if (!isStagnantPipeline(pipelineId) && (isInStagnantStatus(leadStatus) || leadStatus === "estagnado_final")) {
+        updateData.lead_status = mappedStatus;
+        newStatus = mappedStatus;
         updateData.updated_at = new Date().toISOString();
-        // Recovered from stagnation — add C_RECUPERADO, remove stagnation tags
-        const { tags: recoveredTags } = computeTagsFromStage(mapped, currentTagsCrm);
+        // Recovered from stagnation
+        const { tags: recoveredTags } = computeTagsFromStage(mappedStatus, currentTagsCrm);
         const finalTags = mergeTagsCrm(recoveredTags, ["C_RECUPERADO"], ALL_STAGNATION_TAGS);
         updateData.tags_crm = finalTags;
         journeyTagsAdded = ["C_RECUPERADO"];
-        console.log("[piperun-webhook] Resgatando lead:", leadId, "→", mapped, "+C_RECUPERADO");
+        console.log("[piperun-webhook] Resgatando lead:", leadId, "→", mappedStatus, "+C_RECUPERADO");
       } else {
-        // Normal stage change — compute journey tags
-        const mapped = mapStageToStatus(stageName);
-        if (mapped !== leadStatus) {
-          updateData.lead_status = mapped;
-          newStatus = mapped;
+        // Normal stage change
+        if (mappedStatus !== leadStatus) {
+          updateData.lead_status = mappedStatus;
+          newStatus = mappedStatus;
 
-          // Fire-and-forget cognitive re-analysis on stage change
+          // Fire-and-forget cognitive re-analysis
           fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/cognitive-lead-analysis`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ leadId: leadId }),
+            body: JSON.stringify({ leadId }),
           }).catch(e => console.warn("[piperun-webhook] cognitive re-analysis error:", e));
         }
-        const { tags: updatedTags, add } = computeTagsFromStage(mapped, currentTagsCrm);
+        const { tags: updatedTags, add } = computeTagsFromStage(mappedStatus, currentTagsCrm);
         updateData.tags_crm = updatedTags;
         journeyTagsAdded = add;
       }
     }
 
     // Deal won/lost special tags
-    if (deal.status === "won") {
+    const isWon = deal.status === "won" || deal.status === 1;
+    const isLost = deal.status === "lost" || deal.status === 2;
+
+    if (isWon) {
       const wonTags = mergeTagsCrm(
         (updateData.tags_crm as string[]) || currentTagsCrm,
         [JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO"],
@@ -279,7 +319,6 @@ Deno.serve(async (req) => {
 
         if (cogLead?.cognitive_analysis) {
           const predicted = cogLead.lead_stage_detected;
-          // SQL_decisor predicting a won deal = accurate
           const accuracy = predicted === "SQL_decisor" ? 1.0 : predicted === "SAL_comparador" ? 0.6 : predicted === "MQL_pesquisador" ? 0.3 : 0.5;
           await supabase.from("lia_attendances").update({ prediction_accuracy: accuracy }).eq("id", leadId);
           console.log(`[piperun-webhook] prediction_accuracy: ${accuracy} (predicted: ${predicted})`);
@@ -287,7 +326,7 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.warn("[piperun-webhook] prediction_accuracy error:", e);
       }
-    } else if (deal.status === "lost") {
+    } else if (isLost) {
       const lostTags = mergeTagsCrm(
         (updateData.tags_crm as string[]) || currentTagsCrm,
         ["C_PERDIDO"]
@@ -295,7 +334,7 @@ Deno.serve(async (req) => {
       updateData.tags_crm = lostTags;
     }
 
-    // PipeRun tags merge (keep both PipeRun tags and our standardized tags)
+    // PipeRun tags merge
     if (tags && Array.isArray(tags)) {
       const piperunTags = tags.map((t) => t.name).filter(Boolean) as string[];
       if (piperunTags.length > 0) {
@@ -319,11 +358,12 @@ Deno.serve(async (req) => {
 
     // Find team member
     let teamMember = null;
-    if (ownerEmail) {
+    const resolvedOwnerEmail = ownerEmail || (ownerId ? PIPERUN_USERS[ownerId]?.email : null);
+    if (resolvedOwnerEmail) {
       const { data } = await supabase
         .from("team_members")
         .select("id, whatsapp_number, nome_completo")
-        .eq("email", String(ownerEmail))
+        .eq("email", resolvedOwnerEmail)
         .eq("ativo", true)
         .single();
       teamMember = data;
@@ -334,7 +374,6 @@ Deno.serve(async (req) => {
     let errorDetails: string | null = null;
 
     if (SELLFLUX_API_TOKEN && leadTelefone && !currentLead) {
-      // New lead — send welcome via SellFlux
       const { data: fullLead } = await supabase
         .from("lia_attendances")
         .select("*")
@@ -347,7 +386,7 @@ Deno.serve(async (req) => {
         if (!result.success) errorDetails = result.response;
       }
     } else if (MANYCHAT_API_KEY && leadTelefone) {
-      // ─── ManyChat fallback ───
+      // ManyChat fallback
       try {
         const mcRes = await fetch("https://api.manychat.com/fb/sending/sendFlow", {
           method: "POST",
