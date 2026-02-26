@@ -125,6 +125,7 @@ Deno.serve(async (req) => {
 
         if (!error) updated++;
       } else {
+        notFound++;
         // Try to find by email or create
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
         const nome = updatePayload.nome ? String(updatePayload.nome) : null;
