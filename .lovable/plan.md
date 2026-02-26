@@ -1,77 +1,58 @@
 
 
-## Plano: Acumular Historico de Resumos + Contador de Interacoes
+## Problema: LIA gera links com dominio inventado (`seudominio.com.br`)
 
-### Problema Atual
+### Diagnostico
 
-O `summarize_session` sobrescreve `resumo_historico_ia` a cada sessao. Se o lead teve 10 sessoes, so o ultimo resumo sobrevive. Perde-se todo o historico de evolucao do lead (quando pesquisou, quando comparou, quando pediu proposta).
+O artigo **"Comparativo entre resinas"** existe no banco com `category_letter: C` e `slug: comparativo-resinas`. A URL correta e `https://parametros.smartdent.com.br/base-conhecimento/c/comparativo-resinas`.
 
-Alem disso, nao ha campo de contagem de interacoes/sessoes — informacao basica para scoring e priorizacao comercial.
+O que acontece:
+1. O codigo constroi `url_publica` como caminho relativo: `/base-conhecimento/c/comparativo-resinas`
+2. Na linha 3313, esse caminho e injetado no contexto da IA como: `| URL: /base-conhecimento/c/comparativo-resinas`
+3. O modelo Gemini nao sabe qual e o dominio real, entao **inventa** `seudominio.com.br` (ou qualquer outro dominio generico)
+4. Nao existe nenhuma regra no system prompt instruindo a IA sobre qual dominio usar
 
-### Solucao — 3 entregas
+### Correcao — 1 arquivo, 2 acoes
 
-#### 1. Migracao: novos campos em `lia_attendances`
+#### 1. Prefixar todas as `url_publica` e `url_interna` com o dominio absoluto
 
-```sql
-ALTER TABLE lia_attendances
-  ADD COLUMN IF NOT EXISTS total_sessions integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS total_messages integer DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS historico_resumos jsonb DEFAULT '[]'::jsonb,
-  ADD COLUMN IF NOT EXISTS ultima_sessao_at timestamptz;
-```
+**Arquivo**: `supabase/functions/dra-lia/index.ts`
 
-- `total_sessions`: incrementado a cada `summarize_session`
-- `total_messages`: total acumulado de mensagens do lead
-- `historico_resumos`: array JSON com os ultimos N resumos, formato:
-  ```json
-  [
-    { "data": "2026-02-25", "resumo": "ASSUNTOS: SmartGum cores | PENDENCIAS: nenhuma | INTERESSE: 2", "msgs": 8 },
-    { "data": "2026-02-24", "resumo": "ASSUNTOS: ioConnect TruAbutment, Rayshape | PENDENCIAS: comparativo | INTERESSE: 2", "msgs": 5 }
-  ]
-  ```
-- `ultima_sessao_at`: timestamp da ultima sessao (util para filtros de inatividade)
-
-#### 2. Modificar `summarize_session` em `dra-lia/index.ts`
-
-Antes de gerar o resumo:
-
-1. Buscar o registro atual de `lia_attendances` (`resumo_historico_ia`, `historico_resumos`, `total_sessions`, `total_messages`)
-2. Incluir o `resumo_historico_ia` anterior no prompt da IA para que o novo resumo faça merge inteligente
-3. Apos gerar o resumo, fazer o upsert com:
-   - `resumo_historico_ia` = novo resumo (merged)
-   - `total_sessions` = anterior + 1
-   - `total_messages` = anterior + count de interacoes desta sessao
-   - `historico_resumos` = prepend do novo resumo no array (manter max 20 entradas, dropar as mais antigas)
-   - `ultima_sessao_at` = now()
-4. Aumentar `max_tokens` para 150 para acomodar o merge
-
-Prompt atualizado:
-```text
-System: "Resuma esta conversa para continuidade. Se houver RESUMO ANTERIOR, incorpore temas relevantes que nao foram rediscutidos. Formato: 'ASSUNTOS: [...] | PENDENCIAS: [...] | INTERESSE: [1-3]'. Max 200 chars."
-User: "RESUMO ANTERIOR: {resumo_existente ou 'Nenhum'}\n\nCONVERSA ATUAL:\n{convoText}"
-```
-
-#### 3. Resetar flag `dra_lia_summarized` no frontend
-
-No `DraLIA.tsx`, dentro de `handleSend`, adicionar:
+Criar constante no topo do arquivo:
 ```typescript
-sessionStorage.removeItem('dra_lia_summarized');
+const SITE_BASE_URL = "https://parametros.smartdent.com.br";
 ```
 
-E no `visibilitychange`, so disparar se houver pelo menos 2 mensagens enviadas na sessao (evita trigger prematuro ao abrir e fechar a aba).
+Prefixar em **7 locais** onde caminhos relativos sao construidos:
 
-### Resumo de arquivos
+| Linha | Codigo atual | Correcao |
+|-------|-------------|----------|
+| 339 | `` `/base-conhecimento/${letter}/${a.slug}` `` | `` `${SITE_BASE_URL}/base-conhecimento/${letter}/${a.slug}` `` |
+| 1487 | `` `/base-conhecimento/${letter}/${a.slug}` `` | `` `${SITE_BASE_URL}/base-conhecimento/${letter}/${a.slug}` `` |
+| 1629 | `` `/produtos/${p.slug}` `` | `` `${SITE_BASE_URL}/produtos/${p.slug}` `` |
+| 1698 | `` `/resina/${r.slug}` `` | `` `${SITE_BASE_URL}/resina/${r.slug}` `` |
+| 1771 | `` `/${brand.slug}/${model.slug}` `` | `` `${SITE_BASE_URL}/${brand.slug}/${model.slug}` `` |
+| 1847 | `` `/base-conhecimento/${a.category_letter}/${a.slug}` `` | `` `${SITE_BASE_URL}/base-conhecimento/${a.category_letter}/${a.slug}` `` |
+| 1926 | `` `/base-conhecimento/${contentInfo.category_letter}/${contentInfo.slug}` `` | `` `${SITE_BASE_URL}/base-conhecimento/${contentInfo.category_letter}/${contentInfo.slug}` `` |
+
+#### 2. Adicionar regra no system prompt sobre links
+
+Adicionar instrucao explicita no system prompt (bloco de regras), algo como:
+
+```
+REGRA LINKS: Quando referenciar artigos, produtos ou resinas da base de conhecimento,
+use EXATAMENTE a URL completa fornecida no campo URL dos dados.
+NUNCA invente dominios. NUNCA use "seudominio.com.br" ou qualquer outro dominio ficticio.
+Se a URL estiver no formato https://parametros.smartdent.com.br/..., use-a tal qual.
+```
+
+### Resumo
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | Migracao SQL | Adicionar `total_sessions`, `total_messages`, `historico_resumos`, `ultima_sessao_at` em `lia_attendances` |
-| 2 | `supabase/functions/dra-lia/index.ts` | Buscar historico anterior, merge no prompt, acumular contadores e array de resumos, resetar flag |
-| 3 | `src/components/DraLIA.tsx` | Resetar `dra_lia_summarized` a cada mensagem; gate `visibilitychange` por msg count |
+| 1 | `supabase/functions/dra-lia/index.ts` | Criar `SITE_BASE_URL`, prefixar 7 locais com dominio absoluto, adicionar regra de links no prompt |
 
 ### Resultado esperado
 
-- Cada sessao com a LIA incrementa `total_sessions` e `total_messages`
-- O `resumo_historico_ia` sempre contem o contexto acumulado (merged)
-- O `historico_resumos` guarda os ultimos 20 resumos individuais com data e contagem de mensagens — permitindo reconstruir a jornada completa do lead
-- No painel SmartOps, sera possivel ordenar leads por numero de interacoes e ver a evolucao temporal
+Todos os links injetados no contexto RAG ja chegarao ao modelo como URLs absolutas (`https://parametros.smartdent.com.br/base-conhecimento/c/comparativo-resinas`), eliminando qualquer possibilidade de o modelo inventar o dominio.
 
