@@ -243,6 +243,16 @@ Deno.serve(async (req) => {
         if (mapped !== leadStatus) {
           updateData.lead_status = mapped;
           newStatus = mapped;
+
+          // Fire-and-forget cognitive re-analysis on stage change
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/cognitive-lead-analysis`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ leadId: leadId }),
+          }).catch(e => console.warn("[piperun-webhook] cognitive re-analysis error:", e));
         }
         const { tags: updatedTags, add } = computeTagsFromStage(mapped, currentTagsCrm);
         updateData.tags_crm = updatedTags;
@@ -258,6 +268,25 @@ Deno.serve(async (req) => {
         [JOURNEY_TAGS.J03_NEGOCIACAO]
       );
       updateData.tags_crm = wonTags;
+
+      // Feedback loop: calculate prediction_accuracy
+      try {
+        const { data: cogLead } = await supabase
+          .from("lia_attendances")
+          .select("cognitive_analysis, lead_stage_detected")
+          .eq("id", leadId)
+          .maybeSingle();
+
+        if (cogLead?.cognitive_analysis) {
+          const predicted = cogLead.lead_stage_detected;
+          // SQL_decisor predicting a won deal = accurate
+          const accuracy = predicted === "SQL_decisor" ? 1.0 : predicted === "SAL_comparador" ? 0.6 : predicted === "MQL_pesquisador" ? 0.3 : 0.5;
+          await supabase.from("lia_attendances").update({ prediction_accuracy: accuracy }).eq("id", leadId);
+          console.log(`[piperun-webhook] prediction_accuracy: ${accuracy} (predicted: ${predicted})`);
+        }
+      } catch (e) {
+        console.warn("[piperun-webhook] prediction_accuracy error:", e);
+      }
     } else if (deal.status === "lost") {
       const lostTags = mergeTagsCrm(
         (updateData.tags_crm as string[]) || currentTagsCrm,
