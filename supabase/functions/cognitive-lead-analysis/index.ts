@@ -41,20 +41,24 @@ serve(async (req) => {
     }
 
     // ── Guard 2: Min 5 messages ──
-    const { count: msgCount } = await supabase
-      .from("agent_interactions")
-      .select("id", { count: "exact", head: true })
-      .in("session_id", 
-        supabase.from("agent_sessions").select("session_id").eq("lead_id", leadData.id)
-      );
+    // agent_interactions.lead_id references `leads` table, not `lia_attendances`
+    // So we need to find the matching leads record by email first
+    const { data: leadsRecord } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("email", leadData.email)
+      .maybeSingle();
 
-    // Fallback: count by lead_id directly
-    const { count: directCount } = await supabase
-      .from("agent_interactions")
-      .select("id", { count: "exact", head: true })
-      .eq("lead_id", leadData.id);
+    const leadsId = leadsRecord?.id;
 
-    const totalMsgs = directCount ?? msgCount ?? 0;
+    let totalMsgs = 0;
+    if (leadsId) {
+      const { count: directCount } = await supabase
+        .from("agent_interactions")
+        .select("id", { count: "exact", head: true })
+        .eq("lead_id", leadsId);
+      totalMsgs = directCount ?? 0;
+    }
     if (totalMsgs < 5) {
       return new Response(JSON.stringify({ skip: "insufficient_messages", count: totalMsgs }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -62,13 +66,13 @@ serve(async (req) => {
     }
 
     // ── Guard 3: Already current? ──
-    const { data: latestInteraction } = await supabase
+    const { data: latestInteraction } = leadsId ? await supabase
       .from("agent_interactions")
       .select("created_at")
-      .eq("lead_id", leadData.id)
+      .eq("lead_id", leadsId)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle();
+      .maybeSingle() : { data: null };
 
     if (leadData.cognitive_updated_at && latestInteraction?.created_at) {
       if (new Date(leadData.cognitive_updated_at) >= new Date(latestInteraction.created_at)) {
@@ -79,12 +83,12 @@ serve(async (req) => {
     }
 
     // ── Fetch last 50 interactions ──
-    const { data: messages } = await supabase
+    const { data: messages } = leadsId ? await supabase
       .from("agent_interactions")
       .select("user_message, agent_response, created_at")
-      .eq("lead_id", leadData.id)
+      .eq("lead_id", leadsId)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(50) : { data: [] };
 
     const contextString = (messages || [])
       .reverse()
