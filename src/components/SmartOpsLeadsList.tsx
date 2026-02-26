@@ -728,11 +728,11 @@ export function SmartOpsLeadsList() {
               <DetailSection title="Oportunidade" fields={[
                 { label: "Status Oportunidade", value: selectedLead.status_oportunidade },
                 { label: "Valor", value: selectedLead.valor_oportunidade ? `R$ ${Number(selectedLead.valor_oportunidade).toLocaleString("pt-BR")}` : null },
-                { label: "Itens Proposta", value: selectedLead.itens_proposta_crm },
                 { label: "Data Fechamento", value: selectedLead.data_fechamento_crm ? formatDate(selectedLead.data_fechamento_crm) : null },
                 { label: "Motivo Perda", value: selectedLead.motivo_perda },
                 { label: "Comentário Perda", value: selectedLead.comentario_perda },
               ]} />
+              <ProposalItemsDisplay raw={selectedLead.itens_proposta_crm} />
 
               <DetailSection title="Campanha / UTM" fields={[
                 { label: "Source", value: selectedLead.source },
