@@ -76,6 +76,13 @@ Deno.serve(async (req) => {
     let created = 0;
     let stagnantStarted = 0;
     let stagnantRescued = 0;
+    let skippedNoData = 0;
+    let notFound = 0;
+
+    // Debug: log first 3 deals
+    for (const d of allDeals.slice(0, 3)) {
+      console.log(`[sync-piperun] Sample deal id=${d.id}, person=${JSON.stringify(d.person?.name)}, email=${JSON.stringify(d.person?.emails?.[0]?.email)}, stage=${d.stage_id}, pipeline=${d.pipeline_id}`);
+    }
 
     for (const deal of allDeals) {
       const dealId = String(deal.id);
