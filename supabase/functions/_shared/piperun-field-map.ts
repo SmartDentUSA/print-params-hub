@@ -118,12 +118,21 @@ export const STAGE_TO_ETAPA: Record<number, string> = {
   [STAGES_ESTAGNADOS.PROPOSTA_ENVIADA_ESTAG]: "est_proposta",
   [STAGES_ESTAGNADOS.FECHAMENTO_ESTAG]: "estagnado_final",
   // CS Onboarding
+  [STAGES_CS_ONBOARDING.AUXILIAR_EMAIL]: "cs_auxiliar_email",
+  [STAGES_CS_ONBOARDING.EM_ESPERA]: "cs_em_espera",
+  [STAGES_CS_ONBOARDING.SEM_DATA_AGENDAR]: "cs_sem_data_agendar",
+  [STAGES_CS_ONBOARDING.NAO_QUER_IMERSAO]: "cs_nao_quer_imersao",
   [STAGES_CS_ONBOARDING.TREINAMENTO_AGENDADO]: "cs_treinamento_agendado",
   [STAGES_CS_ONBOARDING.TREINAMENTO_REALIZADO]: "cs_treinamento_realizado",
+  [STAGES_CS_ONBOARDING.ENVIAR_IMP3D]: "cs_enviar_imp3d",
+  [STAGES_CS_ONBOARDING.EQUIPAMENTOS_ENTREGUES]: "cs_equipamentos_entregues",
+  [STAGES_CS_ONBOARDING.RETIRAR_SCAN_IMP3D]: "cs_retirar_scan",
   [STAGES_CS_ONBOARDING.ACOMPANHAMENTO_15_DIAS_CS]: "cs_acompanhamento_15d",
+  [STAGES_CS_ONBOARDING.ACOMP_30_DIAS_COMERCIAL]: "cs_acomp_30d_comercial",
   [STAGES_CS_ONBOARDING.ACOMPANHAMENTO_ATENCAO]: "cs_acompanhamento_atencao",
   [STAGES_CS_ONBOARDING.ACOMPANHAMENTO_FINALIZADO]: "cs_finalizado",
-  [STAGES_CS_ONBOARDING.EQUIPAMENTOS_ENTREGUES]: "cs_equipamentos_entregues",
+  [STAGES_CS_ONBOARDING.NAO_USE_DKMNGR]: "cs_nao_use_dkmngr",
+  [STAGES_CS_ONBOARDING.NAO_USE_OMIE_FIX]: "cs_nao_use_omie_fix",
   // Insumos
   [STAGES_INSUMOS.SEM_CONTATO]: "insumos_sem_contato",
   [STAGES_INSUMOS.CONTATO_FEITO]: "insumos_contato_feito",
@@ -258,6 +267,19 @@ export function getCustomFieldValue(
 }
 
 /**
+ * Clean deal title to extract real name
+ * Deals often have format "Name - 12345 - Nova Interação" or "Name - timestamp"
+ */
+export function cleanDealName(title: string | undefined): string | null {
+  if (!title) return null;
+  // Remove common suffixes: " - 1234567890", " - Nova Interação", " - New Interaction"
+  let name = title.split(" - ")[0].trim();
+  // If result is empty or just numbers, return null
+  if (!name || /^\d+$/.test(name)) return null;
+  return name;
+}
+
+/**
  * Map PipeRun deal data to lia_attendances fields
  */
 export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unknown> {
@@ -293,8 +315,8 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
 
   // ─── Name extraction cascade ───
   // 1. person.name (webhook/with[]=person)
-  // 2. deal.title (API list format)
-  const nome = person?.name || deal.title || null;
+  // 2. deal.title cleaned (API list format - remove " - timestamp" suffixes)
+  const nome = person?.name || cleanDealName(deal.title) || null;
   if (nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
