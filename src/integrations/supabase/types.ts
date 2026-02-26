@@ -2026,6 +2026,68 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_inbox: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          direction: string
+          id: string
+          intent_detected: string | null
+          lead_id: string | null
+          matched_by: string | null
+          media_type: string | null
+          media_url: string | null
+          message_text: string | null
+          phone: string
+          phone_normalized: string | null
+          processed_at: string | null
+          raw_payload: Json | null
+          seller_notified: boolean | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          direction?: string
+          id?: string
+          intent_detected?: string | null
+          lead_id?: string | null
+          matched_by?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          phone: string
+          phone_normalized?: string | null
+          processed_at?: string | null
+          raw_payload?: Json | null
+          seller_notified?: boolean | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          direction?: string
+          id?: string
+          intent_detected?: string | null
+          lead_id?: string | null
+          matched_by?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          message_text?: string | null
+          phone?: string
+          phone_normalized?: string | null
+          processed_at?: string | null
+          raw_payload?: Json | null
+          seller_notified?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

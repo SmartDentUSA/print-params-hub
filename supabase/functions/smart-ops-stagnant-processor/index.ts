@@ -163,12 +163,53 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Clean-up: auto-discard leads with sem_interesse from whatsapp_inbox ───
+    let discarded = 0;
+    const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: noInterestMsgs } = await supabase
+      .from("whatsapp_inbox")
+      .select("lead_id")
+      .eq("intent_detected", "sem_interesse")
+      .gte("created_at", sevenDaysAgo)
+      .not("lead_id", "is", null);
+
+    if (noInterestMsgs && noInterestMsgs.length > 0) {
+      const leadIds = [...new Set(noInterestMsgs.map(m => m.lead_id).filter(Boolean))];
+      for (const lid of leadIds) {
+        // Check no positive interactions exist
+        const { count } = await supabase
+          .from("whatsapp_inbox")
+          .select("id", { count: "exact", head: true })
+          .eq("lead_id", lid)
+          .in("intent_detected", ["interesse_imediato", "interesse_futuro", "pedido_info"]);
+
+        if ((count || 0) > 0) continue;
+
+        const { data: lead } = await supabase
+          .from("lia_attendances")
+          .select("id, lead_status, tags_crm")
+          .eq("id", lid)
+          .single();
+
+        if (!lead || lead.lead_status === "descartado" || lead.lead_status === "fechamento") continue;
+
+        const newTags = mergeTagsCrm(lead.tags_crm, ["A_SEM_RESPOSTA"]);
+        await supabase
+          .from("lia_attendances")
+          .update({ lead_status: "descartado", tags_crm: newTags, updated_at: new Date().toISOString() })
+          .eq("id", lid);
+        discarded++;
+        console.log(`[stagnant-processor] Discarded lead ${lid} (sem_interesse)`);
+      }
+    }
+
     const result = {
       success: true,
       total_in_funnel: leads?.length || 0,
       advanced,
       messages_sent: messagesSent,
       messages_error: messagesError,
+      discarded_sem_interesse: discarded,
     };
 
     console.log("[stagnant-processor] Result:", JSON.stringify(result));
