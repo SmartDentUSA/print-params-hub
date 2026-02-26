@@ -110,15 +110,18 @@ Deno.serve(async (req) => {
     const finalMessage = message ? replaceVariables(message, leadData) : undefined;
     const finalCaption = caption ? replaceVariables(caption, leadData) : undefined;
 
+    // Sanitize phone: remove + prefix (WaLeads API rejects it)
+    const cleanPhone = phone.replace(/^\+/, '');
+
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
-      apiBody = { chat: phone, message: finalMessage, isGroup: false };
+      apiBody = { chat: cleanPhone, message: finalMessage, isGroup: false };
     } else {
-      apiBody = { chat: phone, url: media_url, isGroup: false };
+      apiBody = { chat: cleanPhone, url: media_url, isGroup: false };
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
-    console.log(`[send-waleads] WaLeads: ${tipo} to ${phone} via ${member.nome_completo}`, { test_mode });
+    console.log(`[send-waleads] WaLeads: ${tipo} to ${cleanPhone} via ${member.nome_completo}`, { test_mode });
 
     const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}?key=${member.waleads_api_key}`, {
       method: "POST",
