@@ -315,8 +315,8 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
 
   // ─── Name extraction cascade ───
   // 1. person.name (webhook/with[]=person)
-  // 2. deal.title (API list format)
-  const nome = person?.name || deal.title || null;
+  // 2. deal.title cleaned (API list format - remove " - timestamp" suffixes)
+  const nome = person?.name || cleanDealName(deal.title) || null;
   if (nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
