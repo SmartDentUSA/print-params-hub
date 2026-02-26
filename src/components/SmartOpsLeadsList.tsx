@@ -313,6 +313,68 @@ function formatValue(v: unknown): string {
   return String(v);
 }
 
+// ─── Proposal Items Parser ───
+function parseItensProposta(raw: string | null) {
+  if (!raw) return null;
+  // Extract proposal number: (XXXX) PRO XXXXX or just PRO XXXXX
+  const propostaMatch = raw.match(/(?:\((\d+)\)\s*)?(PRO\s*\d+)/);
+  const proposalNumber = propostaMatch
+    ? (propostaMatch[1] ? `(${propostaMatch[1]}) ${propostaMatch[2]}` : propostaMatch[2])
+    : null;
+
+  // Split items by ", PRO" or ", ("
+  const parts = raw.split(/,\s*(?=PRO\s|(?:\(\d+\)\s*PRO\s))/).map((s) => s.trim()).filter(Boolean);
+
+  const items: { qty: number; name: string; productCode?: string }[] = [];
+  for (const part of parts) {
+    const m = part.match(/(?:\((\d+)\)\s*)?PRO\s*\d+\s*\[(\d+(?:\.\d+)?)\]\s*(.+)/);
+    if (m) {
+      items.push({
+        productCode: m[1] || undefined,
+        qty: Math.round(parseFloat(m[2])),
+        name: m[3].trim(),
+      });
+    }
+  }
+
+  return { proposalNumber, items };
+}
+
+function ProposalItemsDisplay({ raw }: { raw: string | null }) {
+  const parsed = parseItensProposta(raw);
+  if (!parsed || parsed.items.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {parsed.proposalNumber && (
+        <div className="p-2 rounded bg-muted/30 border">
+          <div className="text-[10px] text-muted-foreground font-mono">N. Proposta</div>
+          <div className="text-sm font-semibold">{parsed.proposalNumber}</div>
+        </div>
+      )}
+      <div className="p-2 rounded bg-muted/30 border">
+        <div className="text-[10px] text-muted-foreground font-mono mb-1">Itens da Proposta</div>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="h-7 px-2 text-[10px] w-14">Quant.</TableHead>
+              <TableHead className="h-7 px-2 text-[10px]">Item</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {parsed.items.map((item, i) => (
+              <TableRow key={i}>
+                <TableCell className="p-2 text-xs text-center">{item.qty}</TableCell>
+                <TableCell className="p-2 text-xs">{item.name}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 function TruncatedText({ text, maxLen = 40 }: { text: string | null; maxLen?: number }) {
   if (!text) return <span className="text-muted-foreground">—</span>;
   if (text.length <= maxLen) return <span className="text-xs">{text}</span>;
