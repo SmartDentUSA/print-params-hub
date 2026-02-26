@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (currentLead) {
+        // found by piperun_id
         // Track stagnation transitions
         if (deal.stage_id) {
           const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
