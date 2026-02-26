@@ -847,6 +847,7 @@ type LeadCollectionState =
   | { state: "needs_name"; email: string }
   | { state: "needs_email"; name: string }  // kept for compat
   | { state: "collected"; name: string; email: string }
+  | { state: "needs_phone"; name: string; email: string; leadId: string }
   | { state: "needs_area"; name: string; email: string; leadId: string }
   | { state: "needs_specialty"; name: string; email: string; leadId: string; area: string }
   | { state: "from_session"; name: string; email: string; leadId: string };
@@ -857,13 +858,16 @@ function detectLeadCollectionState(
 ): LeadCollectionState {
   // Check session first — if lead already identified, skip collection
   if (sessionEntities?.lead_id && sessionEntities?.lead_name && sessionEntities?.lead_email) {
-    // Check if area/specialty still need to be collected
+    // Check if phone/area/specialty still need to be collected
     const leadId = sessionEntities.lead_id as string;
     const leadName = sessionEntities.lead_name as string;
     const leadEmail = sessionEntities.lead_email as string;
     const leadArea = sessionEntities.lead_area as string | undefined;
     const leadSpecialty = sessionEntities.lead_specialty as string | undefined;
 
+    if (sessionEntities.awaiting_phone) {
+      return { state: "needs_phone", name: leadName, email: leadEmail, leadId };
+    }
     if (!leadArea && sessionEntities.awaiting_area) {
       return { state: "needs_area", name: leadName, email: leadEmail, leadId };
     }
@@ -2676,7 +2680,7 @@ Campos:
           // Fetch lia_attendances for full lead profile + resumo
           const { data: attendance } = await supabase
             .from("lia_attendances")
-            .select("resumo_historico_ia, area_atuacao, especialidade, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad")
+            .select("resumo_historico_ia, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad")
             .eq("email", leadState.email)
             .maybeSingle();
 
@@ -2730,6 +2734,11 @@ Campos:
           // Determine lead archetype for strategy
           const leadArchetype = determineLeadArchetype(attendance);
 
+          // Check if returning lead is missing area or specialty
+          const missingArea = !attendance?.area_atuacao;
+          const missingSpecialty = !attendance?.especialidade;
+          const missingPhone = !attendance?.telefone_normalized;
+
           // Update session with lead info + profile + recent history + archetype
           await supabase.from("agent_sessions").upsert({
             session_id,
@@ -2743,13 +2752,38 @@ Campos:
               lead_profile: profileFields.join(" | "),
               lead_archetype: leadArchetype,
               recent_history: recentHistoryCompact,
+              // Set awaiting flags for missing profile data
+              ...(missingPhone ? { awaiting_phone: true } : {}),
+              ...(missingArea && !missingPhone ? { awaiting_area: true } : {}),
+              ...(missingSpecialty && !missingArea && !missingPhone ? { awaiting_specialty: true, lead_area: attendance?.area_atuacao } : {}),
             },
             current_state: "idle",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
           currentLeadId = leadId;
-          responseText = buildReturningLeadMessage(existingLead.name, lang, lastDate || undefined, returningLeadSummary);
-          console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId} | summary: ${returningLeadSummary?.slice(0, 50) || "none"}`);
+
+          // If missing phone, greet and ask for phone
+          if (missingPhone) {
+            const greetAndPhone: Record<string, string> = {
+              "pt-BR": `Olá, ${existingLead.name}! Que bom te ver novamente 😊\nPara manter seu cadastro atualizado, qual é o seu **telefone** com DDD? (ex: 11999998888)`,
+              "en-US": `Hi, ${existingLead.name}! Great to see you again 😊\nTo keep your profile updated, what's your **phone number** with area code?`,
+              "es-ES": `¡Hola, ${existingLead.name}! Qué bueno verte de nuevo 😊\nPara mantener tu registro actualizado, ¿cuál es tu **teléfono** con código de área?`,
+            };
+            responseText = greetAndPhone[lang] || greetAndPhone["pt-BR"];
+            console.log(`[lead-collection] Returning lead missing phone: ${existingLead.name} (${leadState.email})`);
+          } else if (missingArea) {
+            // Greet and ask for area
+            const greetAndArea: Record<string, string> = {
+              "pt-BR": `Olá, ${existingLead.name}! Que bom te ver novamente 😊\nPara personalizar melhor minha ajuda, qual é sua **área de atuação**?`,
+              "en-US": `Hi, ${existingLead.name}! Great to see you again 😊\nTo better personalize my help, what is your **field of work**?`,
+              "es-ES": `¡Hola, ${existingLead.name}! Qué bueno verte de nuevo 😊\nPara personalizar mejor mi ayuda, ¿cuál es tu **área de actuación**?`,
+            };
+            responseText = greetAndArea[lang] || greetAndArea["pt-BR"];
+            console.log(`[lead-collection] Returning lead missing area: ${existingLead.name} (${leadState.email})`);
+          } else {
+            responseText = buildReturningLeadMessage(existingLead.name, lang, lastDate || undefined, returningLeadSummary);
+            console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId} | summary: ${returningLeadSummary?.slice(0, 50) || "none"}`);
+          }
         } else {
           // NEW LEAD — ask for name
           responseText = ASK_NAME[lang] || ASK_NAME["pt-BR"];
@@ -2774,8 +2808,12 @@ Campos:
         console.error("Failed to insert agent_interaction (needs_name):", e);
       }
 
-      // For returning leads, send meta chunk to show topic cards immediately
-      if (currentLeadId && returningLeadSummary !== undefined) {
+      // For returning leads with complete profile, send meta chunk to show topic cards
+      const hasMissingProfile = !!(currentLeadId && returningLeadSummary !== undefined);
+      const profileComplete = hasMissingProfile && !(sessionEntities as any)?.awaiting_phone && !(sessionEntities as any)?.awaiting_area;
+      // Check the entities we just wrote — if we set awaiting_phone or awaiting_area, don't show topics
+      const justSetAwaiting = responseText.includes("telefone") || responseText.includes("phone") || responseText.includes("teléfono") || responseText.includes("área de atuação") || responseText.includes("field of work") || responseText.includes("área de actuación");
+      if (hasMissingProfile && !justSetAwaiting) {
         const encoder = new TextEncoder();
         const stream = new ReadableStream({
           start(controller) {
@@ -2800,9 +2838,106 @@ Campos:
         return new Response(stream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
         });
+      } else if (hasMissingProfile && justSetAwaiting && responseText.includes("área")) {
+        // Show area grid for returning lead missing area
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+              type: "meta",
+              ui_action: "show_area_grid",
+              area_options: AREA_OPTIONS,
+            })}\n\n`));
+            const words = responseText.split(" ");
+            let i = 0;
+            const interval = setInterval(() => {
+              if (i < words.length) {
+                const token = (i === 0 ? "" : " ") + words[i];
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+                i++;
+              } else {
+                controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                controller.close();
+                clearInterval(interval);
+              }
+            }, 25);
+          },
+        });
+        return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
       }
 
       return streamTextResponse(responseText, corsHeaders);
+    }
+
+    // 0aa. Phone collection: returning lead provided phone → save and continue to area
+    if (leadState.state === "needs_phone") {
+      const rawPhone = message.trim().replace(/[^\d+]/g, '');
+      let normalizedPhone = rawPhone;
+      if (normalizedPhone.startsWith('+')) normalizedPhone = normalizedPhone.slice(1);
+      if (!normalizedPhone.startsWith('55') && normalizedPhone.length >= 10 && normalizedPhone.length <= 11) {
+        normalizedPhone = '55' + normalizedPhone;
+      }
+
+      if (normalizedPhone.length < 12 || normalizedPhone.length > 13) {
+        const retryText = lang === "en-US" ? `I couldn't identify the number. Please provide your **phone number** with area code:` :
+          lang === "es-ES" ? `No pude identificar el número. Por favor, infórmame tu **teléfono** con código de área:` :
+          `Não consegui identificar o número. Por favor, informe seu **telefone** com DDD (ex: 11999998888):`;
+        try {
+          await supabase.from("agent_interactions").insert({
+            session_id, user_message: message, agent_response: retryText,
+            lang, top_similarity: 1, unanswered: false, lead_id: leadState.leadId,
+            context_raw: "[INTERCEPTOR] lead_collection:needs_phone_retry",
+          });
+        } catch { /* ignore */ }
+        return streamTextResponse(retryText, corsHeaders);
+      }
+
+      // Save phone
+      try {
+        await supabase.from("lia_attendances").upsert({
+          email: leadState.email, nome: leadState.name, source: "dra-lia",
+          telefone_normalized: normalizedPhone, telefone_raw: message.trim(),
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "email" });
+        console.log(`[lead-collection] telefone saved: ${normalizedPhone} for ${leadState.email}`);
+      } catch (e) { console.warn("[lead-collection] phone save failed:", e); }
+
+      // Check if area is also missing
+      const { data: attCheck } = await supabase.from("lia_attendances")
+        .select("area_atuacao").eq("email", leadState.email).maybeSingle();
+      const { data: sess } = await supabase.from("agent_sessions")
+        .select("extracted_entities").eq("session_id", session_id).single();
+      const ent = (sess?.extracted_entities || {}) as Record<string, unknown>;
+
+      if (!attCheck?.area_atuacao) {
+        await supabase.from("agent_sessions").upsert({
+          session_id, extracted_entities: { ...ent, awaiting_phone: false, awaiting_area: true },
+          last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+        const areaText = (ASK_AREA[lang] || ASK_AREA["pt-BR"])(leadState.name);
+        try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: areaText, lang, top_similarity: 1, unanswered: false, lead_id: leadState.leadId, context_raw: "[INTERCEPTOR] phone→area" }); } catch { /* ignore */ }
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({ start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", ui_action: "show_area_grid", area_options: AREA_OPTIONS })}\n\n`));
+          const words = areaText.split(" "); let i = 0;
+          const interval = setInterval(() => { if (i < words.length) { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: (i === 0 ? "" : " ") + words[i] } }] })}\n\n`)); i++; } else { controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); clearInterval(interval); } }, 25);
+        }});
+        return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      } else {
+        await supabase.from("agent_sessions").upsert({
+          session_id, extracted_entities: { ...ent, awaiting_phone: false },
+          last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+        const confirmText = `✅ Telefone registrado! Como posso te ajudar hoje, **${leadState.name}**?`;
+        try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: confirmText, lang, top_similarity: 1, unanswered: false, lead_id: leadState.leadId, context_raw: "[INTERCEPTOR] phone→confirmed" }); } catch { /* ignore */ }
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({ start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", ui_action: "show_topics" })}\n\n`));
+          const words = confirmText.split(" "); let i = 0;
+          const interval = setInterval(() => { if (i < words.length) { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: (i === 0 ? "" : " ") + words[i] } }] })}\n\n`)); i++; } else { controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); clearInterval(interval); } }, 25);
+        }});
+        return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+      }
     }
 
     // 0b. Legacy: ask for email after receiving name (backward compat)
