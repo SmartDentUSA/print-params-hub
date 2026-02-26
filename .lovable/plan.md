@@ -1,172 +1,106 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+## Plano: Mapeamento Completo PipeRun + Configuracao SellFlux
 
-## Diagnostico do Estado Atual
+### Status das Conexoes
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+| Servico | API Key | Status |
+|---------|---------|--------|
+| **PipeRun** | `PIPERUN_API_KEY` | Conectado e funcionando |
+| **SellFlux** | `SELLFLUX_API_KEY` | **NAO CONFIGURADA** |
 
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+### Dados Mapeados do PipeRun (via API)
 
----
+#### Funis (Pipelines) - 10 funis
 
-## Fase 1: Tabela `whatsapp_inbox`
+| ID | Nome | Tipo |
+|----|------|------|
+| 18784 | Funil de vendas | Vendas (principal) |
+| 73999 | Funil Atos | Vendas |
+| 39047 | Exportacao | Vendas |
+| 70898 | Distribuidor de Leads | Vendas |
+| 72938 | Funil Estagnados | Vendas |
+| 82128 | Funil E-book | Vendas |
+| 83813 | Tulip-Teste-Nv-Automacao | Vendas |
+| 83896 | CS Onboarding | Customer Success |
+| 93303 | Interesse em cursos | Vendas |
+| 100412 | Funil Insumos | Vendas |
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+#### Etapas (Stages) - 74 total (amostra)
 
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
+Funil Insumos (100412): Sem Contato → Contato Feito → Amostra Enviada → Retorno Amostra → Fechamento
 
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
-```
+CS Onboarding (83896): Treinamento Agendado → Treinamento Realizado → Acompanhamento 15 Dias CS → Acompanhamento Atencao → Acompanhamento Finalizado → Nao quer Imersao
 
-RLS: `admin_only` (mesma policy de `lia_attendances`).
+#### Usuarios (Vendedores)
 
----
+| ID | Nome | Email |
+|----|------|-------|
+| 100600 | Marcela Brito | marcela.brito@smartdent.com.br |
+| 98054 | Gabriella Ferreira | gabriella.ferreira@smartdent.com.br |
+| (+ outros na pagina 2) |
 
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
+#### Campos Customizados (20 campos)
 
-Endpoint publico que recebe POST do WaLeads quando lead responde.
+**Deal (belongs=1):**
+- `549059` Especialidade principal (texto)
+- `549058` Produto de interesse (texto)
+- `549148` Produto de interesse (auto) (texto)
+- `549150` Whatsapp (texto)
+- `549241` Area de atuacao (texto)
+- `549242` Tem scanner (texto)
+- `549243` Tem impressora (texto)
+- `621083` Pais de Origem (texto)
+- `623602` Informacao desejada (texto)
+- `650066` Banco de Dados ID (numerico)
+- `673917` CODIGO CONTRATO (texto)
+- `673925` DATA TREINAMENTO (texto)
 
-**Fluxo:**
+**Person/Organizacao (belongs=2):**
+- `445631` Especialidade principal (dropdown: CLINICO GERAL, IMPLANTODONTISTA, etc.)
+- `546566` Tem impressora (dropdown: SIM/NAO)
+- `546567` Tem scanner (dropdown: SIM/NAO)
+- `546568` Informacao desejada (texto)
+- `646806` ID Banco de Dados (numerico)
+- `673900` AREA DE ATUACAO (dropdown)
 
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
+**Pessoa (belongs=3):**
+- `674001` Area de Atuacao (dropdown)
+- `674002` Especialidade (dropdown)
 
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
-
----
-
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
-
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
-
-```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
-
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
-```
-
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
-
----
-
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
-
-Quando `intent_detected === 'interesse_imediato'`:
-
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
-
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
-
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
-
----
-
-## Fase 5: Limpeza Automatica (Clean-up Job)
-
-Adicionar logica no `smart-ops-stagnant-processor` existente:
-
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
-
----
-
-## Resumo de Arquivos
-
-| # | Arquivo | Acao |
-|---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
+### Mapeamento PipeRun → lia_attendances
 
 ```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
+PipeRun Deal                  →  lia_attendances
+─────────────────────────────────────────────────
+deal.id                       →  piperun_id
+deal.title                    →  (parse nome)
+deal.pipeline_id              →  funil_entrada_crm
+deal.stage_id                 →  ultima_etapa_comercial
+deal.owner_id                 →  proprietario_lead_crm
+deal.status (0/1/2)           →  status_oportunidade
+deal.value                    →  valor_oportunidade
+deal.created_at               →  data_primeiro_contato
+deal.closed_at                →  data_fechamento_crm
+person.name                   →  nome
+person.emails                 →  email
+person.phones                 →  telefone_raw/normalized
+person.job_title              →  area_atuacao
+cf[549059] Especialidade      →  especialidade
+cf[549058] Produto interesse  →  produto_interesse
+cf[549242] Tem scanner        →  tem_scanner
+cf[549243] Tem impressora     →  tem_impressora
+cf[621083] Pais de Origem     →  pais_origem
+cf[650066] Banco de Dados ID  →  id_cliente_smart
 ```
 
-## Payload WaLeads Esperado
+### Proximos Passos
 
-O webhook do WaLeads envia POST com:
+1. **SellFlux**: Preciso da API key para configurar como secret e mapear os campos/templates disponiveis
+2. **Implementacao**: Criar `_shared/piperun-field-map.ts` com o mapeamento acima (IDs de campos, stages e pipelines) para uso centralizado em todas as edge functions
+3. **Sync bidirecional**: Usar esse mapeamento no `smart-ops-sync-piperun` e no `smart-ops-piperun-webhook`
 
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
-}
-```
+### Acao Necessaria do Usuario
 
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+Fornecer a **API Key do SellFlux** para eu configurar como secret (`SELLFLUX_API_KEY`). Voce pode encontra-la no painel do SellFlux em Configuracoes → API/Integracao.
 
