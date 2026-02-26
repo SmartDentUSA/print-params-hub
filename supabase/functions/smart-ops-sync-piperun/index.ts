@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
 
     // Debug: log first 3 deals
     for (const d of allDeals.slice(0, 3)) {
-      console.log(`[sync-piperun] Sample deal id=${d.id}, person=${JSON.stringify(d.person?.name)}, email=${JSON.stringify(d.person?.emails?.[0]?.email)}, stage=${d.stage_id}, pipeline=${d.pipeline_id}`);
+      console.log(`[sync-piperun] Sample deal id=${d.id}, person=${JSON.stringify(d.person?.name)}, reference=${JSON.stringify((d as any).reference)}, title=${JSON.stringify(d.title)}, stage=${d.stage_id}, pipeline=${d.pipeline_id}`);
     }
 
     for (const deal of allDeals) {
