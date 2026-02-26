@@ -153,16 +153,21 @@ Deno.serve(async (req) => {
 
             const { error } = await supabase.from("lia_attendances").insert(insertPayload);
             if (!error) created++;
+            else console.error(`[sync-piperun] Insert error for deal ${dealId}:`, error.message);
           }
+        } else {
+          skippedNoData++;
         }
       }
     }
 
-    console.log(`[sync-piperun] Total deals: ${allDeals.length}, updated: ${updated}, created: ${created}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
+    console.log(`[sync-piperun] Total deals: ${allDeals.length}, updated: ${updated}, created: ${created}, notFound: ${notFound}, skippedNoData: ${skippedNoData}, estagnados: ${stagnantStarted}, resgatados: ${stagnantRescued}`);
     return new Response(JSON.stringify({
       success: true,
       synced: updated,
       created,
+      not_found_by_piperun_id: notFound,
+      skipped_no_email_nome: skippedNoData,
       total_deals: allDeals.length,
       pages_fetched: page,
       stagnant_started: stagnantStarted,
