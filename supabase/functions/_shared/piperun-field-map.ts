@@ -221,6 +221,10 @@ export interface PipeRunDealData {
   created_at?: string;
   closed_at?: string;
   lost_reason?: string;
+  reference?: string;
+  rdstation_reference?: string;
+  person_id?: number;
+  company_id?: number;
   person?: {
     name?: string;
     emails?: Array<{ email: string }>;
@@ -228,6 +232,11 @@ export interface PipeRunDealData {
     job_title?: string;
     city?: { name?: string };
     state?: { initials?: string };
+  };
+  company?: {
+    name?: string;
+    phones?: Array<{ phone: string }>;
+    emails?: Array<{ email: string }>;
   };
   custom_fields?: Array<{
     custom_field_id: number;
@@ -254,6 +263,7 @@ export function getCustomFieldValue(
 export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unknown> {
   const cf = deal.custom_fields;
   const person = deal.person;
+  const company = deal.company;
 
   const fields: Record<string, unknown> = {
     piperun_id: String(deal.id),
@@ -268,11 +278,37 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
   };
 
-  // Person data
+  // ─── Email extraction cascade ───
+  // 1. person.emails (webhook format)
+  // 2. deal.reference (API list format - most common)
+  // 3. deal.rdstation_reference (RD Station fallback)
+  // 4. company.emails (organization fallback)
+  const email =
+    person?.emails?.[0]?.email ||
+    deal.reference ||
+    deal.rdstation_reference ||
+    company?.emails?.[0]?.email ||
+    null;
+  if (email) fields.email = String(email).trim().toLowerCase();
+
+  // ─── Name extraction cascade ───
+  // 1. person.name (webhook/with[]=person)
+  // 2. deal.title (API list format)
+  const nome = person?.name || deal.title || null;
+  if (nome) fields.nome = nome;
+
+  // ─── Phone extraction cascade ───
+  // 1. person.phones (webhook format)
+  // 2. company.phones (organization)
+  // 3. Custom field WHATSAPP (549150)
+  const phone =
+    person?.phones?.[0]?.phone ||
+    company?.phones?.[0]?.phone ||
+    null;
+  if (phone) fields.telefone_raw = phone;
+
+  // Person extra data
   if (person) {
-    if (person.name) fields.nome = person.name;
-    if (person.emails?.[0]?.email) fields.email = person.emails[0].email.toLowerCase();
-    if (person.phones?.[0]?.phone) fields.telefone_raw = person.phones[0].phone;
     if (person.job_title) fields.area_atuacao = person.job_title;
     if (person.city?.name) fields.cidade = person.city.name;
     if (person.state?.initials) fields.uf = person.state.initials;
@@ -297,6 +333,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   const bdId = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID);
   if (bdId) fields.id_cliente_smart = bdId;
 
+  // WhatsApp custom field as phone fallback
   const whatsapp = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
   if (whatsapp && !fields.telefone_raw) fields.telefone_raw = whatsapp;
 
