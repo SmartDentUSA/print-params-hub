@@ -9,25 +9,26 @@ const corsHeaders = {
 const ASTRON_BASE = "https://api.astronmembers.com.br";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-async function astronFetch(endpoint: string, params: Record<string, string> = {}) {
+async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
-  const basicAuth = btoa(`${amKey}:${amSecret}`);
 
-  const url = new URL(`${ASTRON_BASE}/${endpoint}`);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const body = {
+    am_key: amKey,
+    am_secret: amSecret,
+    ...params,
+  };
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Basic ${basicAuth}`,
-      "Content-Type": "application/json",
-    },
+  const res = await fetch(`${ASTRON_BASE}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Astron ${endpoint} HTTP ${res.status}: ${body}`);
+    const text = await res.text();
+    throw new Error(`Astron ${endpoint} HTTP ${res.status}: ${text}`);
   }
   return res.json();
 }
