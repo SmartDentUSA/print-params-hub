@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag, Zap, Target } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag, Zap, Target, Pencil, Save, X } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
+import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
   { key: "all", label: "Todos" },
