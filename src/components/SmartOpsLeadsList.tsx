@@ -398,21 +398,57 @@ const ROUTE_LABELS: Record<string, string> = {
 };
 
 /* ─── Detail Modal Sections ─── */
-function DetailSection({ title, fields }: { title: string; fields: { label: string; value: unknown }[] }) {
-  const nonEmpty = fields.filter((f) => f.value !== null && f.value !== undefined && f.value !== "");
-  if (nonEmpty.length === 0) return null;
+function EditableDetailSection({ title, fields, editing, editValues, onFieldChange }: {
+  title: string;
+  fields: { label: string; value: unknown; fieldKey?: string; type?: "text" | "number" | "boolean" | "select"; options?: string[] }[];
+  editing: boolean;
+  editValues: Record<string, unknown>;
+  onFieldChange: (key: string, value: unknown) => void;
+}) {
   return (
     <div>
       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</h4>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {nonEmpty.map((f) => (
-          <div key={f.label} className="p-2 rounded bg-muted/30 border">
-            <div className="text-[10px] text-muted-foreground font-mono">{f.label}</div>
-            <div className="text-sm break-all">{formatValue(f.value)}</div>
-          </div>
-        ))}
+        {fields.map((f) => {
+          const currentValue = f.fieldKey && f.fieldKey in editValues ? editValues[f.fieldKey] : f.value;
+          const isEmpty = currentValue === null || currentValue === undefined || currentValue === "";
+          return (
+            <div key={f.label} className={`p-2 rounded border ${isEmpty ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
+              <div className="text-[10px] text-muted-foreground font-mono">{f.label}</div>
+              {editing && f.fieldKey ? (
+                f.type === "boolean" ? (
+                  <Checkbox
+                    checked={!!currentValue}
+                    onCheckedChange={(c) => onFieldChange(f.fieldKey!, !!c)}
+                  />
+                ) : f.type === "select" && f.options ? (
+                  <Select value={String(currentValue || "")} onValueChange={(v) => onFieldChange(f.fieldKey!, v)}>
+                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {f.options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : f.type === "number" ? (
+                  <Input type="number" className="h-7 text-xs" value={currentValue != null ? String(currentValue) : ""} onChange={(e) => onFieldChange(f.fieldKey!, e.target.value ? Number(e.target.value) : null)} />
+                ) : (
+                  <Input className="h-7 text-xs" value={currentValue != null ? String(currentValue) : ""} onChange={(e) => onFieldChange(f.fieldKey!, e.target.value || null)} />
+                )
+              ) : (
+                <div className="text-sm break-all">{formatValue(currentValue)}</div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
+  );
+}
+
+function DetailSection({ title, fields }: { title: string; fields: { label: string; value: unknown }[] }) {
+  const nonEmpty = fields.filter((f) => f.value !== null && f.value !== undefined && f.value !== "");
+  if (nonEmpty.length === 0) return null;
+  return (
+    <EditableDetailSection title={title} fields={nonEmpty} editing={false} editValues={{}} onFieldChange={() => {}} />
   );
 }
 
