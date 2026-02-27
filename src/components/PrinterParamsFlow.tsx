@@ -111,6 +111,7 @@ export default function PrinterParamsFlow({ step, onStepChange, onSelection }: P
     setSelectedBrand(brand);
     setLoading(true);
     onStepChange('model');
+    onSelection?.({ brand: brand.name });
 
     // Fetch models for this brand that have parameter_sets
     const { data: psData } = await supabase
