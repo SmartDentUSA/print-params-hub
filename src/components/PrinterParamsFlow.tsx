@@ -50,6 +50,7 @@ interface ResinGroup {
 interface PrinterParamsFlowProps {
   step: 'brand' | 'model' | 'resin';
   onStepChange: (step: 'brand' | 'model' | 'resin' | null) => void;
+  onSelection?: (sel: { brand?: string; model?: string; resin?: string }) => void;
 }
 
 function ResinAccordionSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -68,7 +69,7 @@ function ResinAccordionSection({ title, children }: { title: string; children: R
   );
 }
 
-export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsFlowProps) {
+export default function PrinterParamsFlow({ step, onStepChange, onSelection }: PrinterParamsFlowProps) {
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [models, setModels] = useState<ModelItem[]>([]);
   const [resinGroups, setResinGroups] = useState<ResinGroup[]>([]);
@@ -110,6 +111,7 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
     setSelectedBrand(brand);
     setLoading(true);
     onStepChange('model');
+    onSelection?.({ brand: brand.name });
 
     // Fetch models for this brand that have parameter_sets
     const { data: psData } = await supabase
@@ -138,6 +140,7 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
     setSelectedModel(model);
     setLoading(true);
     onStepChange('resin');
+    onSelection?.({ brand: selectedBrand?.name, model: model.name });
 
     // Fetch parameter_sets for this brand+model
     const { data: psData } = await supabase
@@ -233,6 +236,10 @@ export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsF
       const group = resinGroups.find(g => g.resinKey === resinKey);
       if (group && group.params.length > 0 && !selectedLayerHeight[resinKey]) {
         setSelectedLayerHeight(prev => ({ ...prev, [resinKey]: group.params[0].layer_height }));
+      }
+      // Notify parent of resin selection for SDR tracking
+      if (group) {
+        onSelection?.({ brand: selectedBrand?.name, model: selectedModel?.name, resin: group.resinName });
       }
     }
   };

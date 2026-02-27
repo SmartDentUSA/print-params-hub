@@ -312,6 +312,8 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [commercialFullWorkflow, setCommercialFullWorkflow] = useState(false);
   const commercialSelectionsRef = useRef<{ scanner?: string; cad?: string; printer?: string; resins: string[] }>({ resins: [] });
   const pendingCommercialStepRef = useRef<CommercialStep | null>(null);
+  // SDR selections to persist to backend
+  const pendingSdrSelectionsRef = useRef<{ rota: number; category?: string; product?: string; brand?: string; model?: string; resin?: string } | null>(null);
   // Area/Specialty qualification grid state
   const [areaGridOptions, setAreaGridOptions] = useState<string[] | null>(null);
   const [specialtyGridOptions, setSpecialtyGridOptions] = useState<string[] | null>(null);
@@ -361,16 +363,22 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
+      const bodyPayload: Record<string, unknown> = {
+        message: text,
+        history,
+        lang,
+        session_id: sessionId.current,
+        topic_context: topicContext || undefined,
+      };
+      // Attach SDR product selections if present
+      if (pendingSdrSelectionsRef.current) {
+        bodyPayload.product_selections = pendingSdrSelectionsRef.current;
+        pendingSdrSelectionsRef.current = null;
+      }
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          history,
-          lang,
-          session_id: sessionId.current,
-          topic_context: topicContext || undefined,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!resp.ok || !resp.body) {
@@ -1068,6 +1076,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                     setPrinterFlowStep(newStep);
                   }
                 }}
+                onSelection={(sel) => {
+                  pendingSdrSelectionsRef.current = { rota: 3, ...sel };
+                }}
               />
             </div>
           </div>
@@ -1088,9 +1099,13 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 }}
                 onProductSelect={(productName) => {
                   setProductsFlowStep(null);
+                  pendingSdrSelectionsRef.current = { rota: 2, category: productsFlowStep === 'products' ? undefined : undefined, product: productName };
                   const msg = `Quero saber mais sobre ${productName}`;
                   pendingProductRef.current = msg;
                   setInput(msg);
+                }}
+                onCategorySelect={(categoryName) => {
+                  pendingSdrSelectionsRef.current = { rota: 2, category: categoryName };
                 }}
               />
             </div>
@@ -1115,6 +1130,12 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                   else if (commercialFlowStep === 'cad') sel.cad = productName;
                   else if (commercialFlowStep === 'print') sel.printer = productName;
 
+                  // Track SDR selection for Rota 1
+                  const sdrField = commercialFlowStep === 'scan' ? 'scanner' : commercialFlowStep === 'cad' ? 'cad' : commercialFlowStep === 'print' ? 'printer' : undefined;
+                  if (sdrField) {
+                    pendingSdrSelectionsRef.current = { rota: 1, category: sdrField, product: productName };
+                  }
+
                   // Hide cards while AI responds
                   setCommercialFlowStep(null);
 
@@ -1132,6 +1153,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 }}
                 onMultiSelect={(productNames) => {
                   commercialSelectionsRef.current.resins = productNames;
+                  pendingSdrSelectionsRef.current = { rota: 1, category: 'resins', product: productNames.join(', ') };
                   setCommercialFlowStep(null);
 
                   if (commercialFullWorkflow) {

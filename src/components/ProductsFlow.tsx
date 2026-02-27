@@ -28,9 +28,10 @@ interface ProductsFlowProps {
   step: 'category' | 'products';
   onStepChange: (step: 'category' | 'products' | null) => void;
   onProductSelect: (productName: string) => void;
+  onCategorySelect?: (categoryName: string) => void;
 }
 
-export default function ProductsFlow({ step, onStepChange, onProductSelect }: ProductsFlowProps) {
+export default function ProductsFlow({ step, onStepChange, onProductSelect, onCategorySelect }: ProductsFlowProps) {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -98,6 +99,7 @@ export default function ProductsFlow({ step, onStepChange, onProductSelect }: Pr
     setSelectedCategory(categoryName);
     setLoading(true);
     onStepChange('products');
+    onCategorySelect?.(categoryName);
 
     const items: ProductItem[] = [];
 

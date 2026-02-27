@@ -1193,6 +1193,18 @@ export type Database = {
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
           score: number | null
+          sdr_caracterizacao_interesse: string | null
+          sdr_cursos_interesse: string | null
+          sdr_dentistica_interesse: string | null
+          sdr_impressora_interesse: string | null
+          sdr_insumos_lab_interesse: string | null
+          sdr_marca_impressora_param: string | null
+          sdr_modelo_impressora_param: string | null
+          sdr_pos_impressao_interesse: string | null
+          sdr_resina_param: string | null
+          sdr_scanner_interesse: string | null
+          sdr_software_cad_interesse: string | null
+          sdr_solucoes_interesse: string | null
           software_cad: string | null
           source: string
           status_atual_lead_crm: string | null
@@ -1296,6 +1308,18 @@ export type Database = {
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          sdr_caracterizacao_interesse?: string | null
+          sdr_cursos_interesse?: string | null
+          sdr_dentistica_interesse?: string | null
+          sdr_impressora_interesse?: string | null
+          sdr_insumos_lab_interesse?: string | null
+          sdr_marca_impressora_param?: string | null
+          sdr_modelo_impressora_param?: string | null
+          sdr_pos_impressao_interesse?: string | null
+          sdr_resina_param?: string | null
+          sdr_scanner_interesse?: string | null
+          sdr_software_cad_interesse?: string | null
+          sdr_solucoes_interesse?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
@@ -1399,6 +1423,18 @@ export type Database = {
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          sdr_caracterizacao_interesse?: string | null
+          sdr_cursos_interesse?: string | null
+          sdr_dentistica_interesse?: string | null
+          sdr_impressora_interesse?: string | null
+          sdr_insumos_lab_interesse?: string | null
+          sdr_marca_impressora_param?: string | null
+          sdr_modelo_impressora_param?: string | null
+          sdr_pos_impressao_interesse?: string | null
+          sdr_resina_param?: string | null
+          sdr_scanner_interesse?: string | null
+          sdr_software_cad_interesse?: string | null
+          sdr_solucoes_interesse?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
