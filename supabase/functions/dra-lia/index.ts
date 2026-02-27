@@ -956,20 +956,32 @@ const ASK_EMAIL: Record<string, (name: string) => string> = {
 
 // ── AREA / SPECIALTY OPTIONS ─────────────────────────────────────────────────
 const AREA_OPTIONS = [
-  "Clínica Odontológica",
-  "Laboratório de Prótese",
-  "Universidade/Docência",
-  "Indústria/Pesquisa",
-  "Estudante",
+  "RADIOLOGIA ODONTOLÓGICA",
+  "CLÍNICA OU CONSULTÓRIO",
+  "LABORATÓRIO DE PRÓTESE",
+  "PLANNING CENTER",
+  "EMPRESA DE ALINHADORES",
+  "GESTOR DE REDE DE CLÍNICAS",
+  "GESTOR DE FRANQUIAS",
+  "CENTRAL DE IMPRESSÕES",
+  "EDUCAÇÃO",
 ];
 
-const SPECIALTY_MAP: Record<string, string[]> = {
-  "Clínica Odontológica": ["Implantodontia", "Prótese Dentária", "Ortodontia", "Endodontia", "Dentística/Estética", "Clínica Geral", "Cirurgia"],
-  "Laboratório de Prótese": ["Prótese Fixa", "Prótese Removível", "Prótese sobre Implante", "Ortodontia", "Estética"],
-  "Universidade/Docência": ["Implantodontia", "Prótese Dentária", "Ortodontia", "Materiais Dentários", "Cirurgia", "Outras"],
-  "Indústria/Pesquisa": ["P&D", "Controle de Qualidade", "Produção", "Outras"],
-  "Estudante": ["Graduação", "Especialização", "Mestrado/Doutorado"],
-};
+const SPECIALTY_OPTIONS = [
+  "CLÍNICO GERAL",
+  "DENTÍSTICA",
+  "IMPLANTODONTISTA",
+  "PROTESISTA",
+  "ODONTOPEDIATRIA",
+  "ORTODONTISTA",
+  "PERIODONTISTA",
+  "RADIOLOGISTA",
+  "ESTOMATOLOGISTA",
+  "CIRURGIA BUCO MAXILO FACIAL",
+  "TÉCNICO EM RADIOLOGIA",
+  "TÉCNICO EM PRÓTESE ODONTOLÓGICA",
+  "OUTROS",
+];
 
 const ASK_AREA: Record<string, (name: string) => string> = {
   "pt-BR": (name) => `Prazer em te conhecer, ${name}! Agora, para que eu execute uma análise do seu perfil e conecte com nossa base de conhecimento com a sua realidade profissional, preciso saber: qual é sua **área de atuação**?`,
@@ -3073,7 +3085,7 @@ Campos:
         console.warn("[lead-collection] lia_attendances area update failed:", e);
       }
 
-      const specialties = SPECIALTY_MAP[matchedArea] || SPECIALTY_MAP["Clínica Odontológica"];
+      const specialties = SPECIALTY_OPTIONS;
       const specialtyText = (ASK_SPECIALTY[lang] || ASK_SPECIALTY["pt-BR"])(leadState.name, matchedArea);
 
       try {
@@ -3122,7 +3134,7 @@ Campos:
     // 0e. Lead collection: specialty selected → save and show topics
     if (leadState.state === "needs_specialty") {
       const selectedSpecialty = message.trim();
-      const specialties = SPECIALTY_MAP[leadState.area] || [];
+      const specialties = SPECIALTY_OPTIONS;
       const matchedSpecialty = specialties.find(s => s.toLowerCase() === selectedSpecialty.toLowerCase()) || selectedSpecialty;
 
       // Update session entities — clear awaiting flags
