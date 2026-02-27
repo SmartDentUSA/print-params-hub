@@ -1205,6 +1205,9 @@ export type Database = {
           sdr_scanner_interesse: string | null
           sdr_software_cad_interesse: string | null
           sdr_solucoes_interesse: string | null
+          sdr_suporte_descricao: string | null
+          sdr_suporte_equipamento: string | null
+          sdr_suporte_tipo: string | null
           software_cad: string | null
           source: string
           status_atual_lead_crm: string | null
@@ -1320,6 +1323,9 @@ export type Database = {
           sdr_scanner_interesse?: string | null
           sdr_software_cad_interesse?: string | null
           sdr_solucoes_interesse?: string | null
+          sdr_suporte_descricao?: string | null
+          sdr_suporte_equipamento?: string | null
+          sdr_suporte_tipo?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
@@ -1435,6 +1441,9 @@ export type Database = {
           sdr_scanner_interesse?: string | null
           sdr_software_cad_interesse?: string | null
           sdr_solucoes_interesse?: string | null
+          sdr_suporte_descricao?: string | null
+          sdr_suporte_equipamento?: string | null
+          sdr_suporte_tipo?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
