@@ -1,12 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { formatPhoneForWaLeads } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WALEADS_BASE_URL = "https://waleads.roote.com.br";
+
 const MAX_WHATSAPP_LENGTH = 4000;
 const DEDUP_WINDOW_MS = 5000;
 
@@ -328,10 +327,11 @@ Deno.serve(async (req) => {
       waMessage = waMessage.slice(0, MAX_WHATSAPP_LENGTH - 50) + "\n\n... (mensagem completa disponível em nosso site)";
     }
 
-    // 5. Find team_member with waleads_api_key to send reply
+    // 5. Send reply via smart-ops-send-waleads (same path as manual card)
     let replySent = false;
     let teamMemberId: string | null = null;
 
+    // Find team_member_id: first try lead owner, then fallback
     if (leadId) {
       const { data: att } = await supabase
         .from("lia_attendances")
@@ -342,59 +342,64 @@ Deno.serve(async (req) => {
       if (att?.proprietario_lead_crm) {
         const { data: tm } = await supabase
           .from("team_members")
-          .select("id, waleads_api_key")
+          .select("id")
           .ilike("nome_completo", `%${att.proprietario_lead_crm.split(" ")[0]}%`)
           .eq("ativo", true)
           .not("waleads_api_key", "is", null)
           .limit(1)
           .single();
 
-        if (tm?.waleads_api_key) {
-          teamMemberId = tm.id;
-          try {
-            const cleanPhone = formatPhoneForWaLeads(phoneDigits);
-            const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/text?key=${tm.waleads_api_key}`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ chat: cleanPhone, message: waMessage, isGroup: false }),
-            });
-            const waBody = await waRes.text();
-            console.log(`[dra-lia-wa] WaLeads reply status=${waRes.status} body=${waBody.slice(0, 200)}`);
-            replySent = waRes.ok;
-          } catch (e) {
-            console.error("[dra-lia-wa] WaLeads send error:", e);
-          }
-        }
+        if (tm) teamMemberId = tm.id;
       }
     }
 
-    // Fallback: use any active team member with waleads_api_key
-    if (!replySent) {
+    if (!teamMemberId) {
       const { data: fallbackTm } = await supabase
         .from("team_members")
-        .select("id, waleads_api_key")
+        .select("id")
         .eq("ativo", true)
         .not("waleads_api_key", "is", null)
         .limit(1)
         .single();
 
-      if (fallbackTm?.waleads_api_key) {
+      if (fallbackTm) {
         teamMemberId = fallbackTm.id;
-        try {
-          const cleanPhone = formatPhoneForWaLeads(phoneDigits);
-          const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/text?key=${fallbackTm.waleads_api_key}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat: cleanPhone, message: waMessage, isGroup: false }),
-          });
-          const waBody = await waRes.text();
-          console.log(`[dra-lia-wa] WaLeads fallback reply status=${waRes.status} body=${waBody.slice(0, 200)}`);
-          replySent = waRes.ok;
-        } catch (e) {
-          console.error("[dra-lia-wa] WaLeads fallback send error:", e);
-        }
       } else {
         console.warn("[dra-lia-wa] No team member with waleads_api_key found — reply NOT sent");
+      }
+    }
+
+    // Call smart-ops-send-waleads internally (same code path as the manual card)
+    if (teamMemberId) {
+      try {
+        const sendUrl = `${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`;
+        const sendRes = await fetch(sendUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            team_member_id: teamMemberId,
+            phone: phoneDigits,
+            message: waMessage,
+            lead_id: leadId,
+            tipo: "text",
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+
+        const sendBody = await sendRes.text();
+        console.log(`[dra-lia-wa] send-waleads status=${sendRes.status} body=${sendBody.slice(0, 300)}`);
+
+        try {
+          const parsed = JSON.parse(sendBody);
+          replySent = parsed.success === true;
+        } catch {
+          replySent = sendRes.ok;
+        }
+      } catch (e) {
+        console.error("[dra-lia-wa] send-waleads call error:", e);
       }
     }
 
