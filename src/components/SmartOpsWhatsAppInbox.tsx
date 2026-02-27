@@ -31,6 +31,7 @@ interface InboxMessage {
 
 interface Conversation {
   phone_normalized: string;
+  phone_raw: string;
   last_message: string;
   last_at: string;
   lead_name: string | null;
@@ -96,6 +97,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       if (!map.has(key)) {
         map.set(key, {
           phone_normalized: key,
+          phone_raw: msg.phone,
           last_message: msg.message_text || `[${msg.direction}]`,
           last_at: msg.created_at,
           lead_name: null,
@@ -163,7 +165,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       const { error } = await supabase.functions.invoke("smart-ops-send-waleads", {
         body: {
           team_member_id: selectedMember,
-          phone: selectedPhone,
+          phone: conv?.phone_raw || selectedPhone,
           tipo: "text",
           message: replyText,
           lead_id: conv?.lead_id || null,
