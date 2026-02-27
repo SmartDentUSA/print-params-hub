@@ -745,7 +745,22 @@ export function SmartOpsLeadsList() {
                 { label: "IP Origem", value: selectedLead.ip_origem },
               ]} />
 
-              <DetailSection title="Equipamentos" fields={[
+              <DetailSection title="Soluções de interesse" fields={[
+                { label: "🔵 Scanner (Rota 1/2)", value: (selectedLead as Record<string, unknown>).sdr_scanner_interesse as string },
+                { label: "🔵 Impressora (Rota 1/2)", value: (selectedLead as Record<string, unknown>).sdr_impressora_interesse as string },
+                { label: "🔵 Software CAD (Rota 1/2)", value: (selectedLead as Record<string, unknown>).sdr_software_cad_interesse as string },
+                { label: "🟢 Caracterização", value: (selectedLead as Record<string, unknown>).sdr_caracterizacao_interesse as string },
+                { label: "🟢 Cursos", value: (selectedLead as Record<string, unknown>).sdr_cursos_interesse as string },
+                { label: "🟢 Dentística/Estética", value: (selectedLead as Record<string, unknown>).sdr_dentistica_interesse as string },
+                { label: "🟢 Insumos Lab", value: (selectedLead as Record<string, unknown>).sdr_insumos_lab_interesse as string },
+                { label: "🟢 Pós-impressão", value: (selectedLead as Record<string, unknown>).sdr_pos_impressao_interesse as string },
+                { label: "🟢 Soluções", value: (selectedLead as Record<string, unknown>).sdr_solucoes_interesse as string },
+                { label: "🟠 Marca param.", value: (selectedLead as Record<string, unknown>).sdr_marca_impressora_param as string },
+                { label: "🟠 Modelo param.", value: (selectedLead as Record<string, unknown>).sdr_modelo_impressora_param as string },
+                { label: "🟠 Resina param.", value: (selectedLead as Record<string, unknown>).sdr_resina_param as string },
+              ]} />
+
+              <DetailSection title="Equipamentos (legado)" fields={[
                 { label: "Tem impressora", value: selectedLead.tem_impressora },
                 { label: "Modelo impressora", value: selectedLead.impressora_modelo },
                 { label: "Software CAD", value: selectedLead.software_cad },
