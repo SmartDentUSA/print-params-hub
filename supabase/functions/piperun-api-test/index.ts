@@ -50,7 +50,14 @@ Deno.serve(async (req) => {
         fetchMethod = "PUT";
         fetchBody = JSON.stringify(reqBody || {});
         break;
+      case "raw_post":
+        if (!path) throw new Error("path required for raw_post");
+        url = `${base}/v1/${path.replace(/^\/+/, "")}?token=${PIPERUN_API_KEY}`;
+        fetchMethod = "POST";
+        fetchBody = JSON.stringify(reqBody || {});
+        break;
       default:
+        throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get, raw_put, raw_post`);
         throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get, raw_put`);
     }
 
