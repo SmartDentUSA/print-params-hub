@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Extract fields with flexible mapping ───
-    const { phone, messageText, senderName } = extractFields(body);
+    const { phone, messageText, senderName, lastMessageDate } = extractFields(body);
 
     // Warn about unresolved template variables but continue processing
     if (messageText.includes("{{") || phone.includes("{{") || senderName.includes("{{")) {
