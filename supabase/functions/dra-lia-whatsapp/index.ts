@@ -34,7 +34,7 @@ function stripWaSuffix(raw: string): string {
 }
 
 // ── Extract fields from flexible payload shapes ───
-function extractFields(body: Record<string, unknown>): { phone: string; messageText: string; senderName: string } {
+function extractFields(body: Record<string, unknown>): { phone: string; messageText: string; senderName: string; lastMessageDate: string | null } {
   const nested = (body.data || body.contact || {}) as Record<string, unknown>;
   const customer = (body.customer || {}) as Record<string, unknown>;
   const combined = (body.combinedCardCustomer || {}) as Record<string, unknown>;
@@ -56,7 +56,11 @@ function extractFields(body: Record<string, unknown>): { phone: string; messageT
     body.pushName || customer.name || nested.name || nested.pushName || ""
   );
 
-  return { phone, messageText, senderName };
+  // Extract lastMessageDate for recency filter
+  const rawDate = combined.lastMessageDate || body.lastMessageDate || nested.lastMessageDate || null;
+  const lastMessageDate = rawDate ? String(rawDate) : null;
+
+  return { phone, messageText, senderName, lastMessageDate };
 }
 
 // ── Check if message should be ignored (anti-loop) ───
