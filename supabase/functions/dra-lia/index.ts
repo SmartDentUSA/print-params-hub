@@ -2606,7 +2606,7 @@ Campos:
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections } = await req.json();
     const session_id = rawSessionId || crypto.randomUUID();
 
     // ── RATE LIMITING ─────────────────────────────────────────────
