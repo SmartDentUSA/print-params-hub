@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { replaceVariables, sendViaSellFlux, mergeTagsCrm } from "../_shared/sellflux-field-map.ts";
+import { replaceVariables, sendViaSellFlux, mergeTagsCrm, formatPhoneForWaLeads } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
 
             try {
               const leadRecord = lead as Record<string, unknown>;
-              const chatPhone = lead.telefone_normalized || "";
+              const chatPhone = formatPhoneForWaLeads(lead.telefone_normalized || "");
               let apiBody: Record<string, unknown>;
 
               if (waleadsTipo === "text") {

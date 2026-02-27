@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { replaceVariables, sendViaSellFlux } from "../_shared/sellflux-field-map.ts";
+import { replaceVariables, sendViaSellFlux, formatPhoneForWaLeads } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
     const finalMessage = message ? replaceVariables(message, leadData) : undefined;
     const finalCaption = caption ? replaceVariables(caption, leadData) : undefined;
 
-    // Sanitize phone: remove + prefix (WaLeads API rejects it)
-    const cleanPhone = phone.replace(/^\+/, '');
+    // Sanitize phone: digits only, ensure country code
+    const cleanPhone = formatPhoneForWaLeads(phone);
 
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {
