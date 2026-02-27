@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const WALEADS_BASE_URL = "https://waleads.roote.com.br";
+
 const MAX_WHATSAPP_LENGTH = 4000;
 const DEDUP_WINDOW_MS = 5000;
 
