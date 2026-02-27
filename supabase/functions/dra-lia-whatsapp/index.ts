@@ -205,11 +205,43 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── Recency filter: ignore stale messages (lastMessageDate > 2 min ago) ───
+    if (lastMessageDate) {
+      const msgTime = new Date(lastMessageDate).getTime();
+      if (!isNaN(msgTime)) {
+        const ageMs = Date.now() - msgTime;
+        if (ageMs > STALE_MESSAGE_MS) {
+          console.log(`[dra-lia-wa] Stale message: lastMessageDate ${lastMessageDate} is ${Math.round(ageMs / 1000)}s old — ignoring`);
+          return new Response(JSON.stringify({ ignored: true, reason: "stale_message", age_seconds: Math.round(ageMs / 1000) }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     const phoneDigits = phone.replace(/\D/g, "");
     const phoneSuffix = normalizePhoneForMatch(phone);
     console.log(`[dra-lia-wa] Received: phone=${phoneDigits} msg="${messageText.slice(0, 80)}"`);
 
-    // ── Deduplication: check recent outbound for same phone ───
+    // ── Content dedup: check if same phone+message already processed in last 5 min ───
+    const fiveMinAgo = new Date(Date.now() - DEDUP_CONTENT_MINUTES * 60 * 1000).toISOString();
+    const { data: recentInbound } = await supabase
+      .from("whatsapp_inbox")
+      .select("id")
+      .eq("phone_normalized", phoneSuffix)
+      .eq("message_text", messageText)
+      .eq("direction", "inbound")
+      .gte("created_at", fiveMinAgo)
+      .limit(1);
+
+    if (recentInbound && recentInbound.length > 0) {
+      console.log(`[dra-lia-wa] Duplicate content: same phone+message found in last ${DEDUP_CONTENT_MINUTES}min — ignoring`);
+      return new Response(JSON.stringify({ ignored: true, reason: "duplicate_content" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Outbound dedup: check recent outbound for same phone ───
     const { data: recentOutbound } = await supabase
       .from("whatsapp_inbox")
       .select("id, created_at")
@@ -220,7 +252,7 @@ Deno.serve(async (req) => {
 
     if (recentOutbound && recentOutbound.length > 0) {
       const lastOutAt = new Date(recentOutbound[0].created_at).getTime();
-      if (Date.now() - lastOutAt < DEDUP_WINDOW_MS) {
+      if (Date.now() - lastOutAt < DEDUP_OUTBOUND_MS) {
         console.log(`[dra-lia-wa] Dedup: last outbound ${Date.now() - lastOutAt}ms ago — skipping`);
         return new Response(JSON.stringify({ ignored: true, reason: "dedup_window" }), {
           status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
