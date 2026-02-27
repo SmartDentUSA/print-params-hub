@@ -121,7 +121,11 @@ Deno.serve(async (req) => {
       if (finalCaption) apiBody.caption = finalCaption;
     }
 
-    console.log(`[send-waleads] WaLeads: ${tipo} to ${cleanPhone} via ${member.nome_completo}`, { test_mode });
+    console.log(`[send-waleads] WaLeads: ${tipo} to ${cleanPhone} via ${member.nome_completo}`, {
+      test_mode,
+      apiBody,
+      message_preview: (finalMessage || finalCaption || "").slice(0, 100),
+    });
 
     const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/${tipo}?key=${member.waleads_api_key}`, {
       method: "POST",
@@ -130,6 +134,7 @@ Deno.serve(async (req) => {
     });
 
     const waData = await waRes.text();
+    console.log(`[send-waleads] WaLeads response: status=${waRes.status} body=${waData.slice(0, 300)}`);
     const messageStatus = waRes.ok ? "enviado" : "erro";
     const errorDetails = waRes.ok ? null : waData.slice(0, 500);
 
@@ -154,7 +159,7 @@ Deno.serve(async (req) => {
       response: waData.slice(0, 500),
       test_mode,
     }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: waRes.ok ? 200 : waRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[send-waleads] Error:", err);
