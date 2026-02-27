@@ -197,3 +197,9 @@ verify_jwt = false
 
 [functions.smart-ops-wa-inbox-webhook]
 verify_jwt = false
+
+[functions.sync-astron-members]
+verify_jwt = false
+
+[functions.astron-member-lookup]
+verify_jwt = false
