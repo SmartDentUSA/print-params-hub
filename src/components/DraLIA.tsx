@@ -1124,6 +1124,48 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           </div>
         )}
 
+        {/* Support equipment flow (Rota 4) */}
+        {supportFlowActive && topicContext === 'support' && !isLoading && (
+          <div className="flex justify-start">
+            <div className="max-w-[95%] w-full">
+              <div className="text-xs text-gray-500 mb-2 font-medium">Selecione o equipamento:</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'ESCANER_INTRA_ORAL', emoji: '🔍', label: 'Escâner Intra Oral' },
+                  { id: 'ESCANER_DE_BANCADA', emoji: '🔬', label: 'Escâner de Bancada' },
+                  { id: 'IMPRESSORA_3D', emoji: '🖨️', label: 'Impressora 3D' },
+                  { id: 'NOTEBOOK', emoji: '💻', label: 'Notebook' },
+                  { id: 'CHAMA_ATENDENTE', emoji: '👤', label: 'Chama Atendente' },
+                ].map((equip) => (
+                  <button
+                    key={equip.id}
+                    onClick={() => {
+                      setSupportFlowActive(false);
+                      pendingSdrSelectionsRef.current = { rota: 4, category: equip.id };
+                      if (equip.id === 'CHAMA_ATENDENTE') {
+                        const msg = 'Preciso falar com um atendente humano, por favor.';
+                        pendingProductRef.current = msg;
+                        setInput(msg);
+                      } else {
+                        const msg = `Preciso de suporte com ${equip.label}`;
+                        pendingProductRef.current = msg;
+                        setInput(msg);
+                      }
+                    }}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-center text-xs shadow-sm"
+                    style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#1e3a5f')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+                  >
+                    <span className="text-xl mb-1">{equip.emoji}</span>
+                    <span className="font-semibold text-gray-800 leading-tight">{equip.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Commercial guided flow */}
         {commercialFlowStep && topicContext === 'commercial' && (
           <div className="flex justify-start">

@@ -758,6 +758,9 @@ export function SmartOpsLeadsList() {
                 { label: "🟠 Marca param.", value: (selectedLead as Record<string, unknown>).sdr_marca_impressora_param as string },
                 { label: "🟠 Modelo param.", value: (selectedLead as Record<string, unknown>).sdr_modelo_impressora_param as string },
                 { label: "🟠 Resina param.", value: (selectedLead as Record<string, unknown>).sdr_resina_param as string },
+                { label: "🔴 Suporte Equipamento (Rota 4)", value: (selectedLead as Record<string, unknown>).sdr_suporte_equipamento as string },
+                { label: "🔴 Tipo Suporte", value: (selectedLead as Record<string, unknown>).sdr_suporte_tipo as string },
+                { label: "🔴 Descrição Suporte", value: (selectedLead as Record<string, unknown>).sdr_suporte_descricao as string },
               ]} />
 
               <DetailSection title="Equipamentos (legado)" fields={[
