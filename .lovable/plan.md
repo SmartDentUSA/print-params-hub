@@ -1,20 +1,39 @@
 
 
-## Plano: Deploy e teste da função corrigida
+## Analise do Screenshot
 
-### Passo 1: Deploy da edge function corrigida
-A função `dra-lia-whatsapp` já foi editada com as correções (template detection, expanded field mapping, timestamp no email), mas precisa ser deployada para que as mudanças entrem em vigor.
+O webhook do ChatCenter ja esta configurado apontando para a edge function (`https://okeogjgqijbfkudfjadz.supabase.co/fu...`). Porem, os logs confirmam o problema:
 
-### Passo 2: Teste via curl simulando payload
-Enviar chamada de teste com payload real para confirmar que a função está respondendo corretamente.
+```
+Body keys: phone, message, name
+Unresolved template variables detected { phone: "{{phone}}", message: "{{message}}", senderName: "{{name}}" }
+```
 
-### Passo 3: Orientação para o usuário
-Após deploy, o usuário deve:
-1. Enviar outra mensagem de WhatsApp para o número do atendente
-2. Verificar nos logs se agora aparece `Body keys:` mostrando os campos reais do WaLeads
-3. Se retornar 422 com `template_variables_not_resolved`, o campo `received_body` mostrará o payload exato — com isso saberemos os nomes corretos das variáveis para configurar no Body do webhook
+O ChatCenter esta enviando `{{phone}}`, `{{message}}`, `{{name}}` como texto literal — as variaveis nao estao sendo resolvidas. Isso significa que o ChatCenter **nao suporta interpolacao de variaveis no body do webhook** ou a sintaxe esta incorreta.
 
-### Detalhes técnicos
-- Nenhuma alteração de código necessária — a função já foi corrigida na mensagem anterior
-- Apenas deploy + teste + ajuste na config do WaLeads
+## Diagnostico
+
+O webhook do ChatCenter provavelmente envia o payload automatico com os dados da mensagem em campos fixos (nao configuráveis). A funcao atual rejeita tudo por causa do check de `{{`.
+
+## Plano de implementacao
+
+### Modificar `supabase/functions/dra-lia-whatsapp/index.ts`
+
+1. **Remover rejeicao de template variables** — substituir por warning no log e continuar processamento
+2. **Adicionar modo debug** — query param `?debug=true` que loga o body completo e retorna 200 sem processar, para descobrir os campos reais do ChatCenter
+3. **Adicionar protecao anti-loop**:
+   - Ignorar `fromMe === true` / `isFromMe === true`
+   - Ignorar `isGroup === true`
+   - Deduplicacao: checar ultima mensagem outbound no `whatsapp_inbox` para mesmo telefone nos ultimos 5 segundos
+4. **Expandir mapeamento de campos** para cobrir payloads do ChatCenter:
+   - `body.contact?.phone`, `body.data?.phone`, `body.chatId`
+   - `body.data?.message`, `body.data?.text`, `body.lastMessage`
+   - `body.contact?.name`, `body.data?.name`, `body.pushName`
+
+### Fluxo de teste
+
+1. Deploy da funcao com modo debug
+2. Voce envia mensagem de teste pelo WhatsApp → ChatCenter dispara webhook
+3. Verificamos os logs para ver o payload real (campos e estrutura)
+4. Ajustamos o mapeamento final conforme necessario
 
