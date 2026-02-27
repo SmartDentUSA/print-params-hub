@@ -13,6 +13,7 @@ import { SmartOpsLogs } from "./SmartOpsLogs";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
+import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
