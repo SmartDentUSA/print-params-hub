@@ -557,6 +557,15 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       return;
     }
 
+    // Support topic — show equipment selection buttons (Rota 4)
+    if (opt.id === 'support') {
+      setTopicSelected(true);
+      setTopicContext(opt.id);
+      sessionStorage.setItem('dra_lia_topic_context', opt.id);
+      setSupportFlowActive(true);
+      return;
+    }
+
     // Commercial topic — send greeting, then show qualify buttons after AI responds
     if (opt.id === 'commercial') {
       setTopicSelected(true);
