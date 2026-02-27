@@ -453,6 +453,273 @@ function DetailSection({ title, fields }: { title: string; fields: { label: stri
   );
 }
 
+const STATUS_EDIT_OPTIONS = ["novo", "sem_contato", "contato_feito", "em_contato", "apresentacao", "proposta_enviada", "negociacao", "fechamento", "ganho", "perdido"];
+const TEMP_EDIT_OPTIONS = ["quente", "morno", "frio"];
+const OPORTUNIDADE_OPTIONS = ["aberta", "ganha", "perdida"];
+const TREINAMENTO_OPTIONS = ["pendente", "agendado", "concluido"];
+
+function LeadDetailDialog({ lead, onClose, onSaved }: {
+  lead: LeadFull | null;
+  onClose: () => void;
+  onSaved: (updated: LeadFull) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, unknown>>({});
+  const [saving, setSaving] = useState(false);
+
+  const handleFieldChange = (key: string, value: unknown) => {
+    setEditValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!lead) return;
+    setSaving(true);
+    try {
+      const updates: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(editValues)) {
+        updates[key] = value;
+      }
+      const { error } = await supabase
+        .from("lia_attendances")
+        .update(updates)
+        .eq("id", lead.id);
+      if (error) throw error;
+      toast.success("Lead atualizado com sucesso");
+      onSaved({ ...lead, ...updates } as LeadFull);
+      setEditing(false);
+      setEditValues({});
+    } catch (err) {
+      toast.error(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditing(false);
+    setEditValues({});
+  };
+
+  if (!lead) return null;
+
+  return (
+    <Dialog open={!!lead} onOpenChange={(open) => { if (!open) { handleCancel(); onClose(); } }}>
+      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Detalhes — {lead.nome}</DialogTitle>
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <Button size="sm" variant="outline" onClick={handleCancel} disabled={saving}>
+                    <X className="w-4 h-4 mr-1" /> Cancelar
+                  </Button>
+                  <Button size="sm" onClick={handleSave} disabled={saving}>
+                    <Save className="w-4 h-4 mr-1" /> {saving ? "Salvando..." : "Salvar"}
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                  <Pencil className="w-4 h-4 mr-1" /> Editar
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* AI Summary */}
+          {(lead.resumo_historico_ia || editing) && (
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Brain className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-primary">Resumo IA do Histórico</span>
+              </div>
+              {editing ? (
+                <Input className="text-sm" value={editValues.resumo_historico_ia != null ? String(editValues.resumo_historico_ia) : (lead.resumo_historico_ia || "")} onChange={(e) => handleFieldChange("resumo_historico_ia", e.target.value || null)} />
+              ) : (
+                <p className="text-sm">{lead.resumo_historico_ia}</p>
+              )}
+            </div>
+          )}
+
+          {/* Cognitive Analysis */}
+          {lead.lead_stage_detected && (
+            <div className="p-3 rounded-lg bg-accent/30 border border-accent">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-primary">Análise Cognitiva</span>
+                {lead.confidence_score_analysis != null && (
+                  <Badge variant="outline" className="text-[9px] ml-auto">Confiança: {lead.confidence_score_analysis}%</Badge>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><span className="text-muted-foreground">Estágio:</span> <StageBadge stage={lead.lead_stage_detected} /></div>
+                <div><span className="text-muted-foreground">Urgência:</span> <UrgencyIcon urgency={lead.urgency_level} /> {lead.urgency_level}</div>
+                <div><span className="text-muted-foreground">Timeline:</span> {lead.interest_timeline || "—"}</div>
+                <div><span className="text-muted-foreground">Perfil:</span> {lead.psychological_profile || "—"}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Motivação:</span> {lead.primary_motivation || "—"}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Risco objeção:</span> {lead.objection_risk || "—"}</div>
+                <div className="col-span-2 p-2 rounded bg-muted/50 border"><span className="text-muted-foreground font-semibold">Abordagem:</span> {lead.recommended_approach || "—"}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Journey Visualizer */}
+          {lead.tags_crm && lead.tags_crm.some((t) => t.startsWith("J0")) && (
+            <div className="p-3 rounded-lg bg-muted/30 border">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Route className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Jornada do Cliente</span>
+              </div>
+              <JourneyVisualizer tags={lead.tags_crm} />
+            </div>
+          )}
+
+          {/* Route + badges */}
+          <div className="flex gap-2 flex-wrap">
+            {lead.rota_inicial_lia && (
+              <Badge variant="secondary" className="gap-1">
+                <Route className="w-3 h-3" />
+                Rota: {ROUTE_LABELS[lead.rota_inicial_lia] || lead.rota_inicial_lia}
+              </Badge>
+            )}
+            {lead.temperatura_lead && <TempBadge temp={lead.temperatura_lead} />}
+            {lead.especialidade && (
+              <Badge variant="outline">Especialidade: {lead.especialidade}</Badge>
+            )}
+          </div>
+
+          {/* TAGs Section */}
+          {lead.tags_crm && lead.tags_crm.length > 0 && (
+            <div className="p-3 rounded-lg bg-muted/20 border">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Tag className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase">TAGs ({lead.tags_crm.length})</span>
+              </div>
+              <TagsBadges tags={lead.tags_crm} />
+            </div>
+          )}
+
+          {/* Editable Sections */}
+          <EditableDetailSection title="Dados Pessoais" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Nome", value: lead.nome, fieldKey: "nome" },
+            { label: "Email", value: lead.email, fieldKey: "email" },
+            { label: "Telefone Raw", value: lead.telefone_raw, fieldKey: "telefone_raw" },
+            { label: "Telefone Normalizado", value: lead.telefone_normalized, fieldKey: "telefone_normalized" },
+            { label: "Cidade", value: lead.cidade, fieldKey: "cidade" },
+            { label: "UF", value: lead.uf, fieldKey: "uf" },
+            { label: "País", value: lead.pais_origem, fieldKey: "pais_origem" },
+            { label: "Área de atuação", value: lead.area_atuacao, fieldKey: "area_atuacao" },
+            { label: "Especialidade", value: lead.especialidade, fieldKey: "especialidade" },
+            { label: "Aplicação principal", value: lead.principal_aplicacao, fieldKey: "principal_aplicacao" },
+          ]} />
+
+          <EditableDetailSection title="Comercial" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Status Lead", value: lead.lead_status, fieldKey: "lead_status", type: "select", options: STATUS_EDIT_OPTIONS },
+            { label: "Temperatura", value: lead.temperatura_lead, fieldKey: "temperatura_lead", type: "select", options: TEMP_EDIT_OPTIONS },
+            { label: "Produto de Interesse", value: lead.produto_interesse, fieldKey: "produto_interesse" },
+            { label: "Resina de Interesse", value: lead.resina_interesse, fieldKey: "resina_interesse" },
+            { label: "Score", value: lead.score, fieldKey: "score", type: "number" },
+            { label: "Valor Oportunidade", value: lead.valor_oportunidade, fieldKey: "valor_oportunidade", type: "number" },
+            { label: "Status Oportunidade", value: lead.status_oportunidade, fieldKey: "status_oportunidade", type: "select", options: OPORTUNIDADE_OPTIONS },
+            { label: "Última Etapa Comercial", value: lead.ultima_etapa_comercial, fieldKey: "ultima_etapa_comercial" },
+            { label: "Motivo Perda", value: lead.motivo_perda, fieldKey: "motivo_perda" },
+            { label: "Comentário Perda", value: lead.comentario_perda, fieldKey: "comentario_perda" },
+            { label: "Reunião Agendada", value: lead.reuniao_agendada, fieldKey: "reuniao_agendada", type: "boolean" },
+          ]} />
+
+          <EditableDetailSection title="CRM / PipeRun" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "PipeRun ID", value: lead.piperun_id, fieldKey: "piperun_id" },
+            { label: "PipeRun Link", value: lead.piperun_link, fieldKey: "piperun_link" },
+            { label: "Proprietário", value: lead.proprietario_lead_crm, fieldKey: "proprietario_lead_crm" },
+            { label: "Status CRM", value: lead.status_atual_lead_crm, fieldKey: "status_atual_lead_crm" },
+            { label: "Funil", value: lead.funil_entrada_crm, fieldKey: "funil_entrada_crm" },
+            { label: "Itens Proposta", value: lead.itens_proposta_crm, fieldKey: "itens_proposta_crm" },
+            { label: "Data Fechamento CRM", value: lead.data_fechamento_crm, fieldKey: "data_fechamento_crm" },
+          ]} />
+          {!editing && <ProposalItemsDisplay raw={lead.itens_proposta_crm} />}
+
+          <EditableDetailSection title="Equipamentos / Técnico" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Tem impressora", value: lead.tem_impressora, fieldKey: "tem_impressora" },
+            { label: "Modelo impressora", value: lead.impressora_modelo, fieldKey: "impressora_modelo" },
+            { label: "Software CAD", value: lead.software_cad, fieldKey: "software_cad" },
+            { label: "Como digitaliza", value: lead.como_digitaliza, fieldKey: "como_digitaliza" },
+            { label: "Tem scanner", value: lead.tem_scanner, fieldKey: "tem_scanner" },
+            { label: "Volume mensal peças", value: lead.volume_mensal_pecas, fieldKey: "volume_mensal_pecas" },
+          ]} />
+
+          <EditableDetailSection title="Soluções de Interesse (SDR)" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Scanner", value: (lead as Record<string, unknown>).sdr_scanner_interesse, fieldKey: "sdr_scanner_interesse" },
+            { label: "Impressora", value: (lead as Record<string, unknown>).sdr_impressora_interesse, fieldKey: "sdr_impressora_interesse" },
+            { label: "Software CAD", value: (lead as Record<string, unknown>).sdr_software_cad_interesse, fieldKey: "sdr_software_cad_interesse" },
+            { label: "Caracterização", value: (lead as Record<string, unknown>).sdr_caracterizacao_interesse, fieldKey: "sdr_caracterizacao_interesse" },
+            { label: "Cursos", value: (lead as Record<string, unknown>).sdr_cursos_interesse, fieldKey: "sdr_cursos_interesse" },
+            { label: "Dentística", value: (lead as Record<string, unknown>).sdr_dentistica_interesse, fieldKey: "sdr_dentistica_interesse" },
+            { label: "Insumos Lab", value: (lead as Record<string, unknown>).sdr_insumos_lab_interesse, fieldKey: "sdr_insumos_lab_interesse" },
+            { label: "Pós-impressão", value: (lead as Record<string, unknown>).sdr_pos_impressao_interesse, fieldKey: "sdr_pos_impressao_interesse" },
+            { label: "Soluções", value: (lead as Record<string, unknown>).sdr_solucoes_interesse, fieldKey: "sdr_solucoes_interesse" },
+            { label: "Marca param.", value: (lead as Record<string, unknown>).sdr_marca_impressora_param, fieldKey: "sdr_marca_impressora_param" },
+            { label: "Modelo param.", value: (lead as Record<string, unknown>).sdr_modelo_impressora_param, fieldKey: "sdr_modelo_impressora_param" },
+            { label: "Resina param.", value: (lead as Record<string, unknown>).sdr_resina_param, fieldKey: "sdr_resina_param" },
+            { label: "Suporte Equipamento", value: (lead as Record<string, unknown>).sdr_suporte_equipamento, fieldKey: "sdr_suporte_equipamento" },
+            { label: "Tipo Suporte", value: (lead as Record<string, unknown>).sdr_suporte_tipo, fieldKey: "sdr_suporte_tipo" },
+            { label: "Descrição Suporte", value: (lead as Record<string, unknown>).sdr_suporte_descricao, fieldKey: "sdr_suporte_descricao" },
+          ]} />
+
+          <EditableDetailSection title="Campanha / UTM" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Source", value: lead.source, fieldKey: "source" },
+            { label: "Form Name", value: lead.form_name, fieldKey: "form_name" },
+            { label: "Origem Campanha", value: lead.origem_campanha, fieldKey: "origem_campanha" },
+            { label: "utm_source", value: lead.utm_source, fieldKey: "utm_source" },
+            { label: "utm_medium", value: lead.utm_medium, fieldKey: "utm_medium" },
+            { label: "utm_campaign", value: lead.utm_campaign, fieldKey: "utm_campaign" },
+            { label: "utm_term", value: lead.utm_term, fieldKey: "utm_term" },
+            { label: "IP Origem", value: lead.ip_origem, fieldKey: "ip_origem" },
+          ]} />
+
+          <EditableDetailSection title="IA / LIA" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Rota Inicial LIA", value: lead.rota_inicial_lia, fieldKey: "rota_inicial_lia" },
+            { label: "ID Cliente Smart", value: lead.id_cliente_smart, fieldKey: "id_cliente_smart" },
+            { label: "CS Treinamento", value: lead.cs_treinamento, fieldKey: "cs_treinamento", type: "select", options: TREINAMENTO_OPTIONS },
+            { label: "Proativo enviado em", value: lead.proactive_sent_at ? formatDateTime(lead.proactive_sent_at) : null },
+            { label: "Proativos enviados", value: lead.proactive_count },
+          ]} />
+
+          <EditableDetailSection title="Ativos (Produtos)" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            ...PRODUCT_FLAGS.map((p) => ({
+              label: `Ativo ${p.replace("_", " ").toUpperCase()}`,
+              value: lead[`ativo_${p}`],
+              fieldKey: `ativo_${p}`,
+              type: "boolean" as const,
+            })),
+          ]} />
+
+          <EditableDetailSection title="Datas" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+            { label: "Criado em", value: formatDateTime(lead.created_at) },
+            { label: "Atualizado em", value: formatDateTime(lead.updated_at) },
+            { label: "1º Contato", value: lead.data_primeiro_contato ? formatDateTime(lead.data_primeiro_contato) : null },
+            { label: "Data Contrato", value: lead.data_contrato ? formatDate(lead.data_contrato) : null },
+            { label: "Lead Timing (dias)", value: lead.lead_timing_dias, fieldKey: "lead_timing_dias", type: "number" },
+          ]} />
+
+          {/* Astron Section */}
+          <EditableDetailSection title="Astron (EAD)" editing={false} editValues={{}} onFieldChange={() => {}} fields={[
+            { label: "Status", value: (lead as Record<string, unknown>).astron_status },
+            { label: "Nome", value: (lead as Record<string, unknown>).astron_nome },
+            { label: "Email", value: (lead as Record<string, unknown>).astron_email },
+            { label: "Planos ativos", value: (lead as Record<string, unknown>).astron_plans_active ? ((lead as Record<string, unknown>).astron_plans_active as string[]).join(", ") : null },
+            { label: "Cursos completados", value: (lead as Record<string, unknown>).astron_courses_completed },
+            { label: "Total cursos", value: (lead as Record<string, unknown>).astron_courses_total },
+            { label: "Último login", value: (lead as Record<string, unknown>).astron_last_login_at ? formatDateTime(String((lead as Record<string, unknown>).astron_last_login_at)) : null },
+            { label: "Sincronizado em", value: (lead as Record<string, unknown>).astron_synced_at ? formatDateTime(String((lead as Record<string, unknown>).astron_synced_at)) : null },
+          ]} />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function SmartOpsLeadsList() {
   const [leads, setLeads] = useState<LeadFull[]>([]);
   const [loading, setLoading] = useState(true);
