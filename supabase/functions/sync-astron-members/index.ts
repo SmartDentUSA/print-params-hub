@@ -10,8 +10,8 @@ const ASTRON_BASE = "https://api.astronmembers.com.br";
 
 /* ─── Astron API helper ─── */
 async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
-  const amKey = Deno.env.get("ASTRON_AM_SECRET")!;   // swapped: SECRET env has the key ID
-  const amSecret = Deno.env.get("ASTRON_AM_KEY")!;   // swapped: KEY env has the secret
+  const amKey = Deno.env.get("ASTRON_AM_KEY")!;
+  const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
 
   // Build query params with auth
   const qp: Record<string, string> = {
