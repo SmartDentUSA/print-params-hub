@@ -305,6 +305,8 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   // Printer guided flow state
   const [printerFlowStep, setPrinterFlowStep] = useState<'brand' | 'model' | 'resin' | null>(null);
+  // Support equipment flow state (Rota 4)
+  const [supportFlowActive, setSupportFlowActive] = useState(false);
   // Products guided flow state
   const [productsFlowStep, setProductsFlowStep] = useState<'category' | 'products' | null>(null);
   // Commercial guided flow state
