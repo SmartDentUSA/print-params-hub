@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
       const updatePayload: Record<string, unknown> = {
         stage_id,
         owner_id: assignedOwnerId,
-        origin: "dra-lia",
+        origin_id: ORIGINS.DRA_LIA.id,
         ...hashFields,
       };
 
