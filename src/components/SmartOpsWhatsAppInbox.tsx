@@ -31,6 +31,7 @@ interface InboxMessage {
 
 interface Conversation {
   phone_normalized: string;
+  phone_raw: string;
   last_message: string;
   last_at: string;
   lead_name: string | null;
