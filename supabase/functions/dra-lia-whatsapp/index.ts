@@ -352,7 +352,7 @@ Deno.serve(async (req) => {
         if (tm?.waleads_api_key) {
           teamMemberId = tm.id;
           try {
-            const cleanPhone = phoneDigits.replace(/^\+/, "");
+            const cleanPhone = formatPhoneForWaLeads(phoneDigits);
             const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/text?key=${tm.waleads_api_key}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
