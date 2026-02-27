@@ -3210,6 +3210,53 @@ Campos:
       currentLeadId = leadState.leadId;
     }
 
+    // ── SDR: Persist product_selections to sdr_* fields ──────────────────
+    if (product_selections && currentLeadId) {
+      const sdrUpdates: Record<string, string> = {};
+      const ps = product_selections as { rota?: number; category?: string; product?: string; brand?: string; model?: string; resin?: string };
+      
+      if (ps.rota === 1) {
+        if (ps.category === 'scan' || ps.category === 'scanner') sdrUpdates.sdr_scanner_interesse = ps.product || '';
+        else if (ps.category === 'cad') sdrUpdates.sdr_software_cad_interesse = ps.product || '';
+        else if (ps.category === 'print' || ps.category === 'printer') sdrUpdates.sdr_impressora_interesse = ps.product || '';
+        else if (ps.category === 'resins') sdrUpdates.sdr_solucoes_interesse = ps.product || '';
+      } else if (ps.rota === 2) {
+        const catMap: Record<string, string> = {
+          'SCANNERS 3D': 'sdr_scanner_interesse',
+          'IMPRESSÃO 3D': 'sdr_impressora_interesse', 'IMPRESSAO 3D': 'sdr_impressora_interesse',
+          'SOFTWARES': 'sdr_software_cad_interesse',
+          'CARACTERIZAÇÃO': 'sdr_caracterizacao_interesse', 'CARACTERIZACAO': 'sdr_caracterizacao_interesse',
+          'CURSOS': 'sdr_cursos_interesse',
+          'DENTÍSTICA': 'sdr_dentistica_interesse', 'DENTISTICA': 'sdr_dentistica_interesse',
+          'DENTÍSTICA, ESTÉTICA E ORTODONTIA': 'sdr_dentistica_interesse',
+          'INSUMOS LABORATÓRIO': 'sdr_insumos_lab_interesse', 'INSUMOS LABORATORIO': 'sdr_insumos_lab_interesse',
+          'PÓS-IMPRESSÃO': 'sdr_pos_impressao_interesse', 'POS-IMPRESSAO': 'sdr_pos_impressao_interesse',
+          'SOLUÇÕES': 'sdr_solucoes_interesse', 'SOLUCOES': 'sdr_solucoes_interesse',
+          'RESINAS 3D': 'sdr_solucoes_interesse',
+        };
+        if (ps.category) {
+          const field = catMap[ps.category.toUpperCase()] || catMap[ps.category];
+          if (field && ps.product) sdrUpdates[field] = ps.product;
+          else if (field) sdrUpdates[field] = ps.category;
+        }
+        if (ps.product && !Object.keys(sdrUpdates).length) sdrUpdates.sdr_solucoes_interesse = ps.product;
+      } else if (ps.rota === 3) {
+        if (ps.brand) sdrUpdates.sdr_marca_impressora_param = ps.brand;
+        if (ps.model) sdrUpdates.sdr_modelo_impressora_param = ps.model;
+        if (ps.resin) sdrUpdates.sdr_resina_param = ps.resin;
+      }
+
+      if (Object.keys(sdrUpdates).length > 0) {
+        supabase.from("lia_attendances")
+          .update({ ...sdrUpdates, updated_at: new Date().toISOString() })
+          .eq("id", currentLeadId)
+          .then(({ error }) => {
+            if (error) console.warn("[SDR] Error persisting sdr fields:", error.message);
+            else console.log(`[SDR] Updated ${Object.keys(sdrUpdates).join(", ")} for lead ${currentLeadId}`);
+          });
+      }
+    }
+
     // 0b. Support question guard — redirect to WhatsApp without RAG
     // Also triggers directly when topic_context === "support"
     if (isSupportQuestion(message) || topic_context === "support") {
