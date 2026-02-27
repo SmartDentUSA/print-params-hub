@@ -3244,6 +3244,8 @@ Campos:
         if (ps.brand) sdrUpdates.sdr_marca_impressora_param = ps.brand;
         if (ps.model) sdrUpdates.sdr_modelo_impressora_param = ps.model;
         if (ps.resin) sdrUpdates.sdr_resina_param = ps.resin;
+      } else if (ps.rota === 4) {
+        if (ps.category) sdrUpdates.sdr_suporte_equipamento = ps.category;
       }
 
       if (Object.keys(sdrUpdates).length > 0) {
