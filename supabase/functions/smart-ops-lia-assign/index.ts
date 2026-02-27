@@ -3,6 +3,7 @@ import {
   PIPELINES,
   STAGES_VENDAS,
   PIPERUN_USERS,
+  ORIGINS,
   piperunPost,
   piperunPut,
   piperunGet,

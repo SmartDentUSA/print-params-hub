@@ -4,9 +4,13 @@
  * Used across all smart-ops edge functions for bidirectional sync
  */
 
-// ─── API Configuration ───
-
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
+
+// ─── Origins ───
+
+export const ORIGINS = {
+  DRA_LIA: { id: 762002, name: "Dra. L.I.A." },
+} as const;
 
 // ─── Pipelines ───
 
