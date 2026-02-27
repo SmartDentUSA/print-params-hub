@@ -6,17 +6,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ASTRON_BASE = "https://api.astronmembers.com.br";
+const ASTRON_BASE = "https://api.astronmembers.com.br/v1";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 async function astronFetch(endpoint: string, params: Record<string, unknown> = {}, method: "GET" | "POST" = "GET") {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
+  const basicAuth = btoa(`${amKey}:${amSecret}`);
 
-  const allParams: Record<string, string> = {
-    am_key: amKey,
-    am_secret: amSecret,
-  };
+  const allParams: Record<string, string> = {};
   for (const [k, v] of Object.entries(params)) {
     if (v !== null && v !== undefined) allParams[k] = String(v);
   }
@@ -26,10 +24,15 @@ async function astronFetch(endpoint: string, params: Record<string, unknown> = {
     for (const [k, v] of Object.entries(allParams)) url.searchParams.set(k, v);
   }
 
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Authorization": `Basic ${basicAuth}`,
+  };
+
   const res = await fetch(url.toString(), {
     method,
-    headers: { "Content-Type": "application/json" },
-    ...(method === "POST" ? { body: JSON.stringify(allParams) } : {}),
+    headers,
+    ...(method === "POST" ? { body: JSON.stringify({ am_key: amKey, am_secret: amSecret, ...allParams }) } : {}),
     signal: AbortSignal.timeout(10000),
   });
 

@@ -8,28 +8,27 @@ const corsHeaders = {
 
 const ASTRON_BASE = "https://api.astronmembers.com.br";
 
-/* ─── Astron API helper with Basic Auth ─── */
-async function astronFetch(endpoint: string, params: Record<string, unknown> = {}, method: "GET" | "POST" = "GET") {
+/* ─── Astron API helper ─── */
+async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
 
-  const allParams: Record<string, string> = {
+  // Build query params with auth
+  const qp: Record<string, string> = {
     am_key: amKey,
     am_secret: amSecret,
   };
   for (const [k, v] of Object.entries(params)) {
-    if (v !== null && v !== undefined) allParams[k] = String(v);
+    if (v !== null && v !== undefined) qp[k] = String(v);
   }
 
   const url = new URL(`${ASTRON_BASE}/${endpoint}`);
-  if (method === "GET") {
-    for (const [k, v] of Object.entries(allParams)) url.searchParams.set(k, v);
-  }
+  for (const [k, v] of Object.entries(qp)) url.searchParams.set(k, v);
+
+  console.log(`[sync-astron] Fetching: ${url.toString().replace(amSecret, '***')}`);
 
   const res = await fetch(url.toString(), {
-    method,
-    headers: { "Content-Type": "application/json" },
-    ...(method === "POST" ? { body: JSON.stringify(allParams) } : {}),
+    method: "GET",
     signal: AbortSignal.timeout(15000),
   });
 
