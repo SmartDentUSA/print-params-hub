@@ -111,9 +111,41 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const isDebug = url.searchParams.get("debug") === "true";
 
-    const body = await req.json();
-    console.log("[dra-lia-wa] Raw body:", JSON.stringify(body).slice(0, 1500));
-    console.log("[dra-lia-wa] Body keys:", Object.keys(body).join(", "));
+    // Log everything we can for debug
+    const contentType = req.headers.get("content-type") || "";
+    console.log("[dra-lia-wa] Content-Type:", contentType);
+    console.log("[dra-lia-wa] URL search params:", url.searchParams.toString());
+
+    // Parse body flexibly: JSON, form-data, or empty
+    let body: Record<string, unknown> = {};
+    const rawText = await req.text();
+    console.log("[dra-lia-wa] Raw body length:", rawText.length, "preview:", rawText.slice(0, 1500));
+
+    if (rawText.length > 0) {
+      try {
+        body = JSON.parse(rawText);
+      } catch {
+        // Try URL-encoded form data
+        try {
+          const params = new URLSearchParams(rawText);
+          for (const [key, value] of params.entries()) {
+            body[key] = value;
+          }
+        } catch {
+          console.warn("[dra-lia-wa] Could not parse body as JSON or form-data");
+        }
+      }
+    }
+
+    // Merge query params into body (ChatCenter may send data via URL)
+    for (const [key, value] of url.searchParams.entries()) {
+      if (key !== "debug") {
+        body[key] = value;
+      }
+    }
+
+    console.log("[dra-lia-wa] Parsed body keys:", Object.keys(body).join(", "));
+    console.log("[dra-lia-wa] Parsed body:", JSON.stringify(body).slice(0, 1500));
 
     // ── Debug mode: log everything and return 200 ───
     if (isDebug) {
