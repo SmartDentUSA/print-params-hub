@@ -312,6 +312,8 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [commercialFullWorkflow, setCommercialFullWorkflow] = useState(false);
   const commercialSelectionsRef = useRef<{ scanner?: string; cad?: string; printer?: string; resins: string[] }>({ resins: [] });
   const pendingCommercialStepRef = useRef<CommercialStep | null>(null);
+  // SDR selections to persist to backend
+  const pendingSdrSelectionsRef = useRef<{ rota: number; category?: string; product?: string; brand?: string; model?: string; resin?: string } | null>(null);
   // Area/Specialty qualification grid state
   const [areaGridOptions, setAreaGridOptions] = useState<string[] | null>(null);
   const [specialtyGridOptions, setSpecialtyGridOptions] = useState<string[] | null>(null);
