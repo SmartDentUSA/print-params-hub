@@ -412,6 +412,23 @@ export function mapAttendanceToDealCustomFields(
   return fields;
 }
 
+/**
+ * Convert custom fields array to hash-keyed flat object for PUT /deals
+ * PipeRun PUT requires { "hash_key": "value" } format, not array
+ */
+export function customFieldsToHashMap(
+  fields: Array<{ custom_field_id: number; value: string }>
+): Record<string, string> {
+  const hashMap: Record<string, string> = {};
+  for (const f of fields) {
+    const hash = DEAL_CUSTOM_FIELD_HASHES[f.custom_field_id];
+    if (hash) {
+      hashMap[hash] = f.value;
+    }
+  }
+  return hashMap;
+}
+
 // ─── PipeRun API helpers ───
 
 export async function piperunGet(
