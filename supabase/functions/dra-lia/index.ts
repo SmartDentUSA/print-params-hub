@@ -3085,7 +3085,7 @@ Campos:
         console.warn("[lead-collection] lia_attendances area update failed:", e);
       }
 
-      const specialties = SPECIALTY_MAP[matchedArea] || SPECIALTY_MAP["Clínica Odontológica"];
+      const specialties = SPECIALTY_OPTIONS;
       const specialtyText = (ASK_SPECIALTY[lang] || ASK_SPECIALTY["pt-BR"])(leadState.name, matchedArea);
 
       try {
