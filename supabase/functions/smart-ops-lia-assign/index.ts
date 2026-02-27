@@ -283,7 +283,7 @@ Deno.serve(async (req) => {
         pipeline_id,
         stage_id,
         owner_id: assignedOwnerId,
-        origin: "dra-lia",
+        origin_id: ORIGINS.DRA_LIA.id,
         reference: email,
       };
 
