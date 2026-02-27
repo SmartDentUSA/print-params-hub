@@ -1099,9 +1099,13 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 }}
                 onProductSelect={(productName) => {
                   setProductsFlowStep(null);
+                  pendingSdrSelectionsRef.current = { rota: 2, category: productsFlowStep === 'products' ? undefined : undefined, product: productName };
                   const msg = `Quero saber mais sobre ${productName}`;
                   pendingProductRef.current = msg;
                   setInput(msg);
+                }}
+                onCategorySelect={(categoryName) => {
+                  pendingSdrSelectionsRef.current = { rota: 2, category: categoryName };
                 }}
               />
             </div>
