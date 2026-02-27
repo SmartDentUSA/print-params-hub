@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
             const waRes = await fetch(`${WALEADS_BASE_URL}/public/message/text?key=${tm.waleads_api_key}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ phone: cleanPhone, message: waMessage }),
+              body: JSON.stringify({ chat: cleanPhone, message: waMessage, isGroup: false }),
             });
             const waBody = await waRes.text();
             console.log(`[dra-lia-wa] WaLeads reply status=${waRes.status} body=${waBody.slice(0, 200)}`);
