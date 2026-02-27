@@ -79,8 +79,8 @@ Deno.serve(async (req) => {
     while (page <= maxPages) {
       // 1. Fetch paginated users
       const usersResp = await astronFetch("listClubUsers", {
-        page: String(page),
-        limit: String(pageSize),
+        page: page,
+        limit: pageSize,
       });
 
       const users = usersResp?.data || usersResp?.users || usersResp || [];
