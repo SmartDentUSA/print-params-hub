@@ -231,9 +231,6 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
                 <Button variant="outline" onClick={reset}>Cancelar</Button>
               </div>
             </div>
-          )}
-
-            </div>
           );
           })()}
 

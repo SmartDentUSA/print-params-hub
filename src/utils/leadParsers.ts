@@ -562,8 +562,67 @@ function parseSellFlux(rows: RawRow[]): NormalizedLead[] {
   });
 }
 
+/* ─── PARSER: auto_detect (fuzzy column matching) ─── */
+function findColumn(headers: string[], patterns: RegExp[]): string | null {
+  for (const p of patterns) {
+    const found = headers.find((h) => p.test(h.toLowerCase()));
+    if (found) return found;
+  }
+  return null;
+}
+
+function parseAutoDetect(rows: RawRow[]): NormalizedLead[] {
+  if (rows.length === 0) return [];
+  const headers = Object.keys(rows[0]);
+
+  const nameCol = findColumn(headers, [
+    /^nome$/i, /^name$/i, /nome\s*completo/i, /full\s*name/i,
+    /^titulo$/i, /^título$/i, /^cliente$/i, /^contact/i,
+    /nome.*pessoa/i, /nome.*contato/i, /razao\s*social/i,
+  ]);
+  const emailCol = findColumn(headers, [
+    /^e-?mail$/i, /e-?mail.*pessoa/i, /e-?mail.*contato/i,
+  ]);
+  const phoneCol = findColumn(headers, [
+    /^telefone$/i, /^phone$/i, /^whatsapp$/i, /^celular$/i,
+    /telefone.*pessoa/i, /telefone.*principal/i, /^fone$/i,
+  ]);
+  const cidadeCol = findColumn(headers, [/cidade/i, /city/i]);
+  const ufCol = findColumn(headers, [/estado.*uf/i, /^uf$/i, /^estado$/i, /^state$/i]);
+  const produtoCol = findColumn(headers, [/produto/i, /product/i, /interesse/i]);
+  const valorCol = findColumn(headers, [/^valor/i, /value/i, /amount/i]);
+  const proprietarioCol = findColumn(headers, [/proprietario/i, /proprietário/i, /dono/i, /owner/i, /vendedor/i]);
+  const statusCol = findColumn(headers, [/^status$/i, /etapa/i, /stage/i]);
+  const tagsCol = findColumn(headers, [/^tags$/i, /rótulos/i, /labels/i]);
+  const areaCol = findColumn(headers, [/area.*atua/i, /área.*atua/i, /segmento/i]);
+  const especCol = findColumn(headers, [/especialidade/i, /specialty/i]);
+
+  console.log("[auto_detect] Detected columns:", {
+    name: nameCol, email: emailCol, phone: phoneCol,
+    cidade: cidadeCol, uf: ufCol, produto: produtoCol,
+  });
+
+  return rows.map((r) => ({
+    nome: (nameCol ? cleanStr(r[nameCol]) : null) || "Sem Nome",
+    email: emailCol ? cleanEmail(r[emailCol]) : null,
+    telefone_raw: phoneCol ? cleanPhone(r[phoneCol]) : null,
+    source: "csv_import",
+    lead_status: statusCol ? (cleanStr(r[statusCol]) || "novo") : "novo",
+    cidade: cidadeCol ? cleanStr(r[cidadeCol]) : null,
+    uf: ufCol ? cleanStr(r[ufCol]) : null,
+    produto_interesse: produtoCol ? cleanStr(r[produtoCol]) : null,
+    valor_oportunidade: valorCol ? cleanMoney(r[valorCol]) : null,
+    proprietario_lead_crm: proprietarioCol ? cleanStr(r[proprietarioCol]) : null,
+    tags_crm: tagsCol && r[tagsCol] ? String(r[tagsCol]).split(",").map((t) => t.trim()).filter(Boolean) : null,
+    area_atuacao: areaCol ? cleanStr(r[areaCol]) : null,
+    especialidade: especCol ? cleanStr(r[especCol]) : null,
+    raw_payload: r,
+  }));
+}
+
 /* ─── Export map ─── */
 export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = {
+  auto_detect: parseAutoDetect,
   master: parseMaster,
   manychat: parseManychat,
   facebook: parseFacebook,
@@ -580,6 +639,7 @@ export const PARSER_MAP: Record<string, (rows: RawRow[]) => NormalizedLead[]> = 
 };
 
 export const PARSER_OPTIONS = [
+  { key: "auto_detect", label: "🔍 Auto-Detect (detecta colunas)", override: false },
   { key: "piperun_full", label: "PipeRun Export Completo", override: false },
   { key: "piperun_cs", label: "PipeRun Funil CS Onboarding", override: false },
   { key: "master", label: "Master Leads (PipeRun)", override: false },
