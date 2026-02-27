@@ -69,7 +69,7 @@ function ResinAccordionSection({ title, children }: { title: string; children: R
   );
 }
 
-export default function PrinterParamsFlow({ step, onStepChange }: PrinterParamsFlowProps) {
+export default function PrinterParamsFlow({ step, onStepChange, onSelection }: PrinterParamsFlowProps) {
   const [brands, setBrands] = useState<BrandItem[]>([]);
   const [models, setModels] = useState<ModelItem[]>([]);
   const [resinGroups, setResinGroups] = useState<ResinGroup[]>([]);
