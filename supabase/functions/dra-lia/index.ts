@@ -4262,7 +4262,6 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
 
                 // ── Increment total_messages in real-time (bypass summarize_session dependency) ──
-                supabase.rpc("", {}).then(() => {}).catch(() => {}); // no-op placeholder
                 supabase
                   .from("lia_attendances")
                   .select("total_messages, cognitive_updated_at, id")
