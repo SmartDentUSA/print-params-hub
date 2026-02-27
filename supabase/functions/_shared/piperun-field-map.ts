@@ -254,6 +254,8 @@ export interface PipeRunDealData {
   rdstation_reference?: string;
   person_id?: number;
   company_id?: number;
+  origin_id?: number;
+  origin?: { id?: number; name?: string };
   person?: {
     name?: string;
     emails?: Array<{ email: string }>;
