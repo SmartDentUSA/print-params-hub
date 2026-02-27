@@ -151,6 +151,19 @@ Deno.serve(async (req) => {
       error_details: errorDetails,
     });
 
+    // Also insert into whatsapp_inbox so outbound messages appear in the chat UI
+    if (waRes.ok) {
+      await supabase.from("whatsapp_inbox").insert({
+        phone: cleanPhone,
+        phone_normalized: cleanPhone.length > 9 ? cleanPhone.slice(-9) : cleanPhone,
+        message_text: tipo === "text" ? (finalMessage || "") : null,
+        media_url: tipo !== "text" ? (media_url || null) : null,
+        media_type: tipo !== "text" ? tipo : null,
+        direction: "outbound",
+        lead_id: lead_id || null,
+      });
+    }
+
     return new Response(JSON.stringify({
       success: waRes.ok,
       provider: "waleads",
