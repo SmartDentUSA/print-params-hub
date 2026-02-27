@@ -468,7 +468,7 @@ export async function addDealNote(
 ): Promise<{ success: boolean; data: unknown }> {
   return piperunPost(apiToken, "notes", {
     deal_id: dealId,
-    note,
+    text: note,
   });
 }
 
