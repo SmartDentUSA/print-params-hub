@@ -110,8 +110,8 @@ Deno.serve(async (req) => {
     const finalMessage = message ? replaceVariables(message, leadData) : undefined;
     const finalCaption = caption ? replaceVariables(caption, leadData) : undefined;
 
-    // Sanitize phone: remove + prefix (WaLeads API rejects it)
-    const cleanPhone = phone.replace(/^\+/, '');
+    // Sanitize phone: digits only, ensure country code
+    const cleanPhone = formatPhoneForWaLeads(phone);
 
     let apiBody: Record<string, unknown>;
     if (tipo === "text") {

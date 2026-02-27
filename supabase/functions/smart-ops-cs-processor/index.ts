@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
 
             try {
               const leadRecord = lead as Record<string, unknown>;
-              const chatPhone = lead.telefone_normalized || "";
+              const chatPhone = formatPhoneForWaLeads(lead.telefone_normalized || "");
               let apiBody: Record<string, unknown>;
 
               if (waleadsTipo === "text") {
