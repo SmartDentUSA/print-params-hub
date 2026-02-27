@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const WALEADS_BASE_URL = "https://waleads.roote.com.br";
 const MAX_WHATSAPP_LENGTH = 4000;
+const DEDUP_WINDOW_MS = 5000;
 
 // ── Phone normalization ───
 function normalizePhoneForMatch(raw: string): string {
@@ -17,17 +18,45 @@ function normalizePhoneForMatch(raw: string): string {
 // ── Strip markdown for WhatsApp plain text ───
 function stripMarkdownForWhatsApp(text: string): string {
   return text
-    // Convert markdown links [text](url) → text: url
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2")
-    // Bold **text** → *text* (WhatsApp format)
     .replace(/\*\*([^*]+)\*\*/g, "*$1*")
-    // Remove heading markers
     .replace(/^#{1,6}\s+/gm, "")
-    // Remove horizontal rules
     .replace(/^---+$/gm, "")
-    // Trim excessive newlines
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+}
+
+// ── Extract fields from flexible payload shapes ───
+function extractFields(body: Record<string, unknown>): { phone: string; messageText: string; senderName: string } {
+  const nested = (body.data || body.contact || {}) as Record<string, unknown>;
+
+  const phone = String(
+    body.phone || body.from || body.sender || body.contact_phone ||
+    body.chatId || body.chat || nested.phone || nested.chatId || ""
+  );
+
+  const messageText = String(
+    body.message || body.text || body.body || body.lastMessage ||
+    body.content || nested.message || nested.text || nested.lastMessage || ""
+  );
+
+  const senderName = String(
+    body.sender_name || body.name || body.contact_name ||
+    body.pushName || nested.name || nested.pushName || ""
+  );
+
+  return { phone, messageText, senderName };
+}
+
+// ── Check if message should be ignored (anti-loop) ───
+function shouldIgnore(body: Record<string, unknown>): string | null {
+  if (body.fromMe === true || body.isFromMe === true || (body as any).key?.fromMe === true) {
+    return "fromMe";
+  }
+  if (body.isGroup === true || body.isGroupMsg === true) {
+    return "isGroup";
+  }
+  return null;
 }
 
 // ── Consume SSE stream from dra-lia and return full text ───
@@ -57,7 +86,6 @@ async function consumeSSEStream(response: Response): Promise<string> {
 
       try {
         const parsed = JSON.parse(jsonStr);
-        // Skip meta events
         if (parsed.type === "meta") continue;
         const content = parsed.choices?.[0]?.delta?.content;
         if (content) fullText += content;
@@ -80,32 +108,51 @@ Deno.serve(async (req) => {
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+    const url = new URL(req.url);
+    const isDebug = url.searchParams.get("debug") === "true";
+
     const body = await req.json();
+    console.log("[dra-lia-wa] Raw body:", JSON.stringify(body).slice(0, 1500));
     console.log("[dra-lia-wa] Body keys:", Object.keys(body).join(", "));
 
-    const phone = body.phone || body.from || body.sender || body.contact_phone || body.chatId || body.chat || "";
-    const messageText = body.message || body.text || body.body || body.lastMessage || body.content || "";
-    const senderName = body.sender_name || body.name || body.contact_name || body.pushName || "";
-
-    // Reject unresolved WaLeads template variables
-    if (messageText.includes("{{") || phone.includes("{{") || senderName.includes("{{")) {
-      console.warn("[dra-lia-wa] Unresolved template variables detected", { phone, message: messageText, senderName });
+    // ── Debug mode: log everything and return 200 ───
+    if (isDebug) {
+      console.log("[dra-lia-wa] DEBUG MODE — full payload logged, no processing");
       return new Response(JSON.stringify({
-        error: "template_variables_not_resolved",
-        hint: "WaLeads is sending literal {{variable}} strings. Check variable syntax in webhook config.",
+        debug: true,
         received_keys: Object.keys(body),
         received_body: body,
-      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        timestamp: new Date().toISOString(),
+      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (!phone) {
-      return new Response(JSON.stringify({ error: "phone is required" }), {
+    // ── Anti-loop: ignore own messages and groups ───
+    const ignoreReason = shouldIgnore(body);
+    if (ignoreReason) {
+      console.log(`[dra-lia-wa] Ignored: ${ignoreReason}`);
+      return new Response(JSON.stringify({ ignored: true, reason: ignoreReason }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Extract fields with flexible mapping ───
+    const { phone, messageText, senderName } = extractFields(body);
+
+    // Warn about unresolved template variables but continue processing
+    if (messageText.includes("{{") || phone.includes("{{") || senderName.includes("{{")) {
+      console.warn("[dra-lia-wa] WARNING: Possible unresolved template variables detected — continuing anyway", {
+        phone, message: messageText.slice(0, 100), senderName,
+      });
+    }
+
+    if (!phone || phone === "undefined" || phone === "null") {
+      return new Response(JSON.stringify({ error: "phone is required", received_keys: Object.keys(body) }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!messageText || messageText.trim().length < 1) {
-      return new Response(JSON.stringify({ error: "message is required" }), {
+    if (!messageText || messageText.trim().length < 1 || messageText === "undefined") {
+      return new Response(JSON.stringify({ error: "message is required", received_keys: Object.keys(body) }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -113,6 +160,25 @@ Deno.serve(async (req) => {
     const phoneDigits = phone.replace(/\D/g, "");
     const phoneSuffix = normalizePhoneForMatch(phone);
     console.log(`[dra-lia-wa] Received: phone=${phoneDigits} msg="${messageText.slice(0, 80)}"`);
+
+    // ── Deduplication: check recent outbound for same phone ───
+    const { data: recentOutbound } = await supabase
+      .from("whatsapp_inbox")
+      .select("id, created_at")
+      .eq("phone_normalized", phoneSuffix)
+      .eq("direction", "outbound")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (recentOutbound && recentOutbound.length > 0) {
+      const lastOutAt = new Date(recentOutbound[0].created_at).getTime();
+      if (Date.now() - lastOutAt < DEDUP_WINDOW_MS) {
+        console.log(`[dra-lia-wa] Dedup: last outbound ${Date.now() - lastOutAt}ms ago — skipping`);
+        return new Response(JSON.stringify({ ignored: true, reason: "dedup_window" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // 1. Find or create lead in lia_attendances
     let leadId: string | null = null;
@@ -134,7 +200,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // If no lead found, create a basic one
     if (!leadId) {
       const placeholderEmail = `wa_${phoneDigits}_${Date.now()}@whatsapp.lead`;
       const nome = senderName || `WhatsApp ${phoneDigits.slice(-4)}`;
@@ -172,7 +237,6 @@ Deno.serve(async (req) => {
         .limit(10);
 
       if (interactions && interactions.length > 0) {
-        // Reverse to chronological order
         for (const int of interactions.reverse()) {
           history.push({ role: "user", content: int.user_message });
           if (int.agent_response) {
@@ -207,7 +271,7 @@ Deno.serve(async (req) => {
       if (!liaRes.ok) {
         const errText = await liaRes.text();
         console.error(`[dra-lia-wa] dra-lia returned ${liaRes.status}: ${errText.slice(0, 200)}`);
-        
+
         if (liaRes.status === 429) {
           liaResponse = "Estou com muitas conversas no momento! 😊 Pode me enviar sua pergunta novamente em alguns instantes? Obrigada pela paciência!";
         } else {
@@ -235,7 +299,6 @@ Deno.serve(async (req) => {
     let replySent = false;
     let teamMemberId: string | null = null;
 
-    // Try to find the lead's owner first
     if (leadId) {
       const { data: att } = await supabase
         .from("lia_attendances")
