@@ -2239,17 +2239,28 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
           signal: AbortSignal.timeout(5000),
         });
         
-        if (sendResp.ok) {
+        // Parse response body to check actual success
+        let sendResult: { success?: boolean; response?: string; provider?: string } = {};
+        try { sendResult = await sendResp.json(); } catch { /* ignore parse errors */ }
+        
+        const actuallySucceeded = sendResp.ok && sendResult.success !== false;
+        
+        if (actuallySucceeded) {
           await supabase.from("message_logs")
             .update({ status: "enviado", data_envio: new Date().toISOString() })
             .eq("lead_id", attendance.id)
             .eq("tipo", `escalation_${escalationType}`)
             .order("created_at", { ascending: false })
             .limit(1);
-          console.log(`[escalation] WaLeads notification sent to ${teamMember.nome_completo}`);
+          console.log(`[escalation] WaLeads notification sent to ${teamMember.nome_completo} via ${sendResult.provider || "unknown"}`);
         } else {
-          const errText = await sendResp.text();
-          console.warn(`[escalation] WaLeads send failed: ${sendResp.status} ${errText}`);
+          await supabase.from("message_logs")
+            .update({ status: "erro", error_details: (sendResult.response || `HTTP ${sendResp.status}`).slice(0, 500) })
+            .eq("lead_id", attendance.id)
+            .eq("tipo", `escalation_${escalationType}`)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          console.warn(`[escalation] WaLeads send failed: HTTP ${sendResp.status} success=${sendResult.success} response=${sendResult.response?.slice(0, 200)}`);
         }
       } catch (e) {
         console.warn(`[escalation] WaLeads send error:`, e);
