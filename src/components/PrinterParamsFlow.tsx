@@ -237,6 +237,10 @@ export default function PrinterParamsFlow({ step, onStepChange, onSelection }: P
       if (group && group.params.length > 0 && !selectedLayerHeight[resinKey]) {
         setSelectedLayerHeight(prev => ({ ...prev, [resinKey]: group.params[0].layer_height }));
       }
+      // Notify parent of resin selection for SDR tracking
+      if (group) {
+        onSelection?.({ brand: selectedBrand?.name, model: selectedModel?.name, resin: group.resinName });
+      }
     }
   };
 
