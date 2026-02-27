@@ -1116,6 +1116,20 @@ export type Database = {
       lia_attendances: {
         Row: {
           area_atuacao: string | null
+          astron_courses_access: Json | null
+          astron_courses_completed: number | null
+          astron_courses_total: number | null
+          astron_created_at: string | null
+          astron_email: string | null
+          astron_last_login_at: string | null
+          astron_login_url: string | null
+          astron_nome: string | null
+          astron_phone: string | null
+          astron_plans_active: string[] | null
+          astron_plans_data: Json | null
+          astron_status: string | null
+          astron_synced_at: string | null
+          astron_user_id: number | null
           ativo_cad: boolean | null
           ativo_cad_ia: boolean | null
           ativo_cura: boolean | null
@@ -1205,6 +1219,20 @@ export type Database = {
         }
         Insert: {
           area_atuacao?: string | null
+          astron_courses_access?: Json | null
+          astron_courses_completed?: number | null
+          astron_courses_total?: number | null
+          astron_created_at?: string | null
+          astron_email?: string | null
+          astron_last_login_at?: string | null
+          astron_login_url?: string | null
+          astron_nome?: string | null
+          astron_phone?: string | null
+          astron_plans_active?: string[] | null
+          astron_plans_data?: Json | null
+          astron_status?: string | null
+          astron_synced_at?: string | null
+          astron_user_id?: number | null
           ativo_cad?: boolean | null
           ativo_cad_ia?: boolean | null
           ativo_cura?: boolean | null
@@ -1294,6 +1322,20 @@ export type Database = {
         }
         Update: {
           area_atuacao?: string | null
+          astron_courses_access?: Json | null
+          astron_courses_completed?: number | null
+          astron_courses_total?: number | null
+          astron_created_at?: string | null
+          astron_email?: string | null
+          astron_last_login_at?: string | null
+          astron_login_url?: string | null
+          astron_nome?: string | null
+          astron_phone?: string | null
+          astron_plans_active?: string[] | null
+          astron_plans_data?: Json | null
+          astron_status?: string | null
+          astron_synced_at?: string | null
+          astron_user_id?: number | null
           ativo_cad?: boolean | null
           ativo_cad_ia?: boolean | null
           ativo_cura?: boolean | null
