@@ -54,6 +54,10 @@ function buildUpsertFields(
     "data_ultima_compra_scan", "data_ultima_compra_notebook", "data_ultima_compra_cad",
     "data_ultima_compra_cad_ia", "data_ultima_compra_smart_slice", "data_ultima_compra_print",
     "data_ultima_compra_cura", "data_ultima_compra_insumos",
+    "astron_user_id", "astron_status", "astron_nome", "astron_email", "astron_phone",
+    "astron_plans_active", "astron_plans_data", "astron_courses_access",
+    "astron_courses_total", "astron_courses_completed", "astron_login_url",
+    "astron_created_at", "astron_last_login_at", "astron_synced_at",
   ]);
 
   for (const [k, v] of Object.entries(lead)) {

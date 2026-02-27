@@ -2680,7 +2680,7 @@ Campos:
           // Fetch lia_attendances for full lead profile + resumo
           const { data: attendance } = await supabase
             .from("lia_attendances")
-            .select("resumo_historico_ia, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad")
+            .select("resumo_historico_ia, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad, astron_status, astron_plans_active, astron_courses_total, astron_courses_completed, astron_login_url, astron_synced_at")
             .eq("email", leadState.email)
             .maybeSingle();
 
@@ -2730,6 +2730,19 @@ Campos:
           if (attendance?.ativo_print) profileFields.push(`Possui impressora ativa`);
           if (attendance?.ativo_scan) profileFields.push(`Possui scanner ativo`);
           if (attendance?.ativo_cad) profileFields.push(`Possui CAD ativo`);
+          // Astron Members context
+          if (attendance?.astron_status && attendance.astron_status !== "not_found") {
+            profileFields.push(`🎓 Aluno Astron: ${attendance.astron_status}`);
+            if (attendance.astron_plans_active && (attendance.astron_plans_active as string[]).length > 0) {
+              profileFields.push(`Planos ativos: ${(attendance.astron_plans_active as string[]).join(", ")}`);
+            }
+            if (attendance.astron_courses_total && attendance.astron_courses_total > 0) {
+              profileFields.push(`Cursos: ${attendance.astron_courses_completed || 0}/${attendance.astron_courses_total} concluídos`);
+            }
+            if (attendance.astron_login_url) {
+              profileFields.push(`Login Astron: ${attendance.astron_login_url}`);
+            }
+          }
 
           // Determine lead archetype for strategy
           const leadArchetype = determineLeadArchetype(attendance);
