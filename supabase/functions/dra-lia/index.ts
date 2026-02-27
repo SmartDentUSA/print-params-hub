@@ -2730,6 +2730,19 @@ Campos:
           if (attendance?.ativo_print) profileFields.push(`Possui impressora ativa`);
           if (attendance?.ativo_scan) profileFields.push(`Possui scanner ativo`);
           if (attendance?.ativo_cad) profileFields.push(`Possui CAD ativo`);
+          // Astron Members context
+          if (attendance?.astron_status && attendance.astron_status !== "not_found") {
+            profileFields.push(`🎓 Aluno Astron: ${attendance.astron_status}`);
+            if (attendance.astron_plans_active && (attendance.astron_plans_active as string[]).length > 0) {
+              profileFields.push(`Planos ativos: ${(attendance.astron_plans_active as string[]).join(", ")}`);
+            }
+            if (attendance.astron_courses_total && attendance.astron_courses_total > 0) {
+              profileFields.push(`Cursos: ${attendance.astron_courses_completed || 0}/${attendance.astron_courses_total} concluídos`);
+            }
+            if (attendance.astron_login_url) {
+              profileFields.push(`Login Astron: ${attendance.astron_login_url}`);
+            }
+          }
 
           // Determine lead archetype for strategy
           const leadArchetype = determineLeadArchetype(attendance);
