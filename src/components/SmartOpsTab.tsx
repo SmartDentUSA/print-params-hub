@@ -64,7 +64,7 @@ export function SmartOpsTab() {
       </div>
 
       <Tabs defaultValue="bowtie" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1" style={{ display: 'flex' }}>
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="leads">Leads</TabsTrigger>

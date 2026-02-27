@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
       provider: "waleads",
       status: messageStatus,
       api_status: waRes.status,
-      response: waData.slice(0, 500),
+      provider_meta: providerMeta,
       test_mode,
     }), {
       status: waRes.ok ? 200 : waRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" },

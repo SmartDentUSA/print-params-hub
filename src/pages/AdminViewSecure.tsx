@@ -194,7 +194,7 @@ export default function AdminViewSecure() {
         </div>
 
         <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-11' : 'grid-cols-2'}`}>
+          <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1"  style={{ display: 'flex' }}>
             {isAdmin && (
               <>
                 <TabsTrigger value="models" className="flex items-center gap-2">
