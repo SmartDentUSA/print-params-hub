@@ -21,7 +21,6 @@ const FALLBACK_OWNER_ID = 64367; // Thiago Nicoletti — gestor
 
 /**
  * Resolve the first stage_id of a pipeline via PipeRun API.
- * Falls back to 0 if the API call fails.
  */
 async function resolveFirstStage(apiToken: string, pipelineId: number): Promise<number> {
   try {
@@ -41,6 +40,93 @@ async function resolveFirstStage(apiToken: string, pipelineId: number): Promise<
     console.warn("[lia-assign] Failed to resolve first stage for pipeline", pipelineId, e);
   }
   return 0;
+}
+
+/**
+ * Find or create a person in PipeRun by email.
+ * Returns the person_id.
+ */
+async function findOrCreatePerson(
+  apiToken: string,
+  lead: Record<string, unknown>
+): Promise<number | null> {
+  const email = lead.email as string | null;
+  const nome = (lead.nome || email || "Lead Sem Nome") as string;
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  const especialidade = lead.especialidade as string | null;
+
+  // 1. Search existing person by email
+  if (email) {
+    try {
+      const searchRes = await piperunGet(apiToken, "persons", { email, show: 1 });
+      if (searchRes.success && searchRes.data) {
+        const items = (searchRes.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
+        if (items && items.length > 0 && items[0].id) {
+          console.log(`[lia-assign] Found existing person ${items[0].id} for ${email}`);
+          return Number(items[0].id);
+        }
+      }
+    } catch (e) {
+      console.warn("[lia-assign] Person search error:", e);
+    }
+  }
+
+  // 2. Create new person
+  const personPayload: Record<string, unknown> = { name: nome };
+
+  if (email) {
+    personPayload.emails = [{ email }];
+  }
+  if (phone) {
+    personPayload.phones = [{ phone }];
+  }
+  if (especialidade) {
+    personPayload.job_title = especialidade;
+  }
+
+  console.log(`[lia-assign] Creating person: ${JSON.stringify(personPayload)}`);
+  const createRes = await piperunPost(apiToken, "persons", personPayload);
+  console.log(`[lia-assign] Person create result: ${createRes.success} (${createRes.status})`, JSON.stringify(createRes.data).slice(0, 300));
+
+  if (createRes.success && createRes.data) {
+    const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+    if (personData?.id) {
+      return Number(personData.id);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Build a summary note from lead data (even if resumo_historico_ia is empty).
+ */
+function buildLeadNote(lead: Record<string, unknown>, isNew: boolean): string {
+  const lines: string[] = [];
+  lines.push(isNew
+    ? "🤖 [Dra. L.I.A.] Lead qualificado automaticamente"
+    : "🤖 [Dra. L.I.A.] Nova interação detectada"
+  );
+  lines.push("");
+
+  if (lead.resumo_historico_ia) {
+    lines.push(String(lead.resumo_historico_ia));
+    lines.push("");
+  }
+
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  lines.push(`📊 Produto interesse: ${lead.produto_interesse || "N/A"}`);
+  lines.push(`🏥 Especialidade: ${lead.especialidade || "N/A"}`);
+  lines.push(`🔗 Telefone: ${phone || "N/A"}`);
+  lines.push(`📧 Email: ${lead.email || "N/A"}`);
+  lines.push(`📍 Origem: dra-lia`);
+
+  if (lead.area_atuacao) lines.push(`🔬 Área: ${lead.area_atuacao}`);
+  if (lead.tem_impressora) lines.push(`🖨️ Impressora: ${lead.tem_impressora}`);
+  if (lead.tem_scanner) lines.push(`📷 Scanner: ${lead.tem_scanner}`);
+  if (lead.cidade) lines.push(`📍 Cidade: ${lead.cidade}${lead.uf ? ` - ${lead.uf}` : ""}`);
+
+  return lines.join("\n");
 }
 
 Deno.serve(async (req) => {
@@ -110,7 +196,6 @@ Deno.serve(async (req) => {
     let assignedOwnerName: string;
 
     if (isExisting && lead.proprietario_lead_crm) {
-      // Option 2: Check current owner
       const { data: currentOwner } = await supabase
         .from("team_members")
         .select("id, nome_completo, piperun_owner_id, ativo")
@@ -123,7 +208,6 @@ Deno.serve(async (req) => {
         assignedOwnerName = currentOwner.nome_completo;
         console.log(`[lia-assign] Keeping existing owner: ${assignedOwnerName}`);
       } else {
-        // Owner inactive → re-assign
         const newOwner = await pickRandomActiveVendedor(supabase);
         assignedOwnerId = newOwner.piperun_owner_id;
         assignedTeamMemberId = newOwner.id;
@@ -131,7 +215,6 @@ Deno.serve(async (req) => {
         console.log(`[lia-assign] Re-assigned from inactive owner to: ${assignedOwnerName}`);
       }
     } else {
-      // Option 1: New lead → Round Robin
       const newOwner = await pickRandomActiveVendedor(supabase);
       assignedOwnerId = newOwner.piperun_owner_id;
       assignedTeamMemberId = newOwner.id;
@@ -153,6 +236,10 @@ Deno.serve(async (req) => {
 
     // ── 5. Build PipeRun custom fields ──
     const customFields = mapAttendanceToDealCustomFields(lead as Record<string, unknown>);
+    const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+    if (phone) {
+      customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+    }
 
     // ── 6. Sync with PipeRun ──
     let piperunId = lead.piperun_id;
@@ -160,40 +247,28 @@ Deno.serve(async (req) => {
     const piperunFunil = isDistribuidor ? "Distribuidor de Leads" : "Funil de vendas";
 
     if (isExisting && piperunId) {
-      // Option 2: Update existing deal
+      // ── UPDATE existing deal ──
       console.log(`[lia-assign] Updating deal ${piperunId}`);
       const updatePayload: Record<string, unknown> = {
         stage_id,
         owner_id: assignedOwnerId,
       };
       const updateRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, updatePayload);
-      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`, JSON.stringify(updateRes.data));
+      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`);
 
-      // Add note with AI summary
-      if (lead.resumo_historico_ia) {
-        const noteText = `🤖 [Dra. L.I.A.] Nova interação detectada\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n🔗 Telefone: ${lead.telefone_normalized || lead.telefone_raw || "N/A"}\n📧 Email: ${lead.email || "N/A"}\n📍 Origem: dra-lia`;
-        const noteRes = await addDealNote(PIPERUN_API_KEY, Number(piperunId), noteText);
-        console.log(`[lia-assign] Note added: ${noteRes.success}`, JSON.stringify(noteRes.data).slice(0, 200));
-      }
+      // Always add note with lead data
+      const noteText = buildLeadNote(lead as Record<string, unknown>, false);
+      const noteRes = await addDealNote(PIPERUN_API_KEY, Number(piperunId), noteText);
+      console.log(`[lia-assign] Note added: ${noteRes.success}`, JSON.stringify(noteRes.data).slice(0, 200));
     } else {
-      // Option 1: Create new deal
+      // ── CREATE new deal ──
       console.log(`[lia-assign] Creating new deal for ${lead.nome}`);
 
-      // Build person object with all contact data
-      const personPayload: Record<string, unknown> = {
-        name: lead.nome || email,
-      };
-      const personEmails = [];
-      if (email) personEmails.push({ email });
-      if (personEmails.length > 0) personPayload.emails = personEmails;
+      // Step 1: Find or create person in PipeRun
+      const personId = await findOrCreatePerson(PIPERUN_API_KEY, lead as Record<string, unknown>);
+      console.log(`[lia-assign] Person ID: ${personId}`);
 
-      const personPhones = [];
-      const phone = lead.telefone_normalized || lead.telefone_raw;
-      if (phone) personPhones.push({ phone });
-      if (personPhones.length > 0) personPayload.phones = personPhones;
-
-      if (lead.especialidade) personPayload.job_title = lead.especialidade;
-
+      // Step 2: Create deal with person_id
       const dealPayload: Record<string, unknown> = {
         title: lead.nome || email,
         pipeline_id,
@@ -201,18 +276,17 @@ Deno.serve(async (req) => {
         owner_id: assignedOwnerId,
         origin: "dra-lia",
         reference: email,
-        person: personPayload,
       };
 
-      // Add WhatsApp custom field
-      if (phone) {
-        customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+      if (personId) {
+        dealPayload.person_id = personId;
       }
 
       if (customFields.length > 0) {
         dealPayload.custom_fields = customFields;
       }
 
+      console.log(`[lia-assign] Deal payload: ${JSON.stringify(dealPayload).slice(0, 500)}`);
       const createRes = await piperunPost(PIPERUN_API_KEY, "deals", dealPayload);
       console.log(`[lia-assign] PipeRun create: ${createRes.success} (${createRes.status})`, JSON.stringify(createRes.data).slice(0, 300));
 
@@ -222,12 +296,10 @@ Deno.serve(async (req) => {
           piperunId = String(dealData.id);
           console.log(`[lia-assign] New deal ID: ${piperunId}`);
 
-          // Add AI summary note
-          if (lead.resumo_historico_ia) {
-            const noteText = `🤖 [Dra. L.I.A.] Lead qualificado automaticamente\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n🔗 Telefone: ${phone || "N/A"}\n📧 Email: ${email || "N/A"}\n📍 Origem: dra-lia`;
-            const noteRes = await addDealNote(PIPERUN_API_KEY, Number(piperunId), noteText);
-            console.log(`[lia-assign] Note added: ${noteRes.success}`);
-          }
+          // Add note with lead data
+          const noteText = buildLeadNote(lead as Record<string, unknown>, true);
+          const noteRes = await addDealNote(PIPERUN_API_KEY, Number(piperunId), noteText);
+          console.log(`[lia-assign] Note added: ${noteRes.success}`);
         }
       }
     }
@@ -300,7 +372,6 @@ async function pickRandomActiveVendedor(
     };
   }
 
-  // Random pick
   const idx = Math.floor(Math.random() * members.length);
   return members[idx] as TeamMember;
 }
@@ -312,19 +383,12 @@ async function triggerOutboundAutomation(
   lead: Record<string, unknown>,
   teamMemberId: string | null
 ) {
-  if (!teamMemberId || teamMemberId === "fallback-admin") {
-    console.log("[lia-assign] No team_member_id for outbound, skipping");
-    return;
-  }
+  if (!teamMemberId || teamMemberId === "fallback-admin") return;
 
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  if (!phone) {
-    console.log("[lia-assign] No phone for outbound, skipping");
-    return;
-  }
+  if (!phone) return;
 
   try {
-    // Find automation rule: specific product or coringa (null)
     let { data: rules } = await supabase
       .from("cs_automation_rules")
       .select("*")
@@ -336,26 +400,16 @@ async function triggerOutboundAutomation(
     let rule = null;
     if (rules && rules.length > 0) {
       const produtoInteresse = lead.produto_interesse as string | null;
-      // Try product-specific first
       if (produtoInteresse) {
         rule = rules.find((r: Record<string, unknown>) =>
           r.produto_interesse && String(r.produto_interesse).toLowerCase() === produtoInteresse.toLowerCase()
         );
       }
-      // Fallback to coringa (null product)
-      if (!rule) {
-        rule = rules.find((r: Record<string, unknown>) => !r.produto_interesse);
-      }
-      // Last resort: any rule
-      if (!rule) {
-        rule = rules[0];
-      }
+      if (!rule) rule = rules.find((r: Record<string, unknown>) => !r.produto_interesse);
+      if (!rule) rule = rules[0];
     }
 
-    if (!rule) {
-      console.log("[lia-assign] No NOVO_LEAD automation rule found, skipping outbound");
-      return;
-    }
+    if (!rule) return;
 
     const payload: Record<string, unknown> = {
       team_member_id: teamMemberId,
@@ -369,7 +423,6 @@ async function triggerOutboundAutomation(
       payload.caption = rule.waleads_media_caption || "";
     }
 
-    console.log(`[lia-assign] Sending outbound via smart-ops-send-waleads for ${phone}`);
     await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
       method: "POST",
       headers: {
