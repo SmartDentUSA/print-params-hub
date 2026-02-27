@@ -1219,6 +1219,45 @@ async function extractImplicitLeadData(
     if (pattern.test(text)) { updates.principal_aplicacao = app; break; }
   }
 
+  // ── NEW: Product interest detection from conversation (NLP) ──
+  const productPatterns: [RegExp, string][] = [
+    // Impressoras
+    [/\brayshape\b/i, "RayShape"],
+    [/\bmiicraft\b/i, "MiiCraft"],
+    [/\bphrozen\b/i, "Phrozen"],
+    [/\banycubic\b/i, "Anycubic"],
+    [/\belegoo\b/i, "Elegoo"],
+    [/\bformlabs\b/i, "Formlabs"],
+    [/\bblz\s*dental\b/i, "BLZ Dental"],
+    [/\basiga\b/i, "Asiga"],
+    [/\bprusa\b/i, "Prusa"],
+    [/\bcreality\b/i, "Creality"],
+    // Scanners
+    [/\bmedit\b/i, "Medit"],
+    [/\b3shape\b/i, "3Shape"],
+    [/\btrios\b/i, "TRIOS"],
+    [/\bitero\b/i, "iTero"],
+    [/\bprimescan\b/i, "Primescan"],
+    [/\baoralscan\b/i, "Aoralscan"],
+    // Software
+    [/\bexocad\b/i, "exocad"],
+    [/\bexoplan\b/i, "Exoplan"],
+    [/\bsmart\s*slice\b/i, "Smart Slice"],
+    // Categorias de produto
+    [/\bchair\s*side\b/i, "Chair Side Print"],
+    [/\bsmart\s*lab\b/i, "Smart Lab"],
+    // Fotopolimerizadores / Pós-processamento
+    [/\bnanoclean\b/i, "NanoClean"],
+    [/\bcurador[a]?\b|\bfotopolimerizador\b|\bcuring\s*unit\b/i, "Pós-processamento"],
+  ];
+  const detectedProducts: string[] = [];
+  for (const [pattern, product] of productPatterns) {
+    if (pattern.test(text)) detectedProducts.push(product);
+  }
+  if (detectedProducts.length > 0) {
+    updates.produto_interesse = detectedProducts.slice(0, 3).join(", ");
+  }
+
   // Raw payload enrichment
   const rawUpdates: Record<string, unknown> = {};
   const concorrentes = [
@@ -1247,7 +1286,7 @@ async function extractImplicitLeadData(
   // Fetch current record, apply COALESCE logic
   const { data: current } = await supabaseClient
     .from("lia_attendances")
-    .select("uf, tem_impressora, tem_scanner, impressora_modelo, como_digitaliza, raw_payload, software_cad, volume_mensal_pecas, principal_aplicacao")
+    .select("uf, tem_impressora, tem_scanner, impressora_modelo, como_digitaliza, raw_payload, software_cad, volume_mensal_pecas, principal_aplicacao, produto_interesse")
     .eq("email", email)
     .maybeSingle();
 
@@ -4217,10 +4256,41 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                   .update({ agent_response: fullResponse })
                   .eq("id", interactionId);
               }
-              // Fire-and-forget: extract implicit lead data
+              // Fire-and-forget: extract implicit lead data + increment counters + cognitive trigger
               if (currentLeadId && leadState.state === "from_session") {
                 const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
                 extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+
+                // ── Increment total_messages in real-time (bypass summarize_session dependency) ──
+                supabase
+                  .from("lia_attendances")
+                  .select("total_messages, cognitive_updated_at, id")
+                  .eq("email", leadState.email)
+                  .maybeSingle()
+                  .then(({ data: att }) => {
+                    if (!att) return;
+                    const newTotal = (att.total_messages || 0) + 1;
+                    supabase
+                      .from("lia_attendances")
+                      .update({ total_messages: newTotal, ultima_sessao_at: new Date().toISOString() })
+                      .eq("id", att.id)
+                      .then(() => console.log(`[counter] total_messages=${newTotal} for ${leadState.email}`))
+                      .catch(e => console.warn("[counter] update error:", e));
+
+                    // ── Independent cognitive trigger (bypass summarize_session) ──
+                    if (newTotal >= 5 && !att.cognitive_updated_at) {
+                      console.log(`[cognitive-trigger] Firing for ${leadState.email} (${newTotal} msgs, never analyzed)`);
+                      fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ email: leadState.email }),
+                      }).catch(e => console.warn("[cognitive-trigger] fire-and-forget error:", e));
+                    }
+                  })
+                  .catch(e => console.warn("[counter] fetch error:", e));
               }
               // Fire-and-forget: notify seller on escalation
               if (escalationIntent && leadState.state === "from_session") {

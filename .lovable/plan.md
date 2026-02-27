@@ -1,57 +1,172 @@
 
 
-## Diagnostico: Por que a LIA nao fez analise cognitiva
+# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
 
-### Causa Raiz
+## Diagnostico do Estado Atual
 
-A cadeia de eventos esta quebrada no frontend:
+| Componente | Status | Onde |
+|------------|--------|------|
+| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
+| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
+| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
+| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
+| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
+| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
+| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
 
-```text
-Usuario conversa → DraLIA.tsx → fireSummarize() → dra-lia?action=summarize_session → cognitive-lead-analysis
-                        ↑
-                  FALHA AQUI
+**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+
+---
+
+## Fase 1: Tabela `whatsapp_inbox`
+
+Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+
+```sql
+CREATE TABLE IF NOT EXISTS whatsapp_inbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  phone text NOT NULL,
+  phone_normalized text,
+  message_text text,
+  media_url text,
+  media_type text,
+  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
+  lead_id uuid REFERENCES lia_attendances(id),
+  matched_by text,
+  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
+    'interesse_imediato', 'interesse_futuro', 'pedido_info',
+    'objecao', 'sem_interesse', 'suporte', 'indefinido'
+  )),
+  confidence_score integer,
+  seller_notified boolean DEFAULT false,
+  processed_at timestamptz,
+  raw_payload jsonb DEFAULT '{}'
+);
+
+CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
+CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
+CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
+CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
 ```
 
-**O `fireSummarize()` so dispara se:**
-1. `sessionStorage('dra_lia_lead_collected')` estiver setado (lead validou email)
-2. `sessionStorage('dra_lia_summarized')` NAO estiver setado (evita duplicidade)
-3. Usuario ficar 2 min inativo OU fechar aba/trocar de pagina
-4. Ter enviado >= 2 mensagens
+RLS: `admin_only` (mesma policy de `lia_attendances`).
 
-**Evidencia:** Todos os leads de teste (Deus=16 msgs, Jesuino=30 msgs, Josias=8 msgs) tem `total_messages=0` e `total_sessions=0` no `lia_attendances`. Isso prova que `summarize_session` **nunca executou** para nenhum deles.
+---
 
-**Hipoteses do por que:**
-- O flag `dra_lia_lead_collected` nao foi setado (coleta de lead falhou ou resposta da LIA nao teve o texto esperado como "Acesso validado")
-- O `sendBeacon` falhou silenciosamente (nao tem feedback ao usuario)
-- O timer de 2 min nao disparou (usuario ficou ativo ou fechou antes)
+## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
 
-### Plano de Correcao
+Endpoint publico que recebe POST do WaLeads quando lead responde.
 
-#### 1. Fallback server-side no `dra-lia/index.ts`
-Adicionar logica no handler principal de chat: a cada resposta, verificar se o lead ja tem 5+ interacoes naquela sessao e `summarize_session` nunca rodou. Se sim, disparar `summarize_session` automaticamente como fire-and-forget, sem depender do frontend.
+**Fluxo:**
 
-#### 2. Trigger cognitivo independente do summarize
-No proprio `dra-lia/index.ts`, apos cada resposta, verificar diretamente no `agent_interactions` se o lead tem 5+ mensagens totais e `cognitive_updated_at` e NULL. Se sim, disparar `cognitive-lead-analysis` diretamente, sem depender do `summarize_session`.
+1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
+2. Normaliza telefone (ultimos 8-9 digitos para match)
+3. Busca lead em `lia_attendances` via `telefone_normalized`
+4. Classifica mensagem (rule-based v1):
+   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
+   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
+   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
+   - `objecao`: "caro", "vou pensar", "falar com socio"
+   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
+   - `suporte`: "problema", "defeito", "troca", "garantia"
+5. Insere em `whatsapp_inbox`
+6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
+7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
+8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
 
-#### 3. Corrigir contadores `total_messages` e `total_sessions`
-Adicionar update incremental de `total_messages` no handler de chat (a cada mensagem processada), nao apenas no `summarize_session`. Isso garante que os contadores estejam sempre atualizados.
+**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
 
-#### 4. Extrair `produto_interesse` do chat (fix conhecido)
-Atualizar `extractImplicitLeadData` para detectar nomes de produtos mencionados no texto (RayShape, Exoplan, MiiCraft, etc.) e salvar em `produto_interesse`.
+---
 
-### Arquivos a Modificar
+## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
+
+Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
+
+```typescript
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Extrair ultimos 8-9 digitos para match
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
+
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
+}
+```
+
+O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
+
+---
+
+## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
+
+Quando `intent_detected === 'interesse_imediato'`:
+
+1. Buscar `proprietario_lead_crm` em `lia_attendances`
+2. Buscar `team_member` correspondente
+3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
+
+```
+OPORTUNIDADE QUENTE
+Lead: {nome} ({especialidade})
+Owner: {proprietario_lead_crm}
+Resposta: "{message_text}" (truncado 200 chars)
+Etapa CRM: {ultima_etapa_comercial}
+Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
+Acao: {recommended_approach}
+```
+
+4. Marcar `seller_notified = true` em `whatsapp_inbox`
+
+---
+
+## Fase 5: Limpeza Automatica (Clean-up Job)
+
+Adicionar logica no `smart-ops-stagnant-processor` existente:
+
+- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
+- E lead nao tem outras interacoes positivas
+- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
+
+---
+
+## Resumo de Arquivos
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | `supabase/functions/dra-lia/index.ts` | Adicionar trigger cognitivo + update de contadores no handler de chat |
-| 2 | `supabase/functions/dra-lia/index.ts` | Atualizar `extractImplicitLeadData` para extrair `produto_interesse` do texto |
+| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
+| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
+| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
+| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
+| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
 
-### Ordem de Execucao
+## Ordem de Execucao
 
 ```text
-1. Adicionar increment de total_messages no chat handler
-2. Adicionar trigger cognitivo independente (bypass summarize)
-3. Atualizar extractImplicitLeadData com NLP de produtos
-4. Deploy + teste com lead novo
+1. Migracao SQL (whatsapp_inbox)
+2. Helpers de normalizacao em sellflux-field-map.ts
+3. Edge function smart-ops-wa-inbox-webhook + config.toml
+4. Integracao clean-up no stagnant-processor
+5. Deploy
 ```
+
+## Payload WaLeads Esperado
+
+O webhook do WaLeads envia POST com:
+
+```json
+{
+  "event": "message_received",
+  "phone": "5511999887766",
+  "message": "Tenho interesse sim, como funciona?",
+  "media_url": null,
+  "timestamp": "2026-02-26T10:30:00Z"
+}
+```
+
+O endpoint a ser configurado no painel WaLeads sera:
+`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
 
