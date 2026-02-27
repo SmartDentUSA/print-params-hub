@@ -193,8 +193,9 @@ Deno.serve(async (req) => {
     }
 
     if (!messageText || messageText.trim().length < 1 || messageText === "undefined") {
-      return new Response(JSON.stringify({ error: "message is required", received_keys: Object.keys(body) }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.log("[dra-lia-wa] No message content — likely a non-message webhook event, ignoring gracefully");
+      return new Response(JSON.stringify({ ignored: true, reason: "no_message_content", received_keys: Object.keys(body) }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
