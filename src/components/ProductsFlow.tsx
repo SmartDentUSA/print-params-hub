@@ -28,6 +28,7 @@ interface ProductsFlowProps {
   step: 'category' | 'products';
   onStepChange: (step: 'category' | 'products' | null) => void;
   onProductSelect: (productName: string) => void;
+  onCategorySelect?: (categoryName: string) => void;
 }
 
 export default function ProductsFlow({ step, onStepChange, onProductSelect }: ProductsFlowProps) {
