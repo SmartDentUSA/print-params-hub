@@ -26,23 +26,32 @@ function stripMarkdownForWhatsApp(text: string): string {
     .trim();
 }
 
+// ── Strip WhatsApp suffixes from phone/chat IDs ───
+function stripWaSuffix(raw: string): string {
+  return raw.replace(/@(c\.us|s\.whatsapp\.net|lid)$/i, "");
+}
+
 // ── Extract fields from flexible payload shapes ───
 function extractFields(body: Record<string, unknown>): { phone: string; messageText: string; senderName: string } {
   const nested = (body.data || body.contact || {}) as Record<string, unknown>;
+  const customer = (body.customer || {}) as Record<string, unknown>;
+  const combined = (body.combinedCardCustomer || {}) as Record<string, unknown>;
 
-  const phone = String(
+  const rawPhone = String(
     body.phone || body.from || body.sender || body.contact_phone ||
-    body.chatId || body.chat || nested.phone || nested.chatId || ""
+    body.chatId || body.chat || customer.phone || nested.phone || nested.chatId || ""
   );
+  const phone = stripWaSuffix(rawPhone);
 
   const messageText = String(
     body.message || body.text || body.body || body.lastMessage ||
-    body.content || nested.message || nested.text || nested.lastMessage || ""
+    body.content || combined.lastMessage ||
+    nested.message || nested.text || nested.lastMessage || ""
   );
 
   const senderName = String(
     body.sender_name || body.name || body.contact_name ||
-    body.pushName || nested.name || nested.pushName || ""
+    body.pushName || customer.name || nested.name || nested.pushName || ""
   );
 
   return { phone, messageText, senderName };
@@ -184,8 +193,9 @@ Deno.serve(async (req) => {
     }
 
     if (!messageText || messageText.trim().length < 1 || messageText === "undefined") {
-      return new Response(JSON.stringify({ error: "message is required", received_keys: Object.keys(body) }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.log("[dra-lia-wa] No message content — likely a non-message webhook event, ignoring gracefully");
+      return new Response(JSON.stringify({ ignored: true, reason: "no_message_content", received_keys: Object.keys(body) }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
