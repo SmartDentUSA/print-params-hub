@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
       response: waData.slice(0, 500),
       test_mode,
     }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: waRes.ok ? 200 : waRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[send-waleads] Error:", err);
