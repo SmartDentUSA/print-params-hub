@@ -99,6 +99,7 @@ export default function ProductsFlow({ step, onStepChange, onProductSelect, onCa
     setSelectedCategory(categoryName);
     setLoading(true);
     onStepChange('products');
+    onCategorySelect?.(categoryName);
 
     const items: ProductItem[] = [];
 
