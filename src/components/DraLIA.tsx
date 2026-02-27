@@ -896,76 +896,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                     onClick={() => {
                       setAreaGridOptions(null);
                       setInput(area);
-                      setTimeout(() => {
-                        const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: area };
-                        const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' };
-                        setMessages((prev) => [...prev, userMsg, assistantMsg]);
-                        setIsLoading(true);
-                        const hist = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
-                        fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ message: area, history: hist, lang, session_id: sessionId.current, topic_context: topicContext || undefined }),
-                        }).then(async (resp) => {
-                          if (!resp.ok || !resp.body) {
-                            const errData = await resp.json().catch(() => ({}));
-                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: errData.error || t('dra_lia.connection_error') } : m));
-                            setIsLoading(false);
-                            return;
-                          }
-                          const reader = resp.body.getReader();
-                          const decoder = new TextDecoder();
-                          let buf = '';
-                          let iid: string | undefined;
-                          let mc: MediaCard[] | undefined;
-                          let fc = '';
-                          const processS = async () => {
-                            while (true) {
-                              const { done, value } = await reader.read();
-                              if (done) break;
-                              buf += decoder.decode(value, { stream: true });
-                              let ni: number;
-                              while ((ni = buf.indexOf('\n')) !== -1) {
-                                let ln = buf.slice(0, ni);
-                                buf = buf.slice(ni + 1);
-                                if (ln.endsWith('\r')) ln = ln.slice(0, -1);
-                                if (!ln.startsWith('data: ')) continue;
-                                const js = ln.slice(6).trim();
-                                if (js === '[DONE]') break;
-                                try {
-                                  const p = JSON.parse(js);
-                                  if (p.type === 'meta') {
-                                    if (p.interaction_id) iid = p.interaction_id;
-                                    if (p.media_cards) mc = p.media_cards;
-                                    if (p.ui_action === 'show_specialty_grid' && p.specialty_options) {
-                                      setSpecialtyGridOptions(p.specialty_options);
-                                    }
-                                    if (p.ui_action === 'show_topics') {
-                                      setLeadCollected(true);
-                                      sessionStorage.setItem('dra_lia_lead_collected', 'true');
-                                      setQualificationComplete(true);
-                                      sessionStorage.setItem('dra_lia_qualification_complete', 'true');
-                                    }
-                                    continue;
-                                  }
-                                  const c = p.choices?.[0]?.delta?.content;
-                                  if (c) {
-                                    fc += c;
-                                    setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fc, interactionId: iid, mediaCards: mc } : m));
-                                  }
-                                } catch { /* partial */ }
-                              }
-                            }
-                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId: iid, mediaCards: mc } : m));
-                            if (!leadCollected && /Acesso validado|Access validated|Acceso validado|Que bom te ver por aqui novamente|Great to see you again|Qué bueno verte de nuevo|Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fc)) {
-                              setLeadCollected(true);
-                              sessionStorage.setItem('dra_lia_lead_collected', 'true');
-                            }
-                            setIsLoading(false);
-                          };
-                          processS().catch(() => setIsLoading(false));
-                        }).catch(() => setIsLoading(false));
-                      }, 50);
+                      setTimeout(() => sendMessage(), 50);
                     }}
                     className="flex items-center justify-center p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-center text-xs shadow-sm font-medium text-gray-800"
                     style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
@@ -991,73 +922,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                     onClick={() => {
                       setSpecialtyGridOptions(null);
                       setInput(spec);
-                      setTimeout(() => {
-                        const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: spec };
-                        const assistantMsg: Message = { id: crypto.randomUUID(), role: 'assistant', content: '' };
-                        setMessages((prev) => [...prev, userMsg, assistantMsg]);
-                        setIsLoading(true);
-                        const hist = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
-                        fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ message: spec, history: hist, lang, session_id: sessionId.current, topic_context: topicContext || undefined }),
-                        }).then(async (resp) => {
-                          if (!resp.ok || !resp.body) {
-                            const errData = await resp.json().catch(() => ({}));
-                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: errData.error || t('dra_lia.connection_error') } : m));
-                            setIsLoading(false);
-                            return;
-                          }
-                          const reader = resp.body.getReader();
-                          const decoder = new TextDecoder();
-                          let buf = '';
-                          let iid: string | undefined;
-                          let mc: MediaCard[] | undefined;
-                          let fc = '';
-                          const processS = async () => {
-                            while (true) {
-                              const { done, value } = await reader.read();
-                              if (done) break;
-                              buf += decoder.decode(value, { stream: true });
-                              let ni: number;
-                              while ((ni = buf.indexOf('\n')) !== -1) {
-                                let ln = buf.slice(0, ni);
-                                buf = buf.slice(ni + 1);
-                                if (ln.endsWith('\r')) ln = ln.slice(0, -1);
-                                if (!ln.startsWith('data: ')) continue;
-                                const js = ln.slice(6).trim();
-                                if (js === '[DONE]') break;
-                                try {
-                                  const p = JSON.parse(js);
-                                  if (p.type === 'meta') {
-                                    if (p.interaction_id) iid = p.interaction_id;
-                                    if (p.media_cards) mc = p.media_cards;
-                                    if (p.ui_action === 'show_topics') {
-                                      setLeadCollected(true);
-                                      sessionStorage.setItem('dra_lia_lead_collected', 'true');
-                                      setQualificationComplete(true);
-                                      sessionStorage.setItem('dra_lia_qualification_complete', 'true');
-                                    }
-                                    continue;
-                                  }
-                                  const c = p.choices?.[0]?.delta?.content;
-                                  if (c) {
-                                    fc += c;
-                                    setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, content: fc, interactionId: iid, mediaCards: mc } : m));
-                                  }
-                                } catch { /* partial */ }
-                              }
-                            }
-                            setMessages((prev) => prev.map((m) => m.id === assistantMsg.id ? { ...m, interactionId: iid, mediaCards: mc } : m));
-                            if (!leadCollected && /Acesso validado|Access validated|Acceso validado|Que bom te ver por aqui novamente|Great to see you again|Qué bueno verte de nuevo|Agora sim, estou pronta|Now I'm ready|Ahora sí, estoy lista|Que bom te ver de novo|Que bom que voltou|Great to have you back|Qué bueno que volviste/i.test(fc)) {
-                              setLeadCollected(true);
-                              sessionStorage.setItem('dra_lia_lead_collected', 'true');
-                            }
-                            setIsLoading(false);
-                          };
-                          processS().catch(() => setIsLoading(false));
-                        }).catch(() => setIsLoading(false));
-                      }, 50);
+                      setTimeout(() => sendMessage(), 50);
                     }}
                     className="flex items-center justify-center p-2.5 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 transition-all text-center text-xs shadow-sm font-medium text-gray-800"
                     style={{ borderColor: 'transparent', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}
