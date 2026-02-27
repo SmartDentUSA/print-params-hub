@@ -1,32 +1,36 @@
 
 
-## Plano: Testar Resposta Autônoma da Dra. LIA via WhatsApp
+## Diagnóstico: Formatação de Telefone Inconsistente em Múltiplas Edge Functions
 
-### Objetivo
-Enviar uma mensagem simulando um lead para o número `5519992612348` e verificar se a Dra. LIA processa e responde autonomamente.
+### Problema Identificado
 
-### Passos
+Encontrei **3 problemas concretos** após auditar todo o código:
 
-1. **Enviar mensagem de teste** via `smart-ops-send-waleads` usando o celular da Patricia para `5519992612348` com uma pergunta real (ex: "Qual impressora 3D vocês recomendam para consultório?")
+1. **`smart-ops-cs-processor`** (automações): Usa `lead.telefone_normalized` direto no `chat` SEM nenhuma sanitização. Se o campo no banco tem `+5571992182843` (como encontrei em vários leads), envia com `+` e o WaLeads rejeita silenciosamente (retorna 201 mas não entrega).
 
-2. **Verificar se o webhook `dra-lia-whatsapp` é acionado** — quando o destinatário responder, o WaLeads deve disparar o webhook que chama `dra-lia-whatsapp`
+2. **Dados inconsistentes no banco**: O campo `telefone_normalized` na tabela `lia_attendances` tem formatos misturados:
+   - `5519992612348` (sem +)
+   - `+5571992182843` (com +)
+   - `999990000` (sem código de país)
 
-3. **Checar logs da edge function `dra-lia-whatsapp`** para confirmar que:
-   - O lead foi identificado ou criado em `lia_attendances`
-   - A Dra. LIA gerou uma resposta original via `dra-lia`
-   - A resposta foi enviada de volta via WaLeads API
+3. **`dra-lia-whatsapp`**: Faz `phoneDigits.replace(/^\+/, "")` mas `phoneDigits` já veio de `.replace(/\D/g, "")` que remove tudo não-numérico — ou seja, o `+` já foi removido antes. Funciona, mas é confuso.
 
-4. **Consultar `whatsapp_inbox`** para verificar que tanto o inbound quanto o outbound ficaram registrados
+### Plano de Correção
 
-### Observação Importante
-O fluxo autônomo depende de o **destinatário responder** a mensagem. O ciclo completo é:
-- Nós enviamos → destinatário recebe → destinatário responde → WaLeads webhook → `dra-lia-whatsapp` → LIA gera resposta → envia de volta
+#### 1. Criar helper compartilhado `formatPhoneForWaLeads` em `_shared/sellflux-field-map.ts`
+- Remover todos caracteres não-numéricos
+- Garantir que o número tenha o código do país `55` se tiver ≥10 dígitos sem ele
+- Retornar apenas dígitos, sem `+`
 
-Sem a resposta do destinatário, não há como testar o fluxo autônomo completo apenas enviando uma mensagem inicial.
+#### 2. Corrigir `smart-ops-cs-processor/index.ts` (linha 171)
+- Aplicar o novo helper ao `chatPhone` antes de enviar
 
-### Detalhes Técnicos
-- Edge function: `dra-lia-whatsapp` (recebe webhook do WaLeads)
-- Team member: Patricia (`a49ade61-3671-4bab-982e-443f026422f7`)
-- Dedup window: 5 segundos entre respostas
-- Max WhatsApp length: 4000 caracteres
+#### 3. Corrigir `smart-ops-send-waleads/index.ts` (linha 114)
+- Substituir `phone.replace(/^\+/, '')` pelo helper compartilhado
+
+#### 4. Corrigir `dra-lia-whatsapp/index.ts` (linhas 354, 383)
+- Substituir a lógica duplicada pelo helper compartilhado
+
+#### 5. Normalizar dados existentes no banco
+- Atualizar `telefone_normalized` em `lia_attendances` para remover `+` de todos os registros que o contenham
 
