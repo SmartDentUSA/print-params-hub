@@ -100,6 +100,9 @@ export function SmartOpsTab() {
         <TabsContent value="relatorios">
           <SmartOpsReports key={`relatorios-${refreshKey}`} />
         </TabsContent>
+        <TabsContent value="whatsapp">
+          <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />
+        </TabsContent>
       </Tabs>
     </div>
   );
