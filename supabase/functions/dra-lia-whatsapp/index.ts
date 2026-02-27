@@ -403,33 +403,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6. Log in whatsapp_inbox (inbound + outbound)
-    await supabase.from("whatsapp_inbox").insert([
-      {
-        phone: phoneDigits,
-        phone_normalized: phoneSuffix,
-        message_text: messageText,
-        direction: "inbound",
-        lead_id: leadId,
-        matched_by: leadId ? `ilike_%${phoneSuffix}` : "created_new",
-        intent_detected: "lia_autonomous",
-        confidence_score: 100,
-        raw_payload: body,
-        processed_at: new Date().toISOString(),
-      },
-      {
-        phone: phoneDigits,
-        phone_normalized: phoneSuffix,
-        message_text: waMessage,
-        direction: "outbound",
-        lead_id: leadId,
-        matched_by: "lia_reply",
-        intent_detected: "lia_autonomous",
-        confidence_score: 100,
-        seller_notified: replySent,
-        processed_at: new Date().toISOString(),
-      },
-    ]);
+    // 6. Log inbound in whatsapp_inbox (outbound is persisted by smart-ops-send-waleads)
+    await supabase.from("whatsapp_inbox").insert({
+      phone: phoneDigits,
+      phone_normalized: phoneSuffix,
+      message_text: messageText,
+      direction: "inbound",
+      lead_id: leadId,
+      matched_by: leadId ? `ilike_%${phoneSuffix}` : "created_new",
+      intent_detected: "lia_autonomous",
+      confidence_score: 100,
+      raw_payload: body,
+      processed_at: new Date().toISOString(),
+    });
 
     const result = {
       success: true,

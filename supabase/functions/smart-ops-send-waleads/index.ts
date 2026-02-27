@@ -134,9 +134,24 @@ Deno.serve(async (req) => {
     });
 
     const waData = await waRes.text();
-    console.log(`[send-waleads] WaLeads response: status=${waRes.status} body=${waData.slice(0, 300)}`);
+    console.log(`[send-waleads] WaLeads response: status=${waRes.status} body=${waData.slice(0, 500)}`);
     const messageStatus = waRes.ok ? "enviado" : "erro";
-    const errorDetails = waRes.ok ? null : waData.slice(0, 500);
+
+    // Parse provider metadata for traceability
+    let providerMeta: Record<string, unknown> = {};
+    try {
+      const parsed = JSON.parse(waData);
+      providerMeta = {
+        provider_code: parsed.code || parsed.status || waRes.status,
+        provider_message: parsed.message || null,
+        provider_channel: parsed.data?.channelId || parsed.channelId || null,
+        provider_timestamp: parsed.data?.timestamp || parsed.timestamp || null,
+        raw_snippet: waData.slice(0, 300),
+      };
+    } catch {
+      providerMeta = { raw_snippet: waData.slice(0, 300) };
+    }
+    const errorDetails = JSON.stringify(providerMeta);
 
     const logTipo = test_mode ? `waleads_${tipo}_test` : `waleads_${tipo}`;
     await supabase.from("message_logs").insert({
@@ -169,7 +184,7 @@ Deno.serve(async (req) => {
       provider: "waleads",
       status: messageStatus,
       api_status: waRes.status,
-      response: waData.slice(0, 500),
+      provider_meta: providerMeta,
       test_mode,
     }), {
       status: waRes.ok ? 200 : waRes.status, headers: { ...corsHeaders, "Content-Type": "application/json" },

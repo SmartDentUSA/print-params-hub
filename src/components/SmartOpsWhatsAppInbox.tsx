@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, Search, MessageSquare, Phone, User } from "lucide-react";
+import { Send, Search, MessageSquare, Phone, User, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -58,12 +58,22 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
   const [searchFilter, setSearchFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Load conversations grouped by phone
   useEffect(() => {
     loadConversations();
     loadTeamMembers();
   }, [refreshKey]);
+
+  // Polling: reload conversations every 8s
+  useEffect(() => {
+    pollRef.current = setInterval(() => {
+      loadConversations();
+      if (selectedPhone) loadMessages(selectedPhone);
+    }, 8000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [selectedPhone]);
 
   // Load messages when a conversation is selected
   useEffect(() => {
@@ -77,7 +87,6 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
 
   const loadConversations = async () => {
     setLoading(true);
-    // Get all messages ordered by created_at desc, then group client-side
     const { data, error } = await supabase
       .from("whatsapp_inbox")
       .select("phone_normalized, phone, message_text, created_at, direction, lead_id, intent_detected")
@@ -90,7 +99,6 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       return;
     }
 
-    // Group by phone_normalized
     const map = new Map<string, Conversation>();
     for (const msg of data || []) {
       const key = msg.phone_normalized || msg.phone;
@@ -108,17 +116,21 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       }
     }
 
-    // Fetch lead names for conversations that have lead_id
     const leadIds = [...new Set([...map.values()].filter(c => c.lead_id).map(c => c.lead_id!))];
     if (leadIds.length > 0) {
       const { data: leads } = await supabase
         .from("lia_attendances")
-        .select("id, nome")
+        .select("id, nome, telefone_normalized, telefone_raw")
         .in("id", leadIds);
       if (leads) {
-        const leadMap = new Map(leads.map(l => [l.id, l.nome]));
+        const leadMap = new Map(leads.map(l => [l.id, l]));
         for (const conv of map.values()) {
-          if (conv.lead_id) conv.lead_name = leadMap.get(conv.lead_id) || null;
+          if (conv.lead_id) {
+            const lead = leadMap.get(conv.lead_id);
+            if (lead) {
+              conv.lead_name = lead.nome || null;
+            }
+          }
         }
       }
     }
@@ -159,7 +171,6 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     setSending(true);
 
     try {
-      // Find the lead_id for this conversation
       const conv = conversations.find(c => c.phone_normalized === selectedPhone);
 
       const { error } = await supabase.functions.invoke("smart-ops-send-waleads", {
@@ -175,7 +186,6 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       if (error) throw error;
       toast.success("Mensagem enviada");
       setReplyText("");
-      // Reload messages after small delay
       setTimeout(() => loadMessages(selectedPhone), 1000);
     } catch (err) {
       toast.error(`Erro ao enviar: ${err instanceof Error ? err.message : String(err)}`);
@@ -184,14 +194,23 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     }
   };
 
+  // Enhanced search: match full phone, DDD+9, or last 9 digits
   const filteredConversations = conversations.filter(c => {
     if (!searchFilter) return true;
-    const q = searchFilter.toLowerCase();
-    return (
-      c.phone_normalized.includes(q) ||
-      (c.lead_name && c.lead_name.toLowerCase().includes(q)) ||
-      (c.last_message && c.last_message.toLowerCase().includes(q))
-    );
+    const q = searchFilter.toLowerCase().replace(/\D/g, "");
+    const qText = searchFilter.toLowerCase();
+
+    // Text match on name/message
+    if (c.lead_name && c.lead_name.toLowerCase().includes(qText)) return true;
+    if (c.last_message && c.last_message.toLowerCase().includes(qText)) return true;
+
+    // Phone match: full, DDD+9, or last 9 digits
+    if (!q) return true;
+    const phoneDigits = (c.phone_raw || c.phone_normalized || "").replace(/\D/g, "");
+    if (phoneDigits.includes(q)) return true;
+    if (q.length >= 8 && phoneDigits.endsWith(q)) return true;
+
+    return false;
   });
 
   const formatTime = (ts: string) => {
@@ -211,6 +230,13 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
     return "bg-muted text-muted-foreground";
   };
 
+  const formatPhone = (raw: string) => {
+    const d = raw.replace(/\D/g, "");
+    if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
+    if (d.length === 11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+    return raw;
+  };
+
   return (
     <div className="flex h-[calc(100vh-280px)] min-h-[500px] border rounded-lg bg-card overflow-hidden">
       {/* Left: Conversation list */}
@@ -219,7 +245,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar conversa..."
+              placeholder="Buscar nome ou telefone..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
               className="pl-9"
@@ -245,13 +271,13 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                   <span className="font-medium text-sm truncate flex items-center gap-1.5">
                     {conv.lead_name ? (
                       <>
-                        <User className="w-3.5 h-3.5 text-muted-foreground" />
+                        <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                         {conv.lead_name}
                       </>
                     ) : (
                       <>
-                        <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                        {conv.phone_normalized}
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        {formatPhone(conv.phone_raw)}
                       </>
                     )}
                   </span>
@@ -259,6 +285,9 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
                     {formatTime(conv.last_at)}
                   </span>
                 </div>
+                {conv.lead_name && (
+                  <p className="text-[10px] text-muted-foreground mb-0.5">📱 {formatPhone(conv.phone_raw)}</p>
+                )}
                 <p className="text-xs text-muted-foreground truncate">{conv.last_message}</p>
                 {conv.intent && (
                   <Badge variant="outline" className={cn("mt-1 text-[10px] px-1.5 py-0", intentColor(conv.intent))}>
@@ -269,8 +298,11 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
             ))
           )}
         </div>
-        <div className="p-2 border-t text-xs text-muted-foreground text-center">
-          {conversations.length} conversas
+        <div className="p-2 border-t text-xs text-muted-foreground text-center flex items-center justify-center gap-2">
+          <span>{conversations.length} conversas</span>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => loadConversations()}>
+            <RefreshCw className="w-3 h-3" />
+          </Button>
         </div>
       </div>
 
@@ -289,9 +321,11 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
             <div className="p-3 border-b flex items-center justify-between bg-muted/30">
               <div>
                 <p className="font-medium text-sm">
-                  {conversations.find(c => c.phone_normalized === selectedPhone)?.lead_name || selectedPhone}
+                  {conversations.find(c => c.phone_normalized === selectedPhone)?.lead_name || formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
                 </p>
-                <p className="text-xs text-muted-foreground">{selectedPhone}</p>
+                <p className="text-xs text-muted-foreground">
+                  📱 {formatPhone(conversations.find(c => c.phone_normalized === selectedPhone)?.phone_raw || selectedPhone)}
+                </p>
               </div>
               <Badge variant="outline" className="text-xs">
                 {messages.length} msgs
