@@ -13,6 +13,7 @@ import { SmartOpsLogs } from "./SmartOpsLogs";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
+import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -63,7 +64,7 @@ export function SmartOpsTab() {
       </div>
 
       <Tabs defaultValue="bowtie" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
           <TabsTrigger value="kanban">Kanban</TabsTrigger>
           <TabsTrigger value="leads">Leads</TabsTrigger>
@@ -72,6 +73,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
+          <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bowtie">
@@ -97,6 +99,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="relatorios">
           <SmartOpsReports key={`relatorios-${refreshKey}`} />
+        </TabsContent>
+        <TabsContent value="whatsapp">
+          <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />
         </TabsContent>
       </Tabs>
     </div>
