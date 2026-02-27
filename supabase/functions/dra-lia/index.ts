@@ -2222,7 +2222,12 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
     // 6. Send via SellFlux/WaLeads if API key available
     if (teamMember.waleads_api_key) {
       try {
-        // Use smart-ops-send-waleads to send notification to seller
+        // Use smart-ops-send-waleads to send notification to lead's phone
+        const leadPhone = attendance.telefone_normalized;
+        if (!leadPhone) {
+          console.warn(`[escalation] Lead ${attendance.nome} (${attendance.email}) has no telefone_normalized — skipping WaLeads send`);
+          return;
+        }
         const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
           method: "POST",
           headers: {
@@ -2231,7 +2236,7 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
           },
           body: JSON.stringify({
             team_member_id: teamMember.id,
-            phone: teamMember.whatsapp_number,
+            phone: leadPhone,
             tipo: "text",
             message: notificationMsg,
             lead_id: attendance.id,
