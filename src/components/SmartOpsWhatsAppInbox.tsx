@@ -165,7 +165,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       const { error } = await supabase.functions.invoke("smart-ops-send-waleads", {
         body: {
           team_member_id: selectedMember,
-          phone: selectedPhone,
+          phone: conv?.phone_raw || selectedPhone,
           tipo: "text",
           message: replyText,
           lead_id: conv?.lead_id || null,
