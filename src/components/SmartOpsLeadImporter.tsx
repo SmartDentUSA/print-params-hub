@@ -4,7 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download, ShieldAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PARSER_MAP, PARSER_OPTIONS } from "@/utils/leadParsers";
