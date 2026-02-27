@@ -1,73 +1,172 @@
 
 
-## Plano: Conectar Dra. L.I.A. ao WaLeads como Agente Autonomo
+# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
 
-### Visao Geral
+## Diagnostico do Estado Atual
 
-Criar uma edge function `dra-lia-whatsapp` que recebe webhooks do WaLeads, processa a mensagem usando toda a logica RAG da L.I.A. em modo nao-streaming, e retorna a resposta para o WaLeads enviar automaticamente ao lead.
+| Componente | Status | Onde |
+|------------|--------|------|
+| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
+| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
+| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
+| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
+| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
+| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
+| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
 
-### Arquitetura
+**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
 
-```text
-Lead envia msg WhatsApp
-       ↓
-  WaLeads recebe
-       ↓
-  POST → dra-lia-whatsapp (webhook)
-       ↓
-  1. Identifica lead por telefone (lia_attendances)
-  2. Busca historico (agent_interactions)
-  3. Chama dra-lia internamente (non-streaming)
-  4. Salva interacao em agent_interactions
-  5. Envia reply via WaLeads API
-       ↓
-  Lead recebe resposta no WhatsApp
+---
+
+## Fase 1: Tabela `whatsapp_inbox`
+
+Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+
+```sql
+CREATE TABLE IF NOT EXISTS whatsapp_inbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  phone text NOT NULL,
+  phone_normalized text,
+  message_text text,
+  media_url text,
+  media_type text,
+  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
+  lead_id uuid REFERENCES lia_attendances(id),
+  matched_by text,
+  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
+    'interesse_imediato', 'interesse_futuro', 'pedido_info',
+    'objecao', 'sem_interesse', 'suporte', 'indefinido'
+  )),
+  confidence_score integer,
+  seller_notified boolean DEFAULT false,
+  processed_at timestamptz,
+  raw_payload jsonb DEFAULT '{}'
+);
+
+CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
+CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
+CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
+CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
 ```
 
-### Implementacao
+RLS: `admin_only` (mesma policy de `lia_attendances`).
 
-#### 1. Nova Edge Function: `supabase/functions/dra-lia-whatsapp/index.ts`
+---
 
-Recebe webhook do WaLeads com payload `{ phone, message, sender_name }`:
-- Normaliza telefone e busca lead em `lia_attendances`
-- Se nao encontrar, cria lead basico com telefone
-- Busca ultimas 10 interacoes do lead em `agent_interactions` para montar historico
-- Faz `fetch` interno para `dra-lia` com `action=chat`, passando message, history, lang, session_id
-- Como `dra-lia` retorna SSE stream, consome o stream internamente e concatena a resposta completa
-- Envia a resposta via WaLeads API (`/public/message/text?key={api_key}`) usando a chave do team_member configurado como "agente autonomo"
-- Salva no `whatsapp_inbox` como registro de entrada + saida
-- Retorna `{ success: true }` ao WaLeads
+## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
 
-#### 2. Configuracao no `supabase/config.toml`
+Endpoint publico que recebe POST do WaLeads quando lead responde.
 
-Adicionar:
-```toml
-[functions.dra-lia-whatsapp]
-verify_jwt = false
+**Fluxo:**
+
+1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
+2. Normaliza telefone (ultimos 8-9 digitos para match)
+3. Busca lead em `lia_attendances` via `telefone_normalized`
+4. Classifica mensagem (rule-based v1):
+   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
+   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
+   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
+   - `objecao`: "caro", "vou pensar", "falar com socio"
+   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
+   - `suporte`: "problema", "defeito", "troca", "garantia"
+5. Insere em `whatsapp_inbox`
+6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
+7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
+8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
+
+**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
+
+---
+
+## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
+
+Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
+
+```typescript
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Extrair ultimos 8-9 digitos para match
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
+
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
+}
 ```
 
-#### 3. Coluna `agente_autonomo_member_id` na tabela de configuracao
+O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
 
-Usar a tabela `team_members` para identificar qual membro tem a `waleads_api_key` que sera usada para enviar respostas. O webhook recebera um header ou query param com a key do WaLeads para identificar qual instancia esta recebendo.
+---
 
-### Detalhes Tecnicos
+## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
 
-- A funcao consome o stream SSE da `dra-lia` linha por linha, extrai os deltas e concatena o texto final
-- Remove markdown links `[texto](url)` na resposta para WhatsApp (nao renderiza markdown)
-- Limita resposta a 4000 caracteres (limite do WhatsApp)
-- Rate limit: se `dra-lia` retornar 429, responde ao WaLeads com mensagem padrao de espera
-- Timeout: 30s para a chamada interna
+Quando `intent_detected === 'interesse_imediato'`:
 
-### Arquivos
+1. Buscar `proprietario_lead_crm` em `lia_attendances`
+2. Buscar `team_member` correspondente
+3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
+
+```
+OPORTUNIDADE QUENTE
+Lead: {nome} ({especialidade})
+Owner: {proprietario_lead_crm}
+Resposta: "{message_text}" (truncado 200 chars)
+Etapa CRM: {ultima_etapa_comercial}
+Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
+Acao: {recommended_approach}
+```
+
+4. Marcar `seller_notified = true` em `whatsapp_inbox`
+
+---
+
+## Fase 5: Limpeza Automatica (Clean-up Job)
+
+Adicionar logica no `smart-ops-stagnant-processor` existente:
+
+- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
+- E lead nao tem outras interacoes positivas
+- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
+
+---
+
+## Resumo de Arquivos
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | `supabase/functions/dra-lia-whatsapp/index.ts` | Criar — bridge WaLeads ↔ L.I.A. |
-| 2 | `supabase/config.toml` | Adicionar entry para dra-lia-whatsapp |
+| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
+| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
+| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
+| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
+| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
 
-### Configuracao no WaLeads (pos-deploy)
+## Ordem de Execucao
 
-No painel do WaLeads, secao "Treinamento" → "Usar Website":
-1. Configurar webhook de entrada apontando para: `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/dra-lia-whatsapp`
-2. A L.I.A. respondera com todo o conhecimento RAG, persona e SPIN
+```text
+1. Migracao SQL (whatsapp_inbox)
+2. Helpers de normalizacao em sellflux-field-map.ts
+3. Edge function smart-ops-wa-inbox-webhook + config.toml
+4. Integracao clean-up no stagnant-processor
+5. Deploy
+```
+
+## Payload WaLeads Esperado
+
+O webhook do WaLeads envia POST com:
+
+```json
+{
+  "event": "message_received",
+  "phone": "5511999887766",
+  "message": "Tenho interesse sim, como funciona?",
+  "media_url": null,
+  "timestamp": "2026-02-26T10:30:00Z"
+}
+```
+
+O endpoint a ser configurado no painel WaLeads sera:
+`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
 
