@@ -8,6 +8,7 @@ import {
   piperunGet,
   addDealNote,
   mapAttendanceToDealCustomFields,
+  customFieldsToHashMap,
   DEAL_CUSTOM_FIELDS,
 } from "../_shared/piperun-field-map.ts";
 
@@ -249,12 +250,19 @@ Deno.serve(async (req) => {
     if (isExisting && piperunId) {
       // ── UPDATE existing deal ──
       console.log(`[lia-assign] Updating deal ${piperunId}`);
+
+      // PipeRun PUT requires custom fields as flat hash-keyed properties
+      const hashFields = customFieldsToHashMap(customFields);
       const updatePayload: Record<string, unknown> = {
         stage_id,
         owner_id: assignedOwnerId,
+        origin: "dra-lia",
+        ...hashFields,
       };
+
+      console.log(`[lia-assign] Update payload: ${JSON.stringify(updatePayload).slice(0, 500)}`);
       const updateRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, updatePayload);
-      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`);
+      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`, JSON.stringify(updateRes.data).slice(0, 300));
 
       // Always add note with lead data
       const noteText = buildLeadNote(lead as Record<string, unknown>, false);
@@ -389,13 +397,23 @@ async function triggerOutboundAutomation(
   if (!phone) return;
 
   try {
+    // Query rules: first try team-specific, then any global rule
     let { data: rules } = await supabase
       .from("cs_automation_rules")
       .select("*")
       .eq("trigger_event", "NOVO_LEAD")
       .eq("ativo", true)
-      .eq("team_member_id", teamMemberId)
       .eq("waleads_ativo", true);
+
+    // No rules at all? Skip
+    if (!rules || rules.length === 0) {
+      console.log("[lia-assign] No NOVO_LEAD automation rules found");
+      return;
+    }
+
+    // Prefer team-specific rules, then fallback to any
+    const teamRules = rules.filter((r: Record<string, unknown>) => r.team_member_id === teamMemberId);
+    if (teamRules.length > 0) rules = teamRules;
 
     let rule = null;
     if (rules && rules.length > 0) {

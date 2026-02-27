@@ -176,6 +176,22 @@ export const DEAL_CUSTOM_FIELDS = {
   DATA_TREINAMENTO: 673925,
 } as const;
 
+// Hash keys for PUT /deals (PipeRun requires hash as flat keys for updates)
+export const DEAL_CUSTOM_FIELD_HASHES: Record<number, string> = {
+  [DEAL_CUSTOM_FIELDS.ESPECIALIDADE]: "ebe365a77c419c61857ceabb23d0bb54",
+  [DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE]: "619a7f62bf5de569fc5dd9ee6b3b4048",
+  [DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE_AUTO]: "eb81efa44c668c5b741cdf43928db450",
+  [DEAL_CUSTOM_FIELDS.WHATSAPP]: "f7dc3e9b085802a19fcd444e46e69637",
+  [DEAL_CUSTOM_FIELDS.AREA_ATUACAO]: "304e7f2d011a3307c6f409728b3ed7d0",
+  [DEAL_CUSTOM_FIELDS.TEM_SCANNER]: "cd2c1cc55889d78f63ed0ff639e6ecbb",
+  [DEAL_CUSTOM_FIELDS.TEM_IMPRESSORA]: "0d362620234c1dd5163a0942af8326e0",
+  [DEAL_CUSTOM_FIELDS.PAIS_ORIGEM]: "eac51ba89e4b48965d9342a93563c3a4",
+  [DEAL_CUSTOM_FIELDS.INFORMACAO_DESEJADA]: "9a93b104e94ffc08c7155be86436cfcc",
+  [DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID]: "9adaf79b1e29a77c82a2ed42cf27df6c",
+  [DEAL_CUSTOM_FIELDS.CODIGO_CONTRATO]: "35b82d194615f358358c1fc4742a4f7d",
+  [DEAL_CUSTOM_FIELDS.DATA_TREINAMENTO]: "e7f176ea20026552e19a2933ec77c122",
+};
+
 // Person/Organization custom fields (belongs=2)
 export const PERSON_CUSTOM_FIELDS = {
   ESPECIALIDADE: 445631,
@@ -377,6 +393,9 @@ export function mapAttendanceToDealCustomFields(
   if (attendance.produto_interesse) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE, value: String(attendance.produto_interesse) });
   }
+  if (attendance.area_atuacao) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: String(attendance.area_atuacao) });
+  }
   if (attendance.tem_scanner) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: String(attendance.tem_scanner) });
   }
@@ -391,6 +410,23 @@ export function mapAttendanceToDealCustomFields(
   }
 
   return fields;
+}
+
+/**
+ * Convert custom fields array to hash-keyed flat object for PUT /deals
+ * PipeRun PUT requires { "hash_key": "value" } format, not array
+ */
+export function customFieldsToHashMap(
+  fields: Array<{ custom_field_id: number; value: string }>
+): Record<string, string> {
+  const hashMap: Record<string, string> = {};
+  for (const f of fields) {
+    const hash = DEAL_CUSTOM_FIELD_HASHES[f.custom_field_id];
+    if (hash) {
+      hashMap[hash] = f.value;
+    }
+  }
+  return hashMap;
 }
 
 // ─── PipeRun API helpers ───

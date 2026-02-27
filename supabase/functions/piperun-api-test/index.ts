@@ -16,9 +16,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { action, dealId, path, show } = await req.json();
+    const { action, dealId, path, show, body: reqBody, method: reqMethod } = await req.json();
     const base = "https://api.pipe.run";
     let url = "";
+    let fetchMethod = "GET";
+    let fetchBody: string | undefined = undefined;
 
     switch (action) {
       case "list_deals":
@@ -42,14 +44,25 @@ Deno.serve(async (req) => {
         url = `${base}/v1/${path.replace(/^\/+/, "")}`;
         url += (url.includes("?") ? "&" : "?") + `token=${PIPERUN_API_KEY}`;
         break;
+      case "raw_put":
+        if (!path) throw new Error("path required for raw_put");
+        url = `${base}/v1/${path.replace(/^\/+/, "")}?token=${PIPERUN_API_KEY}`;
+        fetchMethod = "PUT";
+        fetchBody = JSON.stringify(reqBody || {});
+        break;
       default:
-        throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get`);
+        throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get, raw_put`);
     }
 
     console.log(`[piperun-api-test] ${action} -> ${url}`);
 
+    const fetchHeaders: Record<string, string> = { "Accept": "application/json" };
+    if (fetchBody) fetchHeaders["Content-Type"] = "application/json";
+
     const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
+      method: fetchMethod,
+      headers: fetchHeaders,
+      body: fetchBody,
     });
 
     const text = await res.text();
