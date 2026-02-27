@@ -97,6 +97,7 @@ export function SmartOpsWhatsAppInbox({ refreshKey }: { refreshKey: number }) {
       if (!map.has(key)) {
         map.set(key, {
           phone_normalized: key,
+          phone_raw: msg.phone,
           last_message: msg.message_text || `[${msg.direction}]`,
           last_at: msg.created_at,
           lead_name: null,
