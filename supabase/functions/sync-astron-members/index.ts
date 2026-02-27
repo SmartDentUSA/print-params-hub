@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ASTRON_BASE = "https://api.astronmembers.com.br";
+const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 
 /* ─── Astron API helper ─── */
 async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
