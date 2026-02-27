@@ -107,6 +107,14 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // Reject leads that are clearly junk (no real name + no real email + no phone)
+        const isJunkName = !nome || nome === "Sem Nome";
+        const isJunkEmail = !email || email.includes("placeholder");
+        if (isJunkName && isJunkEmail && !phone) {
+          skipped++;
+          continue;
+        }
+
         // Normalize phone in fields
         const fields = buildUpsertFields(raw, override);
         if (phone) fields.telefone_normalized = phone;

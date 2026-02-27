@@ -233,6 +233,10 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
             </div>
           )}
 
+            </div>
+          );
+          })()}
+
           {/* Progress */}
           {importing && (
             <div className="space-y-2">
