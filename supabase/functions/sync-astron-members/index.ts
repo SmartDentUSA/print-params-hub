@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
           let plansActive: string[] = [];
           try {
             const plansResp = await astronFetch("listClubUserPlans", {
-              user_id: String(user.id),
+              user_id: user.id,
             });
             plansData = plansResp?.data || plansResp?.plans || plansResp || [];
             if (Array.isArray(plansData)) {
