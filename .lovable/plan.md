@@ -1,27 +1,52 @@
 
 
-## Diagnóstico
+## Diagnostico dos Problemas no Envio WaLeads
 
-Os logs mostram claramente: `am_key=SAuSEvFO5SkrjV31RXnR7nthwUsSoLTs` — isso é o secret da chave "Sistema Master", não da "API Consulta".
+Analisei o codigo e os dados. Existem **3 bugs criticos**:
 
-Da documentação do usuário:
-- **API Consulta**: ID = `19177`, secret = `qrPsJjLGeAsFgESYOfAsKBBxohyCTsPA`
-- **Sistema Master**: secret = `SAuSEvFO5SkrjV31RXnR7nthwUsSoLTs`
+### Bug 1: `send-waleads` sempre retorna HTTP 200
+A funcao `smart-ops-send-waleads` retorna `status: 200` mesmo quando a API WaLeads rejeita a mensagem (linha 149-158). Por isso, o `dra-lia` sempre marca o `escalation_vendedor` como "enviado", mesmo quando o WaLeads retornou `INVALID_PHONE_NUMBER`.
 
-O sistema está usando a chave errada (Sistema Master ao invés de API Consulta).
+Prova: O caso "Teste 01" tem `escalation_vendedor=enviado` mas `waleads_text=erro (INVALID_PHONE_NUMBER)`.
 
-## Plano
+### Bug 2: Auto-mensagem (FROM seller TO seller)
+A escalation envia a notificacao PARA o `teamMember.whatsapp_number` USANDO a `waleads_api_key` do MESMO membro. Ou seja, WaLeads tenta enviar do celular da Patricia PARA o celular da Patricia. Isso pode nao funcionar ou aparecer apenas como "nota" no WhatsApp.
 
-### 1. Atualizar secrets
-- `ASTRON_AM_KEY` → `19177`
-- `ASTRON_AM_SECRET` → `qrPsJjLGeAsFgESYOfAsKBBxohyCTsPA`
+### Bug 3: Falta de logging detalhado
+Nao ha log do phone e message exatos enviados ao WaLeads, dificultando debug.
 
-O código já está correto (envia `am_key` e `am_secret` via POST/JSON). Só os valores dos secrets estão errados.
+---
 
-### 2. Redeployar e testar
-- Redeployar `sync-astron-members` para pegar os novos valores
-- Chamar com `{"page_size": 2, "max_pages": 1}` para validar autenticação
+## Plano de Correcao
 
-### Detalhes técnicos
-O código em `sync-astron-members/index.ts` e `astron-member-lookup/index.ts` já usa o padrão correto POST/JSON com `{ am_key, am_secret, ...params }`. Nenhuma alteração de código necessária — apenas os valores dos secrets precisam ser corrigidos.
+### 1. Corrigir `smart-ops-send-waleads` para retornar status HTTP real
+- Quando WaLeads retorna erro, retornar HTTP 4xx (nao 200)
+- Isso faz o `dra-lia` detectar falhas corretamente
+
+### 2. Adicionar logging detalhado no `send-waleads`
+- Logar phone exato, message (primeiros 100 chars), e resposta WaLeads completa
+- Incluir o `apiBody` enviado
+
+### 3. Corrigir escalation no `dra-lia` para ler o response body
+- Mesmo com HTTP 200, verificar `success` no JSON de retorno
+- Marcar como "erro" quando `success=false`
+
+### 4. Resolver o problema de auto-mensagem
+- Opcao: usar um team_member diferente (ex: numero da empresa) para enviar TO o vendedor
+- Ou: adicionar campo `notification_phone` separado no `team_members` para receber notificacoes
+
+---
+
+## Arquivos a editar
+
+| # | Arquivo | Mudanca |
+|---|---------|---------|
+| 1 | `supabase/functions/smart-ops-send-waleads/index.ts` | Retornar HTTP real + logging detalhado |
+| 2 | `supabase/functions/dra-lia/index.ts` (linhas 2222-2256) | Verificar `success` no response body, nao so HTTP status |
+
+## Detalhes tecnicos
+
+**send-waleads**: Mudar linha 149 de `status: 200` para `status: waRes.ok ? 200 : waRes.status`. Adicionar `console.log` com phone, message preview, apiBody antes da chamada fetch.
+
+**dra-lia escalation**: Apos `sendResp.ok`, fazer `const sendResult = await sendResp.json()` e verificar `sendResult.success === true` antes de marcar como "enviado".
 
