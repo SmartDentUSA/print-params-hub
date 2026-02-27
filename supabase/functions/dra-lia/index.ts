@@ -2680,7 +2680,7 @@ Campos:
           // Fetch lia_attendances for full lead profile + resumo
           const { data: attendance } = await supabase
             .from("lia_attendances")
-            .select("resumo_historico_ia, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad")
+            .select("resumo_historico_ia, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad, astron_status, astron_plans_active, astron_courses_total, astron_courses_completed, astron_login_url, astron_synced_at")
             .eq("email", leadState.email)
             .maybeSingle();
 
