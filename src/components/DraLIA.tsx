@@ -705,6 +705,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setProductsFlowStep(null);
     setCommercialFlowStep(null);
     setCommercialFullWorkflow(false);
+    setSupportFlowActive(false);
     commercialSelectionsRef.current = { resins: [] };
     sessionStorage.removeItem('dra_lia_topic_context');
     // Keep sessionId, leadCollected, and sessionStorage lead data intact
