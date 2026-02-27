@@ -363,16 +363,22 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
+      const bodyPayload: Record<string, unknown> = {
+        message: text,
+        history,
+        lang,
+        session_id: sessionId.current,
+        topic_context: topicContext || undefined,
+      };
+      // Attach SDR product selections if present
+      if (pendingSdrSelectionsRef.current) {
+        bodyPayload.product_selections = pendingSdrSelectionsRef.current;
+        pendingSdrSelectionsRef.current = null;
+      }
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: text,
-          history,
-          lang,
-          session_id: sessionId.current,
-          topic_context: topicContext || undefined,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!resp.ok || !resp.body) {
