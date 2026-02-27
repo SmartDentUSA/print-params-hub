@@ -166,9 +166,6 @@ Deno.serve(async (req) => {
         stage_id,
         owner_id: assignedOwnerId,
       };
-      if (customFields.length > 0) {
-        updatePayload.custom_fields = customFields;
-      }
       const updateRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, updatePayload);
       console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`, JSON.stringify(updateRes.data));
 
