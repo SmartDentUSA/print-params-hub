@@ -81,9 +81,22 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json();
-    const phone = body.phone || body.from || body.sender || "";
-    const messageText = body.message || body.text || body.body || "";
-    const senderName = body.sender_name || body.name || "";
+    console.log("[dra-lia-wa] Body keys:", Object.keys(body).join(", "));
+
+    const phone = body.phone || body.from || body.sender || body.contact_phone || body.chatId || body.chat || "";
+    const messageText = body.message || body.text || body.body || body.lastMessage || body.content || "";
+    const senderName = body.sender_name || body.name || body.contact_name || body.pushName || "";
+
+    // Reject unresolved WaLeads template variables
+    if (messageText.includes("{{") || phone.includes("{{") || senderName.includes("{{")) {
+      console.warn("[dra-lia-wa] Unresolved template variables detected", { phone, message: messageText, senderName });
+      return new Response(JSON.stringify({
+        error: "template_variables_not_resolved",
+        hint: "WaLeads is sending literal {{variable}} strings. Check variable syntax in webhook config.",
+        received_keys: Object.keys(body),
+        received_body: body,
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!phone) {
       return new Response(JSON.stringify({ error: "phone is required" }), {
