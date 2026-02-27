@@ -320,6 +320,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     data_fechamento_crm: deal.closed_at || null,
     motivo_perda: deal.lost_reason || null,
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
+    origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
   };
 
   // ─── Email extraction cascade ───
