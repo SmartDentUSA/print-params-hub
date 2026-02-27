@@ -4,7 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download, ShieldAlert } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PARSER_MAP, PARSER_OPTIONS } from "@/utils/leadParsers";
@@ -185,9 +186,23 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
           )}
 
           {/* Step 3: Preview */}
-          {preview && preview.length > 0 && (
+          {preview && preview.length > 0 && (() => {
+            const semNomeCount = allParsed.filter((r) => r.nome === "Sem Nome").length;
+            const semNomePct = Math.round((semNomeCount / allParsed.length) * 100);
+            const blocked = semNomePct > 50;
+            return (
             <div className="space-y-2">
               <label className="text-sm font-medium">3. Preview (primeiras 5 linhas de {allParsed.length})</label>
+              {semNomeCount >= 3 && (
+                <Alert variant="destructive">
+                  <ShieldAlert className="w-4 h-4" />
+                  <AlertDescription>
+                    <strong>{semNomeCount} leads ({semNomePct}%) sem nome detectados!</strong>
+                    {" "}As colunas do arquivo provavelmente não batem com o parser selecionado.
+                    {blocked ? " Importação bloqueada — tente o parser \"Auto-Detect\" ou verifique as colunas do CSV." : " Considere usar o parser \"Auto-Detect\"."}
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="overflow-x-auto border rounded-md">
                 <Table>
                   <TableHeader>
@@ -209,14 +224,15 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
                 </Table>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleImport} disabled={importing}>
+                <Button onClick={handleImport} disabled={importing || blocked}>
                   <CheckCircle className="w-4 h-4 mr-1" />
                   Confirmar e Enviar ({allParsed.length} leads)
                 </Button>
                 <Button variant="outline" onClick={reset}>Cancelar</Button>
               </div>
             </div>
-          )}
+          );
+          })()}
 
           {/* Progress */}
           {importing && (

@@ -1,0 +1,1 @@
+DELETE FROM lia_attendances WHERE nome = 'Sem Nome' AND email LIKE '%placeholder%' AND created_at > '2026-02-27 06:00:00';
