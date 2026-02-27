@@ -377,6 +377,9 @@ export function mapAttendanceToDealCustomFields(
   if (attendance.produto_interesse) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE, value: String(attendance.produto_interesse) });
   }
+  if (attendance.area_atuacao) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.AREA_ATUACAO, value: String(attendance.area_atuacao) });
+  }
   if (attendance.tem_scanner) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.TEM_SCANNER, value: String(attendance.tem_scanner) });
   }

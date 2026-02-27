@@ -405,13 +405,23 @@ async function triggerOutboundAutomation(
   if (!phone) return;
 
   try {
+    // Query rules: first try team-specific, then any global rule
     let { data: rules } = await supabase
       .from("cs_automation_rules")
       .select("*")
       .eq("trigger_event", "NOVO_LEAD")
       .eq("ativo", true)
-      .eq("team_member_id", teamMemberId)
       .eq("waleads_ativo", true);
+
+    // No rules at all? Skip
+    if (!rules || rules.length === 0) {
+      console.log("[lia-assign] No NOVO_LEAD automation rules found");
+      return;
+    }
+
+    // Prefer team-specific rules, then fallback to any
+    const teamRules = rules.filter((r: Record<string, unknown>) => r.team_member_id === teamMemberId);
+    if (teamRules.length > 0) rules = teamRules;
 
     let rule = null;
     if (rules && rules.length > 0) {
