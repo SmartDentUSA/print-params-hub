@@ -4256,10 +4256,42 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                   .update({ agent_response: fullResponse })
                   .eq("id", interactionId);
               }
-              // Fire-and-forget: extract implicit lead data
+              // Fire-and-forget: extract implicit lead data + increment counters + cognitive trigger
               if (currentLeadId && leadState.state === "from_session") {
                 const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
                 extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+
+                // ── Increment total_messages in real-time (bypass summarize_session dependency) ──
+                supabase.rpc("", {}).then(() => {}).catch(() => {}); // no-op placeholder
+                supabase
+                  .from("lia_attendances")
+                  .select("total_messages, cognitive_updated_at, id")
+                  .eq("email", leadState.email)
+                  .maybeSingle()
+                  .then(({ data: att }) => {
+                    if (!att) return;
+                    const newTotal = (att.total_messages || 0) + 1;
+                    supabase
+                      .from("lia_attendances")
+                      .update({ total_messages: newTotal, ultima_sessao_at: new Date().toISOString() })
+                      .eq("id", att.id)
+                      .then(() => console.log(`[counter] total_messages=${newTotal} for ${leadState.email}`))
+                      .catch(e => console.warn("[counter] update error:", e));
+
+                    // ── Independent cognitive trigger (bypass summarize_session) ──
+                    if (newTotal >= 5 && !att.cognitive_updated_at) {
+                      console.log(`[cognitive-trigger] Firing for ${leadState.email} (${newTotal} msgs, never analyzed)`);
+                      fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+                        method: "POST",
+                        headers: {
+                          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ email: leadState.email }),
+                      }).catch(e => console.warn("[cognitive-trigger] fire-and-forget error:", e));
+                    }
+                  })
+                  .catch(e => console.warn("[counter] fetch error:", e));
               }
               // Fire-and-forget: notify seller on escalation
               if (escalationIntent && leadState.state === "from_session") {
