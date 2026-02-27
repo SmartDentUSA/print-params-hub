@@ -2606,6 +2606,21 @@ Campos:
         }
 
         console.log(`[summarize_session] Done for ${leadEmail}: "${summary}"`);
+
+        // Fire-and-forget: assign lead to seller + sync PipeRun
+        if (leadEmail) {
+          const SUPABASE_URL_FF = Deno.env.get("SUPABASE_URL")!;
+          const SUPABASE_SERVICE_ROLE_KEY_FF = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          fetch(`${SUPABASE_URL_FF}/functions/v1/smart-ops-lia-assign`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY_FF}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email: leadEmail }),
+          }).catch((e) => console.warn("[summarize_session] lia-assign fire-and-forget error:", e));
+        }
+
         return new Response(JSON.stringify({ success: true, summary }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });

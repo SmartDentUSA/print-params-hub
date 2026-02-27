@@ -203,3 +203,6 @@ verify_jwt = false
 
 [functions.astron-member-lookup]
 verify_jwt = false
+
+[functions.smart-ops-lia-assign]
+verify_jwt = false

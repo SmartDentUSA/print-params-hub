@@ -1,0 +1,370 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  PIPELINES,
+  STAGES_VENDAS,
+  PIPERUN_USERS,
+  piperunPost,
+  piperunPut,
+  piperunGet,
+  addDealNote,
+  mapAttendanceToDealCustomFields,
+  DEAL_CUSTOM_FIELDS,
+} from "../_shared/piperun-field-map.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const FALLBACK_OWNER_ID = 64367; // Thiago Nicoletti — gestor
+
+/**
+ * Resolve the first stage_id of a pipeline via PipeRun API.
+ * Falls back to 0 if the API call fails.
+ */
+async function resolveFirstStage(apiToken: string, pipelineId: number): Promise<number> {
+  try {
+    const res = await piperunGet(apiToken, "stages", {
+      pipeline_id: pipelineId,
+      order_by: "order",
+      order_type: "asc",
+      show: 1,
+    });
+    if (res.success && res.data) {
+      const items = (res.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
+      if (items && items.length > 0) {
+        return Number(items[0].id);
+      }
+    }
+  } catch (e) {
+    console.warn("[lia-assign] Failed to resolve first stage for pipeline", pipelineId, e);
+  }
+  return 0;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
+
+  if (!PIPERUN_API_KEY) {
+    console.error("[lia-assign] PIPERUN_API_KEY not set");
+    return new Response(JSON.stringify({ error: "Missing PIPERUN_API_KEY" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+  try {
+    const { email } = await req.json();
+    if (!email) {
+      return new Response(JSON.stringify({ error: "email required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[lia-assign] Processing lead: ${email}`);
+
+    // ── 1. Fetch lead ──
+    const { data: lead, error: leadErr } = await supabase
+      .from("lia_attendances")
+      .select("*")
+      .eq("email", email.trim().toLowerCase())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (leadErr || !lead) {
+      console.warn("[lia-assign] Lead not found:", email, leadErr);
+      return new Response(JSON.stringify({ error: "Lead not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Idempotency: skip if assigned in last 5 min ──
+    if (lead.proprietario_lead_crm && lead.updated_at) {
+      const lastUpdate = new Date(lead.updated_at).getTime();
+      if (Date.now() - lastUpdate < 5 * 60 * 1000) {
+        console.log("[lia-assign] Already assigned recently, skipping");
+        return new Response(JSON.stringify({ skipped: true, reason: "recently_assigned" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ── 2. Determine flow: new (no piperun_id) vs existing ──
+    const isExisting = !!lead.piperun_id;
+
+    // ── 3. Select owner via Round Robin ──
+    let assignedOwnerId: number;
+    let assignedTeamMemberId: string | null = null;
+    let assignedOwnerName: string;
+
+    if (isExisting && lead.proprietario_lead_crm) {
+      // Option 2: Check current owner
+      const { data: currentOwner } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, piperun_owner_id, ativo")
+        .eq("nome_completo", lead.proprietario_lead_crm)
+        .maybeSingle();
+
+      if (currentOwner && currentOwner.ativo) {
+        assignedOwnerId = currentOwner.piperun_owner_id;
+        assignedTeamMemberId = currentOwner.id;
+        assignedOwnerName = currentOwner.nome_completo;
+        console.log(`[lia-assign] Keeping existing owner: ${assignedOwnerName}`);
+      } else {
+        // Owner inactive → re-assign
+        const newOwner = await pickRandomActiveVendedor(supabase);
+        assignedOwnerId = newOwner.piperun_owner_id;
+        assignedTeamMemberId = newOwner.id;
+        assignedOwnerName = newOwner.nome_completo;
+        console.log(`[lia-assign] Re-assigned from inactive owner to: ${assignedOwnerName}`);
+      }
+    } else {
+      // Option 1: New lead → Round Robin
+      const newOwner = await pickRandomActiveVendedor(supabase);
+      assignedOwnerId = newOwner.piperun_owner_id;
+      assignedTeamMemberId = newOwner.id;
+      assignedOwnerName = newOwner.nome_completo;
+      console.log(`[lia-assign] Round Robin assigned: ${assignedOwnerName} (${assignedOwnerId})`);
+    }
+
+    // ── 4. Determine pipeline & stage ──
+    const isDistribuidor = assignedOwnerId === FALLBACK_OWNER_ID;
+    const pipeline_id = isDistribuidor ? PIPELINES.DISTRIBUIDOR_LEADS : PIPELINES.VENDAS;
+
+    let stage_id: number;
+    if (isDistribuidor) {
+      stage_id = await resolveFirstStage(PIPERUN_API_KEY, PIPELINES.DISTRIBUIDOR_LEADS);
+      console.log(`[lia-assign] Distribuidor de Leads stage: ${stage_id}`);
+    } else {
+      stage_id = STAGES_VENDAS.SEM_CONTATO;
+    }
+
+    // ── 5. Build PipeRun custom fields ──
+    const customFields = mapAttendanceToDealCustomFields(lead as Record<string, unknown>);
+
+    // ── 6. Sync with PipeRun ──
+    let piperunId = lead.piperun_id;
+    const piperunEtapa = isDistribuidor ? "distribuidor_leads" : "sem_contato";
+    const piperunFunil = isDistribuidor ? "Distribuidor de Leads" : "Funil de vendas";
+
+    if (isExisting && piperunId) {
+      // Option 2: Update existing deal
+      console.log(`[lia-assign] Updating deal ${piperunId}`);
+      const updatePayload: Record<string, unknown> = {
+        stage_id,
+        owner_id: assignedOwnerId,
+      };
+      if (customFields.length > 0) {
+        updatePayload.custom_fields = customFields;
+      }
+      const updateRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, updatePayload);
+      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`);
+
+      // Add note with AI summary
+      if (lead.resumo_historico_ia) {
+        const note = `🤖 [Dra. L.I.A.] Nova interação detectada\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n📍 Origem: dra-lia`;
+        await addDealNote(PIPERUN_API_KEY, Number(piperunId), note);
+      }
+    } else {
+      // Option 1: Create new deal
+      console.log(`[lia-assign] Creating new deal for ${lead.nome}`);
+      const dealPayload: Record<string, unknown> = {
+        title: lead.nome || email,
+        pipeline_id,
+        stage_id,
+        owner_id: assignedOwnerId,
+        origin: "dra-lia",
+        reference: email,
+      };
+      if (customFields.length > 0) {
+        dealPayload.custom_fields = customFields;
+      }
+      // Add person data
+      if (lead.telefone_raw || lead.telefone_normalized) {
+        dealPayload.person = {
+          name: lead.nome,
+          emails: [{ email }],
+          phones: [{ phone: lead.telefone_normalized || lead.telefone_raw }],
+        };
+      }
+
+      const createRes = await piperunPost(PIPERUN_API_KEY, "deals", dealPayload);
+      console.log(`[lia-assign] PipeRun create: ${createRes.success} (${createRes.status})`);
+
+      if (createRes.success && createRes.data) {
+        const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+        if (dealData?.id) {
+          piperunId = String(dealData.id);
+          console.log(`[lia-assign] New deal ID: ${piperunId}`);
+
+          // Add AI summary note
+          if (lead.resumo_historico_ia) {
+            const note = `🤖 [Dra. L.I.A.] Lead qualificado automaticamente\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n📍 Origem: dra-lia`;
+            await addDealNote(PIPERUN_API_KEY, Number(piperunId), note);
+          }
+        }
+      }
+    }
+
+    // ── 7. Update lead in lia_attendances ──
+    const updateFields: Record<string, unknown> = {
+      proprietario_lead_crm: assignedOwnerName,
+      funil_entrada_crm: piperunFunil,
+      ultima_etapa_comercial: piperunEtapa,
+    };
+    if (piperunId && !lead.piperun_id) {
+      updateFields.piperun_id = piperunId;
+      updateFields.piperun_link = `https://app.pipe.run/#/deals/${piperunId}`;
+    }
+
+    await supabase
+      .from("lia_attendances")
+      .update(updateFields)
+      .eq("id", lead.id);
+
+    console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, funil=${piperunFunil}`);
+
+    // ── 8. Outbound automation ──
+    await triggerOutboundAutomation(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        flow: isExisting ? "update" : "new",
+        owner: assignedOwnerName,
+        owner_id: assignedOwnerId,
+        pipeline: piperunFunil,
+        piperun_id: piperunId,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    console.error("[lia-assign] Error:", err);
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
+
+// ── Helpers ──
+
+interface TeamMember {
+  id: string;
+  nome_completo: string;
+  piperun_owner_id: number;
+}
+
+async function pickRandomActiveVendedor(
+  supabase: ReturnType<typeof createClient>
+): Promise<TeamMember> {
+  const { data: members } = await supabase
+    .from("team_members")
+    .select("id, nome_completo, piperun_owner_id")
+    .eq("ativo", true)
+    .eq("role", "vendedor");
+
+  if (!members || members.length === 0) {
+    console.warn("[lia-assign] No active vendedores, falling back to admin");
+    const fallbackUser = PIPERUN_USERS[FALLBACK_OWNER_ID];
+    return {
+      id: "fallback-admin",
+      nome_completo: fallbackUser?.name || "Thiago Nicoletti",
+      piperun_owner_id: FALLBACK_OWNER_ID,
+    };
+  }
+
+  // Random pick
+  const idx = Math.floor(Math.random() * members.length);
+  return members[idx] as TeamMember;
+}
+
+async function triggerOutboundAutomation(
+  supabase: ReturnType<typeof createClient>,
+  supabaseUrl: string,
+  serviceKey: string,
+  lead: Record<string, unknown>,
+  teamMemberId: string | null
+) {
+  if (!teamMemberId || teamMemberId === "fallback-admin") {
+    console.log("[lia-assign] No team_member_id for outbound, skipping");
+    return;
+  }
+
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  if (!phone) {
+    console.log("[lia-assign] No phone for outbound, skipping");
+    return;
+  }
+
+  try {
+    // Find automation rule: specific product or coringa (null)
+    let { data: rules } = await supabase
+      .from("cs_automation_rules")
+      .select("*")
+      .eq("trigger_event", "NOVO_LEAD")
+      .eq("ativo", true)
+      .eq("team_member_id", teamMemberId)
+      .eq("waleads_ativo", true);
+
+    let rule = null;
+    if (rules && rules.length > 0) {
+      const produtoInteresse = lead.produto_interesse as string | null;
+      // Try product-specific first
+      if (produtoInteresse) {
+        rule = rules.find((r: Record<string, unknown>) =>
+          r.produto_interesse && String(r.produto_interesse).toLowerCase() === produtoInteresse.toLowerCase()
+        );
+      }
+      // Fallback to coringa (null product)
+      if (!rule) {
+        rule = rules.find((r: Record<string, unknown>) => !r.produto_interesse);
+      }
+      // Last resort: any rule
+      if (!rule) {
+        rule = rules[0];
+      }
+    }
+
+    if (!rule) {
+      console.log("[lia-assign] No NOVO_LEAD automation rule found, skipping outbound");
+      return;
+    }
+
+    const payload: Record<string, unknown> = {
+      team_member_id: teamMemberId,
+      phone,
+      tipo: rule.waleads_tipo || "text",
+      message: rule.mensagem_waleads || "",
+      lead_id: lead.id,
+    };
+    if (rule.waleads_media_url) {
+      payload.media_url = rule.waleads_media_url;
+      payload.caption = rule.waleads_media_caption || "";
+    }
+
+    console.log(`[lia-assign] Sending outbound via smart-ops-send-waleads for ${phone}`);
+    await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.warn("[lia-assign] Outbound automation error:", e);
+  }
+}
