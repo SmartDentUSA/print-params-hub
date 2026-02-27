@@ -1153,6 +1153,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 }}
                 onMultiSelect={(productNames) => {
                   commercialSelectionsRef.current.resins = productNames;
+                  pendingSdrSelectionsRef.current = { rota: 1, category: 'resins', product: productNames.join(', ') };
                   setCommercialFlowStep(null);
 
                   if (commercialFullWorkflow) {
