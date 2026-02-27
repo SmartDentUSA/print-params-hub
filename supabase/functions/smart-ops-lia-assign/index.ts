@@ -3,6 +3,7 @@ import {
   PIPELINES,
   STAGES_VENDAS,
   PIPERUN_USERS,
+  ORIGINS,
   piperunPost,
   piperunPut,
   piperunGet,
@@ -256,7 +257,7 @@ Deno.serve(async (req) => {
       const updatePayload: Record<string, unknown> = {
         stage_id,
         owner_id: assignedOwnerId,
-        origin: "dra-lia",
+        origin_id: ORIGINS.DRA_LIA.id,
         ...hashFields,
       };
 
@@ -282,7 +283,7 @@ Deno.serve(async (req) => {
         pipeline_id,
         stage_id,
         owner_id: assignedOwnerId,
-        origin: "dra-lia",
+        origin_id: ORIGINS.DRA_LIA.id,
         reference: email,
       };
 

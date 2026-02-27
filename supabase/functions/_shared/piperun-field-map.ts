@@ -4,9 +4,13 @@
  * Used across all smart-ops edge functions for bidirectional sync
  */
 
-// ─── API Configuration ───
-
 export const PIPERUN_API_BASE = "https://api.pipe.run/v1";
+
+// ─── Origins ───
+
+export const ORIGINS = {
+  DRA_LIA: { id: 762002, name: "Dra. L.I.A." },
+} as const;
 
 // ─── Pipelines ───
 
@@ -250,6 +254,8 @@ export interface PipeRunDealData {
   rdstation_reference?: string;
   person_id?: number;
   company_id?: number;
+  origin_id?: number;
+  origin?: { id?: number; name?: string };
   person?: {
     name?: string;
     emails?: Array<{ email: string }>;
@@ -314,6 +320,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     data_fechamento_crm: deal.closed_at || null,
     motivo_perda: deal.lost_reason || null,
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
+    origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
   };
 
   // ─── Email extraction cascade ───
