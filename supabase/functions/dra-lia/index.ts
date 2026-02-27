@@ -3134,7 +3134,7 @@ Campos:
     // 0e. Lead collection: specialty selected → save and show topics
     if (leadState.state === "needs_specialty") {
       const selectedSpecialty = message.trim();
-      const specialties = SPECIALTY_MAP[leadState.area] || [];
+      const specialties = SPECIALTY_OPTIONS;
       const matchedSpecialty = specialties.find(s => s.toLowerCase() === selectedSpecialty.toLowerCase()) || selectedSpecialty;
 
       // Update session entities — clear awaiting flags
