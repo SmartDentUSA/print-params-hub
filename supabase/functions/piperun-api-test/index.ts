@@ -56,8 +56,13 @@ Deno.serve(async (req) => {
 
     console.log(`[piperun-api-test] ${action} -> ${url}`);
 
+    const fetchHeaders: Record<string, string> = { "Accept": "application/json" };
+    if (fetchBody) fetchHeaders["Content-Type"] = "application/json";
+
     const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
+      method: fetchMethod,
+      headers: fetchHeaders,
+      body: fetchBody,
     });
 
     const text = await res.text();
