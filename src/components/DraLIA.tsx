@@ -1130,6 +1130,12 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                   else if (commercialFlowStep === 'cad') sel.cad = productName;
                   else if (commercialFlowStep === 'print') sel.printer = productName;
 
+                  // Track SDR selection for Rota 1
+                  const sdrField = commercialFlowStep === 'scan' ? 'scanner' : commercialFlowStep === 'cad' ? 'cad' : commercialFlowStep === 'print' ? 'printer' : undefined;
+                  if (sdrField) {
+                    pendingSdrSelectionsRef.current = { rota: 1, category: sdrField, product: productName };
+                  }
+
                   // Hide cards while AI responds
                   setCommercialFlowStep(null);
 
