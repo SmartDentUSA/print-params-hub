@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
 
     // If no lead found, create a basic one
     if (!leadId) {
-      const placeholderEmail = `wa_${phoneDigits}@whatsapp.lead`;
+      const placeholderEmail = `wa_${phoneDigits}_${Date.now()}@whatsapp.lead`;
       const nome = senderName || `WhatsApp ${phoneDigits.slice(-4)}`;
       const { data: newLead, error: createErr } = await supabase
         .from("lia_attendances")
