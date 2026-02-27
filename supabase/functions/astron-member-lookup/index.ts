@@ -9,30 +9,19 @@ const corsHeaders = {
 const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-async function astronFetch(endpoint: string, params: Record<string, unknown> = {}, method: "GET" | "POST" = "GET") {
+async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
-  const basicAuth = btoa(`${amKey}:${amSecret}`);
 
-  const allParams: Record<string, string> = {};
-  for (const [k, v] of Object.entries(params)) {
-    if (v !== null && v !== undefined) allParams[k] = String(v);
-  }
+  const url = `${ASTRON_BASE}/${endpoint}`;
+  const body = { am_key: amKey, am_secret: amSecret, ...params };
 
-  const url = new URL(`${ASTRON_BASE}/${endpoint}`);
-  if (method === "GET") {
-    for (const [k, v] of Object.entries(allParams)) url.searchParams.set(k, v);
-  }
+  console.log(`[astron-lookup] POST ${url} (am_key=${amKey})`);
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "Authorization": `Basic ${basicAuth}`,
-  };
-
-  const res = await fetch(url.toString(), {
-    method,
-    headers,
-    ...(method === "POST" ? { body: JSON.stringify({ am_key: amKey, am_secret: amSecret, ...allParams }) } : {}),
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(10000),
   });
 
