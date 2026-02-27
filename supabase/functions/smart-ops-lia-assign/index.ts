@@ -250,28 +250,19 @@ Deno.serve(async (req) => {
     if (isExisting && piperunId) {
       // ── UPDATE existing deal ──
       console.log(`[lia-assign] Updating deal ${piperunId}`);
+
+      // PipeRun PUT requires custom fields as flat hash-keyed properties
+      const hashFields = customFieldsToHashMap(customFields);
       const updatePayload: Record<string, unknown> = {
         stage_id,
         owner_id: assignedOwnerId,
         origin: "dra-lia",
+        ...hashFields,
       };
-
-      // Send custom fields on update too
-      if (customFields.length > 0) {
-        updatePayload.custom_fields = customFields;
-      }
 
       console.log(`[lia-assign] Update payload: ${JSON.stringify(updatePayload).slice(0, 500)}`);
       const updateRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, updatePayload);
       console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`, JSON.stringify(updateRes.data).slice(0, 300));
-
-      // If custom_fields caused 422, retry without them
-      if (updateRes.status === 422 && customFields.length > 0) {
-        console.warn("[lia-assign] 422 on update with custom_fields, retrying without...");
-        const retryPayload: Record<string, unknown> = { stage_id, owner_id: assignedOwnerId, origin: "dra-lia" };
-        const retryRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, retryPayload);
-        console.log(`[lia-assign] Retry update: ${retryRes.success} (${retryRes.status})`);
-      }
 
       // Always add note with lead data
       const noteText = buildLeadNote(lead as Record<string, unknown>, false);
