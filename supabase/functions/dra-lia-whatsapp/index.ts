@@ -7,7 +7,9 @@ const corsHeaders = {
 
 
 const MAX_WHATSAPP_LENGTH = 4000;
-const DEDUP_WINDOW_MS = 5000;
+const DEDUP_OUTBOUND_MS = 30000;
+const DEDUP_CONTENT_MINUTES = 5;
+const STALE_MESSAGE_MS = 120000;
 
 // ── Phone normalization ───
 function normalizePhoneForMatch(raw: string): string {
