@@ -166,20 +166,34 @@ Deno.serve(async (req) => {
         stage_id,
         owner_id: assignedOwnerId,
       };
-      if (customFields.length > 0) {
-        updatePayload.custom_fields = customFields;
-      }
       const updateRes = await piperunPut(PIPERUN_API_KEY, `deals/${piperunId}`, updatePayload);
-      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`);
+      console.log(`[lia-assign] PipeRun update: ${updateRes.success} (${updateRes.status})`, JSON.stringify(updateRes.data));
 
       // Add note with AI summary
       if (lead.resumo_historico_ia) {
-        const note = `🤖 [Dra. L.I.A.] Nova interação detectada\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n📍 Origem: dra-lia`;
-        await addDealNote(PIPERUN_API_KEY, Number(piperunId), note);
+        const noteText = `🤖 [Dra. L.I.A.] Nova interação detectada\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n🔗 Telefone: ${lead.telefone_normalized || lead.telefone_raw || "N/A"}\n📧 Email: ${lead.email || "N/A"}\n📍 Origem: dra-lia`;
+        const noteRes = await addDealNote(PIPERUN_API_KEY, Number(piperunId), noteText);
+        console.log(`[lia-assign] Note added: ${noteRes.success}`, JSON.stringify(noteRes.data).slice(0, 200));
       }
     } else {
       // Option 1: Create new deal
       console.log(`[lia-assign] Creating new deal for ${lead.nome}`);
+
+      // Build person object with all contact data
+      const personPayload: Record<string, unknown> = {
+        name: lead.nome || email,
+      };
+      const personEmails = [];
+      if (email) personEmails.push({ email });
+      if (personEmails.length > 0) personPayload.emails = personEmails;
+
+      const personPhones = [];
+      const phone = lead.telefone_normalized || lead.telefone_raw;
+      if (phone) personPhones.push({ phone });
+      if (personPhones.length > 0) personPayload.phones = personPhones;
+
+      if (lead.especialidade) personPayload.job_title = lead.especialidade;
+
       const dealPayload: Record<string, unknown> = {
         title: lead.nome || email,
         pipeline_id,
@@ -187,21 +201,20 @@ Deno.serve(async (req) => {
         owner_id: assignedOwnerId,
         origin: "dra-lia",
         reference: email,
+        person: personPayload,
       };
+
+      // Add WhatsApp custom field
+      if (phone) {
+        customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+      }
+
       if (customFields.length > 0) {
         dealPayload.custom_fields = customFields;
       }
-      // Add person data
-      if (lead.telefone_raw || lead.telefone_normalized) {
-        dealPayload.person = {
-          name: lead.nome,
-          emails: [{ email }],
-          phones: [{ phone: lead.telefone_normalized || lead.telefone_raw }],
-        };
-      }
 
       const createRes = await piperunPost(PIPERUN_API_KEY, "deals", dealPayload);
-      console.log(`[lia-assign] PipeRun create: ${createRes.success} (${createRes.status})`);
+      console.log(`[lia-assign] PipeRun create: ${createRes.success} (${createRes.status})`, JSON.stringify(createRes.data).slice(0, 300));
 
       if (createRes.success && createRes.data) {
         const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
@@ -211,8 +224,9 @@ Deno.serve(async (req) => {
 
           // Add AI summary note
           if (lead.resumo_historico_ia) {
-            const note = `🤖 [Dra. L.I.A.] Lead qualificado automaticamente\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n📍 Origem: dra-lia`;
-            await addDealNote(PIPERUN_API_KEY, Number(piperunId), note);
+            const noteText = `🤖 [Dra. L.I.A.] Lead qualificado automaticamente\n\n${lead.resumo_historico_ia}\n\n📊 Produto interesse: ${lead.produto_interesse || "N/A"}\n🏥 Especialidade: ${lead.especialidade || "N/A"}\n🔗 Telefone: ${phone || "N/A"}\n📧 Email: ${email || "N/A"}\n📍 Origem: dra-lia`;
+            const noteRes = await addDealNote(PIPERUN_API_KEY, Number(piperunId), noteText);
+            console.log(`[lia-assign] Note added: ${noteRes.success}`);
           }
         }
       }
