@@ -8,6 +8,7 @@ import {
   piperunGet,
   addDealNote,
   mapAttendanceToDealCustomFields,
+  customFieldsToHashMap,
   DEAL_CUSTOM_FIELDS,
 } from "../_shared/piperun-field-map.ts";
 
