@@ -1076,6 +1076,9 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                     setPrinterFlowStep(newStep);
                   }
                 }}
+                onSelection={(sel) => {
+                  pendingSdrSelectionsRef.current = { rota: 3, ...sel };
+                }}
               />
             </div>
           </div>
