@@ -1219,6 +1219,45 @@ async function extractImplicitLeadData(
     if (pattern.test(text)) { updates.principal_aplicacao = app; break; }
   }
 
+  // ── NEW: Product interest detection from conversation (NLP) ──
+  const productPatterns: [RegExp, string][] = [
+    // Impressoras
+    [/\brayshape\b/i, "RayShape"],
+    [/\bmiicraft\b/i, "MiiCraft"],
+    [/\bphrozen\b/i, "Phrozen"],
+    [/\banycubic\b/i, "Anycubic"],
+    [/\belegoo\b/i, "Elegoo"],
+    [/\bformlabs\b/i, "Formlabs"],
+    [/\bblz\s*dental\b/i, "BLZ Dental"],
+    [/\basiga\b/i, "Asiga"],
+    [/\bprusa\b/i, "Prusa"],
+    [/\bcreality\b/i, "Creality"],
+    // Scanners
+    [/\bmedit\b/i, "Medit"],
+    [/\b3shape\b/i, "3Shape"],
+    [/\btrios\b/i, "TRIOS"],
+    [/\bitero\b/i, "iTero"],
+    [/\bprimescan\b/i, "Primescan"],
+    [/\baoralscan\b/i, "Aoralscan"],
+    // Software
+    [/\bexocad\b/i, "exocad"],
+    [/\bexoplan\b/i, "Exoplan"],
+    [/\bsmart\s*slice\b/i, "Smart Slice"],
+    // Categorias de produto
+    [/\bchair\s*side\b/i, "Chair Side Print"],
+    [/\bsmart\s*lab\b/i, "Smart Lab"],
+    // Fotopolimerizadores / Pós-processamento
+    [/\bnanoclean\b/i, "NanoClean"],
+    [/\bcurador[a]?\b|\bfotopolimerizador\b|\bcuring\s*unit\b/i, "Pós-processamento"],
+  ];
+  const detectedProducts: string[] = [];
+  for (const [pattern, product] of productPatterns) {
+    if (pattern.test(text)) detectedProducts.push(product);
+  }
+  if (detectedProducts.length > 0) {
+    updates.produto_interesse = detectedProducts.slice(0, 3).join(", ");
+  }
+
   // Raw payload enrichment
   const rawUpdates: Record<string, unknown> = {};
   const concorrentes = [
