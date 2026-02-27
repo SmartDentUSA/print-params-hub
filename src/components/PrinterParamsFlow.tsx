@@ -50,6 +50,7 @@ interface ResinGroup {
 interface PrinterParamsFlowProps {
   step: 'brand' | 'model' | 'resin';
   onStepChange: (step: 'brand' | 'model' | 'resin' | null) => void;
+  onSelection?: (sel: { brand?: string; model?: string; resin?: string }) => void;
 }
 
 function ResinAccordionSection({ title, children }: { title: string; children: React.ReactNode }) {
