@@ -35,6 +35,44 @@ function detectProductFromFormName(formName: string | null): string | null {
   return null;
 }
 
+/** Smart Merge: only fill null fields, never overwrite existing data */
+function smartMerge(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  protectedFields: string[]
+): { merged: Record<string, unknown>; fieldsUpdated: string[] } {
+  const merged: Record<string, unknown> = {};
+  const fieldsUpdated: string[] = [];
+
+  for (const [key, newValue] of Object.entries(incoming)) {
+    if (newValue === null || newValue === undefined) continue;
+
+    const existingValue = existing[key];
+    const isProtected = protectedFields.includes(key);
+
+    // Protected fields: NEVER overwrite if they have a value
+    if (isProtected && existingValue !== null && existingValue !== undefined && existingValue !== "") {
+      continue;
+    }
+
+    // Non-protected: only fill if currently null/empty
+    if (existingValue === null || existingValue === undefined || existingValue === "") {
+      merged[key] = newValue;
+      fieldsUpdated.push(key);
+    }
+  }
+
+  // UTMs always update (latest campaign wins)
+  for (const utmKey of ["utm_source", "utm_medium", "utm_campaign", "utm_term"]) {
+    if (incoming[utmKey]) {
+      merged[utmKey] = incoming[utmKey];
+      if (!fieldsUpdated.includes(utmKey)) fieldsUpdated.push(utmKey);
+    }
+  }
+
+  return { merged, fieldsUpdated };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -43,28 +81,29 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const payload = await req.json();
 
     console.log("[ingest-lead] Payload recebido:", JSON.stringify(payload).slice(0, 500));
 
+    // --- Fix: declare source from payload ---
+    const source = payload.source || payload.utm_source || "formulario";
     const formName = payload.form_name || payload.formName || payload.form || null;
 
-    // Extract fields with flexible mapping
-    const nome = extractField(payload, "full_name", "name", "nome") ||
+    // --- Extract fields with flexible mapping (including TikTok fields) ---
+    const nome = extractField(payload, "full_name", "name", "nome", "user_name") ||
       [extractField(payload, "first_name", "first name"), extractField(payload, "last_name", "last name")]
         .filter(Boolean).join(" ") || "Sem nome";
 
-    const email = extractField(payload, "email") || "";
+    const email = extractField(payload, "email", "user_email") || "";
     if (!email) {
       return new Response(JSON.stringify({ error: "Email obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const telefoneRaw = extractField(payload, "phone_number", "phone", "mobile", "telefone", "celular");
+    const telefoneRaw = extractField(payload, "phone_number", "phone", "mobile", "telefone", "celular", "user_phone");
     const telefoneNormalized = normalizePhone(telefoneRaw);
 
     const areaAtuacao = extractField(payload, "area de atuacao", "area_atuacao", "specialty");
@@ -75,83 +114,154 @@ Deno.serve(async (req) => {
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
     const produtoInteresse = detectProductFromFormName(formName) || extractField(payload, "produto_interesse", "product");
 
-    // Check if this is a PQL (existing customer re-entering via form/campaign)
+    // --- Step 1: Check if lead already exists ---
+    const { data: existingLead } = await supabase
+      .from("lia_attendances")
+      .select("*")
+      .eq("email", email)
+      .maybeSingle();
+
+    // --- Step 2: Detect PQL (existing customer re-entering) ---
     let detectedStage: string | null = null;
     const isSellerDirect = source === "vendedor_direto";
-    
-    if (!isSellerDirect) {
-      const { data: existingLead } = await supabase
-        .from("lia_attendances")
-        .select("id, status_oportunidade")
-        .eq("email", email)
-        .eq("status_oportunidade", "ganha")
-        .maybeSingle();
-      
-      if (existingLead) {
-        detectedStage = "PQL_recompra";
-        console.log("[ingest-lead] PQL detected: existing customer re-entering via", source);
-      }
+
+    if (!isSellerDirect && existingLead?.status_oportunidade === "ganha") {
+      detectedStage = "PQL_recompra";
+      console.log("[ingest-lead] PQL detected: existing customer re-entering via", source);
     }
 
-    // Upsert lead
-    const leadData = {
+    // --- Step 3: Build incoming data ---
+    const incomingData: Record<string, unknown> = {
       nome, email, telefone_raw: telefoneRaw, telefone_normalized: telefoneNormalized,
       area_atuacao: areaAtuacao, especialidade, como_digitaliza: comoDigitaliza,
       tem_impressora: temImpressora, impressora_modelo: impressoraModelo,
       resina_interesse: resinaInteresse, produto_interesse: produtoInteresse,
-      source, form_name: formName, raw_payload: payload,
+      source, form_name: formName,
       origem_campanha: payload.campaign || null,
       utm_source: payload.utm_source || null, utm_medium: payload.utm_medium || null,
       utm_campaign: payload.utm_campaign || null, utm_term: payload.utm_term || null,
       ip_origem: payload.ip || req.headers.get("x-forwarded-for") || null,
-      lead_status: "novo",
       ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
-    const { data: lead, error: upsertError } = await supabase
-      .from("lia_attendances")
-      .upsert(leadData, { onConflict: "email" })
-      .select("id, piperun_id")
-      .single();
+    let leadId: string;
+    let fieldsUpdated: string[] = [];
 
-    if (upsertError) {
-      console.error("[ingest-lead] Upsert error:", upsertError);
-      return new Response(JSON.stringify({ error: upsertError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (existingLead) {
+      // --- SMART MERGE: only fill null fields ---
+      const protectedFields = [
+        "nome", "email", "telefone_normalized", "piperun_id",
+        "proprietario_lead_crm", "status_oportunidade", "lead_stage_detected",
+      ];
 
-    console.log("[ingest-lead] Lead salvo:", lead.id);
+      const { merged, fieldsUpdated: updated } = smartMerge(existingLead, incomingData, protectedFields);
+      fieldsUpdated = updated;
 
-    // Create Piperun deal if not already linked
-    let piperunId = lead.piperun_id;
-    if (!piperunId && PIPERUN_API_KEY) {
-      try {
-        const piperunRes = await fetch("https://api.pipe.run/v1/deals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Token": PIPERUN_API_KEY },
-          body: JSON.stringify({
-            title: `${nome} - ${produtoInteresse || source}`,
-            person: { name: nome, email, phone: telefoneNormalized || telefoneRaw },
-          }),
-        });
-        const piperunData = await piperunRes.json();
-        if (piperunData?.data?.id) {
-          piperunId = String(piperunData.data.id);
-          await supabase
-            .from("lia_attendances")
-            .update({ piperun_id: piperunId })
-            .eq("id", lead.id);
-          console.log("[ingest-lead] Piperun deal criado:", piperunId);
-        } else {
-          console.warn("[ingest-lead] Piperun response sem ID:", JSON.stringify(piperunData).slice(0, 300));
+      // Build form submission history entry
+      const submissionEntry = {
+        form_name: formName,
+        source,
+        submitted_at: new Date().toISOString(),
+        fields_updated: fieldsUpdated,
+      };
+
+      // Append to raw_payload as submission history
+      const existingHistory = Array.isArray(existingLead.raw_payload?.form_submissions)
+        ? existingLead.raw_payload.form_submissions
+        : [];
+
+      merged.raw_payload = {
+        ...(existingLead.raw_payload || {}),
+        form_submissions: [...existingHistory, submissionEntry],
+        latest_payload: payload,
+      };
+
+      if (Object.keys(merged).length > 0) {
+        const { error: updateError } = await supabase
+          .from("lia_attendances")
+          .update(merged)
+          .eq("id", existingLead.id);
+
+        if (updateError) {
+          console.error("[ingest-lead] Update error:", updateError);
+          return new Response(JSON.stringify({ error: updateError.message }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
-      } catch (pipeErr) {
-        console.error("[ingest-lead] Piperun API error:", pipeErr);
       }
+
+      leadId = existingLead.id;
+      console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
+    } else {
+      // --- NEW LEAD: insert ---
+      const newLeadData = {
+        ...incomingData,
+        lead_status: "novo",
+        raw_payload: {
+          form_submissions: [{
+            form_name: formName,
+            source,
+            submitted_at: new Date().toISOString(),
+            fields_updated: Object.keys(incomingData).filter(k => incomingData[k] !== null),
+          }],
+          latest_payload: payload,
+        },
+      };
+
+      const { data: newLead, error: insertError } = await supabase
+        .from("lia_attendances")
+        .insert(newLeadData)
+        .select("id")
+        .single();
+
+      if (insertError) {
+        console.error("[ingest-lead] Insert error:", insertError);
+        return new Response(JSON.stringify({ error: insertError.message }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      leadId = newLead.id;
+      fieldsUpdated = Object.keys(incomingData).filter(k => incomingData[k] !== null);
+      console.log("[ingest-lead] Novo lead criado:", leadId);
     }
 
-    return new Response(JSON.stringify({ success: true, lead_id: lead.id, piperun_id: piperunId }), {
+    // --- Step 4: Fire-and-forget orchestration ---
+    // Trigger lia-assign (CRM sync + seller routing)
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ lead_id: leadId, source, trigger: "ingest-lead" }),
+      }).catch(e => console.warn("[ingest-lead] lia-assign fire-and-forget error:", e));
+    } catch (e) {
+      console.warn("[ingest-lead] lia-assign call failed:", e);
+    }
+
+    // Trigger cognitive-lead-analysis
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ lead_id: leadId, trigger: "ingest-lead" }),
+      }).catch(e => console.warn("[ingest-lead] cognitive-analysis fire-and-forget error:", e));
+    } catch (e) {
+      console.warn("[ingest-lead] cognitive-analysis call failed:", e);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      lead_id: leadId,
+      is_existing: !!existingLead,
+      fields_updated: fieldsUpdated,
+      pql_detected: detectedStage === "PQL_recompra",
+    }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
