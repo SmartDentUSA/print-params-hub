@@ -1,172 +1,71 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+## Plano: Receber Leads de Facebook/Instagram/TikTok Ads direto no `smart-ops-ingest-lead`
 
-## Diagnostico do Estado Atual
+### Como funciona hoje
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+O `smart-ops-ingest-lead` já é um endpoint público (`verify_jwt = false`) que aceita POST JSON genérico. O problema: ele tem um bug (`source` não declarado na linha 80) e não normaliza payloads de plataformas de ads.
 
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+### Como as plataformas de ads enviam leads
 
----
+Cada plataforma usa **Webhooks** quando alguém preenche um Lead Form:
 
-## Fase 1: Tabela `whatsapp_inbox`
+| Plataforma | Mecanismo | Formato do Payload |
+|---|---|---|
+| **Meta (FB/IG)** | Webhooks API via App ou Zapier/Make | `leadgen_id` → precisa chamar Graph API para pegar dados reais |
+| **TikTok Ads** | Lead Connector Webhook | JSON direto com campos do formulário |
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+**Problema com Meta**: O webhook do Meta Lead Ads **não envia os dados do lead diretamente**. Ele envia apenas `{ leadgen_id, page_id, form_id }`. Você precisa chamar a Graph API para buscar os dados reais. Isso exige um **Meta Access Token**.
 
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
+### Arquitetura proposta
 
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
+```text
+Meta Lead Ad webhook ──→ smart-ops-meta-lead-webhook ──→ Graph API (busca dados)
+                                                              │
+TikTok Lead webhook ────────────────────────────────────────→ │
+                                                              ▼
+                                                    smart-ops-ingest-lead
+                                                    (gateway centralizado)
 ```
 
-RLS: `admin_only` (mesma policy de `lia_attendances`).
+### Implementação (3 passos)
 
----
+**1. Nova Edge Function: `smart-ops-meta-lead-webhook`**
+- Recebe POST do Meta Webhooks (`leadgen_id`, `page_id`, `form_id`)
+- Implementa verificação do webhook Meta (GET com `hub.verify_token` + `hub.challenge`)
+- Chama `GET https://graph.facebook.com/v21.0/{leadgen_id}?access_token=...` para buscar dados reais (nome, email, telefone, campos customizados)
+- Normaliza o payload para o formato padrão e chama `smart-ops-ingest-lead` internamente
+- Marca `source = "meta_lead_ads"` e `utm_source = "facebook"` ou `"instagram"`
 
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
+**2. Adaptar `smart-ops-ingest-lead` para TikTok direto**
+- TikTok envia JSON com campos diretos, então o `extractField` flexível já funciona
+- Adicionar mapeamento de campos TikTok: `"user_name"`, `"user_phone"`, `"user_email"`
+- Corrigir bug da variável `source` (linha 80): declarar `const source = payload.source || payload.utm_source || "formulario"`
+- Adicionar detecção automática de plataforma via headers/payload
 
-Endpoint publico que recebe POST do WaLeads quando lead responde.
+**3. Corrigir `smart-ops-ingest-lead` (merge inteligente)**
+- Antes do upsert, buscar lead existente por email
+- Implementar merge: só preencher campos `null` (não sobrescrever dados existentes)
+- Remover criação direta de deal PipeRun (delegar ao `lia-assign`)
+- Adicionar fire-and-forget para `lia-assign` e `cognitive-lead-analysis`
 
-**Fluxo:**
+### Secret necessário
 
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
+- `META_LEAD_ADS_TOKEN`: Access Token do Meta (Page Token com permissão `leads_retrieval` e `pages_manage_ads`)
+- `META_WEBHOOK_VERIFY_TOKEN`: Token customizado para verificação do webhook Meta
 
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
+### Config no painel das plataformas
 
----
+| Plataforma | URL do Webhook |
+|---|---|
+| **Meta (FB/IG)** | `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-meta-lead-webhook` |
+| **TikTok Ads** | `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-ingest-lead` (direto, com `source=tiktok_ads`) |
 
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
-
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
-
-```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
-
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
-```
-
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
-
----
-
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
-
-Quando `intent_detected === 'interesse_imediato'`:
-
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
-
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
-
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
-
----
-
-## Fase 5: Limpeza Automatica (Clean-up Job)
-
-Adicionar logica no `smart-ops-stagnant-processor` existente:
-
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
-
----
-
-## Resumo de Arquivos
+### Arquivos
 
 | # | Arquivo | Acao |
 |---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
-
-```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
-```
-
-## Payload WaLeads Esperado
-
-O webhook do WaLeads envia POST com:
-
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
-}
-```
-
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+| 1 | `supabase/functions/smart-ops-meta-lead-webhook/index.ts` | NOVO — recebe webhook Meta, busca dados via Graph API, repassa ao ingest-lead |
+| 2 | `supabase/functions/smart-ops-ingest-lead/index.ts` | REFATORAR — fix bug `source`, merge inteligente, mapeamento TikTok, fire-and-forget orquestração |
+| 3 | `supabase/config.toml` | +3 linhas para `smart-ops-meta-lead-webhook` |
 
