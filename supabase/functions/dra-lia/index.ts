@@ -3812,7 +3812,7 @@ Campos:
       : "";
 
     // Classify lead maturity for commercial route
-    let leadMaturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null = null;
+    let leadMaturity: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null = null;
     let cognitiveData: Record<string, unknown> | null = null;
     if (topic_context === "commercial" && leadState.state === "from_session") {
       const result = await classifyLeadMaturity(supabase, leadState.email);
