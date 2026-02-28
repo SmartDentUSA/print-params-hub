@@ -14,6 +14,7 @@ import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
+import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
 
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
