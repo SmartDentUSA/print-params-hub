@@ -2065,6 +2065,104 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_form_fields: {
+        Row: {
+          created_at: string
+          custom_field_name: string | null
+          db_column: string | null
+          field_type: string
+          form_id: string
+          id: string
+          label: string
+          options: Json | null
+          order_index: number
+          placeholder: string | null
+          required: boolean
+          roi_config: Json | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_field_name?: string | null
+          db_column?: string | null
+          field_type?: string
+          form_id: string
+          id?: string
+          label: string
+          options?: Json | null
+          order_index?: number
+          placeholder?: string | null
+          required?: boolean
+          roi_config?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_field_name?: string | null
+          db_column?: string | null
+          field_type?: string
+          form_id?: string
+          id?: string
+          label?: string
+          options?: Json | null
+          order_index?: number
+          placeholder?: string | null
+          required?: boolean
+          roi_config?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_form_fields_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smartops_forms: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          form_purpose: string
+          id: string
+          name: string
+          slug: string
+          submissions_count: number
+          success_message: string | null
+          theme_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          form_purpose?: string
+          id?: string
+          name: string
+          slug: string
+          submissions_count?: number
+          success_message?: string | null
+          theme_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          form_purpose?: string
+          id?: string
+          name?: string
+          slug?: string
+          submissions_count?: number
+          success_message?: string | null
+          theme_color?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       system_a_catalog: {
         Row: {
           active: boolean | null

@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
+import PublicFormPage from "./pages/PublicFormPage";
 import DraLIA from "./components/DraLIA";
 
 const App = () => (
@@ -51,6 +52,9 @@ const App = () => (
       
       {/* Dra. L.I.A. embed route (no header/footer for iframe) */}
       <Route path="/embed/dra-lia" element={<AgentEmbed />} />
+      
+      {/* Public forms */}
+      <Route path="/f/:slug" element={<PublicFormPage />} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>

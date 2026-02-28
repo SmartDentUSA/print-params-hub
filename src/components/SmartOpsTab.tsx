@@ -14,6 +14,7 @@ import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
+import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
 
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -74,6 +75,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+          <TabsTrigger value="formularios">Formulários</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bowtie">
@@ -102,6 +104,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="whatsapp">
           <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />
+        </TabsContent>
+        <TabsContent value="formularios">
+          <SmartOpsFormBuilder key={`forms-${refreshKey}`} />
         </TabsContent>
       </Tabs>
     </div>
