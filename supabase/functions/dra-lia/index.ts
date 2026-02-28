@@ -1328,7 +1328,7 @@ async function extractImplicitLeadData(
 async function classifyLeadMaturity(
   supabaseClient: ReturnType<typeof createClient>,
   email: string
-): Promise<{ maturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null; cognitiveData: Record<string, unknown> | null }> {
+): Promise<{ maturity: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null; cognitiveData: Record<string, unknown> | null }> {
   const { data } = await supabaseClient
     .from("lia_attendances")
     .select("ultima_etapa_comercial, status_atual_lead_crm, funil_entrada_crm, status_oportunidade, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach, cognitive_analysis")
