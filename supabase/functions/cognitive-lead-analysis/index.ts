@@ -12,7 +12,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const VALID_STAGES = ["MQL_pesquisador", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
+const VALID_STAGES = ["MQL_pesquisador", "PQL_recompra", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
 const VALID_URGENCY = ["alta", "media", "baixa"];
 const VALID_TIMELINE = ["imediato", "3_6_meses", "6_12_meses", "indefinido"];
 
