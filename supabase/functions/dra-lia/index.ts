@@ -2469,11 +2469,19 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-lite",
             messages: [
-              { role: "system", content: "Resuma esta conversa para continuidade na próxima sessão. Se houver RESUMO ANTERIOR, incorpore temas relevantes que não foram rediscutidos na conversa atual. Formato: 'ASSUNTOS: [tópicos discutidos] | PENDÊNCIAS: [dúvidas não resolvidas ou próximos passos] | INTERESSE: [nível 1-3, onde 1=pesquisando, 2=comparando, 3=pronto para comprar]'. Sem saudações, sem emojis. Máximo 200 caracteres." },
+              { role: "system", content: `Você DEVE responder EXATAMENTE neste formato, sem exceção:
+ASSUNTOS: [tópicos discutidos separados por vírgula] | PENDÊNCIAS: [dúvidas não resolvidas, próximos passos, ou "Nenhuma"] | INTERESSE: [1=pesquisando, 2=comparando, 3=pronto para comprar]
+
+REGRAS:
+- Use EXATAMENTE as palavras-chave ASSUNTOS, PENDÊNCIAS e INTERESSE seguidas de dois-pontos
+- Separe as seções com pipe |
+- Se houver RESUMO ANTERIOR, incorpore temas relevantes não rediscutidos
+- PENDÊNCIAS devem descrever o que o lead ainda precisa saber ou decidir
+- Sem saudações, sem emojis, sem texto fora do formato` },
               { role: "user", content: `RESUMO ANTERIOR: ${previousSummary || "Nenhum"}\n\nCONVERSA ATUAL:\n${convoText.slice(0, 4000)}` },
             ],
             stream: false,
-            max_tokens: 150,
+            max_tokens: 300,
           }),
         });
 
@@ -2538,11 +2546,21 @@ serve(async (req) => {
         // 8. Extract PENDENCIAS from summary and create content_requests
         if (summary) {
           try {
-            const pendMatch = summary.match(/PEND[ÊE]NCIAS:\s*(.+?)(?:\s*\||$)/i);
+            let pendMatch = summary.match(/PEND[ÊE]NCIAS:\s*(.+?)(?:\s*\||$)/i);
+            // Fallback: if summary doesn't follow format, try to extract actionable content
+            if (!pendMatch && summary.length > 20 && !summary.match(/^(ASSUNTOS|PEND)/i)) {
+              // Unstructured summary — use the whole summary as a potential content request
+              console.log(`[summarize_session] Summary not in structured format, using fallback extraction`);
+              // Check if it describes a need/search/question
+              const needPatterns = /\b(busca|precisa|quer|procura|dúvida|pergunt|solicita|necessita|parâmetros|comparativo|informaç|detalhes sobre|como usar)\b/i;
+              if (needPatterns.test(summary)) {
+                pendMatch = [null, summary.slice(0, 300)] as unknown as RegExpMatchArray;
+              }
+            }
             if (pendMatch && pendMatch[1]?.trim()) {
               const rawPendencia = pendMatch[1].trim();
               // Skip trivial pendencias
-              if (rawPendencia.length > 10 && !rawPendencia.match(/^(nenhuma|none|sem pend|n\/a)/i)) {
+              if (rawPendencia.length > 10 && !rawPendencia.match(/^(nenhuma|none|sem pend|n\/a|o assistente|o usuário agradec)/i)) {
                 console.log(`[summarize_session] Found PENDENCIA: "${rawPendencia}"`);
                 
                 // Classify with AI
