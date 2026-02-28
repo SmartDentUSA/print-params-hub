@@ -1349,8 +1349,9 @@ async function classifyLeadMaturity(
 
   // Map cognitive stage to maturity level
   if (data.lead_stage_detected) {
-    const stageMap: Record<string, "MQL" | "SAL" | "SQL" | "CLIENTE"> = {
+  const stageMap: Record<string, "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE"> = {
       "MQL_pesquisador": "MQL",
+      "PQL_recompra": "PQL",
       "SAL_comparador": "SAL",
       "SQL_decisor": "SQL",
       "CLIENTE_ativo": "CLIENTE",
