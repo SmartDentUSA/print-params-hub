@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
         "C_REENTRADA_NUTRICAO",
       ];
       if (isWon) {
-        addTags.push(JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO");
+        addTags.push(JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO", "C_PQL_RECOMPRA");
         if (produtoEncerrado) addTags.push(`COMPROU_${produtoEncerrado.toUpperCase().replace(/\s+/g, "_")}`);
       } else {
         // Lost deal ≠ lost lead. They're still a buyer for the rest of the portfolio.
