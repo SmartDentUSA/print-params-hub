@@ -297,41 +297,68 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Deal won/lost special tags
+    // ─── Oportunidade Encerrada (won/lost) → Cross-sell/Upsell ───
     const isWon = deal.status === "won" || deal.status === 1;
     const isLost = deal.status === "lost" || deal.status === 2;
+    const produtoEncerrado = (updateData.produto_interesse as string) || leadProduto || null;
 
-    if (isWon) {
-      const wonTags = mergeTagsCrm(
-        (updateData.tags_crm as string[]) || currentTagsCrm,
-        [JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO"],
-        [JOURNEY_TAGS.J03_NEGOCIACAO]
-      );
-      updateData.tags_crm = wonTags;
+    if (isWon || isLost) {
+      // Both cases: opportunity is closed → lead re-enters nurturing for the rest of the portfolio
+      const closedType = isWon ? "COMPRA" : "NAO_COMPROU";
+      const baseTags = (updateData.tags_crm as string[]) || currentTagsCrm || [];
 
-      // Feedback loop: calculate prediction_accuracy
-      try {
-        const { data: cogLead } = await supabase
-          .from("lia_attendances")
-          .select("cognitive_analysis, lead_stage_detected")
-          .eq("id", leadId)
-          .maybeSingle();
-
-        if (cogLead?.cognitive_analysis) {
-          const predicted = cogLead.lead_stage_detected;
-          const accuracy = predicted === "SQL_decisor" ? 1.0 : predicted === "SAL_comparador" ? 0.6 : predicted === "MQL_pesquisador" ? 0.3 : 0.5;
-          await supabase.from("lia_attendances").update({ prediction_accuracy: accuracy }).eq("id", leadId);
-          console.log(`[piperun-webhook] prediction_accuracy: ${accuracy} (predicted: ${predicted})`);
-        }
-      } catch (e) {
-        console.warn("[piperun-webhook] prediction_accuracy error:", e);
+      // Tags to ADD
+      const addTags: string[] = [
+        `C_OPP_ENCERRADA_${closedType}`,
+        "C_REENTRADA_NUTRICAO",
+      ];
+      if (isWon) {
+        addTags.push(JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO");
+        if (produtoEncerrado) addTags.push(`COMPROU_${produtoEncerrado.toUpperCase().replace(/\s+/g, "_")}`);
+      } else {
+        // Lost deal ≠ lost lead. They're still a buyer for the rest of the portfolio.
+        if (produtoEncerrado) addTags.push(`NAO_COMPROU_${produtoEncerrado.toUpperCase().replace(/\s+/g, "_")}`);
       }
-    } else if (isLost) {
-      const lostTags = mergeTagsCrm(
-        (updateData.tags_crm as string[]) || currentTagsCrm,
-        ["C_PERDIDO"]
-      );
-      updateData.tags_crm = lostTags;
+
+      // Tags to REMOVE (clean negotiation-phase tags)
+      const removeTags = [JOURNEY_TAGS.J03_NEGOCIACAO, "C_PERDIDO"];
+
+      updateData.tags_crm = mergeTagsCrm(baseTags, addTags, removeTags);
+
+      // Mark the product as acquired (won) or declined (lost) for cross-sell logic
+      updateData.status_oportunidade = isWon ? "ganha" : "perdida_renutrir";
+
+      // Fire cross-sell re-entry: cognitive re-analysis with portfolio context
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/cognitive-lead-analysis`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ leadId, trigger: "opp_closed", closedType, produtoEncerrado }),
+      }).catch(e => console.warn("[piperun-webhook] cross-sell cognitive error:", e));
+
+      // Feedback loop: prediction accuracy (only for won deals)
+      if (isWon) {
+        try {
+          const { data: cogLead } = await supabase
+            .from("lia_attendances")
+            .select("cognitive_analysis, lead_stage_detected")
+            .eq("id", leadId)
+            .maybeSingle();
+
+          if (cogLead?.cognitive_analysis) {
+            const predicted = cogLead.lead_stage_detected;
+            const accuracy = predicted === "SQL_decisor" ? 1.0 : predicted === "SAL_comparador" ? 0.6 : predicted === "MQL_pesquisador" ? 0.3 : 0.5;
+            await supabase.from("lia_attendances").update({ prediction_accuracy: accuracy }).eq("id", leadId);
+            console.log(`[piperun-webhook] prediction_accuracy: ${accuracy} (predicted: ${predicted})`);
+          }
+        } catch (e) {
+          console.warn("[piperun-webhook] prediction_accuracy error:", e);
+        }
+      }
+
+      console.log(`[piperun-webhook] Opp encerrada (${closedType}): lead=${leadId}, produto=${produtoEncerrado} → reentrada nutrição cross-sell`);
     }
 
     // PipeRun tags merge
