@@ -75,6 +75,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
+          <TabsTrigger value="formularios">Formulários</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bowtie">
