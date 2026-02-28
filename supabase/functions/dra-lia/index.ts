@@ -2154,6 +2154,12 @@ const ESCALATION_TRIGGERS = {
 type EscalationType = "vendedor" | "cs_suporte" | "especialista" | null;
 
 function detectEscalationIntent(message: string, history: Array<{ role: string; content: string }>): EscalationType {
+  // Guard: polite closing/thank-you messages should never trigger escalation
+  const closingPattern = /^(obrigad[oa]s?|valeu|ok|beleza|entendi|perfeito|legal|blz|vlw|thanks?|thank you|gracias?|tudo bem|certo|massa|show|top|boa|bacana|ta bom|tá bom|combinado|pode ser|fechou|tranquilo)\b/i;
+  if (closingPattern.test(message.trim())) {
+    return null;
+  }
+
   // Check current message first
   for (const [type, patterns] of Object.entries(ESCALATION_TRIGGERS)) {
     if (patterns.some(p => p.test(message))) {
@@ -2273,10 +2279,10 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
     // 6. Send via SellFlux/WaLeads if API key available
     if (teamMember.waleads_api_key) {
       try {
-        // Use smart-ops-send-waleads to send notification to lead's phone
-        const leadPhone = attendance.telefone_normalized;
-        if (!leadPhone) {
-          console.warn(`[escalation] Lead ${attendance.nome} (${attendance.email}) has no telefone_normalized — skipping WaLeads send`);
+        // Use smart-ops-send-waleads to send notification to SELLER's phone (not the lead!)
+        const sellerPhone = teamMember.whatsapp_number;
+        if (!sellerPhone) {
+          console.warn(`[escalation] Seller ${teamMember.nome_completo} has no whatsapp_number — skipping WaLeads send`);
           return;
         }
         const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
@@ -2287,7 +2293,7 @@ ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
           },
           body: JSON.stringify({
             team_member_id: teamMember.id,
-            phone: leadPhone,
+            phone: sellerPhone,
             tipo: "text",
             message: notificationMsg,
             lead_id: attendance.id,
