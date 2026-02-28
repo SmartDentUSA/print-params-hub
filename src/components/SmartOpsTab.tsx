@@ -105,6 +105,9 @@ export function SmartOpsTab() {
         <TabsContent value="whatsapp">
           <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />
         </TabsContent>
+        <TabsContent value="formularios">
+          <SmartOpsFormBuilder key={`forms-${refreshKey}`} />
+        </TabsContent>
       </Tabs>
     </div>
   );

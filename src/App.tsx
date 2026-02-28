@@ -53,6 +53,9 @@ const App = () => (
       {/* Dra. L.I.A. embed route (no header/footer for iframe) */}
       <Route path="/embed/dra-lia" element={<AgentEmbed />} />
       
+      {/* Public forms */}
+      <Route path="/f/:slug" element={<PublicFormPage />} />
+      
       <Route path="*" element={<NotFound />} />
     </Routes>
 
