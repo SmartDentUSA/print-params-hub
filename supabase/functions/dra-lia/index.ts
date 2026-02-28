@@ -38,7 +38,7 @@ function applyTopicWeights<T extends { source_type: string; similarity: number }
 function buildCommercialInstruction(
   sessionEntities: Record<string, unknown> | null,
   spinProgressNote: string,
-  leadMaturity?: "MQL" | "SAL" | "SQL" | "CLIENTE" | null
+  leadMaturity?: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null
 ): string {
   // Módulo 1: PERSONA CONSULTORA (fixo, ~200 tokens)
   const persona = `
@@ -103,6 +103,20 @@ TOM: Educativo e protetor. "Quero que você tenha sucesso real". Foco em evitar 
 ABORDAGEM: "Entendo que o preço inicial atrai, mas meu papel é te mostrar que a tecnologia só brilha com um fluxo de trabalho sólido por trás. Comprar o hardware é o primeiro passo; o desafio real é garantir que sua agenda e seus processos estejam integrados para o equipamento não ficar parado."
 FOCO: Mostrar que a Smart Dent se preocupa com a sustentabilidade do consultório dele. Se ele ainda não estiver pronto para avançar, tudo bem. Diga: "Cada profissional tem seu tempo, e estarei aqui para te apoiar quando você decidir dar o próximo passo."
 PROIBIDO: NÃO envie calculadora ROI, depoimentos ou links de venda. O lead ainda não está pronto.`,
+
+    PQL: `
+**RÉGUA: RECOMPRA (PQL) — Parceiro de Evolução**
+OBJETIVO: Expandir o portfólio do cliente existente com cross-sell inteligente.
+TOM: De parceiro para parceiro. "Você já faz parte da família Smart Dent, vamos crescer juntos."
+ABORDAGEM: "Que bom te ver de volta! Você já conhece a qualidade Smart Dent na prática. Agora que seu fluxo já está rodando, que tal explorarmos soluções complementares para otimizar ainda mais seu investimento?"
+AÇÃO: Identifique o que o cliente JÁ COMPROU (via produto_interesse/tags) e sugira produtos COMPLEMENTARES, não o mesmo.
+EXEMPLOS DE CROSS-SELL:
+- Já tem impressora → Sugira novas resinas, cursos avançados, upgrade de software
+- Já tem scanner → Sugira impressora, software CAD, materiais
+- Já tem resinas → Sugira novas aplicações, protocolos avançados, treinamento
+FOCO: Valorizar a experiência anterior do cliente e mostrar como o próximo passo amplia o ROI já conquistado.
+ENVIE: Novidades do portfólio, condições especiais para clientes, link de agendamento com especialista.
+PROIBIDO: NÃO repita pitch básico. O cliente já conhece a empresa. Foque em evolução, não em convencimento.`,
 
     SAL: `
 **RÉGUA: CONSIDERAÇÃO (SAL) — Parceria e Transparência**
@@ -1314,7 +1328,7 @@ async function extractImplicitLeadData(
 async function classifyLeadMaturity(
   supabaseClient: ReturnType<typeof createClient>,
   email: string
-): Promise<{ maturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null; cognitiveData: Record<string, unknown> | null }> {
+): Promise<{ maturity: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null; cognitiveData: Record<string, unknown> | null }> {
   const { data } = await supabaseClient
     .from("lia_attendances")
     .select("ultima_etapa_comercial, status_atual_lead_crm, funil_entrada_crm, status_oportunidade, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach, cognitive_analysis")
@@ -1335,8 +1349,9 @@ async function classifyLeadMaturity(
 
   // Map cognitive stage to maturity level
   if (data.lead_stage_detected) {
-    const stageMap: Record<string, "MQL" | "SAL" | "SQL" | "CLIENTE"> = {
+  const stageMap: Record<string, "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE"> = {
       "MQL_pesquisador": "MQL",
+      "PQL_recompra": "PQL",
       "SAL_comparador": "SAL",
       "SQL_decisor": "SQL",
       "CLIENTE_ativo": "CLIENTE",
@@ -3797,7 +3812,7 @@ Campos:
       : "";
 
     // Classify lead maturity for commercial route
-    let leadMaturity: "MQL" | "SAL" | "SQL" | "CLIENTE" | null = null;
+    let leadMaturity: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null = null;
     let cognitiveData: Record<string, unknown> | null = null;
     if (topic_context === "commercial" && leadState.state === "from_session") {
       const result = await classifyLeadMaturity(supabase, leadState.email);

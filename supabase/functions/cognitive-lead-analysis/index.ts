@@ -12,7 +12,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-const VALID_STAGES = ["MQL_pesquisador", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
+const VALID_STAGES = ["MQL_pesquisador", "PQL_recompra", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
 const VALID_URGENCY = ["alta", "media", "baixa"];
 const VALID_TIMELINE = ["imediato", "3_6_meses", "6_12_meses", "indefinido"];
 
@@ -28,7 +28,7 @@ serve(async (req) => {
 
     // ── Guard 1: Find lead ──
     let query = supabase.from("lia_attendances").select(
-      "id, nome, email, area_atuacao, tem_impressora, tem_scanner, impressora_modelo, volume_mensal_pecas, ultima_etapa_comercial, resumo_historico_ia, status_oportunidade, cognitive_updated_at"
+      "id, nome, email, area_atuacao, tem_impressora, tem_scanner, impressora_modelo, volume_mensal_pecas, ultima_etapa_comercial, resumo_historico_ia, status_oportunidade, cognitive_updated_at, source, rota_inicial_lia, produto_interesse"
     );
     if (email) query = query.eq("email", email);
     else if (leadId) query = query.eq("id", leadId);
@@ -97,12 +97,18 @@ serve(async (req) => {
       .join("\n\n");
 
     // ── Build prompt ──
+    // ── Deterministic PQL override ──
+    const isExistingCustomer = leadData.status_oportunidade === "ganha";
+    const isAutonomousReentry = leadData.source !== "vendedor_direto" && leadData.rota_inicial_lia !== "vendedor_direto";
+    const forcePQL = isExistingCustomer && isAutonomousReentry;
+
     const prompt = `Você é um analista de inteligência comercial da Smart Dent (odontologia digital 3D).
 Analise o histórico de conversa e dados CRM abaixo e retorne ESTRITAMENTE um JSON.
 
 **Lead:** ${leadData.nome} | Área: ${leadData.area_atuacao || "N/I"} | Impressora: ${leadData.impressora_modelo || leadData.tem_impressora || "N/I"}
 Scanner: ${leadData.tem_scanner || "N/I"} | Volume: ${leadData.volume_mensal_pecas || "N/I"}
 Etapa CRM: ${leadData.ultima_etapa_comercial || "N/I"} | Status: ${leadData.status_oportunidade || "N/I"}
+Produto anterior: ${leadData.produto_interesse || "N/I"}
 Resumo IA: ${(leadData.resumo_historico_ia || "").slice(0, 300)}
 
 **Histórico de conversa (${totalMsgs} msgs):**
@@ -112,6 +118,7 @@ ${contextString.slice(0, 4000)}
 
 1. **lead_stage_detected**: Baseado em padrões linguísticos:
    - "MQL_pesquisador": Perguntas genéricas, "quanto custa", "como funciona", exploração inicial
+   - "PQL_recompra": Já comprou antes (status_oportunidade = 'ganha'), retornou por formulário/campanha (não por vendedor), pergunta sobre outros produtos do portfólio, quer expandir
    - "SAL_comparador": Compara modelos, menciona concorrentes, "qual a diferença entre", pede demonstração
    - "SQL_decisor": Pede proposta, prazo de entrega, condições de pagamento, "quero fechar", "quando posso começar"
    - "CLIENTE_ativo": Já comprou, pergunta sobre suporte, manutenção, novos materiais
@@ -173,6 +180,12 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
     if (!VALID_STAGES.includes(cognitiveData.lead_stage_detected as string)) cognitiveData.lead_stage_detected = null;
     if (!VALID_URGENCY.includes(cognitiveData.urgency_level as string)) cognitiveData.urgency_level = null;
     if (!VALID_TIMELINE.includes(cognitiveData.interest_timeline as string)) cognitiveData.interest_timeline = null;
+
+    // ── Deterministic PQL override: force PQL_recompra if customer re-entered autonomously ──
+    if (forcePQL && cognitiveData.lead_stage_detected !== "SQL_decisor") {
+      cognitiveData.lead_stage_detected = "PQL_recompra";
+      console.log(`[cognitive] PQL override for ${leadData.email} (status_oportunidade=ganha, autonomous re-entry)`);
+    }
 
     // Clamp confidence score
     const rawScore = Number(cognitiveData.confidence_score_analysis);

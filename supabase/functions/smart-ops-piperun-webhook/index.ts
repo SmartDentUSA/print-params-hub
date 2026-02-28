@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
         "C_REENTRADA_NUTRICAO",
       ];
       if (isWon) {
-        addTags.push(JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO");
+        addTags.push(JOURNEY_TAGS.J04_COMPRA, "C_CONTRATO_FECHADO", "C_PQL_RECOMPRA");
         if (produtoEncerrado) addTags.push(`COMPROU_${produtoEncerrado.toUpperCase().replace(/\s+/g, "_")}`);
       } else {
         // Lost deal ≠ lost lead. They're still a buyer for the rest of the portfolio.
@@ -349,7 +349,7 @@ Deno.serve(async (req) => {
 
           if (cogLead?.cognitive_analysis) {
             const predicted = cogLead.lead_stage_detected;
-            const accuracy = predicted === "SQL_decisor" ? 1.0 : predicted === "SAL_comparador" ? 0.6 : predicted === "MQL_pesquisador" ? 0.3 : 0.5;
+            const accuracy = predicted === "SQL_decisor" ? 1.0 : predicted === "SAL_comparador" ? 0.6 : predicted === "PQL_recompra" ? 0.8 : predicted === "MQL_pesquisador" ? 0.3 : 0.5;
             await supabase.from("lia_attendances").update({ prediction_accuracy: accuracy }).eq("id", leadId);
             console.log(`[piperun-webhook] prediction_accuracy: ${accuracy} (predicted: ${predicted})`);
           }

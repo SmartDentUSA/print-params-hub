@@ -75,7 +75,23 @@ Deno.serve(async (req) => {
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
     const produtoInteresse = detectProductFromFormName(formName) || extractField(payload, "produto_interesse", "product");
 
-    const source = payload.source || formName || "webhook";
+    // Check if this is a PQL (existing customer re-entering via form/campaign)
+    let detectedStage: string | null = null;
+    const isSellerDirect = source === "vendedor_direto";
+    
+    if (!isSellerDirect) {
+      const { data: existingLead } = await supabase
+        .from("lia_attendances")
+        .select("id, status_oportunidade")
+        .eq("email", email)
+        .eq("status_oportunidade", "ganha")
+        .maybeSingle();
+      
+      if (existingLead) {
+        detectedStage = "PQL_recompra";
+        console.log("[ingest-lead] PQL detected: existing customer re-entering via", source);
+      }
+    }
 
     // Upsert lead
     const leadData = {
@@ -89,6 +105,7 @@ Deno.serve(async (req) => {
       utm_campaign: payload.utm_campaign || null, utm_term: payload.utm_term || null,
       ip_origem: payload.ip || req.headers.get("x-forwarded-for") || null,
       lead_status: "novo",
+      ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
     const { data: lead, error: upsertError } = await supabase
