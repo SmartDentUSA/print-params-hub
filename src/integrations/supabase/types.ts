@@ -1158,6 +1158,17 @@ export type Database = {
           data_ultima_compra_scan: string | null
           data_ultima_compra_smart_slice: string | null
           email: string
+          empresa_cnae: string | null
+          empresa_cnpj: string | null
+          empresa_custom_fields: Json | null
+          empresa_ie: string | null
+          empresa_nome: string | null
+          empresa_piperun_id: number | null
+          empresa_porte: string | null
+          empresa_razao_social: string | null
+          empresa_segmento: string | null
+          empresa_situacao: string | null
+          empresa_website: string | null
           especialidade: string | null
           form_name: string | null
           funil_entrada_crm: string | null
@@ -1176,14 +1187,50 @@ export type Database = {
           objection_risk: string | null
           origem_campanha: string | null
           pais_origem: string | null
+          pessoa_cargo: string | null
+          pessoa_cpf: string | null
+          pessoa_facebook: string | null
+          pessoa_genero: string | null
+          pessoa_linkedin: string | null
+          pessoa_nascimento: string | null
+          pessoa_observation: string | null
+          pessoa_piperun_id: number | null
+          piperun_closed_at: string | null
+          piperun_created_at: string | null
+          piperun_custom_fields: Json | null
+          piperun_deleted: boolean | null
+          piperun_description: string | null
+          piperun_frozen: boolean | null
+          piperun_frozen_at: string | null
+          piperun_hash: string | null
           piperun_id: string | null
+          piperun_last_contact_at: string | null
+          piperun_lead_time: number | null
           piperun_link: string | null
+          piperun_observation: string | null
+          piperun_origin_id: number | null
+          piperun_origin_name: string | null
+          piperun_owner_id: number | null
+          piperun_pipeline_id: number | null
+          piperun_pipeline_name: string | null
+          piperun_probability: number | null
+          piperun_probably_closed_at: string | null
+          piperun_stage_changed_at: string | null
+          piperun_stage_id: number | null
+          piperun_stage_name: string | null
+          piperun_status: number | null
+          piperun_title: string | null
+          piperun_value_mrr: number | null
           prediction_accuracy: number | null
           primary_motivation: string | null
           principal_aplicacao: string | null
           proactive_count: number | null
           proactive_sent_at: string | null
           produto_interesse: string | null
+          proposals_data: Json | null
+          proposals_last_status: number | null
+          proposals_total_mrr: number | null
+          proposals_total_value: number | null
           proprietario_lead_crm: string | null
           psychological_profile: string | null
           raw_payload: Json | null
@@ -1276,6 +1323,17 @@ export type Database = {
           data_ultima_compra_scan?: string | null
           data_ultima_compra_smart_slice?: string | null
           email: string
+          empresa_cnae?: string | null
+          empresa_cnpj?: string | null
+          empresa_custom_fields?: Json | null
+          empresa_ie?: string | null
+          empresa_nome?: string | null
+          empresa_piperun_id?: number | null
+          empresa_porte?: string | null
+          empresa_razao_social?: string | null
+          empresa_segmento?: string | null
+          empresa_situacao?: string | null
+          empresa_website?: string | null
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
@@ -1294,14 +1352,50 @@ export type Database = {
           objection_risk?: string | null
           origem_campanha?: string | null
           pais_origem?: string | null
+          pessoa_cargo?: string | null
+          pessoa_cpf?: string | null
+          pessoa_facebook?: string | null
+          pessoa_genero?: string | null
+          pessoa_linkedin?: string | null
+          pessoa_nascimento?: string | null
+          pessoa_observation?: string | null
+          pessoa_piperun_id?: number | null
+          piperun_closed_at?: string | null
+          piperun_created_at?: string | null
+          piperun_custom_fields?: Json | null
+          piperun_deleted?: boolean | null
+          piperun_description?: string | null
+          piperun_frozen?: boolean | null
+          piperun_frozen_at?: string | null
+          piperun_hash?: string | null
           piperun_id?: string | null
+          piperun_last_contact_at?: string | null
+          piperun_lead_time?: number | null
           piperun_link?: string | null
+          piperun_observation?: string | null
+          piperun_origin_id?: number | null
+          piperun_origin_name?: string | null
+          piperun_owner_id?: number | null
+          piperun_pipeline_id?: number | null
+          piperun_pipeline_name?: string | null
+          piperun_probability?: number | null
+          piperun_probably_closed_at?: string | null
+          piperun_stage_changed_at?: string | null
+          piperun_stage_id?: number | null
+          piperun_stage_name?: string | null
+          piperun_status?: number | null
+          piperun_title?: string | null
+          piperun_value_mrr?: number | null
           prediction_accuracy?: number | null
           primary_motivation?: string | null
           principal_aplicacao?: string | null
           proactive_count?: number | null
           proactive_sent_at?: string | null
           produto_interesse?: string | null
+          proposals_data?: Json | null
+          proposals_last_status?: number | null
+          proposals_total_mrr?: number | null
+          proposals_total_value?: number | null
           proprietario_lead_crm?: string | null
           psychological_profile?: string | null
           raw_payload?: Json | null
@@ -1394,6 +1488,17 @@ export type Database = {
           data_ultima_compra_scan?: string | null
           data_ultima_compra_smart_slice?: string | null
           email?: string
+          empresa_cnae?: string | null
+          empresa_cnpj?: string | null
+          empresa_custom_fields?: Json | null
+          empresa_ie?: string | null
+          empresa_nome?: string | null
+          empresa_piperun_id?: number | null
+          empresa_porte?: string | null
+          empresa_razao_social?: string | null
+          empresa_segmento?: string | null
+          empresa_situacao?: string | null
+          empresa_website?: string | null
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
@@ -1412,14 +1517,50 @@ export type Database = {
           objection_risk?: string | null
           origem_campanha?: string | null
           pais_origem?: string | null
+          pessoa_cargo?: string | null
+          pessoa_cpf?: string | null
+          pessoa_facebook?: string | null
+          pessoa_genero?: string | null
+          pessoa_linkedin?: string | null
+          pessoa_nascimento?: string | null
+          pessoa_observation?: string | null
+          pessoa_piperun_id?: number | null
+          piperun_closed_at?: string | null
+          piperun_created_at?: string | null
+          piperun_custom_fields?: Json | null
+          piperun_deleted?: boolean | null
+          piperun_description?: string | null
+          piperun_frozen?: boolean | null
+          piperun_frozen_at?: string | null
+          piperun_hash?: string | null
           piperun_id?: string | null
+          piperun_last_contact_at?: string | null
+          piperun_lead_time?: number | null
           piperun_link?: string | null
+          piperun_observation?: string | null
+          piperun_origin_id?: number | null
+          piperun_origin_name?: string | null
+          piperun_owner_id?: number | null
+          piperun_pipeline_id?: number | null
+          piperun_pipeline_name?: string | null
+          piperun_probability?: number | null
+          piperun_probably_closed_at?: string | null
+          piperun_stage_changed_at?: string | null
+          piperun_stage_id?: number | null
+          piperun_stage_name?: string | null
+          piperun_status?: number | null
+          piperun_title?: string | null
+          piperun_value_mrr?: number | null
           prediction_accuracy?: number | null
           primary_motivation?: string | null
           principal_aplicacao?: string | null
           proactive_count?: number | null
           proactive_sent_at?: string | null
           produto_interesse?: string | null
+          proposals_data?: Json | null
+          proposals_last_status?: number | null
+          proposals_total_mrr?: number | null
+          proposals_total_value?: number | null
           proprietario_lead_crm?: string | null
           psychological_profile?: string | null
           raw_payload?: Json | null
