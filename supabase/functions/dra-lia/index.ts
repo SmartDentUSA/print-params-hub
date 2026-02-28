@@ -2154,6 +2154,12 @@ const ESCALATION_TRIGGERS = {
 type EscalationType = "vendedor" | "cs_suporte" | "especialista" | null;
 
 function detectEscalationIntent(message: string, history: Array<{ role: string; content: string }>): EscalationType {
+  // Guard: polite closing/thank-you messages should never trigger escalation
+  const closingPattern = /^(obrigad[oa]s?|valeu|ok|beleza|entendi|perfeito|legal|blz|vlw|thanks?|thank you|gracias?|tudo bem|certo|massa|show|top|boa|bacana|ta bom|tá bom|combinado|pode ser|fechou|tranquilo)\b/i;
+  if (closingPattern.test(message.trim())) {
+    return null;
+  }
+
   // Check current message first
   for (const [type, patterns] of Object.entries(ESCALATION_TRIGGERS)) {
     if (patterns.some(p => p.test(message))) {
