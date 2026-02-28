@@ -2469,11 +2469,19 @@ serve(async (req) => {
           body: JSON.stringify({
             model: "google/gemini-2.5-flash-lite",
             messages: [
-              { role: "system", content: "Resuma esta conversa para continuidade na próxima sessão. Se houver RESUMO ANTERIOR, incorpore temas relevantes que não foram rediscutidos na conversa atual. Formato: 'ASSUNTOS: [tópicos discutidos] | PENDÊNCIAS: [dúvidas não resolvidas ou próximos passos] | INTERESSE: [nível 1-3, onde 1=pesquisando, 2=comparando, 3=pronto para comprar]'. Sem saudações, sem emojis. Máximo 200 caracteres." },
+              { role: "system", content: `Você DEVE responder EXATAMENTE neste formato, sem exceção:
+ASSUNTOS: [tópicos discutidos separados por vírgula] | PENDÊNCIAS: [dúvidas não resolvidas, próximos passos, ou "Nenhuma"] | INTERESSE: [1=pesquisando, 2=comparando, 3=pronto para comprar]
+
+REGRAS:
+- Use EXATAMENTE as palavras-chave ASSUNTOS, PENDÊNCIAS e INTERESSE seguidas de dois-pontos
+- Separe as seções com pipe |
+- Se houver RESUMO ANTERIOR, incorpore temas relevantes não rediscutidos
+- PENDÊNCIAS devem descrever o que o lead ainda precisa saber ou decidir
+- Sem saudações, sem emojis, sem texto fora do formato` },
               { role: "user", content: `RESUMO ANTERIOR: ${previousSummary || "Nenhum"}\n\nCONVERSA ATUAL:\n${convoText.slice(0, 4000)}` },
             ],
             stream: false,
-            max_tokens: 150,
+            max_tokens: 300,
           }),
         });
 
