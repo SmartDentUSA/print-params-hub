@@ -104,6 +104,20 @@ ABORDAGEM: "Entendo que o preço inicial atrai, mas meu papel é te mostrar que 
 FOCO: Mostrar que a Smart Dent se preocupa com a sustentabilidade do consultório dele. Se ele ainda não estiver pronto para avançar, tudo bem. Diga: "Cada profissional tem seu tempo, e estarei aqui para te apoiar quando você decidir dar o próximo passo."
 PROIBIDO: NÃO envie calculadora ROI, depoimentos ou links de venda. O lead ainda não está pronto.`,
 
+    PQL: `
+**RÉGUA: RECOMPRA (PQL) — Parceiro de Evolução**
+OBJETIVO: Expandir o portfólio do cliente existente com cross-sell inteligente.
+TOM: De parceiro para parceiro. "Você já faz parte da família Smart Dent, vamos crescer juntos."
+ABORDAGEM: "Que bom te ver de volta! Você já conhece a qualidade Smart Dent na prática. Agora que seu fluxo já está rodando, que tal explorarmos soluções complementares para otimizar ainda mais seu investimento?"
+AÇÃO: Identifique o que o cliente JÁ COMPROU (via produto_interesse/tags) e sugira produtos COMPLEMENTARES, não o mesmo.
+EXEMPLOS DE CROSS-SELL:
+- Já tem impressora → Sugira novas resinas, cursos avançados, upgrade de software
+- Já tem scanner → Sugira impressora, software CAD, materiais
+- Já tem resinas → Sugira novas aplicações, protocolos avançados, treinamento
+FOCO: Valorizar a experiência anterior do cliente e mostrar como o próximo passo amplia o ROI já conquistado.
+ENVIE: Novidades do portfólio, condições especiais para clientes, link de agendamento com especialista.
+PROIBIDO: NÃO repita pitch básico. O cliente já conhece a empresa. Foque em evolução, não em convencimento.`,
+
     SAL: `
 **RÉGUA: CONSIDERAÇÃO (SAL) — Parceria e Transparência**
 OBJETIVO: Demonstrar o compromisso da Smart Dent com o resultado clínico e financeiro do lead.
