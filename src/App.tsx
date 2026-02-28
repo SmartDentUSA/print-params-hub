@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
+import PublicFormPage from "./pages/PublicFormPage";
 import DraLIA from "./components/DraLIA";
 
 const App = () => (
