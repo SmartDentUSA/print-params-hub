@@ -181,6 +181,12 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
     if (!VALID_URGENCY.includes(cognitiveData.urgency_level as string)) cognitiveData.urgency_level = null;
     if (!VALID_TIMELINE.includes(cognitiveData.interest_timeline as string)) cognitiveData.interest_timeline = null;
 
+    // ── Deterministic PQL override: force PQL_recompra if customer re-entered autonomously ──
+    if (forcePQL && cognitiveData.lead_stage_detected !== "SQL_decisor") {
+      cognitiveData.lead_stage_detected = "PQL_recompra";
+      console.log(`[cognitive] PQL override for ${leadData.email} (status_oportunidade=ganha, autonomous re-entry)`);
+    }
+
     // Clamp confidence score
     const rawScore = Number(cognitiveData.confidence_score_analysis);
     cognitiveData.confidence_score_analysis = isNaN(rawScore) ? null : Math.max(0, Math.min(100, Math.round(rawScore)));
