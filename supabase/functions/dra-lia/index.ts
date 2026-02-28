@@ -2546,11 +2546,21 @@ REGRAS:
         // 8. Extract PENDENCIAS from summary and create content_requests
         if (summary) {
           try {
-            const pendMatch = summary.match(/PEND[ÊE]NCIAS:\s*(.+?)(?:\s*\||$)/i);
+            let pendMatch = summary.match(/PEND[ÊE]NCIAS:\s*(.+?)(?:\s*\||$)/i);
+            // Fallback: if summary doesn't follow format, try to extract actionable content
+            if (!pendMatch && summary.length > 20 && !summary.match(/^(ASSUNTOS|PEND)/i)) {
+              // Unstructured summary — use the whole summary as a potential content request
+              console.log(`[summarize_session] Summary not in structured format, using fallback extraction`);
+              // Check if it describes a need/search/question
+              const needPatterns = /\b(busca|precisa|quer|procura|dúvida|pergunt|solicita|necessita|parâmetros|comparativo|informaç|detalhes sobre|como usar)\b/i;
+              if (needPatterns.test(summary)) {
+                pendMatch = [null, summary.slice(0, 300)] as unknown as RegExpMatchArray;
+              }
+            }
             if (pendMatch && pendMatch[1]?.trim()) {
               const rawPendencia = pendMatch[1].trim();
               // Skip trivial pendencias
-              if (rawPendencia.length > 10 && !rawPendencia.match(/^(nenhuma|none|sem pend|n\/a)/i)) {
+              if (rawPendencia.length > 10 && !rawPendencia.match(/^(nenhuma|none|sem pend|n\/a|o assistente|o usuário agradec)/i)) {
                 console.log(`[summarize_session] Found PENDENCIA: "${rawPendencia}"`);
                 
                 // Classify with AI
