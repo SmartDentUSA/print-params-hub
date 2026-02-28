@@ -38,7 +38,7 @@ function applyTopicWeights<T extends { source_type: string; similarity: number }
 function buildCommercialInstruction(
   sessionEntities: Record<string, unknown> | null,
   spinProgressNote: string,
-  leadMaturity?: "MQL" | "SAL" | "SQL" | "CLIENTE" | null
+  leadMaturity?: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null
 ): string {
   // Módulo 1: PERSONA CONSULTORA (fixo, ~200 tokens)
   const persona = `
