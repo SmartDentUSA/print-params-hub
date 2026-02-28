@@ -28,7 +28,7 @@ serve(async (req) => {
 
     // ── Guard 1: Find lead ──
     let query = supabase.from("lia_attendances").select(
-      "id, nome, email, area_atuacao, tem_impressora, tem_scanner, impressora_modelo, volume_mensal_pecas, ultima_etapa_comercial, resumo_historico_ia, status_oportunidade, cognitive_updated_at"
+      "id, nome, email, area_atuacao, tem_impressora, tem_scanner, impressora_modelo, volume_mensal_pecas, ultima_etapa_comercial, resumo_historico_ia, status_oportunidade, cognitive_updated_at, source, rota_inicial_lia, produto_interesse"
     );
     if (email) query = query.eq("email", email);
     else if (leadId) query = query.eq("id", leadId);
