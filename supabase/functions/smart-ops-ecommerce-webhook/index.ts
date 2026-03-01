@@ -270,6 +270,41 @@ Deno.serve(async (req) => {
     const cnpj = String(customer.cnpj || endereco.cnpj || "") || null;
     const razaoSocial = String(customer.razao_social || "") || null;
 
+    // ─── Extract Loja Integrada-specific fields ───
+    const liClienteId = customer.id ? Number(customer.id) : null;
+    const liClienteObs = order.cliente_obs ? String(order.cliente_obs) : null;
+    const liCupomDesconto = order.cupom_desconto ? String(order.cupom_desconto) : null;
+    const liDataNascimento = customer.data_nascimento ? String(customer.data_nascimento) : null;
+    const liSexo = customer.sexo ? String(customer.sexo) : null;
+    const liEndereco = endereco.endereco ? String(endereco.endereco) : null;
+    const liNumero = endereco.numero ? String(endereco.numero) : null;
+    const liComplemento = endereco.complemento ? String(endereco.complemento) : null;
+    const liBairro = endereco.bairro ? String(endereco.bairro) : null;
+    const liCep = endereco.cep ? String(endereco.cep) : null;
+    const liReferencia = endereco.referencia ? String(endereco.referencia) : null;
+    const liPedidoNumero = order.numero ? Number(order.numero) : null;
+    const liPedidoData = order.data_criacao ? String(order.data_criacao) : null;
+    const liPedidoValor = Number(order.valor_total || 0) || null;
+    const situacaoObj = order.situacao as Record<string, unknown> | undefined;
+    const liPedidoStatus = situacaoObj?.nome ? String(situacaoObj.nome) : null;
+    const liUtmCampaign = order.utm_campaign ? String(order.utm_campaign) : null;
+
+    // Extract forma_pagamento from first payment
+    const pagamentos = (order.pagamentos || []) as Array<Record<string, unknown>>;
+    let liFormaPagamento: string | null = null;
+    if (pagamentos.length > 0) {
+      const fp = pagamentos[0].forma_pagamento as Record<string, unknown> | undefined;
+      liFormaPagamento = fp?.nome ? String(fp.nome) : (pagamentos[0].pagamento_tipo ? String(pagamentos[0].pagamento_tipo) : null);
+    }
+
+    // Extract forma_envio from first shipment
+    const envios = (order.envios || []) as Array<Record<string, unknown>>;
+    let liFormaEnvio: string | null = null;
+    if (envios.length > 0) {
+      const fe = envios[0].forma_envio as Record<string, unknown> | undefined;
+      liFormaEnvio = fe?.nome ? String(fe.nome) : null;
+    }
+
     // ─── Determine tags from event ───
     const eventConfig = EVENT_MAP[eventType] || { tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT] };
     const tagsToAdd = [...eventConfig.tags];
