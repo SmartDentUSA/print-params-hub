@@ -1550,7 +1550,7 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         tags_crm: newTags,
         ultima_etapa_comercial: "contato_feito",
         temperatura_lead: "quente",
-        lead_status: attendance.piperun_id ? (attendance as Record<string,unknown>).lead_status as string || "em_atendimento" : "em_atendimento",
+        lead_status: "em_atendimento",
         origem_campanha: origemCampanha,
         updated_at: new Date().toISOString(),
       })

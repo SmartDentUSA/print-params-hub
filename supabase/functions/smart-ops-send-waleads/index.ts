@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         lead_id: lead_id || null,
         team_member_id: team_member_id || null,
         tipo: test_mode ? `sellflux_${tipo}_test` : `sellflux_${tipo}`,
-        mensagem_preview: `[SellFlux] template: ${templateId}`.slice(0, 200),
+        mensagem_preview: `[SellFlux] template: ${sellflux_template_id}`.slice(0, 200),
         status: result.success ? "enviado" : "erro",
         error_details: result.success ? null : result.response,
       });
