@@ -5,11 +5,8 @@
  *   POST https://api.awsli.com.br/v1/webhook/
  *   Body: { url, evento_tipo, formato }
  * 
- * Events supported:
- *   - pedido_criado     (order created)
- *   - pedido_atualizado (order status changed — covers paid, cancelled, shipped, etc.)
- *   - produto_criado    (product created)
- *   - produto_atualizado(product edited)
+ * For listing (GET), use query params auth:
+ *   GET https://api.awsli.com.br/v1/webhook/?chave_api=X&chave_aplicacao=Y
  */
 
 const corsHeaders = {
@@ -23,20 +20,34 @@ interface WebhookRegistration {
   formato: string;
 }
 
+function buildAuthParams(apiKey: string, appKey: string | null): string {
+  const params = new URLSearchParams();
+  params.set("chave_api", apiKey);
+  if (appKey) params.set("chave_aplicacao", appKey);
+  params.set("format", "json");
+  return params.toString();
+}
+
+function buildAuthHeader(apiKey: string, appKey: string | null): string {
+  return appKey
+    ? `chave_api ${apiKey} aplicacao ${appKey}`
+    : `chave_api ${apiKey}`;
+}
+
 async function registerWebhook(
   apiKey: string,
   appKey: string | null,
   webhook: WebhookRegistration
 ): Promise<{ success: boolean; evento: string; status: number; body: string }> {
-  const authHeader = appKey
-    ? `chave_api ${apiKey} aplicacao ${appKey}`
-    : `chave_api ${apiKey}`;
+  // POST uses both header auth AND query params for maximum compatibility
+  const queryParams = buildAuthParams(apiKey, appKey);
+  const url = `https://api.awsli.com.br/v1/webhook/?${queryParams}`;
 
-  const res = await fetch("https://api.awsli.com.br/v1/webhook/", {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: authHeader,
+      Authorization: buildAuthHeader(apiKey, appKey),
     },
     body: JSON.stringify(webhook),
   });
@@ -54,15 +65,17 @@ async function listWebhooks(
   apiKey: string,
   appKey: string | null
 ): Promise<{ success: boolean; status: number; data: unknown }> {
-  const authHeader = appKey
-    ? `chave_api ${apiKey} aplicacao ${appKey}`
-    : `chave_api ${apiKey}`;
+  // GET uses query params auth (header alone may not work for reads)
+  const queryParams = buildAuthParams(apiKey, appKey);
+  const url = `https://api.awsli.com.br/v1/webhook/?${queryParams}`;
 
-  const res = await fetch("https://api.awsli.com.br/v1/webhook/", {
+  console.log(`[register-loja-webhooks] Listing webhooks from: ${url.replace(apiKey, "***")}`);
+
+  const res = await fetch(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      Authorization: authHeader,
+      Authorization: buildAuthHeader(apiKey, appKey),
     },
   });
 
@@ -74,6 +87,24 @@ async function listWebhooks(
     data = body.slice(0, 1000);
   }
   return { success: res.ok, status: res.status, data };
+}
+
+async function deleteWebhook(
+  apiKey: string,
+  appKey: string | null,
+  webhookId: string
+): Promise<{ success: boolean; status: number }> {
+  const queryParams = buildAuthParams(apiKey, appKey);
+  const url = `https://api.awsli.com.br/v1/webhook/${webhookId}/?${queryParams}`;
+
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: buildAuthHeader(apiKey, appKey),
+    },
+  });
+  await res.text();
+  return { success: res.ok, status: res.status };
 }
 
 Deno.serve(async (req) => {
@@ -93,14 +124,41 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const action = body.action || "register"; // "register" | "list" | "register_single"
+    const action = body.action || "register"; // "register" | "list" | "delete"
 
     // The public URL of our ecommerce webhook edge function
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const webhookUrl = `${SUPABASE_URL}/functions/v1/smart-ops-ecommerce-webhook`;
 
+    // Test auth by fetching a simple endpoint
+    if (action === "test_auth") {
+      const qp = buildAuthParams(apiKey, appKey || null);
+      const testUrl = `https://api.awsli.com.br/v1/pedido/?${qp}&limit=1`;
+      console.log(`[register-loja-webhooks] Testing auth: ${testUrl.replace(apiKey, "***")}`);
+      const res = await fetch(testUrl, {
+        headers: {
+          Authorization: buildAuthHeader(apiKey, appKey || null),
+          Accept: "application/json",
+        },
+      });
+      const txt = await res.text();
+      let data: unknown;
+      try { data = JSON.parse(txt); } catch { data = txt.slice(0, 500); }
+      return new Response(JSON.stringify({ status: res.status, success: res.ok, data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list") {
       const result = await listWebhooks(apiKey, appKey || null);
+      return new Response(JSON.stringify(result), {
+        status: result.success ? 200 : 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "delete" && body.webhook_id) {
+      const result = await deleteWebhook(apiKey, appKey || null, body.webhook_id);
       return new Response(JSON.stringify(result), {
         status: result.success ? 200 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -122,7 +180,7 @@ Deno.serve(async (req) => {
         evento_tipo: evento,
         formato: "json",
       });
-      console.log(`[register-loja-webhooks] ${evento}: ${result.status} ${result.success ? "✅" : "❌"}`);
+      console.log(`[register-loja-webhooks] ${evento}: ${result.status} ${result.success ? "✅" : "❌"} | body=${result.body}`);
       results.push(result);
     }
 

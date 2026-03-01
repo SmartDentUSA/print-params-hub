@@ -153,6 +153,16 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // === DEBUG: Log ALL incoming requests (headers + raw body) ===
+  const rawBody = await req.text();
+  const incomingHeaders: Record<string, string> = {};
+  req.headers.forEach((v, k) => { incomingHeaders[k] = v; });
+  console.log("[ecommerce-webhook] === INCOMING REQUEST ===");
+  console.log("[ecommerce-webhook] Method:", req.method);
+  console.log("[ecommerce-webhook] Headers:", JSON.stringify(incomingHeaders));
+  console.log("[ecommerce-webhook] Raw body:", rawBody.slice(0, 1500));
+  console.log("[ecommerce-webhook] === END REQUEST ===");
+
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -162,7 +172,18 @@ Deno.serve(async (req) => {
     const LI_APP_KEY = Deno.env.get("LOJA_INTEGRADA_APP_KEY");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const payload = await req.json();
+    
+    // Parse from already-read body
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      console.error("[ecommerce-webhook] Failed to parse JSON body:", rawBody.slice(0, 500));
+      return new Response(JSON.stringify({ error: "Invalid JSON body", raw: rawBody.slice(0, 200) }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     console.log("[ecommerce-webhook] Payload:", JSON.stringify(payload).slice(0, 800));
 
