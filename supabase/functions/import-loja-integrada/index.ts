@@ -167,7 +167,7 @@ async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | 
       config: {
         headers: {
           'Authorization': appKey 
-            ? `chave_api ${apiKey.trim()} app_key ${appKey.trim()}`
+            ? `chave_api ${apiKey.trim()} aplicacao ${appKey.trim()}`
             : `chave_api ${apiKey.trim()}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -178,7 +178,7 @@ async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | 
       name: 'querystring',
       config: {
         url: appKey 
-          ? `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}&app_key=${encodeURIComponent(appKey.trim())}`
+          ? `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}&chave_aplicacao=${encodeURIComponent(appKey.trim())}`
           : `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}`,
         headers: {
           'Content-Type': 'application/json',
@@ -187,21 +187,6 @@ async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | 
       }
     }
   ];
-  
-  // Se temos appKey, adicionar estratégia Basic Auth
-  if (appKey) {
-    const basicAuth = btoa(`${apiKey.trim()}:${appKey.trim()}`);
-    strategies.push({
-      name: 'basic-auth',
-      config: {
-        headers: {
-          'Authorization': `Basic ${basicAuth}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      }
-    });
-  }
   
   // Tentar cada estratégia até conseguir 2xx
   for (const strategy of strategies) {
@@ -286,6 +271,22 @@ serve(async (req) => {
 
     const apiProduct = await response.json();
 
+    // Buscar preço via endpoint separado (a API de produto não retorna preço)
+    let productPrice = 0;
+    try {
+      const priceEndpoint = `/produto_preco/${apiProduct.id}/`;
+      const priceResponse = await fetchWithAuth(priceEndpoint, apiKey, appKey || null);
+      if (priceResponse.ok) {
+        const priceData = await priceResponse.json();
+        productPrice = parseFloat(priceData.preco_promocional || priceData.preco_cheio || priceData.preco || 0) || 0;
+        console.log(`💰 Preço obtido: R$ ${productPrice}`);
+      } else {
+        console.warn(`⚠️ Não foi possível obter preço: ${priceResponse.status}`);
+      }
+    } catch (priceErr) {
+      console.warn('⚠️ Erro ao buscar preço:', priceErr);
+    }
+
     // Inicializar Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -303,10 +304,10 @@ serve(async (req) => {
     const resinData = {
       name: productName,
       manufacturer: apiProduct.marca?.nome || apiProduct.fornecedor || '',
-      color: '', // Sempre vazio - admin preenche manualmente
-      type: 'standard', // Padrão
+      color: '',
+      type: 'standard',
       description: (apiProduct.descricao_completa || apiProduct.descricao || '').trim(),
-      price: parseFloat(apiProduct.preco_promocional || apiProduct.preco_cheio || apiProduct.preco || 0) || 0,
+      price: productPrice,
       image_url: finalImageUrl,
       images_gallery: (apiProduct.imagens || []).map((img: any, index: number) => ({
         url: img.url || img.grande || img.media || '',
