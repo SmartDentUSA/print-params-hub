@@ -1763,6 +1763,31 @@ REGRAS OBRIGATÓRIAS:
       }
     }
 
+    // 7.5 Fallback: find piperun_id from duplicate/similar email records
+    if (!attendance.piperun_id) {
+      try {
+        const { data: altRecord } = await supabase
+          .from("lia_attendances")
+          .select("piperun_id, piperun_link, piperun_pipeline_id")
+          .ilike("email", leadEmail.trim())
+          .not("piperun_id", "is", null)
+          .neq("id", attendance.id)
+          .limit(1)
+          .maybeSingle();
+        if (altRecord?.piperun_id) {
+          attendance.piperun_id = altRecord.piperun_id;
+          attendance.piperun_link = altRecord.piperun_link;
+          (attendance as Record<string, unknown>).piperun_pipeline_id = altRecord.piperun_pipeline_id;
+          await supabase.from("lia_attendances")
+            .update({ piperun_id: altRecord.piperun_id, piperun_link: altRecord.piperun_link })
+            .eq("id", attendance.id);
+          console.log(`[handoff] Found piperun_id ${altRecord.piperun_id} from alt record for ${leadEmail}`);
+        }
+      } catch (e) {
+        console.warn(`[handoff] Alt piperun_id lookup error:`, e);
+      }
+    }
+
     // 8. Sync with PipeRun + add note with classification
     if (attendance.piperun_id) {
       try {
