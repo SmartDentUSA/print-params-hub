@@ -4235,7 +4235,18 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     Se o topSimilarity < 0.50 OU nenhum resultado RAG corresponde ao tema da pergunta,
     use OBRIGATORIAMENTE esta abordagem proativa:
     "Já entendi sua dúvida! 😊 Estou acionando um especialista do nosso time que vai te chamar no WhatsApp e explicar cada detalhe sobre [tema da pergunta]. Possui alguma outra dúvida além dessa?"
+    
+    🚫 FRASES PROIBIDAS (incluindo sinônimos e variações):
+    "não especifica", "não detalha", "não lista", "não menciona", "não tenho detalhes",
+    "não tenho informações sobre", "ideal é falar com", "quer que eu te conecte",
+    "os dados não especificam", "as informações não detalham", "não está disponível",
+    "não estão detalhadas nos meus registros", "nos meus registros", "nos meus dados",
+    "um de nossos especialistas pode te atender", "seu preço público não está",
+    "I don't have specific", "I don't have detailed", "no especifica", "no detalla".
+    Se perceber que vai usar QUALQUER dessas frases ou sinônimos, PARE e substitua pela versão proativa acima.
+    
     NUNCA diga "não tenho essa informação", "não sei", "não está nos meus dados".
+    NUNCA diga "não estão detalhadas", "nos meus registros", "não estão nos meus dados".
     NUNCA improvise uma resposta com dados genéricos.
     O tom deve ser SEMPRE positivo e de ação, nunca de confissão de ignorância.
 
@@ -4619,6 +4630,21 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 /reaching out to a specialist/i,
                 /contactando a un especialista/i,
                 /acionando nosso time técnico/i,
+                // Expanded: LLM synonym evasions (Mar/2026)
+                /não\s+(estão\s+)?(especificad[ao]s?|detalhadad[ao]s?|listad[ao]s?|mencionad[ao]s?)/i,
+                /não\s+(especificam?|detalham?|listam?|mencionam?)/i,
+                /não tenho (informações|detalhes|dados) sobre/i,
+                /informação.*não está disponível/i,
+                /não\s+est[ãa]o?\s+(nos meus|em meus|nos nossos)/i,
+                /nos meus (registros|dados|documentos)/i,
+                /quer que eu te conect/i,
+                /ideal é falar (com|diretamente)/i,
+                /falar com (um de nossos|nosso) (especialistas?|consultores?)/i,
+                /um de nossos especialistas (comerciais |técnicos )?(pode|vai)/i,
+                /I don'?t have (specific|detailed)/i,
+                /not (detailed|listed|specified) in my/i,
+                /no (especifica|detalla|menciona)/i,
+                /no est[áa]n? (detallad|especificad|disponible)/i,
               ];
               const isIdkResponse = IDK_PATTERNS.some(p => p.test(fullResponse));
               if (isIdkResponse && leadState.state === "from_session") {
