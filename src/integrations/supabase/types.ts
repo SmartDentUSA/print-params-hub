@@ -2191,9 +2191,11 @@ export type Database = {
           name: string
           slug: string
           submissions_count: number
+          subtitle: string | null
           success_message: string | null
           success_redirect_url: string | null
           theme_color: string | null
+          title: string | null
           updated_at: string
         }
         Insert: {
@@ -2205,9 +2207,11 @@ export type Database = {
           name: string
           slug: string
           submissions_count?: number
+          subtitle?: string | null
           success_message?: string | null
           success_redirect_url?: string | null
           theme_color?: string | null
+          title?: string | null
           updated_at?: string
         }
         Update: {
@@ -2219,9 +2223,11 @@ export type Database = {
           name?: string
           slug?: string
           submissions_count?: number
+          subtitle?: string | null
           success_message?: string | null
           success_redirect_url?: string | null
           theme_color?: string | null
+          title?: string | null
           updated_at?: string
         }
         Relationships: []
