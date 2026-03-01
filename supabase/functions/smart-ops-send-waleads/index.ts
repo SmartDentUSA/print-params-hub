@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
     }
 
     // ─── SellFlux Campaign path (preferred when webhook URL + template available) ───
-    const templateId = sellflux_template_id || message;
-    const useSellFlux = SELLFLUX_WEBHOOK_CAMPANHAS && templateId && phone;
+    // SellFlux ONLY when an explicit template ID is provided (not free-text messages)
+    const useSellFlux = SELLFLUX_WEBHOOK_CAMPANHAS && sellflux_template_id && phone;
 
     if (useSellFlux) {
       // Ensure leadData has phone
