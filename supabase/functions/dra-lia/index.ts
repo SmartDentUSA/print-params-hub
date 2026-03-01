@@ -2643,19 +2643,35 @@ async function notifySellerEscalation(
       especialista: "🔴 ESCALONAMENTO URGENTE",
     };
     
+    const urgencyEmoji: Record<string, string> = { alta: "🔴", media: "🟡", baixa: "🟢" };
+
+    let cognitiveBlock = "";
+    if (attendance.confidence_score_analysis) {
+      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\n
+Estágio: ${attendance.lead_stage_detected || "N/I"}
+Urgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}
+Timeline: ${attendance.interest_timeline || "N/I"}
+Perfil: ${attendance.psychological_profile || "N/I"}
+Motivação: ${attendance.primary_motivation || "N/I"}
+Risco objeção: ${attendance.objection_risk || "N/I"}
+Abordagem: ${attendance.recommended_approach || "N/I"}`;
+    }
+
     const notificationMsg = `${typeLabels[escalationType] || "📋 ESCALONAMENTO"}
 
 👤 Lead: ${leadName}
 📧 Email: ${leadEmail}
 ${attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : ""}
+${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}
 ${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
-${attendance.temperatura_lead ? `🌡️ Temp: ${attendance.temperatura_lead}` : ""}
-${attendance.score ? `📊 Score: ${attendance.score}` : ""}
+${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}
+${attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : ""}
 
 💬 Última msg: "${message.slice(0, 200)}"
 ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
 
-⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}`;
+⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}
+${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     // 4. Log in message_logs
     await supabase.from("message_logs").insert({
