@@ -4619,6 +4619,15 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 /reaching out to a specialist/i,
                 /contactando a un especialista/i,
                 /acionando nosso time técnico/i,
+                // Expanded: LLM synonym evasions (Mar/2026)
+                /não (especificam?|detalham?|listam?|mencionam?)/i,
+                /não tenho (informações|detalhes|dados) sobre/i,
+                /informação.*não está disponível/i,
+                /quer que eu te conect/i,
+                /ideal é falar (com|diretamente)/i,
+                /falar com (um de nossos|nosso) (especialistas?|consultores?)/i,
+                /I don'?t have (specific|detailed)/i,
+                /no (especifica|detalla|menciona)/i,
               ];
               const isIdkResponse = IDK_PATTERNS.some(p => p.test(fullResponse));
               if (isIdkResponse && leadState.state === "from_session") {
