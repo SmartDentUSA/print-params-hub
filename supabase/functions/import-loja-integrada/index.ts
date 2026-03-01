@@ -167,7 +167,7 @@ async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | 
       config: {
         headers: {
           'Authorization': appKey 
-            ? `chave_api ${apiKey.trim()} app_key ${appKey.trim()}`
+            ? `chave_api ${apiKey.trim()} aplicacao ${appKey.trim()}`
             : `chave_api ${apiKey.trim()}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json',
@@ -178,7 +178,7 @@ async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | 
       name: 'querystring',
       config: {
         url: appKey 
-          ? `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}&app_key=${encodeURIComponent(appKey.trim())}`
+          ? `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}&chave_aplicacao=${encodeURIComponent(appKey.trim())}`
           : `${fullUrl}?chave_api=${encodeURIComponent(apiKey.trim())}`,
         headers: {
           'Content-Type': 'application/json',
@@ -187,21 +187,6 @@ async function fetchWithAuth(endpoint: string, apiKey: string, appKey: string | 
       }
     }
   ];
-  
-  // Se temos appKey, adicionar estratégia Basic Auth
-  if (appKey) {
-    const basicAuth = btoa(`${apiKey.trim()}:${appKey.trim()}`);
-    strategies.push({
-      name: 'basic-auth',
-      config: {
-        headers: {
-          'Authorization': `Basic ${basicAuth}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      }
-    });
-  }
   
   // Tentar cada estratégia até conseguir 2xx
   for (const strategy of strategies) {
