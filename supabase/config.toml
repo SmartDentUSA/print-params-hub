@@ -212,3 +212,6 @@ verify_jwt = false
 
 [functions.smart-ops-meta-lead-webhook]
 verify_jwt = false
+
+[functions.ai-model-compare]
+verify_jwt = false
