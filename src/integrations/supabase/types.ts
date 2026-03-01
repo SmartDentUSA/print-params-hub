@@ -1182,6 +1182,26 @@ export type Database = {
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
+          lojaintegrada_bairro: string | null
+          lojaintegrada_cep: string | null
+          lojaintegrada_cliente_id: number | null
+          lojaintegrada_cliente_obs: string | null
+          lojaintegrada_complemento: string | null
+          lojaintegrada_cupom_desconto: string | null
+          lojaintegrada_data_nascimento: string | null
+          lojaintegrada_endereco: string | null
+          lojaintegrada_forma_envio: string | null
+          lojaintegrada_forma_pagamento: string | null
+          lojaintegrada_itens_json: Json | null
+          lojaintegrada_numero: string | null
+          lojaintegrada_referencia: string | null
+          lojaintegrada_sexo: string | null
+          lojaintegrada_ultimo_pedido_data: string | null
+          lojaintegrada_ultimo_pedido_numero: number | null
+          lojaintegrada_ultimo_pedido_status: string | null
+          lojaintegrada_ultimo_pedido_valor: number | null
+          lojaintegrada_updated_at: string | null
+          lojaintegrada_utm_campaign: string | null
           motivo_perda: string | null
           nome: string
           objection_risk: string | null
@@ -1347,6 +1367,26 @@ export type Database = {
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
+          lojaintegrada_bairro?: string | null
+          lojaintegrada_cep?: string | null
+          lojaintegrada_cliente_id?: number | null
+          lojaintegrada_cliente_obs?: string | null
+          lojaintegrada_complemento?: string | null
+          lojaintegrada_cupom_desconto?: string | null
+          lojaintegrada_data_nascimento?: string | null
+          lojaintegrada_endereco?: string | null
+          lojaintegrada_forma_envio?: string | null
+          lojaintegrada_forma_pagamento?: string | null
+          lojaintegrada_itens_json?: Json | null
+          lojaintegrada_numero?: string | null
+          lojaintegrada_referencia?: string | null
+          lojaintegrada_sexo?: string | null
+          lojaintegrada_ultimo_pedido_data?: string | null
+          lojaintegrada_ultimo_pedido_numero?: number | null
+          lojaintegrada_ultimo_pedido_status?: string | null
+          lojaintegrada_ultimo_pedido_valor?: number | null
+          lojaintegrada_updated_at?: string | null
+          lojaintegrada_utm_campaign?: string | null
           motivo_perda?: string | null
           nome: string
           objection_risk?: string | null
@@ -1512,6 +1552,26 @@ export type Database = {
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
+          lojaintegrada_bairro?: string | null
+          lojaintegrada_cep?: string | null
+          lojaintegrada_cliente_id?: number | null
+          lojaintegrada_cliente_obs?: string | null
+          lojaintegrada_complemento?: string | null
+          lojaintegrada_cupom_desconto?: string | null
+          lojaintegrada_data_nascimento?: string | null
+          lojaintegrada_endereco?: string | null
+          lojaintegrada_forma_envio?: string | null
+          lojaintegrada_forma_pagamento?: string | null
+          lojaintegrada_itens_json?: Json | null
+          lojaintegrada_numero?: string | null
+          lojaintegrada_referencia?: string | null
+          lojaintegrada_sexo?: string | null
+          lojaintegrada_ultimo_pedido_data?: string | null
+          lojaintegrada_ultimo_pedido_numero?: number | null
+          lojaintegrada_ultimo_pedido_status?: string | null
+          lojaintegrada_ultimo_pedido_valor?: number | null
+          lojaintegrada_updated_at?: string | null
+          lojaintegrada_utm_campaign?: string | null
           motivo_perda?: string | null
           nome?: string
           objection_risk?: string | null

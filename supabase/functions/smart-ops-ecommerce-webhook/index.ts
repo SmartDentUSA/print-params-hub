@@ -270,6 +270,41 @@ Deno.serve(async (req) => {
     const cnpj = String(customer.cnpj || endereco.cnpj || "") || null;
     const razaoSocial = String(customer.razao_social || "") || null;
 
+    // ─── Extract Loja Integrada-specific fields ───
+    const liClienteId = customer.id ? Number(customer.id) : null;
+    const liClienteObs = order.cliente_obs ? String(order.cliente_obs) : null;
+    const liCupomDesconto = order.cupom_desconto ? String(order.cupom_desconto) : null;
+    const liDataNascimento = customer.data_nascimento ? String(customer.data_nascimento) : null;
+    const liSexo = customer.sexo ? String(customer.sexo) : null;
+    const liEndereco = endereco.endereco ? String(endereco.endereco) : null;
+    const liNumero = endereco.numero ? String(endereco.numero) : null;
+    const liComplemento = endereco.complemento ? String(endereco.complemento) : null;
+    const liBairro = endereco.bairro ? String(endereco.bairro) : null;
+    const liCep = endereco.cep ? String(endereco.cep) : null;
+    const liReferencia = endereco.referencia ? String(endereco.referencia) : null;
+    const liPedidoNumero = order.numero ? Number(order.numero) : null;
+    const liPedidoData = order.data_criacao ? String(order.data_criacao) : null;
+    const liPedidoValor = Number(order.valor_total || 0) || null;
+    const situacaoObj = order.situacao as Record<string, unknown> | undefined;
+    const liPedidoStatus = situacaoObj?.nome ? String(situacaoObj.nome) : null;
+    const liUtmCampaign = order.utm_campaign ? String(order.utm_campaign) : null;
+
+    // Extract forma_pagamento from first payment
+    const pagamentos = (order.pagamentos || []) as Array<Record<string, unknown>>;
+    let liFormaPagamento: string | null = null;
+    if (pagamentos.length > 0) {
+      const fp = pagamentos[0].forma_pagamento as Record<string, unknown> | undefined;
+      liFormaPagamento = fp?.nome ? String(fp.nome) : (pagamentos[0].pagamento_tipo ? String(pagamentos[0].pagamento_tipo) : null);
+    }
+
+    // Extract forma_envio from first shipment
+    const envios = (order.envios || []) as Array<Record<string, unknown>>;
+    let liFormaEnvio: string | null = null;
+    if (envios.length > 0) {
+      const fe = envios[0].forma_envio as Record<string, unknown> | undefined;
+      liFormaEnvio = fe?.nome ? String(fe.nome) : null;
+    }
+
     // ─── Determine tags from event ───
     const eventConfig = EVENT_MAP[eventType] || { tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT] };
     const tagsToAdd = [...eventConfig.tags];
@@ -331,6 +366,28 @@ Deno.serve(async (req) => {
       if (cnpj) updateData.empresa_cnpj = cnpj;
       if (razaoSocial) updateData.empresa_razao_social = razaoSocial;
 
+      // ─── Loja Integrada specific fields (always overwrite with latest) ───
+      if (liClienteId) updateData.lojaintegrada_cliente_id = liClienteId;
+      if (liClienteObs) updateData.lojaintegrada_cliente_obs = liClienteObs;
+      if (liCupomDesconto) updateData.lojaintegrada_cupom_desconto = liCupomDesconto;
+      if (liDataNascimento) updateData.lojaintegrada_data_nascimento = liDataNascimento;
+      if (liSexo) updateData.lojaintegrada_sexo = liSexo;
+      if (liEndereco) updateData.lojaintegrada_endereco = liEndereco;
+      if (liNumero) updateData.lojaintegrada_numero = liNumero;
+      if (liComplemento) updateData.lojaintegrada_complemento = liComplemento;
+      if (liBairro) updateData.lojaintegrada_bairro = liBairro;
+      if (liCep) updateData.lojaintegrada_cep = liCep;
+      if (liReferencia) updateData.lojaintegrada_referencia = liReferencia;
+      if (liPedidoNumero) updateData.lojaintegrada_ultimo_pedido_numero = liPedidoNumero;
+      if (liPedidoData) updateData.lojaintegrada_ultimo_pedido_data = liPedidoData;
+      if (liPedidoValor) updateData.lojaintegrada_ultimo_pedido_valor = liPedidoValor;
+      if (liPedidoStatus) updateData.lojaintegrada_ultimo_pedido_status = liPedidoStatus;
+      if (liFormaPagamento) updateData.lojaintegrada_forma_pagamento = liFormaPagamento;
+      if (liFormaEnvio) updateData.lojaintegrada_forma_envio = liFormaEnvio;
+      if (items.length > 0) updateData.lojaintegrada_itens_json = items;
+      if (liUtmCampaign) updateData.lojaintegrada_utm_campaign = liUtmCampaign;
+      updateData.lojaintegrada_updated_at = new Date().toISOString();
+
       await supabase.from("lia_attendances").update(updateData).eq("id", existingLead.id);
       leadId = existingLead.id;
       console.log(`[ecommerce-webhook] Lead ATUALIZADO: ${leadId} | event=${eventType} | pedido=${numeroPedido} | +tags=${tagsToAdd.join(",")}`);
@@ -359,6 +416,28 @@ Deno.serve(async (req) => {
       if (productNames.length > 0) {
         insertData.produto_interesse = productNames.join(", ").slice(0, 200);
       }
+
+      // ─── Loja Integrada specific fields ───
+      if (liClienteId) insertData.lojaintegrada_cliente_id = liClienteId;
+      if (liClienteObs) insertData.lojaintegrada_cliente_obs = liClienteObs;
+      if (liCupomDesconto) insertData.lojaintegrada_cupom_desconto = liCupomDesconto;
+      if (liDataNascimento) insertData.lojaintegrada_data_nascimento = liDataNascimento;
+      if (liSexo) insertData.lojaintegrada_sexo = liSexo;
+      if (liEndereco) insertData.lojaintegrada_endereco = liEndereco;
+      if (liNumero) insertData.lojaintegrada_numero = liNumero;
+      if (liComplemento) insertData.lojaintegrada_complemento = liComplemento;
+      if (liBairro) insertData.lojaintegrada_bairro = liBairro;
+      if (liCep) insertData.lojaintegrada_cep = liCep;
+      if (liReferencia) insertData.lojaintegrada_referencia = liReferencia;
+      if (liPedidoNumero) insertData.lojaintegrada_ultimo_pedido_numero = liPedidoNumero;
+      if (liPedidoData) insertData.lojaintegrada_ultimo_pedido_data = liPedidoData;
+      if (liPedidoValor) insertData.lojaintegrada_ultimo_pedido_valor = liPedidoValor;
+      if (liPedidoStatus) insertData.lojaintegrada_ultimo_pedido_status = liPedidoStatus;
+      if (liFormaPagamento) insertData.lojaintegrada_forma_pagamento = liFormaPagamento;
+      if (liFormaEnvio) insertData.lojaintegrada_forma_envio = liFormaEnvio;
+      if (items.length > 0) insertData.lojaintegrada_itens_json = items;
+      if (liUtmCampaign) insertData.lojaintegrada_utm_campaign = liUtmCampaign;
+      insertData.lojaintegrada_updated_at = new Date().toISOString();
 
       const { data: newLead, error: insertError } = await supabase
         .from("lia_attendances")
