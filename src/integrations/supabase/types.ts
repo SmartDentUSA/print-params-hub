@@ -2192,6 +2192,7 @@ export type Database = {
           slug: string
           submissions_count: number
           success_message: string | null
+          success_redirect_url: string | null
           theme_color: string | null
           updated_at: string
         }
@@ -2205,6 +2206,7 @@ export type Database = {
           slug: string
           submissions_count?: number
           success_message?: string | null
+          success_redirect_url?: string | null
           theme_color?: string | null
           updated_at?: string
         }
@@ -2218,6 +2220,7 @@ export type Database = {
           slug?: string
           submissions_count?: number
           success_message?: string | null
+          success_redirect_url?: string | null
           theme_color?: string | null
           updated_at?: string
         }
