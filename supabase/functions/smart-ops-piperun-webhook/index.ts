@@ -400,7 +400,7 @@ Deno.serve(async (req) => {
     let messageStatus = "skipped";
     let errorDetails: string | null = null;
 
-    if (SELLFLUX_API_TOKEN && leadTelefone && !currentLead) {
+    if (SELLFLUX_WEBHOOK_CAMPANHAS && leadTelefone && !currentLead) {
       const { data: fullLead } = await supabase
         .from("lia_attendances")
         .select("*")
@@ -408,7 +408,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (fullLead) {
-        const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, fullLead as Record<string, unknown>, "BOAS_VINDAS_NOVO_LEAD");
+        const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, fullLead as Record<string, unknown>, "BOAS_VINDAS_NOVO_LEAD");
         messageStatus = result.success ? "enviado" : "erro";
         if (!result.success) errorDetails = result.response;
       }
