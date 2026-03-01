@@ -27,37 +27,30 @@ const SITUACAO_MAP: Record<number, string> = {
 };
 
 // Event → EC tags + SellFlux campaign template
-const EVENT_MAP: Record<string, { tags: string[]; template?: string }> = {
+const EVENT_MAP: Record<string, { tags: string[] }> = {
   order_created: {
     tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT],
-    template: "EC_CHECKOUT_INICIADO",
   },
   order_paid: {
     tags: [ECOMMERCE_TAGS.EC_PAGAMENTO_APROVADO, JOURNEY_TAGS.J04_COMPRA],
-    template: "EC_PAGAMENTO_APROVADO",
   },
   order_cancelled: {
     tags: [ECOMMERCE_TAGS.EC_PEDIDO_CANCELADO],
-    template: "EC_PEDIDO_CANCELADO",
   },
   order_invoiced: {
     tags: [ECOMMERCE_TAGS.EC_PEDIDO_ENVIADO],
-    template: "EC_PEDIDO_ENVIADO",
   },
   order_delivered: {
     tags: [ECOMMERCE_TAGS.EC_PEDIDO_ENTREGUE],
   },
   boleto_generated: {
     tags: [ECOMMERCE_TAGS.EC_GEROU_BOLETO],
-    template: "EC_BOLETO_GERADO",
   },
   boleto_expired: {
     tags: [ECOMMERCE_TAGS.EC_BOLETO_VENCIDO],
-    template: "EC_BOLETO_VENCIDO",
   },
   cart_abandoned: {
     tags: [ECOMMERCE_TAGS.EC_ABANDONOU_CARRINHO],
-    template: "EC_CARRINHO_ABANDONADO",
   },
 };
 
