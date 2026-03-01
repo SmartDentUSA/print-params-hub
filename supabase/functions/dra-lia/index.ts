@@ -1506,22 +1506,52 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
       status: "pendente",
     });
 
-    // 5. Update lia_attendances — add tag, update status, temperatura, lead_status
+    // 5. Classify lead type: NOVO / REATIVADO / ATIVADO
     const { data: currentLead } = await supabase
       .from("lia_attendances")
-      .select("tags_crm")
+      .select("tags_crm, created_at, ultima_sessao_at, lead_status, status_oportunidade, proactive_sent_at")
       .eq("id", attendance.id)
       .single();
 
     const currentTags = (currentLead?.tags_crm as string[]) || [];
-    const newTags = currentTags.includes("A_HANDOFF_LIA") ? currentTags : [...currentTags, "A_HANDOFF_LIA"];
+
+    // Determine lead classification
+    let leadClassification = "LIA_LEAD_ATIVADO";
+    let origemCampanha = "LIA - Lead ativado";
+    let classificationNote = "";
+
+    const lastActivity = currentLead?.ultima_sessao_at || currentLead?.created_at;
+    const daysSinceActivity = lastActivity
+      ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    const isStagnantOrLost = ["estagnado", "perdido", "descartado", "sem_contato"].includes(currentLead?.lead_status || "") ||
+      currentLead?.status_oportunidade === "perdida";
+
+    if (daysSinceActivity > 30 || isStagnantOrLost) {
+      leadClassification = "LIA_LEAD_REATIVADO";
+      origemCampanha = "LIA - Lead reativado";
+      classificationNote = `Lead reativado após ${daysSinceActivity} dias de inatividade. Status anterior: ${currentLead?.lead_status || "desconhecido"}. Última interação: ${lastActivity || "N/A"}.`;
+    } else {
+      leadClassification = "LIA_LEAD_ATIVADO";
+      origemCampanha = "LIA - Lead ativado";
+      classificationNote = `Lead ativo com interação há ${daysSinceActivity} dias.`;
+    }
+
+    // Remove old LIA classification tags and add new one
+    const LIA_CLASS_TAGS = ["LIA_LEAD_NOVO", "LIA_LEAD_REATIVADO", "LIA_LEAD_ATIVADO"];
+    const cleanedTags = currentTags.filter(t => !LIA_CLASS_TAGS.includes(t));
+    const newTags = [...new Set([...cleanedTags, "A_HANDOFF_LIA", leadClassification])];
+
+    console.log(`[handoff] Lead ${leadEmail} classified as ${leadClassification} (${daysSinceActivity}d inactive, status=${currentLead?.lead_status})`);
 
     await supabase.from("lia_attendances")
       .update({
         tags_crm: newTags,
-        ultima_etapa_comercial: "handoff_lia_vendedor",
+        ultima_etapa_comercial: "contato_feito",
         temperatura_lead: "quente",
         lead_status: attendance.piperun_id ? (attendance as Record<string,unknown>).lead_status as string || "em_atendimento" : "em_atendimento",
+        origem_campanha: origemCampanha,
         updated_at: new Date().toISOString(),
       })
       .eq("id", attendance.id);
