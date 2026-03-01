@@ -308,47 +308,12 @@ Deno.serve(async (req) => {
       console.log(`[ecommerce-webhook] Lead CRIADO: ${leadId} | email=${email} | event=${eventType} | pedido=${numeroPedido}`);
     }
 
-    // ─── SellFlux integration ───
-
-    let messageStatus = "skipped";
-    let errorDetails: string | null = null;
-
-    // Fetch full lead for SellFlux payload
-    const { data: fullLead } = await supabase
-      .from("lia_attendances")
-      .select("*")
-      .eq("id", leadId)
-      .single();
-
-    if (fullLead) {
-      const leadRecord = fullLead as Record<string, unknown>;
-
-      // 1. Sync contact to SellFlux (V1 - Leads webhook)
-      if (SELLFLUX_WEBHOOK_LEADS) {
-        const syncResult = await sendLeadToSellFlux(SELLFLUX_WEBHOOK_LEADS, leadRecord);
-        console.log(`[ecommerce-webhook] SellFlux lead sync: ${syncResult.success ? "✅" : "❌"} status=${syncResult.status}`);
-      }
-
-      // 2. Trigger campaign automation (V2 - Campanhas webhook)
-      if (SELLFLUX_WEBHOOK_CAMPANHAS && eventConfig.template && phoneNormalized) {
-        const result = await sendCampaignViaSellFlux(
-          SELLFLUX_WEBHOOK_CAMPANHAS,
-          leadRecord,
-          eventConfig.template
-        );
-        messageStatus = result.success ? "enviado" : "erro";
-        if (!result.success) errorDetails = result.response;
-        console.log(`[ecommerce-webhook] SellFlux campaign ${eventConfig.template}: ${result.success ? "✅" : "❌"}`);
-      }
-    }
-
     // Log the event
     await supabase.from("message_logs").insert({
       lead_id: leadId,
       tipo: `ecommerce_${eventType}`,
       mensagem_preview: `[E-commerce] ${eventType}: ${nome} (${email}) pedido=${numeroPedido || "?"}`.slice(0, 200),
-      status: messageStatus,
-      error_details: errorDetails,
+      status: "recebido",
     });
 
     return new Response(
