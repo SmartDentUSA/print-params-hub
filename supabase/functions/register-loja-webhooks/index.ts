@@ -24,6 +24,7 @@ function buildAuthParams(apiKey: string, appKey: string | null): string {
   const params = new URLSearchParams();
   params.set("chave_api", apiKey);
   if (appKey) params.set("chave_aplicacao", appKey);
+  params.set("format", "json");
   return params.toString();
 }
 
