@@ -1407,25 +1407,19 @@ function streamTextResponse(text: string, corsHeaders: Record<string, string>, i
   return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
 }
 
-// Multilingual fallback messages when no results found — now seller-handoff focused
+// Multilingual fallback messages — proactive handoff tone
 const FALLBACK_MESSAGES: Record<string, string> = {
-  "pt-BR": `Essa é uma ótima pergunta! Vou encaminhar para o especialista responsável pelo seu atendimento, que poderá te ajudar com mais detalhes. 😊
+  "pt-BR": `Já entendi sua dúvida! 😊 Estou acionando um especialista do nosso time que vai te chamar no **WhatsApp** e explicar cada detalhe.
 
-Ele entrará em contato com você em breve pelo **WhatsApp**.
+Possui alguma outra dúvida que queria tirar?`,
 
-Enquanto isso, posso te ajudar com algo mais?`,
+  "en-US": `Got it! 😊 I'm reaching out to a specialist from our team who will contact you on **WhatsApp** to explain everything in detail.
 
-  "en-US": `Great question! I'm forwarding this to the specialist responsible for your account, who can help you with more details. 😊
+Any other questions I can help with?`,
 
-They'll reach out to you shortly via **WhatsApp**.
+  "es-ES": `¡Entendido! 😊 Estoy contactando a un especialista de nuestro equipo que te llamará por **WhatsApp** para explicarte cada detalle.
 
-In the meantime, can I help you with anything else?`,
-
-  "es-ES": `¡Excelente pregunta! Voy a derivar esto al especialista responsable de tu atención, quien podrá ayudarte con más detalles. 😊
-
-Se pondrá en contacto contigo pronto por **WhatsApp**.
-
-Mientras tanto, ¿puedo ayudarte con algo más?`,
+¿Tienes alguna otra duda?`,
 };
 
 // Notify the seller about an unanswered question so they can follow up with the lead
