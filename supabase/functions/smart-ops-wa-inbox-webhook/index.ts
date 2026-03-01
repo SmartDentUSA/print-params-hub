@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
 
     if (leadId && leadData) {
       // Hot Lead Alert: notify seller for immediate/future interest
-      if ((intent === "interesse_imediato" || intent === "interesse_futuro") && SELLFLUX_API_TOKEN) {
+      if ((intent === "interesse_imediato" || intent === "interesse_futuro") && SELLFLUX_WEBHOOK_CAMPANHAS) {
         const ownerName = (leadData.proprietario_lead_crm as string) || "Sem owner";
         
         // Find team member to notify
