@@ -215,3 +215,6 @@ verify_jwt = false
 
 [functions.ai-model-compare]
 verify_jwt = false
+
+[functions.register-loja-webhooks]
+verify_jwt = false
