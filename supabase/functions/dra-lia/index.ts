@@ -2598,7 +2598,7 @@ async function notifySellerEscalation(
     // 1. Find the responsible seller from lia_attendances → proprietario_lead_crm → team_members
     const { data: attendance } = await supabase
       .from("lia_attendances")
-      .select("proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, id")
+      .select("proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, id, piperun_id, piperun_link, especialidade, confidence_score_analysis, lead_stage_detected, urgency_level, interest_timeline, psychological_profile, primary_motivation, objection_risk, recommended_approach")
       .eq("email", leadEmail)
       .maybeSingle();
     
