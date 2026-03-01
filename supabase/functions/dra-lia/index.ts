@@ -1407,32 +1407,170 @@ function streamTextResponse(text: string, corsHeaders: Record<string, string>, i
   return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
 }
 
-// Multilingual fallback messages when no results found
+// Multilingual fallback messages when no results found — now seller-handoff focused
 const FALLBACK_MESSAGES: Record<string, string> = {
-  "pt-BR": `Ainda não tenho essa informação em nossa base de conhecimento, mas nossos especialistas podem ajudar você! 😊
+  "pt-BR": `Essa é uma ótima pergunta! Vou encaminhar para o especialista responsável pelo seu atendimento, que poderá te ajudar com mais detalhes. 😊
 
-💬 **WhatsApp:** [Chamar no WhatsApp](https://wa.me/551634194735?text=Ol%C3%A1%2C+poderia+me+ajudar%3F)
-✉️ **E-mail:** comercial@smartdent.com.br
-🕐 **Horário:** Segunda a Sexta, 08h às 18h
+Ele entrará em contato com você em breve pelo **WhatsApp**.
 
-Nossa equipe está pronta para explicar melhor!`,
+Enquanto isso, posso te ajudar com algo mais?`,
 
-  "en-US": `I don't have this information in our knowledge base yet, but our specialists can help you! 😊
+  "en-US": `Great question! I'm forwarding this to the specialist responsible for your account, who can help you with more details. 😊
 
-💬 **WhatsApp:** [Chat on WhatsApp](https://wa.me/551634194735?text=Hi%2C+could+you+help+me%3F)
-✉️ **E-mail:** comercial@smartdent.com.br
-🕐 **Hours:** Monday to Friday, 8am–6pm (BRT)
+They'll reach out to you shortly via **WhatsApp**.
 
-Our team is ready to help!`,
+In the meantime, can I help you with anything else?`,
 
-  "es-ES": `Todavía no tengo esa información en nuestra base de conocimiento, pero nuestros especialistas pueden ayudarte! 😊
+  "es-ES": `¡Excelente pregunta! Voy a derivar esto al especialista responsable de tu atención, quien podrá ayudarte con más detalles. 😊
 
-💬 **WhatsApp:** [Chatear por WhatsApp](https://wa.me/551634194735?text=Hola%2C+%C2%BFpodrian+ayudarme%3F)
-✉️ **E-mail:** comercial@smartdent.com.br
-🕐 **Horario:** Lunes a Viernes, 08h–18h (BRT)
+Se pondrá en contacto contigo pronto por **WhatsApp**.
 
-¡Nuestro equipo está listo para ayudarte!`,
+Mientras tanto, ¿puedo ayudarte con algo más?`,
 };
+
+// Notify the seller about an unanswered question so they can follow up with the lead
+async function notifySellerHandoff(
+  supabase: ReturnType<typeof createClient>,
+  leadEmail: string,
+  leadName: string,
+  question: string,
+  topicContext: string | null,
+): Promise<void> {
+  try {
+    // 1. Get lead data from lia_attendances
+    const { data: attendance } = await supabase
+      .from("lia_attendances")
+      .select("id, proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, ultima_etapa_comercial, especialidade, piperun_id, piperun_link")
+      .eq("email", leadEmail)
+      .maybeSingle();
+
+    if (!attendance) {
+      console.warn(`[handoff] No attendance found for ${leadEmail}`);
+      return;
+    }
+
+    // 2. Find the responsible seller
+    let teamMember: { id: string; nome_completo: string; whatsapp_number: string; waleads_api_key: string | null } | null = null;
+
+    if (attendance.proprietario_lead_crm) {
+      const ownerFirstName = (attendance.proprietario_lead_crm as string).split(" ")[0];
+      const { data: tm } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, whatsapp_number, waleads_api_key")
+        .ilike("nome_completo", `%${ownerFirstName}%`)
+        .eq("ativo", true)
+        .limit(1)
+        .maybeSingle();
+      teamMember = tm;
+    }
+
+    // Fallback: first active vendedor
+    if (!teamMember) {
+      const { data: tm } = await supabase
+        .from("team_members")
+        .select("id, nome_completo, whatsapp_number, waleads_api_key")
+        .eq("ativo", true)
+        .eq("role", "vendedor")
+        .limit(1)
+        .maybeSingle();
+      teamMember = tm;
+    }
+
+    if (!teamMember || !teamMember.whatsapp_number) {
+      console.warn(`[handoff] No team member found for handoff`);
+      return;
+    }
+
+    // 3. Build notification message
+    const leadPhone = attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : "";
+    const piperunLink = attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : "";
+    const notificationMsg = `📋 HANDOFF — LIA NÃO SOUBE RESPONDER
+
+👤 Lead: ${leadName}
+📧 Email: ${leadEmail}
+${leadPhone}
+${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}
+${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
+${attendance.temperatura_lead ? `🌡️ Temp: ${attendance.temperatura_lead}` : ""}
+${piperunLink}
+
+❓ Pergunta do lead:
+"${question.slice(0, 300)}"
+
+${topicContext ? `📂 Contexto: ${topicContext}` : ""}
+${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa_comercial}` : ""}
+
+⚡ Ação: Entrar em contato com o lead para responder a dúvida e dar continuidade ao atendimento.`.replace(/\n{3,}/g, "\n\n");
+
+    // 4. Log in message_logs
+    await supabase.from("message_logs").insert({
+      lead_id: attendance.id,
+      team_member_id: teamMember.id,
+      tipo: "handoff_unanswered",
+      mensagem_preview: notificationMsg.slice(0, 500),
+      whatsapp_number: teamMember.whatsapp_number,
+      status: "pendente",
+    });
+
+    // 5. Update lia_attendances — add tag and update status
+    const { data: currentLead } = await supabase
+      .from("lia_attendances")
+      .select("tags_crm")
+      .eq("id", attendance.id)
+      .single();
+
+    const currentTags = (currentLead?.tags_crm as string[]) || [];
+    const newTags = currentTags.includes("A_HANDOFF_LIA") ? currentTags : [...currentTags, "A_HANDOFF_LIA"];
+
+    await supabase.from("lia_attendances")
+      .update({
+        tags_crm: newTags,
+        ultima_etapa_comercial: attendance.ultima_etapa_comercial || "handoff_lia_vendedor",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", attendance.id);
+
+    // 6. Send via WaLeads to seller's phone
+    if (teamMember.waleads_api_key) {
+      try {
+        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            team_member_id: teamMember.id,
+            phone: teamMember.whatsapp_number,
+            tipo: "text",
+            message: notificationMsg,
+            lead_id: attendance.id,
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+
+        let sendResult: { success?: boolean } = {};
+        try { sendResult = await sendResp.json(); } catch { /* ignore */ }
+
+        const ok = sendResp.ok && sendResult.success !== false;
+        await supabase.from("message_logs")
+          .update({ status: ok ? "enviado" : "erro", data_envio: new Date().toISOString() })
+          .eq("lead_id", attendance.id)
+          .eq("tipo", "handoff_unanswered")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        console.log(`[handoff] ${ok ? "✓" : "✗"} Notification sent to ${teamMember.nome_completo} for lead ${leadName}`);
+      } catch (e) {
+        console.warn(`[handoff] WaLeads send error:`, e);
+      }
+    }
+
+    console.log(`[handoff] Seller handoff completed: ${leadEmail} → ${teamMember.nome_completo}`);
+  } catch (e) {
+    console.error(`[handoff] Error:`, e);
+  }
+}
 
 const LANG_INSTRUCTIONS: Record<string, string> = {
   "pt-BR": "RESPONDA SEMPRE em português do Brasil (pt-BR). Mesmo que os dados do contexto estejam em outro idioma.",
@@ -3581,6 +3719,18 @@ Campos:
     if (!hasResults && topic_context !== "commercial") {
       const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
 
+      // Fire-and-forget: notify seller via WhatsApp about unanswered question
+      const leadEmail = (sessionEntities?.lead_email as string) || null;
+      const leadName = (sessionEntities?.lead_name as string) || null;
+      if (leadEmail && leadName) {
+        notifySellerHandoff(supabase, leadEmail, leadName, message, topic_context || null)
+          .catch(e => console.warn("[fallback] Seller handoff error:", e));
+      }
+
+      // Track knowledge gap
+      upsertKnowledgeGap(supabase, message, lang, "pending", topic_context)
+        .catch(e => console.warn("[fallback] Knowledge gap error:", e));
+
       let fallbackInteractionId: string | undefined;
       try {
         const { data: interaction } = await supabase
@@ -3600,11 +3750,7 @@ Campos:
         fallbackInteractionId = interaction?.id;
       } catch (e) {
         console.error("Failed to insert agent_interaction (fallback):", e);
-        // fail silently — stream continues regardless
       }
-
-      // Knowledge gap tracking moved to summarize_session (extracts from PENDENCIAS in summary)
-      // Old: await upsertKnowledgeGap(supabase, message, lang, "pending", topic_context);
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
