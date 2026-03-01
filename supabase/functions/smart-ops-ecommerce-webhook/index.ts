@@ -2,8 +2,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   mergeTagsCrm,
   detectProductTags,
-  sendCampaignViaSellFlux,
-  sendLeadToSellFlux,
   ECOMMERCE_TAGS,
   JOURNEY_TAGS,
 } from "../_shared/sellflux-field-map.ts";
