@@ -1632,7 +1632,65 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
     if (teamMember.waleads_api_key && attendance.telefone_normalized) {
       try {
         const sellerFirstName = teamMember.nome_completo.split(" ")[0];
-        const leadMsgToLead = `Olá ${leadName.split(" ")[0]}! Aqui é o(a) ${sellerFirstName} da BLZ Dental. 😊\nVi que você tem uma dúvida sobre "${question.slice(0, 100)}${question.length > 100 ? "..." : ""}".\nVou buscar essa informação e te retorno em breve!\nQualquer coisa, estou à disposição. 🦷`;
+        const leadFirstName = leadName.split(" ")[0];
+        const produtoCtx = (attendance as Record<string,unknown>).produto_interesse as string || "";
+        const areaCtx = (attendance as Record<string,unknown>).area_atuacao as string || "";
+        const espCtx = (attendance as Record<string,unknown>).especialidade as string || "";
+
+        // Generate personalized greeting via AI (non-robotic, unique each time)
+        let leadMsgToLead = "";
+        try {
+          const greetPrompt = `Gere uma mensagem curta (3-4 linhas) de um vendedor chamado ${sellerFirstName} da BLZ Dental para um lead chamado ${leadFirstName}.
+
+CONTEXTO:
+- Pergunta do lead: "${question.slice(0, 150)}"
+${produtoCtx ? `- Produto de interesse: ${produtoCtx}` : ""}
+${areaCtx ? `- Área de atuação: ${areaCtx}` : ""}
+${espCtx ? `- Especialidade: ${espCtx}` : ""}
+
+REGRAS OBRIGATÓRIAS:
+1. Comece saudando o lead pelo primeiro nome
+2. O vendedor se apresenta pelo primeiro nome e menciona que é da BLZ Dental
+3. Mencione o produto ou tema de interesse (NÃO copie a pergunta literalmente)
+4. Termine convidando para continuar a conversa por ali
+5. Tom: pessoal, direto, profissional
+6. PROIBIDO: emojis excessivos (máximo 1), frases genéricas como "estou à disposição", "qualquer coisa", "não hesite"
+7. PROIBIDO: copiar a pergunta do lead entre aspas
+8. Retorne APENAS a mensagem, sem explicações`;
+
+          const greetResp = await fetch(CHAT_API, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-lite",
+              messages: [{ role: "user", content: greetPrompt }],
+              temperature: 0.9,
+              max_tokens: 200,
+            }),
+            signal: AbortSignal.timeout(4000),
+          });
+
+          if (greetResp.ok) {
+            const greetData = await greetResp.json();
+            const generated = greetData.choices?.[0]?.message?.content?.trim();
+            if (generated && generated.length > 20 && generated.length < 500) {
+              leadMsgToLead = generated;
+              console.log(`[handoff] AI-generated seller greeting for ${leadFirstName}`);
+            }
+          }
+        } catch (aiErr) {
+          console.warn(`[handoff] AI greeting generation failed, using fallback:`, aiErr);
+        }
+
+        // Fallback if AI generation failed
+        if (!leadMsgToLead) {
+          const tema = produtoCtx || question.slice(0, 80);
+          leadMsgToLead = `Olá, ${leadFirstName}! Aqui é o ${sellerFirstName}, da BLZ Dental.\nAcabei de receber sua solicitação sobre ${tema}.\nPodemos continuar por aqui?`;
+          console.log(`[handoff] Using fallback greeting for ${leadFirstName}`);
+        }
 
         await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
           method: "POST",
