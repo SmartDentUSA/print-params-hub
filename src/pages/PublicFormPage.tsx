@@ -25,6 +25,7 @@ interface FormData {
   form_purpose: string;
   theme_color: string | null;
   success_message: string | null;
+  success_redirect_url: string | null;
 }
 
 export default function PublicFormPage() {
@@ -131,6 +132,12 @@ export default function PublicFormPage() {
         .update({ submissions_count: (form as any).submissions_count + 1 } as any)
         .eq("id", form.id);
 
+      // Redirect if URL configured
+      const redirectUrl = (form as any).success_redirect_url;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+        return;
+      }
       setSubmitted(true);
     } catch (err: any) {
       toast_inline(`Erro ao enviar: ${err.message || "tente novamente"}`);

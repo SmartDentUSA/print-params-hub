@@ -1,0 +1,1 @@
+ALTER TABLE public.smartops_forms ADD COLUMN IF NOT EXISTS success_redirect_url text;
