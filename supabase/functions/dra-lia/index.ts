@@ -1479,6 +1479,20 @@ async function notifySellerHandoff(
     // 3. Build notification message
     const leadPhone = attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : "";
     const piperunLink = attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : "";
+    const urgencyEmoji: Record<string, string> = { alta: "🔴", media: "🟡", baixa: "🟢" };
+
+    let cognitiveBlock = "";
+    if (attendance.confidence_score_analysis) {
+      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\n
+Estágio: ${attendance.lead_stage_detected || "N/I"}
+Urgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}
+Timeline: ${attendance.interest_timeline || "N/I"}
+Perfil: ${attendance.psychological_profile || "N/I"}
+Motivação: ${attendance.primary_motivation || "N/I"}
+Risco objeção: ${attendance.objection_risk || "N/I"}
+Abordagem: ${attendance.recommended_approach || "N/I"}`;
+    }
+
     const notificationMsg = `📋 HANDOFF — LIA NÃO SOUBE RESPONDER
 
 👤 Lead: ${leadName}
@@ -1486,16 +1500,14 @@ async function notifySellerHandoff(
 ${leadPhone}
 ${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}
 ${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
-${attendance.temperatura_lead ? `🌡️ Temp: ${attendance.temperatura_lead}` : ""}
+${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}
 ${piperunLink}
 
 ❓ Pergunta do lead:
 "${question.slice(0, 300)}"
 
-${topicContext ? `📂 Contexto: ${topicContext}` : ""}
-${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa_comercial}` : ""}
-
-⚡ Ação: Entrar em contato com o lead para responder a dúvida e dar continuidade ao atendimento.`.replace(/\n{3,}/g, "\n\n");
+⚡ Ação: Entrar em contato com o lead para responder a dúvida e dar continuidade ao atendimento.
+${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     // 4. Log in message_logs
     await supabase.from("message_logs").insert({
