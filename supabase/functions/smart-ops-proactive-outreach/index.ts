@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
+    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json().catch(() => ({}));
