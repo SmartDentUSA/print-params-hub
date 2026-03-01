@@ -1440,7 +1440,7 @@ async function notifySellerHandoff(
     // 1. Get lead data from lia_attendances
     const { data: attendance } = await supabase
       .from("lia_attendances")
-      .select("id, proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, ultima_etapa_comercial, especialidade, piperun_id, piperun_link")
+      .select("id, proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, ultima_etapa_comercial, especialidade, piperun_id, piperun_link, piperun_pipeline_id, lead_status")
       .eq("email", leadEmail)
       .maybeSingle();
 
