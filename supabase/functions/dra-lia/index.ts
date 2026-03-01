@@ -1694,7 +1694,7 @@ REGRAS OBRIGATÓRIAS:
             body: JSON.stringify({
               model: "google/gemini-2.5-flash-lite",
               messages: [{ role: "user", content: greetPrompt }],
-              temperature: 0.9,
+              temperature: 0.6,
               max_tokens: 200,
             }),
             signal: AbortSignal.timeout(4000),
