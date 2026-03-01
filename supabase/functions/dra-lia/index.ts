@@ -1407,25 +1407,19 @@ function streamTextResponse(text: string, corsHeaders: Record<string, string>, i
   return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
 }
 
-// Multilingual fallback messages when no results found — now seller-handoff focused
+// Multilingual fallback messages — proactive handoff tone
 const FALLBACK_MESSAGES: Record<string, string> = {
-  "pt-BR": `Essa é uma ótima pergunta! Vou encaminhar para o especialista responsável pelo seu atendimento, que poderá te ajudar com mais detalhes. 😊
+  "pt-BR": `Já entendi sua dúvida! 😊 Estou acionando um especialista do nosso time que vai te chamar no **WhatsApp** e explicar cada detalhe.
 
-Ele entrará em contato com você em breve pelo **WhatsApp**.
+Possui alguma outra dúvida que queria tirar?`,
 
-Enquanto isso, posso te ajudar com algo mais?`,
+  "en-US": `Got it! 😊 I'm reaching out to a specialist from our team who will contact you on **WhatsApp** to explain everything in detail.
 
-  "en-US": `Great question! I'm forwarding this to the specialist responsible for your account, who can help you with more details. 😊
+Any other questions I can help with?`,
 
-They'll reach out to you shortly via **WhatsApp**.
+  "es-ES": `¡Entendido! 😊 Estoy contactando a un especialista de nuestro equipo que te llamará por **WhatsApp** para explicarte cada detalle.
 
-In the meantime, can I help you with anything else?`,
-
-  "es-ES": `¡Excelente pregunta! Voy a derivar esto al especialista responsable de tu atención, quien podrá ayudarte con más detalles. 😊
-
-Se pondrá en contacto contigo pronto por **WhatsApp**.
-
-Mientras tanto, ¿puedo ayudarte con algo más?`,
+¿Tienes alguna otra duda?`,
 };
 
 // Notify the seller about an unanswered question so they can follow up with the lead
@@ -1512,22 +1506,52 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
       status: "pendente",
     });
 
-    // 5. Update lia_attendances — add tag, update status, temperatura, lead_status
+    // 5. Classify lead type: NOVO / REATIVADO / ATIVADO
     const { data: currentLead } = await supabase
       .from("lia_attendances")
-      .select("tags_crm")
+      .select("tags_crm, created_at, ultima_sessao_at, lead_status, status_oportunidade, proactive_sent_at")
       .eq("id", attendance.id)
       .single();
 
     const currentTags = (currentLead?.tags_crm as string[]) || [];
-    const newTags = currentTags.includes("A_HANDOFF_LIA") ? currentTags : [...currentTags, "A_HANDOFF_LIA"];
+
+    // Determine lead classification
+    let leadClassification = "LIA_LEAD_ATIVADO";
+    let origemCampanha = "LIA - Lead ativado";
+    let classificationNote = "";
+
+    const lastActivity = currentLead?.ultima_sessao_at || currentLead?.created_at;
+    const daysSinceActivity = lastActivity
+      ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    const isStagnantOrLost = ["estagnado", "perdido", "descartado", "sem_contato"].includes(currentLead?.lead_status || "") ||
+      currentLead?.status_oportunidade === "perdida";
+
+    if (daysSinceActivity > 30 || isStagnantOrLost) {
+      leadClassification = "LIA_LEAD_REATIVADO";
+      origemCampanha = "LIA - Lead reativado";
+      classificationNote = `Lead reativado após ${daysSinceActivity} dias de inatividade. Status anterior: ${currentLead?.lead_status || "desconhecido"}. Última interação: ${lastActivity || "N/A"}.`;
+    } else {
+      leadClassification = "LIA_LEAD_ATIVADO";
+      origemCampanha = "LIA - Lead ativado";
+      classificationNote = `Lead ativo com interação há ${daysSinceActivity} dias.`;
+    }
+
+    // Remove old LIA classification tags and add new one
+    const LIA_CLASS_TAGS = ["LIA_LEAD_NOVO", "LIA_LEAD_REATIVADO", "LIA_LEAD_ATIVADO"];
+    const cleanedTags = currentTags.filter(t => !LIA_CLASS_TAGS.includes(t));
+    const newTags = [...new Set([...cleanedTags, "A_HANDOFF_LIA", leadClassification])];
+
+    console.log(`[handoff] Lead ${leadEmail} classified as ${leadClassification} (${daysSinceActivity}d inactive, status=${currentLead?.lead_status})`);
 
     await supabase.from("lia_attendances")
       .update({
         tags_crm: newTags,
-        ultima_etapa_comercial: "handoff_lia_vendedor",
+        ultima_etapa_comercial: "contato_feito",
         temperatura_lead: "quente",
         lead_status: attendance.piperun_id ? (attendance as Record<string,unknown>).lead_status as string || "em_atendimento" : "em_atendimento",
+        origem_campanha: origemCampanha,
         updated_at: new Date().toISOString(),
       })
       .eq("id", attendance.id);
@@ -1606,9 +1630,23 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
       }
     }
 
-    // 8. Sync with PipeRun if lead has piperun_id
+    // 8. Sync with PipeRun + add note with classification
     if (attendance.piperun_id) {
       try {
+        // Add deal note with lead classification context
+        const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
+        if (PIPERUN_API_KEY) {
+          const noteText = `📋 HANDOFF LIA → VENDEDOR\n\n🏷️ Classificação: ${origemCampanha}\n${classificationNote}\n\n❓ Pergunta do lead:\n"${question.slice(0, 300)}"\n\n${topicContext ? `📂 Contexto: ${topicContext}` : ""}\n👤 Vendedor notificado: ${teamMember.nome_completo}`;
+          await fetch(`https://api.pipe.run/v1/notes?api_token=${PIPERUN_API_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: noteText, deal_id: Number(attendance.piperun_id) }),
+            signal: AbortSignal.timeout(5000),
+          });
+          console.log(`[handoff] PipeRun note added to deal ${attendance.piperun_id}`);
+        }
+
+        // Trigger sync
         await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?pipeline_id=${(attendance as Record<string,unknown>).piperun_pipeline_id || ""}&full=false`, {
           headers: {
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -1619,6 +1657,27 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         console.log(`[handoff] PipeRun sync triggered for piperun_id=${attendance.piperun_id}`);
       } catch (e) {
         console.warn(`[handoff] PipeRun sync error:`, e);
+      }
+    } else {
+      // No PipeRun deal — trigger lia-assign to create one
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            email: leadEmail,
+            nome: leadName,
+            source: "handoff_lia",
+            origem_campanha: origemCampanha,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        console.log(`[handoff] lia-assign triggered for new deal: ${leadEmail} (${origemCampanha})`);
+      } catch (e) {
+        console.warn(`[handoff] lia-assign error:`, e);
       }
     }
 
@@ -4172,26 +4231,26 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
     Seguido de: "Quer conhecer como funciona nosso ecossistema? [Falar com especialista](https://wa.me/5516993831794)"
 
 ### ⛔ REGRAS ANTI-ALUCINAÇÃO AVANÇADAS (21-28)
-21. CONTEXTO FRACO = FRASE DE SEGURANÇA OBRIGATÓRIA:
+21. CONTEXTO FRACO = TOM PROATIVO OBRIGATÓRIO:
     Se o topSimilarity < 0.50 OU nenhum resultado RAG corresponde ao tema da pergunta,
-    use OBRIGATORIAMENTE uma destas frases:
-    - "Não tenho essa informação específica cadastrada no momento."
-    - "Vou confirmar com o time técnico e te trago a resposta exata."
-    Seguida do link WhatsApp: [Falar com especialista](https://wa.me/5516993831794)
+    use OBRIGATORIAMENTE esta abordagem proativa:
+    "Já entendi sua dúvida! 😊 Estou acionando um especialista do nosso time que vai te chamar no WhatsApp e explicar cada detalhe sobre [tema da pergunta]. Possui alguma outra dúvida além dessa?"
+    NUNCA diga "não tenho essa informação", "não sei", "não está nos meus dados".
     NUNCA improvise uma resposta com dados genéricos.
+    O tom deve ser SEMPRE positivo e de ação, nunca de confissão de ignorância.
 
 22. PROIBIDO INVENTAR DADOS COMERCIAIS:
     Preços, prazos de entrega, condições de pagamento, disponibilidade de estoque
     e garantia só podem ser citados se aparecerem EXPLICITAMENTE nos DADOS DAS FONTES.
-    Para qualquer dado comercial ausente: "Para informações comerciais atualizadas,
-    posso te conectar com nosso time: [Falar com especialista](https://wa.me/5516993831794)"
+    Para qualquer dado comercial ausente, use o tom proativo:
+    "Ótima pergunta! 😊 Estou acionando um especialista que vai te chamar no WhatsApp com essas informações comerciais atualizadas. Possui alguma outra dúvida?"
 
 23. PROIBIDO INVENTAR DADOS TÉCNICOS:
     Temperaturas, tempos de cura, layer heights, velocidades e protocolos
     só podem ser citados se aparecerem EXPLICITAMENTE nos DADOS DAS FONTES
     (campos PROCESSING_PROTOCOL ou PARAMETER_SET).
-    Se ausentes: "Não tenho os parâmetros exatos para essa configuração.
-    Recomendo verificar com nosso suporte técnico: [Falar com suporte](https://wa.me/551634194735)"
+    Se ausentes, use o tom proativo:
+    "Entendi o que você precisa! 😊 Estou acionando nosso time técnico que vai te chamar no WhatsApp com os parâmetros exatos. Tem mais alguma dúvida?"
 
 24. RESINAS/PRODUTOS DESCONHECIDOS:
     Se o usuário mencionar uma resina, produto ou marca que NÃO aparece nos DADOS DAS FONTES abaixo,
@@ -4542,6 +4601,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
               // ── IDK Detection: detect "I don't know" responses post-LLM ──
               const IDK_PATTERNS = [
+                // Legacy defensive patterns (kept as fallback)
                 /não tenho (a |essa )?informação/i,
                 /não está disponível nos meus dados/i,
                 /vou confirmar com o time/i,
@@ -4552,6 +4612,13 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 /no tengo (esa |esta )?información/i,
                 /confirmar com o time técnico/i,
                 /equipe de especialistas técnicos/i,
+                // New proactive tone patterns
+                /acionando um especialista/i,
+                /vai te chamar no WhatsApp/i,
+                /explicar cada detalhe/i,
+                /reaching out to a specialist/i,
+                /contactando a un especialista/i,
+                /acionando nosso time técnico/i,
               ];
               const isIdkResponse = IDK_PATTERNS.some(p => p.test(fullResponse));
               if (isIdkResponse && leadState.state === "from_session") {
