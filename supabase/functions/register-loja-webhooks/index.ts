@@ -130,6 +130,25 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const webhookUrl = `${SUPABASE_URL}/functions/v1/smart-ops-ecommerce-webhook`;
 
+    // Test auth by fetching a simple endpoint
+    if (action === "test_auth") {
+      const qp = buildAuthParams(apiKey, appKey || null);
+      const testUrl = `https://api.awsli.com.br/v1/pedido/?${qp}&limit=1`;
+      console.log(`[register-loja-webhooks] Testing auth: ${testUrl.replace(apiKey, "***")}`);
+      const res = await fetch(testUrl, {
+        headers: {
+          Authorization: buildAuthHeader(apiKey, appKey || null),
+          Accept: "application/json",
+        },
+      });
+      const txt = await res.text();
+      let data: unknown;
+      try { data = JSON.parse(txt); } catch { data = txt.slice(0, 500); }
+      return new Response(JSON.stringify({ status: res.status, success: res.ok, data }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "list") {
       const result = await listWebhooks(apiKey, appKey || null);
       return new Response(JSON.stringify(result), {
