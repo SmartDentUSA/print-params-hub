@@ -11,22 +11,40 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ─── Loja Integrada situação ID → event type mapping ───
-// These are the standard status IDs from the Loja Integrada API
-const SITUACAO_MAP: Record<number, string> = {
-  1: "order_created",          // Aguardando pagamento
-  2: "boleto_generated",       // Em produção / Boleto gerado
-  3: "order_cancelled",        // Cancelado
-  4: "order_paid",             // Pago / Aprovado
-  5: "order_paid",             // Pagamento em análise → treat as paid
-  6: "order_invoiced",         // Enviado
-  7: "order_delivered",        // Entregue
-  8: "order_cancelled",        // Devolvido
-  9: "order_paid",             // Pagamento confirmado
-  10: "boleto_expired",        // Boleto vencido
+// ─── Loja Integrada situação CÓDIGO → event type mapping ───
+// Using `codigo` string instead of numeric ID (IDs can vary per store)
+const SITUACAO_CODIGO_MAP: Record<string, string> = {
+  aguardando_pagamento: "order_created",
+  pagamento_em_analise: "order_created",
+  pagamento_devolvido: "order_cancelled",
+  pago: "order_paid",
+  pagamento_confirmado: "order_paid",
+  pagamento_aprovado: "order_paid",
+  em_producao: "order_paid",
+  pronto_envio: "order_paid",
+  enviado: "order_invoiced",
+  entregue: "order_delivered",
+  cancelado: "order_cancelled",
+  devolvido: "order_cancelled",
+  boleto_impresso: "boleto_generated",
+  boleto_vencido: "boleto_expired",
 };
 
-// Event → EC tags + SellFlux campaign template
+// Fallback: numeric ID mapping (less reliable but covers edge cases)
+const SITUACAO_ID_MAP: Record<number, string> = {
+  1: "order_created",
+  2: "order_created",       // Aguardando pagamento
+  3: "order_cancelled",
+  4: "order_paid",
+  5: "order_paid",
+  6: "order_invoiced",
+  7: "order_delivered",
+  8: "order_cancelled",
+  9: "order_paid",
+  10: "boleto_expired",
+};
+
+// Event → EC tags
 const EVENT_MAP: Record<string, { tags: string[] }> = {
   order_created: {
     tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT],
@@ -64,46 +82,70 @@ function normalizePhone(raw: string | null): string | null {
 }
 
 /**
- * Parse the incoming Loja Integrada webhook payload.
- * LI sends different formats depending on the event:
- * - pedido_criado: { "resource_uri": "/api/v1/pedido/123", ... }
- * - pedido_atualizado: { "resource_uri": "/api/v1/pedido/123", "situacao": { "id": 4, ... } }
- * - Or a full order object with cliente, itens, etc.
+ * Unwrap the LI payload. LI can send:
+ * 1. { data: { ...order }, origin: "loja_integrada", reque_code: "..." }
+ * 2. { resource_uri: "/api/v1/pedido/123", situacao: {...} }
+ * 3. A full order object directly
  */
-function parseLojaIntegradaPayload(payload: Record<string, unknown>): {
+function unwrapPayload(raw: Record<string, unknown>): Record<string, unknown> {
+  // Case 1: wrapped in "data" key (most common from LI webhooks)
+  if (raw.data && typeof raw.data === "object" && !Array.isArray(raw.data)) {
+    return raw.data as Record<string, unknown>;
+  }
+  return raw;
+}
+
+/**
+ * Resolve event type from situação object using codigo (preferred) or id (fallback)
+ */
+function resolveEventFromSituacao(situacao: Record<string, unknown>): {
   eventType: string;
-  order: Record<string, unknown>;
+  situacaoId: number | null;
+} {
+  const codigo = String(situacao.codigo || "").toLowerCase();
+  const situacaoId = situacao.id ? Number(situacao.id) : null;
+
+  // Prefer codigo-based mapping
+  if (codigo && SITUACAO_CODIGO_MAP[codigo]) {
+    return { eventType: SITUACAO_CODIGO_MAP[codigo], situacaoId };
+  }
+
+  // Fallback to numeric ID
+  if (situacaoId !== null && SITUACAO_ID_MAP[situacaoId]) {
+    return { eventType: SITUACAO_ID_MAP[situacaoId], situacaoId };
+  }
+
+  return { eventType: "order_created", situacaoId };
+}
+
+/**
+ * Parse the incoming Loja Integrada webhook payload.
+ */
+function parseLojaIntegradaPayload(order: Record<string, unknown>): {
+  eventType: string;
   resourceUri: string | null;
   situacaoId: number | null;
 } {
-  // Check if this is a LI webhook with resource_uri
-  const resourceUri = (payload.resource_uri as string) || null;
+  const resourceUri = (order.resource_uri as string) || null;
+  const situacao = order.situacao as Record<string, unknown> | undefined;
 
-  // Determine situação (status)
-  const situacao = payload.situacao as Record<string, unknown> | undefined;
-  const situacaoId = situacao?.id
-    ? Number(situacao.id)
-    : (payload.situacao_id ? Number(payload.situacao_id) : null);
-
-  // Determine event type
-  let eventType: string;
-  if (payload.event || payload.tipo || payload.type) {
-    // Explicit event type (legacy format or manual trigger)
-    eventType = String(payload.event || payload.tipo || payload.type);
-  } else if (situacaoId !== null && SITUACAO_MAP[situacaoId]) {
-    // Map from LI situação ID
-    eventType = SITUACAO_MAP[situacaoId];
-  } else if (resourceUri?.includes("/pedido/") && !situacao) {
-    // pedido_criado webhook (no situacao = newly created)
-    eventType = "order_created";
-  } else {
-    eventType = "order_created";
+  // If we have situação, resolve from it
+  if (situacao && typeof situacao === "object") {
+    const resolved = resolveEventFromSituacao(situacao);
+    return { ...resolved, resourceUri };
   }
 
-  // The order data might be the payload itself or nested
-  const order = (payload.order || payload.pedido || payload) as Record<string, unknown>;
+  // Explicit event type (manual trigger)
+  if (order.event || order.tipo || order.type) {
+    return {
+      eventType: String(order.event || order.tipo || order.type),
+      resourceUri,
+      situacaoId: null,
+    };
+  }
 
-  return { eventType, order, resourceUri, situacaoId };
+  // Default: new order
+  return { eventType: "order_created", resourceUri, situacaoId: null };
 }
 
 /**
@@ -144,14 +186,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // === DEBUG: Log ALL incoming requests (headers + raw body) ===
+  // === DEBUG: Log ALL incoming requests ===
   const rawBody = await req.text();
   const incomingHeaders: Record<string, string> = {};
   req.headers.forEach((v, k) => { incomingHeaders[k] = v; });
   console.log("[ecommerce-webhook] === INCOMING REQUEST ===");
   console.log("[ecommerce-webhook] Method:", req.method);
   console.log("[ecommerce-webhook] Headers:", JSON.stringify(incomingHeaders));
-  console.log("[ecommerce-webhook] Raw body:", rawBody.slice(0, 1500));
+  console.log("[ecommerce-webhook] Raw body:", rawBody.slice(0, 2000));
   console.log("[ecommerce-webhook] === END REQUEST ===");
 
   try {
@@ -162,10 +204,9 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     
-    // Parse from already-read body
-    let payload: Record<string, unknown>;
+    let rawPayload: Record<string, unknown>;
     try {
-      payload = JSON.parse(rawBody);
+      rawPayload = JSON.parse(rawBody);
     } catch {
       console.error("[ecommerce-webhook] Failed to parse JSON body:", rawBody.slice(0, 500));
       return new Response(JSON.stringify({ error: "Invalid JSON body", raw: rawBody.slice(0, 200) }), {
@@ -174,10 +215,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log("[ecommerce-webhook] Payload:", JSON.stringify(payload).slice(0, 800));
+    // Unwrap from "data" envelope if present
+    let order = unwrapPayload(rawPayload);
 
-    // Parse the LI webhook payload
-    let { eventType, order, resourceUri, situacaoId } = parseLojaIntegradaPayload(payload);
+    console.log("[ecommerce-webhook] Unwrapped order keys:", Object.keys(order).join(", "));
+
+    // Parse event type from order data
+    let { eventType, resourceUri, situacaoId } = parseLojaIntegradaPayload(order);
 
     console.log(`[ecommerce-webhook] Parsed: event=${eventType} situacao=${situacaoId} resourceUri=${resourceUri}`);
 
@@ -188,22 +232,22 @@ Deno.serve(async (req) => {
       if (fullOrder) {
         order = fullOrder;
         // Re-check situação from full order
-        if (!situacaoId && fullOrder.situacao) {
-          const sit = fullOrder.situacao as Record<string, unknown>;
-          situacaoId = Number(sit.id || 0);
-          if (situacaoId && SITUACAO_MAP[situacaoId]) {
-            eventType = SITUACAO_MAP[situacaoId];
-          }
+        if (fullOrder.situacao && typeof fullOrder.situacao === "object") {
+          const resolved = resolveEventFromSituacao(fullOrder.situacao as Record<string, unknown>);
+          eventType = resolved.eventType;
+          situacaoId = resolved.situacaoId;
         }
       }
     }
 
-    // Extract customer data (LI format: cliente.nome, cliente.email, etc.)
-    const customer = (order.cliente || order.customer || order.contact || {}) as Record<string, unknown>;
+    // ─── Extract customer data ───
+    const customer = (order.cliente || order.customer || {}) as Record<string, unknown>;
     const nome = String(customer.nome || customer.name || order.nome || "Lead E-commerce");
     const email = String(customer.email || order.email || "").trim().toLowerCase();
+
+    // Prefer celular over principal (principal is often null/landline)
     const phoneRaw = String(
-      customer.telefone_principal || customer.telefone_celular ||
+      customer.telefone_celular || customer.telefone_principal ||
       customer.phone || customer.telefone || order.telefone || ""
     ) || null;
     const phoneNormalized = normalizePhone(phoneRaw);
@@ -216,29 +260,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Determine tags from event
+    // ─── Extract address data from endereco_entrega ───
+    const endereco = (order.endereco_entrega || {}) as Record<string, unknown>;
+    const cidade = String(endereco.cidade || customer.cidade || "") || null;
+    const uf = String(endereco.estado || customer.estado || "") || null;
+
+    // ─── Extract CPF/CNPJ ───
+    const cpf = String(customer.cpf || endereco.cpf || "") || null;
+    const cnpj = String(customer.cnpj || endereco.cnpj || "") || null;
+    const razaoSocial = String(customer.razao_social || "") || null;
+
+    // ─── Determine tags from event ───
     const eventConfig = EVENT_MAP[eventType] || { tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT] };
     const tagsToAdd = [...eventConfig.tags];
 
     // Extract product tags from items
-    const items = (order.itens || order.items || order.produtos || []) as Array<Record<string, unknown>>;
+    const items = (order.itens || order.items || []) as Array<Record<string, unknown>>;
+    const productNames: string[] = [];
     for (const item of items) {
-      const productName = String(item.nome || item.name || item.produto || item.produto_nome || "");
+      const productName = String(item.nome || item.name || "");
       if (productName) {
+        productNames.push(productName);
         tagsToAdd.push(...detectProductTags(productName));
       }
     }
 
-    // Extract order value
-    const valorTotal = Number(
-      order.valor_total || order.total || order.valor || 0
-    ) || null;
-    const numeroPedido = order.numero || order.id || order.order_id || null;
+    // ─── Extract order value ───
+    const valorTotal = Number(order.valor_total || order.total || 0) || null;
+    const numeroPedido = order.numero || order.id || null;
 
-    // Check if lead exists
+    console.log(`[ecommerce-webhook] Customer: ${nome} <${email}> | phone=${phoneRaw} | cidade=${cidade}/${uf} | cpf=${cpf} | valor=${valorTotal} | pedido=${numeroPedido} | produtos=${productNames.join("; ")}`);
+
+    // ─── Upsert lead in lia_attendances ───
     const { data: existingLead } = await supabase
       .from("lia_attendances")
-      .select("id, tags_crm, lead_status, telefone_normalized")
+      .select("id, tags_crm, lead_status, telefone_normalized, pessoa_cpf")
       .eq("email", email)
       .single();
 
@@ -262,30 +318,51 @@ Deno.serve(async (req) => {
         updateData.valor_oportunidade = valorTotal;
       }
 
+      // Fill CPF if not already set
+      if (cpf && !existingLead.pessoa_cpf) {
+        updateData.pessoa_cpf = cpf;
+      }
+
+      // Fill cidade/uf if available
+      if (cidade) updateData.cidade = cidade;
+      if (uf) updateData.uf = uf;
+
+      // Fill empresa fields from CNPJ
+      if (cnpj) updateData.empresa_cnpj = cnpj;
+      if (razaoSocial) updateData.empresa_razao_social = razaoSocial;
+
       await supabase.from("lia_attendances").update(updateData).eq("id", existingLead.id);
       leadId = existingLead.id;
       console.log(`[ecommerce-webhook] Lead ATUALIZADO: ${leadId} | event=${eventType} | pedido=${numeroPedido} | +tags=${tagsToAdd.join(",")}`);
     } else {
       // Create new lead
-      const cidade = String(customer.cidade || customer.city || "") || null;
-      const uf = String(customer.estado || customer.state || "") || null;
+      const insertData: Record<string, unknown> = {
+        nome,
+        email,
+        telefone_raw: phoneRaw,
+        telefone_normalized: phoneNormalized,
+        source: "loja_integrada",
+        lead_status: eventType === "order_paid" ? "contato_feito" : "novo",
+        tags_crm: [...new Set(tagsToAdd)].sort(),
+        cidade,
+        uf,
+        status_oportunidade: eventType === "order_paid" ? "ganha" : "aberta",
+        ativo_insumos: eventType === "order_paid",
+        valor_oportunidade: valorTotal,
+      };
+
+      if (cpf) insertData.pessoa_cpf = cpf;
+      if (cnpj) insertData.empresa_cnpj = cnpj;
+      if (razaoSocial) insertData.empresa_razao_social = razaoSocial;
+
+      // Store product interest from first item
+      if (productNames.length > 0) {
+        insertData.produto_interesse = productNames.join(", ").slice(0, 200);
+      }
 
       const { data: newLead, error: insertError } = await supabase
         .from("lia_attendances")
-        .insert({
-          nome,
-          email,
-          telefone_raw: phoneRaw,
-          telefone_normalized: phoneNormalized,
-          source: "loja_integrada",
-          lead_status: eventType === "order_paid" ? "contato_feito" : "novo",
-          tags_crm: [...new Set(tagsToAdd)].sort(),
-          cidade,
-          uf,
-          status_oportunidade: eventType === "order_paid" ? "ganha" : "aberta",
-          ativo_insumos: eventType === "order_paid",
-          valor_oportunidade: valorTotal,
-        })
+        .insert(insertData)
         .select("id")
         .single();
 
@@ -317,7 +394,6 @@ Deno.serve(async (req) => {
         situacao_id: situacaoId,
         pedido: numeroPedido,
         tags_added: tagsToAdd,
-        message_status: messageStatus,
       }),
       {
         status: 200,
