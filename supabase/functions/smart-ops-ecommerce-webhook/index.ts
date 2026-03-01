@@ -366,6 +366,28 @@ Deno.serve(async (req) => {
       if (cnpj) updateData.empresa_cnpj = cnpj;
       if (razaoSocial) updateData.empresa_razao_social = razaoSocial;
 
+      // ─── Loja Integrada specific fields (always overwrite with latest) ───
+      if (liClienteId) updateData.lojaintegrada_cliente_id = liClienteId;
+      if (liClienteObs) updateData.lojaintegrada_cliente_obs = liClienteObs;
+      if (liCupomDesconto) updateData.lojaintegrada_cupom_desconto = liCupomDesconto;
+      if (liDataNascimento) updateData.lojaintegrada_data_nascimento = liDataNascimento;
+      if (liSexo) updateData.lojaintegrada_sexo = liSexo;
+      if (liEndereco) updateData.lojaintegrada_endereco = liEndereco;
+      if (liNumero) updateData.lojaintegrada_numero = liNumero;
+      if (liComplemento) updateData.lojaintegrada_complemento = liComplemento;
+      if (liBairro) updateData.lojaintegrada_bairro = liBairro;
+      if (liCep) updateData.lojaintegrada_cep = liCep;
+      if (liReferencia) updateData.lojaintegrada_referencia = liReferencia;
+      if (liPedidoNumero) updateData.lojaintegrada_ultimo_pedido_numero = liPedidoNumero;
+      if (liPedidoData) updateData.lojaintegrada_ultimo_pedido_data = liPedidoData;
+      if (liPedidoValor) updateData.lojaintegrada_ultimo_pedido_valor = liPedidoValor;
+      if (liPedidoStatus) updateData.lojaintegrada_ultimo_pedido_status = liPedidoStatus;
+      if (liFormaPagamento) updateData.lojaintegrada_forma_pagamento = liFormaPagamento;
+      if (liFormaEnvio) updateData.lojaintegrada_forma_envio = liFormaEnvio;
+      if (items.length > 0) updateData.lojaintegrada_itens_json = items;
+      if (liUtmCampaign) updateData.lojaintegrada_utm_campaign = liUtmCampaign;
+      updateData.lojaintegrada_updated_at = new Date().toISOString();
+
       await supabase.from("lia_attendances").update(updateData).eq("id", existingLead.id);
       leadId = existingLead.id;
       console.log(`[ecommerce-webhook] Lead ATUALIZADO: ${leadId} | event=${eventType} | pedido=${numeroPedido} | +tags=${tagsToAdd.join(",")}`);
