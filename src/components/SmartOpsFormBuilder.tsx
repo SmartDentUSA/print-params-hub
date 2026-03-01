@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Copy, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import {
   Select,
@@ -249,6 +249,9 @@ export function SmartOpsFormBuilder() {
                   </td>
                   <td className="p-3">
                     <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="icon" onClick={() => openEditMeta(form)} title="Editar nome/config">
+                        <Settings className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => setEditingForm(form)} title="Editar campos">
                         <Pencil className="w-4 h-4" />
                       </Button>
