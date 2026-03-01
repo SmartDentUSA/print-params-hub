@@ -1630,9 +1630,23 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
       }
     }
 
-    // 8. Sync with PipeRun if lead has piperun_id
+    // 8. Sync with PipeRun + add note with classification
     if (attendance.piperun_id) {
       try {
+        // Add deal note with lead classification context
+        const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
+        if (PIPERUN_API_KEY) {
+          const noteText = `📋 HANDOFF LIA → VENDEDOR\n\n🏷️ Classificação: ${origemCampanha}\n${classificationNote}\n\n❓ Pergunta do lead:\n"${question.slice(0, 300)}"\n\n${topicContext ? `📂 Contexto: ${topicContext}` : ""}\n👤 Vendedor notificado: ${teamMember.nome_completo}`;
+          await fetch(`https://api.pipe.run/v1/notes?api_token=${PIPERUN_API_KEY}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: noteText, deal_id: Number(attendance.piperun_id) }),
+            signal: AbortSignal.timeout(5000),
+          });
+          console.log(`[handoff] PipeRun note added to deal ${attendance.piperun_id}`);
+        }
+
+        // Trigger sync
         await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?pipeline_id=${(attendance as Record<string,unknown>).piperun_pipeline_id || ""}&full=false`, {
           headers: {
             "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
@@ -1643,6 +1657,27 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         console.log(`[handoff] PipeRun sync triggered for piperun_id=${attendance.piperun_id}`);
       } catch (e) {
         console.warn(`[handoff] PipeRun sync error:`, e);
+      }
+    } else {
+      // No PipeRun deal — trigger lia-assign to create one
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            email: leadEmail,
+            nome: leadName,
+            source: "handoff_lia",
+            origem_campanha: origemCampanha,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        console.log(`[handoff] lia-assign triggered for new deal: ${leadEmail} (${origemCampanha})`);
+      } catch (e) {
+        console.warn(`[handoff] lia-assign error:`, e);
       }
     }
 
