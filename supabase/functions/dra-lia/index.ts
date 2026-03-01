@@ -1715,7 +1715,7 @@ REGRAS OBRIGATÓRIAS:
         // Fallback if AI generation failed
         if (!leadMsgToLead) {
           const tema = produtoCtx || question.slice(0, 80);
-          leadMsgToLead = `Olá, ${leadFirstName}! Aqui é o ${sellerFirstName}, da BLZ Dental.\nAcabei de receber sua solicitação sobre ${tema}.\nPodemos continuar por aqui?`;
+          leadMsgToLead = `Olá, ${leadFirstName}! Aqui é o ${sellerFirstName}, da Smart Dent.\nAcabei de receber sua solicitação sobre ${tema}.\nPodemos continuar por aqui?`;
           console.log(`[handoff] Using fallback greeting for ${leadFirstName}`);
         }
 
