@@ -125,9 +125,9 @@ Deno.serve(async (req) => {
       if (!rule || !lead.telefone_normalized) continue;
 
       // ─── SellFlux path (preferred) ───
-      if (SELLFLUX_API_TOKEN && rule.sellflux_template) {
-        const result = await sendViaSellFlux(
-          SELLFLUX_API_TOKEN,
+      if (SELLFLUX_WEBHOOK_CAMPANHAS && rule.sellflux_template) {
+        const result = await sendCampaignViaSellFlux(
+          SELLFLUX_WEBHOOK_CAMPANHAS,
           lead as Record<string, unknown>,
           rule.sellflux_template
         );
