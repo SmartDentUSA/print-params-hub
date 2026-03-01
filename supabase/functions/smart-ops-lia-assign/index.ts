@@ -163,10 +163,17 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Processing lead: ${email || lead_id}`);
 
     // ── 1. Fetch lead ──
-    const { data: lead, error: leadErr } = await supabase
+    let query = supabase
       .from("lia_attendances")
-      .select("*")
-      .eq("email", email.trim().toLowerCase())
+      .select("*");
+    
+    if (lead_id) {
+      query = query.eq("id", lead_id);
+    } else {
+      query = query.eq("email", email.trim().toLowerCase());
+    }
+    
+    const { data: lead, error: leadErr } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
