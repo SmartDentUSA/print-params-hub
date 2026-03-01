@@ -56,6 +56,9 @@ export function SmartOpsFormBuilder() {
   const [metaPurpose, setMetaPurpose] = useState("");
   const [metaColor, setMetaColor] = useState("");
   const [metaSuccess, setMetaSuccess] = useState("");
+  const [metaRedirect, setMetaRedirect] = useState("");
+
+  const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
   const fetchForms = async () => {
     const { data, error } = await supabase
@@ -95,13 +98,14 @@ export function SmartOpsFormBuilder() {
     setMetaPurpose(form.form_purpose);
     setMetaColor(form.theme_color || "");
     setMetaSuccess(form.success_message || "");
+    setMetaRedirect((form as any).success_redirect_url || "");
     setEditingMeta(form);
   };
 
   const handleSaveMeta = async () => {
     if (!editingMeta || !metaName.trim()) return;
     const { error } = await supabase.from("smartops_forms" as any)
-      .update({ name: metaName.trim(), form_purpose: metaPurpose, theme_color: metaColor || null, success_message: metaSuccess || null } as any)
+      .update({ name: metaName.trim(), form_purpose: metaPurpose, theme_color: metaColor || null, success_message: metaSuccess || null, success_redirect_url: metaRedirect || null } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Formulário atualizado!");
@@ -123,15 +127,60 @@ export function SmartOpsFormBuilder() {
     fetchForms();
   };
 
-  const copyEmbed = (slug: string) => {
-    const url = `${window.location.origin}/f/${slug}`;
-    const code = `<iframe src="${url}" width="100%" height="600" frameborder="0"></iframe>`;
+  const getFormUrl = (slug: string) => `${PRODUCTION_BASE}/f/${slug}`;
+
+  const copyEmbed = (slug: string, formName: string) => {
+    const url = getFormUrl(slug);
+    const code = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${formName} | SmartDent 3D</title>
+  <meta name="description" content="${formName} - Formulário SmartDent 3D. Preencha e receba atendimento especializado." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="${url}" />
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="${formName} | SmartDent 3D" />
+  <meta property="og:description" content="${formName} - Formulário SmartDent 3D." />
+  <meta property="og:url" content="${url}" />
+  <meta property="og:site_name" content="SmartDent 3D" />
+  <meta property="og:locale" content="pt_BR" />
+  <!-- Geo -->
+  <meta name="geo.region" content="BR-SC" />
+  <meta name="geo.placename" content="Florianópolis" />
+  <meta name="geo.position" content="-27.5954;-48.5480" />
+  <meta name="ICBM" content="-27.5954, -48.5480" />
+  <!-- Schema.org -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "name": "${formName}",
+    "url": "${url}",
+    "publisher": {
+      "@type": "Organization",
+      "name": "SmartDent 3D",
+      "url": "https://parametros.smartdent.com.br"
+    }
+  }
+  </script>
+  <style>
+    body { margin: 0; padding: 0; font-family: sans-serif; }
+    iframe { border: none; width: 100%; min-height: 600px; }
+  </style>
+</head>
+<body>
+  <iframe src="${url}" width="100%" height="700" frameborder="0" title="${formName}" loading="lazy"></iframe>
+</body>
+</html>`;
     navigator.clipboard.writeText(code);
-    toast.success("Código embed copiado!");
+    toast.success("HTML embed com SEO/GEO copiado!");
   };
 
   const copyLink = (slug: string) => {
-    navigator.clipboard.writeText(`${window.location.origin}/f/${slug}`);
+    navigator.clipboard.writeText(getFormUrl(slug));
     toast.success("Link copiado!");
   };
 
@@ -212,6 +261,11 @@ export function SmartOpsFormBuilder() {
                 <label className="text-xs font-medium">Mensagem de sucesso</label>
                 <Input value={metaSuccess} onChange={(e) => setMetaSuccess(e.target.value)} placeholder="Obrigado pelo envio!" />
               </div>
+              <div>
+                <label className="text-xs font-medium">URL de redirecionamento após envio</label>
+                <Input value={metaRedirect} onChange={(e) => setMetaRedirect(e.target.value)} placeholder="https://parametros.smartdent.com.br/obrigado" />
+                <p className="text-xs text-muted-foreground mt-1">Se preenchido, redireciona o lead para esta URL após o envio.</p>
+              </div>
               <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
@@ -258,7 +312,7 @@ export function SmartOpsFormBuilder() {
                       <Button variant="ghost" size="icon" onClick={() => copyLink(form.slug)} title="Copiar link">
                         <ExternalLink className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => copyEmbed(form.slug)} title="Copiar embed">
+                      <Button variant="ghost" size="icon" onClick={() => copyEmbed(form.slug, form.name)} title="Copiar HTML embed com SEO">
                         <Copy className="w-4 h-4" />
                       </Button>
                       <Button variant="ghost" size="icon" onClick={() => deleteForm(form.id)} title="Excluir">
