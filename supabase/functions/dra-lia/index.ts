@@ -1435,7 +1435,7 @@ async function notifySellerHandoff(
     // 1. Get lead data from lia_attendances
     const { data: attendance } = await supabase
       .from("lia_attendances")
-      .select("id, proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, ultima_etapa_comercial, especialidade, piperun_id, piperun_link, piperun_pipeline_id, lead_status, area_atuacao, impressora_modelo, tem_scanner, cidade, uf, resina_interesse, software_cad, volume_mensal_pecas, principal_aplicacao, origem_campanha")
+      .select("id, proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, ultima_etapa_comercial, especialidade, piperun_id, piperun_link, piperun_pipeline_id, lead_status, area_atuacao, impressora_modelo, tem_scanner, cidade, uf, resina_interesse, software_cad, volume_mensal_pecas, principal_aplicacao, origem_campanha, confidence_score_analysis, lead_stage_detected, urgency_level, interest_timeline, psychological_profile, primary_motivation, objection_risk, recommended_approach")
       .eq("email", leadEmail)
       .maybeSingle();
 
@@ -1479,6 +1479,20 @@ async function notifySellerHandoff(
     // 3. Build notification message
     const leadPhone = attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : "";
     const piperunLink = attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : "";
+    const urgencyEmoji: Record<string, string> = { alta: "🔴", media: "🟡", baixa: "🟢" };
+
+    let cognitiveBlock = "";
+    if (attendance.confidence_score_analysis) {
+      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\n
+Estágio: ${attendance.lead_stage_detected || "N/I"}
+Urgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}
+Timeline: ${attendance.interest_timeline || "N/I"}
+Perfil: ${attendance.psychological_profile || "N/I"}
+Motivação: ${attendance.primary_motivation || "N/I"}
+Risco objeção: ${attendance.objection_risk || "N/I"}
+Abordagem: ${attendance.recommended_approach || "N/I"}`;
+    }
+
     const notificationMsg = `📋 HANDOFF — LIA NÃO SOUBE RESPONDER
 
 👤 Lead: ${leadName}
@@ -1486,16 +1500,14 @@ async function notifySellerHandoff(
 ${leadPhone}
 ${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}
 ${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
-${attendance.temperatura_lead ? `🌡️ Temp: ${attendance.temperatura_lead}` : ""}
+${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}
 ${piperunLink}
 
 ❓ Pergunta do lead:
 "${question.slice(0, 300)}"
 
-${topicContext ? `📂 Contexto: ${topicContext}` : ""}
-${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa_comercial}` : ""}
-
-⚡ Ação: Entrar em contato com o lead para responder a dúvida e dar continuidade ao atendimento.`.replace(/\n{3,}/g, "\n\n");
+⚡ Ação: Entrar em contato com o lead para responder a dúvida e dar continuidade ao atendimento.
+${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     // 4. Log in message_logs
     await supabase.from("message_logs").insert({
@@ -2586,7 +2598,7 @@ async function notifySellerEscalation(
     // 1. Find the responsible seller from lia_attendances → proprietario_lead_crm → team_members
     const { data: attendance } = await supabase
       .from("lia_attendances")
-      .select("proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, id")
+      .select("proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, id, piperun_id, piperun_link, especialidade, confidence_score_analysis, lead_stage_detected, urgency_level, interest_timeline, psychological_profile, primary_motivation, objection_risk, recommended_approach")
       .eq("email", leadEmail)
       .maybeSingle();
     
@@ -2631,19 +2643,35 @@ async function notifySellerEscalation(
       especialista: "🔴 ESCALONAMENTO URGENTE",
     };
     
+    const urgencyEmoji: Record<string, string> = { alta: "🔴", media: "🟡", baixa: "🟢" };
+
+    let cognitiveBlock = "";
+    if (attendance.confidence_score_analysis) {
+      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\n
+Estágio: ${attendance.lead_stage_detected || "N/I"}
+Urgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}
+Timeline: ${attendance.interest_timeline || "N/I"}
+Perfil: ${attendance.psychological_profile || "N/I"}
+Motivação: ${attendance.primary_motivation || "N/I"}
+Risco objeção: ${attendance.objection_risk || "N/I"}
+Abordagem: ${attendance.recommended_approach || "N/I"}`;
+    }
+
     const notificationMsg = `${typeLabels[escalationType] || "📋 ESCALONAMENTO"}
 
 👤 Lead: ${leadName}
 📧 Email: ${leadEmail}
 ${attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : ""}
+${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}
 ${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
-${attendance.temperatura_lead ? `🌡️ Temp: ${attendance.temperatura_lead}` : ""}
-${attendance.score ? `📊 Score: ${attendance.score}` : ""}
+${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}
+${attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : ""}
 
 💬 Última msg: "${message.slice(0, 200)}"
 ${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
 
-⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}`;
+⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}
+${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     // 4. Log in message_logs
     await supabase.from("message_logs").insert({
