@@ -2,8 +2,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   mergeTagsCrm,
   detectProductTags,
-  sendCampaignViaSellFlux,
-  sendLeadToSellFlux,
   ECOMMERCE_TAGS,
   JOURNEY_TAGS,
 } from "../_shared/sellflux-field-map.ts";
@@ -29,37 +27,30 @@ const SITUACAO_MAP: Record<number, string> = {
 };
 
 // Event → EC tags + SellFlux campaign template
-const EVENT_MAP: Record<string, { tags: string[]; template?: string }> = {
+const EVENT_MAP: Record<string, { tags: string[] }> = {
   order_created: {
     tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT],
-    template: "EC_CHECKOUT_INICIADO",
   },
   order_paid: {
     tags: [ECOMMERCE_TAGS.EC_PAGAMENTO_APROVADO, JOURNEY_TAGS.J04_COMPRA],
-    template: "EC_PAGAMENTO_APROVADO",
   },
   order_cancelled: {
     tags: [ECOMMERCE_TAGS.EC_PEDIDO_CANCELADO],
-    template: "EC_PEDIDO_CANCELADO",
   },
   order_invoiced: {
     tags: [ECOMMERCE_TAGS.EC_PEDIDO_ENVIADO],
-    template: "EC_PEDIDO_ENVIADO",
   },
   order_delivered: {
     tags: [ECOMMERCE_TAGS.EC_PEDIDO_ENTREGUE],
   },
   boleto_generated: {
     tags: [ECOMMERCE_TAGS.EC_GEROU_BOLETO],
-    template: "EC_BOLETO_GERADO",
   },
   boleto_expired: {
     tags: [ECOMMERCE_TAGS.EC_BOLETO_VENCIDO],
-    template: "EC_BOLETO_VENCIDO",
   },
   cart_abandoned: {
     tags: [ECOMMERCE_TAGS.EC_ABANDONOU_CARRINHO],
-    template: "EC_CARRINHO_ABANDONADO",
   },
 };
 
@@ -166,8 +157,6 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
-    const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
     const LI_API_KEY = Deno.env.get("LOJA_INTEGRADA_API_KEY");
     const LI_APP_KEY = Deno.env.get("LOJA_INTEGRADA_APP_KEY");
 
@@ -312,47 +301,12 @@ Deno.serve(async (req) => {
       console.log(`[ecommerce-webhook] Lead CRIADO: ${leadId} | email=${email} | event=${eventType} | pedido=${numeroPedido}`);
     }
 
-    // ─── SellFlux integration ───
-
-    let messageStatus = "skipped";
-    let errorDetails: string | null = null;
-
-    // Fetch full lead for SellFlux payload
-    const { data: fullLead } = await supabase
-      .from("lia_attendances")
-      .select("*")
-      .eq("id", leadId)
-      .single();
-
-    if (fullLead) {
-      const leadRecord = fullLead as Record<string, unknown>;
-
-      // 1. Sync contact to SellFlux (V1 - Leads webhook)
-      if (SELLFLUX_WEBHOOK_LEADS) {
-        const syncResult = await sendLeadToSellFlux(SELLFLUX_WEBHOOK_LEADS, leadRecord);
-        console.log(`[ecommerce-webhook] SellFlux lead sync: ${syncResult.success ? "✅" : "❌"} status=${syncResult.status}`);
-      }
-
-      // 2. Trigger campaign automation (V2 - Campanhas webhook)
-      if (SELLFLUX_WEBHOOK_CAMPANHAS && eventConfig.template && phoneNormalized) {
-        const result = await sendCampaignViaSellFlux(
-          SELLFLUX_WEBHOOK_CAMPANHAS,
-          leadRecord,
-          eventConfig.template
-        );
-        messageStatus = result.success ? "enviado" : "erro";
-        if (!result.success) errorDetails = result.response;
-        console.log(`[ecommerce-webhook] SellFlux campaign ${eventConfig.template}: ${result.success ? "✅" : "❌"}`);
-      }
-    }
-
     // Log the event
     await supabase.from("message_logs").insert({
       lead_id: leadId,
       tipo: `ecommerce_${eventType}`,
       mensagem_preview: `[E-commerce] ${eventType}: ${nome} (${email}) pedido=${numeroPedido || "?"}`.slice(0, 200),
-      status: messageStatus,
-      error_details: errorDetails,
+      status: "recebido",
     });
 
     return new Response(
