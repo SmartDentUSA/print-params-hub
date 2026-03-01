@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
 
       console.log(`[send-waleads] SellFlux Campaign: template=${templateId} phone=${phone}`, { test_mode });
 
-      const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, templateId);
+      const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, sellflux_template_id);
 
       // Log
       await supabase.from("message_logs").insert({
