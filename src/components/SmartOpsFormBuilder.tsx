@@ -90,6 +90,25 @@ export function SmartOpsFormBuilder() {
     fetchForms();
   };
 
+  const openEditMeta = (form: SmartOpsForm) => {
+    setMetaName(form.name);
+    setMetaPurpose(form.form_purpose);
+    setMetaColor(form.theme_color || "");
+    setMetaSuccess(form.success_message || "");
+    setEditingMeta(form);
+  };
+
+  const handleSaveMeta = async () => {
+    if (!editingMeta || !metaName.trim()) return;
+    const { error } = await supabase.from("smartops_forms" as any)
+      .update({ name: metaName.trim(), form_purpose: metaPurpose, theme_color: metaColor || null, success_message: metaSuccess || null } as any)
+      .eq("id", editingMeta.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Formulário atualizado!");
+    setEditingMeta(null);
+    fetchForms();
+  };
+
   const toggleActive = async (form: SmartOpsForm) => {
     await supabase.from("smartops_forms" as any)
       .update({ active: !form.active } as any)
@@ -160,6 +179,40 @@ export function SmartOpsFormBuilder() {
                 </SelectContent>
               </Select>
               <Button onClick={handleCreate} className="w-full">Criar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!editingMeta} onOpenChange={(o) => !o && setEditingMeta(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Formulário</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium">Nome</label>
+                <Input value={metaName} onChange={(e) => setMetaName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Finalidade</label>
+                <Select value={metaPurpose} onValueChange={setMetaPurpose}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PURPOSE_CONFIG).map(([key, cfg]) => (
+                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium">Cor tema (hex)</label>
+                <Input value={metaColor} onChange={(e) => setMetaColor(e.target.value)} placeholder="#3b82f6" />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Mensagem de sucesso</label>
+                <Input value={metaSuccess} onChange={(e) => setMetaSuccess(e.target.value)} placeholder="Obrigado pelo envio!" />
+              </div>
+              <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
         </Dialog>
