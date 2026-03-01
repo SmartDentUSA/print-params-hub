@@ -1631,7 +1631,12 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
     // 7. Send message FROM seller TO lead (creates the seller→lead link)
     if (teamMember.waleads_api_key && attendance.telefone_normalized) {
       try {
-        const sellerFirstName = teamMember.nome_completo.split(" ")[0];
+        const BLOCKED_SELLER_NAMES = ["celular","comercial","vendedor","suporte","cs","principal","teste","bot","atendimento","equipe","contato","whatsapp","telefone"];
+        let sellerFirstName = teamMember.nome_completo.split(" ")[0];
+        if (BLOCKED_SELLER_NAMES.includes(sellerFirstName.toLowerCase())) {
+          const parts = teamMember.nome_completo.split(" ");
+          sellerFirstName = parts.find((p: string, i: number) => i > 0 && !BLOCKED_SELLER_NAMES.includes(p.toLowerCase())) || "equipe BLZ Dental";
+        }
         const leadFirstName = leadName.split(" ")[0];
         const produtoCtx = (attendance as Record<string,unknown>).produto_interesse as string || "";
         const areaCtx = (attendance as Record<string,unknown>).area_atuacao as string || "";
@@ -1640,7 +1645,12 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         // Generate personalized greeting via AI (non-robotic, unique each time)
         let leadMsgToLead = "";
         try {
-          const greetPrompt = `Gere uma mensagem curta (3-4 linhas) de um vendedor chamado ${sellerFirstName} da BLZ Dental para um lead chamado ${leadFirstName}.
+          const greetPrompt = `Gere uma mensagem curta (3-4 linhas) de um vendedor para um lead.
+
+DADOS EXATOS (use exatamente como fornecido, NÃO altere nem invente nomes):
+- Nome do vendedor: ${sellerFirstName}
+- Nome do lead: ${leadFirstName}
+- Empresa: BLZ Dental
 
 CONTEXTO:
 - Pergunta do lead: "${question.slice(0, 150)}"
@@ -1650,7 +1660,7 @@ ${espCtx ? `- Especialidade: ${espCtx}` : ""}
 
 REGRAS OBRIGATÓRIAS:
 1. Comece saudando o lead pelo primeiro nome
-2. O vendedor se apresenta pelo primeiro nome e menciona que é da BLZ Dental
+2. O vendedor se apresenta usando EXATAMENTE o nome "${sellerFirstName}" — NÃO altere, invente ou substitua este nome
 3. Mencione o produto ou tema de interesse (NÃO copie a pergunta literalmente)
 4. Termine convidando para continuar a conversa por ali
 5. Tom: pessoal, direto, profissional
