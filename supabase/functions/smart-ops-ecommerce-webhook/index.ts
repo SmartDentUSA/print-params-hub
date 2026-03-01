@@ -164,8 +164,6 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
-    const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
     const LI_API_KEY = Deno.env.get("LOJA_INTEGRADA_API_KEY");
     const LI_APP_KEY = Deno.env.get("LOJA_INTEGRADA_APP_KEY");
 
