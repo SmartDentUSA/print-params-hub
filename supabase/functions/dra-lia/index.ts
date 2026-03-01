@@ -4539,6 +4539,30 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 notifySellerEscalation(supabase, leadState.email, leadState.name, escalationIntent, resumo, message)
                   .catch(e => console.warn("[escalation] notification error:", e));
               }
+
+              // ── IDK Detection: detect "I don't know" responses post-LLM ──
+              const IDK_PATTERNS = [
+                /não tenho (a |essa )?informação/i,
+                /não está disponível nos meus dados/i,
+                /vou confirmar com o time/i,
+                /não tenho dados/i,
+                /nossa equipe (de especialistas )?(pode|vai) te (informar|ajudar)/i,
+                /not available in my data/i,
+                /I don'?t have (that |this )?information/i,
+                /no tengo (esa |esta )?información/i,
+                /confirmar com o time técnico/i,
+                /equipe de especialistas técnicos/i,
+              ];
+              const isIdkResponse = IDK_PATTERNS.some(p => p.test(fullResponse));
+              if (isIdkResponse && leadState.state === "from_session") {
+                console.log(`[idk-handoff] IDK detected in response for ${leadState.email}: "${fullResponse.slice(0, 120)}..."`);
+                // Fire handoff to seller + message to lead
+                notifySellerHandoff(supabase, leadState.email, leadState.name, message, topic_context || null)
+                  .catch(e => console.warn("[idk-handoff] error:", e));
+                // Track knowledge gap
+                upsertKnowledgeGap(supabase, message, lang, "pending", topic_context)
+                  .catch(e => console.warn("[idk-gap] error:", e));
+              }
               controller.enqueue(encoder.encode("data: [DONE]\n\n"));
               controller.close();
               return;
