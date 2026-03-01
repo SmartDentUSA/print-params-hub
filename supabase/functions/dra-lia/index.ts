@@ -1557,6 +1557,41 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
       })
       .eq("id", attendance.id);
 
+    // 5b. Sync lead data to SellFlux V1 (Leads webhook)
+    const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
+    if (SELLFLUX_WEBHOOK_LEADS) {
+      try {
+        const sellfluxLeadData = {
+          email: leadEmail,
+          nome: leadName,
+          telefone_normalized: attendance.telefone_normalized,
+          area_atuacao: attendance.area_atuacao,
+          especialidade: attendance.especialidade,
+          produto_interesse: attendance.produto_interesse,
+          impressora_modelo: attendance.impressora_modelo,
+          tem_scanner: attendance.tem_scanner,
+          resina_interesse: attendance.resina_interesse,
+          cidade: attendance.cidade,
+          uf: attendance.uf,
+          software_cad: attendance.software_cad,
+          volume_mensal_pecas: attendance.volume_mensal_pecas,
+          principal_aplicacao: attendance.principal_aplicacao,
+          lead_status: "em_atendimento",
+          proprietario_lead_crm: attendance.proprietario_lead_crm,
+          ultima_etapa_comercial: "contato_feito",
+          tags_crm: newTags,
+          score: attendance.score,
+          temperatura_lead: "quente",
+          source: origemCampanha,
+          piperun_id: attendance.piperun_id,
+        };
+        const sfResult = await sendLeadToSellFlux(SELLFLUX_WEBHOOK_LEADS, sellfluxLeadData);
+        console.log(`[handoff] SellFlux V1 lead sync: ${sfResult.success ? "✅" : "❌"} status=${sfResult.status}`);
+      } catch (e) {
+        console.warn(`[handoff] SellFlux V1 sync error:`, e);
+      }
+    }
+
     // 6. Send notification to seller's phone
     if (teamMember.waleads_api_key) {
       try {
