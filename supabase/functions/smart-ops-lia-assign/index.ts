@@ -151,9 +151,10 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    const { email } = await req.json();
-    if (!email) {
-      return new Response(JSON.stringify({ error: "email required" }), {
+    const body = await req.json();
+    const { email, lead_id } = body;
+    if (!email && !lead_id) {
+      return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
