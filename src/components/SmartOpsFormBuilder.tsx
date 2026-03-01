@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Copy, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
 import {
   Select,
@@ -51,6 +51,11 @@ export function SmartOpsFormBuilder() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
+  const [editingMeta, setEditingMeta] = useState<SmartOpsForm | null>(null);
+  const [metaName, setMetaName] = useState("");
+  const [metaPurpose, setMetaPurpose] = useState("");
+  const [metaColor, setMetaColor] = useState("");
+  const [metaSuccess, setMetaSuccess] = useState("");
 
   const fetchForms = async () => {
     const { data, error } = await supabase
@@ -82,6 +87,25 @@ export function SmartOpsFormBuilder() {
     toast.success("Formulário criado!");
     setNewName("");
     setShowCreate(false);
+    fetchForms();
+  };
+
+  const openEditMeta = (form: SmartOpsForm) => {
+    setMetaName(form.name);
+    setMetaPurpose(form.form_purpose);
+    setMetaColor(form.theme_color || "");
+    setMetaSuccess(form.success_message || "");
+    setEditingMeta(form);
+  };
+
+  const handleSaveMeta = async () => {
+    if (!editingMeta || !metaName.trim()) return;
+    const { error } = await supabase.from("smartops_forms" as any)
+      .update({ name: metaName.trim(), form_purpose: metaPurpose, theme_color: metaColor || null, success_message: metaSuccess || null } as any)
+      .eq("id", editingMeta.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Formulário atualizado!");
+    setEditingMeta(null);
     fetchForms();
   };
 
@@ -158,6 +182,40 @@ export function SmartOpsFormBuilder() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={!!editingMeta} onOpenChange={(o) => !o && setEditingMeta(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Formulário</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium">Nome</label>
+                <Input value={metaName} onChange={(e) => setMetaName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Finalidade</label>
+                <Select value={metaPurpose} onValueChange={setMetaPurpose}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(PURPOSE_CONFIG).map(([key, cfg]) => (
+                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-medium">Cor tema (hex)</label>
+                <Input value={metaColor} onChange={(e) => setMetaColor(e.target.value)} placeholder="#3b82f6" />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Mensagem de sucesso</label>
+                <Input value={metaSuccess} onChange={(e) => setMetaSuccess(e.target.value)} placeholder="Obrigado pelo envio!" />
+              </div>
+              <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {loading ? (
@@ -191,6 +249,9 @@ export function SmartOpsFormBuilder() {
                   </td>
                   <td className="p-3">
                     <div className="flex gap-1 justify-end">
+                      <Button variant="ghost" size="icon" onClick={() => openEditMeta(form)} title="Editar nome/config">
+                        <Settings className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => setEditingForm(form)} title="Editar campos">
                         <Pencil className="w-4 h-4" />
                       </Button>

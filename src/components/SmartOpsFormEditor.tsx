@@ -82,6 +82,14 @@ const FIELD_TYPES = [
   { value: "roi_calculator", label: "Calculadora ROI" },
 ];
 
+const CUSTOM_CATEGORIES = [
+  { value: "contato", label: "Contato" },
+  { value: "profissional", label: "Profissional" },
+  { value: "equipamentos", label: "Equipamentos" },
+  { value: "interesse", label: "Interesse" },
+  { value: "sdr", label: "SDR" },
+];
+
 interface FormField {
   id: string;
   form_id: string;
@@ -223,13 +231,35 @@ export function SmartOpsFormEditor({ formId }: { formId: string }) {
             </div>
 
             {field.custom_field_name !== null && (
-              <div>
-                <Label className="text-xs">Nome do campo customizado</Label>
-                <Input
-                  value={field.custom_field_name || ""}
-                  onChange={(e) => updateField(field.id, { custom_field_name: e.target.value })}
-                  placeholder="ex: score_nps, feedback_texto"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Categoria do campo</Label>
+                  <Select
+                    value={(() => {
+                      const opts = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>;
+                      return opts.category || "";
+                    })()}
+                    onValueChange={(v) => {
+                      const currentOpts = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>;
+                      updateField(field.id, { options: { ...currentOpts, category: v } });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione a categoria..." /></SelectTrigger>
+                    <SelectContent>
+                      {CUSTOM_CATEGORIES.map((c) => (
+                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Nome do campo customizado</Label>
+                  <Input
+                    value={field.custom_field_name || ""}
+                    onChange={(e) => updateField(field.id, { custom_field_name: e.target.value })}
+                    placeholder="ex: score_nps, feedback_texto"
+                  />
+                </div>
               </div>
             )}
 
