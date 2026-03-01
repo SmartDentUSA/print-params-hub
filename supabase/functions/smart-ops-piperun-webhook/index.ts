@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { computeTagsFromStage, mergeTagsCrm, sendViaSellFlux, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
+import { computeTagsFromStage, mergeTagsCrm, sendCampaignViaSellFlux, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 import {
   PIPELINES,
   STAGE_TO_ETAPA,
