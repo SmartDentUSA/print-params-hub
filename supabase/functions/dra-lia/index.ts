@@ -1512,7 +1512,7 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
       status: "pendente",
     });
 
-    // 5. Update lia_attendances — add tag and update status
+    // 5. Update lia_attendances — add tag, update status, temperatura, lead_status
     const { data: currentLead } = await supabase
       .from("lia_attendances")
       .select("tags_crm")
@@ -1525,12 +1525,14 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
     await supabase.from("lia_attendances")
       .update({
         tags_crm: newTags,
-        ultima_etapa_comercial: attendance.ultima_etapa_comercial || "handoff_lia_vendedor",
+        ultima_etapa_comercial: "handoff_lia_vendedor",
+        temperatura_lead: "quente",
+        lead_status: attendance.piperun_id ? (attendance as Record<string,unknown>).lead_status as string || "em_atendimento" : "em_atendimento",
         updated_at: new Date().toISOString(),
       })
       .eq("id", attendance.id);
 
-    // 6. Send via WaLeads to seller's phone
+    // 6. Send notification to seller's phone
     if (teamMember.waleads_api_key) {
       try {
         const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
@@ -1563,6 +1565,60 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         console.log(`[handoff] ${ok ? "✓" : "✗"} Notification sent to ${teamMember.nome_completo} for lead ${leadName}`);
       } catch (e) {
         console.warn(`[handoff] WaLeads send error:`, e);
+      }
+    }
+
+    // 7. Send message FROM seller TO lead (creates the seller→lead link)
+    if (teamMember.waleads_api_key && attendance.telefone_normalized) {
+      try {
+        const sellerFirstName = teamMember.nome_completo.split(" ")[0];
+        const leadMsgToLead = `Olá ${leadName.split(" ")[0]}! Aqui é o(a) ${sellerFirstName} da BLZ Dental. 😊\nVi que você tem uma dúvida sobre "${question.slice(0, 100)}${question.length > 100 ? "..." : ""}".\nVou buscar essa informação e te retorno em breve!\nQualquer coisa, estou à disposição. 🦷`;
+
+        await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            team_member_id: teamMember.id,
+            phone: attendance.telefone_normalized,
+            tipo: "text",
+            message: leadMsgToLead,
+            lead_id: attendance.id,
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+
+        console.log(`[handoff] ✓ Seller→Lead message sent: ${teamMember.nome_completo} → ${leadName} (${attendance.telefone_normalized})`);
+
+        // Log seller→lead message
+        await supabase.from("message_logs").insert({
+          lead_id: attendance.id,
+          team_member_id: teamMember.id,
+          tipo: "handoff_seller_to_lead",
+          mensagem_preview: leadMsgToLead.slice(0, 200),
+          whatsapp_number: attendance.telefone_normalized,
+          status: "enviado",
+        });
+      } catch (e) {
+        console.warn(`[handoff] Seller→Lead WaLeads send error:`, e);
+      }
+    }
+
+    // 8. Sync with PipeRun if lead has piperun_id
+    if (attendance.piperun_id) {
+      try {
+        await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?pipeline_id=${(attendance as Record<string,unknown>).piperun_pipeline_id || ""}&full=false`, {
+          headers: {
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        console.log(`[handoff] PipeRun sync triggered for piperun_id=${attendance.piperun_id}`);
+      } catch (e) {
+        console.warn(`[handoff] PipeRun sync error:`, e);
       }
     }
 
