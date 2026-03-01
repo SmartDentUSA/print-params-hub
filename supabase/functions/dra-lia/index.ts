@@ -1635,12 +1635,27 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         let sellerFirstName = teamMember.nome_completo.split(" ")[0];
         if (BLOCKED_SELLER_NAMES.includes(sellerFirstName.toLowerCase())) {
           const parts = teamMember.nome_completo.split(" ");
-          sellerFirstName = parts.find((p: string, i: number) => i > 0 && !BLOCKED_SELLER_NAMES.includes(p.toLowerCase())) || "equipe BLZ Dental";
+          sellerFirstName = parts.find((p: string, i: number) => i > 0 && !BLOCKED_SELLER_NAMES.includes(p.toLowerCase())) || "equipe Smart Dent";
         }
         const leadFirstName = leadName.split(" ")[0];
         const produtoCtx = (attendance as Record<string,unknown>).produto_interesse as string || "";
+        const impressoraCtx = (attendance as Record<string,unknown>).impressora_modelo as string || "";
+        const resinaCtx = (attendance as Record<string,unknown>).resina_interesse as string || "";
         const areaCtx = (attendance as Record<string,unknown>).area_atuacao as string || "";
         const espCtx = (attendance as Record<string,unknown>).especialidade as string || "";
+
+        // Build enriched product description
+        let produtoDetalhado = produtoCtx;
+        if (impressoraCtx && impressoraCtx.toLowerCase() !== produtoCtx.toLowerCase()) {
+          produtoDetalhado = `${produtoCtx} (modelo ${impressoraCtx})`.trim();
+        }
+        if (!produtoDetalhado && impressoraCtx) produtoDetalhado = `impressora 3D ${impressoraCtx}`;
+        if (resinaCtx) produtoDetalhado += produtoDetalhado ? `, resina ${resinaCtx}` : `resina ${resinaCtx}`;
+
+        // Filter out non-dental area/specialty values
+        const VALID_DENTAL_TERMS = ["ortodontia","prótese","implantodontia","endodontia","periodontia","dentística","odontopediatria","cirurgia","radiologia odontológica","clínica geral","estética dental","reabilitação oral","harmonização","odontogeriatria","disfunção temporomandibular","prótese dentária","clínica odontológica","laboratório","protético","técnico em prótese"];
+        const areaFiltered = areaCtx && VALID_DENTAL_TERMS.some(t => areaCtx.toLowerCase().includes(t)) ? areaCtx : "";
+        const espFiltered = espCtx && VALID_DENTAL_TERMS.some(t => espCtx.toLowerCase().includes(t)) ? espCtx : "";
 
         // Generate personalized greeting via AI (non-robotic, unique each time)
         let leadMsgToLead = "";
@@ -1650,23 +1665,25 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
 DADOS EXATOS (use exatamente como fornecido, NÃO altere nem invente nomes):
 - Nome do vendedor: ${sellerFirstName}
 - Nome do lead: ${leadFirstName}
-- Empresa: BLZ Dental
+- Empresa: Smart Dent
 
 CONTEXTO:
 - Pergunta do lead: "${question.slice(0, 150)}"
-${produtoCtx ? `- Produto de interesse: ${produtoCtx}` : ""}
-${areaCtx ? `- Área de atuação: ${areaCtx}` : ""}
-${espCtx ? `- Especialidade: ${espCtx}` : ""}
+${produtoDetalhado ? `- Produto de interesse: ${produtoDetalhado}` : ""}
+${areaFiltered ? `- Área de atuação: ${areaFiltered}` : ""}
+${espFiltered ? `- Especialidade: ${espFiltered}` : ""}
 
 REGRAS OBRIGATÓRIAS:
 1. Comece saudando o lead pelo primeiro nome
 2. O vendedor se apresenta usando EXATAMENTE o nome "${sellerFirstName}" — NÃO altere, invente ou substitua este nome
-3. Mencione o produto ou tema de interesse (NÃO copie a pergunta literalmente)
+3. Mencione o produto ou tema de interesse de forma natural (NÃO copie a pergunta literalmente)
 4. Termine convidando para continuar a conversa por ali
 5. Tom: pessoal, direto, profissional
 6. PROIBIDO: emojis excessivos (máximo 1), frases genéricas como "estou à disposição", "qualquer coisa", "não hesite"
 7. PROIBIDO: copiar a pergunta do lead entre aspas
-8. Retorne APENAS a mensagem, sem explicações`;
+8. Use área de atuação e especialidade SOMENTE se foram fornecidos acima. Se não foram fornecidos, NÃO os mencione.
+9. NÃO invente dados, especialidades, áreas ou nomes de produtos que não foram fornecidos acima.
+10. Retorne APENAS a mensagem, sem explicações`;
 
           const greetResp = await fetch(CHAT_API, {
             method: "POST",
@@ -1677,7 +1694,7 @@ REGRAS OBRIGATÓRIAS:
             body: JSON.stringify({
               model: "google/gemini-2.5-flash-lite",
               messages: [{ role: "user", content: greetPrompt }],
-              temperature: 0.9,
+              temperature: 0.6,
               max_tokens: 200,
             }),
             signal: AbortSignal.timeout(4000),
@@ -1698,7 +1715,7 @@ REGRAS OBRIGATÓRIAS:
         // Fallback if AI generation failed
         if (!leadMsgToLead) {
           const tema = produtoCtx || question.slice(0, 80);
-          leadMsgToLead = `Olá, ${leadFirstName}! Aqui é o ${sellerFirstName}, da BLZ Dental.\nAcabei de receber sua solicitação sobre ${tema}.\nPodemos continuar por aqui?`;
+          leadMsgToLead = `Olá, ${leadFirstName}! Aqui é o ${sellerFirstName}, da Smart Dent.\nAcabei de receber sua solicitação sobre ${tema}.\nPodemos continuar por aqui?`;
           console.log(`[handoff] Using fallback greeting for ${leadFirstName}`);
         }
 
