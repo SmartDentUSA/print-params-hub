@@ -186,8 +186,14 @@ export default function PublicFormPage() {
   return (
     <div className="min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
       <div className="w-full max-w-lg">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">{form.name}</h1>
+        <div className="mb-6 space-y-2">
+          <h1 className="text-2xl font-bold">{form.title || form.name}</h1>
+          {form.subtitle && (
+            <p className="text-lg text-muted-foreground">{form.subtitle}</p>
+          )}
+          {form.description && (
+            <p className="text-sm text-muted-foreground">{form.description}</p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
