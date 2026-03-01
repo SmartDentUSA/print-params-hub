@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
+    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json();
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
 
     if (leadId && leadData) {
       // Hot Lead Alert: notify seller for immediate/future interest
-      if ((intent === "interesse_imediato" || intent === "interesse_futuro") && SELLFLUX_API_TOKEN) {
+      if ((intent === "interesse_imediato" || intent === "interesse_futuro") && SELLFLUX_WEBHOOK_CAMPANHAS) {
         const ownerName = (leadData.proprietario_lead_crm as string) || "Sem owner";
         
         // Find team member to notify

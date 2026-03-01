@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { computeTagsFromStage, mergeTagsCrm, sendViaSellFlux, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
+import { computeTagsFromStage, mergeTagsCrm, sendCampaignViaSellFlux, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 import {
   PIPELINES,
   STAGE_TO_ETAPA,
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const MANYCHAT_API_KEY = Deno.env.get("MANYCHAT_API_KEY");
-    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
+    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const payload = await req.json();
@@ -400,7 +400,7 @@ Deno.serve(async (req) => {
     let messageStatus = "skipped";
     let errorDetails: string | null = null;
 
-    if (SELLFLUX_API_TOKEN && leadTelefone && !currentLead) {
+    if (SELLFLUX_WEBHOOK_CAMPANHAS && leadTelefone && !currentLead) {
       const { data: fullLead } = await supabase
         .from("lia_attendances")
         .select("*")
@@ -408,7 +408,7 @@ Deno.serve(async (req) => {
         .single();
 
       if (fullLead) {
-        const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, fullLead as Record<string, unknown>, "BOAS_VINDAS_NOVO_LEAD");
+        const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, fullLead as Record<string, unknown>, "BOAS_VINDAS_NOVO_LEAD");
         messageStatus = result.success ? "enviado" : "erro";
         if (!result.success) errorDetails = result.response;
       }

@@ -151,21 +151,29 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
   try {
-    const { email } = await req.json();
-    if (!email) {
-      return new Response(JSON.stringify({ error: "email required" }), {
+    const body = await req.json();
+    const { email, lead_id } = body;
+    if (!email && !lead_id) {
+      return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[lia-assign] Processing lead: ${email}`);
+    console.log(`[lia-assign] Processing lead: ${email || lead_id}`);
 
     // ── 1. Fetch lead ──
-    const { data: lead, error: leadErr } = await supabase
+    let query = supabase
       .from("lia_attendances")
-      .select("*")
-      .eq("email", email.trim().toLowerCase())
+      .select("*");
+    
+    if (lead_id) {
+      query = query.eq("id", lead_id);
+    } else {
+      query = query.eq("email", email.trim().toLowerCase());
+    }
+    
+    const { data: lead, error: leadErr } = await query
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
