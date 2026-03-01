@@ -1635,12 +1635,27 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
         let sellerFirstName = teamMember.nome_completo.split(" ")[0];
         if (BLOCKED_SELLER_NAMES.includes(sellerFirstName.toLowerCase())) {
           const parts = teamMember.nome_completo.split(" ");
-          sellerFirstName = parts.find((p: string, i: number) => i > 0 && !BLOCKED_SELLER_NAMES.includes(p.toLowerCase())) || "equipe BLZ Dental";
+          sellerFirstName = parts.find((p: string, i: number) => i > 0 && !BLOCKED_SELLER_NAMES.includes(p.toLowerCase())) || "equipe Smart Dent";
         }
         const leadFirstName = leadName.split(" ")[0];
         const produtoCtx = (attendance as Record<string,unknown>).produto_interesse as string || "";
+        const impressoraCtx = (attendance as Record<string,unknown>).impressora_modelo as string || "";
+        const resinaCtx = (attendance as Record<string,unknown>).resina_interesse as string || "";
         const areaCtx = (attendance as Record<string,unknown>).area_atuacao as string || "";
         const espCtx = (attendance as Record<string,unknown>).especialidade as string || "";
+
+        // Build enriched product description
+        let produtoDetalhado = produtoCtx;
+        if (impressoraCtx && impressoraCtx.toLowerCase() !== produtoCtx.toLowerCase()) {
+          produtoDetalhado = `${produtoCtx} (modelo ${impressoraCtx})`.trim();
+        }
+        if (!produtoDetalhado && impressoraCtx) produtoDetalhado = `impressora 3D ${impressoraCtx}`;
+        if (resinaCtx) produtoDetalhado += produtoDetalhado ? `, resina ${resinaCtx}` : `resina ${resinaCtx}`;
+
+        // Filter out non-dental area/specialty values
+        const VALID_DENTAL_TERMS = ["ortodontia","prótese","implantodontia","endodontia","periodontia","dentística","odontopediatria","cirurgia","radiologia odontológica","clínica geral","estética dental","reabilitação oral","harmonização","odontogeriatria","disfunção temporomandibular","prótese dentária","clínica odontológica","laboratório","protético","técnico em prótese"];
+        const areaFiltered = areaCtx && VALID_DENTAL_TERMS.some(t => areaCtx.toLowerCase().includes(t)) ? areaCtx : "";
+        const espFiltered = espCtx && VALID_DENTAL_TERMS.some(t => espCtx.toLowerCase().includes(t)) ? espCtx : "";
 
         // Generate personalized greeting via AI (non-robotic, unique each time)
         let leadMsgToLead = "";
