@@ -1665,7 +1665,7 @@ ${attendance.ultima_etapa_comercial ? `📊 Etapa CRM: ${attendance.ultima_etapa
 DADOS EXATOS (use exatamente como fornecido, NÃO altere nem invente nomes):
 - Nome do vendedor: ${sellerFirstName}
 - Nome do lead: ${leadFirstName}
-- Empresa: BLZ Dental
+- Empresa: Smart Dent
 
 CONTEXTO:
 - Pergunta do lead: "${question.slice(0, 150)}"
