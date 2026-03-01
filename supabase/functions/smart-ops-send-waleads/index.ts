@@ -48,8 +48,8 @@ Deno.serve(async (req) => {
     }
 
     // ─── SellFlux Campaign path (preferred when webhook URL + template available) ───
-    const templateId = sellflux_template_id || message;
-    const useSellFlux = SELLFLUX_WEBHOOK_CAMPANHAS && templateId && phone;
+    // SellFlux ONLY when an explicit template ID is provided (not free-text messages)
+    const useSellFlux = SELLFLUX_WEBHOOK_CAMPANHAS && sellflux_template_id && phone;
 
     if (useSellFlux) {
       // Ensure leadData has phone
@@ -58,14 +58,14 @@ Deno.serve(async (req) => {
 
       console.log(`[send-waleads] SellFlux Campaign: template=${templateId} phone=${phone}`, { test_mode });
 
-      const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, templateId);
+      const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, sellflux_template_id);
 
       // Log
       await supabase.from("message_logs").insert({
         lead_id: lead_id || null,
         team_member_id: team_member_id || null,
         tipo: test_mode ? `sellflux_${tipo}_test` : `sellflux_${tipo}`,
-        mensagem_preview: `[SellFlux] template: ${templateId}`.slice(0, 200),
+        mensagem_preview: `[SellFlux] template: ${sellflux_template_id}`.slice(0, 200),
         status: result.success ? "enviado" : "erro",
         error_details: result.success ? null : result.response,
       });
