@@ -3365,8 +3365,8 @@ Campos:
     }
 
     // 0b. Support question guard — redirect to WhatsApp without RAG
-    // Also triggers directly when topic_context === "support"
-    if (isSupportQuestion(message) || topic_context === "support") {
+    // Only triggers on keyword match, NOT on topic_context === "support" (which would block all subsequent messages)
+    if (isSupportQuestion(message)) {
       const supportText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
