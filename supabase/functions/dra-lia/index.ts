@@ -1669,19 +1669,21 @@ DADOS EXATOS (use exatamente como fornecido, NÃO altere nem invente nomes):
 
 CONTEXTO:
 - Pergunta do lead: "${question.slice(0, 150)}"
-${produtoCtx ? `- Produto de interesse: ${produtoCtx}` : ""}
-${areaCtx ? `- Área de atuação: ${areaCtx}` : ""}
-${espCtx ? `- Especialidade: ${espCtx}` : ""}
+${produtoDetalhado ? `- Produto de interesse: ${produtoDetalhado}` : ""}
+${areaFiltered ? `- Área de atuação: ${areaFiltered}` : ""}
+${espFiltered ? `- Especialidade: ${espFiltered}` : ""}
 
 REGRAS OBRIGATÓRIAS:
 1. Comece saudando o lead pelo primeiro nome
 2. O vendedor se apresenta usando EXATAMENTE o nome "${sellerFirstName}" — NÃO altere, invente ou substitua este nome
-3. Mencione o produto ou tema de interesse (NÃO copie a pergunta literalmente)
+3. Mencione o produto ou tema de interesse de forma natural (NÃO copie a pergunta literalmente)
 4. Termine convidando para continuar a conversa por ali
 5. Tom: pessoal, direto, profissional
 6. PROIBIDO: emojis excessivos (máximo 1), frases genéricas como "estou à disposição", "qualquer coisa", "não hesite"
 7. PROIBIDO: copiar a pergunta do lead entre aspas
-8. Retorne APENAS a mensagem, sem explicações`;
+8. Use área de atuação e especialidade SOMENTE se foram fornecidos acima. Se não foram fornecidos, NÃO os mencione.
+9. NÃO invente dados, especialidades, áreas ou nomes de produtos que não foram fornecidos acima.
+10. Retorne APENAS a mensagem, sem explicações`;
 
           const greetResp = await fetch(CHAT_API, {
             method: "POST",
