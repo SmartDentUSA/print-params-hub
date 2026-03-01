@@ -4536,6 +4536,7 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
               // ── IDK Detection: detect "I don't know" responses post-LLM ──
               const IDK_PATTERNS = [
+                // Legacy defensive patterns (kept as fallback)
                 /não tenho (a |essa )?informação/i,
                 /não está disponível nos meus dados/i,
                 /vou confirmar com o time/i,
@@ -4546,6 +4547,13 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 /no tengo (esa |esta )?información/i,
                 /confirmar com o time técnico/i,
                 /equipe de especialistas técnicos/i,
+                // New proactive tone patterns
+                /acionando um especialista/i,
+                /vai te chamar no WhatsApp/i,
+                /explicar cada detalhe/i,
+                /reaching out to a specialist/i,
+                /contactando a un especialista/i,
+                /acionando nosso time técnico/i,
               ];
               const isIdkResponse = IDK_PATTERNS.some(p => p.test(fullResponse));
               if (isIdkResponse && leadState.state === "from_session") {
