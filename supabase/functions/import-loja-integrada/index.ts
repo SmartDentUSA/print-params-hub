@@ -271,6 +271,22 @@ serve(async (req) => {
 
     const apiProduct = await response.json();
 
+    // Buscar preço via endpoint separado (a API de produto não retorna preço)
+    let productPrice = 0;
+    try {
+      const priceEndpoint = `/produto_preco/${apiProduct.id}/`;
+      const priceResponse = await fetchWithAuth(priceEndpoint, apiKey, appKey || null);
+      if (priceResponse.ok) {
+        const priceData = await priceResponse.json();
+        productPrice = parseFloat(priceData.preco_promocional || priceData.preco_cheio || priceData.preco || 0) || 0;
+        console.log(`💰 Preço obtido: R$ ${productPrice}`);
+      } else {
+        console.warn(`⚠️ Não foi possível obter preço: ${priceResponse.status}`);
+      }
+    } catch (priceErr) {
+      console.warn('⚠️ Erro ao buscar preço:', priceErr);
+    }
+
     // Inicializar Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -288,10 +304,10 @@ serve(async (req) => {
     const resinData = {
       name: productName,
       manufacturer: apiProduct.marca?.nome || apiProduct.fornecedor || '',
-      color: '', // Sempre vazio - admin preenche manualmente
-      type: 'standard', // Padrão
+      color: '',
+      type: 'standard',
       description: (apiProduct.descricao_completa || apiProduct.descricao || '').trim(),
-      price: parseFloat(apiProduct.preco_promocional || apiProduct.preco_cheio || apiProduct.preco || 0) || 0,
+      price: productPrice,
       image_url: finalImageUrl,
       images_gallery: (apiProduct.imagens || []).map((img: any, index: number) => ({
         url: img.url || img.grande || img.media || '',
