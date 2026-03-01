@@ -110,6 +110,9 @@ export function SmartOpsTab() {
         <TabsContent value="formularios">
           <SmartOpsFormBuilder key={`forms-${refreshKey}`} />
         </TabsContent>
+        <TabsContent value="modelos-ia">
+          <SmartOpsModelCompare />
+        </TabsContent>
       </Tabs>
     </div>
   );
