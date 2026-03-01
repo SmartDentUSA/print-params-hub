@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[lia-assign] Processing lead: ${email}`);
+    console.log(`[lia-assign] Processing lead: ${email || lead_id}`);
 
     // ── 1. Fetch lead ──
     const { data: lead, error: leadErr } = await supabase
