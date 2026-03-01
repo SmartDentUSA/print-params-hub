@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { replaceVariables, sendViaSellFlux, formatPhoneForWaLeads } from "../_shared/sellflux-field-map.ts";
+import { replaceVariables, sendCampaignViaSellFlux, formatPhoneForWaLeads } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const SELLFLUX_API_TOKEN = Deno.env.get("SELLFLUX_API_TOKEN");
+    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json();
@@ -47,18 +47,18 @@ Deno.serve(async (req) => {
       if (lead) leadData = lead as Record<string, unknown>;
     }
 
-    // ─── SellFlux path (preferred when token + template_id available) ───
+    // ─── SellFlux Campaign path (preferred when webhook URL + template available) ───
     const templateId = sellflux_template_id || message;
-    const useSellFlux = SELLFLUX_API_TOKEN && templateId && phone;
+    const useSellFlux = SELLFLUX_WEBHOOK_CAMPANHAS && templateId && phone;
 
     if (useSellFlux) {
       // Ensure leadData has phone
       if (!leadData.telefone_normalized) leadData.telefone_normalized = phone;
       if (!leadData.nome) leadData.nome = "Lead";
 
-      console.log(`[send-waleads] SellFlux: template=${templateId} phone=${phone}`, { test_mode });
+      console.log(`[send-waleads] SellFlux Campaign: template=${templateId} phone=${phone}`, { test_mode });
 
-      const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, leadData, templateId);
+      const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, templateId);
 
       // Log
       await supabase.from("message_logs").insert({

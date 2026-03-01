@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -253,6 +254,37 @@ Deno.serve(async (req) => {
       }).catch(e => console.warn("[ingest-lead] cognitive-analysis fire-and-forget error:", e));
     } catch (e) {
       console.warn("[ingest-lead] cognitive-analysis call failed:", e);
+    }
+
+    // ─── Sync lead to SellFlux ───
+    const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
+    const SELLFLUX_WEBHOOK_CAMPANHAS = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
+    const sellfluxData: Record<string, unknown> = {
+      ...incomingData,
+      ...(existingLead || {}),
+      nome: incomingData.nome || existingLead?.nome,
+      email: incomingData.email || existingLead?.email,
+      telefone_normalized: incomingData.telefone_normalized || existingLead?.telefone_normalized,
+    };
+
+    // V2 webhook (Campanhas) — creates/updates contact + triggers automation
+    if (SELLFLUX_WEBHOOK_CAMPANHAS) {
+      try {
+        const sfResult = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, sellfluxData, "ingest_lead");
+        console.log("[ingest-lead] SellFlux campaign sync:", sfResult.success ? "OK" : "FAIL", sfResult.status);
+      } catch (e) {
+        console.warn("[ingest-lead] SellFlux campaign sync error:", e);
+      }
+    }
+
+    // V1 webhook (Leads) — updates existing contact data
+    if (SELLFLUX_WEBHOOK_LEADS && existingLead) {
+      try {
+        const sfResult = await sendLeadToSellFlux(SELLFLUX_WEBHOOK_LEADS, sellfluxData);
+        console.log("[ingest-lead] SellFlux lead update:", sfResult.success ? "OK" : "FAIL", sfResult.status);
+      } catch (e) {
+        console.warn("[ingest-lead] SellFlux lead update error:", e);
+      }
     }
 
     return new Response(JSON.stringify({

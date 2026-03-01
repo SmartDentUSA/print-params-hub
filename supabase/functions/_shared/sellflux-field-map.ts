@@ -270,68 +270,115 @@ export function matchPhoneLoose(a: string, b: string): boolean {
   return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
 }
 
-// ─── SellFlux API helpers ───
+// ─── SellFlux Webhook helpers ───
 
-const SELLFLUX_API_BASE = "https://api.sellflux.com/v1";
-
-export function buildSellFluxPayload(
-  lead: Record<string, unknown>,
-  templateId: string
-): Record<string, unknown> {
-  return {
-    template_id: templateId,
-    contact: {
-      phone: lead.telefone_normalized || null,
-      name: lead.nome || null,
-      email: lead.email || null,
-    },
-    custom_fields: {
-      "atual-id-pipe": lead.piperun_id || "",
-      proprietario: lead.proprietario_lead_crm || "",
-      area_atuacao: lead.area_atuacao || "",
-      especialidade: lead.especialidade || "",
-      produto_interesse: lead.produto_interesse || "",
-      scanner: lead.tem_scanner || "",
-      impressora: lead.impressora_modelo || "",
-      "bought-resin": lead.resina_interesse || "",
-      cidade: lead.cidade || "",
-      uf: lead.uf || "",
-      score: String(lead.score || 0),
-      temperatura: lead.temperatura_lead || "",
-      status_lead: lead.lead_status || "",
-      etapa_comercial: lead.ultima_etapa_comercial || "",
-      software_cad: lead.software_cad || "",
-      volume_pecas: lead.volume_mensal_pecas || "",
-      aplicacao: lead.principal_aplicacao || "",
-      valor_oportunidade: String(lead.valor_oportunidade || ""),
-      resumo_ia: String(lead.resumo_historico_ia || "").slice(0, 200),
-    },
-    tags: (lead.tags_crm as string[]) || [],
+/**
+ * Build lead fields for SellFlux webhook query params (V1 - Leads)
+ */
+export function buildSellFluxLeadParams(lead: Record<string, unknown>): Record<string, string> {
+  const params: Record<string, string> = {};
+  const set = (key: string, val: unknown) => {
+    if (val !== null && val !== undefined && val !== "") params[key] = String(val);
   };
+  set("email", lead.email);
+  set("nome", lead.nome);
+  set("phone", lead.telefone_normalized);
+  set("area_atuacao", lead.area_atuacao);
+  set("especialidade", lead.especialidade);
+  set("produto_interesse", lead.produto_interesse);
+  set("impressora", lead.impressora_modelo);
+  set("scanner", lead.tem_scanner);
+  set("resina", lead.resina_interesse);
+  set("cidade", lead.cidade);
+  set("uf", lead.uf);
+  set("source", lead.source);
+  set("score", lead.score);
+  set("status_lead", lead.lead_status);
+  set("proprietario", lead.proprietario_lead_crm);
+  set("piperun_id", lead.piperun_id);
+  set("software_cad", lead.software_cad);
+  set("volume_pecas", lead.volume_mensal_pecas);
+  set("aplicacao", lead.principal_aplicacao);
+  return params;
 }
 
-export async function sendViaSellFlux(
-  apiToken: string,
-  lead: Record<string, unknown>,
-  templateId: string
+/**
+ * Send lead to SellFlux via V1 webhook (GET with query params)
+ * Used to sync/create contacts in SellFlux
+ */
+export async function sendLeadToSellFlux(
+  webhookUrl: string,
+  lead: Record<string, unknown>
 ): Promise<{ success: boolean; status: number; response: string }> {
-  const payload = buildSellFluxPayload(lead, templateId);
-
   try {
-    const res = await fetch(`${SELLFLUX_API_BASE}/messages/send`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    const url = new URL(webhookUrl);
+    const params = buildSellFluxLeadParams(lead);
+    for (const [k, v] of Object.entries(params)) {
+      url.searchParams.set(k, v);
+    }
+    const res = await fetch(url.toString(), { method: "GET" });
     const text = await res.text();
+    console.log(`[sellflux] Lead webhook response: status=${res.status} body=${text.slice(0, 300)}`);
     return { success: res.ok, status: res.status, response: text.slice(0, 500) };
   } catch (err) {
     return { success: false, status: 0, response: String(err) };
   }
 }
+
+/**
+ * Build campaign payload for SellFlux V2 webhook (POST with JSON)
+ */
+export function buildSellFluxCampaignPayload(
+  lead: Record<string, unknown>,
+  templateId?: string
+): Record<string, unknown> {
+  return {
+    email: lead.email || null,
+    phone: lead.telefone_normalized || null,
+    nome: lead.nome || null,
+    ...(templateId ? { template_id: templateId } : {}),
+    area_atuacao: lead.area_atuacao || "",
+    especialidade: lead.especialidade || "",
+    produto_interesse: lead.produto_interesse || "",
+    impressora: lead.impressora_modelo || "",
+    scanner: lead.tem_scanner || "",
+    resina: lead.resina_interesse || "",
+    cidade: lead.cidade || "",
+    uf: lead.uf || "",
+    score: String(lead.score || 0),
+    status_lead: lead.lead_status || "",
+    proprietario: lead.proprietario_lead_crm || "",
+    etapa_comercial: lead.ultima_etapa_comercial || "",
+    tags: (lead.tags_crm as string[]) || [],
+  };
+}
+
+/**
+ * Send campaign/automation trigger to SellFlux via V2 webhook (POST with JSON)
+ */
+export async function sendCampaignViaSellFlux(
+  webhookUrl: string,
+  lead: Record<string, unknown>,
+  templateId?: string
+): Promise<{ success: boolean; status: number; response: string }> {
+  const payload = buildSellFluxCampaignPayload(lead, templateId);
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const text = await res.text();
+    console.log(`[sellflux] Campaign webhook response: status=${res.status} body=${text.slice(0, 300)}`);
+    return { success: res.ok, status: res.status, response: text.slice(0, 500) };
+  } catch (err) {
+    return { success: false, status: 0, response: String(err) };
+  }
+}
+
+// Legacy alias for backward compatibility
+export const sendViaSellFlux = sendCampaignViaSellFlux;
+export const buildSellFluxPayload = buildSellFluxCampaignPayload;
 
 // ─── E-commerce product name → TAG mapping ───
 
