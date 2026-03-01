@@ -417,6 +417,28 @@ Deno.serve(async (req) => {
         insertData.produto_interesse = productNames.join(", ").slice(0, 200);
       }
 
+      // ─── Loja Integrada specific fields ───
+      if (liClienteId) insertData.lojaintegrada_cliente_id = liClienteId;
+      if (liClienteObs) insertData.lojaintegrada_cliente_obs = liClienteObs;
+      if (liCupomDesconto) insertData.lojaintegrada_cupom_desconto = liCupomDesconto;
+      if (liDataNascimento) insertData.lojaintegrada_data_nascimento = liDataNascimento;
+      if (liSexo) insertData.lojaintegrada_sexo = liSexo;
+      if (liEndereco) insertData.lojaintegrada_endereco = liEndereco;
+      if (liNumero) insertData.lojaintegrada_numero = liNumero;
+      if (liComplemento) insertData.lojaintegrada_complemento = liComplemento;
+      if (liBairro) insertData.lojaintegrada_bairro = liBairro;
+      if (liCep) insertData.lojaintegrada_cep = liCep;
+      if (liReferencia) insertData.lojaintegrada_referencia = liReferencia;
+      if (liPedidoNumero) insertData.lojaintegrada_ultimo_pedido_numero = liPedidoNumero;
+      if (liPedidoData) insertData.lojaintegrada_ultimo_pedido_data = liPedidoData;
+      if (liPedidoValor) insertData.lojaintegrada_ultimo_pedido_valor = liPedidoValor;
+      if (liPedidoStatus) insertData.lojaintegrada_ultimo_pedido_status = liPedidoStatus;
+      if (liFormaPagamento) insertData.lojaintegrada_forma_pagamento = liFormaPagamento;
+      if (liFormaEnvio) insertData.lojaintegrada_forma_envio = liFormaEnvio;
+      if (items.length > 0) insertData.lojaintegrada_itens_json = items;
+      if (liUtmCampaign) insertData.lojaintegrada_utm_campaign = liUtmCampaign;
+      insertData.lojaintegrada_updated_at = new Date().toISOString();
+
       const { data: newLead, error: insertError } = await supabase
         .from("lia_attendances")
         .insert(insertData)
