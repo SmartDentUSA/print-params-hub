@@ -26,6 +26,9 @@ interface FormData {
   theme_color: string | null;
   success_message: string | null;
   success_redirect_url: string | null;
+  title: string | null;
+  subtitle: string | null;
+  description: string | null;
 }
 
 export default function PublicFormPage() {
