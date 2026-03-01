@@ -4352,6 +4352,18 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
             } catch { /* partial JSON */ }
           }
         }
+        // Safety net: if stream ended without [DONE], save whatever we collected
+        if (fullResponse && interactionId) {
+          console.warn(`[dra-lia] Stream ended without [DONE] — saving partial response (${fullResponse.length} chars)`);
+          try {
+            await supabase
+              .from("agent_interactions")
+              .update({ agent_response: fullResponse })
+              .eq("id", interactionId);
+          } catch (saveErr) {
+            console.error("[dra-lia] Failed to save partial response:", saveErr);
+          }
+        }
         controller.close();
       },
     });
