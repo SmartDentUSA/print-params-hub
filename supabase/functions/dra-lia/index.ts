@@ -3719,6 +3719,18 @@ Campos:
     if (!hasResults && topic_context !== "commercial") {
       const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
 
+      // Fire-and-forget: notify seller via WhatsApp about unanswered question
+      const leadEmail = (sessionEntities?.lead_email as string) || null;
+      const leadName = (sessionEntities?.lead_name as string) || null;
+      if (leadEmail && leadName) {
+        notifySellerHandoff(supabase, leadEmail, leadName, message, topic_context || null)
+          .catch(e => console.warn("[fallback] Seller handoff error:", e));
+      }
+
+      // Track knowledge gap
+      upsertKnowledgeGap(supabase, message, lang, "pending", topic_context)
+        .catch(e => console.warn("[fallback] Knowledge gap error:", e));
+
       let fallbackInteractionId: string | undefined;
       try {
         const { data: interaction } = await supabase
@@ -3738,11 +3750,7 @@ Campos:
         fallbackInteractionId = interaction?.id;
       } catch (e) {
         console.error("Failed to insert agent_interaction (fallback):", e);
-        // fail silently — stream continues regardless
       }
-
-      // Knowledge gap tracking moved to summarize_session (extracts from PENDENCIAS in summary)
-      // Old: await upsertKnowledgeGap(supabase, message, lang, "pending", topic_context);
 
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
