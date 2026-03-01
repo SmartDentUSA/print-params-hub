@@ -278,7 +278,7 @@ Deno.serve(async (req) => {
     }
 
     // V1 webhook (Leads) — updates existing contact data
-    if (SELLFLUX_WEBHOOK_LEADS && existingLead) {
+    if (SELLFLUX_WEBHOOK_LEADS) {
       try {
         const sfResult = await sendLeadToSellFlux(SELLFLUX_WEBHOOK_LEADS, sellfluxData);
         console.log("[ingest-lead] SellFlux lead update:", sfResult.success ? "OK" : "FAIL", sfResult.status);
