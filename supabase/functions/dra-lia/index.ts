@@ -4628,14 +4628,20 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                 /contactando a un especialista/i,
                 /acionando nosso time técnico/i,
                 // Expanded: LLM synonym evasions (Mar/2026)
-                /não (especificam?|detalham?|listam?|mencionam?)/i,
+                /não\s+(estão\s+)?(especificad[ao]s?|detalhadad[ao]s?|listad[ao]s?|mencionad[ao]s?)/i,
+                /não\s+(especificam?|detalham?|listam?|mencionam?)/i,
                 /não tenho (informações|detalhes|dados) sobre/i,
                 /informação.*não está disponível/i,
+                /não\s+est[ãa]o?\s+(nos meus|em meus|nos nossos)/i,
+                /nos meus (registros|dados|documentos)/i,
                 /quer que eu te conect/i,
                 /ideal é falar (com|diretamente)/i,
                 /falar com (um de nossos|nosso) (especialistas?|consultores?)/i,
+                /um de nossos especialistas (comerciais |técnicos )?(pode|vai)/i,
                 /I don'?t have (specific|detailed)/i,
+                /not (detailed|listed|specified) in my/i,
                 /no (especifica|detalla|menciona)/i,
+                /no est[áa]n? (detallad|especificad|disponible)/i,
               ];
               const isIdkResponse = IDK_PATTERNS.some(p => p.test(fullResponse));
               if (isIdkResponse && leadState.state === "from_session") {
