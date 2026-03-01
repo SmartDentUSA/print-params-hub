@@ -256,6 +256,25 @@ Deno.serve(async (req) => {
       console.warn("[ingest-lead] cognitive-analysis call failed:", e);
     }
 
+    // ─── Sync lead to SellFlux (V1 webhook) ───
+    const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
+    if (SELLFLUX_WEBHOOK_LEADS) {
+      try {
+        const sellfluxData: Record<string, unknown> = {
+          ...incomingData,
+          ...(existingLead || {}),
+          // Ensure latest values win
+          nome: incomingData.nome || existingLead?.nome,
+          email: incomingData.email || existingLead?.email,
+          telefone_normalized: incomingData.telefone_normalized || existingLead?.telefone_normalized,
+        };
+        const sfResult = await sendLeadToSellFlux(SELLFLUX_WEBHOOK_LEADS, sellfluxData);
+        console.log("[ingest-lead] SellFlux lead sync:", sfResult.success ? "OK" : "FAIL", sfResult.status);
+      } catch (e) {
+        console.warn("[ingest-lead] SellFlux lead sync error:", e);
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       lead_id: leadId,

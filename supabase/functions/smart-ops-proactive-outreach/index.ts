@@ -157,10 +157,10 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // ─── SellFlux path (preferred) ───
-      if (SELLFLUX_API_TOKEN) {
+      // ─── SellFlux Campaign path (preferred) ───
+      if (SELLFLUX_WEBHOOK_CAMPANHAS) {
         try {
-          const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, lead as Record<string, unknown>, matchedRule.sellflux_template_id);
+          const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, lead as Record<string, unknown>, matchedRule.sellflux_template_id);
 
           if (result.success) {
             sent++;

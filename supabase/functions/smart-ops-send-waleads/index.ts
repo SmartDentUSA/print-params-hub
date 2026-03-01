@@ -47,18 +47,18 @@ Deno.serve(async (req) => {
       if (lead) leadData = lead as Record<string, unknown>;
     }
 
-    // ─── SellFlux path (preferred when token + template_id available) ───
+    // ─── SellFlux Campaign path (preferred when webhook URL + template available) ───
     const templateId = sellflux_template_id || message;
-    const useSellFlux = SELLFLUX_API_TOKEN && templateId && phone;
+    const useSellFlux = SELLFLUX_WEBHOOK_CAMPANHAS && templateId && phone;
 
     if (useSellFlux) {
       // Ensure leadData has phone
       if (!leadData.telefone_normalized) leadData.telefone_normalized = phone;
       if (!leadData.nome) leadData.nome = "Lead";
 
-      console.log(`[send-waleads] SellFlux: template=${templateId} phone=${phone}`, { test_mode });
+      console.log(`[send-waleads] SellFlux Campaign: template=${templateId} phone=${phone}`, { test_mode });
 
-      const result = await sendViaSellFlux(SELLFLUX_API_TOKEN, leadData, templateId);
+      const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, templateId);
 
       // Log
       await supabase.from("message_logs").insert({
