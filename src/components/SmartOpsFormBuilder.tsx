@@ -51,6 +51,11 @@ export function SmartOpsFormBuilder() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPurpose, setNewPurpose] = useState("captacao");
+  const [editingMeta, setEditingMeta] = useState<SmartOpsForm | null>(null);
+  const [metaName, setMetaName] = useState("");
+  const [metaPurpose, setMetaPurpose] = useState("");
+  const [metaColor, setMetaColor] = useState("");
+  const [metaSuccess, setMetaSuccess] = useState("");
 
   const fetchForms = async () => {
     const { data, error } = await supabase
