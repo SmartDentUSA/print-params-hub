@@ -866,13 +866,13 @@ Deno.serve(async (req) => {
         // Already has open deal in Vendas → update it
         piperunId = String(vendaDeal.id);
         flowType = "update_vendas";
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>);
+        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId);
         console.log(`[lia-assign] Updated existing Vendas deal ${piperunId}`);
       } else if (estagnDeal) {
         // Has deal in Estagnados → move to Vendas
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
-        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>);
+        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId);
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
         // No relevant open deal → create new in Vendas
