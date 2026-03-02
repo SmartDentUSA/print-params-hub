@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       if (!leadData.telefone_normalized) leadData.telefone_normalized = phone;
       if (!leadData.nome) leadData.nome = "Lead";
 
-      console.log(`[send-waleads] SellFlux Campaign: template=${templateId} phone=${phone}`, { test_mode });
+      console.log(`[send-waleads] SellFlux Campaign: template=${sellflux_template_id} phone=${phone}`, { test_mode });
 
       const result = await sendCampaignViaSellFlux(SELLFLUX_WEBHOOK_CAMPANHAS, leadData, sellflux_template_id);
 
