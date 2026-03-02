@@ -1013,6 +1013,22 @@ export function AdminDraLIAStats() {
                               )}
                             </div>
                           )}
+                          {isExpanded && (item.judge_reason || item.judge_reason_ds) && (
+                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {item.judge_reason && (
+                                <div className="p-2 rounded border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-0.5">🔵 Gemini</p>
+                                  <p className="text-xs text-muted-foreground">{item.judge_reason}</p>
+                                </div>
+                              )}
+                              {item.judge_reason_ds && (
+                                <div className="p-2 rounded border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-0.5">🟢 DeepSeek</p>
+                                  <p className="text-xs text-muted-foreground">{item.judge_reason_ds}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
