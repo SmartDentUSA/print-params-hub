@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +13,8 @@ const NOISE_PATTERNS = [
   /^(olá|ola|oi|hey|hi|hello|ok|sim|não|nao|obrigado|obrigada|vlw|valeu|bom dia|boa tarde|boa noite)\b/i,
   /^(que merda|caramba|nossa|puts|poxa|tá|ta|show|blz|legal|ótimo|otimo|certo|entendi|ok|tudo bem|tá bom)\b/i,
 ];
+
+const DEEPSEEK_API = "https://api.deepseek.com/chat/completions";
 
 function isNoise(question: string): boolean {
   return NOISE_PATTERNS.some((p) => p.test(question.trim()));
@@ -47,11 +50,15 @@ async function generateEmbedding(text: string, apiKey: string): Promise<number[]
   return data.embedding?.values ?? [];
 }
 
-async function generateFAQDraft(
-  questions: string[],
-  lovableApiKey: string
-): Promise<{ draft_title: string; draft_excerpt: string; faqs: { q: string; a: string }[]; keywords: string[] }> {
-  const prompt = `Você é um especialista em odontologia digital e resinas 3D para impressão dental (contexto: SmartDent).
+interface FAQResult {
+  draft_title: string;
+  draft_excerpt: string;
+  faqs: { q: string; a: string }[];
+  keywords: string[];
+}
+
+function buildFAQPrompt(questions: string[]): string {
+  return `Você é um especialista em odontologia digital e resinas 3D para impressão dental (contexto: SmartDent).
 
 Analise estas perguntas de usuários que não foram respondidas e crie um rascunho de FAQ técnico:
 
@@ -70,31 +77,9 @@ Responda APENAS com JSON válido no formato:
 }
 
 Use linguagem técnica adequada para profissionais de odontologia. As respostas dos FAQs devem ter pelo menos 2 frases.`;
+}
 
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableApiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: "Você é um especialista em odontologia digital. Responda sempre em JSON válido." },
-        { role: "user", content: prompt },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Lovable AI error: ${err}`);
-  }
-
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content ?? "{}";
-
+function parseFAQResponse(content: string): FAQResult {
   try {
     const parsed = JSON.parse(content);
     return {
@@ -104,7 +89,6 @@ Use linguagem técnica adequada para profissionais de odontologia. As respostas 
       keywords: parsed.keywords ?? [],
     };
   } catch {
-    // Try to extract JSON from markdown code blocks
     const match = content.match(/```(?:json)?\n?([\s\S]*?)\n?```/);
     if (match) {
       const parsed = JSON.parse(match[1]);
@@ -119,6 +103,95 @@ Use linguagem técnica adequada para profissionais de odontologia. As respostas 
   }
 }
 
+async function generateFAQDraftDualModel(
+  questions: string[],
+  lovableApiKey: string,
+  deepseekApiKey: string | undefined
+): Promise<{ gemini: FAQResult | null; deepseek: FAQResult | null }> {
+  const prompt = buildFAQPrompt(questions);
+  const systemMsg = "Você é um especialista em odontologia digital. Responda sempre em JSON válido.";
+
+  // Gemini call
+  const geminiCall = fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableApiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: systemMsg },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  // DeepSeek call
+  const deepseekCall = deepseekApiKey
+    ? fetch(DEEPSEEK_API, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${deepseekApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            { role: "system", content: systemMsg },
+            { role: "user", content: prompt },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      })
+    : Promise.reject(new Error("DEEPSEEK_API_KEY not configured"));
+
+  const [geminiResult, deepseekResult] = await Promise.allSettled([geminiCall, deepseekCall]);
+
+  const parseModelResult = async (
+    result: PromiseSettledResult<Response>,
+    label: string,
+    model: string,
+    provider: string
+  ): Promise<FAQResult | null> => {
+    if (result.status === "rejected") {
+      console.warn(`[heal-knowledge-gaps] ${label} failed:`, result.reason);
+      return null;
+    }
+    const res = result.value;
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[heal-knowledge-gaps] ${label} HTTP ${res.status}: ${errText}`);
+      return null;
+    }
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content ?? "{}";
+
+    // Log token usage
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "heal-knowledge-gaps",
+      actionLabel: `Auto-Heal FAQ (${label})`,
+      model,
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
+
+    try {
+      return parseFAQResponse(content);
+    } catch (e) {
+      console.warn(`[heal-knowledge-gaps] ${label} parse failed:`, e);
+      return null;
+    }
+  };
+
+  const gemini = await parseModelResult(geminiResult, "Gemini", "google/gemini-3-flash-preview", "lovable");
+  const deepseek = await parseModelResult(deepseekResult, "DeepSeek", "deepseek-chat", "deepseek");
+
+  return { gemini, deepseek };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -130,6 +203,7 @@ serve(async (req) => {
   const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
   const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY")!;
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
+  const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
 
   // Auth check
   const authHeader = req.headers.get("Authorization");
@@ -220,13 +294,12 @@ serve(async (req) => {
         );
       }
 
-      // 3. Generate embeddings (batch with small delay to avoid rate limiting)
+      // 3. Generate embeddings
       const gapsWithEmbeddings: { id: string; question: string; frequency: number; embedding: number[] }[] = [];
       for (const gap of validGaps) {
         try {
           const embedding = await generateEmbedding(gap.question, GOOGLE_AI_KEY);
           gapsWithEmbeddings.push({ ...gap, embedding });
-          // Small delay to avoid rate limiting
           await new Promise((r) => setTimeout(r, 100));
         } catch (e) {
           console.error(`Failed to embed gap ${gap.id}:`, e);
@@ -239,12 +312,9 @@ serve(async (req) => {
 
       for (const gap of gapsWithEmbeddings) {
         if (assigned.has(gap.id)) continue;
-
-        // This gap becomes a centroid
         const cluster = { centroid: gap, members: [gap] };
         assigned.add(gap.id);
 
-        // Find similar gaps
         for (const other of gapsWithEmbeddings) {
           if (assigned.has(other.id)) continue;
           const sim = cosineSimilarity(gap.embedding, other.embedding);
@@ -257,7 +327,7 @@ serve(async (req) => {
         clusters.push(cluster);
       }
 
-      // 5. Generate FAQ drafts for each cluster
+      // 5. Generate FAQ drafts with dual model for each cluster
       let draftsCreated = 0;
 
       for (const cluster of clusters) {
@@ -265,20 +335,39 @@ serve(async (req) => {
           const questions = cluster.members.map((m) => m.question);
           const gapIds = cluster.members.map((m) => m.id);
 
-          const faqData = await generateFAQDraft(questions, LOVABLE_API_KEY);
+          const { gemini, deepseek } = await generateFAQDraftDualModel(questions, LOVABLE_API_KEY, DEEPSEEK_API_KEY);
 
-          // 6. Save draft
+          if (!gemini && !deepseek) {
+            console.error("Both models failed for cluster, skipping");
+            continue;
+          }
+
+          // Primary = Gemini (fallback to DeepSeek)
+          const primary = gemini ?? deepseek!;
+          const modelUsed = gemini && deepseek ? "dual" : gemini ? "gemini" : "deepseek";
+
+          // 6. Save draft with both versions
+          const insertPayload: Record<string, unknown> = {
+            draft_title: primary.draft_title,
+            draft_excerpt: primary.draft_excerpt,
+            draft_faq: primary.faqs,
+            draft_keywords: primary.keywords,
+            gap_ids: gapIds,
+            cluster_questions: questions,
+            status: "draft",
+            ai_model_used: modelUsed,
+          };
+
+          // Store DeepSeek version separately if available
+          if (deepseek) {
+            insertPayload.draft_title_ds = deepseek.draft_title;
+            insertPayload.draft_excerpt_ds = deepseek.draft_excerpt;
+            insertPayload.draft_faq_ds = deepseek.faqs;
+          }
+
           const { error: insertError } = await adminSupabase
             .from("knowledge_gap_drafts")
-            .insert({
-              draft_title: faqData.draft_title,
-              draft_excerpt: faqData.draft_excerpt,
-              draft_faq: faqData.faqs,
-              draft_keywords: faqData.keywords,
-              gap_ids: gapIds,
-              cluster_questions: questions,
-              status: "draft",
-            });
+            .insert(insertPayload);
 
           if (insertError) {
             console.error("Error inserting draft:", insertError);
@@ -286,7 +375,6 @@ serve(async (req) => {
             draftsCreated++;
           }
 
-          // Small delay between cluster generations
           await new Promise((r) => setTimeout(r, 200));
         } catch (e) {
           console.error(`Error generating FAQ for cluster:`, e);
@@ -317,7 +405,6 @@ serve(async (req) => {
         });
       }
 
-      // Verify draft exists
       const { data: draft, error: draftError } = await adminSupabase
         .from("knowledge_gap_drafts")
         .select("*")
@@ -333,7 +420,6 @@ serve(async (req) => {
         });
       }
 
-      // Build chunk_text for RAG indexing
       const finalTitle    = title    || draft.draft_title;
       const finalExcerpt  = excerpt  || draft.draft_excerpt;
       const finalFaqs     = (faqs    || draft.draft_faq    || []) as { q: string; a: string }[];
@@ -347,10 +433,8 @@ serve(async (req) => {
         .filter(Boolean)
         .join(" | ");
 
-      // Generate embedding
       const embedding = await generateEmbedding(chunkText, GOOGLE_AI_KEY);
 
-      // Insert directly into agent_embeddings (RAG brain)
       const { error: embError } = await adminSupabase
         .from("agent_embeddings")
         .insert({
@@ -370,7 +454,6 @@ serve(async (req) => {
 
       if (embError) throw embError;
 
-      // Update draft status (no published_content_id)
       await adminSupabase
         .from("knowledge_gap_drafts")
         .update({
@@ -380,7 +463,6 @@ serve(async (req) => {
         })
         .eq("id", draft_id);
 
-      // Mark all gap_ids as resolved
       if (draft.gap_ids && draft.gap_ids.length > 0) {
         await adminSupabase
           .from("agent_knowledge_gaps")
