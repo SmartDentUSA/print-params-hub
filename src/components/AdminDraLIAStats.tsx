@@ -73,6 +73,10 @@ interface QualityInteraction {
   agent_response: string | null;
   judge_score: number | null;
   judge_verdict: string | null;
+  judge_reason: string | null;
+  judge_score_ds: number | null;
+  judge_verdict_ds: string | null;
+  judge_reason_ds: string | null;
   feedback: string | null;
   human_reviewed: boolean | null;
   judge_evaluated_at: string | null;
