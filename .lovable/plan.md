@@ -1,113 +1,172 @@
 
 
-## Plano: Mensagens Inteligentes por Origem (LIA vs Formulário) + Resumo IA para Vendedor
+# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
 
-### Contexto Atual
+## Diagnostico do Estado Atual
 
-O `triggerOutboundAutomation` no `lia-assign` depende de regras `NOVO_LEAD` na `cs_automation_rules` — que **não existem** (tabela vazia para esse trigger). Além disso, não diferencia a origem do lead (LIA chat vs formulário), e não envia resumo ao vendedor.
+| Componente | Status | Onde |
+|------------|--------|------|
+| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
+| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
+| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
+| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
+| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
+| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
+| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
 
-O handoff do `dra-lia/index.ts` já tem: (1) AI greeting vendedor→lead via Gemini, (2) notificação ao vendedor com dados do lead. Mas o `lia-assign` não replica essa lógica.
+**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
 
-### Nova Arquitetura de Mensagens no `lia-assign`
+---
 
-O body do `lia-assign` já recebe `source` implícito via `lead.source`. Usaremos isso para bifurcar:
+## Fase 1: Tabela `whatsapp_inbox`
 
-```text
-Após PipeRun sync (seção 7):
+Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
 
-1. Buscar team_member com waleads_api_key
-2. IF source = "dra-lia" ou "whatsapp_lia" ou "handoff_lia":
-   → Gerar mensagem AI (Gemini) vendedor→lead com resumo da conversa
-   → NÃO usar cs_automation_rules
-3. ELSE (form, facebook_ads, piperun, etc):
-   → Usar regra NOVO_LEAD da cs_automation_rules (template)
-   → Se não existir regra, não enviar mensagem ao lead
-4. EM AMBOS OS CASOS:
-   → Gerar resumo IA completo do lead para o vendedor
-   → Enviar ao WhatsApp DO vendedor (seller notification)
+```sql
+CREATE TABLE IF NOT EXISTS whatsapp_inbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  phone text NOT NULL,
+  phone_normalized text,
+  message_text text,
+  media_url text,
+  media_type text,
+  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
+  lead_id uuid REFERENCES lia_attendances(id),
+  matched_by text,
+  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
+    'interesse_imediato', 'interesse_futuro', 'pedido_info',
+    'objecao', 'sem_interesse', 'suporte', 'indefinido'
+  )),
+  confidence_score integer,
+  seller_notified boolean DEFAULT false,
+  processed_at timestamptz,
+  raw_payload jsonb DEFAULT '{}'
+);
+
+CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
+CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
+CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
+CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
 ```
 
-### Mudanças Técnicas no `smart-ops-lia-assign/index.ts`
+RLS: `admin_only` (mesma policy de `lia_attendances`).
 
-#### 1. Nova função `generateAILeadGreeting` (~30 linhas)
+---
 
-Usa Gemini Flash (via Lovable gateway) para gerar saudação personalizada vendedor→lead, similar ao handoff do `dra-lia`:
-- Input: nome do vendedor, nome do lead, `resumo_historico_ia`, `produto_interesse`, última pergunta
-- Output: mensagem curta 3-4 linhas
-- Timeout: 4s, fallback para template estático
+## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
 
-#### 2. Nova função `generateAISellerBriefing` (~50 linhas)
+Endpoint publico que recebe POST do WaLeads quando lead responde.
 
-Gera resumo rico para o vendedor usando Gemini, consolidando TODOS os campos do lead:
-- Dados básicos: nome, email, telefone, cidade/UF, especialidade, área
-- Histórico comercial: `status_oportunidade`, `data_primeiro_contato`, `proprietario_lead_crm` anterior, `funil_entrada_crm`, `ultima_etapa_comercial`
-- E-commerce: `lojaintegrada_cliente_id`, `lojaintegrada_ultimo_pedido_data`, `lojaintegrada_ultimo_pedido_valor`, `lojaintegrada_itens_json`
-- Cursos: `astron_user_id`, `astron_courses_total`, `astron_courses_completed`, `astron_last_login_at`, `astron_plans_active`
-- Análise cognitiva: `cognitive_analysis` (stage, urgency, motivation, objection risk)
-- Equipamentos: `tem_impressora`, `impressora_modelo`, `tem_scanner`, `software_cad`
-- Produtos ativos: `ativo_print`, `ativo_scan`, `ativo_cad`, `ativo_cura`, `ativo_insumos`
-- Resumo conversa LIA: `resumo_historico_ia`, `historico_resumos`
+**Fluxo:**
 
-Output: texto estruturado ~300 palavras com seções (Perfil, Histórico, Oportunidades, Recomendação)
+1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
+2. Normaliza telefone (ultimos 8-9 digitos para match)
+3. Busca lead em `lia_attendances` via `telefone_normalized`
+4. Classifica mensagem (rule-based v1):
+   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
+   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
+   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
+   - `objecao`: "caro", "vou pensar", "falar com socio"
+   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
+   - `suporte`: "problema", "defeito", "troca", "garantia"
+5. Insere em `whatsapp_inbox`
+6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
+7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
+8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
 
-#### 3. Reescrever `triggerOutboundAutomation` → bifurcar por source
+**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
+
+---
+
+## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
+
+Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
 
 ```typescript
-async function triggerOutboundMessages(
-  supabase, supabaseUrl, serviceKey, 
-  lead, teamMemberId, teamMemberName
-) {
-  const phone = lead.telefone_normalized || lead.telefone_raw;
-  if (!teamMemberId || teamMemberId === "fallback-admin" || !phone) return;
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Extrair ultimos 8-9 digitos para match
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
 
-  const { data: member } = await supabase
-    .from("team_members")
-    .select("id, nome_completo, waleads_api_key, whatsapp_number")
-    .eq("id", teamMemberId).single();
-  if (!member?.waleads_api_key) return;
-
-  const isLiaSource = ["dra-lia","whatsapp_lia","handoff_lia"].includes(lead.source);
-
-  // ── A. Mensagem vendedor → lead ──
-  if (isLiaSource) {
-    // AI-generated greeting (resumo da conversa)
-    const aiGreeting = await generateAILeadGreeting(lead, member.nome_completo);
-    await sendWaLeads(supabaseUrl, serviceKey, member.id, phone, aiGreeting, lead.id);
-  } else {
-    // Template from cs_automation_rules
-    await sendTemplateMessage(supabase, supabaseUrl, serviceKey, lead, member);
-  }
-
-  // ── B. Resumo IA → vendedor (SEMPRE) ──
-  const briefing = await generateAISellerBriefing(lead);
-  if (member.whatsapp_number) {
-    await sendWaLeads(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, lead.id);
-  }
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
 }
 ```
 
-#### 4. Secrets necessários
+O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
 
-`LOVABLE_API_KEY` — já existe nos secrets do projeto. Será usado para chamar `https://ai.gateway.lovable.dev/v1/chat/completions` com Gemini Flash.
+---
 
-### Fluxo para thiago.nicoletti@smartdent.com.br
+## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
 
-```text
-1. source = "dra-lia" → isLiaSource = true
-2. Mensagem AI vendedor→lead: Gemini gera saudação personalizada
-   da Patrica para Thiago com contexto da conversa sobre Resinas
-3. Resumo AI → Patrica: briefing completo com:
-   - "Primeiro contato: 02/Mar/2026"
-   - "Já tem deal PipeRun #33706074"
-   - "Sem compras e-commerce (lojaintegrada_cliente_id: null)"
-   - "Sem cadastro cursos (astron_user_id: null)"  
-   - "Análise cognitiva: SAL_comparador, urgência média"
-   - "Interesse: Resinas, perfil técnico detalhista"
+Quando `intent_detected === 'interesse_imediato'`:
+
+1. Buscar `proprietario_lead_crm` em `lia_attendances`
+2. Buscar `team_member` correspondente
+3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
+
+```
+OPORTUNIDADE QUENTE
+Lead: {nome} ({especialidade})
+Owner: {proprietario_lead_crm}
+Resposta: "{message_text}" (truncado 200 chars)
+Etapa CRM: {ultima_etapa_comercial}
+Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
+Acao: {recommended_approach}
 ```
 
-### Arquivo alterado
+4. Marcar `seller_notified = true` em `whatsapp_inbox`
 
-| Arquivo | Mudança |
-|---|---|
-| `supabase/functions/smart-ops-lia-assign/index.ts` | Novas funções `generateAILeadGreeting`, `generateAISellerBriefing`, reescrita de `triggerOutboundAutomation` com bifurcação por source |
+---
+
+## Fase 5: Limpeza Automatica (Clean-up Job)
+
+Adicionar logica no `smart-ops-stagnant-processor` existente:
+
+- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
+- E lead nao tem outras interacoes positivas
+- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
+
+---
+
+## Resumo de Arquivos
+
+| # | Arquivo | Acao |
+|---|---------|------|
+| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
+| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
+| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
+| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
+| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
+
+## Ordem de Execucao
+
+```text
+1. Migracao SQL (whatsapp_inbox)
+2. Helpers de normalizacao em sellflux-field-map.ts
+3. Edge function smart-ops-wa-inbox-webhook + config.toml
+4. Integracao clean-up no stagnant-processor
+5. Deploy
+```
+
+## Payload WaLeads Esperado
+
+O webhook do WaLeads envia POST com:
+
+```json
+{
+  "event": "message_received",
+  "phone": "5511999887766",
+  "message": "Tenho interesse sim, como funciona?",
+  "media_url": null,
+  "timestamp": "2026-02-26T10:30:00Z"
+}
+```
+
+O endpoint a ser configurado no painel WaLeads sera:
+`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
 
