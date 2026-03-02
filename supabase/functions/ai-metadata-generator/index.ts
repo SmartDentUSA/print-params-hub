@@ -160,6 +160,20 @@ serve(async (req) => {
       }
     }
 
+    // Log aggregated token usage (estimate: ~500 prompt + ~200 completion per AI call)
+    const aiCallCount = results.filter(r => r.status === 'fulfilled').length + (regenerate.excerpt ? 1 : 0);
+    if (aiCallCount > 0) {
+      await logAIUsage({
+        functionName: "ai-metadata-generator",
+        actionLabel: `Metadados SEO (${aiCallCount} chamadas)`,
+        model: "google/gemini-2.5-flash",
+        promptTokens: aiCallCount * 600,
+        completionTokens: aiCallCount * 150,
+        metadata: { calls: aiCallCount, regenerate },
+      });
+    }
+
+
     const response: MetadataResponse = {
       slug,
       metaDescription,
