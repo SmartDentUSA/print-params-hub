@@ -58,8 +58,12 @@ export type Database = {
           human_reviewed: boolean | null
           id: string
           judge_evaluated_at: string | null
+          judge_reason: string | null
+          judge_reason_ds: string | null
           judge_score: number | null
+          judge_score_ds: number | null
           judge_verdict: string | null
+          judge_verdict_ds: string | null
           lang: string | null
           lead_id: string | null
           session_id: string
@@ -77,8 +81,12 @@ export type Database = {
           human_reviewed?: boolean | null
           id?: string
           judge_evaluated_at?: string | null
+          judge_reason?: string | null
+          judge_reason_ds?: string | null
           judge_score?: number | null
+          judge_score_ds?: number | null
           judge_verdict?: string | null
+          judge_verdict_ds?: string | null
           lang?: string | null
           lead_id?: string | null
           session_id: string
@@ -96,8 +104,12 @@ export type Database = {
           human_reviewed?: boolean | null
           id?: string
           judge_evaluated_at?: string | null
+          judge_reason?: string | null
+          judge_reason_ds?: string | null
           judge_score?: number | null
+          judge_score_ds?: number | null
           judge_verdict?: string | null
+          judge_verdict_ds?: string | null
           lang?: string | null
           lead_id?: string | null
           session_id?: string
