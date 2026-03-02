@@ -912,7 +912,7 @@ function detectLeadCollectionState(
     if (msg.role === "user") {
       const normalizedContent = msg.content.replace(/\s*@\s*/g, '@');
       const emailMatch = normalizedContent.match(EMAIL_REGEX);
-      if (emailMatch) detectedEmail = emailMatch[0];
+      if (emailMatch) detectedEmail = emailMatch[0].toLowerCase();
     }
   }
 
@@ -955,7 +955,7 @@ function detectLeadCollectionState(
       const normalizedLastUser = lastUser.content.replace(/\s*@\s*/g, '@');
       const emailMatch = normalizedLastUser.match(EMAIL_REGEX);
       if (emailMatch) {
-        return { state: "needs_name", email: emailMatch[0] };
+        return { state: "needs_name", email: emailMatch[0].toLowerCase() };
       }
     }
   }
@@ -1084,12 +1084,14 @@ async function upsertLead(
   email: string,
   sessionId: string
 ): Promise<string | null> {
+  // Normalize email to lowercase to prevent case-sensitive duplicates
+  const normalizedEmail = email.toLowerCase();
   try {
     // Upsert by email
     const { data: lead, error } = await supabase
       .from("leads")
       .upsert(
-        { name, email, source: "dra-lia", updated_at: new Date().toISOString() },
+        { name, email: normalizedEmail, source: "dra-lia", updated_at: new Date().toISOString() },
         { onConflict: "email" }
       )
       .select("id")
@@ -1106,7 +1108,7 @@ async function upsertLead(
       lead_id: lead.id,
       extracted_entities: {
         lead_name: name,
-        lead_email: email,
+        lead_email: normalizedEmail,
         lead_id: lead.id,
         spin_stage: "etapa_1",
       },
@@ -1114,7 +1116,7 @@ async function upsertLead(
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
-    console.log(`[upsertLead] Lead saved: ${name} (${email}) → ${lead.id}`);
+    console.log(`[upsertLead] Lead saved: ${name} (${normalizedEmail}) → ${lead.id}`);
 
     // Also upsert into lia_attendances for Smart Ops visibility
     try {
@@ -1133,7 +1135,7 @@ async function upsertLead(
       await supabase.from("lia_attendances").upsert(
         {
           nome: name,
-          email: email,
+          email: normalizedEmail,
           source: "dra-lia",
           lead_status: "novo",
           rota_inicial_lia: rotaInicial,
@@ -1142,7 +1144,7 @@ async function upsertLead(
         },
         { onConflict: "email" }
       );
-      console.log(`[upsertLead] lia_attendances synced for ${email} (rota: ${rotaInicial})`);
+      console.log(`[upsertLead] lia_attendances synced for ${normalizedEmail} (rota: ${rotaInicial})`);
     } catch (liaErr) {
       console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
     }
@@ -2855,7 +2857,7 @@ serve(async (req) => {
 
         const entities = (sessionData?.extracted_entities as Record<string, string>) || {};
         const leadName = entities.lead_name || "";
-        const leadEmail = entities.lead_email || "";
+        const leadEmail = (entities.lead_email || "").toLowerCase();
         const topicCtx = entities.topic_context || "";
 
         if (!leadEmail) {
