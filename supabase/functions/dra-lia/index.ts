@@ -912,7 +912,7 @@ function detectLeadCollectionState(
     if (msg.role === "user") {
       const normalizedContent = msg.content.replace(/\s*@\s*/g, '@');
       const emailMatch = normalizedContent.match(EMAIL_REGEX);
-      if (emailMatch) detectedEmail = emailMatch[0];
+      if (emailMatch) detectedEmail = emailMatch[0].toLowerCase();
     }
   }
 
@@ -955,7 +955,7 @@ function detectLeadCollectionState(
       const normalizedLastUser = lastUser.content.replace(/\s*@\s*/g, '@');
       const emailMatch = normalizedLastUser.match(EMAIL_REGEX);
       if (emailMatch) {
-        return { state: "needs_name", email: emailMatch[0] };
+        return { state: "needs_name", email: emailMatch[0].toLowerCase() };
       }
     }
   }
@@ -1084,12 +1084,14 @@ async function upsertLead(
   email: string,
   sessionId: string
 ): Promise<string | null> {
+  // Normalize email to lowercase to prevent case-sensitive duplicates
+  const normalizedEmail = email.toLowerCase();
   try {
     // Upsert by email
     const { data: lead, error } = await supabase
       .from("leads")
       .upsert(
-        { name, email, source: "dra-lia", updated_at: new Date().toISOString() },
+        { name, email: normalizedEmail, source: "dra-lia", updated_at: new Date().toISOString() },
         { onConflict: "email" }
       )
       .select("id")
