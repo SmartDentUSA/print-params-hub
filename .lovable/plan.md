@@ -1,172 +1,186 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+## Plano: Fluxo Anti-Duplicação com Hierarquia Pessoa → Empresa → Deal no PipeRun
 
-## Diagnostico do Estado Atual
+### Situação Atual do Thiago Nicoletti no PipeRun
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+- **Pessoa** ID 27370319: `company_id = null` (sem empresa)
+- **8 deals**, sendo 4 deletados e 4 ativos:
+  - Deal 42417219: Estagnados, aberto, owner Paulo Sérgio
+  - Deal 38508829: Vendas, congelado, owner Patricia
+  - Deal 33706074: Estagnados, aberto, owner Thiago Nicoletti (gestor)
+  - Deal 54512402: CS Onboarding, deletado
+- **Nenhum deal ganho** (status=1), **nenhuma empresa associada**
 
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+### Problema
 
----
+O sistema atual ignora a estrutura hierárquica do PipeRun (Pessoa → Empresa → Deal). Cria deals sem verificar se a pessoa já existe, se tem empresa, ou se já tem deals abertos/ganhos — gerando duplicatas.
 
-## Fase 1: Tabela `whatsapp_inbox`
+### Novo Fluxo no `smart-ops-lia-assign/index.ts`
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
-
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
-
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
-```
-
-RLS: `admin_only` (mesma policy de `lia_attendances`).
-
----
-
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
-
-Endpoint publico que recebe POST do WaLeads quando lead responde.
-
-**Fluxo:**
-
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
-
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
-
----
-
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
-
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
-
-```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
-
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
-```
-
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
-
----
-
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
-
-Quando `intent_detected === 'interesse_imediato'`:
-
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
-
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
-
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
-
----
-
-## Fase 5: Limpeza Automatica (Clean-up Job)
-
-Adicionar logica no `smart-ops-stagnant-processor` existente:
-
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
-
----
-
-## Resumo de Arquivos
-
-| # | Arquivo | Acao |
-|---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
+Reescrever a seção 6 (Sync with PipeRun) com a seguinte lógica:
 
 ```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
+1. Buscar Pessoa por email no PipeRun (GET /persons?email=X)
+   ├─ Não existe → Criar Pessoa → Criar Empresa → Criar Deal no Funil de Vendas
+   └─ Existe (person_id) →
+       2. Verificar company_id da pessoa
+          ├─ Sem empresa → Criar Empresa com dados da pessoa → Associar à pessoa (PUT /persons/{id})
+          └─ Com empresa → OK
+       3. Buscar deals da pessoa (GET /deals?person_id=X&show=50)
+          → Filtrar apenas não-deletados (deleted=0)
+          → Separar em:
+             - deals_ganhos (status=1): NÃO TOCAR
+             - deals_abertos (status=0):
+               ├─ Algum no Funil de Vendas (18784)? → Atualizar esse deal (owner, custom fields, nota)
+               ├─ Nenhum no Vendas, mas tem em Estagnados (72938)?
+               │   → Mover para Funil de Vendas, stage "Sem Contato"
+               │   → Atualizar owner com vendedor ativo (round robin)
+               │   → Adicionar nota "Reativado pela Dra. L.I.A."
+               └─ Nenhum aberto relevante?
+                   → Criar novo Deal no Funil de Vendas
 ```
 
-## Payload WaLeads Esperado
+### Mudanças Técnicas
 
-O webhook do WaLeads envia POST com:
+#### 1. Nova função `findPersonDeals` no `lia-assign`
 
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
+```typescript
+async function findPersonDeals(apiToken: string, personId: number) {
+  const res = await piperunGet(apiToken, "deals", { person_id: personId, show: 50 });
+  if (!res.success || !res.data) return [];
+  const items = (res.data as any).data as any[] || [];
+  return items.filter((d: any) => d.deleted !== 1); // Ignorar deletados
 }
 ```
 
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+#### 2. Nova função `findOrCreateCompany`
+
+```typescript
+async function findOrCreateCompany(apiToken: string, personId: number, lead: Record<string, unknown>): Promise<number | null> {
+  // Verificar se pessoa já tem company_id
+  const personRes = await piperunGet(apiToken, `persons/${personId}`);
+  const person = (personRes.data as any)?.data;
+  if (person?.company_id) return person.company_id;
+  
+  // Criar empresa com dados da pessoa
+  const companyPayload = {
+    name: lead.nome || lead.email,
+    emails: lead.email ? [{ email: lead.email }] : [],
+    phones: (lead.telefone_normalized || lead.telefone_raw) ? [{ phone: lead.telefone_normalized || lead.telefone_raw }] : [],
+  };
+  const createRes = await piperunPost(apiToken, "companies", companyPayload);
+  const companyId = (createRes.data as any)?.data?.id;
+  
+  if (companyId) {
+    // Associar empresa à pessoa
+    await piperunPut(apiToken, `persons/${personId}`, { company_id: companyId });
+    return companyId;
+  }
+  return null;
+}
+```
+
+#### 3. Reescrever seção 6 do handler principal
+
+Substituir o bloco `if (isExisting && piperunId) { ... } else { ... }` (linhas 259-322) pela nova lógica:
+
+```typescript
+// ── 6. Smart PipeRun Sync: Pessoa → Empresa → Deal ──
+const personId = await findOrCreatePerson(PIPERUN_API_KEY, lead);
+let companyId: number | null = null;
+let piperunId = lead.piperun_id;
+
+if (personId) {
+  // Garantir empresa associada
+  companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, lead);
+  
+  // Buscar deals existentes (não-deletados)
+  const allDeals = await findPersonDeals(PIPERUN_API_KEY, personId);
+  const openDeals = allDeals.filter(d => d.status === 0);
+  const wonDeals = allDeals.filter(d => d.status === 1);
+  
+  // Deals ganhos: NUNCA TOCAR
+  if (wonDeals.length > 0) {
+    console.log(`[lia-assign] ${wonDeals.length} won deals found — preserving`);
+  }
+  
+  // Procurar deal aberto no Funil de Vendas
+  const vendaDeal = openDeals.find(d => d.pipeline_id === PIPELINES.VENDAS && !d.freezed);
+  // Procurar deal aberto em Estagnados
+  const estagnDeal = openDeals.find(d => d.pipeline_id === PIPELINES.ESTAGNADOS);
+  
+  if (vendaDeal) {
+    // Já tem deal aberto no Vendas → apenas atualizar
+    piperunId = String(vendaDeal.id);
+    // Atualizar owner, custom fields, nota
+    await updateExistingDeal(PIPERUN_API_KEY, vendaDeal.id, assignedOwnerId, customFields, lead);
+  } else if (estagnDeal) {
+    // Tem deal em Estagnados → mover para Vendas
+    piperunId = String(estagnDeal.id);
+    await moveDealToVendas(PIPERUN_API_KEY, estagnDeal.id, assignedOwnerId, stage_id, customFields, lead);
+  } else {
+    // Nenhum deal relevante → criar novo no Vendas
+    piperunId = await createNewDeal(PIPERUN_API_KEY, personId, companyId, lead, pipeline_id, stage_id, assignedOwnerId, customFields, email);
+  }
+}
+```
+
+#### 4. Salvar `pessoa_piperun_id` e `empresa_piperun_id` no `lia_attendances`
+
+Atualizar os campos existentes na tabela (já existem as colunas `pessoa_piperun_id` e `empresa_piperun_id`):
+
+```typescript
+updateFields.pessoa_piperun_id = personId;
+if (companyId) updateFields.empresa_piperun_id = companyId;
+```
+
+#### 5. Priorizar vendedor com WaLeads no `pickRandomActiveVendedor`
+
+```typescript
+async function pickRandomActiveVendedor(supabase): Promise<TeamMember> {
+  // Primeiro: vendedores com WaLeads ativo
+  const { data: waMembers } = await supabase
+    .from("team_members")
+    .select("id, nome_completo, piperun_owner_id")
+    .eq("ativo", true)
+    .eq("role", "vendedor")
+    .not("waleads_api_key", "is", null);
+
+  if (waMembers?.length) {
+    return waMembers[Math.floor(Math.random() * waMembers.length)];
+  }
+  
+  // Fallback: qualquer vendedor ativo
+  const { data: members } = await supabase
+    .from("team_members")
+    .select("id, nome_completo, piperun_owner_id")
+    .eq("ativo", true)
+    .eq("role", "vendedor");
+
+  if (!members?.length) {
+    return { id: "fallback-admin", nome_completo: "Thiago Nicoletti", piperun_owner_id: FALLBACK_OWNER_ID };
+  }
+  return members[Math.floor(Math.random() * members.length)];
+}
+```
+
+### Arquivo alterado
+
+| Arquivo | Mudança |
+|---|---|
+| `supabase/functions/smart-ops-lia-assign/index.ts` | Reescrita completa da seção de sync PipeRun: findPersonDeals, findOrCreateCompany, lógica de decisão ganho/aberto/estagnado/novo, priorização WaLeads, salvar pessoa_piperun_id e empresa_piperun_id |
+
+### Fluxo esperado para Thiago Nicoletti após correção
+
+```text
+1. Busca pessoa 27370319 → encontrada
+2. company_id = null → cria empresa "Thiago Nicoletti" com email/telefone
+3. Busca deals → 4 ativos (0 ganhos, 4 abertos)
+4. Nenhum no Funil de Vendas (não-freezed) → deal 42417219 (Estagnados) → mover para Vendas
+5. Sortear vendedor com WaLeads ativo (Patrica Silva)
+6. Atualizar owner para Patrica, stage "Sem Contato", adicionar nota
+7. Salvar pessoa_piperun_id=27370319, empresa_piperun_id=novo_id
+8. Disparar mensagem vendedor→lead via WaLeads
+```
 
