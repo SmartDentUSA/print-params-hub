@@ -904,7 +904,7 @@ Deno.serve(async (req) => {
     console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${piperunFunil}`);
 
     // ── 7. Outbound automation ──
-    await triggerOutboundAutomation(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId);
+    await triggerOutboundMessages(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId, assignedOwnerName);
 
     return new Response(
       JSON.stringify({
