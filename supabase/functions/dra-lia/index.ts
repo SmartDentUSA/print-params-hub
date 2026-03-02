@@ -1108,7 +1108,7 @@ async function upsertLead(
       lead_id: lead.id,
       extracted_entities: {
         lead_name: name,
-        lead_email: email,
+        lead_email: normalizedEmail,
         lead_id: lead.id,
         spin_stage: "etapa_1",
       },
@@ -1116,7 +1116,7 @@ async function upsertLead(
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
 
-    console.log(`[upsertLead] Lead saved: ${name} (${email}) → ${lead.id}`);
+    console.log(`[upsertLead] Lead saved: ${name} (${normalizedEmail}) → ${lead.id}`);
 
     // Also upsert into lia_attendances for Smart Ops visibility
     try {
@@ -1135,7 +1135,7 @@ async function upsertLead(
       await supabase.from("lia_attendances").upsert(
         {
           nome: name,
-          email: email,
+          email: normalizedEmail,
           source: "dra-lia",
           lead_status: "novo",
           rota_inicial_lia: rotaInicial,
@@ -1144,7 +1144,7 @@ async function upsertLead(
         },
         { onConflict: "email" }
       );
-      console.log(`[upsertLead] lia_attendances synced for ${email} (rota: ${rotaInicial})`);
+      console.log(`[upsertLead] lia_attendances synced for ${normalizedEmail} (rota: ${rotaInicial})`);
     } catch (liaErr) {
       console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
     }
