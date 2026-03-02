@@ -2857,7 +2857,7 @@ serve(async (req) => {
 
         const entities = (sessionData?.extracted_entities as Record<string, string>) || {};
         const leadName = entities.lead_name || "";
-        const leadEmail = entities.lead_email || "";
+        const leadEmail = (entities.lead_email || "").toLowerCase();
         const topicCtx = entities.topic_context || "";
 
         if (!leadEmail) {
