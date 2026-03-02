@@ -3,8 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+const DEEPSEEK_API = "https://api.deepseek.com/chat/completions";
 
 serve(async (req) => {
   try {
@@ -12,23 +15,18 @@ serve(async (req) => {
     const { record, old_record } = body;
 
     // ── Idempotency guardrails ──────────────────────────────────────────────
-    // Only evaluate when agent_response was JUST filled (INSERT had NULL, UPDATE has value)
     if (!record?.agent_response || old_record?.agent_response) {
       return new Response(
         JSON.stringify({ message: "Skip: agent_response not yet filled or already existed" }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
-    // Skip if already evaluated, marked as unanswered, or has no context to compare against
     if (record.judge_evaluated_at || record.unanswered || !record.context_raw) {
       return new Response(
         JSON.stringify({ message: "Skip: already evaluated, unanswered, or no context_raw" }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }
-
-    // Guard: mensagens muito curtas (< 10 chars) não têm conteúdo técnico para auditar
-    // Exemplos de ruído: "ok", "vlw", "oi", "sim" — nunca contêm perguntas técnicas
     if ((record.user_message?.length ?? 0) < 10) {
       return new Response(
         JSON.stringify({ message: "Skip: user_message too short for meaningful evaluation" }),
@@ -92,7 +90,8 @@ Se a IA citou dado que aparece em QUALQUER fonte no contexto, NÃO é alucinaç�
 
 Retorne APENAS um JSON válido: {"score": 0-5, "verdict": "hallucination|off_topic|incomplete|ok", "reason": "explicação em 1 frase"}`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // ── Call both models in parallel ──────────────────────────────────────
+    const geminiCall = fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${LOVABLE_API_KEY}`,
@@ -106,56 +105,129 @@ Retorne APENAS um JSON válido: {"score": 0-5, "verdict": "hallucination|off_top
       }),
     });
 
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      throw new Error(`AI gateway error ${aiRes.status}: ${errText}`);
+    const deepseekCall = DEEPSEEK_API_KEY
+      ? fetch(DEEPSEEK_API, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${DEEPSEEK_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [{ role: "user", content: judgePrompt }],
+            response_format: { type: "json_object" },
+            temperature: 0.1,
+          }),
+        })
+      : Promise.reject(new Error("DEEPSEEK_API_KEY not configured"));
+
+    const [geminiResult, deepseekResult] = await Promise.allSettled([geminiCall, deepseekCall]);
+
+    // ── Parse results ──────────────────────────────────────────────────────
+    const parseResult = async (
+      result: PromiseSettledResult<Response>,
+      label: string
+    ): Promise<{ score: number; verdict: string; reason: string } | null> => {
+      if (result.status === "rejected") {
+        console.warn(`[evaluate-interaction] ${label} failed:`, result.reason);
+        return null;
+      }
+      const res = result.value;
+      if (!res.ok) {
+        const errText = await res.text();
+        console.warn(`[evaluate-interaction] ${label} HTTP ${res.status}: ${errText}`);
+        return null;
+      }
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (!content) return null;
+
+      // Log token usage
+      const usage = extractUsage(data);
+      const provider = label === "Gemini" ? "lovable" : "deepseek";
+      const model = label === "Gemini" ? "google/gemini-3-flash-preview" : "deepseek-chat";
+      await logAIUsage({
+        functionName: "evaluate-interaction",
+        actionLabel: `Judge IA (${label})`,
+        model,
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+      });
+
+      try {
+        return JSON.parse(content);
+      } catch {
+        console.warn(`[evaluate-interaction] ${label} JSON parse failed:`, content);
+        return null;
+      }
+    };
+
+    const geminiEval = await parseResult(geminiResult, "Gemini");
+    const deepseekEval = await parseResult(deepseekResult, "DeepSeek");
+
+    if (!geminiEval && !deepseekEval) {
+      throw new Error("Both AI models failed to return a valid evaluation");
     }
 
-    const aiData = await aiRes.json();
-    const rawContent = aiData.choices?.[0]?.message?.content;
+    // ── Sanitize scores ──────────────────────────────────────────────────
+    const validVerdicts = ["hallucination", "off_topic", "incomplete", "ok"];
+    const sanitize = (eval_: { score: number; verdict: string; reason: string } | null) => {
+      if (!eval_) return null;
+      return {
+        score: Math.max(0, Math.min(5, Math.round(eval_.score ?? 3))),
+        verdict: validVerdicts.includes(eval_.verdict) ? eval_.verdict : "ok",
+        reason: eval_.reason || "",
+      };
+    };
 
-    // Log token usage
-    const usage = extractUsage(aiData);
-    await logAIUsage({
-      functionName: "evaluate-interaction",
-      actionLabel: "Avaliação de resposta",
-      model: "google/gemini-3-flash-preview",
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-    });
+    const geminiSafe = sanitize(geminiEval);
+    const deepseekSafe = sanitize(deepseekEval);
 
-    if (!rawContent) {
-      throw new Error("No content in AI response");
+    // ── Consolidated score (average of available) ────────────────────────
+    const scores = [geminiSafe?.score, deepseekSafe?.score].filter((s): s is number => s !== null && s !== undefined);
+    const finalScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+
+    // Final verdict: use the worst verdict if they disagree
+    const verdictPriority: Record<string, number> = { hallucination: 0, off_topic: 1, incomplete: 2, ok: 3 };
+    const verdicts = [geminiSafe?.verdict, deepseekSafe?.verdict].filter((v): v is string => !!v);
+    const finalVerdict = verdicts.sort((a, b) => (verdictPriority[a] ?? 3) - (verdictPriority[b] ?? 3))[0] || "ok";
+
+    // ── Update database ────────────────────────────────────────────────────
+    const updatePayload: Record<string, unknown> = {
+      judge_score: finalScore,
+      judge_verdict: finalVerdict,
+      judge_evaluated_at: new Date().toISOString(),
+    };
+
+    // Gemini-specific fields
+    if (geminiSafe) {
+      updatePayload.judge_reason = geminiSafe.reason;
     }
 
-    let evaluation: { score: number; verdict: string; reason: string };
-    try {
-      evaluation = JSON.parse(rawContent);
-    } catch {
-      throw new Error(`Failed to parse judge JSON: ${rawContent}`);
+    // DeepSeek-specific fields
+    if (deepseekSafe) {
+      updatePayload.judge_score_ds = deepseekSafe.score;
+      updatePayload.judge_verdict_ds = deepseekSafe.verdict;
+      updatePayload.judge_reason_ds = deepseekSafe.reason;
     }
-
-    // Clamp score between 0 and 5
-    const safeScore = Math.max(0, Math.min(5, Math.round(evaluation.score ?? 3)));
-    const safeVerdict = ["hallucination", "off_topic", "incomplete", "ok"].includes(evaluation.verdict)
-      ? evaluation.verdict
-      : "ok";
 
     const { error: updateError } = await supabase
       .from("agent_interactions")
-      .update({
-        judge_score: safeScore,
-        judge_verdict: safeVerdict,
-        judge_evaluated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", record.id);
 
     if (updateError) throw updateError;
 
-    console.log(`[evaluate-interaction] Evaluated interaction ${record.id}: score=${safeScore}, verdict=${safeVerdict}`);
+    console.log(`[evaluate-interaction] Evaluated ${record.id}: Gemini=${geminiSafe?.score ?? 'N/A'} DeepSeek=${deepseekSafe?.score ?? 'N/A'} Final=${finalScore}/${finalVerdict}`);
 
     return new Response(
-      JSON.stringify({ status: "success", score: safeScore, verdict: safeVerdict, reason: evaluation.reason }),
+      JSON.stringify({
+        status: "success",
+        score: finalScore,
+        verdict: finalVerdict,
+        gemini: geminiSafe,
+        deepseek: deepseekSafe,
+      }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err) {

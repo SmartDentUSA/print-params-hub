@@ -73,6 +73,10 @@ interface QualityInteraction {
   agent_response: string | null;
   judge_score: number | null;
   judge_verdict: string | null;
+  judge_reason: string | null;
+  judge_score_ds: number | null;
+  judge_verdict_ds: string | null;
+  judge_reason_ds: string | null;
   feedback: string | null;
   human_reviewed: boolean | null;
   judge_evaluated_at: string | null;
@@ -211,7 +215,7 @@ export function AdminDraLIAStats() {
           .limit(10),
         supabase
           .from("agent_interactions")
-          .select("id, created_at, user_message, agent_response, judge_score, judge_verdict, feedback, human_reviewed, judge_evaluated_at")
+          .select("id, created_at, user_message, agent_response, judge_score, judge_verdict, judge_reason, judge_score_ds, judge_verdict_ds, judge_reason_ds, feedback, human_reviewed, judge_evaluated_at")
           .or("judge_score.lte.2,feedback.eq.negative")
           .not("agent_response", "is", null)
           .order("created_at", { ascending: false })
@@ -953,9 +957,14 @@ export function AdminDraLIAStats() {
                                   {new Date(item.created_at).toLocaleDateString("pt-BR")}
                                 </span>
                                 {item.judge_score !== null && (
-                                  <span className={`text-xs ${SCORE_COLOR(item.judge_score)}`}>
-                                    Score: {item.judge_score}/5
-                                  </span>
+                                  <Badge variant="outline" className={`text-xs ${SCORE_COLOR(item.judge_score)}`}>
+                                    🔵 Gemini: {item.judge_score}/5
+                                  </Badge>
+                                )}
+                                {item.judge_score_ds !== null && (
+                                  <Badge variant="outline" className={`text-xs ${SCORE_COLOR(item.judge_score_ds)}`}>
+                                    🟢 DS: {item.judge_score_ds}/5
+                                  </Badge>
                                 )}
                                 {verdict && (
                                   <Badge variant="outline" className={`text-xs ${verdict.className}`}>
@@ -1001,6 +1010,22 @@ export function AdminDraLIAStats() {
                                 >
                                   {isExpanded ? <><ChevronUp className="w-3 h-3" /> Ver menos</> : <><ChevronDown className="w-3 h-3" /> Ver mais</>}
                                 </button>
+                              )}
+                            </div>
+                          )}
+                          {isExpanded && (item.judge_reason || item.judge_reason_ds) && (
+                            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {item.judge_reason && (
+                                <div className="p-2 rounded border bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-0.5">🔵 Gemini</p>
+                                  <p className="text-xs text-muted-foreground">{item.judge_reason}</p>
+                                </div>
+                              )}
+                              {item.judge_reason_ds && (
+                                <div className="p-2 rounded border bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800">
+                                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-0.5">🟢 DeepSeek</p>
+                                  <p className="text-xs text-muted-foreground">{item.judge_reason_ds}</p>
+                                </div>
                               )}
                             </div>
                           )}
