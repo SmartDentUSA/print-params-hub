@@ -215,7 +215,7 @@ export function AdminDraLIAStats() {
           .limit(10),
         supabase
           .from("agent_interactions")
-          .select("id, created_at, user_message, agent_response, judge_score, judge_verdict, feedback, human_reviewed, judge_evaluated_at")
+          .select("id, created_at, user_message, agent_response, judge_score, judge_verdict, judge_reason, judge_score_ds, judge_verdict_ds, judge_reason_ds, feedback, human_reviewed, judge_evaluated_at")
           .or("judge_score.lte.2,feedback.eq.negative")
           .not("agent_response", "is", null)
           .order("created_at", { ascending: false })
