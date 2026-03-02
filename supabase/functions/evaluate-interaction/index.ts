@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -112,6 +113,16 @@ Retorne APENAS um JSON válido: {"score": 0-5, "verdict": "hallucination|off_top
 
     const aiData = await aiRes.json();
     const rawContent = aiData.choices?.[0]?.message?.content;
+
+    // Log token usage
+    const usage = extractUsage(aiData);
+    await logAIUsage({
+      functionName: "evaluate-interaction",
+      actionLabel: "Avaliação de resposta",
+      model: "google/gemini-3-flash-preview",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
 
     if (!rawContent) {
       throw new Error("No content in AI response");

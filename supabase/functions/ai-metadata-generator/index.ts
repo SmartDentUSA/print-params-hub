@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
+import { logAIUsage, extractUsage } from '../_shared/log-ai-usage.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -158,6 +159,20 @@ serve(async (req) => {
         console.log('✅ Generated FAQs:', faqs.length);
       }
     }
+
+    // Log aggregated token usage (estimate: ~500 prompt + ~200 completion per AI call)
+    const aiCallCount = results.filter(r => r.status === 'fulfilled').length + (regenerate.excerpt ? 1 : 0);
+    if (aiCallCount > 0) {
+      await logAIUsage({
+        functionName: "ai-metadata-generator",
+        actionLabel: `Metadados SEO (${aiCallCount} chamadas)`,
+        model: "google/gemini-2.5-flash",
+        promptTokens: aiCallCount * 600,
+        completionTokens: aiCallCount * 150,
+        metadata: { calls: aiCallCount, regenerate },
+      });
+    }
+
 
     const response: MetadataResponse = {
       slug,

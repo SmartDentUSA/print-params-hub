@@ -1,108 +1,172 @@
 
 
-## Plano: Dashboard de Consumo de Tokens IA (substitui aba "Modelos IA")
+# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
 
-### Contexto
+## Diagnostico do Estado Atual
 
-O sistema usa IA em **22 edge functions** via 3 provedores:
-- **Lovable Gateway** (Gemini): 19 funções
-- **DeepSeek API**: 1 função (ai-model-compare)
-- **Google AI (Embeddings)**: 5 funções (index-embeddings, index-spin-entries, ingest-knowledge-text, heal-knowledge-gaps, dra-lia)
+| Componente | Status | Onde |
+|------------|--------|------|
+| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
+| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
+| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
+| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
+| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
+| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
+| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
 
-Não existe tabela de tracking de tokens no banco. Precisamos criar uma.
+**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
 
-### 1. Migration: Criar tabela `ai_token_usage`
+---
+
+## Fase 1: Tabela `whatsapp_inbox`
+
+Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
 
 ```sql
-CREATE TABLE public.ai_token_usage (
+CREATE TABLE IF NOT EXISTS whatsapp_inbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz NOT NULL DEFAULT now(),
-  function_name text NOT NULL,        -- ex: "dra-lia", "translate-content"
-  action_label text NOT NULL,         -- ex: "Chat com lead", "Tradução EN"
-  provider text NOT NULL DEFAULT 'lovable', -- lovable | deepseek | google
-  model text,                         -- ex: "gemini-2.5-flash", "deepseek-chat"
-  prompt_tokens integer DEFAULT 0,
-  completion_tokens integer DEFAULT 0,
-  total_tokens integer DEFAULT 0,
-  estimated_cost_usd numeric(10,6) DEFAULT 0,
-  metadata jsonb DEFAULT '{}'
+  phone text NOT NULL,
+  phone_normalized text,
+  message_text text,
+  media_url text,
+  media_type text,
+  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
+  lead_id uuid REFERENCES lia_attendances(id),
+  matched_by text,
+  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
+    'interesse_imediato', 'interesse_futuro', 'pedido_info',
+    'objecao', 'sem_interesse', 'suporte', 'indefinido'
+  )),
+  confidence_score integer,
+  seller_notified boolean DEFAULT false,
+  processed_at timestamptz,
+  raw_payload jsonb DEFAULT '{}'
 );
 
-ALTER TABLE public.ai_token_usage ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "admin_only" ON public.ai_token_usage
-  FOR ALL TO authenticated USING (is_admin(auth.uid()));
-
-CREATE POLICY "service_insert" ON public.ai_token_usage
-  FOR INSERT TO anon WITH CHECK (true);
-
-CREATE INDEX idx_ai_token_usage_created ON public.ai_token_usage(created_at DESC);
-CREATE INDEX idx_ai_token_usage_function ON public.ai_token_usage(function_name);
+CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
+CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
+CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
+CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
 ```
 
-### 2. Edge Function: `log-ai-usage` (helper reutilizável)
+RLS: `admin_only` (mesma policy de `lia_attendances`).
 
-Uma edge function simples que as demais funções chamam internamente para registrar consumo. Alternativamente, inserção direta via Supabase client service-role já presente nas funções.
+---
 
-### 3. Novo componente: `SmartOpsAIUsageDashboard.tsx` (substitui `SmartOpsModelCompare`)
+## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
 
-**Funcionalidades:**
-- **Filtro de mês** (seletor mês/ano)
-- **Cotação USD→BRL** (campo editável, default R$5,80)
-- **Cards resumo**: Total tokens, Custo USD, Custo BRL, Chamadas totais
-- **Tabela por função**: Nome da função, descrição do uso, provider, chamadas, tokens, custo R$
-- **Gráfico de barras** (Recharts): Top 10 funções por consumo
-- **Gráfico de linha**: Evolução diária no mês
+Endpoint publico que recebe POST do WaLeads quando lead responde.
 
-**Mapa completo de funções IA no sistema** (hardcoded como referência):
+**Fluxo:**
 
-| Função | Ação | Provider |
-|--------|------|----------|
-| dra-lia | Chat com leads (Dra. L.I.A.) | Lovable + Google |
-| evaluate-interaction | Avaliação de qualidade de resposta | Lovable |
-| ai-content-formatter | Formatação de conteúdo HTML | Lovable |
-| ai-metadata-generator | Geração de SEO (título, excerpt, meta) | Lovable |
-| ai-orchestrate-content | Orquestração de conteúdo completo | Lovable |
-| ai-enrich-pdf-content | Enriquecimento de PDF | Lovable |
-| ai-generate-og-image | Geração de OG Image config | Lovable |
-| ai-model-compare | Comparação de modelos | Lovable + DeepSeek |
-| translate-content | Tradução EN/ES | Lovable |
-| reformat-article-html | Reformatação HTML de artigos | Lovable |
-| enrich-article-seo | Enriquecimento SEO de artigos | Lovable |
-| extract-pdf-specialized | Extração especializada de PDF | Lovable |
-| extract-pdf-text | Extração de texto de PDF | Lovable |
-| extract-pdf-raw | Extração raw de PDF | Lovable |
-| cognitive-lead-analysis | Análise cognitiva de leads | Lovable |
-| backfill-lia-leads | Resumo de histórico de leads | Lovable |
-| backfill-keywords | Geração de keywords | Lovable |
-| generate-veredict-data | Geração de dados de veredito | Lovable |
-| format-processing-instructions | Formatação de instruções | Lovable |
-| heal-knowledge-gaps | Geração de drafts para gaps | Lovable + Google |
-| extract-commercial-expertise | Extração de expertise comercial | Lovable |
-| index-embeddings | Geração de embeddings | Google |
-| index-spin-entries | Embeddings SPIN | Google |
-| ingest-knowledge-text | Embeddings de KB | Google |
+1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
+2. Normaliza telefone (ultimos 8-9 digitos para match)
+3. Busca lead em `lia_attendances` via `telefone_normalized`
+4. Classifica mensagem (rule-based v1):
+   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
+   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
+   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
+   - `objecao`: "caro", "vou pensar", "falar com socio"
+   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
+   - `suporte`: "problema", "defeito", "troca", "garantia"
+5. Insere em `whatsapp_inbox`
+6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
+7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
+8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
 
-### 4. Instrumentar funções existentes (gradual)
+**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
 
-Adicionar logging de tokens nas funções mais críticas (dra-lia, ai-orchestrate-content, translate-content) via insert direto na tabela `ai_token_usage` usando o service-role client já existente.
+---
 
-A API OpenAI-compatible retorna `usage.prompt_tokens` e `usage.completion_tokens` no response — basta capturar e inserir.
+## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
 
-### 5. Atualizar `SmartOpsTab.tsx`
+Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
 
-- Substituir aba "Modelos IA" → "Tokens IA"
-- Trocar `SmartOpsModelCompare` → `SmartOpsAIUsageDashboard`
+```typescript
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Extrair ultimos 8-9 digitos para match
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
 
-### Arquivos alterados
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
+}
+```
 
-| Arquivo | Mudança |
-|--------|---------|
-| Migration SQL | Tabela `ai_token_usage` |
-| `SmartOpsAIUsageDashboard.tsx` | **Novo** — dashboard completo |
-| `SmartOpsTab.tsx` | Aba "Modelos IA" → "Tokens IA" |
-| `types.ts` | Atualizado automaticamente |
-| Edge functions (gradual) | Instrumentação de logging |
+O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
 
-Na primeira entrega, o dashboard mostrará a tabela de referência com todas as funções mapeadas e ficará pronto para receber dados assim que as funções forem instrumentadas. A instrumentação das 5 funções mais usadas (dra-lia, translate-content, ai-orchestrate-content, evaluate-interaction, ai-metadata-generator) será incluída nesta mesma entrega.
+---
+
+## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
+
+Quando `intent_detected === 'interesse_imediato'`:
+
+1. Buscar `proprietario_lead_crm` em `lia_attendances`
+2. Buscar `team_member` correspondente
+3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
+
+```
+OPORTUNIDADE QUENTE
+Lead: {nome} ({especialidade})
+Owner: {proprietario_lead_crm}
+Resposta: "{message_text}" (truncado 200 chars)
+Etapa CRM: {ultima_etapa_comercial}
+Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
+Acao: {recommended_approach}
+```
+
+4. Marcar `seller_notified = true` em `whatsapp_inbox`
+
+---
+
+## Fase 5: Limpeza Automatica (Clean-up Job)
+
+Adicionar logica no `smart-ops-stagnant-processor` existente:
+
+- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
+- E lead nao tem outras interacoes positivas
+- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
+
+---
+
+## Resumo de Arquivos
+
+| # | Arquivo | Acao |
+|---|---------|------|
+| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
+| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
+| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
+| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
+| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
+
+## Ordem de Execucao
+
+```text
+1. Migracao SQL (whatsapp_inbox)
+2. Helpers de normalizacao em sellflux-field-map.ts
+3. Edge function smart-ops-wa-inbox-webhook + config.toml
+4. Integracao clean-up no stagnant-processor
+5. Deploy
+```
+
+## Payload WaLeads Esperado
+
+O webhook do WaLeads envia POST com:
+
+```json
+{
+  "event": "message_received",
+  "phone": "5511999887766",
+  "message": "Tenho interesse sim, como funciona?",
+  "media_url": null,
+  "timestamp": "2026-02-26T10:30:00Z"
+}
+```
+
+O endpoint a ser configurado no painel WaLeads sera:
+`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
 

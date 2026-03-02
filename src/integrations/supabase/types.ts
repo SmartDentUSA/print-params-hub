@@ -195,6 +195,48 @@ export type Database = {
           },
         ]
       }
+      ai_token_usage: {
+        Row: {
+          action_label: string
+          completion_tokens: number | null
+          created_at: string
+          estimated_cost_usd: number | null
+          function_name: string
+          id: string
+          metadata: Json | null
+          model: string | null
+          prompt_tokens: number | null
+          provider: string
+          total_tokens: number | null
+        }
+        Insert: {
+          action_label: string
+          completion_tokens?: number | null
+          created_at?: string
+          estimated_cost_usd?: number | null
+          function_name: string
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          prompt_tokens?: number | null
+          provider?: string
+          total_tokens?: number | null
+        }
+        Update: {
+          action_label?: string
+          completion_tokens?: number | null
+          created_at?: string
+          estimated_cost_usd?: number | null
+          function_name?: string
+          id?: string
+          metadata?: Json | null
+          model?: string | null
+          prompt_tokens?: number | null
+          provider?: string
+          total_tokens?: number | null
+        }
+        Relationships: []
+      }
       authors: {
         Row: {
           active: boolean
