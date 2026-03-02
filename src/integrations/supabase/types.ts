@@ -878,12 +878,16 @@ export type Database = {
       }
       knowledge_gap_drafts: {
         Row: {
+          ai_model_used: string | null
           cluster_questions: string[]
           created_at: string | null
           draft_excerpt: string
+          draft_excerpt_ds: string | null
           draft_faq: Json | null
+          draft_faq_ds: Json | null
           draft_keywords: string[] | null
           draft_title: string
+          draft_title_ds: string | null
           gap_ids: string[]
           id: string
           published_content_id: string | null
@@ -892,12 +896,16 @@ export type Database = {
           status: string
         }
         Insert: {
+          ai_model_used?: string | null
           cluster_questions: string[]
           created_at?: string | null
           draft_excerpt: string
+          draft_excerpt_ds?: string | null
           draft_faq?: Json | null
+          draft_faq_ds?: Json | null
           draft_keywords?: string[] | null
           draft_title: string
+          draft_title_ds?: string | null
           gap_ids: string[]
           id?: string
           published_content_id?: string | null
@@ -906,12 +914,16 @@ export type Database = {
           status?: string
         }
         Update: {
+          ai_model_used?: string | null
           cluster_questions?: string[]
           created_at?: string | null
           draft_excerpt?: string
+          draft_excerpt_ds?: string | null
           draft_faq?: Json | null
+          draft_faq_ds?: Json | null
           draft_keywords?: string[] | null
           draft_title?: string
+          draft_title_ds?: string | null
           gap_ids?: string[]
           id?: string
           published_content_id?: string | null
