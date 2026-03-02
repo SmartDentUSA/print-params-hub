@@ -125,6 +125,10 @@ interface GapDraft {
   draft_excerpt: string;
   draft_faq: { q: string; a: string }[] | null;
   draft_keywords: string[] | null;
+  draft_title_ds: string | null;
+  draft_excerpt_ds: string | null;
+  draft_faq_ds: { q: string; a: string }[] | null;
+  ai_model_used: string | null;
   gap_ids: string[];
   cluster_questions: string[];
   status: 'draft' | 'approved' | 'rejected';
@@ -1440,13 +1444,24 @@ export function AdminDraLIAStats() {
               drafts.filter(d => d.status === 'draft').map((draft) => {
                 const edited = editedDrafts[draft.id] ?? {};
                 const currentFaqs = (edited.draft_faq ?? draft.draft_faq) as { q: string; a: string }[] | null ?? [];
+                const hasDualModel = draft.ai_model_used === 'dual' && draft.draft_faq_ds;
+                const dsFaqs = (draft.draft_faq_ds ?? []) as { q: string; a: string }[];
                 return (
                   <Card key={draft.id} className="border-primary/20">
                     <CardHeader className="pb-3">
                       <div className="flex items-start gap-3">
                         <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <Badge variant="outline" className="text-xs text-primary border-primary/30">Rascunho IA</Badge>
+                            {draft.ai_model_used === 'dual' && (
+                              <Badge variant="outline" className="text-xs border-chart-2/30 text-chart-2">🔵 Gemini + 🟢 DeepSeek</Badge>
+                            )}
+                            {draft.ai_model_used === 'gemini' && (
+                              <Badge variant="outline" className="text-xs border-blue-300 text-blue-600 dark:text-blue-400">🔵 Gemini</Badge>
+                            )}
+                            {draft.ai_model_used === 'deepseek' && (
+                              <Badge variant="outline" className="text-xs border-green-300 text-green-600 dark:text-green-400">🟢 DeepSeek</Badge>
+                            )}
                             <span className="text-xs text-muted-foreground">{new Date(draft.created_at).toLocaleDateString('pt-BR')}</span>
                           </div>
                           <Input
@@ -1474,53 +1489,143 @@ export function AdminDraLIAStats() {
                         </CollapsibleContent>
                       </Collapsible>
 
-                      {/* Excerpt */}
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Resumo / Excerpt</label>
-                        <Textarea
-                          value={edited.draft_excerpt ?? draft.draft_excerpt}
-                          onChange={(e) => updateDraftField(draft.id, 'draft_excerpt', e.target.value)}
-                          className="min-h-[60px] text-sm"
-                          placeholder="Resumo do artigo..."
-                        />
-                      </div>
+                      {/* Dual Model Comparison or Single Model View */}
+                      {hasDualModel ? (
+                        <Tabs defaultValue="gemini" className="w-full">
+                          <TabsList className="w-full grid grid-cols-2">
+                            <TabsTrigger value="gemini" className="text-xs gap-1">🔵 Gemini (Principal)</TabsTrigger>
+                            <TabsTrigger value="deepseek" className="text-xs gap-1">🟢 DeepSeek</TabsTrigger>
+                          </TabsList>
 
-                      {/* FAQ Q&A */}
-                      {currentFaqs.length > 0 && (
-                        <div className="space-y-1">
-                          <label className="text-xs font-medium text-muted-foreground">Pares de Pergunta & Resposta</label>
-                          <Accordion type="multiple" className="w-full">
-                            {currentFaqs.map((faq, idx) => (
-                              <AccordionItem key={idx} value={`faq-${draft.id}-${idx}`}>
-                                <AccordionTrigger className="text-sm py-2 hover:no-underline">
-                                  <span className="text-left truncate pr-2">{faq.q || `Pergunta ${idx + 1}`}</span>
-                                </AccordionTrigger>
-                                <AccordionContent className="space-y-2 pb-3">
-                                  <Input
-                                    value={faq.q}
-                                    onChange={(e) => {
-                                      const updated = currentFaqs.map((f, i) => i === idx ? { ...f, q: e.target.value } : f);
-                                      updateDraftField(draft.id, 'draft_faq', updated);
-                                    }}
-                                    placeholder="Pergunta..."
-                                    className="text-sm"
-                                  />
-                                  <Textarea
-                                    value={faq.a}
-                                    onChange={(e) => {
-                                      const updated = currentFaqs.map((f, i) => i === idx ? { ...f, a: e.target.value } : f);
-                                      updateDraftField(draft.id, 'draft_faq', updated);
-                                    }}
-                                    placeholder="Resposta técnica..."
-                                    className="min-h-[80px] text-sm"
-                                  />
-                                </AccordionContent>
-                              </AccordionItem>
-                            ))}
-                          </Accordion>
-                        </div>
+                          {/* Gemini Tab */}
+                          <TabsContent value="gemini" className="space-y-3 mt-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground">Resumo / Excerpt</label>
+                              <Textarea
+                                value={edited.draft_excerpt ?? draft.draft_excerpt}
+                                onChange={(e) => updateDraftField(draft.id, 'draft_excerpt', e.target.value)}
+                                className="min-h-[60px] text-sm"
+                                placeholder="Resumo do artigo..."
+                              />
+                            </div>
+                            {currentFaqs.length > 0 && (
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">Pares de Pergunta & Resposta</label>
+                                <Accordion type="multiple" className="w-full">
+                                  {currentFaqs.map((faq, idx) => (
+                                    <AccordionItem key={idx} value={`faq-gemini-${draft.id}-${idx}`}>
+                                      <AccordionTrigger className="text-sm py-2 hover:no-underline">
+                                        <span className="text-left truncate pr-2">{faq.q || `Pergunta ${idx + 1}`}</span>
+                                      </AccordionTrigger>
+                                      <AccordionContent className="space-y-2 pb-3">
+                                        <Input
+                                          value={faq.q}
+                                          onChange={(e) => {
+                                            const updated = currentFaqs.map((f, i) => i === idx ? { ...f, q: e.target.value } : f);
+                                            updateDraftField(draft.id, 'draft_faq', updated);
+                                          }}
+                                          placeholder="Pergunta..."
+                                          className="text-sm"
+                                        />
+                                        <Textarea
+                                          value={faq.a}
+                                          onChange={(e) => {
+                                            const updated = currentFaqs.map((f, i) => i === idx ? { ...f, a: e.target.value } : f);
+                                            updateDraftField(draft.id, 'draft_faq', updated);
+                                          }}
+                                          placeholder="Resposta técnica..."
+                                          className="min-h-[80px] text-sm"
+                                        />
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  ))}
+                                </Accordion>
+                              </div>
+                            )}
+                          </TabsContent>
+
+                          {/* DeepSeek Tab */}
+                          <TabsContent value="deepseek" className="space-y-3 mt-3">
+                            <div className="rounded-lg border border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20 p-3 space-y-3">
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">Título (DeepSeek)</label>
+                                <p className="text-sm font-medium">{draft.draft_title_ds || '—'}</p>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">Resumo (DeepSeek)</label>
+                                <p className="text-sm text-muted-foreground">{draft.draft_excerpt_ds || '—'}</p>
+                              </div>
+                              {dsFaqs.length > 0 && (
+                                <div className="space-y-1">
+                                  <label className="text-xs font-medium text-muted-foreground">FAQs (DeepSeek) — somente leitura</label>
+                                  <Accordion type="multiple" className="w-full">
+                                    {dsFaqs.map((faq, idx) => (
+                                      <AccordionItem key={idx} value={`faq-ds-${draft.id}-${idx}`}>
+                                        <AccordionTrigger className="text-sm py-2 hover:no-underline">
+                                          <span className="text-left truncate pr-2">{faq.q || `Pergunta ${idx + 1}`}</span>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pb-3">
+                                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">{faq.a}</p>
+                                        </AccordionContent>
+                                      </AccordionItem>
+                                    ))}
+                                  </Accordion>
+                                </div>
+                              )}
+                              <p className="text-xs text-muted-foreground/70 italic">
+                                💡 Para usar a versão DeepSeek, copie manualmente o conteúdo para a aba Gemini (editável) antes de indexar.
+                              </p>
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                      ) : (
+                        <>
+                          {/* Single model view (original) */}
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">Resumo / Excerpt</label>
+                            <Textarea
+                              value={edited.draft_excerpt ?? draft.draft_excerpt}
+                              onChange={(e) => updateDraftField(draft.id, 'draft_excerpt', e.target.value)}
+                              className="min-h-[60px] text-sm"
+                              placeholder="Resumo do artigo..."
+                            />
+                          </div>
+                          {currentFaqs.length > 0 && (
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-muted-foreground">Pares de Pergunta & Resposta</label>
+                              <Accordion type="multiple" className="w-full">
+                                {currentFaqs.map((faq, idx) => (
+                                  <AccordionItem key={idx} value={`faq-${draft.id}-${idx}`}>
+                                    <AccordionTrigger className="text-sm py-2 hover:no-underline">
+                                      <span className="text-left truncate pr-2">{faq.q || `Pergunta ${idx + 1}`}</span>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="space-y-2 pb-3">
+                                      <Input
+                                        value={faq.q}
+                                        onChange={(e) => {
+                                          const updated = currentFaqs.map((f, i) => i === idx ? { ...f, q: e.target.value } : f);
+                                          updateDraftField(draft.id, 'draft_faq', updated);
+                                        }}
+                                        placeholder="Pergunta..."
+                                        className="text-sm"
+                                      />
+                                      <Textarea
+                                        value={faq.a}
+                                        onChange={(e) => {
+                                          const updated = currentFaqs.map((f, i) => i === idx ? { ...f, a: e.target.value } : f);
+                                          updateDraftField(draft.id, 'draft_faq', updated);
+                                        }}
+                                        placeholder="Resposta técnica..."
+                                        className="min-h-[80px] text-sm"
+                                      />
+                                    </AccordionContent>
+                                  </AccordionItem>
+                                ))}
+                              </Accordion>
+                            </div>
+                          )}
+                        </>
                       )}
-
 
                        {/* Actions */}
                       <div className="flex gap-2 pt-2">
