@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SYSTEM_SUPER_PROMPT } from "../_shared/system-prompt.ts";
 import { TESTIMONIAL_PROMPT } from "../_shared/testimonial-prompt.ts";
 import { DOCUMENT_PROMPTS } from "../_shared/document-prompts.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1019,6 +1020,16 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
 
     const aiData = await aiResponse.json();
     const rawContent = aiData.choices[0].message.content;
+
+    // Log token usage
+    const usage = extractUsage(aiData);
+    await logAIUsage({
+      functionName: "ai-orchestrate-content",
+      actionLabel: "Orquestração de conteúdo",
+      model: "google/gemini-2.5-flash",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
 
     console.log('🔍 Parseando resposta da IA...');
     console.log('📝 Resposta bruta (primeiros 1000 chars):', rawContent.substring(0, 1000));

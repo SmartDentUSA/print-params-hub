@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
+import { logAIUsage, extractUsage } from '../_shared/log-ai-usage.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -118,6 +119,16 @@ ${systemPrompt}`
 
     const data = await response.json();
     const fullResponse = data.choices?.[0]?.message?.content || '';
+
+    // Log token usage
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "translate-content",
+      actionLabel: `Tradução ${targetLanguage.toUpperCase()}`,
+      model: "google/gemini-2.5-flash",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
 
     console.log('Translation completed successfully');
 
