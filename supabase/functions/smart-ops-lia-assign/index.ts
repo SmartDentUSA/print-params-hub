@@ -85,17 +85,22 @@ async function findOrCreateCompany(
   existingCompanyId: number | null,
   lead: Record<string, unknown>
 ): Promise<number | null> {
-  // Already has company
-  if (existingCompanyId) {
-    console.log(`[lia-assign] Person ${personId} already has company ${existingCompanyId}`);
-    return existingCompanyId;
-  }
-
-  // Create company with person data
   const nome = (lead.nome || lead.email || "Empresa Lead") as string;
   const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
 
+  // Already has company → update it with complete data
+  if (existingCompanyId) {
+    console.log(`[lia-assign] Person ${personId} already has company ${existingCompanyId}, enriching data`);
+    const enrichPayload: Record<string, unknown> = { name: nome };
+    if (email) enrichPayload.emails = [{ email }];
+    if (phone) enrichPayload.phones = [{ phone }];
+    const enrichRes = await piperunPut(apiToken, `companies/${existingCompanyId}`, enrichPayload);
+    console.log(`[lia-assign] Company ${existingCompanyId} enriched: ${enrichRes.success} (${enrichRes.status})`);
+    return existingCompanyId;
+  }
+
+  // Create company with complete data
   const companyPayload: Record<string, unknown> = { name: nome };
   if (email) companyPayload.emails = [{ email }];
   if (phone) companyPayload.phones = [{ phone }];
@@ -145,7 +150,8 @@ async function updateExistingDeal(
   dealId: number,
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  companyId?: number | null
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
@@ -153,8 +159,9 @@ async function updateExistingDeal(
     origin_id: ORIGINS.DRA_LIA.id,
     ...hashFields,
   };
+  if (companyId) updatePayload.company_id = companyId;
 
-  console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId}`);
+  console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId}, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
@@ -172,7 +179,8 @@ async function moveDealToVendas(
   ownerId: number,
   stageId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  companyId?: number | null
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
@@ -183,6 +191,7 @@ async function moveDealToVendas(
     freezed: 0, // Unfreeze if frozen
     ...hashFields,
   };
+  if (companyId) updatePayload.company_id = companyId;
 
   console.log(`[lia-assign] Moving deal ${dealId} from Estagnados → Vendas, owner=${ownerId}`);
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
@@ -546,9 +555,9 @@ async function sendWaLeadsMessage(
   phone: string,
   message: string,
   leadId: string
-): Promise<void> {
+): Promise<{ success: boolean; status?: number; response?: string }> {
   try {
-    await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
+    const res = await fetch(`${supabaseUrl}/functions/v1/smart-ops-send-waleads`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${serviceKey}`,
@@ -562,8 +571,12 @@ async function sendWaLeadsMessage(
         lead_id: leadId,
       }),
     });
+    const resText = await res.text();
+    console.log(`[lia-assign] WaLeads response: status=${res.status} body=${resText.slice(0, 500)}`);
+    return { success: res.ok, status: res.status, response: resText.slice(0, 300) };
   } catch (e) {
     console.warn("[lia-assign] WaLeads send error:", e);
+    return { success: false, response: String(e) };
   }
 }
 
