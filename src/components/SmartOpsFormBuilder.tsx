@@ -146,7 +146,7 @@ export function SmartOpsFormBuilder() {
         title: "Formulário SmartDent 3D",
         subtitle: "Preencha seus dados para atendimento especializado",
         description: "Formulário completo com todos os campos disponíveis no sistema.",
-        active: false,
+        active: true,
       } as any)
       .select("id")
       .single();

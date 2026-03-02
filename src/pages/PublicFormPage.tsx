@@ -49,11 +49,15 @@ export default function PublicFormPage() {
         .from("smartops_forms" as any)
         .select("*")
         .eq("slug", slug)
-        .eq("active", true)
         .single();
 
       if (!formData) {
         setError("Formulário não encontrado.");
+        setLoading(false);
+        return;
+      }
+      if (!(formData as any).active) {
+        setError("Formulário temporariamente indisponível.");
         setLoading(false);
         return;
       }
