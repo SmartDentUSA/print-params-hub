@@ -957,9 +957,14 @@ export function AdminDraLIAStats() {
                                   {new Date(item.created_at).toLocaleDateString("pt-BR")}
                                 </span>
                                 {item.judge_score !== null && (
-                                  <span className={`text-xs ${SCORE_COLOR(item.judge_score)}`}>
-                                    Score: {item.judge_score}/5
-                                  </span>
+                                  <Badge variant="outline" className={`text-xs ${SCORE_COLOR(item.judge_score)}`}>
+                                    🔵 Gemini: {item.judge_score}/5
+                                  </Badge>
+                                )}
+                                {item.judge_score_ds !== null && (
+                                  <Badge variant="outline" className={`text-xs ${SCORE_COLOR(item.judge_score_ds)}`}>
+                                    🟢 DS: {item.judge_score_ds}/5
+                                  </Badge>
                                 )}
                                 {verdict && (
                                   <Badge variant="outline" className={`text-xs ${verdict.className}`}>
