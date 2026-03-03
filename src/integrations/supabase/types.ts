@@ -2484,6 +2484,54 @@ export type Database = {
         }
         Relationships: []
       }
+      system_health_logs: {
+        Row: {
+          ai_analysis: string | null
+          ai_suggested_action: string | null
+          auto_remediated: boolean
+          created_at: string
+          details: Json | null
+          error_type: string | null
+          function_name: string
+          id: string
+          lead_email: string | null
+          lead_id: string | null
+          resolved: boolean
+          resolved_at: string | null
+          severity: string
+        }
+        Insert: {
+          ai_analysis?: string | null
+          ai_suggested_action?: string | null
+          auto_remediated?: boolean
+          created_at?: string
+          details?: Json | null
+          error_type?: string | null
+          function_name: string
+          id?: string
+          lead_email?: string | null
+          lead_id?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          severity?: string
+        }
+        Update: {
+          ai_analysis?: string | null
+          ai_suggested_action?: string | null
+          auto_remediated?: boolean
+          created_at?: string
+          details?: Json | null
+          error_type?: string | null
+          function_name?: string
+          id?: string
+          lead_email?: string | null
+          lead_id?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          severity?: string
+        }
+        Relationships: []
+      }
       team_members: {
         Row: {
           ativo: boolean
