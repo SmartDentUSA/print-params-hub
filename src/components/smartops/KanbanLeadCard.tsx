@@ -61,7 +61,7 @@ export interface Lead {
   piperun_title: string | null;
   piperun_origin_name: string | null;
   // Equipment/Technical fields
-  itens_proposta_parsed: ParsedProposalItem[] | null;
+  itens_proposta_parsed: ParsedProposalItem[] | Record<string, unknown>[] | null;
   equip_scanner: string | null;
   equip_scanner_serial: string | null;
   equip_scanner_ativacao: string | null;

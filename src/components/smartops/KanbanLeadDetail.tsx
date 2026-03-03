@@ -27,6 +27,22 @@ function DetailRow({ label, value, emoji }: { label: string; value: string | nul
   );
 }
 
+function EquipRow({ emoji, label, name, serial, date }: { emoji: string; label: string; name: string | null; serial: string | null; date: string | null }) {
+  if (!name) return null;
+  return (
+    <div className="text-xs py-1 space-y-0.5">
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">{emoji} {label}</span>
+        <span className="font-medium text-right max-w-[60%] truncate">{name}</span>
+      </div>
+      <div className="flex gap-3 pl-5 text-[10px] text-muted-foreground">
+        <span>Nº Série: {serial || "—"}</span>
+        <span>Ativação: {date ? new Date(date).toLocaleDateString("pt-BR") : "—"}</span>
+      </div>
+    </div>
+  );
+}
+
 interface MsgLog {
   id: string;
   tipo: string | null;
