@@ -3,7 +3,7 @@ import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 function normalizePhone(raw: string | undefined | null): string | null {
@@ -101,6 +101,16 @@ Deno.serve(async (req) => {
     if (!email) {
       return new Response(JSON.stringify({ error: "Email obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Filter test emails to prevent polluting the database
+    const TEST_DOMAINS = ["@test.com", "@example.com", "@test.com.br", "@teste.com"];
+    const isTestEmail = TEST_DOMAINS.some(d => email.toLowerCase().endsWith(d)) || /^teste?[\-_@]/i.test(email);
+    if (isTestEmail) {
+      console.log("[ingest-lead] Test email filtered:", email);
+      return new Response(JSON.stringify({ success: true, skipped: true, reason: "test_email" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

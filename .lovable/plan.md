@@ -1,115 +1,172 @@
 
 
-# Plano: Cerca de Persona + Instrumentacao de Tokens + Filtro de Teste + Redirect de Preco
+# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
 
-## Resumo
+## Diagnostico do Estado Atual
 
-4 mudancas cirurgicas em 2 arquivos para resolver os problemas identificados na auditoria.
+| Componente | Status | Onde |
+|------------|--------|------|
+| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
+| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
+| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
+| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
+| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
+| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
+| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
 
-## Arquivo 1: `supabase/functions/dra-lia/index.ts`
+**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
 
-### Mudanca A — Interceptor `isGeneralKnowledge` pre-RAG (linha ~3854)
+---
 
-Inserir **antes** do support guard (linha 3852) um novo bloco interceptor:
+## Fase 1: Tabela `whatsapp_inbox`
+
+Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+
+```sql
+CREATE TABLE IF NOT EXISTS whatsapp_inbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  phone text NOT NULL,
+  phone_normalized text,
+  message_text text,
+  media_url text,
+  media_type text,
+  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
+  lead_id uuid REFERENCES lia_attendances(id),
+  matched_by text,
+  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
+    'interesse_imediato', 'interesse_futuro', 'pedido_info',
+    'objecao', 'sem_interesse', 'suporte', 'indefinido'
+  )),
+  confidence_score integer,
+  seller_notified boolean DEFAULT false,
+  processed_at timestamptz,
+  raw_payload jsonb DEFAULT '{}'
+);
+
+CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
+CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
+CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
+CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
+```
+
+RLS: `admin_only` (mesma policy de `lia_attendances`).
+
+---
+
+## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
+
+Endpoint publico que recebe POST do WaLeads quando lead responde.
+
+**Fluxo:**
+
+1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
+2. Normaliza telefone (ultimos 8-9 digitos para match)
+3. Busca lead em `lia_attendances` via `telefone_normalized`
+4. Classifica mensagem (rule-based v1):
+   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
+   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
+   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
+   - `objecao`: "caro", "vou pensar", "falar com socio"
+   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
+   - `suporte`: "problema", "defeito", "troca", "garantia"
+5. Insere em `whatsapp_inbox`
+6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
+7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
+8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
+
+**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
+
+---
+
+## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
+
+Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
 
 ```typescript
-const GENERAL_KNOWLEDGE_PATTERNS = [
-  /qual a capital d[aeo]/i,
-  /quem (descobriu|inventou|criou|foi|é|eh) /i,
-  /quem foi [A-Z][a-z]+ [A-Z]/i,
-  /por que (você|vc|voce) se chama/i,
-  /(historia|história) d[aeo] /i,
-  /em que ano /i,
-  /onde fica[s]? /i,
-  /quem [eé] [A-Z][a-z]+/i,
-  /o que significa [a-z]+ (?!resina|impressora|scanner|cad|cam)/i,
-  /qual o sentido d[aeo]/i,
-  /presidente d[aeo]/i,
-  /quantos (estados|paises|continentes)/i,
-];
+export function normalizePhoneForMatch(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  // Extrair ultimos 8-9 digitos para match
+  return digits.length >= 8 ? digits.slice(-9) : digits;
+}
 
-function isGeneralKnowledge(msg: string): boolean {
-  return GENERAL_KNOWLEDGE_PATTERNS.some(p => p.test(msg.trim()));
+export function matchPhoneLoose(a: string, b: string): boolean {
+  const na = normalizePhoneForMatch(a);
+  const nb = normalizePhoneForMatch(b);
+  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
 }
 ```
 
-O interceptor retorna SSE com resposta fixa localizada (PT/EN/ES) sem consultar RAG nem LLM. Salva em `agent_interactions` com `context_raw: "[INTERCEPTOR] general_knowledge_guard"`. **Nao registra knowledge gap.**
+O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
 
-### Mudanca B — Regra 32 no system prompt (linha ~4597)
+---
 
-Adicionar apos a regra 31 como fallback para queries que escapem do regex:
+## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
+
+Quando `intent_detected === 'interesse_imediato'`:
+
+1. Buscar `proprietario_lead_crm` em `lia_attendances`
+2. Buscar `team_member` correspondente
+3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
 
 ```
-32. PERGUNTAS FORA DO DOMINIO (conhecimento geral, geografia, historia, celebridades):
-    Se a pergunta NAO tem relacao com odontologia digital, impressao 3D, scanners, resinas, CAD/CAM
-    ou produtos SmartDent, NAO responda. Use OBRIGATORIAMENTE:
-    "Sou especialista em odontologia digital! 😊 Posso te ajudar com scanners, impressoras 3D,
-    resinas, softwares CAD ou parametros de impressao. Como posso ajudar nessa area?"
+OPORTUNIDADE QUENTE
+Lead: {nome} ({especialidade})
+Owner: {proprietario_lead_crm}
+Resposta: "{message_text}" (truncado 200 chars)
+Etapa CRM: {ultima_etapa_comercial}
+Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
+Acao: {recommended_approach}
 ```
 
-### Mudanca C — Instrumentacao de tokens no bloco `[DONE]` (linha ~4839)
+4. Marcar `seller_notified = true` em `whatsapp_inbox`
 
-1. Importar `logAIUsage` de `../_shared/log-ai-usage.ts` no topo do arquivo
-2. Adicionar variavel `usedModel` que rastreia qual modelo respondeu na cadeia de fallback (gemini-2.5-flash → flash-lite → gpt-5-mini → gpt-5-nano)
-3. No bloco `[DONE]` (apos salvar `agent_response`), inserir:
+---
 
-```typescript
-const promptChars = messagesForAI.reduce((s, m) => s + m.content.length, 0);
-const completionChars = fullResponse.length;
-logAIUsage({
-  functionName: "dra-lia",
-  actionLabel: "chat-streaming",
-  model: usedModel,
-  promptTokens: Math.ceil(promptChars / 4),
-  completionTokens: Math.ceil(completionChars / 4),
-  metadata: { topic_context, session_id, is_commercial: isCommercial },
-}).catch(() => {});
+## Fase 5: Limpeza Automatica (Clean-up Job)
+
+Adicionar logica no `smart-ops-stagnant-processor` existente:
+
+- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
+- E lead nao tem outras interacoes positivas
+- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
+
+---
+
+## Resumo de Arquivos
+
+| # | Arquivo | Acao |
+|---|---------|------|
+| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
+| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
+| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
+| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
+| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
+
+## Ordem de Execucao
+
+```text
+1. Migracao SQL (whatsapp_inbox)
+2. Helpers de normalizacao em sellflux-field-map.ts
+3. Edge function smart-ops-wa-inbox-webhook + config.toml
+4. Integracao clean-up no stagnant-processor
+5. Deploy
 ```
 
-### Mudanca D — Interceptor de preco com redirect automatico
+## Payload WaLeads Esperado
 
-Adicionar apos o general_knowledge guard, antes do support guard:
+O webhook do WaLeads envia POST com:
 
-```typescript
-const PRICE_INTENT_PATTERNS = [
-  /quanto custa/i, /qual o (valor|preco|preço)/i,
-  /me passa[r]? (o )?(valor|preco|preço)/i,
-  /how much/i, /cuánto cuesta/i,
-  /tabela de preco/i, /price list/i,
-];
+```json
+{
+  "event": "message_received",
+  "phone": "5511999887766",
+  "message": "Tenho interesse sim, como funciona?",
+  "media_url": null,
+  "timestamp": "2026-02-26T10:30:00Z"
+}
 ```
 
-Quando detectado: retorna a resposta da Regra 24 (ecossistema + link WhatsApp) como SSE fixa + dispara `show_whatsapp_button` no meta event. Economiza RAG+LLM e redireciona imediatamente ao vendedor.
-
-## Arquivo 2: `supabase/functions/smart-ops-ingest-lead/index.ts`
-
-### Mudanca E — Fix CORS headers (linha 6)
-
-Atualizar para incluir headers Supabase:
-```typescript
-"Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-```
-
-### Mudanca F — Filtro de email de teste
-
-Adicionar validacao antes do insert/update:
-```typescript
-const TEST_DOMAINS = ["@test.com", "@example.com", "@test.com.br"];
-const isTestEmail = TEST_DOMAINS.some(d => email.endsWith(d)) || /^teste?[\-_@]/i.test(email);
-```
-
-Se detectado, retorna `{ success: true, skipped: true, reason: "test_email" }` sem inserir no banco.
-
-## Impacto esperado
-
-| Metrica | Antes | Depois |
-|---|---|---|
-| Score Juiz medio | 2.93 | ~4.0+ |
-| Custo visivel | $0.13 (6%) | ~$4.50 (100%) |
-| Leads de teste no DB | 12 | 0 novos |
-| Tokens gastos em off-topic | ~33% interacoes | 0 |
-
-## Dependencias
-
-Nenhuma migration SQL necessaria. Nenhum secret novo. Apenas deploy das 2 edge functions.
+O endpoint a ser configurado no painel WaLeads sera:
+`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
 
