@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -484,6 +485,14 @@ serve(async (req) => {
     }
 
     const aiData = await aiResponse.json();
+    const usage = extractUsage(aiData);
+    await logAIUsage({
+      functionName: "extract-pdf-specialized",
+      actionLabel: `extract-${documentType}`,
+      model: config.model,
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const extractedText = aiData.choices?.[0]?.message?.content || '';
     const tokensUsed = aiData.usage?.total_tokens || Math.ceil(extractedText.length / 4);
 

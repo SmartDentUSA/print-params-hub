@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -166,6 +167,14 @@ Produtos mencionados: ${productContext}`,
         }
 
         const aiData = await aiRes.json();
+        const usage = extractUsage(aiData);
+        await logAIUsage({
+          functionName: "extract-commercial-expertise",
+          actionLabel: "extract-expertise",
+          model: "google/gemini-2.5-flash",
+          promptTokens: usage.prompt_tokens,
+          completionTokens: usage.completion_tokens,
+        });
         const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
         if (!toolCall?.function?.arguments) {
           results.push({ video_title: video.title, status: "no_extraction", expertise_count: 0 });

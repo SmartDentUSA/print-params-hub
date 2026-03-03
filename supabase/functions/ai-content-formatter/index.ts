@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { logAIUsage, extractUsage } from '../_shared/log-ai-usage.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts'
 
@@ -466,6 +467,14 @@ ${fullPrompt}`
   }
 
   const aiData = await response.json()
+  const usage = extractUsage(aiData)
+  await logAIUsage({
+    functionName: "ai-content-formatter",
+    actionLabel: "format-content-full",
+    model: "google/gemini-2.5-flash",
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+  })
   let formattedHTML = aiData.choices[0].message.content
 
   // 🆕 VALIDAÇÃO: Verificar estrutura mínima

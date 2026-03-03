@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -105,6 +106,14 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "format-processing-instructions",
+      actionLabel: "format-instructions",
+      model: "google/gemini-3-flash-preview",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     let formatted = data.choices?.[0]?.message?.content || '';
 
     // Remove code fences if present

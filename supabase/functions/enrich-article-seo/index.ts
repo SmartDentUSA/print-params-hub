@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -126,6 +127,14 @@ REGRAS:
     console.log(`[AI] ✅ Response received for: ${title}`);
 
     const data = await response.json();
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "enrich-article-seo",
+      actionLabel: "generate-summary",
+      model: "google/gemini-2.5-flash",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const content = data.choices?.[0]?.message?.content || '';
     
     // Parse JSON from response

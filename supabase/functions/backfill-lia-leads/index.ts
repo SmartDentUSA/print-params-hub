@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -86,6 +87,14 @@ serve(async (req) => {
 
             if (llmRes.ok) {
               const llmData = await llmRes.json();
+              const usage = extractUsage(llmData);
+              await logAIUsage({
+                functionName: "backfill-lia-leads",
+                actionLabel: "summarize-lead-chat",
+                model: "google/gemini-2.5-flash",
+                promptTokens: usage.prompt_tokens,
+                completionTokens: usage.completion_tokens,
+              });
               summary = llmData?.choices?.[0]?.message?.content?.trim() || null;
               console.log(`[backfill] Summary for ${lead.email}: ${summary}`);
             } else {

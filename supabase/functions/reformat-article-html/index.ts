@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 const corsHeaders = {
@@ -138,6 +139,14 @@ Retorne o HTML reformatado seguindo todas as regras. Mantenha o idioma original 
       }
 
       const aiData = await aiResponse.json();
+      const usage = extractUsage(aiData);
+      await logAIUsage({
+        functionName: "reformat-article-html",
+        actionLabel: `reformat-html-${lang}`,
+        model: "google/gemini-2.5-flash",
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+      });
       const raw = aiData.choices?.[0]?.message?.content;
       if (!raw) throw new Error(`IA não retornou HTML (${lang})`);
 
