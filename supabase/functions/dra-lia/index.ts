@@ -287,6 +287,12 @@ const PROTOCOL_KEYWORDS = [
 const isProtocolQuestion = (msg: string) =>
   PROTOCOL_KEYWORDS.some((p) => p.test(msg));
 
+// PROBLEM_GUARD — intercepts troubleshooting/failure reports BEFORE the printer dialog
+// so users reporting issues don't get trapped in the brand→model→resin sales flow
+const PROBLEM_GUARD = /(descascando|delamina|warping|empenad|danificad|quebrad|rachad|não.{0,10}(funciona|liga|sai|gruda|adere|cura)|falhando|defeito|erro de|problema com|qualidade ruim|saindo mal|trocar|substituir|FEP|LCD|tela danificad|motor|eixo.?z|calibra[çc][ãa]o falh|layer.?shift|não.{0,10}ader|pós.?processamento|pós.?cura|limpeza.?(ipa|álcool|alcool)|falha.?(de|na|no)|suporte.?(técnico|tecnico)|manuten[çc][ãa]o)/i;
+
+const isProblemReport = (msg: string) => PROBLEM_GUARD.test(msg);
+
 // Stopwords para filtrar palavras irrelevantes antes do ILIKE
 const STOPWORDS_PT = [
   'você', 'voce', 'tem', 'algum', 'alguma', 'entre', 'para', 'sobre',
@@ -3841,7 +3847,13 @@ Campos:
     // If topic_context === "parameters", force start the dialog immediately
     // SKIP entirely when topic_context === "commercial" — impressora mentions in commercial route
     // should be handled by the SDR flow, not the parameter dialog
-    const dialogState = topic_context === "commercial"
+    // Skip printer dialog when message is a troubleshooting report or protocol question
+    // This prevents the "menu loop" where users asking about failures get brand lists
+    const skipDialog = isProblemReport(message) || isProtocolQuestion(message);
+    if (skipDialog) {
+      console.log(`[PROBLEM_GUARD] Skipping printer dialog — problem/protocol detected in: "${message.substring(0, 80)}"`);
+    }
+    const dialogState = (topic_context === "commercial" || skipDialog)
       ? { state: "not_in_dialog" as const }
       : await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
 
@@ -4005,10 +4017,47 @@ Campos:
 
     const hasResults = allResults.length > 0;
 
-    // 4. If no results: return human fallback
+    // 3b. Menu Loop Detection — if last 2 bot responses both contained brand lists, force handoff
+    let menuLoopDetected = false;
+    try {
+      const { data: recentInteractions } = await supabase
+        .from("agent_interactions")
+        .select("agent_response, unanswered")
+        .eq("session_id", session_id)
+        .order("created_at", { ascending: false })
+        .limit(2);
+
+      if (recentInteractions && recentInteractions.length >= 2) {
+        const brandMenuPattern = /Marcas dispon[ií]veis|Available brands|Marcas disponibles/i;
+        const bothAreBrandMenus = recentInteractions.every(
+          (i) => i.agent_response && brandMenuPattern.test(i.agent_response)
+        );
+        if (bothAreBrandMenus) {
+          menuLoopDetected = true;
+          console.log("[MENU_LOOP] Detected 2 consecutive brand menu responses — forcing handoff");
+        }
+
+        // Threshold 2: if last 2 interactions are both unanswered, trigger handoff
+        const consecutiveUnanswered = recentInteractions.every((i) => i.unanswered === true);
+        if (consecutiveUnanswered) {
+          menuLoopDetected = true;
+          console.log("[MENU_LOOP] Detected 2 consecutive unanswered — forcing handoff");
+        }
+      }
+    } catch (e) {
+      console.warn("[MENU_LOOP] Detection query failed:", e);
+    }
+
+    // 4. If no results OR menu loop: return human fallback
     // Exception: commercial route bypasses fallback to allow LLM + SDR instruction
-    if (!hasResults && topic_context !== "commercial") {
-      const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
+    if ((!hasResults || menuLoopDetected) && topic_context !== "commercial") {
+      const fallbackText = menuLoopDetected
+        ? (lang === "en-US"
+          ? "I noticed I'm having trouble helping you. Let me connect you with one of our specialists who can assist you directly! 📲 [Talk to a specialist](https://wa.me/554733224255)"
+          : lang === "es-ES"
+          ? "Noté que tengo dificultades para ayudarte. ¡Déjame conectarte con uno de nuestros especialistas que puede asistirte directamente! 📲 [Hablar con un especialista](https://wa.me/554733224255)"
+          : "Percebi que estou com dificuldade para te ajudar. Deixa eu te conectar com um dos nossos especialistas que pode te atender diretamente! 📲 [Falar com um especialista](https://wa.me/554733224255)")
+        : (FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"]);
 
       // Fire-and-forget: notify seller via WhatsApp about unanswered question
       const leadEmail = (sessionEntities?.lead_email as string) || null;
