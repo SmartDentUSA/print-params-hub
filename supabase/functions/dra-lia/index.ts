@@ -249,6 +249,9 @@ const SUPPORT_KEYWORDS = [
   /(reposição|componente).{0,20}(quebr|troc|defeito|danific|falt)/i,
   /(impressora).{0,20}(não funciona|parou|trava|tá travando|está travando|quebrou)/i,
   /(resina).{0,20}(não (curou|curar|endureceu|endureceu|polimerizo|aderiu))/i,
+  // Explicit intent to reach support/human
+  /\b(quero|preciso|gostaria de|need to|want to)\b.{0,15}\b(falar com|talk to|hablar con)\b.{0,15}\b(suporte|support|soporte|atendente|humano|pessoa|human|someone)\b/i,
+  /\b(falar com o suporte|falar com suporte|talk to support|hablar con soporte)\b/i,
 ];
 
 const SUPPORT_FALLBACK: Record<string, string> = {
@@ -607,10 +610,10 @@ const DIALOG_BREAK_PATTERNS = [
   /^(o que (é|são)|qual (é|a diferença)|como (funciona|usar|se usa)|me fala sobre|me explica)/i,
   // Referências à empresa / identidade SmartDent
   /\b(smartdent|smart dent|empresa|história|fundação|parcerias|contato|endereço|horário)\b/i,
-  // Perguntas sobre categorias de produto que iniciam novo contexto
-  /^(quais|vocês (têm|vendem|trabalham)|tem (algum|impressora|scanner|resina))/i,
+  // Perguntas sobre categorias de produto que iniciam novo contexto (com abreviações)
+  /^(quais|voc[eê]s (têm|vendem|trabalham)|vcs (têm|vendem|trabalham|tem)|tem (algum|impressora|scanner|resina))/i,
 
-  // ── NOVOS: intenção de compra e curiosidade de produto ──
+  // ── Intenção de compra e curiosidade de produto ──
 
   // Intenção de compra / interesse em produto
   /\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
@@ -618,6 +621,11 @@ const DIALOG_BREAK_PATTERNS = [
   /\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
   // "sobre a X", "me conta sobre", "fala mais sobre"
   /\b(fala(r)?(?: mais| um pouco)? sobre|me conta(r)? (mais )?sobre|quero saber (mais )?sobre)\b/i,
+
+  // ── Intenção de falar com humano / suporte / vendedor ──
+  /\b(falar com|quero falar|preciso falar|me (conecta|transfira|passa)|atendente|humano|pessoa real|suporte|vendedor|especialista|consultor)\b/i,
+  // Perguntas de venda com abreviações comuns
+  /\b(vcs|voc[eê]s)\b.{0,15}\b(vendem|vende|tem|têm)\b/i,
 ];
 
 function isOffTopicFromDialog(message: string): boolean {
