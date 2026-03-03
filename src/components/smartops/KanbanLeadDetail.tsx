@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import type { Lead } from "./KanbanLeadCard";
 
 function formatCurrency(val: number): string {
@@ -23,7 +27,93 @@ function DetailRow({ label, value, emoji }: { label: string; value: string | nul
   );
 }
 
+interface MsgLog {
+  id: string;
+  tipo: string | null;
+  mensagem_preview: string | null;
+  status: string;
+  data_envio: string | null;
+  whatsapp_number: string | null;
+}
+
+const SYSTEM_TO_SELLER_TYPES = ["escalation_vendedor", "escalation_especialista", "escalation_cs_suporte", "ecommerce_order_created"];
+const SELLER_TO_LEAD_TYPES = ["handoff_seller_to_lead", "handoff_unanswered", "proactive_primeira_duvida", "waleads_text", "sellflux_text"];
+
+function MessageItem({ msg }: { msg: MsgLog }) {
+  const [expanded, setExpanded] = useState(false);
+  const preview = msg.mensagem_preview || "-";
+  const needsTruncate = preview.length > 200;
+
+  return (
+    <div className="border rounded-md p-2 text-xs space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground whitespace-nowrap">
+          {msg.data_envio ? new Date(msg.data_envio).toLocaleString("pt-BR") : "-"}
+        </span>
+        <div className="flex items-center gap-1">
+          {msg.tipo && <Badge variant="outline" className="text-[10px]">{msg.tipo}</Badge>}
+          <Badge
+            variant={msg.status === "enviado" ? "default" : msg.status === "erro" ? "destructive" : "secondary"}
+            className="text-[10px]"
+          >
+            {msg.status}
+          </Badge>
+        </div>
+      </div>
+      <p
+        className={`text-foreground ${!expanded && needsTruncate ? "line-clamp-3 cursor-pointer" : "cursor-pointer"}`}
+        onClick={() => needsTruncate && setExpanded(!expanded)}
+      >
+        {expanded ? preview : preview.slice(0, 200)}{!expanded && needsTruncate ? "…" : ""}
+      </p>
+    </div>
+  );
+}
+
+function MessageSection({ title, emoji, messages }: { title: string; emoji: string; messages: MsgLog[] }) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground uppercase py-1 hover:text-foreground transition-colors">
+        <span>{emoji} {title} ({messages.length})</span>
+        <ChevronDown className="h-3.5 w-3.5 transition-transform [[data-state=open]>&]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-2 mt-1">
+        {messages.length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">Nenhuma mensagem</p>
+        ) : (
+          messages.map((m) => <MessageItem key={m.id} msg={m} />)
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps) {
+  const [systemMsgs, setSystemMsgs] = useState<MsgLog[]>([]);
+  const [sellerMsgs, setSellerMsgs] = useState<MsgLog[]>([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
+
+  useEffect(() => {
+    if (!lead?.id || !open) {
+      setSystemMsgs([]);
+      setSellerMsgs([]);
+      return;
+    }
+    setLoadingMsgs(true);
+    supabase
+      .from("message_logs")
+      .select("id, tipo, mensagem_preview, status, data_envio, whatsapp_number")
+      .eq("lead_id", lead.id)
+      .order("data_envio", { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        const logs = (data || []) as MsgLog[];
+        setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
+        setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
+        setLoadingMsgs(false);
+      });
+  }, [lead?.id, open]);
+
   if (!lead) return null;
 
   return (
@@ -124,6 +214,20 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             )}
             <DetailRow label="Criado" value={new Date(lead.created_at).toLocaleString("pt-BR")} />
             <DetailRow label="Atualizado" value={new Date(lead.updated_at).toLocaleString("pt-BR")} />
+          </section>
+          <Separator />
+
+          {/* Message History */}
+          <section>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Histórico de Mensagens</h4>
+            {loadingMsgs ? (
+              <p className="text-xs text-muted-foreground">Carregando...</p>
+            ) : (
+              <div className="space-y-3">
+                <MessageSection title="Sistema → Vendedor" emoji="📨" messages={systemMsgs} />
+                <MessageSection title="Vendedor → Lead" emoji="💬" messages={sellerMsgs} />
+              </div>
+            )}
           </section>
         </div>
       </SheetContent>
