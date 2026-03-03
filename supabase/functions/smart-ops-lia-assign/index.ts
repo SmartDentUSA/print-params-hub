@@ -96,21 +96,32 @@ async function updatePersonFields(
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
 
+  // PUT: standard fields only (custom_fields cause 422 on persons PUT)
   const updatePayload: Record<string, unknown> = {};
   if (nome) updatePayload.name = nome;
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
 
+  if (Object.keys(updatePayload).length > 0) {
+    console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
+    const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
+    console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  }
+
+  // Custom fields: use POST /customFields (belongs=3 for Pessoa)
   const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
   if (areaAtuacao) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.AREA_ATUACAO, value: areaAtuacao });
   if (especialidade) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
-  if (personCustomFields.length > 0) updatePayload.custom_fields = personCustomFields;
 
-  if (Object.keys(updatePayload).length === 0) return;
-
-  console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
-  const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
-  console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
+  for (const cf of personCustomFields) {
+    const cfRes = await piperunPost(apiToken, "customFields", {
+      custom_field_id: cf.custom_field_id,
+      value: cf.value,
+      customizable_type: "Person",
+      customizable_id: personId,
+    });
+    console.log(`[lia-assign] Person ${personId} custom field ${cf.custom_field_id}: ${cfRes.success} (${cfRes.status})`);
+  }
 }
 
 /**
