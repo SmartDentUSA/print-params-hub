@@ -221,3 +221,6 @@ verify_jwt = false
 
 [functions.smart-ops-kanban-move]
 verify_jwt = false
+
+[functions.system-watchdog-deepseek]
+verify_jwt = false
