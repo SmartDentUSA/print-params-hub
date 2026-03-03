@@ -4017,10 +4017,47 @@ Campos:
 
     const hasResults = allResults.length > 0;
 
-    // 4. If no results: return human fallback
+    // 3b. Menu Loop Detection — if last 2 bot responses both contained brand lists, force handoff
+    let menuLoopDetected = false;
+    try {
+      const { data: recentInteractions } = await supabase
+        .from("agent_interactions")
+        .select("agent_response, unanswered")
+        .eq("session_id", session_id)
+        .order("created_at", { ascending: false })
+        .limit(2);
+
+      if (recentInteractions && recentInteractions.length >= 2) {
+        const brandMenuPattern = /Marcas dispon[ií]veis|Available brands|Marcas disponibles/i;
+        const bothAreBrandMenus = recentInteractions.every(
+          (i) => i.agent_response && brandMenuPattern.test(i.agent_response)
+        );
+        if (bothAreBrandMenus) {
+          menuLoopDetected = true;
+          console.log("[MENU_LOOP] Detected 2 consecutive brand menu responses — forcing handoff");
+        }
+
+        // Threshold 2: if last 2 interactions are both unanswered, trigger handoff
+        const consecutiveUnanswered = recentInteractions.every((i) => i.unanswered === true);
+        if (consecutiveUnanswered) {
+          menuLoopDetected = true;
+          console.log("[MENU_LOOP] Detected 2 consecutive unanswered — forcing handoff");
+        }
+      }
+    } catch (e) {
+      console.warn("[MENU_LOOP] Detection query failed:", e);
+    }
+
+    // 4. If no results OR menu loop: return human fallback
     // Exception: commercial route bypasses fallback to allow LLM + SDR instruction
-    if (!hasResults && topic_context !== "commercial") {
-      const fallbackText = FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"];
+    if ((!hasResults || menuLoopDetected) && topic_context !== "commercial") {
+      const fallbackText = menuLoopDetected
+        ? (lang === "en-US"
+          ? "I noticed I'm having trouble helping you. Let me connect you with one of our specialists who can assist you directly! 📲 [Talk to a specialist](https://wa.me/554733224255)"
+          : lang === "es-ES"
+          ? "Noté que tengo dificultades para ayudarte. ¡Déjame conectarte con uno de nuestros especialistas que puede asistirte directamente! 📲 [Hablar con un especialista](https://wa.me/554733224255)"
+          : "Percebi que estou com dificuldade para te ajudar. Deixa eu te conectar com um dos nossos especialistas que pode te atender diretamente! 📲 [Falar com um especialista](https://wa.me/554733224255)")
+        : (FALLBACK_MESSAGES[lang] || FALLBACK_MESSAGES["pt-BR"]);
 
       // Fire-and-forget: notify seller via WhatsApp about unanswered question
       const leadEmail = (sessionEntities?.lead_email as string) || null;
