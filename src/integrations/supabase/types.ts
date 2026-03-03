@@ -1237,6 +1237,21 @@ export type Database = {
           empresa_segmento: string | null
           empresa_situacao: string | null
           empresa_website: string | null
+          equip_cad: string | null
+          equip_cad_ativacao: string | null
+          equip_cad_serial: string | null
+          equip_impressora: string | null
+          equip_impressora_ativacao: string | null
+          equip_impressora_serial: string | null
+          equip_notebook: string | null
+          equip_notebook_ativacao: string | null
+          equip_notebook_serial: string | null
+          equip_pos_impressao: string | null
+          equip_pos_impressao_ativacao: string | null
+          equip_pos_impressao_serial: string | null
+          equip_scanner: string | null
+          equip_scanner_ativacao: string | null
+          equip_scanner_serial: string | null
           especialidade: string | null
           form_name: string | null
           funil_entrada_crm: string | null
@@ -1245,9 +1260,11 @@ export type Database = {
           id_cliente_smart: string | null
           impressora_modelo: string | null
           informacao_desejada: string | null
+          insumos_adquiridos: string | null
           interest_timeline: string | null
           ip_origem: string | null
           itens_proposta_crm: string | null
+          itens_proposta_parsed: Json | null
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
@@ -1426,6 +1443,21 @@ export type Database = {
           empresa_segmento?: string | null
           empresa_situacao?: string | null
           empresa_website?: string | null
+          equip_cad?: string | null
+          equip_cad_ativacao?: string | null
+          equip_cad_serial?: string | null
+          equip_impressora?: string | null
+          equip_impressora_ativacao?: string | null
+          equip_impressora_serial?: string | null
+          equip_notebook?: string | null
+          equip_notebook_ativacao?: string | null
+          equip_notebook_serial?: string | null
+          equip_pos_impressao?: string | null
+          equip_pos_impressao_ativacao?: string | null
+          equip_pos_impressao_serial?: string | null
+          equip_scanner?: string | null
+          equip_scanner_ativacao?: string | null
+          equip_scanner_serial?: string | null
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
@@ -1434,9 +1466,11 @@ export type Database = {
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
           informacao_desejada?: string | null
+          insumos_adquiridos?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
+          itens_proposta_parsed?: Json | null
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
@@ -1615,6 +1649,21 @@ export type Database = {
           empresa_segmento?: string | null
           empresa_situacao?: string | null
           empresa_website?: string | null
+          equip_cad?: string | null
+          equip_cad_ativacao?: string | null
+          equip_cad_serial?: string | null
+          equip_impressora?: string | null
+          equip_impressora_ativacao?: string | null
+          equip_impressora_serial?: string | null
+          equip_notebook?: string | null
+          equip_notebook_ativacao?: string | null
+          equip_notebook_serial?: string | null
+          equip_pos_impressao?: string | null
+          equip_pos_impressao_ativacao?: string | null
+          equip_pos_impressao_serial?: string | null
+          equip_scanner?: string | null
+          equip_scanner_ativacao?: string | null
+          equip_scanner_serial?: string | null
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
@@ -1623,9 +1672,11 @@ export type Database = {
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
           informacao_desejada?: string | null
+          insumos_adquiridos?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
+          itens_proposta_parsed?: Json | null
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null

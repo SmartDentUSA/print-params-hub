@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Lead } from "./KanbanLeadCard";
+import type { Lead, ParsedProposalItem } from "./KanbanLeadCard";
 
 function formatCurrency(val: number): string {
   return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -23,6 +23,22 @@ function DetailRow({ label, value, emoji }: { label: string; value: string | nul
     <div className="flex justify-between text-sm py-1">
       <span className="text-muted-foreground">{emoji && `${emoji} `}{label}</span>
       <span className="font-medium text-right max-w-[60%] truncate">{value}</span>
+    </div>
+  );
+}
+
+function EquipRow({ emoji, label, name, serial, date }: { emoji: string; label: string; name: string | null; serial: string | null; date: string | null }) {
+  if (!name) return null;
+  return (
+    <div className="text-xs py-1 space-y-0.5">
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">{emoji} {label}</span>
+        <span className="font-medium text-right max-w-[60%] truncate">{name}</span>
+      </div>
+      <div className="flex gap-3 pl-5 text-[10px] text-muted-foreground">
+        <span>Nº Série: {serial || "—"}</span>
+        <span>Ativação: {date ? new Date(date).toLocaleDateString("pt-BR") : "—"}</span>
+      </div>
     </div>
   );
 }
@@ -230,6 +246,45 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             <DetailRow label="Atualizado" value={new Date(lead.updated_at).toLocaleString("pt-BR")} />
           </section>
           <Separator />
+
+          {/* Equipment / Technical */}
+          {(lead.equip_scanner || lead.equip_impressora || lead.equip_cad || lead.equip_pos_impressao || lead.equip_notebook || lead.insumos_adquiridos) && (
+            <>
+              <section>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Equipamentos & Técnico</h4>
+                <EquipRow emoji="📷" label="Scanner" name={lead.equip_scanner} serial={lead.equip_scanner_serial} date={lead.equip_scanner_ativacao} />
+                <EquipRow emoji="🖨️" label="Impressora" name={lead.equip_impressora} serial={lead.equip_impressora_serial} date={lead.equip_impressora_ativacao} />
+                <EquipRow emoji="💻" label="CAD" name={lead.equip_cad} serial={lead.equip_cad_serial} date={lead.equip_cad_ativacao} />
+                <EquipRow emoji="♨️" label="Pós-Impressão" name={lead.equip_pos_impressao} serial={lead.equip_pos_impressao_serial} date={lead.equip_pos_impressao_ativacao} />
+                <EquipRow emoji="💻" label="Notebook" name={lead.equip_notebook} serial={lead.equip_notebook_serial} date={lead.equip_notebook_ativacao} />
+                {lead.insumos_adquiridos && (
+                  <DetailRow label="Insumos" value={lead.insumos_adquiridos} emoji="🧪" />
+                )}
+              </section>
+              <Separator />
+            </>
+          )}
+
+          {/* Parsed Proposal Items */}
+          {lead.itens_proposta_parsed && Array.isArray(lead.itens_proposta_parsed) && lead.itens_proposta_parsed.length > 0 && (
+            <>
+              <section>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Itens da Proposta ({lead.itens_proposta_parsed.length})</h4>
+                <div className="space-y-1">
+                  {(lead.itens_proposta_parsed as ParsedProposalItem[]).map((item, i) => {
+                    const emoji = item.category === "scanner" ? "📷" : item.category === "impressora" ? "🖨️" : item.category === "cad" ? "💻" : item.category === "pos_impressao" ? "♨️" : item.category === "notebook" ? "💻" : item.category === "insumos" ? "🧪" : "📦";
+                    return (
+                      <div key={i} className="flex items-center justify-between text-xs py-0.5">
+                        <span>{emoji} {item.name}</span>
+                        <span className="text-muted-foreground">x{item.qty}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+              <Separator />
+            </>
+          )}
 
           {/* Message History */}
           <section>

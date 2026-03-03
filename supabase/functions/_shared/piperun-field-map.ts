@@ -447,7 +447,96 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   const produtoInteresseAuto = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE_AUTO);
   if (produtoInteresseAuto) fields.produto_interesse_auto = produtoInteresseAuto;
 
+  // Parse proposal items and auto-populate equipment fields
+  const itensProposta = fields.itens_proposta_crm as string | undefined;
+  if (itensProposta) {
+    const parsed = parseProposalItems(itensProposta);
+    fields.itens_proposta_parsed = parsed.parsed;
+    // Auto-populate equipment fields when deal is won
+    const statusOpp = fields.status_oportunidade;
+    if (statusOpp === "ganha") {
+      if (parsed.equipments.scanner) fields.equip_scanner = parsed.equipments.scanner;
+      if (parsed.equipments.impressora) fields.equip_impressora = parsed.equipments.impressora;
+      if (parsed.equipments.cad) fields.equip_cad = parsed.equipments.cad;
+      if (parsed.equipments.pos_impressao) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
+      if (parsed.equipments.notebook) fields.equip_notebook = parsed.equipments.notebook;
+      if (parsed.equipments.insumos) fields.insumos_adquiridos = parsed.equipments.insumos;
+    }
+  }
+
   return fields;
+}
+
+// ─── Proposal Items Parser ───
+
+export interface ParsedProposalItem {
+  name: string;
+  qty: number;
+  category: "scanner" | "impressora" | "cad" | "pos_impressao" | "notebook" | "insumos" | "outro";
+}
+
+const CATEGORY_KEYWORDS: Array<{ category: ParsedProposalItem["category"]; patterns: RegExp }> = [
+  { category: "scanner", patterns: /scanner|medit|i[- ]?[3567]00|i[- ]?700|trios|primescan|aoralscan/i },
+  { category: "impressora", patterns: /halot|mars|miicraft|ino\s?\d|prusa|phrozen|impressora|printer|anycubic|elegoo|creality|sonic|ultra\s?\d/i },
+  { category: "pos_impressao", patterns: /wash.*cure|mercury|uw\s?\d|cura|pos.?impress|lavadora|polymeriz/i },
+  { category: "notebook", patterns: /notebook|avell|laptop/i },
+  { category: "cad", patterns: /\bcad\b|smartmake|exocad|3shape|meshmixer|software|licen[cç]/i },
+  { category: "insumos", patterns: /resina|kit|glaze|nano|consumiv|insumo|pelicul|fep|vat|parafuso|spray|ipa|alcool/i },
+];
+
+function classifyItem(name: string): ParsedProposalItem["category"] {
+  for (const { category, patterns } of CATEGORY_KEYWORDS) {
+    if (patterns.test(name)) return category;
+  }
+  return "outro";
+}
+
+export function parseProposalItems(rawText: string): {
+  parsed: ParsedProposalItem[];
+  equipments: { scanner: string | null; impressora: string | null; cad: string | null; pos_impressao: string | null; notebook: string | null; insumos: string | null };
+} {
+  if (!rawText || rawText.trim() === "") {
+    return { parsed: [], equipments: { scanner: null, impressora: null, cad: null, pos_impressao: null, notebook: null, insumos: null } };
+  }
+
+  // Split by comma or semicolon
+  const segments = rawText.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+  const parsed: ParsedProposalItem[] = [];
+
+  for (const seg of segments) {
+    // Try to extract pattern: "PRO XXXX [qty] Name" or just "Name"
+    const match = seg.match(/^(?:PRO\s*\d+\s*)?\[?([\d.]+)\]?\s*(.+)$/i);
+    if (match) {
+      const qty = parseFloat(match[1]) || 1;
+      const name = match[2].trim();
+      const category = classifyItem(name);
+      parsed.push({ name, qty, category });
+    } else {
+      const name = seg.trim();
+      if (name) {
+        const category = classifyItem(name);
+        parsed.push({ name, qty: 1, category });
+      }
+    }
+  }
+
+  // Group equipment names by category
+  const equipments = { scanner: null as string | null, impressora: null as string | null, cad: null as string | null, pos_impressao: null as string | null, notebook: null as string | null, insumos: null as string | null };
+  const byCategory: Record<string, string[]> = {};
+  for (const item of parsed) {
+    if (item.category !== "outro") {
+      if (!byCategory[item.category]) byCategory[item.category] = [];
+      byCategory[item.category].push(item.name);
+    }
+  }
+  if (byCategory.scanner) equipments.scanner = byCategory.scanner.join(", ");
+  if (byCategory.impressora) equipments.impressora = byCategory.impressora.join(", ");
+  if (byCategory.cad) equipments.cad = byCategory.cad.join(", ");
+  if (byCategory.pos_impressao) equipments.pos_impressao = byCategory.pos_impressao.join(", ");
+  if (byCategory.notebook) equipments.notebook = byCategory.notebook.join(", ");
+  if (byCategory.insumos) equipments.insumos = byCategory.insumos.join(", ");
+
+  return { parsed, equipments };
 }
 
 /**

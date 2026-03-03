@@ -87,7 +87,7 @@ export function SmartOpsKanban() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const { toast } = useToast();
 
-  const LEAD_SELECT = "id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis, piperun_created_at, piperun_pipeline_name, piperun_stage_name, piperun_title, piperun_origin_name";
+  const LEAD_SELECT = "id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis, piperun_created_at, piperun_pipeline_name, piperun_stage_name, piperun_title, piperun_origin_name, itens_proposta_parsed, equip_scanner, equip_scanner_serial, equip_scanner_ativacao, equip_impressora, equip_impressora_serial, equip_impressora_ativacao, equip_cad, equip_cad_serial, equip_cad_ativacao, equip_pos_impressao, equip_pos_impressao_serial, equip_pos_impressao_ativacao, equip_notebook, equip_notebook_serial, equip_notebook_ativacao, insumos_adquiridos";
 
   const fetchLeads = async () => {
     const { data } = await supabase
@@ -96,7 +96,7 @@ export function SmartOpsKanban() {
       .in("lead_status", ALL_KEYS)
       .order("created_at", { ascending: false })
       .limit(2000);
-    setLeads((data as Lead[]) || []);
+    setLeads((data as unknown as Lead[]) || []);
     setLoading(false);
   };
 
