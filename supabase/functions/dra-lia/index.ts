@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux } from "../_shared/sellflux-field-map.ts";
+import { logAIUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3849,6 +3850,101 @@ Campos:
       }
     }
 
+    // 0a-1. General Knowledge Guard — block off-topic queries before RAG
+    const GENERAL_KNOWLEDGE_PATTERNS = [
+      /qual a capital d[aeo]/i,
+      /quem (descobriu|inventou|criou|foi|é|eh) /i,
+      /quem foi [A-Z][a-z]+ [A-Z]/i,
+      /por que (você|vc|voce) se chama/i,
+      /(historia|história) d[aeo] /i,
+      /em que ano /i,
+      /onde fica[s]? /i,
+      /quem [eé] [A-Z][a-z]+/i,
+      /o que significa [a-z]+ (?!resina|impressora|scanner|cad|cam)/i,
+      /qual o sentido d[aeo]/i,
+      /presidente d[aeo]/i,
+      /quantos (estados|paises|continentes)/i,
+    ];
+
+    if (GENERAL_KNOWLEDGE_PATTERNS.some(p => p.test(message.trim()))) {
+      const GK_RESPONSES: Record<string, string> = {
+        "pt-BR": "Sou especialista em odontologia digital! 😊 Posso te ajudar com scanners, impressoras 3D, resinas, softwares CAD ou parâmetros de impressão. Como posso ajudar nessa área?",
+        "en": "I'm a digital dentistry specialist! 😊 I can help you with scanners, 3D printers, resins, CAD software, or printing parameters. How can I help in this area?",
+        "es": "¡Soy especialista en odontología digital! 😊 Puedo ayudarte con escáneres, impresoras 3D, resinas, software CAD o parámetros de impresión. ¿Cómo puedo ayudar en esta área?",
+      };
+      const gkText = GK_RESPONSES[lang] || GK_RESPONSES["pt-BR"];
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const words = gkText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id, user_message: message, agent_response: gkText, lang,
+          top_similarity: 0, unanswered: false, lead_id: currentLeadId,
+          context_raw: "[INTERCEPTOR] general_knowledge_guard",
+        });
+      } catch (e) { console.error("Failed to insert agent_interaction (gk guard):", e); }
+      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    }
+
+    // 0a-2. Price Intent Guard — redirect to seller immediately
+    const PRICE_INTENT_PATTERNS = [
+      /quanto custa/i, /qual o (valor|preco|preço)/i,
+      /me passa[r]? (o )?(valor|preco|preço)/i,
+      /how much/i, /cuánto cuesta/i,
+      /tabela de preco/i, /price list/i,
+    ];
+
+    if (PRICE_INTENT_PATTERNS.some(p => p.test(message.trim()))) {
+      const PRICE_RESPONSES: Record<string, string> = {
+        "pt-BR": "Os valores dependem do ecossistema ideal para o seu fluxo de trabalho! 🦷 Para uma proposta personalizada, nosso consultor pode te ajudar agora:\n\n---\n📲 [Falar com especialista](https://wa.me/5516993831794?text=Olá!%20Gostaria%20de%20saber%20sobre%20valores)",
+        "en": "Pricing depends on the ideal ecosystem for your workflow! 🦷 For a personalized proposal, our consultant can help you now:\n\n---\n📲 [Talk to a specialist](https://wa.me/5516993831794?text=Hello!%20I'd%20like%20to%20know%20about%20pricing)",
+        "es": "Los valores dependen del ecosistema ideal para tu flujo de trabajo! 🦷 Para una propuesta personalizada, nuestro consultor puede ayudarte ahora:\n\n---\n📲 [Hablar con especialista](https://wa.me/5516993831794?text=Hola!%20Me%20gustaría%20saber%20sobre%20precios)",
+      };
+      const priceText = PRICE_RESPONSES[lang] || PRICE_RESPONSES["pt-BR"];
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", show_whatsapp_button: true })}\n\n`));
+          const words = priceText.split(" ");
+          let i = 0;
+          const interval = setInterval(() => {
+            if (i < words.length) {
+              const token = (i === 0 ? "" : " ") + words[i];
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`));
+              i++;
+            } else {
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+              clearInterval(interval);
+            }
+          }, 25);
+        },
+      });
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id, user_message: message, agent_response: priceText, lang,
+          top_similarity: 0, unanswered: false, lead_id: currentLeadId,
+          context_raw: "[INTERCEPTOR] price_intent_guard",
+        });
+      } catch (e) { console.error("Failed to insert agent_interaction (price guard):", e); }
+      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+    }
+
     // 0b. Support question guard — redirect to WhatsApp without RAG
     // Only triggers on keyword match, NOT on topic_context === "support" (which would block all subsequent messages)
     if (isSupportQuestion(message)) {
@@ -4596,6 +4692,12 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
       "Para o protocolo completo de uso do [produto], temos materiais técnicos detalhados. Posso te conectar com nosso time: [Falar com especialista](https://wa.me/5516993831794)"
     - NUNCA invente passos de aplicação, sequências de uso ou técnicas clínicas.
 
+32. PERGUNTAS FORA DO DOMÍNIO (conhecimento geral, geografia, história, celebridades):
+    Se a pergunta NÃO tem relação com odontologia digital, impressão 3D, scanners, resinas, CAD/CAM
+    ou produtos SmartDent, NÃO responda. Use OBRIGATORIAMENTE:
+    "Sou especialista em odontologia digital! 😊 Posso te ajudar com scanners, impressoras 3D,
+    resinas, softwares CAD ou parâmetros de impressão. Como posso ajudar nessa área?"
+
 --- DADOS DAS FONTES ---
 ${context}
 --- FIM DOS DADOS ---
@@ -4643,24 +4745,28 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
       return resp;
     };
 
-    let aiResponse = await callAI("google/gemini-2.5-flash");
+    let usedModel = "google/gemini-2.5-flash";
+    let aiResponse = await callAI(usedModel);
 
     // Se 500 no modelo primário → retry com flash-lite
     if (!aiResponse.ok && aiResponse.status === 500) {
       console.error(`Primary model failed with 500, retrying with flash-lite...`);
-      aiResponse = await callAI("google/gemini-2.5-flash-lite");
+      usedModel = "google/gemini-2.5-flash-lite";
+      aiResponse = await callAI(usedModel);
     }
 
     // Se ainda falhar → fallback com OpenAI gpt-5-mini (com contexto truncado)
     if (!aiResponse.ok && aiResponse.status !== 429) {
       console.error(`Gemini models failed, retrying with openai/gpt-5-mini (truncated)...`);
-      aiResponse = await callAI("openai/gpt-5-mini", true);
+      usedModel = "openai/gpt-5-mini";
+      aiResponse = await callAI(usedModel, true);
     }
 
     // Último fallback: openai/gpt-5-nano com contexto mínimo
     if (!aiResponse.ok && aiResponse.status !== 429) {
       console.error(`gpt-5-mini failed, last resort: openai/gpt-5-nano...`);
-      aiResponse = await callAI("openai/gpt-5-nano", true);
+      usedModel = "openai/gpt-5-nano";
+      aiResponse = await callAI(usedModel, true);
     }
 
     if (!aiResponse.ok) {
@@ -4842,6 +4948,17 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                   .update({ agent_response: fullResponse })
                   .eq("id", interactionId);
               }
+              // Fire-and-forget: log token usage estimate
+              const promptChars = messagesForAI.reduce((s, m) => s + m.content.length, 0);
+              const completionChars = fullResponse.length;
+              logAIUsage({
+                functionName: "dra-lia",
+                actionLabel: "chat-streaming",
+                model: usedModel,
+                promptTokens: Math.ceil(promptChars / 4),
+                completionTokens: Math.ceil(completionChars / 4),
+                metadata: { topic_context, session_id, is_commercial: isCommercial },
+              }).catch(() => {});
               // Fire-and-forget: extract implicit lead data + increment counters + cognitive trigger
               if (currentLeadId && leadState.state === "from_session") {
                 const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
