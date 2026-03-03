@@ -167,31 +167,33 @@ Deno.serve(async (req) => {
       aiResult = await analyzeWithDeepSeek(report);
     }
 
-    // 6. Auto-remediation: re-ingest orphan leads
+    // 6. Auto-remediation: re-ingest orphan leads (skip in dry_run, limit to 3)
     let remediatedCount = 0;
-    for (const orphan of report.orphan_leads.slice(0, 10)) {
-      try {
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({ email: orphan.email, name: orphan.name, source: "watchdog-recovery" }),
-        });
-        if (res.ok) remediatedCount++;
+    if (!dry_run) {
+      for (const orphan of report.orphan_leads.slice(0, 3)) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({ email: orphan.email, name: orphan.name, source: "watchdog-recovery" }),
+          });
+          if (res.ok) remediatedCount++;
 
-        await supabase.from("system_health_logs").insert({
-          function_name: "system-watchdog-deepseek",
-          severity: "warning",
-          error_type: "orphan_lead_recovered",
-          lead_email: orphan.email,
-          details: { original_lead_id: orphan.id, remediation_status: res.ok ? "success" : "failed" },
-          ai_analysis: aiResult.analysis,
-          ai_suggested_action: aiResult.suggested_actions.join("; "),
-          auto_remediated: res.ok,
-          resolved: res.ok,
-          resolved_at: res.ok ? new Date().toISOString() : null,
-        }).catch(() => {});
-      } catch (e) {
-        console.warn(`[watchdog] Failed to re-ingest ${orphan.email}:`, e);
+          await supabase.from("system_health_logs").insert({
+            function_name: "system-watchdog-deepseek",
+            severity: "warning",
+            error_type: "orphan_lead_recovered",
+            lead_email: orphan.email,
+            details: { original_lead_id: orphan.id, remediation_status: res.ok ? "success" : "failed" },
+            ai_analysis: aiResult.analysis,
+            ai_suggested_action: aiResult.suggested_actions.join("; "),
+            auto_remediated: res.ok,
+            resolved: res.ok,
+            resolved_at: res.ok ? new Date().toISOString() : null,
+          }).catch(() => {});
+        } catch (e) {
+          console.warn(`[watchdog] Failed to re-ingest ${orphan.email}:`, e);
+        }
       }
     }
 
