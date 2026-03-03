@@ -48,7 +48,7 @@ async function fetchDealsForPipeline(
     const arrayParams = { "with[]": ["person", "origin"] };
     if (since) params.updated_since = since;
 
-    const result = await piperunGet(apiKey, "deals", params);
+    const result = await piperunGet(apiKey, "deals", params, arrayParams);
 
     if (!result.success) {
       console.error(`[sync-piperun] API error pipeline=${pipelineId} page=${page}:`, result.status);
