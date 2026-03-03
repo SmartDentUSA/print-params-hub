@@ -45,8 +45,7 @@ async function fetchDealsForPipeline(
       page,
       pipeline_id: pipelineId,
     };
-    // Note: piperunGet handles multiple "with[]" via repeated params
-    // We pass person to get contact data; origin comes as nested object in deal
+    const arrayParams = { "with[]": ["person", "origin"] };
     if (since) params.updated_since = since;
 
     const result = await piperunGet(apiKey, "deals", params);

@@ -481,7 +481,8 @@ export function customFieldsToHashMap(
 export async function piperunGet(
   apiToken: string,
   path: string,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
+  arrayParams?: Record<string, string[]>
 ): Promise<{ success: boolean; data: unknown; status: number }> {
   let url = `${PIPERUN_API_BASE}/${path.replace(/^\/+/, "")}`;
   const searchParams = new URLSearchParams({ token: apiToken });
@@ -490,7 +491,16 @@ export async function piperunGet(
       searchParams.set(k, String(v));
     }
   }
-  url += (url.includes("?") ? "&" : "?") + searchParams.toString();
+  // Support array params like with[]=person&with[]=origin
+  let extraParams = "";
+  if (arrayParams) {
+    for (const [k, values] of Object.entries(arrayParams)) {
+      for (const v of values) {
+        extraParams += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+      }
+    }
+  }
+  url += (url.includes("?") ? "&" : "?") + searchParams.toString() + extraParams;
 
   try {
     const res = await fetch(url);
