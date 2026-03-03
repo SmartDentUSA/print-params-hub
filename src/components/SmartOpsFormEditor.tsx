@@ -79,6 +79,7 @@ const FIELD_TYPES = [
   { value: "radio", label: "Opções (radio)" },
   { value: "select", label: "Seleção (dropdown)" },
   { value: "checkbox", label: "Checkbox" },
+  { value: "slider", label: "Slider de valores" },
   { value: "roi_calculator", label: "Calculadora ROI" },
 ];
 
@@ -291,6 +292,44 @@ export function SmartOpsFormEditor({ formId }: { formId: string }) {
                   })}
                   placeholder="Opção 1&#10;Opção 2&#10;Opção 3"
                 />
+              </div>
+            )}
+
+            {field.field_type === "slider" && (
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-xs">Valor inicial</Label>
+                  <Input
+                    type="number"
+                    value={(() => { const o = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>; return o.min ?? 0; })()}
+                    onChange={(e) => {
+                      const cur = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>;
+                      updateField(field.id, { options: { ...cur, min: Number(e.target.value) } });
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Valor médio</Label>
+                  <Input
+                    type="number"
+                    value={(() => { const o = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>; return o.mid ?? 50; })()}
+                    onChange={(e) => {
+                      const cur = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>;
+                      updateField(field.id, { options: { ...cur, mid: Number(e.target.value) } });
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Valor final</Label>
+                  <Input
+                    type="number"
+                    value={(() => { const o = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>; return o.max ?? 100; })()}
+                    onChange={(e) => {
+                      const cur = Array.isArray(field.options) ? {} : (field.options || {}) as Record<string, any>;
+                      updateField(field.id, { options: { ...cur, max: Number(e.target.value) } });
+                    }}
+                  />
+                </div>
               </div>
             )}
           </CardContent>
