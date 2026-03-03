@@ -96,7 +96,7 @@ export function SmartOpsKanban() {
       .in("lead_status", ALL_KEYS)
       .order("created_at", { ascending: false })
       .limit(2000);
-    setLeads((data as Lead[]) || []);
+    setLeads((data as unknown as Lead[]) || []);
     setLoading(false);
   };
 
