@@ -1,172 +1,101 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+# Auditoria: PipeRun vs Kanban — Gaps Encontrados
 
-## Diagnostico do Estado Atual
+## 1. Status da Sincronização PipeRun → Supabase
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+A sincronização `smart-ops-sync-piperun` **nunca foi executada recentemente** (sem logs nos analytics). Isso significa que a base `lia_attendances` depende exclusivamente do webhook (`smart-ops-piperun-webhook`) para manter sincronia. Deals movidos manualmente no PipeRun sem acionar o webhook ficam dessincronizados.
 
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+**PipeRun tem 15.543 deals no Funil de Vendas e 38.081 no Funil Estagnados. O Supabase tem apenas 24.580 leads totais.** A diferença é esperada (PipeRun inclui deals ganhos/perdidos/fechados que não ficam no Kanban), mas indica que a sincronização batch não está sendo executada periodicamente.
 
----
+## 2. Kanban NÃO espelha todos os funis do PipeRun
 
-## Fase 1: Tabela `whatsapp_inbox`
+### Funil de Vendas (18784) — 7 etapas no PipeRun vs 8 colunas no Kanban
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+| PipeRun Stage (ID) | Kanban Key | Status |
+|---|---|---|
+| Sem Contato (99293) | `sem_contato` | OK |
+| Contato Feito (99294) | `contato_feito` | OK |
+| Em Contato (379942) | `em_contato` | OK |
+| Apresentação/Visita (99295) | `apresentacao` | OK |
+| Proposta enviada (99296) | `proposta_enviada` | OK |
+| Negociação (448526) | `negociacao` | OK |
+| Fechamento (99818) | `fechamento` | OK |
+| — | `novo` | **GAP**: "Novo" não existe no PipeRun. 541 leads com status `novo` nunca sincronizam para nenhuma etapa do CRM. |
 
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
+### Funil Estagnados (72938) — 10 etapas no PipeRun vs 6 colunas no Kanban
 
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
-```
+| PipeRun Stage (ID) | Kanban Key | Status |
+|---|---|---|
+| Etapa 00 - Novos (447250) | `est_etapa1` | Mapeado junto com 01 |
+| Etapa 01 - Reativação (447251) | `est_etapa1` | OK |
+| Etapa 02 - Reativação (542160) | `est_etapa2` | OK |
+| Etapa 03 - Reativação (542161) | `est_etapa3` | OK |
+| Etapa 04 - Reativação (447252) | `est_etapa4` | OK |
+| Apresentação/Visita - Estag (447253) | `est_apresentacao` | OK |
+| Proposta Enviada - Estag (447254) | `est_proposta` | OK |
+| Fechamento - Estag (447255) | `estagnado_final` | OK |
+| Auxiliar (544565) | Não mapeado no Kanban | **GAP**: leads nesta etapa desaparecem |
+| Get new Owner (545087) | Não mapeado no Kanban | **GAP**: leads nesta etapa desaparecem |
 
-RLS: `admin_only` (mesma policy de `lia_attendances`).
+### CS Onboarding (83896) — 15 etapas no PipeRun vs 2 colunas no Kanban
 
----
+| PipeRun Stage | Kanban Key | Status |
+|---|---|---|
+| Em Espera (535465) | `cs_em_espera` | OK |
+| Sem Data/Agendar (523977) | `cs_agendar` | **ERRO**: `cs_agendar` não existe no `STAGE_TO_ETAPA` — mapeado como `cs_sem_data_agendar` |
+| 13 etapas restantes | Não visíveis | **GAP CRÍTICO**: 13 etapas CS (Treinamento Agendado, Realizado, Enviar IMP3D, etc.) existem no PipeRun e no `STAGE_TO_ETAPA` mas **NÃO aparecem no Kanban** |
 
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
+O Kanban mostra apenas 2 das 15 etapas CS. Leads em `cs_treinamento_agendado` (4 leads), `cs_sem_data_agendar` (4 leads) estão na base mas invisíveis no painel.
 
-Endpoint publico que recebe POST do WaLeads quando lead responde.
+### Funil Insumos (100412) — 5 etapas no PipeRun vs 0 colunas no Kanban
 
-**Fluxo:**
+23 leads com status `insumos_*` existem na base mas **não aparecem em nenhum lugar do Kanban**.
 
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
+### Funil E-commerce (102702) — NOVO pipeline no PipeRun
 
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
+Pipeline 102702 "E-commerce" com 8 etapas (Visitantes, Navegação site, Inicializou checkout, Abandonou carrinho, Status da transação, Status do pedido, Pós venda, Ativação mensal). **Não está mapeado no `piperun-field-map.ts` nem no Kanban.**
 
----
+## 3. BUG CRÍTICO: Drag-and-drop NÃO sincroniza com PipeRun
 
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
-
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
-
+O `handleDrop` no Kanban faz:
 ```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
-
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
+await supabase.from("lia_attendances").update({ lead_status: newStatus }).eq("id", draggedId);
 ```
 
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
+**Apenas atualiza o Supabase. NÃO chama a API do PipeRun para mover o deal.** Qualquer movimentação no Kanban fica dessincronizada do CRM. Isso é bidirecional no papel (`smart-ops-piperun-webhook` + `ETAPA_TO_STAGE` existem) mas o Kanban não usa.
 
----
+## 4. Plano de Correção
 
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
+### 4.1 — Fix handleDrop para sincronizar com PipeRun (Prioridade Alta)
 
-Quando `intent_detected === 'interesse_imediato'`:
+Quando o usuário arrasta um card no Kanban:
+1. Atualizar `lia_attendances.lead_status` (já faz)
+2. Se o lead tem `piperun_id`, chamar PipeRun API para mover o deal para o `stage_id` correspondente usando `ETAPA_TO_STAGE`
+3. Usar o endpoint existente `piperun-api-test` com action `raw_put` ou criar uma edge function dedicada `smart-ops-kanban-move`
 
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
+### 4.2 — Adicionar colunas faltantes ao Kanban (Prioridade Média)
 
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
+Expandir `CS_COLUMNS` para incluir todas as 15 etapas do CS Onboarding:
+- `cs_sem_data_agendar`, `cs_nao_quer_imersao`, `cs_treinamento_agendado`, `cs_treinamento_realizado`, `cs_enviar_imp3d`, `cs_equipamentos_entregues`, `cs_retirar_scan`, `cs_acompanhamento_15d`, `cs_acomp_30d_comercial`, `cs_acompanhamento_atencao`, `cs_finalizado`, `cs_nao_use_dkmngr`, `cs_nao_use_omie_fix`, `cs_auxiliar_email`
 
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
+Adicionar seção `INSUMOS_COLUMNS` com as 5 etapas.
 
----
+Corrigir `STATUS_KEYS` para incluir todos os status válidos.
 
-## Fase 5: Limpeza Automatica (Clean-up Job)
+### 4.3 — Mapear pipeline E-commerce (Prioridade Baixa)
 
-Adicionar logica no `smart-ops-stagnant-processor` existente:
+Novo pipeline 102702 com 8 etapas. Precisa ser adicionado a `piperun-field-map.ts` e ao Kanban se relevante.
 
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
+### 4.4 — Ativar sync-piperun como cron (Prioridade Alta)
 
----
+A função `smart-ops-sync-piperun` existe e funciona mas nunca é executada automaticamente. Precisa de um cron job (a cada 30min) para garantir sincronia contínua além do webhook.
 
-## Resumo de Arquivos
+### Arquivos a modificar
 
-| # | Arquivo | Acao |
-|---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
-
-```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
-```
-
-## Payload WaLeads Esperado
-
-O webhook do WaLeads envia POST com:
-
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
-}
-```
-
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+| Arquivo | Mudança |
+|---|---|
+| `src/components/SmartOpsKanban.tsx` | Expandir CS_COLUMNS (2→15 etapas), adicionar INSUMOS_COLUMNS, fix handleDrop para sync PipeRun, incluir todos status em STATUS_KEYS |
+| `supabase/functions/_shared/piperun-field-map.ts` | Adicionar pipeline E-commerce (102702) + suas 8 etapas ao STAGE_TO_ETAPA |
+| Nova edge function ou reuso de `piperun-api-test` | Endpoint para mover deal no PipeRun quando Kanban drag-drop acontece |
 
