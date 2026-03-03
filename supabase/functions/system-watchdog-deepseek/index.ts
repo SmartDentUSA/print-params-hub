@@ -97,6 +97,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    let dry_run = false;
+    try {
+      const body = await req.json();
+      dry_run = body?.dry_run === true;
+    } catch (_) { /* no body is fine */ }
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
