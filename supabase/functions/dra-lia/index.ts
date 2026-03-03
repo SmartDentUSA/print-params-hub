@@ -287,6 +287,12 @@ const PROTOCOL_KEYWORDS = [
 const isProtocolQuestion = (msg: string) =>
   PROTOCOL_KEYWORDS.some((p) => p.test(msg));
 
+// PROBLEM_GUARD — intercepts troubleshooting/failure reports BEFORE the printer dialog
+// so users reporting issues don't get trapped in the brand→model→resin sales flow
+const PROBLEM_GUARD = /(descascando|delamina|warping|empenad|danificad|quebrad|rachad|não.{0,10}(funciona|liga|sai|gruda|adere|cura)|falhando|defeito|erro de|problema com|qualidade ruim|saindo mal|trocar|substituir|FEP|LCD|tela danificad|motor|eixo.?z|calibra[çc][ãa]o falh|layer.?shift|não.{0,10}ader|pós.?processamento|pós.?cura|limpeza.?(ipa|álcool|alcool)|falha.?(de|na|no)|suporte.?(técnico|tecnico)|manuten[çc][ãa]o)/i;
+
+const isProblemReport = (msg: string) => PROBLEM_GUARD.test(msg);
+
 // Stopwords para filtrar palavras irrelevantes antes do ILIKE
 const STOPWORDS_PT = [
   'você', 'voce', 'tem', 'algum', 'alguma', 'entre', 'para', 'sobre',
@@ -3841,7 +3847,13 @@ Campos:
     // If topic_context === "parameters", force start the dialog immediately
     // SKIP entirely when topic_context === "commercial" — impressora mentions in commercial route
     // should be handled by the SDR flow, not the parameter dialog
-    const dialogState = topic_context === "commercial"
+    // Skip printer dialog when message is a troubleshooting report or protocol question
+    // This prevents the "menu loop" where users asking about failures get brand lists
+    const skipDialog = isProblemReport(message) || isProtocolQuestion(message);
+    if (skipDialog) {
+      console.log(`[PROBLEM_GUARD] Skipping printer dialog — problem/protocol detected in: "${message.substring(0, 80)}"`);
+    }
+    const dialogState = (topic_context === "commercial" || skipDialog)
       ? { state: "not_in_dialog" as const }
       : await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
 
