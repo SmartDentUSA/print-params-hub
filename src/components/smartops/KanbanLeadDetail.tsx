@@ -212,7 +212,10 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
                 {lead.tags_crm.map((t, i) => <Badge key={i} variant="secondary" className="text-[10px]">🏷️ {t}</Badge>)}
               </div>
             )}
-            <DetailRow label="Criado" value={new Date(lead.created_at).toLocaleString("pt-BR")} />
+            {lead.piperun_created_at && (
+              <DetailRow label="Criado (PipeRun)" value={new Date(lead.piperun_created_at).toLocaleString("pt-BR")} emoji="📅" />
+            )}
+            <DetailRow label="Entrada no sistema" value={new Date(lead.created_at).toLocaleString("pt-BR")} />
             <DetailRow label="Atualizado" value={new Date(lead.updated_at).toLocaleString("pt-BR")} />
           </section>
           <Separator />

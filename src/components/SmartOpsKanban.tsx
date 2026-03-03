@@ -87,7 +87,7 @@ export function SmartOpsKanban() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const { toast } = useToast();
 
-  const LEAD_SELECT = "id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis";
+  const LEAD_SELECT = "id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis, piperun_created_at";
 
   const fetchLeads = async () => {
     const { data } = await supabase

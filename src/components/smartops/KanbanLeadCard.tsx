@@ -49,6 +49,7 @@ export interface Lead {
   total_messages: number | null;
   total_sessions: number | null;
   confidence_score_analysis: number | null;
+  piperun_created_at: string | null;
 }
 
 function formatCurrency(val: number): string {
@@ -120,7 +121,7 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
           )}
         </div>
         <div className="text-[9px] text-muted-foreground truncate">
-          {lead.source}{lead.piperun_id ? ` · PR#${lead.piperun_id}` : ""} · {new Date(lead.created_at).toLocaleDateString("pt-BR")}
+          {lead.source}{lead.piperun_id ? ` · PR#${lead.piperun_id}` : ""} · {new Date(lead.piperun_created_at || lead.created_at).toLocaleDateString("pt-BR")}
         </div>
       </CardContent>
     </Card>
