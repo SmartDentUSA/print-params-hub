@@ -66,16 +66,18 @@ Responda em JSON: { "severity": "critical|warning|info", "analysis": "resumo em 
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
       const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-      await sb.from("ai_token_usage").insert({
-        function_name: "system-watchdog-deepseek",
-        action_label: "anomaly_analysis",
-        provider: "deepseek",
-        model: "deepseek-chat",
-        prompt_tokens: usage.prompt_tokens || 0,
-        completion_tokens: usage.completion_tokens || 0,
-        total_tokens: usage.total_tokens || 0,
-        estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.00000014 + (usage.completion_tokens || 0) * 0.00000028),
-      }).catch(() => {});
+      try {
+        await sb.from("ai_token_usage").insert({
+          function_name: "system-watchdog-deepseek",
+          action_label: "anomaly_analysis",
+          provider: "deepseek",
+          model: "deepseek-chat",
+          prompt_tokens: usage.prompt_tokens || 0,
+          completion_tokens: usage.completion_tokens || 0,
+          total_tokens: usage.total_tokens || 0,
+          estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.00000014 + (usage.completion_tokens || 0) * 0.00000028),
+        });
+      } catch (_) { /* ignore */ }
     }
 
     // Parse JSON from response
