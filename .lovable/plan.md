@@ -1,172 +1,42 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+# Plano: Mostrar TODOS os campos no detalhe do Lead
 
-## Diagnostico do Estado Atual
+## Problema
+O `KanbanLeadDetail` mostra apenas ~40 campos, mas a tabela `lia_attendances` tem ~150+ colunas. Faltam seções inteiras: Pessoa (CPF, cargo, LinkedIn), Empresa (CNPJ, razão social, segmento), Loja Integrada (pedidos, endereço), Astron (cursos, planos), SDR (interesses granulares), PipeRun estendido (probabilidade, MRR, frozen), e campos novos (informacao_desejada, codigo_contrato, data_treinamento, produto_interesse_auto).
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+## Abordagem
 
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+1. **LEAD_SELECT → `*`**: Em vez de listar 60+ campos manualmente, usar `select("*")` para buscar tudo. Mais simples e à prova de futuro.
 
----
+2. **Lead interface → tipo genérico**: Expandir o tipo `Lead` com todos os campos da tabela (ou usar `Record<string, any>` com cast).
 
-## Fase 1: Tabela `whatsapp_inbox`
+3. **KanbanLeadDetail → seções colapsáveis**: Adicionar seções com `Collapsible` (já importado) para cada grupo de dados, mostrando apenas se houver dados:
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+| Seção | Campos |
+|---|---|
+| Contato | email, telefone, cidade/uf (já existe) |
+| Comercial | produto_interesse, valor, proprietário, funil, status, itens proposta, motivo perda (já existe) |
+| Perfil | area_atuacao, especialidade, impressora, scanner, CAD, etc. (já existe) |
+| Análise IA | stage, urgência, perfil psicológico, etc. (já existe) |
+| PipeRun | pipeline, etapa, título, **+ probabilidade, MRR, lead_time, frozen, description, observation, hash, last_contact_at, stage_changed_at, closed_at** |
+| **Pessoa** (NOVO) | pessoa_cpf, pessoa_cargo, pessoa_genero, pessoa_nascimento, pessoa_linkedin, pessoa_facebook, pessoa_observation |
+| **Empresa** (NOVO) | empresa_nome, empresa_razao_social, empresa_cnpj, empresa_ie, empresa_segmento, empresa_porte, empresa_situacao, empresa_website, empresa_cnae |
+| **SDR Interesses** (NOVO) | sdr_scanner_interesse, sdr_impressora_interesse, sdr_software_cad_interesse, sdr_caracterizacao_interesse, sdr_cursos_interesse, sdr_dentistica_interesse, sdr_insumos_lab_interesse, sdr_pos_impressao_interesse, sdr_solucoes_interesse, sdr_marca/modelo_impressora_param, sdr_resina_param, sdr_suporte_* |
+| **Loja Integrada** (NOVO) | lojaintegrada_cliente_id, último pedido (número, data, valor, status), forma pagamento, envio, endereço, itens_json, cupom_desconto, utm_campaign |
+| **Astron** (NOVO) | astron_user_id, astron_status, astron_plans_active, astron_courses_total, astron_courses_completed, astron_last_login_at, astron_login_url |
+| Equipamentos & Técnico | (já existe) |
+| Itens da Proposta | (já existe) |
+| Origem & Meta | source, UTMs completas (source, medium, campaign, term), IP, país, **+ informacao_desejada, codigo_contrato, data_treinamento, produto_interesse_auto, form_name** |
+| Mensagens | (já existe) |
 
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
+4. **Seções colapsáveis com auto-hide**: Cada nova seção só aparece se pelo menos 1 campo do grupo tiver valor. Usar `Collapsible` com estado fechado por padrão para não sobrecarregar.
 
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
-```
+## Arquivos modificados
 
-RLS: `admin_only` (mesma policy de `lia_attendances`).
-
----
-
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
-
-Endpoint publico que recebe POST do WaLeads quando lead responde.
-
-**Fluxo:**
-
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
-
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
-
----
-
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
-
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
-
-```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
-
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
-```
-
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
-
----
-
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
-
-Quando `intent_detected === 'interesse_imediato'`:
-
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
-
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
-
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
-
----
-
-## Fase 5: Limpeza Automatica (Clean-up Job)
-
-Adicionar logica no `smart-ops-stagnant-processor` existente:
-
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
-
----
-
-## Resumo de Arquivos
-
-| # | Arquivo | Acao |
-|---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
-
-```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
-```
-
-## Payload WaLeads Esperado
-
-O webhook do WaLeads envia POST com:
-
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
-}
-```
-
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+| Arquivo | Mudança |
+|---|---|
+| `SmartOpsKanban.tsx` | Trocar LEAD_SELECT por `"*"` |
+| `KanbanLeadCard.tsx` | Expandir interface Lead com todos os campos da tabela |
+| `KanbanLeadDetail.tsx` | Adicionar 6 novas seções colapsáveis (Pessoa, Empresa, SDR, Loja Integrada, Astron, PipeRun estendido) + campos faltantes nas seções existentes |
 
