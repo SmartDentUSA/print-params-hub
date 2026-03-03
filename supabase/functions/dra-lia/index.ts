@@ -3303,6 +3303,13 @@ Campos:
           // Determine lead archetype for strategy
           const leadArchetype = determineLeadArchetype(attendance);
 
+          // ── Longitudinal memory enrichment for returning leads ──
+          const cogAnalysis = attendance?.cognitive_analysis as Record<string, unknown> | null;
+          const stageTrajectory = cogAnalysis?.stage_trajectory as string | null;
+          const seasonalPattern = cogAnalysis?.seasonal_pattern as string | null;
+          if (stageTrajectory) profileFields.push(`📐 Trajetória: ${stageTrajectory}`);
+          if (seasonalPattern && seasonalPattern !== "Primeiro contato") profileFields.push(`📅 Padrão: ${seasonalPattern}`);
+
           // Check if returning lead is missing area or specialty
           const missingArea = !attendance?.area_atuacao;
           const missingSpecialty = !attendance?.especialidade;
@@ -3321,6 +3328,8 @@ Campos:
               lead_profile: profileFields.join(" | "),
               lead_archetype: leadArchetype,
               recent_history: recentHistoryCompact,
+              ...(stageTrajectory ? { stage_trajectory: stageTrajectory } : {}),
+              ...(seasonalPattern ? { seasonal_pattern: seasonalPattern } : {}),
               // Set awaiting flags for missing profile data
               ...(missingPhone ? { awaiting_phone: true } : {}),
               ...(missingArea && !missingPhone ? { awaiting_area: true } : {}),
