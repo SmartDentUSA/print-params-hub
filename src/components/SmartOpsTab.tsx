@@ -10,7 +10,7 @@ import { SmartOpsKanban } from "./SmartOpsKanban";
 import { SmartOpsTeam } from "./SmartOpsTeam";
 import { SmartOpsCSRules } from "./SmartOpsCSRules";
 import { SmartOpsLogs } from "./SmartOpsLogs";
-import { SmartOpsReports } from "./SmartOpsReports";
+import { SmartOpsSystemHealth } from "./SmartOpsSystemHealth";
 import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
@@ -74,7 +74,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="reguas">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
           <TabsTrigger value="conteudo">Conteúdo</TabsTrigger>
-          <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
+          <TabsTrigger value="saude">Saúde do Sistema</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="formularios">Formulários</TabsTrigger>
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
@@ -101,8 +101,8 @@ export function SmartOpsTab() {
         <TabsContent value="conteudo">
           <SmartOpsContentProduction key={`conteudo-${refreshKey}`} />
         </TabsContent>
-        <TabsContent value="relatorios">
-          <SmartOpsReports key={`relatorios-${refreshKey}`} />
+        <TabsContent value="saude">
+          <SmartOpsSystemHealth key={`saude-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="whatsapp">
           <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />
