@@ -1205,6 +1205,7 @@ export type Database = {
           ativo_scan: boolean | null
           ativo_smart_slice: boolean | null
           cidade: string | null
+          codigo_contrato: string | null
           cognitive_analysis: Json | null
           cognitive_updated_at: string | null
           comentario_perda: string | null
@@ -1215,6 +1216,7 @@ export type Database = {
           data_contrato: string | null
           data_fechamento_crm: string | null
           data_primeiro_contato: string | null
+          data_treinamento: string | null
           data_ultima_compra_cad: string | null
           data_ultima_compra_cad_ia: string | null
           data_ultima_compra_cura: string | null
@@ -1242,6 +1244,7 @@ export type Database = {
           id: string
           id_cliente_smart: string | null
           impressora_modelo: string | null
+          informacao_desejada: string | null
           interest_timeline: string | null
           ip_origem: string | null
           itens_proposta_crm: string | null
@@ -1313,6 +1316,7 @@ export type Database = {
           proactive_count: number | null
           proactive_sent_at: string | null
           produto_interesse: string | null
+          produto_interesse_auto: string | null
           proposals_data: Json | null
           proposals_last_status: number | null
           proposals_total_mrr: number | null
@@ -1390,6 +1394,7 @@ export type Database = {
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
           cidade?: string | null
+          codigo_contrato?: string | null
           cognitive_analysis?: Json | null
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
@@ -1400,6 +1405,7 @@ export type Database = {
           data_contrato?: string | null
           data_fechamento_crm?: string | null
           data_primeiro_contato?: string | null
+          data_treinamento?: string | null
           data_ultima_compra_cad?: string | null
           data_ultima_compra_cad_ia?: string | null
           data_ultima_compra_cura?: string | null
@@ -1427,6 +1433,7 @@ export type Database = {
           id?: string
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
+          informacao_desejada?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
@@ -1498,6 +1505,7 @@ export type Database = {
           proactive_count?: number | null
           proactive_sent_at?: string | null
           produto_interesse?: string | null
+          produto_interesse_auto?: string | null
           proposals_data?: Json | null
           proposals_last_status?: number | null
           proposals_total_mrr?: number | null
@@ -1575,6 +1583,7 @@ export type Database = {
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
           cidade?: string | null
+          codigo_contrato?: string | null
           cognitive_analysis?: Json | null
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
@@ -1585,6 +1594,7 @@ export type Database = {
           data_contrato?: string | null
           data_fechamento_crm?: string | null
           data_primeiro_contato?: string | null
+          data_treinamento?: string | null
           data_ultima_compra_cad?: string | null
           data_ultima_compra_cad_ia?: string | null
           data_ultima_compra_cura?: string | null
@@ -1612,6 +1622,7 @@ export type Database = {
           id?: string
           id_cliente_smart?: string | null
           impressora_modelo?: string | null
+          informacao_desejada?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
@@ -1683,6 +1694,7 @@ export type Database = {
           proactive_count?: number | null
           proactive_sent_at?: string | null
           produto_interesse?: string | null
+          produto_interesse_auto?: string | null
           proposals_data?: Json | null
           proposals_last_status?: number | null
           proposals_total_mrr?: number | null
