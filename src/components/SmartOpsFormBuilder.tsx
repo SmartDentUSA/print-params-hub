@@ -81,6 +81,22 @@ const BASE_FORM_FIELDS = [
   { label: "Interesse em soluções", field_type: "radio", db_column: "sdr_solucoes_interesse", required: false, placeholder: "", order_index: 25, options: ["Sim","Não","Talvez"] },
   { label: "Interesse em dentística", field_type: "radio", db_column: "sdr_dentistica_interesse", required: false, placeholder: "", order_index: 26, options: ["Sim","Não","Talvez"] },
   { label: "Interesse em caracterização", field_type: "radio", db_column: "sdr_caracterizacao_interesse", required: false, placeholder: "", order_index: 27, options: ["Sim","Não","Talvez"] },
+  // Profissional (extras)
+  { label: "CNPJ", field_type: "text", db_column: "empresa_cnpj", required: false, placeholder: "00.000.000/0000-00", order_index: 28 },
+  { label: "Razão Social", field_type: "text", db_column: "empresa_razao_social", required: false, placeholder: "Razão social da empresa", order_index: 29 },
+  { label: "Segmento da empresa", field_type: "select", db_column: "empresa_segmento", required: false, placeholder: "Selecione", order_index: 30, options: ["Clínica odontológica","Laboratório de prótese","Universidade","Hospital","Indústria","Distribuidor","Outro"] },
+  { label: "CPF", field_type: "text", db_column: "pessoa_cpf", required: false, placeholder: "000.000.000-00", order_index: 31 },
+  { label: "Gênero", field_type: "select", db_column: "pessoa_genero", required: false, placeholder: "Selecione", order_index: 32, options: ["Masculino","Feminino","Outro","Prefiro não informar"] },
+  // SDR Parâmetros
+  { label: "Marca da impressora (parâmetros)", field_type: "text", db_column: "sdr_marca_impressora_param", required: false, placeholder: "Ex: MiiCraft, Formlabs", order_index: 33 },
+  { label: "Modelo da impressora (parâmetros)", field_type: "text", db_column: "sdr_modelo_impressora_param", required: false, placeholder: "Ex: 125 Ultra Plus", order_index: 34 },
+  { label: "Resina (parâmetros)", field_type: "text", db_column: "sdr_resina_param", required: false, placeholder: "Ex: SmartPrint Bio Gengiva", order_index: 35 },
+  // SDR Suporte
+  { label: "Equipamento (suporte)", field_type: "text", db_column: "sdr_suporte_equipamento", required: false, placeholder: "Ex: MiiCraft 125", order_index: 36 },
+  { label: "Tipo de suporte", field_type: "select", db_column: "sdr_suporte_tipo", required: false, placeholder: "Selecione", order_index: 37, options: ["Instalação","Manutenção","Calibração","Software","Garantia","Dúvida técnica","Outro"] },
+  { label: "Descrição do suporte", field_type: "textarea", db_column: "sdr_suporte_descricao", required: false, placeholder: "Descreva o problema ou necessidade", order_index: 38 },
+  // Marketing
+  { label: "Origem / Campanha", field_type: "text", db_column: "origem_campanha", required: false, placeholder: "Ex: Google Ads, Indicação", order_index: 39 },
 ];
 
 export function SmartOpsFormBuilder() {
