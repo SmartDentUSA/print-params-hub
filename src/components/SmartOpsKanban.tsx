@@ -34,7 +34,6 @@ interface Lead {
   tags_crm: string[] | null;
   funil_entrada_crm: string | null;
   comentario_perda: string | null;
-  // Additional fields
   software_cad: string | null;
   volume_mensal_pecas: string | null;
   principal_aplicacao: string | null;
@@ -71,21 +70,58 @@ const STAGNANT_COLUMNS = [
   { key: "est_etapa2", label: "Etapa 02 - Reativação", color: "bg-rose-100 border-rose-400" },
   { key: "est_etapa3", label: "Etapa 03 - Reativação", color: "bg-amber-50 border-amber-300" },
   { key: "est_etapa4", label: "Etapa 04 - Reativação", color: "bg-amber-100 border-amber-400" },
-  { key: "est_apresentacao", label: "Apresentação/Visita - Estag", color: "bg-orange-100 border-orange-400" },
-  { key: "est_proposta", label: "Proposta Enviada - Estag", color: "bg-slate-50 border-slate-300" },
+  { key: "est_apresentacao", label: "Apresentação - Estag", color: "bg-orange-100 border-orange-400" },
+  { key: "est_proposta", label: "Proposta - Estag", color: "bg-slate-50 border-slate-300" },
 ];
 
 const CS_COLUMNS = [
+  { key: "cs_auxiliar_email", label: "Auxiliar Email", color: "bg-gray-50 border-gray-300" },
   { key: "cs_em_espera", label: "Em Espera", color: "bg-teal-50 border-teal-300" },
-  { key: "cs_agendar", label: "Agendar Treinamento", color: "bg-cyan-50 border-cyan-300" },
+  { key: "cs_sem_data_agendar", label: "Sem Data/Agendar", color: "bg-cyan-50 border-cyan-300" },
+  { key: "cs_nao_quer_imersao", label: "Não Quer Imersão", color: "bg-slate-50 border-slate-300" },
+  { key: "cs_treinamento_agendado", label: "Trein. Agendado", color: "bg-blue-50 border-blue-300" },
+  { key: "cs_treinamento_realizado", label: "Trein. Realizado", color: "bg-blue-100 border-blue-400" },
+  { key: "cs_enviar_imp3d", label: "Enviar IMP3D", color: "bg-indigo-50 border-indigo-300" },
+  { key: "cs_equipamentos_entregues", label: "Equip. Entregues", color: "bg-green-50 border-green-300" },
+  { key: "cs_retirar_scan", label: "Retirar Scan", color: "bg-green-100 border-green-400" },
+  { key: "cs_acompanhamento_15d", label: "Acomp. 15d CS", color: "bg-yellow-50 border-yellow-300" },
+  { key: "cs_acomp_30d_comercial", label: "Acomp. 30d Com.", color: "bg-yellow-100 border-yellow-400" },
+  { key: "cs_acompanhamento_atencao", label: "Atenção", color: "bg-red-50 border-red-300" },
+  { key: "cs_finalizado", label: "Finalizado", color: "bg-emerald-50 border-emerald-300" },
+  { key: "cs_nao_use_dkmngr", label: "Não usa DKMngr", color: "bg-orange-50 border-orange-300" },
+  { key: "cs_nao_use_omie_fix", label: "Não usa Omie/Fix", color: "bg-orange-100 border-orange-400" },
+];
+
+const INSUMOS_COLUMNS = [
+  { key: "insumos_sem_contato", label: "Sem Contato", color: "bg-lime-50 border-lime-300" },
+  { key: "insumos_contato_feito", label: "Contato Feito", color: "bg-lime-100 border-lime-400" },
+  { key: "insumos_amostra_enviada", label: "Amostra Enviada", color: "bg-emerald-50 border-emerald-300" },
+  { key: "insumos_retorno_amostra", label: "Retorno Amostra", color: "bg-emerald-100 border-emerald-400" },
+  { key: "insumos_fechamento", label: "Fechamento", color: "bg-green-100 border-green-400" },
+];
+
+const ECOMMERCE_COLUMNS = [
+  { key: "ecom_visitantes", label: "Visitantes", color: "bg-sky-50 border-sky-300" },
+  { key: "ecom_navegacao", label: "Navegação Site", color: "bg-sky-100 border-sky-400" },
+  { key: "ecom_checkout", label: "Checkout Iniciado", color: "bg-blue-50 border-blue-300" },
+  { key: "ecom_abandono", label: "Abandono Carrinho", color: "bg-red-50 border-red-300" },
+  { key: "ecom_transacao", label: "Status Transação", color: "bg-yellow-50 border-yellow-300" },
+  { key: "ecom_pedido", label: "Status Pedido", color: "bg-indigo-50 border-indigo-300" },
+  { key: "ecom_pos_venda", label: "Pós Venda", color: "bg-green-50 border-green-300" },
+  { key: "ecom_ativacao", label: "Ativação Mensal", color: "bg-emerald-50 border-emerald-300" },
 ];
 
 const ALL_STAGNANT_KEYS = STAGNANT_COLUMNS.map((c) => c.key);
 const ALL_CS_KEYS = CS_COLUMNS.map((c) => c.key);
+const ALL_INSUMOS_KEYS = INSUMOS_COLUMNS.map((c) => c.key);
+const ALL_ECOMMERCE_KEYS = ECOMMERCE_COLUMNS.map((c) => c.key);
+
 const STATUS_KEYS = [
   ...COLUMNS.map((c) => c.key),
   ...ALL_STAGNANT_KEYS,
   ...ALL_CS_KEYS,
+  ...ALL_INSUMOS_KEYS,
+  ...ALL_ECOMMERCE_KEYS,
   "estagnado_final",
   "ebook",
 ];
@@ -102,6 +138,7 @@ export function SmartOpsKanban() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [movingToPiperun, setMovingToPiperun] = useState(false);
   const { toast } = useToast();
 
   const fetchLeads = async () => {
@@ -119,15 +156,49 @@ export function SmartOpsKanban() {
 
   const handleDrop = async (newStatus: string) => {
     if (!draggedId) return;
+    const lead = leads.find((l) => l.id === draggedId);
+    if (!lead || lead.lead_status === newStatus) {
+      setDraggedId(null);
+      return;
+    }
+
+    // 1. Update Supabase first
     const { error } = await supabase
       .from("lia_attendances")
       .update({ lead_status: newStatus })
       .eq("id", draggedId);
     if (error) {
       toast({ title: "Erro ao mover lead", description: error.message, variant: "destructive" });
-    } else {
-      setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, lead_status: newStatus } : l));
+      setDraggedId(null);
+      return;
     }
+
+    setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, lead_status: newStatus } : l));
+
+    // 2. Sync to PipeRun if lead has piperun_id
+    if (lead.piperun_id) {
+      setMovingToPiperun(true);
+      try {
+        const { data: prResult, error: prError } = await supabase.functions.invoke("smart-ops-kanban-move", {
+          body: { piperun_id: lead.piperun_id, new_status: newStatus },
+        });
+        if (prError) {
+          console.error("[Kanban] PipeRun sync error:", prError);
+          toast({ title: "Lead movido localmente", description: `PipeRun não sincronizado: ${prError.message}`, variant: "destructive" });
+        } else if (prResult?.skipped) {
+          toast({ title: "Lead movido", description: `Status "${newStatus}" sem mapeamento no PipeRun` });
+        } else if (prResult?.success) {
+          toast({ title: "Lead movido + PipeRun sincronizado ✅" });
+        } else {
+          toast({ title: "Lead movido", description: "PipeRun retornou erro", variant: "destructive" });
+        }
+      } catch (err) {
+        console.error("[Kanban] PipeRun sync exception:", err);
+      } finally {
+        setMovingToPiperun(false);
+      }
+    }
+
     setDraggedId(null);
   };
 
@@ -285,7 +356,7 @@ export function SmartOpsKanban() {
           return (
             <div
               key={col.key}
-              className={`rounded-lg border-2 ${col.color} p-3 min-w-[${minWidth}px] flex-1`}
+              className={`rounded-lg border-2 ${col.color} p-3 flex-1`}
               style={{ minHeight: `${minHeight}px`, minWidth: `${minWidth}px` }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => handleDrop(col.key)}
@@ -312,11 +383,17 @@ export function SmartOpsKanban() {
   const pipelineLeads = leads.filter((l) => COLUMNS.some((c) => c.key === l.lead_status));
   const stagnantLeads = leads.filter((l) => ALL_STAGNANT_KEYS.includes(l.lead_status));
   const csLeads = leads.filter((l) => ALL_CS_KEYS.includes(l.lead_status));
+  const insumosLeads = leads.filter((l) => ALL_INSUMOS_KEYS.includes(l.lead_status));
+  const ecommerceLeads = leads.filter((l) => ALL_ECOMMERCE_KEYS.includes(l.lead_status));
   const ebookLeads = leads.filter((l) => l.lead_status === "ebook");
   const finalLeads = leads.filter((l) => l.lead_status === "estagnado_final");
 
   return (
     <div className="space-y-6">
+      {movingToPiperun && (
+        <div className="text-xs text-muted-foreground animate-pulse text-center">⏳ Sincronizando com PipeRun...</div>
+      )}
+
       {/* Main Pipeline Kanban */}
       {renderColumnSection(COLUMNS, pipelineLeads, false, 220, 300)}
 
@@ -353,18 +430,46 @@ export function SmartOpsKanban() {
         </div>
       </div>
 
-      {/* CS Onboarding */}
-      {(csLeads.length > 0 || true) && (
+      {/* CS Onboarding — all 15 stages */}
+      <div className="space-y-3">
+        <div className="border-t pt-4">
+          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
+            🎓 CS Onboarding
+          </h2>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            {csLeads.length} leads em onboarding
+          </p>
+        </div>
+        {renderColumnSection(CS_COLUMNS, csLeads, false, 180, 200)}
+      </div>
+
+      {/* Insumos Funnel */}
+      {(insumosLeads.length > 0 || true) && (
         <div className="space-y-3">
           <div className="border-t pt-4">
             <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
-              🎓 CS Onboarding
+              🧪 Funil Insumos
             </h2>
             <p className="text-[11px] text-muted-foreground mb-3">
-              {csLeads.length} leads em onboarding
+              {insumosLeads.length} leads
             </p>
           </div>
-          {renderColumnSection(CS_COLUMNS, csLeads, false, 220, 200)}
+          {renderColumnSection(INSUMOS_COLUMNS, insumosLeads, false, 200, 200)}
+        </div>
+      )}
+
+      {/* E-commerce Funnel */}
+      {ecommerceLeads.length > 0 && (
+        <div className="space-y-3">
+          <div className="border-t pt-4">
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-1">
+              🛒 Funil E-commerce
+            </h2>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              {ecommerceLeads.length} leads
+            </p>
+          </div>
+          {renderColumnSection(ECOMMERCE_COLUMNS, ecommerceLeads, false, 180, 200)}
         </div>
       )}
 

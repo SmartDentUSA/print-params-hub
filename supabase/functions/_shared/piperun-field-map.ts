@@ -25,6 +25,7 @@ export const PIPELINES = {
   CS_ONBOARDING: 83896,
   INTERESSE_CURSOS: 93303,
   INSUMOS: 100412,
+  ECOMMERCE: 102702,
 } as const;
 
 export const PIPELINE_NAMES: Record<number, string> = {
@@ -38,6 +39,7 @@ export const PIPELINE_NAMES: Record<number, string> = {
   [PIPELINES.CS_ONBOARDING]: "CS Onboarding",
   [PIPELINES.INTERESSE_CURSOS]: "Interesse em cursos",
   [PIPELINES.INSUMOS]: "Funil Insumos",
+  [PIPELINES.ECOMMERCE]: "Funil E-commerce",
 };
 
 // ─── Stages (Etapas) ───
@@ -101,6 +103,18 @@ export const STAGES_CURSOS = {
   IOCONNECT: 593306,
 } as const;
 
+// E-commerce (102702) — order-sorted (IDs to be confirmed via API)
+export const STAGES_ECOMMERCE = {
+  VISITANTES: 660001,
+  NAVEGACAO_SITE: 660002,
+  CHECKOUT_INICIADO: 660003,
+  ABANDONO_CARRINHO: 660004,
+  STATUS_TRANSACAO: 660005,
+  STATUS_PEDIDO: 660006,
+  POS_VENDA: 660007,
+  ATIVACAO_MENSAL: 660008,
+} as const;
+
 // ─── Stage ID → lia_attendances.ultima_etapa_comercial mapping ───
 
 export const STAGE_TO_ETAPA: Record<number, string> = {
@@ -143,6 +157,15 @@ export const STAGE_TO_ETAPA: Record<number, string> = {
   [STAGES_INSUMOS.AMOSTRA_ENVIADA]: "insumos_amostra_enviada",
   [STAGES_INSUMOS.RETORNO_AMOSTRA]: "insumos_retorno_amostra",
   [STAGES_INSUMOS.FECHAMENTO]: "insumos_fechamento",
+  // E-commerce
+  [STAGES_ECOMMERCE.VISITANTES]: "ecom_visitantes",
+  [STAGES_ECOMMERCE.NAVEGACAO_SITE]: "ecom_navegacao",
+  [STAGES_ECOMMERCE.CHECKOUT_INICIADO]: "ecom_checkout",
+  [STAGES_ECOMMERCE.ABANDONO_CARRINHO]: "ecom_abandono",
+  [STAGES_ECOMMERCE.STATUS_TRANSACAO]: "ecom_transacao",
+  [STAGES_ECOMMERCE.STATUS_PEDIDO]: "ecom_pedido",
+  [STAGES_ECOMMERCE.POS_VENDA]: "ecom_pos_venda",
+  [STAGES_ECOMMERCE.ATIVACAO_MENSAL]: "ecom_ativacao",
 };
 
 // Reverse: etapa label → stage ID (for writing back to PipeRun)
@@ -155,6 +178,7 @@ for (const [stageId, etapa] of Object.entries(STAGE_TO_ETAPA)) {
     Object.values(STAGES_ESTAGNADOS).includes(id as never) ? PIPELINES.ESTAGNADOS :
     Object.values(STAGES_CS_ONBOARDING).includes(id as never) ? PIPELINES.CS_ONBOARDING :
     Object.values(STAGES_INSUMOS).includes(id as never) ? PIPELINES.INSUMOS :
+    Object.values(STAGES_ECOMMERCE).includes(id as never) ? PIPELINES.ECOMMERCE :
     Object.values(STAGES_CURSOS).includes(id as never) ? PIPELINES.INTERESSE_CURSOS :
     0;
   if (!ETAPA_TO_STAGE[etapa]) {

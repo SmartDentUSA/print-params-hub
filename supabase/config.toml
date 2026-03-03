@@ -218,3 +218,6 @@ verify_jwt = false
 
 [functions.register-loja-webhooks]
 verify_jwt = false
+
+[functions.smart-ops-kanban-move]
+verify_jwt = false

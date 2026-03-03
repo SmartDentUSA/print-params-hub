@@ -58,7 +58,6 @@ Deno.serve(async (req) => {
         break;
       default:
         throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get, raw_put, raw_post`);
-        throw new Error(`Unknown action: ${action}. Use: list_deals, get_deal, list_users, list_stages, list_pipelines, raw_get, raw_put`);
     }
 
     console.log(`[piperun-api-test] ${action} -> ${url}`);
