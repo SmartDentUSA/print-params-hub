@@ -180,11 +180,19 @@ Deno.serve(async (req) => {
         .single();
 
       if (currentLead) {
+        // Smart merge: remove null/undefined values to avoid overwriting existing data
+        const smartPayload: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(updatePayload)) {
+          if (value !== null && value !== undefined) {
+            smartPayload[key] = value;
+          }
+        }
+
         if (deal.stage_id) {
           const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
           const wasStagnant = isInStagnantStatus(currentLead.lead_status);
           if (newIsStagnant && !wasStagnant && currentLead.lead_status !== "estagnado_final") {
-            updatePayload.ultima_etapa_comercial = currentLead.lead_status;
+            smartPayload.ultima_etapa_comercial = currentLead.lead_status;
             stagnantStarted++;
           } else if (!newIsStagnant && wasStagnant) {
             stagnantRescued++;
@@ -193,7 +201,7 @@ Deno.serve(async (req) => {
 
         const { error } = await supabase
           .from("lia_attendances")
-          .update(updatePayload)
+          .update(smartPayload)
           .eq("id", currentLead.id);
 
         if (!error) updated++;
@@ -210,9 +218,16 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (existingByEmail) {
+            // Smart merge for email-matched leads too
+            const smartPayload: Record<string, unknown> = { piperun_id: dealId };
+            for (const [key, value] of Object.entries(updatePayload)) {
+              if (value !== null && value !== undefined) {
+                smartPayload[key] = value;
+              }
+            }
             await supabase
               .from("lia_attendances")
-              .update({ ...updatePayload, piperun_id: dealId })
+              .update(smartPayload)
               .eq("id", existingByEmail.id);
             updated++;
           } else {

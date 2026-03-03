@@ -332,6 +332,18 @@ export function cleanDealName(title: string | undefined): string | null {
 }
 
 /**
+ * Clean person name by removing trailing timestamps
+ * PipeRun often appends " - 2025-12-08 22:56:51.531617-03:00" to person names
+ */
+export function cleanPersonName(name: string | undefined): string | null {
+  if (!name) return null;
+  // Remove trailing timestamp pattern: " - YYYY-MM-DD HH:MM:SS..." 
+  const cleaned = name.replace(/\s*-\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}.*$/, "").trim();
+  if (!cleaned) return null;
+  return cleaned;
+}
+
+/**
  * Map PipeRun deal data to lia_attendances fields
  */
 export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unknown> {
@@ -377,9 +389,9 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   if (email) fields.email = String(email).trim().toLowerCase();
 
   // ─── Name extraction cascade ───
-  // 1. person.name (webhook/with[]=person)
+  // 1. person.name cleaned (webhook/with[]=person) - remove timestamps
   // 2. deal.title cleaned (API list format - remove " - timestamp" suffixes)
-  const nome = person?.name || cleanDealName(deal.title) || null;
+  const nome = cleanPersonName(person?.name) || cleanDealName(deal.title) || null;
   if (nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
@@ -421,6 +433,19 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   // WhatsApp custom field as phone fallback
   const whatsapp = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
   if (whatsapp && !fields.telefone_raw) fields.telefone_raw = whatsapp;
+
+  // New custom fields
+  const informacaoDesejada = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.INFORMACAO_DESEJADA);
+  if (informacaoDesejada) fields.informacao_desejada = informacaoDesejada;
+
+  const codigoContrato = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.CODIGO_CONTRATO);
+  if (codigoContrato) fields.codigo_contrato = codigoContrato;
+
+  const dataTreinamento = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.DATA_TREINAMENTO);
+  if (dataTreinamento) fields.data_treinamento = dataTreinamento;
+
+  const produtoInteresseAuto = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE_AUTO);
+  if (produtoInteresseAuto) fields.produto_interesse_auto = produtoInteresseAuto;
 
   return fields;
 }
