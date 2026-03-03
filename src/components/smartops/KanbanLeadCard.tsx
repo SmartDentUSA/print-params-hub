@@ -1,6 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+export interface ParsedProposalItem {
+  name: string;
+  qty: number;
+  category: "scanner" | "impressora" | "cad" | "pos_impressao" | "notebook" | "insumos" | "outro";
+}
+
 export interface Lead {
   id: string;
   nome: string;
@@ -54,6 +60,24 @@ export interface Lead {
   piperun_stage_name: string | null;
   piperun_title: string | null;
   piperun_origin_name: string | null;
+  // Equipment/Technical fields
+  itens_proposta_parsed: ParsedProposalItem[] | null;
+  equip_scanner: string | null;
+  equip_scanner_serial: string | null;
+  equip_scanner_ativacao: string | null;
+  equip_impressora: string | null;
+  equip_impressora_serial: string | null;
+  equip_impressora_ativacao: string | null;
+  equip_cad: string | null;
+  equip_cad_serial: string | null;
+  equip_cad_ativacao: string | null;
+  equip_pos_impressao: string | null;
+  equip_pos_impressao_serial: string | null;
+  equip_pos_impressao_ativacao: string | null;
+  equip_notebook: string | null;
+  equip_notebook_serial: string | null;
+  equip_notebook_ativacao: string | null;
+  insumos_adquiridos: string | null;
 }
 
 function formatCurrency(val: number): string {
@@ -124,6 +148,17 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             </Badge>
           )}
         </div>
+        {lead.itens_proposta_parsed && Array.isArray(lead.itens_proposta_parsed) && lead.itens_proposta_parsed.length > 0 && (
+          <div className="flex flex-wrap gap-0.5">
+            {lead.itens_proposta_parsed.slice(0, 3).map((item, i) => {
+              const emoji = item.category === "scanner" ? "📷" : item.category === "impressora" ? "🖨️" : item.category === "cad" ? "💻" : item.category === "pos_impressao" ? "♨️" : item.category === "notebook" ? "💻" : item.category === "insumos" ? "🧪" : "📦";
+              return <Badge key={i} variant="secondary" className="text-[8px] px-1 py-0">{emoji} {item.name.length > 18 ? item.name.slice(0, 18) + "…" : item.name}</Badge>;
+            })}
+            {lead.itens_proposta_parsed.length > 3 && (
+              <Badge variant="secondary" className="text-[8px] px-1 py-0">+{lead.itens_proposta_parsed.length - 3}</Badge>
+            )}
+          </div>
+        )}
         <div className="text-[9px] text-muted-foreground truncate">
           {lead.source}{lead.piperun_id ? ` · PR#${lead.piperun_id}` : ""} · {new Date(lead.piperun_created_at || lead.created_at).toLocaleDateString("pt-BR")}
         </div>
