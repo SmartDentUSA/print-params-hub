@@ -300,36 +300,6 @@ async function createNewDeal(
   return null;
 }
 
-/**
- * Build a summary note from lead data.
- */
-function buildLeadNote(lead: Record<string, unknown>, isNew: boolean): string {
-  const lines: string[] = [];
-  lines.push(isNew
-    ? "🤖 [Dra. L.I.A.] Lead qualificado automaticamente"
-    : "🤖 [Dra. L.I.A.] Nova interação detectada"
-  );
-  lines.push("");
-
-  if (lead.resumo_historico_ia) {
-    lines.push(String(lead.resumo_historico_ia));
-    lines.push("");
-  }
-
-  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  lines.push(`📊 Produto interesse: ${lead.produto_interesse || "N/A"}`);
-  lines.push(`🏥 Especialidade: ${lead.especialidade || "N/A"}`);
-  lines.push(`🔗 Telefone: ${phone || "N/A"}`);
-  lines.push(`📧 Email: ${lead.email || "N/A"}`);
-  lines.push(`📍 Origem: dra-lia`);
-
-  if (lead.area_atuacao) lines.push(`🔬 Área: ${lead.area_atuacao}`);
-  if (lead.tem_impressora) lines.push(`🖨️ Impressora: ${lead.tem_impressora}`);
-  if (lead.tem_scanner) lines.push(`📷 Scanner: ${lead.tem_scanner}`);
-  if (lead.cidade) lines.push(`📍 Cidade: ${lead.cidade}${lead.uf ? ` - ${lead.uf}` : ""}`);
-
-  return lines.join("\n");
-}
 
 // ─── Team Member Selection ───
 
