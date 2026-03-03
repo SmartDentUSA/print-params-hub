@@ -37,6 +37,11 @@ interface MetadataResponse {
   excerpt?: string;
 }
 
+interface AIResult<T> {
+  value: T;
+  usage: { prompt_tokens: number; completion_tokens: number };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -60,7 +65,6 @@ serve(async (req) => {
       regenerate = {}
     } = await req.json() as MetadataRequest;
 
-    // Para gerar título, só contentHTML é obrigatório
     if (regenerate.title && !contentHTML) {
       return new Response(
         JSON.stringify({ error: 'ContentHTML is required to generate title' }),
@@ -68,7 +72,6 @@ serve(async (req) => {
       );
     }
 
-    // Para outras operações, título e conteúdo são obrigatórios
     if (!regenerate.title && (!title || !contentHTML)) {
       return new Response(
         JSON.stringify({ error: 'Title and contentHTML are required' }),
@@ -78,71 +81,82 @@ serve(async (req) => {
 
     console.log('🤖 Generating metadata for:', { title, regenerate });
 
-    // ===== PARALELIZAR CHAMADAS PARA LOVABLE AI =====
-    const promises: Promise<{ type: string; value: any }>[] = [];
+    const promises: Promise<{ type: string; result: AIResult<any> }>[] = [];
 
-    // Title (se necessário)
+    // Title
     if (regenerate.title) {
       promises.push(
-        generateTitle(lovableApiKey, contentHTML).then(t => ({ type: 'title', value: t }))
+        generateTitle(lovableApiKey, contentHTML).then(r => ({ type: 'title', result: r }))
       );
     }
 
-    // Meta Description (se necessário)
+    // Meta Description
     if (!existingMetaDesc || regenerate.metaDescription) {
       promises.push(
-        generateMetaDescription(lovableApiKey, title, contentHTML).then(m => ({ type: 'meta', value: m }))
+        generateMetaDescription(lovableApiKey, title, contentHTML).then(r => ({ type: 'meta', result: r }))
       );
     }
 
-    // Keywords (sempre gera)
+    // Keywords
     promises.push(
-      generateKeywords(lovableApiKey, title, contentHTML).then(k => ({ type: 'keywords', value: k }))
+      generateKeywords(lovableApiKey, title, contentHTML).then(r => ({ type: 'keywords', result: r }))
     );
 
-    // FAQs (se necessário)
+    // FAQs
     if (!existingFaqs || regenerate.faqs) {
       promises.push(
-        generateFAQs(lovableApiKey, title, contentHTML).then(f => ({ type: 'faqs', value: f }))
+        generateFAQs(lovableApiKey, title, contentHTML).then(r => ({ type: 'faqs', result: r }))
       );
     }
 
-    // Aguardar todas as promessas em paralelo
     const results = await Promise.allSettled(promises);
 
-    // Processar resultados
     let generatedTitle = existingTitle || title || '';
     let metaDescription = existingMetaDesc || '';
     let keywords: string[] = [];
+    let faqs = existingFaqs || [];
+    
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
 
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        const { type, value } = result.value;
+        const { type, result: aiRes } = result.value;
+        totalPromptTokens += aiRes.usage.prompt_tokens;
+        totalCompletionTokens += aiRes.usage.completion_tokens;
+
         if (type === 'title') {
-          generatedTitle = value;
+          generatedTitle = aiRes.value;
           console.log('✅ Generated title:', generatedTitle);
         }
         if (type === 'meta') {
-          metaDescription = value;
+          metaDescription = aiRes.value;
           console.log('✅ Generated meta description:', metaDescription);
         }
         if (type === 'keywords') {
-          keywords = value;
+          keywords = aiRes.value;
           console.log('✅ Generated keywords:', keywords);
+        }
+        if (type === 'faqs') {
+          faqs = aiRes.value;
+          console.log('✅ Generated FAQs:', faqs.length);
         }
       } else {
         console.error('❌ Promise failed:', result.reason);
       }
     }
 
-    // ===== EXCERPT (depende do título) =====
+    // Excerpt
     let excerpt = existingExcerpt || '';
     if (regenerate.excerpt) {
-      excerpt = await generateExcerpt(lovableApiKey, generatedTitle, contentHTML);
+      const excerptRes = await generateExcerpt(lovableApiKey, generatedTitle, contentHTML);
+      excerpt = excerptRes.value;
+      totalPromptTokens += excerptRes.usage.prompt_tokens;
+      totalCompletionTokens += excerptRes.usage.completion_tokens;
       console.log('✅ Generated excerpt:', excerpt);
     }
 
-    // ===== SLUG (depende do título) =====
+    // Slug
     let slug = existingSlug || '';
     if (!existingSlug || regenerate.slug) {
       const titleForSlug = generatedTitle || title;
@@ -151,33 +165,17 @@ serve(async (req) => {
       console.log('✅ Generated slug:', slug);
     }
 
-    // FAQs (processando resultado da promessa)
-    let faqs = existingFaqs || [];
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value.type === 'faqs') {
-        faqs = result.value.value;
-        console.log('✅ Generated FAQs:', faqs.length);
-      }
+    // Log total usage
+    if (totalPromptTokens > 0) {
+      await logAIUsage({
+        functionName: "ai-metadata-generator",
+        actionLabel: `metadata-generation`,
+        model: "google/gemini-2.5-flash",
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+        metadata: { regenerate },
+      });
     }
-
-    // Log aggregated token usage (estimate: ~500 prompt + ~200 completion per AI call)
-    // Actual usage logic: we should try to track per call if possible, but since they are parallelized in separate functions that return only values, 
-    // we would need to refactor those helper functions to return usage stats.
-    // For now, we use the estimation from the original plan or improved logic.
-    // However, the instructions say "somar tokens das 5 chamadas".
-    // To do this correctly, I need to modify the helper functions to return usage.
-    // Since that's a bigger refactor, and the helper functions are internal, I'll update them to return {value, usage} and then sum it up.
-    // But for this block, I will stick to the provided code in the plan which suggested:
-    // "const totalTokens = [titleRes, ...].reduce(...)"
-    // The current implementation in ai-metadata-generator uses helper functions (generateTitle, etc.) that do the fetch.
-    // I will modify the helper functions to return usage.
-
-    const aiCallCount = results.filter(r => r.status === 'fulfilled').length + (regenerate.excerpt ? 1 : 0);
-    // Placeholder log until helpers are refactored
-    if (aiCallCount > 0) {
-       // We'll update helpers below to return usage
-    }
-
 
     const response: MetadataResponse = {
       slug,
@@ -200,8 +198,6 @@ serve(async (req) => {
     );
   }
 });
-
-// ===== HELPER FUNCTIONS =====
 
 function generateSlug(title: string): string {
   return title
@@ -239,17 +235,12 @@ async function ensureUniqueSlug(supabase: any, baseSlug: string): Promise<string
   return slug;
 }
 
-async function generateTitle(
-  apiKey: string,
-  contentHTML: string
-): Promise<string> {
+async function generateTitle(apiKey: string, contentHTML: string): Promise<AIResult<string>> {
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentPreview = stripTags(contentHTML).substring(0, 800);
 
   const prompt = `Você é um especialista em SEO e copywriting para conteúdo odontológico.
-
 Crie um título altamente otimizado para SEO baseado no conteúdo fornecido.
-
 Regras obrigatórias:
 - Máximo 60 caracteres
 - Incluir palavra-chave principal do conteúdo
@@ -259,17 +250,12 @@ Regras obrigatórias:
 - Sem pontuação excessiva (!, ?, etc)
 - Deve despertar curiosidade ou resolver dúvida
 - Não inventar dados não presentes no conteúdo
-
 Conteúdo: ${contentPreview}
-
 Retorne APENAS o título, sem aspas ou formatação.`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
@@ -280,37 +266,21 @@ Retorne APENAS o título, sem aspas ou formatação.`;
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${errorText}`);
-  }
-
+  if (!response.ok) throw new Error(`AI API error: ${response.status}`);
   const data = await response.json();
   let titleText = data.choices[0]?.message?.content?.trim() || '';
-
-  // Remover aspas se existirem
   titleText = titleText.replace(/^["']|["']$/g, '');
-
-  // Garantir 60 caracteres máximo
-  if (titleText.length > 60) {
-    titleText = titleText.substring(0, 57) + '...';
-  }
-
-  return titleText;
+  if (titleText.length > 60) titleText = titleText.substring(0, 57) + '...';
+  
+  return { value: titleText, usage: extractUsage(data) };
 }
 
-async function generateExcerpt(
-  apiKey: string,
-  title: string,
-  contentHTML: string
-): Promise<string> {
+async function generateExcerpt(apiKey: string, title: string, contentHTML: string): Promise<AIResult<string>> {
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentPreview = stripTags(contentHTML).substring(0, 500);
 
   const prompt = `Você é um especialista em SEO e copywriting para conteúdo odontológico.
-
 Crie um resumo (excerpt) altamente persuasivo baseado no título e conteúdo fornecidos.
-
 Regras obrigatórias:
 - Máximo 160 caracteres
 - Incluir palavra-chave principal do título
@@ -320,18 +290,13 @@ Regras obrigatórias:
 - Frase completa, não cortada
 - Não inventar dados não presentes no conteúdo
 - Deve complementar o título, não repetir
-
 Título: ${title}
 Conteúdo: ${contentPreview}
-
 Retorne APENAS o resumo (excerpt), sem aspas ou formatação.`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
@@ -342,37 +307,21 @@ Retorne APENAS o resumo (excerpt), sem aspas ou formatação.`;
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${errorText}`);
-  }
-
+  if (!response.ok) throw new Error(`AI API error: ${response.status}`);
   const data = await response.json();
   let excerptText = data.choices[0]?.message?.content?.trim() || '';
-
-  // Remover aspas se existirem
   excerptText = excerptText.replace(/^["']|["']$/g, '');
+  if (excerptText.length > 160) excerptText = excerptText.substring(0, 157) + '...';
 
-  // Garantir 160 caracteres máximo
-  if (excerptText.length > 160) {
-    excerptText = excerptText.substring(0, 157) + '...';
-  }
-
-  return excerptText;
+  return { value: excerptText, usage: extractUsage(data) };
 }
 
-async function generateMetaDescription(
-  apiKey: string,
-  title: string,
-  contentHTML: string
-): Promise<string> {
+async function generateMetaDescription(apiKey: string, title: string, contentHTML: string): Promise<AIResult<string>> {
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentPreview = stripTags(contentHTML).substring(0, 500);
 
   const prompt = `Você é um especialista em SEO e CTR (Click-Through Rate).
-
 Crie uma meta description altamente persuasiva para o conteúdo abaixo.
-
 Regras obrigatórias:
 - Máximo 160 caracteres
 - Incluir a palavra-chave principal (o título)
@@ -382,18 +331,13 @@ Regras obrigatórias:
 - Sem emojis
 - Frase completa, não cortada
 - Não inventar dados não presentes no título/conteúdo
-
 Título: ${title}
 Conteúdo: ${contentPreview}
-
 Retorne APENAS a meta description, sem aspas ou formatação.`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
@@ -404,37 +348,21 @@ Retorne APENAS a meta description, sem aspas ou formatação.`;
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`AI API error: ${response.status} - ${errorText}`);
-  }
-
+  if (!response.ok) throw new Error(`AI API error: ${response.status}`);
   const data = await response.json();
   let metaDesc = data.choices[0]?.message?.content?.trim() || '';
-
-  // Remover aspas se existirem
   metaDesc = metaDesc.replace(/^["']|["']$/g, '');
+  if (metaDesc.length > 160) metaDesc = metaDesc.substring(0, 157) + '...';
 
-  // Garantir 160 caracteres máximo
-  if (metaDesc.length > 160) {
-    metaDesc = metaDesc.substring(0, 157) + '...';
-  }
-
-  return metaDesc;
+  return { value: metaDesc, usage: extractUsage(data) };
 }
 
-async function generateKeywords(
-  apiKey: string,
-  title: string,
-  contentHTML: string
-): Promise<string[]> {
+async function generateKeywords(apiKey: string, title: string, contentHTML: string): Promise<AIResult<string[]>> {
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const contentPreview = stripTags(contentHTML).substring(0, 1000);
 
   const prompt = `Você é um especialista em SEO e otimização semântica.
-
 Extraia 8 a 12 palavras-chave altamente relevantes baseadas no título e no conteúdo fornecido.
-
 Regras:
 - SOMENTE palavras presentes no conteúdo ou semanticamente coerentes
 - Misture cauda curta, média e longa
@@ -444,16 +372,12 @@ Regras:
 - Sem termos genéricos ("artigo", "conteúdo", "blog")
 - Apenas strings simples
 - Retorne SÓ o array de keywords
-
 Título: ${title}
 Conteúdo: ${contentPreview}`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
@@ -485,96 +409,70 @@ Conteúdo: ${contentPreview}`;
     }),
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ AI API error for keywords:', errorText);
-    // Fallback: retornar array vazio se falhar
-    return [];
-  }
-
+  if (!response.ok) return { value: [], usage: { prompt_tokens: 0, completion_tokens: 0 } };
   const data = await response.json();
   const toolCall = data.choices[0]?.message?.tool_calls?.[0];
-
-  if (!toolCall || toolCall.function.name !== 'extract_keywords') {
-    console.warn('⚠️ Unexpected AI response for keywords, using empty array');
-    return [];
-  }
-
-  const parsedArgs = JSON.parse(toolCall.function.arguments);
-  return parsedArgs.keywords || [];
+  const parsedArgs = toolCall ? JSON.parse(toolCall.function.arguments) : {};
+  return { value: parsedArgs.keywords || [], usage: extractUsage(data) };
 }
 
-async function generateFAQs(
-  apiKey: string,
-  title: string,
-  contentHTML: string
-): Promise<Array<{ question: string; answer: string }>> {
+async function generateFAQs(apiKey: string, title: string, contentHTML: string): Promise<AIResult<Array<{question: string; answer: string}>>> {
   const stripTags = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-  const contentPreview = stripTags(contentHTML).substring(0, 4000);
+  const contentPreview = stripTags(contentHTML).substring(0, 1000);
 
-  const prompt = `Baseado no título e conteúdo abaixo, gere EXATAMENTE 10 FAQs relevantes para SEO e Voice Search.
-
-Regras obrigatórias:
-- Perguntas devem ser naturais, como pessoas pesquisam no Google
-- Perguntas em tom conversacional (ex: "A resina X é boa para...?" em vez de "Qual o resultado do teste de...?")
-- Respostas completas de 2-4 frases
-- Baseado APENAS no conteúdo fornecido (Princípio-Mãe: sem inventar dados)
-- Contexto: odontologia digital brasileira
-- Sem repetir informações entre FAQs
-
+  const prompt = `Você é um especialista em conteúdo educacional odontológico.
+Crie 3 a 5 perguntas frequentes (FAQs) baseadas no conteúdo fornecido.
+Regras:
+- Perguntas diretas e relevantes para o público-alvo (dentistas/técnicos)
+- Respostas curtas e objetivas (máx 2 frases)
+- Baseado APENAS no conteúdo fornecido
 Título: ${title}
 Conteúdo: ${contentPreview}`;
 
   const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'google/gemini-2.5-flash',
       messages: [
         { role: 'system', content: SYSTEM_SUPER_PROMPT },
-        { role: 'user', content: prompt }
+        { role: 'user', content: `TAREFA: Gerar FAQs\n\n${prompt}` }
       ],
-      tools: [{
-        type: 'function',
-        function: {
-          name: 'generate_faqs',
-          description: 'Generate 10 SEO-optimized FAQs',
-          parameters: {
-            type: 'object',
-            properties: {
-              faqs: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    question: { type: 'string' },
-                    answer: { type: 'string' }
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'generate_faqs',
+            description: 'Generate frequently asked questions',
+            parameters: {
+              type: 'object',
+              properties: {
+                faqs: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      question: { type: 'string' },
+                      answer: { type: 'string' }
+                    },
+                    required: ['question', 'answer']
                   },
-                  required: ['question', 'answer']
+                  minItems: 3,
+                  maxItems: 5
                 }
-              }
-            },
-            required: ['faqs']
+              },
+              required: ['faqs']
+            }
           }
         }
-      }],
+      ],
       tool_choice: { type: 'function', function: { name: 'generate_faqs' } }
     }),
   });
 
-  if (!response.ok) {
-    console.error('❌ AI API error for FAQs');
-    return [];
-  }
-
+  if (!response.ok) return { value: [], usage: { prompt_tokens: 0, completion_tokens: 0 } };
   const data = await response.json();
   const toolCall = data.choices[0]?.message?.tool_calls?.[0];
-
-  if (!toolCall) return [];
-  
-  const parsedArgs = JSON.parse(toolCall.function.arguments);
-  return parsedArgs.faqs || [];
+  const parsedArgs = toolCall ? JSON.parse(toolCall.function.arguments) : {};
+  return { value: parsedArgs.faqs || [], usage: extractUsage(data) };
 }
