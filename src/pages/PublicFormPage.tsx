@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle } from "lucide-react";
+import { PhoneInputWithDDI } from "@/components/PhoneInputWithDDI";
 
 interface FormField {
   id: string;
@@ -228,11 +229,10 @@ export default function PublicFormPage() {
               )}
 
               {field.field_type === "phone" && (
-                <Input
-                  type="tel"
+                <PhoneInputWithDDI
                   placeholder={field.placeholder || "(11) 99999-9999"}
                   value={values[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
+                  onChange={(val) => handleChange(field.id, val)}
                   required={field.required}
                 />
               )}
