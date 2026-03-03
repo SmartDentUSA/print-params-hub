@@ -720,9 +720,9 @@ async function triggerOutboundMessages(
       await sendTemplateMessage(supabase, supabaseUrl, serviceKey, lead, member.id, phone);
     }
 
-    // ── B. AI briefing → seller (ALWAYS) ──
-    console.log("[lia-assign] Generating AI seller briefing");
-    const briefing = await generateAISellerBriefing(lead);
+    // ── B. Structured notification → seller (ALWAYS) ──
+    console.log("[lia-assign] Building structured seller notification");
+    const briefing = await buildSellerNotification(lead, supabase);
     if (member.whatsapp_number) {
       await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
       console.log(`[lia-assign] Seller briefing sent to ${member.nome_completo} (${member.whatsapp_number})`);
