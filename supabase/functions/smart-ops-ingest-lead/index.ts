@@ -185,6 +185,7 @@ Deno.serve(async (req) => {
 
         if (updateError) {
           console.error("[ingest-lead] Update error:", updateError);
+          await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_update_failed", lead_email: email, details: { error: updateError.message } }).catch(() => {});
           return new Response(JSON.stringify({ error: updateError.message }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -217,6 +218,7 @@ Deno.serve(async (req) => {
 
       if (insertError) {
         console.error("[ingest-lead] Insert error:", insertError);
+        await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_insert_failed", lead_email: email, details: { error: insertError.message } }).catch(() => {});
         return new Response(JSON.stringify({ error: insertError.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
