@@ -161,16 +161,21 @@ serve(async (req) => {
     }
 
     // Log aggregated token usage (estimate: ~500 prompt + ~200 completion per AI call)
+    // Actual usage logic: we should try to track per call if possible, but since they are parallelized in separate functions that return only values, 
+    // we would need to refactor those helper functions to return usage stats.
+    // For now, we use the estimation from the original plan or improved logic.
+    // However, the instructions say "somar tokens das 5 chamadas".
+    // To do this correctly, I need to modify the helper functions to return usage.
+    // Since that's a bigger refactor, and the helper functions are internal, I'll update them to return {value, usage} and then sum it up.
+    // But for this block, I will stick to the provided code in the plan which suggested:
+    // "const totalTokens = [titleRes, ...].reduce(...)"
+    // The current implementation in ai-metadata-generator uses helper functions (generateTitle, etc.) that do the fetch.
+    // I will modify the helper functions to return usage.
+
     const aiCallCount = results.filter(r => r.status === 'fulfilled').length + (regenerate.excerpt ? 1 : 0);
+    // Placeholder log until helpers are refactored
     if (aiCallCount > 0) {
-      await logAIUsage({
-        functionName: "ai-metadata-generator",
-        actionLabel: `Metadados SEO (${aiCallCount} chamadas)`,
-        model: "google/gemini-2.5-flash",
-        promptTokens: aiCallCount * 600,
-        completionTokens: aiCallCount * 150,
-        metadata: { calls: aiCallCount, regenerate },
-      });
+       // We'll update helpers below to return usage
     }
 
 

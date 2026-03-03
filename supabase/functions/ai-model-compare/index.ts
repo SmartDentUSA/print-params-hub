@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,6 +55,14 @@ serve(async (req) => {
               return { model: "gemini-2.5-flash", response: "", latency_ms: Date.now() - start, error: `${res.status}: ${t}` };
             }
             const data = await res.json();
+            const usage = extractUsage(data);
+            await logAIUsage({
+              functionName: "ai-model-compare",
+              actionLabel: "compare-gemini",
+              model: "google/gemini-2.5-flash",
+              promptTokens: usage.prompt_tokens,
+              completionTokens: usage.completion_tokens,
+            });
             return {
               model: "gemini-2.5-flash",
               response: data.choices?.[0]?.message?.content || "",
@@ -89,6 +98,14 @@ serve(async (req) => {
               return { model: "deepseek-chat", response: "", latency_ms: Date.now() - start, error: `${res.status}: ${t}` };
             }
             const data = await res.json();
+            const usage = extractUsage(data);
+            await logAIUsage({
+              functionName: "ai-model-compare",
+              actionLabel: "compare-deepseek",
+              model: "deepseek-chat",
+              promptTokens: usage.prompt_tokens,
+              completionTokens: usage.completion_tokens,
+            });
             return {
               model: "deepseek-chat",
               response: data.choices?.[0]?.message?.content || "",

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
@@ -506,6 +507,14 @@ ${finalConfig.regra_anti_alucinacao}`;
     }
 
     const data = await response.json();
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "ai-generate-og-image",
+      actionLabel: mode === 'EDIT' ? "edit-og-image" : "generate-og-image",
+      model: "google/gemini-2.5-flash-image-preview",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const base64Image = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     
     if (!base64Image) throw new Error("Nenhuma imagem gerada pela IA");
