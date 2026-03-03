@@ -84,7 +84,7 @@ export function SmartOpsSystemHealth() {
   const handleRunWatchdog = async () => {
     setRunningWatchdog(true);
     try {
-      const { error } = await supabase.functions.invoke("system-watchdog-deepseek");
+      const { error } = await supabase.functions.invoke("system-watchdog-deepseek", { body: { dry_run: false } });
       if (error) throw error;
       toast.success("Watchdog executado! Atualizando dados...");
       setTimeout(fetchLogs, 2000);

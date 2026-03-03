@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface AnomalyReport {
@@ -66,16 +66,18 @@ Responda em JSON: { "severity": "critical|warning|info", "analysis": "resumo em 
       const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
       const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-      await sb.from("ai_token_usage").insert({
-        function_name: "system-watchdog-deepseek",
-        action_label: "anomaly_analysis",
-        provider: "deepseek",
-        model: "deepseek-chat",
-        prompt_tokens: usage.prompt_tokens || 0,
-        completion_tokens: usage.completion_tokens || 0,
-        total_tokens: usage.total_tokens || 0,
-        estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.00000014 + (usage.completion_tokens || 0) * 0.00000028),
-      }).catch(() => {});
+      try {
+        await sb.from("ai_token_usage").insert({
+          function_name: "system-watchdog-deepseek",
+          action_label: "anomaly_analysis",
+          provider: "deepseek",
+          model: "deepseek-chat",
+          prompt_tokens: usage.prompt_tokens || 0,
+          completion_tokens: usage.completion_tokens || 0,
+          total_tokens: usage.total_tokens || 0,
+          estimated_cost_usd: ((usage.prompt_tokens || 0) * 0.00000014 + (usage.completion_tokens || 0) * 0.00000028),
+        });
+      } catch (_) { /* ignore */ }
     }
 
     // Parse JSON from response
@@ -97,6 +99,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    let dry_run = false;
+    try {
+      const body = await req.json();
+      dry_run = body?.dry_run === true;
+    } catch (_) { /* no body is fine */ }
+
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
@@ -161,31 +169,33 @@ Deno.serve(async (req) => {
       aiResult = await analyzeWithDeepSeek(report);
     }
 
-    // 6. Auto-remediation: re-ingest orphan leads
+    // 6. Auto-remediation: re-ingest orphan leads (skip in dry_run, limit to 3)
     let remediatedCount = 0;
-    for (const orphan of report.orphan_leads.slice(0, 10)) {
-      try {
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({ email: orphan.email, name: orphan.name, source: "watchdog-recovery" }),
-        });
-        if (res.ok) remediatedCount++;
+    if (!dry_run) {
+      for (const orphan of report.orphan_leads.slice(0, 3)) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
+            body: JSON.stringify({ email: orphan.email, name: orphan.name, source: "watchdog-recovery" }),
+          });
+          if (res.ok) remediatedCount++;
 
-        await supabase.from("system_health_logs").insert({
-          function_name: "system-watchdog-deepseek",
-          severity: "warning",
-          error_type: "orphan_lead_recovered",
-          lead_email: orphan.email,
-          details: { original_lead_id: orphan.id, remediation_status: res.ok ? "success" : "failed" },
-          ai_analysis: aiResult.analysis,
-          ai_suggested_action: aiResult.suggested_actions.join("; "),
-          auto_remediated: res.ok,
-          resolved: res.ok,
-          resolved_at: res.ok ? new Date().toISOString() : null,
-        }).catch(() => {});
-      } catch (e) {
-        console.warn(`[watchdog] Failed to re-ingest ${orphan.email}:`, e);
+          await supabase.from("system_health_logs").insert({
+            function_name: "system-watchdog-deepseek",
+            severity: "warning",
+            error_type: "orphan_lead_recovered",
+            lead_email: orphan.email,
+            details: { original_lead_id: orphan.id, remediation_status: res.ok ? "success" : "failed" },
+            ai_analysis: aiResult.analysis,
+            ai_suggested_action: aiResult.suggested_actions.join("; "),
+            auto_remediated: res.ok,
+            resolved: res.ok,
+            resolved_at: res.ok ? new Date().toISOString() : null,
+          });
+        } catch (e) {
+          console.warn(`[watchdog] Failed to re-ingest ${orphan.email}:`, e);
+        }
       }
     }
 
@@ -198,7 +208,7 @@ Deno.serve(async (req) => {
         details: { count: report.missing_piperun.length, samples: report.missing_piperun.slice(0, 5) },
         ai_analysis: aiResult.analysis,
         ai_suggested_action: aiResult.suggested_actions.join("; "),
-      }).catch(() => {});
+      });
     }
 
     if (report.missing_cognitive.length > 0) {
@@ -209,17 +219,17 @@ Deno.serve(async (req) => {
         details: { count: report.missing_cognitive.length, samples: report.missing_cognitive.slice(0, 5) },
         ai_analysis: aiResult.analysis,
         ai_suggested_action: aiResult.suggested_actions.join("; "),
-      }).catch(() => {});
+      });
     }
 
     // 8. Trigger missing cognitive analyses
     for (const lead of (report.missing_cognitive || []).slice(0, 5)) {
       try {
-        await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+        const _res = await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
           body: JSON.stringify({ lead_id: lead.id, trigger: "watchdog" }),
-        }).catch(() => {});
+        });
       } catch (_) { /* fire and forget */ }
     }
 
