@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { addDealNote, fetchDealNotes } from "../_shared/piperun-field-map.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,8 +10,8 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY")!;
+const DEEPSEEK_API = "https://api.deepseek.com/chat/completions";
 
 const VALID_STAGES = ["MQL_pesquisador", "PQL_recompra", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
 const VALID_URGENCY = ["alta", "media", "baixa"];
@@ -263,26 +264,35 @@ ${contextString.slice(0, 3500)}
 
 Retorne APENAS o JSON, sem markdown, sem explicação.`;
 
-    // ── LLM call via Lovable AI Gateway ──
-    const response = await fetch(CHAT_API, {
+    // ── LLM call via DeepSeek API (deeper reasoning for psychological profiling) ──
+    const response = await fetch(DEEPSEEK_API, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        max_tokens: 500,
+        model: "deepseek-chat",
+        max_tokens: 800,
+        temperature: 0.6,
         stream: false,
         messages: [
-          { role: "system", content: "Você retorna APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores que não estejam nos DADOS." },
+          { role: "system", content: "Você é um analista especializado em perfil psicológico comercial. Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores que não estejam nos DADOS." },
           { role: "user", content: prompt },
         ],
       }),
-      signal: controller.signal,
+      signal: AbortSignal.timeout(20000),
     });
 
     const result = await response.json();
+    const usage = extractUsage(result);
+    await logAIUsage({
+      functionName: "cognitive-lead-analysis",
+      actionLabel: "cognitive-profile-deepseek",
+      model: "deepseek-chat",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const rawText = result.choices?.[0]?.message?.content || "";
     console.log("[cognitive] Raw LLM response length:", rawText.length);
 
