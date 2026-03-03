@@ -522,6 +522,34 @@ export async function addDealNote(
 }
 
 /**
+ * Fetch notes from a PipeRun deal (for longitudinal memory enrichment)
+ */
+export async function fetchDealNotes(
+  apiToken: string,
+  dealId: number,
+  limit = 5
+): Promise<Array<{ text: string; created_at: string }>> {
+  try {
+    const result = await piperunGet(apiToken, "notes", {
+      deal_id: String(dealId),
+      show: String(limit),
+    });
+    if (!result.success || !result.data) return [];
+    const items = (result.data as { data?: Array<{ text?: string; created_at?: string }> })?.data;
+    if (!Array.isArray(items)) return [];
+    return items
+      .filter((n) => n.text && n.text.trim())
+      .slice(0, limit)
+      .map((n) => ({
+        text: (n.text || "").slice(0, 200),
+        created_at: n.created_at || "",
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Move a deal to a different stage (for L.I.A. stagnation management)
  */
 export async function moveDealToStage(
