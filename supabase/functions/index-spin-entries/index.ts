@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -126,6 +127,18 @@ serve(async (req) => {
 
       // Wait between entries
       if (entries.indexOf(entry) < entries.length - 1) await sleep(2000);
+    }
+
+    // Log batch embedding usage
+    if (totalIndexed > 0) {
+      const estimatedTokens = totalIndexed * 200;
+      await logAIUsage({
+        functionName: "index-spin-entries",
+        actionLabel: "embed-spin-batch",
+        model: "embedding-001",
+        promptTokens: estimatedTokens,
+        completionTokens: 0,
+      });
     }
 
     return new Response(

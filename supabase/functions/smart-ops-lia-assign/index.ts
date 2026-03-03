@@ -551,12 +551,18 @@ function formatDate(val: unknown): string {
 async function generateHistoricoOportunidade(
   lead: Record<string, unknown>
 ): Promise<{ historico: string; oportunidade: string }> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return { historico: "", oportunidade: "" };
+  const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+  if (!DEEPSEEK_API_KEY) return { historico: "", oportunidade: "" };
 
-  const prompt = `Analise os dados do lead e gere APENAS um JSON com 2 campos:
+  // Enrich prompt with cognitive analysis for deeper tactical briefing
+  const cognitive = lead.cognitive_analysis as Record<string, unknown> | null;
+  const cognitiveContext = cognitive
+    ? `\nAnálise Cognitiva: Perfil=${cognitive.psychological_profile || "N/A"}, Motivação=${cognitive.primary_motivation || "N/A"}, Objeção=${cognitive.objection_risk || "N/A"}, Estágio=${cognitive.lead_stage_detected || "N/A"}, Trajetória=${cognitive.stage_trajectory || "N/A"}`
+    : "";
+
+  const prompt = `Você é um estrategista comercial sênior. Analise os dados do lead e gere um JSON com 2 campos:
 - "historico": 2-3 frases sobre primeiro contato, compras e-commerce, cursos, vendedores anteriores
-- "oportunidade": 2-3 frases sobre equipamentos, software, urgência, motivação e risco de objeção
+- "oportunidade": Briefing tático para o vendedor contendo: (1) equipamentos e software atuais, (2) objeção provável e como contorná-la, (3) abordagem recomendada e prova social relevante, (4) urgência e motivação
 
 DADOS:
 Nome: ${lead.nome || "N/A"}
@@ -572,44 +578,41 @@ Software CAD: ${lead.software_cad || "N/A"}
 Urgência: ${lead.urgency_level || "N/A"}
 Motivação: ${lead.primary_motivation || "N/A"}
 Risco objeção: ${lead.objection_risk || "N/A"}
-Status: ${lead.status_oportunidade || "N/A"}
+Status: ${lead.status_oportunidade || "N/A"}${cognitiveContext}
 
 REGRAS OBRIGATÓRIAS:
 1. NÃO use o nome do lead no texto — diga "o profissional" ou "o lead"
 2. Se um dado é "N/A" ou "Nunca", diga "sem informação disponível"
 3. NÃO invente dados que não estejam listados acima
+4. Seja TÁTICO e ACIONÁVEL — diga O QUE FAZER, não só o que aconteceu
 
 Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
-
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
+      model: "deepseek-chat",
       messages: [
         { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores que não estejam nos DADOS. Refira-se ao lead como 'o profissional' ou 'o lead', NUNCA use nomes próprios no texto gerado." },
         { role: "user", content: prompt },
       ],
-      temperature: 0.3,
-      max_tokens: 300,
+      temperature: 0.5,
+      max_tokens: 600,
     }),
-    signal: controller.signal,
+    signal: AbortSignal.timeout(12000),
   });
 
-  clearTimeout(timeout);
-  if (!res.ok) throw new Error(`AI gateway ${res.status}`);
+  if (!res.ok) throw new Error(`DeepSeek API ${res.status}`);
   const data = await res.json();
   const usage = extractUsage(data);
   await logAIUsage({
     functionName: "smart-ops-lia-assign",
-    actionLabel: "generate-briefing",
-    model: "google/gemini-2.5-flash-lite",
+    actionLabel: "generate-briefing-deepseek",
+    model: "deepseek-chat",
     promptTokens: usage.prompt_tokens,
     completionTokens: usage.completion_tokens,
   });

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -186,6 +187,18 @@ serve(async (req) => {
       } catch (entryErr: any) {
         results.push({ title: entry.title || "?", saved: false, chunks_created: 0, indexed: 0, error: entryErr.message });
       }
+    }
+
+    // Log batch embedding usage
+    if (totalIndexed > 0) {
+      const estimatedTokens = totalIndexed * 200;
+      await logAIUsage({
+        functionName: "ingest-knowledge-text",
+        actionLabel: "embed-knowledge-batch",
+        model: "embedding-001",
+        promptTokens: estimatedTokens,
+        completionTokens: 0,
+      });
     }
 
     return new Response(

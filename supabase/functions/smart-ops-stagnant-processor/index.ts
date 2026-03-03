@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendCampaignViaSellFlux, mergeTagsCrm, computeStagnationTag } from "../_shared/sellflux-field-map.ts";
 import { moveDealToStage, ETAPA_TO_STAGE } from "../_shared/piperun-field-map.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,9 +33,12 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
+    const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+
     const { data: leads, error: fetchError } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, lead_status, updated_at, produto_interesse, tags_crm, piperun_id, proprietario_lead_crm, area_atuacao, especialidade, cidade, uf, impressora_modelo, tem_scanner, resina_interesse, score, temperatura_lead, ultima_etapa_comercial, software_cad, volume_mensal_pecas, principal_aplicacao, valor_oportunidade, resumo_historico_ia")
+      .select("id, nome, email, telefone_normalized, lead_status, updated_at, produto_interesse, tags_crm, piperun_id, proprietario_lead_crm, area_atuacao, especialidade, cidade, uf, impressora_modelo, tem_scanner, resina_interesse, score, temperatura_lead, ultima_etapa_comercial, software_cad, volume_mensal_pecas, principal_aplicacao, valor_oportunidade, resumo_historico_ia, cognitive_analysis, historico_resumos")
       .like("lead_status", "est%")
       .neq("lead_status", "estagnado_final")
       .order("updated_at", { ascending: true })
@@ -51,6 +55,7 @@ Deno.serve(async (req) => {
     let advanced = 0;
     let messagesSent = 0;
     let messagesError = 0;
+    let aiDecisions = 0;
 
     const { data: rules } = await supabase
       .from("cs_automation_rules")
@@ -79,6 +84,63 @@ Deno.serve(async (req) => {
       const currentStatus = lead.lead_status;
       const nextStatus = PROGRESSION[currentStatus];
       if (!nextStatus) continue;
+
+      // ── DeepSeek strategic decision (max 20 leads with AI per run) ──
+      let aiStrategy: { vale_reativar: boolean; angulo?: string; tom?: string; cta?: string; motivo_provavel?: string } | null = null;
+      if (DEEPSEEK_API_KEY && aiDecisions < 20 && lead.cognitive_analysis) {
+        try {
+          const diasInativo = Math.floor(elapsed / (24 * 60 * 60 * 1000));
+          const estrategiaRes = await fetch("https://api.deepseek.com/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "deepseek-chat",
+              max_tokens: 400,
+              temperature: 0.4,
+              messages: [
+                {
+                  role: "system",
+                  content: `Analise o lead estagnado e retorne APENAS JSON:\n{"motivo_provavel":"string","angulo":"string — argumento principal","tom":"urgente|empatico|informativo|desafiador","cta":"string — ação específica","vale_reativar":true|false}`,
+                },
+                {
+                  role: "user",
+                  content: `Lead: ${lead.nome}\nEstágio: ${currentStatus}\nDias inativo: ${diasInativo}\nProduto: ${lead.produto_interesse || "N/I"}\nPerfil cognitivo: ${JSON.stringify(lead.cognitive_analysis || {})}\nResumo: ${lead.resumo_historico_ia || "N/I"}`,
+                },
+              ],
+            }),
+            signal: AbortSignal.timeout(12000),
+          });
+
+          if (estrategiaRes.ok) {
+            const estrategiaData = await estrategiaRes.json();
+            const dsUsage = extractUsage(estrategiaData);
+            await logAIUsage({
+              functionName: "smart-ops-stagnant-processor",
+              actionLabel: "deepseek-stagnation-decision",
+              model: "deepseek-chat",
+              promptTokens: dsUsage.prompt_tokens,
+              completionTokens: dsUsage.completion_tokens,
+            });
+            const rawContent = estrategiaData.choices?.[0]?.message?.content || "";
+            const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              aiStrategy = JSON.parse(jsonMatch[0]);
+              aiDecisions++;
+            }
+          }
+        } catch (e) {
+          console.warn(`[stagnant-processor] DeepSeek failed for ${lead.id}:`, e);
+        }
+
+        // If DeepSeek says don't reactivate, skip this lead
+        if (aiStrategy && !aiStrategy.vale_reativar) {
+          console.log(`[stagnant-processor] DeepSeek: skip ${lead.nome} — ${aiStrategy.motivo_provavel}`);
+          continue;
+        }
+      }
 
       // Compute stagnation tag for new stage
       const stagnationTag = computeStagnationTag(nextStatus);
@@ -123,6 +185,44 @@ Deno.serve(async (req) => {
       // Check automation rule for new stage
       const rule = rulesMap.get(nextStatus);
       if (!rule || !lead.telefone_normalized) continue;
+
+      // ── Generate AI-powered reactivation message if strategy available ──
+      let aiMessage: string | null = null;
+      if (aiStrategy && LOVABLE_API_KEY) {
+        try {
+          const msgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash-lite",
+              messages: [{
+                role: "user",
+                content: `Escreva uma mensagem WhatsApp de reativação para ${lead.nome}.\nEstratégia:\n- Ângulo: ${aiStrategy.angulo}\n- Tom: ${aiStrategy.tom}\n- CTA: ${aiStrategy.cta}\n- Produto: ${lead.produto_interesse || "odontologia digital"}\nRegras: máximo 3 linhas, linguagem natural, NÃO mencionar que é automático.`,
+              }],
+              temperature: 0.7,
+              max_tokens: 150,
+            }),
+            signal: AbortSignal.timeout(6000),
+          });
+          if (msgRes.ok) {
+            const msgData = await msgRes.json();
+            const msgUsage = extractUsage(msgData);
+            await logAIUsage({
+              functionName: "smart-ops-stagnant-processor",
+              actionLabel: "gemini-reactivation-message",
+              model: "google/gemini-2.5-flash-lite",
+              promptTokens: msgUsage.prompt_tokens,
+              completionTokens: msgUsage.completion_tokens,
+            });
+            aiMessage = msgData.choices?.[0]?.message?.content?.trim() || null;
+          }
+        } catch (e) {
+          console.warn(`[stagnant-processor] Gemini msg failed for ${lead.id}:`, e);
+        }
+      }
 
       // ─── SellFlux path (preferred) ───
       if (SELLFLUX_WEBHOOK_CAMPANHAS && rule.sellflux_template) {

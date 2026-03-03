@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -944,6 +945,7 @@ serve(async (req) => {
     // ── PROCESS in batches ───────────────────────────────────────
     let indexed = 0;
     let errors = 0;
+    let totalEmbeddingCalls = 0;
 
     for (let i = 0; i < chunksToIndex.length; i += BATCH_SIZE) {
       const batch = chunksToIndex.slice(i, i + BATCH_SIZE);
@@ -964,7 +966,7 @@ serve(async (req) => {
       );
 
       for (const r of results) {
-        if (r.status === "fulfilled") indexed++;
+        if (r.status === "fulfilled") { indexed++; totalEmbeddingCalls++; }
         else {
           errors++;
           console.error("Chunk error:", r.reason);
@@ -976,6 +978,18 @@ serve(async (req) => {
       if (i + BATCH_SIZE < chunksToIndex.length) {
         await sleep(DELAY_MS);
       }
+    }
+
+    // Log batch embedding usage
+    if (totalEmbeddingCalls > 0) {
+      const estimatedTokens = totalEmbeddingCalls * 200; // ~200 tokens per chunk avg
+      await logAIUsage({
+        functionName: "index-embeddings",
+        actionLabel: `embed-batch-${stage}`,
+        model: "embedding-001",
+        promptTokens: estimatedTokens,
+        completionTokens: 0,
+      });
     }
 
     return new Response(
