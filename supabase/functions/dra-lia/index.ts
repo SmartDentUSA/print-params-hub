@@ -249,6 +249,9 @@ const SUPPORT_KEYWORDS = [
   /(reposição|componente).{0,20}(quebr|troc|defeito|danific|falt)/i,
   /(impressora).{0,20}(não funciona|parou|trava|tá travando|está travando|quebrou)/i,
   /(resina).{0,20}(não (curou|curar|endureceu|endureceu|polimerizo|aderiu))/i,
+  // Explicit intent to reach support/human
+  /\b(quero|preciso|gostaria de|need to|want to)\b.{0,15}\b(falar com|talk to|hablar con)\b.{0,15}\b(suporte|support|soporte|atendente|humano|pessoa|human|someone)\b/i,
+  /\b(falar com o suporte|falar com suporte|talk to support|hablar con soporte)\b/i,
 ];
 
 const SUPPORT_FALLBACK: Record<string, string> = {
