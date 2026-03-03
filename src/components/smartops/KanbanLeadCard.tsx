@@ -7,7 +7,8 @@ export interface ParsedProposalItem {
   category: "scanner" | "impressora" | "cad" | "pos_impressao" | "notebook" | "insumos" | "outro";
 }
 
-export interface Lead {
+// Use Record to accept all lia_attendances fields from select("*")
+export interface Lead extends Record<string, unknown> {
   id: string;
   nome: string;
   email: string;
@@ -60,7 +61,6 @@ export interface Lead {
   piperun_stage_name: string | null;
   piperun_title: string | null;
   piperun_origin_name: string | null;
-  // Equipment/Technical fields
   itens_proposta_parsed: ParsedProposalItem[] | Record<string, unknown>[] | null;
   equip_scanner: string | null;
   equip_scanner_serial: string | null;
