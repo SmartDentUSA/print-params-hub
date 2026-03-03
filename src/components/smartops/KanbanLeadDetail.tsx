@@ -197,12 +197,23 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           </section>
           <Separator />
 
+          {/* PipeRun Metadata */}
+          {(lead.piperun_pipeline_name || lead.piperun_stage_name) && (
+            <section>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">PipeRun</h4>
+              <DetailRow label="Funil" value={lead.piperun_pipeline_name} emoji="📊" />
+              <DetailRow label="Etapa" value={lead.piperun_stage_name} emoji="📍" />
+              <DetailRow label="Título" value={lead.piperun_title} />
+            </section>
+          )}
+          {(lead.piperun_pipeline_name || lead.piperun_stage_name) && <Separator />}
+
           {/* Meta */}
           <section>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Origem & Meta</h4>
-            <DetailRow label="Source" value={lead.source} />
+            <DetailRow label="Origem" value={lead.source === "piperun_sync" ? "PipeRun" : lead.source === "piperun" ? "PipeRun" : lead.source} emoji="🔗" />
             <DetailRow label="UTM" value={lead.utm_source} />
-            <DetailRow label="Campanha" value={lead.origem_campanha} emoji="📣" />
+            <DetailRow label="Campanha" value={lead.piperun_origin_name || (lead.origem_campanha && !/^\d+$/.test(lead.origem_campanha) ? lead.origem_campanha : null)} emoji="📣" />
             <DetailRow label="Mensagens" value={lead.total_messages?.toString()} />
             <DetailRow label="Sessões" value={lead.total_sessions?.toString()} />
             {lead.reuniao_agendada && <DetailRow label="Reunião" value="Agendada" emoji="📅" />}

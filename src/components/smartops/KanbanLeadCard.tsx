@@ -50,6 +50,10 @@ export interface Lead {
   total_sessions: number | null;
   confidence_score_analysis: number | null;
   piperun_created_at: string | null;
+  piperun_pipeline_name: string | null;
+  piperun_stage_name: string | null;
+  piperun_title: string | null;
+  piperun_origin_name: string | null;
 }
 
 function formatCurrency(val: number): string {

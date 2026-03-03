@@ -351,6 +351,16 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     motivo_perda: deal.lost_reason || null,
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
     origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
+    // PipeRun metadata preservation
+    piperun_created_at: deal.created_at || null,
+    piperun_pipeline_id: deal.pipeline_id || null,
+    piperun_pipeline_name: deal.pipeline_id ? PIPELINE_NAMES[deal.pipeline_id] || null : null,
+    piperun_stage_id: deal.stage_id || null,
+    piperun_stage_name: deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] || null : null,
+    piperun_status: deal.status ?? null,
+    piperun_origin_id: deal.origin_id || null,
+    piperun_origin_name: deal.origin?.name || null,
+    piperun_title: deal.title || null,
   };
 
   // ─── Email extraction cascade ───
@@ -471,7 +481,8 @@ export function customFieldsToHashMap(
 export async function piperunGet(
   apiToken: string,
   path: string,
-  params?: Record<string, string | number>
+  params?: Record<string, string | number>,
+  arrayParams?: Record<string, string[]>
 ): Promise<{ success: boolean; data: unknown; status: number }> {
   let url = `${PIPERUN_API_BASE}/${path.replace(/^\/+/, "")}`;
   const searchParams = new URLSearchParams({ token: apiToken });
@@ -480,7 +491,16 @@ export async function piperunGet(
       searchParams.set(k, String(v));
     }
   }
-  url += (url.includes("?") ? "&" : "?") + searchParams.toString();
+  // Support array params like with[]=person&with[]=origin
+  let extraParams = "";
+  if (arrayParams) {
+    for (const [k, values] of Object.entries(arrayParams)) {
+      for (const v of values) {
+        extraParams += `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`;
+      }
+    }
+  }
+  url += (url.includes("?") ? "&" : "?") + searchParams.toString() + extraParams;
 
   try {
     const res = await fetch(url);

@@ -43,12 +43,12 @@ async function fetchDealsForPipeline(
     const params: Record<string, string | number> = {
       show: 100,
       page,
-      "with[]": "person",
       pipeline_id: pipelineId,
     };
+    const arrayParams = { "with[]": ["person", "origin"] };
     if (since) params.updated_since = since;
 
-    const result = await piperunGet(apiKey, "deals", params);
+    const result = await piperunGet(apiKey, "deals", params, arrayParams);
 
     if (!result.success) {
       console.error(`[sync-piperun] API error pipeline=${pipelineId} page=${page}:`, result.status);
@@ -216,11 +216,12 @@ Deno.serve(async (req) => {
               .eq("id", existingByEmail.id);
             updated++;
           } else {
-            const insertPayload = {
+          const insertPayload = {
               ...updatePayload,
               piperun_id: dealId,
-              source: "piperun_sync",
+              source: "piperun",
               lead_status: deal.stage_id ? (STAGE_TO_ETAPA[deal.stage_id] || "sem_contato") : "sem_contato",
+              piperun_created_at: deal.created_at || null,
             };
 
             const { error } = await supabase.from("lia_attendances").insert(insertPayload);
