@@ -565,6 +565,11 @@ Motivação: ${lead.primary_motivation || "N/A"}
 Risco objeção: ${lead.objection_risk || "N/A"}
 Status: ${lead.status_oportunidade || "N/A"}
 
+REGRAS OBRIGATÓRIAS:
+1. NÃO use o nome do lead no texto — diga "o profissional" ou "o lead"
+2. Se um dado é "N/A" ou "Nunca", diga "sem informação disponível"
+3. NÃO invente dados que não estejam listados acima
+
 Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
 
   const controller = new AbortController();
@@ -579,7 +584,7 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
     body: JSON.stringify({
       model: "google/gemini-2.5-flash-lite",
       messages: [
-        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown." },
+        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown. Use EXCLUSIVAMENTE os dados fornecidos. NÃO invente nomes, datas ou valores que não estejam nos DADOS. Refira-se ao lead como 'o profissional' ou 'o lead', NUNCA use nomes próprios no texto gerado." },
         { role: "user", content: prompt },
       ],
       temperature: 0.3,
@@ -595,6 +600,19 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { historico: "", oportunidade: "" };
   const parsed = JSON.parse(jsonMatch[0]);
+
+  // Sanitize: replace any accidental lead name usage with "o profissional"
+  const leadNome = String(lead.nome || "").split(" ")[0];
+  if (leadNome.length >= 2) {
+    const nameRegex = new RegExp(`\\b${leadNome}\\b`, "gi");
+    if (typeof parsed.historico === "string") {
+      parsed.historico = parsed.historico.replace(nameRegex, "o profissional");
+    }
+    if (typeof parsed.oportunidade === "string") {
+      parsed.oportunidade = parsed.oportunidade.replace(nameRegex, "o profissional");
+    }
+  }
+
   return {
     historico: typeof parsed.historico === "string" ? parsed.historico.slice(0, 500) : "",
     oportunidade: typeof parsed.oportunidade === "string" ? parsed.oportunidade.slice(0, 500) : "",
