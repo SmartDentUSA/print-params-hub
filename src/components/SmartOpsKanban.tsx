@@ -87,10 +87,12 @@ export function SmartOpsKanban() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const { toast } = useToast();
 
+  const LEAD_SELECT = "id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis";
+
   const fetchLeads = async () => {
     const { data } = await supabase
       .from("lia_attendances")
-      .select("id, nome, email, telefone_normalized, produto_interesse, proprietario_lead_crm, source, lead_status, created_at, updated_at, data_primeiro_contato, score, status_oportunidade, valor_oportunidade, cidade, uf, area_atuacao, temperatura_lead, piperun_link, especialidade, motivo_perda, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, itens_proposta_crm, tags_crm, funil_entrada_crm, comentario_perda, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, reuniao_agendada, cs_treinamento, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, recommended_approach, rota_inicial_lia, origem_campanha, utm_source, piperun_id, total_messages, total_sessions, confidence_score_analysis")
+      .select(LEAD_SELECT)
       .in("lead_status", ALL_KEYS)
       .order("created_at", { ascending: false })
       .limit(2000);
@@ -99,6 +101,59 @@ export function SmartOpsKanban() {
   };
 
   useEffect(() => { fetchLeads(); }, []);
+
+  // Realtime subscription for instant Kanban updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("kanban-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "lia_attendances" },
+        (payload) => {
+          const newLead = payload.new as Lead;
+          if (ALL_KEYS.includes(newLead.lead_status)) {
+            setLeads((prev) => {
+              if (prev.some((l) => l.id === newLead.id)) return prev;
+              return [newLead, ...prev];
+            });
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "lia_attendances" },
+        (payload) => {
+          const updated = payload.new as Lead;
+          setLeads((prev) => {
+            const inKanban = ALL_KEYS.includes(updated.lead_status);
+            const exists = prev.some((l) => l.id === updated.id);
+            if (exists && inKanban) {
+              return prev.map((l) => (l.id === updated.id ? updated : l));
+            }
+            if (exists && !inKanban) {
+              return prev.filter((l) => l.id !== updated.id);
+            }
+            if (!exists && inKanban) {
+              return [updated, ...prev];
+            }
+            return prev;
+          });
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "lia_attendances" },
+        (payload) => {
+          const deletedId = (payload.old as { id: string }).id;
+          setLeads((prev) => prev.filter((l) => l.id !== deletedId));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const filteredLeads = useMemo(() => {
     if (!search.trim()) return leads;
