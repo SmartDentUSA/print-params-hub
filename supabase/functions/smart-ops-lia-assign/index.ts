@@ -11,6 +11,7 @@ import {
   mapAttendanceToDealCustomFields,
   customFieldsToHashMap,
   DEAL_CUSTOM_FIELDS,
+  PESSOA_CUSTOM_FIELDS,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
