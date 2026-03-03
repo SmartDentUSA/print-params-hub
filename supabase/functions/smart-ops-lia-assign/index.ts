@@ -406,144 +406,175 @@ function buildStaticGreeting(lead: Record<string, unknown>, sellerName: string):
 }
 
 /**
- * Generate comprehensive AI briefing about lead for the seller.
+ * Build structured seller notification with fixed template + AI for HISTÓRICO/OPORTUNIDADE.
  */
-async function generateAISellerBriefing(
-  lead: Record<string, unknown>
+async function buildSellerNotification(
+  lead: Record<string, unknown>,
+  supabase: ReturnType<typeof createClient>
 ): Promise<string> {
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return buildStaticBriefing(lead);
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
 
-  // Build lead data summary for AI
-  const sections: string[] = [];
-
-  // Basic info
-  sections.push(`DADOS BÁSICOS:
-Nome: ${lead.nome || "N/A"}
-Email: ${lead.email || "N/A"}
-Telefone: ${lead.telefone_normalized || lead.telefone_raw || "N/A"}
-Cidade/UF: ${lead.cidade || "N/A"}${lead.uf ? ` - ${lead.uf}` : ""}
-Especialidade: ${lead.especialidade || "N/A"}
-Área: ${lead.area_atuacao || "N/A"}`);
-
-  // Commercial history
-  sections.push(`HISTÓRICO COMERCIAL:
-Status oportunidade: ${lead.status_oportunidade || "N/A"}
-Primeiro contato: ${lead.data_primeiro_contato || lead.created_at || "N/A"}
-Proprietário anterior: ${lead.proprietario_lead_crm || "Nenhum"}
-Funil: ${lead.funil_entrada_crm || "N/A"}
-Etapa: ${lead.ultima_etapa_comercial || "N/A"}
-PipeRun ID: ${lead.piperun_id || "N/A"}`);
-
-  // E-commerce
-  const hasEcommerce = lead.lojaintegrada_cliente_id;
-  sections.push(`E-COMMERCE (Loja Integrada):
-Cliente cadastrado: ${hasEcommerce ? "Sim (ID: " + lead.lojaintegrada_cliente_id + ")" : "Não"}
-Último pedido: ${lead.lojaintegrada_ultimo_pedido_data || "Nunca"}
-Valor último pedido: ${lead.lojaintegrada_ultimo_pedido_valor ? "R$ " + lead.lojaintegrada_ultimo_pedido_valor : "N/A"}
-Status último pedido: ${lead.lojaintegrada_ultimo_pedido_status || "N/A"}`);
-
-  // Courses platform
-  const hasCourses = lead.astron_user_id;
-  sections.push(`PLATAFORMA DE CURSOS (Astron):
-Cadastrado: ${hasCourses ? "Sim (ID: " + lead.astron_user_id + ")" : "Não"}
-Cursos concluídos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0}
-Último login: ${lead.astron_last_login_at || "Nunca"}
-Planos ativos: ${lead.astron_plans_active ? JSON.stringify(lead.astron_plans_active) : "Nenhum"}`);
-
-  // Equipment
-  sections.push(`EQUIPAMENTOS:
-Impressora: ${lead.tem_impressora || "N/A"} ${lead.impressora_modelo ? "(" + lead.impressora_modelo + ")" : ""}
-Scanner: ${lead.tem_scanner || "N/A"}
-Software CAD: ${lead.software_cad || "N/A"}`);
-
-  // Active products
-  const activeProducts: string[] = [];
-  if (lead.ativo_print) activeProducts.push("Impressora 3D");
-  if (lead.ativo_scan) activeProducts.push("Scanner");
-  if (lead.ativo_cad) activeProducts.push("CAD");
-  if (lead.ativo_cad_ia) activeProducts.push("CAD IA");
-  if (lead.ativo_cura) activeProducts.push("Cura");
-  if (lead.ativo_insumos) activeProducts.push("Insumos");
-  if (lead.ativo_notebook) activeProducts.push("Notebook");
-  if (lead.ativo_smart_slice) activeProducts.push("Smart Slice");
-  sections.push(`PRODUTOS ATIVOS: ${activeProducts.length > 0 ? activeProducts.join(", ") : "Nenhum"}`);
-
-  // Cognitive analysis
-  const cognitive = lead.cognitive_analysis as Record<string, unknown> | null;
-  if (cognitive) {
-    sections.push(`ANÁLISE COGNITIVA:
-Estágio: ${cognitive.lead_stage || "N/A"}
-Urgência: ${cognitive.urgency_level || "N/A"}
-Motivação: ${cognitive.primary_motivation || "N/A"}
-Risco objeção: ${cognitive.objection_risk || "N/A"}
-Abordagem: ${cognitive.recommended_approach || "N/A"}`);
-  }
-
-  // Conversation summary
-  if (lead.resumo_historico_ia) {
-    sections.push(`RESUMO CONVERSA LIA:\n${String(lead.resumo_historico_ia).slice(0, 600)}`);
-  }
-
-  const fullContext = sections.join("\n\n");
-
-  const prompt = `Você é um assistente de vendas da Smart Dent. Gere um briefing CONCISO (máximo 250 palavras) para o vendedor sobre este lead.
-
-${fullContext}
-
-O briefing deve ter estas seções com emojis:
-👤 PERFIL (nome, especialidade, cidade - 1 linha)
-📊 HISTÓRICO (primeiro contato, compras anteriores, cursos - 2-3 linhas)  
-🎯 OPORTUNIDADE (produto interesse, equipamentos atuais, estágio - 2-3 linhas)
-💡 RECOMENDAÇÃO (como abordar baseado no perfil e histórico - 2 linhas)
-
-Seja direto e prático. Não invente dados — se não há informação, diga "sem registro".`;
-
+  // Fetch last user message via leads bridge
+  let lastQuestion = "";
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-        max_tokens: 500,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
-    if (!res.ok) throw new Error(`AI gateway ${res.status}`);
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (content && content.length > 50) {
-      console.log(`[lia-assign] AI seller briefing generated (${content.length} chars)`);
-      return `🤖 *Briefing Dra. L.I.A.*\n\n${content}`;
+    const { data: leadsRec } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("email", lead.email as string)
+      .maybeSingle();
+    if (leadsRec?.id) {
+      const { data: lastMsg } = await supabase
+        .from("agent_interactions")
+        .select("user_message")
+        .eq("lead_id", leadsRec.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lastMsg?.user_message) lastQuestion = String(lastMsg.user_message).slice(0, 200);
     }
   } catch (e) {
-    console.warn("[lia-assign] AI seller briefing failed, using static:", e);
+    console.warn("[lia-assign] Failed to fetch last question:", e);
   }
-  return buildStaticBriefing(lead);
+
+  // AI-generated HISTÓRICO + OPORTUNIDADE
+  let historico = "";
+  let oportunidade = "";
+  try {
+    const aiResult = await generateHistoricoOportunidade(lead);
+    historico = aiResult.historico;
+    oportunidade = aiResult.oportunidade;
+  } catch (e) {
+    console.warn("[lia-assign] AI historico/oportunidade failed:", e);
+  }
+
+  // Fallback static texts
+  if (!historico) {
+    const parts: string[] = [];
+    if (lead.data_primeiro_contato || lead.created_at) parts.push(`Primeiro contato em ${formatDate(lead.data_primeiro_contato || lead.created_at)}`);
+    if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
+    else parts.push("Sem compras anteriores no e-commerce");
+    if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
+    else parts.push("Sem cadastro na plataforma de cursos");
+    if (lead.proprietario_lead_crm) parts.push(`Vendedor anterior: ${lead.proprietario_lead_crm}`);
+    else parts.push("Nunca teve contato com vendedor");
+    historico = parts.join(". ") + ".";
+  }
+  if (!oportunidade) {
+    const parts: string[] = [];
+    if (lead.software_cad) parts.push(`Possui software CAD (${lead.software_cad})`);
+    if (lead.tem_impressora && lead.tem_impressora !== "nao") parts.push(`Impressora: ${lead.impressora_modelo || lead.tem_impressora}`);
+    if (lead.tem_scanner && lead.tem_scanner !== "nao") parts.push(`Scanner: ${lead.tem_scanner}`);
+    if (lead.urgency_level) parts.push(`Urgência ${lead.urgency_level}`);
+    if (lead.primary_motivation) parts.push(`motivado por ${lead.primary_motivation}`);
+    if (lead.objection_risk) parts.push(`Risco de objeção: ${lead.objection_risk}`);
+    oportunidade = parts.length > 0 ? parts.join(". ") + "." : "Sem dados suficientes.";
+  }
+
+  // Build template
+  const lines: string[] = [
+    `🤖 *Novo Lead atribuído - Dra. L.I.A.*`,
+    ``,
+    `👤 Lead: ${lead.nome || "N/A"}`,
+    `📧 Email: ${lead.email || "N/A"}`,
+    `📱 Tel: ${phone || "N/A"}`,
+    `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
+    `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
+    `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,
+    `🌡️ Temp: ${lead.temperatura_lead || lead.urgency_level || "N/A"}`,
+    `🔗 PipeRun: ${lead.piperun_link || "N/A"}`,
+    `💬 Última pergunta do lead: ${lastQuestion || "N/A"}`,
+    `🏷️ Contexto: ${lead.rota_inicial_lia || "N/A"}`,
+    `📍 Etapa CRM: ${lead.ultima_etapa_comercial || "N/A"}`,
+    ``,
+    `*HISTÓRICO:* ${historico}`,
+    `*OPORTUNIDADE:* ${oportunidade}`,
+    ``,
+    `🧠 *Análise Cognitiva:*`,
+    `Confiança: ${lead.confidence_score_analysis || 0}%`,
+    `Estágio: ${lead.lead_stage_detected || "N/A"}`,
+    `Urgência: ${urgencyEmoji} ${lead.urgency_level || "N/A"}`,
+    `Timeline: ${lead.interest_timeline || "N/A"}`,
+    `Perfil: ${lead.psychological_profile || "N/A"}`,
+    `Motivação: ${lead.primary_motivation || "N/A"}`,
+    `Risco objeção: ${lead.objection_risk || "N/A"}`,
+    `Abordagem: ${lead.recommended_approach || "N/A"}`,
+  ];
+
+  return lines.join("\n");
 }
 
-function buildStaticBriefing(lead: Record<string, unknown>): string {
-  const lines: string[] = ["🤖 *Briefing Dra. L.I.A.*\n"];
-  lines.push(`👤 ${lead.nome || "N/A"} | ${lead.especialidade || "N/A"} | ${lead.cidade || "N/A"}${lead.uf ? "-" + lead.uf : ""}`);
-  lines.push(`📧 ${lead.email || "N/A"} | 📱 ${lead.telefone_normalized || lead.telefone_raw || "N/A"}`);
-  lines.push(`🎯 Interesse: ${lead.produto_interesse || "N/A"}`);
-  lines.push(`🖨️ Impressora: ${lead.tem_impressora || "N/A"} ${lead.impressora_modelo || ""}`);
-  lines.push(`📷 Scanner: ${lead.tem_scanner || "N/A"}`);
-  if (lead.lojaintegrada_cliente_id) lines.push(`🛒 Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
-  if (lead.astron_user_id) lines.push(`🎓 Plataforma cursos (ID: ${lead.astron_user_id})`);
-  if (lead.resumo_historico_ia) lines.push(`\n💬 ${String(lead.resumo_historico_ia).slice(0, 300)}`);
-  if (lead.piperun_link) lines.push(`\n🔗 ${lead.piperun_link}`);
-  return lines.join("\n");
+function formatDate(val: unknown): string {
+  if (!val) return "N/A";
+  try {
+    const d = new Date(String(val));
+    return d.toLocaleDateString("pt-BR");
+  } catch { return String(val).slice(0, 10); }
+}
+
+/**
+ * AI generates ONLY historico + oportunidade as JSON.
+ */
+async function generateHistoricoOportunidade(
+  lead: Record<string, unknown>
+): Promise<{ historico: string; oportunidade: string }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) return { historico: "", oportunidade: "" };
+
+  const prompt = `Analise os dados do lead e gere APENAS um JSON com 2 campos:
+- "historico": 2-3 frases sobre primeiro contato, compras e-commerce, cursos, vendedores anteriores
+- "oportunidade": 2-3 frases sobre equipamentos, software, urgência, motivação e risco de objeção
+
+DADOS:
+Nome: ${lead.nome || "N/A"}
+Primeiro contato: ${lead.data_primeiro_contato || lead.created_at || "N/A"}
+E-commerce ID: ${lead.lojaintegrada_cliente_id || "Sem cadastro"}
+Último pedido: ${lead.lojaintegrada_ultimo_pedido_data || "Nunca"} (R$ ${lead.lojaintegrada_ultimo_pedido_valor || "0"})
+Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos
+Último login cursos: ${lead.astron_last_login_at || "Nunca"}
+Vendedor anterior: ${lead.proprietario_lead_crm || "Nenhum"}
+Impressora: ${lead.tem_impressora || "N/A"} ${lead.impressora_modelo || ""}
+Scanner: ${lead.tem_scanner || "N/A"}
+Software CAD: ${lead.software_cad || "N/A"}
+Urgência: ${lead.urgency_level || "N/A"}
+Motivação: ${lead.primary_motivation || "N/A"}
+Risco objeção: ${lead.objection_risk || "N/A"}
+Status: ${lead.status_oportunidade || "N/A"}
+
+Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-lite",
+      messages: [
+        { role: "system", content: "Retorne APENAS JSON válido. Sem markdown." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 300,
+    }),
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeout);
+  if (!res.ok) throw new Error(`AI gateway ${res.status}`);
+  const data = await res.json();
+  const raw = data.choices?.[0]?.message?.content?.trim() || "";
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return { historico: "", oportunidade: "" };
+  const parsed = JSON.parse(jsonMatch[0]);
+  return {
+    historico: typeof parsed.historico === "string" ? parsed.historico.slice(0, 500) : "",
+    oportunidade: typeof parsed.oportunidade === "string" ? parsed.oportunidade.slice(0, 500) : "",
+  };
 }
 
 // ─── Outbound Messages (Source-Based) ───
@@ -689,9 +720,9 @@ async function triggerOutboundMessages(
       await sendTemplateMessage(supabase, supabaseUrl, serviceKey, lead, member.id, phone);
     }
 
-    // ── B. AI briefing → seller (ALWAYS) ──
-    console.log("[lia-assign] Generating AI seller briefing");
-    const briefing = await generateAISellerBriefing(lead);
+    // ── B. Structured notification → seller (ALWAYS) ──
+    console.log("[lia-assign] Building structured seller notification");
+    const briefing = await buildSellerNotification(lead, supabase);
     if (member.whatsapp_number) {
       await sendWaLeadsMessage(supabaseUrl, serviceKey, member.id, member.whatsapp_number, briefing, leadId);
       console.log(`[lia-assign] Seller briefing sent to ${member.nome_completo} (${member.whatsapp_number})`);
