@@ -1146,8 +1146,7 @@ async function upsertLead(
         rotaInicial = (entities.topic_context as string) || null;
       } catch { /* ignore */ }
 
-      await supabase.from("lia_attendances").upsert(
-        {
+      const liaPayload = {
           nome: name,
           email: normalizedEmail,
           source: "dra-lia",
@@ -1155,10 +1154,36 @@ async function upsertLead(
           rota_inicial_lia: rotaInicial,
           data_primeiro_contato: new Date().toISOString(),
           updated_at: new Date().toISOString(),
-        },
+        };
+      const { error: upsertErr } = await supabase.from("lia_attendances").upsert(
+        liaPayload,
         { onConflict: "email" }
       );
-      console.log(`[upsertLead] lia_attendances synced for ${normalizedEmail} (rota: ${rotaInicial})`);
+      if (upsertErr) {
+        console.warn(`[upsertLead] upsert failed (${upsertErr.message}), trying fallback...`);
+        // Fallback: manual select → insert or update
+        const { data: existing } = await supabase
+          .from("lia_attendances")
+          .select("id")
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+        if (existing) {
+          const { error: updErr } = await supabase
+            .from("lia_attendances")
+            .update({ nome: name, rota_inicial_lia: rotaInicial, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+          if (updErr) console.error(`[upsertLead] fallback update failed:`, updErr);
+          else console.log(`[upsertLead] fallback UPDATE ok for ${normalizedEmail}`);
+        } else {
+          const { error: insErr } = await supabase
+            .from("lia_attendances")
+            .insert(liaPayload);
+          if (insErr) console.error(`[upsertLead] fallback insert failed:`, insErr);
+          else console.log(`[upsertLead] fallback INSERT ok for ${normalizedEmail}`);
+        }
+      } else {
+        console.log(`[upsertLead] lia_attendances synced for ${normalizedEmail} (rota: ${rotaInicial})`);
+      }
     } catch (liaErr) {
       console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
     }
