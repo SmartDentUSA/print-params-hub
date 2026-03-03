@@ -212,6 +212,12 @@ export const PESSOA_CUSTOM_FIELDS = {
   ESPECIALIDADE: 674002,
 } as const;
 
+// Pessoa custom field hashes (for PUT /persons)
+export const PESSOA_CUSTOM_FIELD_HASHES: Record<number, string> = {
+  [PESSOA_CUSTOM_FIELDS.AREA_ATUACAO]: "397dd33134e9a63c642636bf5fff3ae1",
+  [PESSOA_CUSTOM_FIELDS.ESPECIALIDADE]: "7a5764a42970b6cb0868dc203251936f",
+};
+
 // ─── Users (Vendedores) ───
 
 export const PIPERUN_USERS: Record<number, { name: string; email: string; role: string; cellphone?: string }> = {

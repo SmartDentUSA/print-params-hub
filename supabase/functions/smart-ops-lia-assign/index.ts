@@ -11,6 +11,8 @@ import {
   mapAttendanceToDealCustomFields,
   customFieldsToHashMap,
   DEAL_CUSTOM_FIELDS,
+  PESSOA_CUSTOM_FIELDS,
+  PESSOA_CUSTOM_FIELD_HASHES,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
@@ -59,13 +61,20 @@ async function createPerson(
   const nome = (lead.nome || email || "Lead Sem Nome") as string;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const especialidade = lead.especialidade as string | null;
+  const areaAtuacao = lead.area_atuacao as string | null;
 
   const personPayload: Record<string, unknown> = { name: nome };
   if (email) personPayload.emails = [{ email }];
   if (phone) personPayload.phones = [{ phone }];
   if (especialidade) personPayload.job_title = especialidade;
 
-  console.log(`[lia-assign] Creating person: ${nome}`);
+  // Include Pessoa custom fields
+  const personCustomFields: Array<{ custom_field_id: number; value: string }> = [];
+  if (areaAtuacao) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.AREA_ATUACAO, value: areaAtuacao });
+  if (especialidade) personCustomFields.push({ custom_field_id: PESSOA_CUSTOM_FIELDS.ESPECIALIDADE, value: especialidade });
+  if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
+
+  console.log(`[lia-assign] Creating person: ${nome} with ${personCustomFields.length} custom fields`);
   const createRes = await piperunPost(apiToken, "persons", personPayload);
   if (createRes.success && createRes.data) {
     const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
@@ -73,6 +82,36 @@ async function createPerson(
   }
   console.warn(`[lia-assign] Failed to create person (${createRes.status})`);
   return null;
+}
+
+/**
+ * Update existing person fields (job_title, phones, custom_fields).
+ */
+async function updatePersonFields(
+  apiToken: string,
+  personId: number,
+  lead: Record<string, unknown>
+): Promise<void> {
+  const nome = (lead.nome || lead.email || "") as string;
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  const especialidade = lead.especialidade as string | null;
+  const areaAtuacao = lead.area_atuacao as string | null;
+
+  // Build payload with standard fields + custom fields via hash keys
+  const updatePayload: Record<string, unknown> = {};
+  if (nome) updatePayload.name = nome;
+  if (phone) updatePayload.phones = [{ phone }];
+  if (especialidade) updatePayload.job_title = especialidade;
+
+  // Custom fields use hash keys in PUT (same pattern as deals)
+  if (areaAtuacao) updatePayload[PESSOA_CUSTOM_FIELD_HASHES[PESSOA_CUSTOM_FIELDS.AREA_ATUACAO]] = areaAtuacao;
+  if (especialidade) updatePayload[PESSOA_CUSTOM_FIELD_HASHES[PESSOA_CUSTOM_FIELDS.ESPECIALIDADE]] = especialidade;
+
+  if (Object.keys(updatePayload).length === 0) return;
+
+  console.log(`[lia-assign] Updating person ${personId}: ${JSON.stringify(updatePayload).slice(0, 300)}`);
+  const res = await piperunPut(apiToken, `persons/${personId}`, updatePayload);
+  console.log(`[lia-assign] Person ${personId} update: ${res.success} (${res.status})`);
 }
 
 /**
@@ -89,21 +128,33 @@ async function findOrCreateCompany(
   const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
 
+  // Extra empresa data from lead
+  const cnpj = lead.empresa_cnpj as string | null;
+  const razaoSocial = lead.empresa_razao_social as string | null;
+  const segmento = lead.empresa_segmento as string | null;
+  const website = lead.empresa_website as string | null;
+
   // Already has company → update it with complete data
   if (existingCompanyId) {
     console.log(`[lia-assign] Person ${personId} already has company ${existingCompanyId}, enriching data`);
-    const enrichPayload: Record<string, unknown> = { name: nome };
+    const enrichPayload: Record<string, unknown> = { name: razaoSocial || nome };
     if (email) enrichPayload.emails = [{ email }];
     if (phone) enrichPayload.phones = [{ phone }];
+    if (cnpj) enrichPayload.cnpj = cnpj;
+    if (segmento) enrichPayload.segment = segmento;
+    if (website) enrichPayload.website = website;
     const enrichRes = await piperunPut(apiToken, `companies/${existingCompanyId}`, enrichPayload);
     console.log(`[lia-assign] Company ${existingCompanyId} enriched: ${enrichRes.success} (${enrichRes.status})`);
     return existingCompanyId;
   }
 
   // Create company with complete data
-  const companyPayload: Record<string, unknown> = { name: nome };
+  const companyPayload: Record<string, unknown> = { name: razaoSocial || nome };
   if (email) companyPayload.emails = [{ email }];
   if (phone) companyPayload.phones = [{ phone }];
+  if (cnpj) companyPayload.cnpj = cnpj;
+  if (segmento) companyPayload.segment = segmento;
+  if (website) companyPayload.website = website;
 
   console.log(`[lia-assign] Creating company for person ${personId}: ${nome}`);
   const createRes = await piperunPost(apiToken, "companies", companyPayload);
@@ -151,7 +202,8 @@ async function updateExistingDeal(
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
-  companyId?: number | null
+  companyId: number | null | undefined,
+  supabase: ReturnType<typeof createClient>
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
@@ -165,8 +217,8 @@ async function updateExistingDeal(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
-  // Add note
-  const noteText = buildLeadNote(lead, false);
+  // Add structured note (same template as seller notification)
+  const noteText = await buildSellerNotification(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -180,7 +232,8 @@ async function moveDealToVendas(
   stageId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
-  companyId?: number | null
+  companyId: number | null | undefined,
+  supabase: ReturnType<typeof createClient>
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
@@ -188,7 +241,7 @@ async function moveDealToVendas(
     stage_id: stageId,
     owner_id: ownerId,
     origin_id: ORIGINS.DRA_LIA.id,
-    freezed: 0, // Unfreeze if frozen
+    freezed: 0,
     ...hashFields,
   };
   if (companyId) updatePayload.company_id = companyId;
@@ -197,9 +250,9 @@ async function moveDealToVendas(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
-  // Add reactivation note
+  // Add structured reactivation note
   const noteText = "🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas\n\n" +
-    buildLeadNote(lead, false);
+    await buildSellerNotification(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -215,7 +268,8 @@ async function createNewDeal(
   stageId: number,
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
-  email: string
+  email: string,
+  supabase: ReturnType<typeof createClient>
 ): Promise<string | null> {
   const dealPayload: Record<string, unknown> = {
     title: lead.nome || email,
@@ -238,8 +292,8 @@ async function createNewDeal(
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (dealData?.id) {
       const dealId = String(dealData.id);
-      // Add note
-      const noteText = buildLeadNote(lead, true);
+      // Add structured note (same template as seller notification)
+      const noteText = await buildSellerNotification(lead, supabase);
       await addDealNote(apiToken, Number(dealId), noteText);
       return dealId;
     }
@@ -247,36 +301,6 @@ async function createNewDeal(
   return null;
 }
 
-/**
- * Build a summary note from lead data.
- */
-function buildLeadNote(lead: Record<string, unknown>, isNew: boolean): string {
-  const lines: string[] = [];
-  lines.push(isNew
-    ? "🤖 [Dra. L.I.A.] Lead qualificado automaticamente"
-    : "🤖 [Dra. L.I.A.] Nova interação detectada"
-  );
-  lines.push("");
-
-  if (lead.resumo_historico_ia) {
-    lines.push(String(lead.resumo_historico_ia));
-    lines.push("");
-  }
-
-  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
-  lines.push(`📊 Produto interesse: ${lead.produto_interesse || "N/A"}`);
-  lines.push(`🏥 Especialidade: ${lead.especialidade || "N/A"}`);
-  lines.push(`🔗 Telefone: ${phone || "N/A"}`);
-  lines.push(`📧 Email: ${lead.email || "N/A"}`);
-  lines.push(`📍 Origem: dra-lia`);
-
-  if (lead.area_atuacao) lines.push(`🔬 Área: ${lead.area_atuacao}`);
-  if (lead.tem_impressora) lines.push(`🖨️ Impressora: ${lead.tem_impressora}`);
-  if (lead.tem_scanner) lines.push(`📷 Scanner: ${lead.tem_scanner}`);
-  if (lead.cidade) lines.push(`📍 Cidade: ${lead.cidade}${lead.uf ? ` - ${lead.uf}` : ""}`);
-
-  return lines.join("\n");
-}
 
 // ─── Team Member Selection ───
 
@@ -757,7 +781,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id } = body;
+    const { email, lead_id, force } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
@@ -788,8 +812,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Idempotency: skip if assigned in last 5 min ──
-    if (lead.proprietario_lead_crm && lead.updated_at) {
+    // ── Idempotency: skip if assigned in last 5 min (unless force=true) ──
+    if (!force && lead.proprietario_lead_crm && lead.updated_at) {
       const lastUpdate = new Date(lead.updated_at).getTime();
       if (Date.now() - lastUpdate < 5 * 60 * 1000) {
         console.log("[lia-assign] Already assigned recently, skipping");
@@ -868,10 +892,13 @@ Deno.serve(async (req) => {
     }
 
     if (personId) {
-      // Step 5b: Ensure company exists
+      // Step 5b: Update person fields (custom_fields, job_title, phones)
+      await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
+
+      // Step 5c: Ensure company exists
       companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
 
-      // Step 5c: Fetch all deals for this person
+      // Step 5d: Fetch all deals for this person
       const allDeals = await findPersonDeals(PIPERUN_API_KEY, personId);
       const openDeals = allDeals.filter((d) => Number(d.status) === 0);
       const wonDeals = allDeals.filter((d) => Number(d.status) === 1);
@@ -883,36 +910,31 @@ Deno.serve(async (req) => {
         console.log(`[lia-assign] ${wonDeals.length} won deals preserved (CS/Suporte)`);
       }
 
-      // Step 5d: Decision tree for open deals
-      // Priority 1: Open deal in Funil de Vendas (not frozen)
+      // Step 5e: Decision tree for open deals
       const vendaDeal = openDeals.find(
         (d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed
       );
-      // Priority 2: Open deal in Estagnados
       const estagnDeal = openDeals.find(
         (d) => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
       );
 
       if (vendaDeal) {
-        // Already has open deal in Vendas → update it
         piperunId = String(vendaDeal.id);
         flowType = "update_vendas";
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId);
+        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId, supabase);
         console.log(`[lia-assign] Updated existing Vendas deal ${piperunId}`);
       } else if (estagnDeal) {
-        // Has deal in Estagnados → move to Vendas
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
-        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId);
+        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase);
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
-        // No relevant open deal → create new in Vendas
         flowType = "new_deal";
         piperunId = await createNewDeal(
           PIPERUN_API_KEY, personId, companyId,
           lead as Record<string, unknown>,
           pipeline_id, stage_id, assignedOwnerId,
-          customFields, leadEmail
+          customFields, leadEmail, supabase
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
       }
