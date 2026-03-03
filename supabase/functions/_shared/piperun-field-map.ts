@@ -351,6 +351,16 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     motivo_perda: deal.lost_reason || null,
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
     origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
+    // PipeRun metadata preservation
+    piperun_created_at: deal.created_at || null,
+    piperun_pipeline_id: deal.pipeline_id || null,
+    piperun_pipeline_name: deal.pipeline_id ? PIPELINE_NAMES[deal.pipeline_id] || null : null,
+    piperun_stage_id: deal.stage_id || null,
+    piperun_stage_name: deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] || null : null,
+    piperun_status: deal.status ?? null,
+    piperun_origin_id: deal.origin_id || null,
+    piperun_origin_name: deal.origin?.name || null,
+    piperun_title: deal.title || null,
   };
 
   // ─── Email extraction cascade ───

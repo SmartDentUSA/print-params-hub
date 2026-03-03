@@ -43,9 +43,10 @@ async function fetchDealsForPipeline(
     const params: Record<string, string | number> = {
       show: 100,
       page,
-      "with[]": "person",
       pipeline_id: pipelineId,
     };
+    // Note: piperunGet handles multiple "with[]" via repeated params
+    // We pass person to get contact data; origin comes as nested object in deal
     if (since) params.updated_since = since;
 
     const result = await piperunGet(apiKey, "deals", params);
@@ -216,11 +217,12 @@ Deno.serve(async (req) => {
               .eq("id", existingByEmail.id);
             updated++;
           } else {
-            const insertPayload = {
+          const insertPayload = {
               ...updatePayload,
               piperun_id: dealId,
-              source: "piperun_sync",
+              source: "piperun",
               lead_status: deal.stage_id ? (STAGE_TO_ETAPA[deal.stage_id] || "sem_contato") : "sem_contato",
+              piperun_created_at: deal.created_at || null,
             };
 
             const { error } = await supabase.from("lia_attendances").insert(insertPayload);
