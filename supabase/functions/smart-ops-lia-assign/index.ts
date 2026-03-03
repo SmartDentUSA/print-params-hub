@@ -201,7 +201,8 @@ async function updateExistingDeal(
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
-  companyId?: number | null
+  companyId: number | null | undefined,
+  supabase: ReturnType<typeof createClient>
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
@@ -215,8 +216,8 @@ async function updateExistingDeal(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
-  // Add note
-  const noteText = buildLeadNote(lead, false);
+  // Add structured note (same template as seller notification)
+  const noteText = await buildSellerNotification(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -230,7 +231,8 @@ async function moveDealToVendas(
   stageId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
-  companyId?: number | null
+  companyId: number | null | undefined,
+  supabase: ReturnType<typeof createClient>
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
@@ -238,7 +240,7 @@ async function moveDealToVendas(
     stage_id: stageId,
     owner_id: ownerId,
     origin_id: ORIGINS.DRA_LIA.id,
-    freezed: 0, // Unfreeze if frozen
+    freezed: 0,
     ...hashFields,
   };
   if (companyId) updatePayload.company_id = companyId;
@@ -247,9 +249,9 @@ async function moveDealToVendas(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
-  // Add reactivation note
+  // Add structured reactivation note
   const noteText = "🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas\n\n" +
-    buildLeadNote(lead, false);
+    await buildSellerNotification(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -265,7 +267,8 @@ async function createNewDeal(
   stageId: number,
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
-  email: string
+  email: string,
+  supabase: ReturnType<typeof createClient>
 ): Promise<string | null> {
   const dealPayload: Record<string, unknown> = {
     title: lead.nome || email,
@@ -288,8 +291,8 @@ async function createNewDeal(
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (dealData?.id) {
       const dealId = String(dealData.id);
-      // Add note
-      const noteText = buildLeadNote(lead, true);
+      // Add structured note (same template as seller notification)
+      const noteText = await buildSellerNotification(lead, supabase);
       await addDealNote(apiToken, Number(dealId), noteText);
       return dealId;
     }
