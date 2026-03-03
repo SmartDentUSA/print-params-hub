@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle } from "lucide-react";
 import { PhoneInputWithDDI } from "@/components/PhoneInputWithDDI";
+import { Slider } from "@/components/ui/slider";
 
 interface FormField {
   id: string;
@@ -309,6 +310,31 @@ export default function PublicFormPage() {
                   ))}
                 </div>
               )}
+
+              {field.field_type === "slider" && (() => {
+                const opts = (field.options && !Array.isArray(field.options)) ? field.options as Record<string, any> : {};
+                const min = opts.min ?? 0;
+                const mid = opts.mid ?? 50;
+                const max = opts.max ?? 100;
+                const current = values[field.id] ?? mid;
+                return (
+                  <div className="space-y-3 pt-2">
+                    <Slider
+                      min={min}
+                      max={max}
+                      step={1}
+                      value={[current]}
+                      onValueChange={([v]) => handleChange(field.id, v)}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{min}</span>
+                      <span>{mid}</span>
+                      <span>{max}</span>
+                    </div>
+                    <p className="text-sm font-medium text-center">Valor: {current}</p>
+                  </div>
+                );
+              })()}
             </div>
           ))}
 
