@@ -6,12 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, ResponsiveContainer } from "recharts";
-import { Brain, DollarSign, Zap, Activity, RefreshCw, TrendingUp } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from "recharts";
+import { Brain, DollarSign, Zap, Activity, RefreshCw, TrendingUp, Cpu } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
-// Mapa de todas as funções IA do sistema
 const AI_FUNCTIONS_MAP: Record<string, { label: string; provider: string; description: string }> = {
   "dra-lia": { label: "Dra. L.I.A.", provider: "Lovable + Google", description: "Chat com leads via agente IA" },
   "evaluate-interaction": { label: "Judge IA", provider: "Lovable", description: "Avaliação de qualidade de resposta" },
@@ -39,11 +38,16 @@ const AI_FUNCTIONS_MAP: Record<string, { label: string; provider: string; descri
   "ingest-knowledge-text": { label: "KB Embed", provider: "Google", description: "Embeddings da base de conhecimento" },
 };
 
-// Custos por 1M tokens (USD) - estimativas
-const COST_PER_1M_TOKENS: Record<string, { input: number; output: number }> = {
-  "lovable": { input: 0.15, output: 0.60 },
-  "deepseek": { input: 0.14, output: 0.28 },
-  "google": { input: 0.01, output: 0.01 },
+const PROVIDER_LABELS: Record<string, string> = {
+  lovable: "Lovable (Gemini)",
+  deepseek: "DeepSeek",
+  google: "Google (Embed)",
+};
+
+const PROVIDER_COLORS: Record<string, string> = {
+  lovable: "text-blue-600",
+  deepseek: "text-emerald-600",
+  google: "text-amber-600",
 };
 
 function getMonthOptions() {
@@ -57,6 +61,11 @@ function getMonthOptions() {
     });
   }
   return options;
+}
+
+function costPer1k(costUsd: number, tokens: number, rate: number): string {
+  if (!tokens) return "—";
+  return `R$ ${((costUsd / tokens) * 1000 * rate).toFixed(4)}`;
 }
 
 export function SmartOpsAIUsageDashboard() {
@@ -73,7 +82,7 @@ export function SmartOpsAIUsageDashboard() {
     queryKey: ["ai-token-usage", selectedMonth],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("ai_token_usage" as any)
+        .from("ai_token_usage")
         .select("*")
         .gte("created_at", startDate)
         .lte("created_at", endDate)
@@ -83,13 +92,27 @@ export function SmartOpsAIUsageDashboard() {
     },
   });
 
+  // Aggregate by provider
+  const byProvider = useMemo(() => {
+    if (!usageData?.length) return [];
+    const map: Record<string, { provider: string; calls: number; total_tokens: number; cost_usd: number }> = {};
+    for (const row of usageData) {
+      const p = row.provider || "lovable";
+      if (!map[p]) map[p] = { provider: p, calls: 0, total_tokens: 0, cost_usd: 0 };
+      map[p].calls++;
+      map[p].total_tokens += row.total_tokens || 0;
+      map[p].cost_usd += Number(row.estimated_cost_usd) || 0;
+    }
+    return Object.values(map).sort((a, b) => b.total_tokens - a.total_tokens);
+  }, [usageData]);
+
   // Aggregate by function
   const byFunction = useMemo(() => {
     if (!usageData?.length) return [];
-    const map: Record<string, { calls: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; cost_usd: number }> = {};
+    const map: Record<string, { calls: number; prompt_tokens: number; completion_tokens: number; total_tokens: number; cost_usd: number; provider: string }> = {};
     for (const row of usageData) {
       const fn = row.function_name;
-      if (!map[fn]) map[fn] = { calls: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost_usd: 0 };
+      if (!map[fn]) map[fn] = { calls: 0, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost_usd: 0, provider: row.provider || "lovable" };
       map[fn].calls++;
       map[fn].prompt_tokens += row.prompt_tokens || 0;
       map[fn].completion_tokens += row.completion_tokens || 0;
@@ -97,7 +120,7 @@ export function SmartOpsAIUsageDashboard() {
       map[fn].cost_usd += Number(row.estimated_cost_usd) || 0;
     }
     return Object.entries(map)
-      .map(([fn, stats]) => ({ function_name: fn, ...stats, ...AI_FUNCTIONS_MAP[fn] }))
+      .map(([fn, stats]) => ({ function_name: fn, ...stats, ...(AI_FUNCTIONS_MAP[fn] || {}) }))
       .sort((a, b) => b.total_tokens - a.total_tokens);
   }, [usageData]);
 
@@ -168,7 +191,7 @@ export function SmartOpsAIUsageDashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
@@ -205,7 +228,38 @@ export function SmartOpsAIUsageDashboard() {
             <div className="text-2xl font-bold">R$ {(totals.cost_usd * exchangeRate).toFixed(2)}</div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">R$/1K Tokens</CardTitle>
+            <Cpu className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{costPer1k(totals.cost_usd, totals.tokens, exchangeRate)}</div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Provider Breakdown */}
+      {byProvider.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {byProvider.map((p) => (
+            <Card key={p.provider}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <span className={PROVIDER_COLORS[p.provider] || ""}>{PROVIDER_LABELS[p.provider] || p.provider}</span>
+                  <Badge variant="secondary" className="text-xs">{p.calls} calls</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                <div className="text-lg font-bold">{p.total_tokens.toLocaleString("pt-BR")} tokens</div>
+                <div className="text-sm text-muted-foreground">
+                  R$ {(p.cost_usd * exchangeRate).toFixed(2)} · {costPer1k(p.cost_usd, p.total_tokens, exchangeRate)}/1K
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Charts */}
       {byDay.length > 0 && (
@@ -264,28 +318,29 @@ export function SmartOpsAIUsageDashboard() {
                     <TableHead className="text-right">Completion</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">R$</TableHead>
+                    <TableHead className="text-right">R$/1K tok</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {byFunction.map((row) => (
                     <TableRow key={row.function_name}>
                       <TableCell className="font-mono text-xs">{row.function_name}</TableCell>
-                      <TableCell className="text-sm">{row.label || row.function_name}</TableCell>
+                      <TableCell className="text-sm">{(row as any).label || row.function_name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">{row.provider || "—"}</Badge>
+                        <Badge variant="outline" className="text-xs">{(row as any).provider || "—"}</Badge>
                       </TableCell>
                       <TableCell className="text-right">{row.calls}</TableCell>
                       <TableCell className="text-right">{row.prompt_tokens.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right">{row.completion_tokens.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right font-medium">{row.total_tokens.toLocaleString("pt-BR")}</TableCell>
                       <TableCell className="text-right font-medium">R$ {(row.cost_usd * exchangeRate).toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-xs text-muted-foreground">{costPer1k(row.cost_usd, row.total_tokens, exchangeRate)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           ) : (
-            /* Reference table when no data */
             <div>
               <p className="text-sm text-muted-foreground mb-4">
                 {isLoading ? "Carregando dados..." : "Nenhum dado de consumo registrado neste mês. Tabela de referência das funções IA instrumentadas:"}
