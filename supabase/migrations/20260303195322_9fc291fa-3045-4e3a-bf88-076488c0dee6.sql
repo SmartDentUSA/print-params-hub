@@ -1,0 +1,1 @@
+ALTER TABLE lia_attendances ADD CONSTRAINT lia_attendances_email_unique UNIQUE (email);
