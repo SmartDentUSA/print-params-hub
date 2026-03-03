@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
             auto_remediated: res.ok,
             resolved: res.ok,
             resolved_at: res.ok ? new Date().toISOString() : null,
-          }).catch(() => {});
+          });
         } catch (e) {
           console.warn(`[watchdog] Failed to re-ingest ${orphan.email}:`, e);
         }
@@ -208,7 +208,7 @@ Deno.serve(async (req) => {
         details: { count: report.missing_piperun.length, samples: report.missing_piperun.slice(0, 5) },
         ai_analysis: aiResult.analysis,
         ai_suggested_action: aiResult.suggested_actions.join("; "),
-      }).catch(() => {});
+      });
     }
 
     if (report.missing_cognitive.length > 0) {
@@ -219,17 +219,17 @@ Deno.serve(async (req) => {
         details: { count: report.missing_cognitive.length, samples: report.missing_cognitive.slice(0, 5) },
         ai_analysis: aiResult.analysis,
         ai_suggested_action: aiResult.suggested_actions.join("; "),
-      }).catch(() => {});
+      });
     }
 
     // 8. Trigger missing cognitive analyses
     for (const lead of (report.missing_cognitive || []).slice(0, 5)) {
       try {
-        await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+        const _res = await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
           body: JSON.stringify({ lead_id: lead.id, trigger: "watchdog" }),
-        }).catch(() => {});
+        });
       } catch (_) { /* fire and forget */ }
     }
 
