@@ -891,10 +891,13 @@ Deno.serve(async (req) => {
     }
 
     if (personId) {
-      // Step 5b: Ensure company exists
+      // Step 5b: Update person fields (custom_fields, job_title, phones)
+      await updatePersonFields(PIPERUN_API_KEY, personId, lead as Record<string, unknown>);
+
+      // Step 5c: Ensure company exists
       companyId = await findOrCreateCompany(PIPERUN_API_KEY, personId, companyId, lead as Record<string, unknown>);
 
-      // Step 5c: Fetch all deals for this person
+      // Step 5d: Fetch all deals for this person
       const allDeals = await findPersonDeals(PIPERUN_API_KEY, personId);
       const openDeals = allDeals.filter((d) => Number(d.status) === 0);
       const wonDeals = allDeals.filter((d) => Number(d.status) === 1);
@@ -906,36 +909,31 @@ Deno.serve(async (req) => {
         console.log(`[lia-assign] ${wonDeals.length} won deals preserved (CS/Suporte)`);
       }
 
-      // Step 5d: Decision tree for open deals
-      // Priority 1: Open deal in Funil de Vendas (not frozen)
+      // Step 5e: Decision tree for open deals
       const vendaDeal = openDeals.find(
         (d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed
       );
-      // Priority 2: Open deal in Estagnados
       const estagnDeal = openDeals.find(
         (d) => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
       );
 
       if (vendaDeal) {
-        // Already has open deal in Vendas → update it
         piperunId = String(vendaDeal.id);
         flowType = "update_vendas";
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId);
+        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId, supabase);
         console.log(`[lia-assign] Updated existing Vendas deal ${piperunId}`);
       } else if (estagnDeal) {
-        // Has deal in Estagnados → move to Vendas
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
-        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId);
+        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase);
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
-        // No relevant open deal → create new in Vendas
         flowType = "new_deal";
         piperunId = await createNewDeal(
           PIPERUN_API_KEY, personId, companyId,
           lead as Record<string, unknown>,
           pipeline_id, stage_id, assignedOwnerId,
-          customFields, leadEmail
+          customFields, leadEmail, supabase
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
       }
