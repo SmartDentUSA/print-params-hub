@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.0";
 import { SYSTEM_SUPER_PROMPT } from "../_shared/system-prompt.ts";
 
@@ -124,6 +125,14 @@ Se não tiver certeza, deixe o campo vazio.`;
     }
 
     const identificationData = await identificationResponse.json();
+    const usageId = extractUsage(identificationData);
+    await logAIUsage({
+      functionName: "ai-enrich-pdf-content",
+      actionLabel: "identify-product",
+      model: "google/gemini-2.5-flash",
+      promptTokens: usageId.prompt_tokens,
+      completionTokens: usageId.completion_tokens,
+    });
     const toolCall = identificationData.choices[0].message.tool_calls?.[0];
     const detectedProduct = toolCall ? JSON.parse(toolCall.function.arguments) : null;
     console.log("🎯 Detected product:", detectedProduct);
@@ -313,6 +322,14 @@ IMPORTANTE: É melhor ter menos informação verdadeira do que inventar dados.`;
     }
 
     const enrichmentData = await enrichmentResponse.json();
+    const usageEnrich = extractUsage(enrichmentData);
+    await logAIUsage({
+      functionName: "ai-enrich-pdf-content",
+      actionLabel: "enrich-content",
+      model: "google/gemini-2.5-flash",
+      promptTokens: usageEnrich.prompt_tokens,
+      completionTokens: usageEnrich.completion_tokens,
+    });
     const enrichedText = enrichmentData.choices[0].message.content;
     console.log(`✅ Content enriched: ${enrichedText.length} characters`);
 

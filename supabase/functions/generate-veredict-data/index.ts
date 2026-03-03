@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -95,6 +96,14 @@ FORMATO DE RESPOSTA:
     }
 
     const data = await response.json();
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "generate-veredict-data",
+      actionLabel: "generate-veredict",
+      model: "google/gemini-2.5-flash",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const content = data.choices?.[0]?.message?.content || '';
     
     // Clean and parse JSON

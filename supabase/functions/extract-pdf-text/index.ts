@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { SYSTEM_SUPER_PROMPT } from '../_shared/system-prompt.ts';
+import { logAIUsage, extractUsage } from '../_shared/log-ai-usage.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -132,6 +133,14 @@ Extraia TODO o conteúdo do PDF anexo seguindo estas regras.`;
     }
 
     const data = await response.json();
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "extract-pdf-text",
+      actionLabel: "extract-pdf-text",
+      model: "google/gemini-2.5-flash",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const extractedText = data.choices?.[0]?.message?.content;
 
     if (!extractedText) {

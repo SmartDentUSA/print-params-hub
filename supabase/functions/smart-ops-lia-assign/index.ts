@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import {
   PIPELINES,
   STAGES_VENDAS,
@@ -412,6 +413,14 @@ Regras:
     clearTimeout(timeout);
     if (!res.ok) throw new Error(`AI gateway ${res.status}`);
     const data = await res.json();
+    const usage = extractUsage(data);
+    await logAIUsage({
+      functionName: "smart-ops-lia-assign",
+      actionLabel: "generate-greeting",
+      model: "google/gemini-2.5-flash-lite",
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+    });
     const content = data.choices?.[0]?.message?.content?.trim();
     if (content && content.length > 20) {
       console.log(`[lia-assign] AI greeting generated (${content.length} chars)`);
@@ -596,6 +605,14 @@ Retorne APENAS JSON válido: {"historico":"...","oportunidade":"..."}`;
   clearTimeout(timeout);
   if (!res.ok) throw new Error(`AI gateway ${res.status}`);
   const data = await res.json();
+  const usage = extractUsage(data);
+  await logAIUsage({
+    functionName: "smart-ops-lia-assign",
+    actionLabel: "generate-briefing",
+    model: "google/gemini-2.5-flash-lite",
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+  });
   const raw = data.choices?.[0]?.message?.content?.trim() || "";
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return { historico: "", oportunidade: "" };
