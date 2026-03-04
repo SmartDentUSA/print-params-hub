@@ -6,7 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-token, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/* ─── Phone normalizer (same as sync-astron-members) ─── */
 function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let digits = String(raw).replace(/\D/g, "");
@@ -42,7 +41,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Parse body: JSON or form-urlencoded
+    // Parse body
     let body: Record<string, any>;
     const contentType = req.headers.get("content-type") || "";
 
@@ -56,9 +55,11 @@ Deno.serve(async (req) => {
       try { body = JSON.parse(text); } catch { body = { raw: text }; }
     }
 
+    console.log(`[astron-postback] Raw payload keys: ${Object.keys(body).join(", ")}`);
+
     // 1. Validate token
     const expectedToken = Deno.env.get("ASTRON_POSTBACK_TOKEN");
-    const receivedToken = req.headers.get("x-token") || body?.token;
+    const receivedToken = body?.token;
 
     if (expectedToken && receivedToken && expectedToken !== receivedToken) {
       console.warn("[astron-postback] Invalid token received");
@@ -68,70 +69,118 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Extract event data
-    const eventType: string = body.event_type || body.evento || "unknown";
-    const userData = body.user || body.usuario || body.data || {};
+    // 2. Extract event type (flat format from Astron)
+    const eventType: string = body.event || body.event_type || "unknown";
 
-    const email = (userData.email || "").trim().toLowerCase();
+    // 3. Extract email (flat: body.email or body.user_email)
+    const email = (body.email || body.user_email || "").trim().toLowerCase();
     if (!email || !email.includes("@")) {
       return new Response(
-        JSON.stringify({ error: "Missing or invalid user email" }),
+        JSON.stringify({ error: "Missing or invalid email", received_keys: Object.keys(body) }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[astron-postback] Event: ${eventType} | Email: ${email}`);
+    // 4. Extract name (flat)
+    const name = body.name || body.user_name || body.nome || "";
 
-    // 3. Build astron fields for upsert
+    console.log(`[astron-postback] Event: ${eventType} | Email: ${email} | Name: ${name}`);
+
+    // 5. Build astron fields based on event type
     const now = new Date().toISOString();
-    const phone = normalizePhone(userData.phone || userData.telefone);
+    const phone = normalizePhone(body.phone || body.user_phone || body.telefone);
 
     const astronFields: Record<string, unknown> = {
-      astron_user_id: userData.id || userData.user_id || null,
-      astron_status: userData.status || null,
-      astron_nome: userData.name || userData.nome || null,
+      astron_user_id: body.user_id || body.id || null,
+      astron_status: body.status || "active",
+      astron_nome: name || null,
       astron_email: email,
-      astron_phone: userData.phone || userData.telefone || null,
+      astron_phone: body.phone || body.user_phone || null,
       astron_synced_at: now,
+      astron_login_url: body.login_url || null,
     };
 
-    // Event-specific fields
-    if (eventType === "course_progress" || eventType === "progresso_curso") {
-      if (userData.courses_completed != null) {
-        astronFields.astron_courses_completed = userData.courses_completed;
-      }
-      if (userData.courses_total != null) {
-        astronFields.astron_courses_total = userData.courses_total;
-      }
-    }
-
-    if (eventType === "new_user" || eventType === "novo_usuario") {
-      astronFields.astron_created_at = userData.created_at || now;
-      if (userData.plans_active) {
-        astronFields.astron_plans_active = userData.plans_active;
+    // Event-specific: useradd
+    if (eventType === "useradd") {
+      astronFields.astron_created_at = body.insert_time || now;
+      if (body.plans_active) {
+        astronFields.astron_plans_active = Array.isArray(body.plans_active)
+          ? body.plans_active : [body.plans_active];
       }
     }
 
-    // 4. Supabase client with service role
+    // Event-specific: usercourseprogresschange
+    if (eventType === "usercourseprogresschange") {
+      const courseEntry = {
+        course_id: body.course_id || null,
+        course_name: body.course_name || null,
+        percentage: body.user_course_percentage ?? null,
+        completed_classes: body.user_course_completed_classes ?? null,
+        total_classes: body.course_total_classes ?? null,
+        updated_at: now,
+      };
+      // We'll merge this into existing astron_courses_access below
+      astronFields._course_entry = courseEntry;
+
+      if (body.user_course_percentage != null) {
+        const pct = Number(body.user_course_percentage);
+        if (pct >= 100) {
+          astronFields.astron_courses_completed =
+            (body.astron_courses_completed || 0) + 1;
+        }
+      }
+    }
+
+    // 6. Supabase client
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 5. Upsert: find by email → update or insert
+    // 7. Upsert: find by email → update or insert
     const { data: existing } = await supabase
       .from("lia_attendances")
-      .select("id")
+      .select("id, astron_courses_access, astron_courses_completed")
       .eq("email", email)
       .limit(1)
       .maybeSingle();
+
+    // Handle course progress merge
+    const courseEntry = astronFields._course_entry as Record<string, unknown> | undefined;
+    delete astronFields._course_entry;
+
+    if (courseEntry && courseEntry.course_id) {
+      const existingCourses = (existing?.astron_courses_access as any[]) || [];
+      const idx = existingCourses.findIndex(
+        (c: any) => c.course_id === courseEntry.course_id
+      );
+      if (idx >= 0) {
+        existingCourses[idx] = { ...existingCourses[idx], ...courseEntry };
+      } else {
+        existingCourses.push(courseEntry);
+      }
+      astronFields.astron_courses_access = existingCourses;
+      astronFields.astron_courses_total = existingCourses.length;
+    }
+
+    // UTM fields (useradd)
+    const utmFields: Record<string, unknown> = {};
+    if (eventType === "useradd") {
+      if (body.utm_campaign) utmFields.utm_campaign = body.utm_campaign;
+      if (body.utm_source) utmFields.utm_source = body.utm_source;
+      if (body.utm_medium) utmFields.utm_medium = body.utm_medium;
+      if (body.utm_term) utmFields.utm_term = body.utm_term;
+      if (body.origem_campanha || body.utm_content) {
+        utmFields.origem_campanha = body.origem_campanha || body.utm_content;
+      }
+    }
 
     let action: string;
 
     if (existing) {
       const { error: updateErr } = await supabase
         .from("lia_attendances")
-        .update(astronFields)
+        .update({ ...astronFields, ...utmFields })
         .eq("id", existing.id);
       if (updateErr) throw updateErr;
       action = "updated";
@@ -140,20 +189,20 @@ Deno.serve(async (req) => {
         .from("lia_attendances")
         .insert({
           email,
-          nome: userData.name || userData.nome || "Aluno Astron",
+          nome: name || "Aluno Astron",
           source: "astron_postback",
           lead_status: "aluno",
           telefone_normalized: phone,
-          telefone_raw: userData.phone || userData.telefone || null,
+          telefone_raw: body.phone || body.user_phone || null,
           ...astronFields,
+          ...utmFields,
         });
 
       if (insertErr) {
-        // Handle unique constraint (race condition)
         if (insertErr.code === "23505") {
           await supabase
             .from("lia_attendances")
-            .update(astronFields)
+            .update({ ...astronFields, ...utmFields })
             .eq("email", email);
           action = "updated_after_conflict";
         } else {
@@ -164,10 +213,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Store raw payload for debugging
+    if (existing) {
+      await supabase
+        .from("lia_attendances")
+        .update({ raw_payload: body })
+        .eq("id", existing.id);
+    }
+
     console.log(`[astron-postback] ${action} | ${eventType} | ${email}`);
 
     return new Response(
-      JSON.stringify({ received: true, event_type: eventType, email, action }),
+      JSON.stringify({ received: true, event: eventType, email, action }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
