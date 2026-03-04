@@ -16,7 +16,7 @@ async function astronFetch(endpoint: string, params: Record<string, unknown> = {
   const clubId = Deno.env.get("ASTRON_CLUB_ID")!;
 
   const url = `${ASTRON_BASE}/${endpoint}`;
-  const body = { am_key: amKey, am_secret: amSecret, club_id: clubId, ...params };
+  const body = { am_key: amKey, am_secret: amSecret, club_id: Number(clubId), ...params };
 
   console.log(`[astron-lookup] POST ${url}`, JSON.stringify({ ...body, am_key: "***", am_secret: "***" }));
 
