@@ -16,6 +16,7 @@ import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
 import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
+import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 
 export function SmartOpsTab() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -78,6 +79,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="formularios">Formulários</TabsTrigger>
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
+          <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bowtie">
@@ -112,6 +114,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="tokens-ia">
           <SmartOpsAIUsageDashboard />
+        </TabsContent>
+        <TabsContent value="intelligence">
+          <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />
         </TabsContent>
       </Tabs>
     </div>

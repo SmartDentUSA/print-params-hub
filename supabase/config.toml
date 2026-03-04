@@ -224,3 +224,6 @@ verify_jwt = false
 
 [functions.system-watchdog-deepseek]
 verify_jwt = false
+
+[functions.backfill-intelligence-score]
+verify_jwt = false
