@@ -196,7 +196,7 @@ Deno.serve(async (req) => {
               for (const [k, v] of Object.entries(fields)) {
                 if (k === "email" || k === "nome") continue; // Don't overwrite identity
                 const existingVal = (existing as Record<string, unknown>)[k];
-                if (existingVal === null || existingVal === undefined || existingVal === "" || existingVal === false) {
+                if (existingVal === null || existingVal === undefined || existingVal === "") {
                   updateFields[k] = v;
                 }
               }
