@@ -236,3 +236,6 @@ verify_jwt = false
 
 [functions.smart-ops-sellflux-webhook]
 verify_jwt = false
+
+[functions.smart-ops-sellflux-sync]
+verify_jwt = false

@@ -393,6 +393,53 @@ export async function sendCampaignViaSellFlux(
 export const sendViaSellFlux = sendCampaignViaSellFlux;
 export const buildSellFluxPayload = buildSellFluxCampaignPayload;
 
+// ─── SellFlux Lead API (GET) ───
+
+/**
+ * Fetch lead data from SellFlux via GET API.
+ * Uses SELLFLUX_WEBHOOK_LEADS secret as base URL.
+ * Returns parsed JSON with lead tags and fields, or null on failure.
+ */
+export async function fetchLeadFromSellFlux(
+  email: string
+): Promise<{ tags: string[]; fields: Record<string, unknown>; raw: unknown } | null> {
+  const baseUrl = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
+  if (!baseUrl) {
+    console.warn("[sellflux] SELLFLUX_WEBHOOK_LEADS secret not set");
+    return null;
+  }
+  try {
+    const url = `${baseUrl}?email=${encodeURIComponent(email.toLowerCase())}`;
+    const res = await fetch(url, { method: "GET" });
+    if (!res.ok) {
+      console.log(`[sellflux] Lead API returned ${res.status} for ${email}`);
+      return null;
+    }
+    const data = await res.json();
+    console.log(`[sellflux] Lead API response for ${email}:`, JSON.stringify(data).slice(0, 500));
+
+    // Extract tags — SellFlux may return tags as array or comma-separated string
+    let rawTags: string[] = [];
+    if (Array.isArray(data.tags)) {
+      rawTags = data.tags;
+    } else if (typeof data.tags === "string" && data.tags) {
+      rawTags = data.tags.split(",").map((t: string) => t.trim()).filter(Boolean);
+    }
+
+    // Extract known fields
+    const fields: Record<string, unknown> = {};
+    if (data.name || data.nome) fields.nome = data.name || data.nome;
+    if (data.phone || data.telefone) fields.telefone = data.phone || data.telefone;
+    if (data.city || data.cidade) fields.cidade = data.city || data.cidade;
+    if (data.state || data.uf) fields.uf = data.state || data.uf;
+
+    return { tags: rawTags, fields, raw: data };
+  } catch (err) {
+    console.error("[sellflux] Lead API fetch error:", err);
+    return null;
+  }
+}
+
 // ─── E-commerce product name → TAG mapping ───
 
 export function detectProductTags(productName: string): string[] {
