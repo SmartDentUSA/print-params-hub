@@ -116,6 +116,9 @@ Deno.serve(async (req) => {
         astronFields.astron_plans_active = Array.isArray(body.plans_active)
           ? body.plans_active : [body.plans_active];
       }
+      // Facebook tracking IDs
+      if (body.fbc) astronFields.astron_fbc = body.fbc;
+      if (body.fbp) astronFields.astron_fbp = body.fbp;
     }
 
     // Event-specific: usercourseprogresschange
@@ -126,6 +129,7 @@ Deno.serve(async (req) => {
         percentage: body.user_course_percentage ?? null,
         completed_classes: body.user_course_completed_classes ?? null,
         total_classes: body.course_total_classes ?? null,
+        change_time: body.change_time || null,
         updated_at: now,
       };
       // We'll merge this into existing astron_courses_access below
@@ -138,6 +142,18 @@ Deno.serve(async (req) => {
             (body.astron_courses_completed || 0) + 1;
         }
       }
+    }
+
+    // Event-specific: newcomment
+    if (eventType === "newcomment") {
+      astronFields.astron_last_interaction_at = now;
+      astronFields.astron_last_interaction_type = "comment";
+    }
+
+    // Event-specific: newsupportticket
+    if (eventType === "newsupportticket") {
+      astronFields.astron_last_interaction_at = now;
+      astronFields.astron_last_interaction_type = "support_ticket";
     }
 
     // 6. Supabase client
@@ -159,7 +175,8 @@ Deno.serve(async (req) => {
     delete astronFields._course_entry;
 
     if (courseEntry && courseEntry.course_id) {
-      const existingCourses = (existing?.astron_courses_access as any[]) || [];
+      const raw = existing?.astron_courses_access;
+      const existingCourses: any[] = Array.isArray(raw) ? raw : [];
       const idx = existingCourses.findIndex(
         (c: any) => c.course_id === courseEntry.course_id
       );
@@ -184,12 +201,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Remove fields that don't exist in the table (stored only in raw_payload)
+    delete astronFields.astron_fbc;
+    delete astronFields.astron_fbp;
+    delete astronFields.astron_last_interaction_at;
+    delete astronFields.astron_last_interaction_type;
+
     let action: string;
 
     if (existing) {
       const { error: updateErr } = await supabase
         .from("lia_attendances")
-        .update({ ...astronFields, ...utmFields })
+        .update({ ...astronFields, ...utmFields, raw_payload: body })
         .eq("id", existing.id);
       if (updateErr) throw updateErr;
       action = "updated";
@@ -203,6 +226,7 @@ Deno.serve(async (req) => {
           lead_status: "aluno",
           telefone_normalized: phone,
           telefone_raw: body.phone || body.user_phone || null,
+          raw_payload: body,
           ...astronFields,
           ...utmFields,
         });
@@ -211,7 +235,7 @@ Deno.serve(async (req) => {
         if (insertErr.code === "23505") {
           await supabase
             .from("lia_attendances")
-            .update({ ...astronFields, ...utmFields })
+            .update({ ...astronFields, ...utmFields, raw_payload: body })
             .eq("email", email);
           action = "updated_after_conflict";
         } else {
@@ -220,14 +244,6 @@ Deno.serve(async (req) => {
       } else {
         action = "created";
       }
-    }
-
-    // Store raw payload for debugging
-    if (existing) {
-      await supabase
-        .from("lia_attendances")
-        .update({ raw_payload: body })
-        .eq("id", existing.id);
     }
 
     console.log(`[astron-postback] ${action} | ${eventType} | ${email}`);
