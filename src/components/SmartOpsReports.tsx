@@ -85,7 +85,9 @@ export function SmartOpsReports() {
       }
 
       // Dynamic headers from first record
-      const headers = Object.keys(allRows[0]);
+      const headerSet = new Set<string>();
+      allRows.forEach(row => Object.keys(row).forEach(k => headerSet.add(k)));
+      const headers = Array.from(headerSet);
 
       const escapeCSV = (val: unknown): string => {
         if (val === null || val === undefined) return "";
@@ -111,7 +113,7 @@ export function SmartOpsReports() {
       a.click();
       URL.revokeObjectURL(url);
 
-      toast({ title: `${allRows.length} leads exportados com todos os campos` });
+      toast({ title: `${allRows.length} leads exportados com ${headers.length} campos` });
     } catch (err) {
       console.error("Export error:", err);
       toast({ title: "Erro na exportação", description: String(err), variant: "destructive" });
