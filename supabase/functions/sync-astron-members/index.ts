@@ -8,20 +8,21 @@ const corsHeaders = {
 
 const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 
-/* ─── Astron API helper ─── */
-async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
+/* ─── Astron API helper (GET + Basic Auth) ─── */
+async function astronFetch(endpoint: string, params: Record<string, string> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
+  const clubId = Deno.env.get("ASTRON_CLUB_ID")!;
 
-  const url = `${ASTRON_BASE}/${endpoint}`;
-  const body = { am_key: amKey, am_secret: amSecret, ...params };
+  const qs = new URLSearchParams({ club_id: clubId, ...params });
+  const url = `${ASTRON_BASE}/${endpoint}?${qs}`;
+  const auth = btoa(`${amKey}:${amSecret}`);
 
-  console.log(`[sync-astron] POST ${url} (am_key=${amKey})`);
+  console.log(`[sync-astron] GET ${url}`);
 
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method: "GET",
+    headers: { "Authorization": `Basic ${auth}` },
     signal: AbortSignal.timeout(15000),
   });
 
@@ -47,6 +48,17 @@ function normalizePhone(raw: string | null | undefined): string | null {
   return `+55${digits}`;
 }
 
+/* ─── Generate login URL for a user ─── */
+async function getLoginUrl(userId: string): Promise<string | null> {
+  try {
+    const resp = await astronFetch("generateClubUserLoginUrl", { user_id: userId });
+    return resp?.login_url || resp?.url || null;
+  } catch (e) {
+    console.warn(`[sync-astron] Login URL fetch failed for user ${userId}: ${e}`);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -59,11 +71,11 @@ Deno.serve(async (req) => {
     );
 
     // Parse optional params
-    let pageSize = 100;
+    let pageSize = 50; // API max is 50
     let maxPages = 50;
     try {
       const body = await req.json();
-      if (body.page_size) pageSize = Math.min(body.page_size, 200);
+      if (body.page_size) pageSize = Math.min(body.page_size, 50);
       if (body.max_pages) maxPages = Math.min(body.max_pages, 100);
     } catch { /* no body = defaults */ }
 
@@ -76,10 +88,10 @@ Deno.serve(async (req) => {
     console.log(`[sync-astron] Starting sync (pageSize=${pageSize}, maxPages=${maxPages})`);
 
     while (page <= maxPages) {
-      // 1. Fetch paginated users
+      // 1. Fetch paginated users via GET
       const usersResp = await astronFetch("listClubUsers", {
-        page: page,
-        limit: pageSize,
+        page: String(page),
+        limit: String(pageSize),
       });
 
       const users = usersResp?.data || usersResp?.users || usersResp || [];
@@ -95,12 +107,12 @@ Deno.serve(async (req) => {
           const email = (user.email || "").trim().toLowerCase();
           if (!email || !email.includes("@")) continue;
 
-          // 2. Fetch user plans
+          // 2. Fetch user plans via GET
           let plansData: unknown[] = [];
           let plansActive: string[] = [];
           try {
             const plansResp = await astronFetch("listClubUserPlans", {
-              user_id: user.id,
+              user_id: String(user.id),
             });
             plansData = plansResp?.data || plansResp?.plans || plansResp || [];
             if (Array.isArray(plansData)) {
@@ -112,7 +124,10 @@ Deno.serve(async (req) => {
             console.warn(`[sync-astron] Plans fetch failed for user ${user.id}: ${e}`);
           }
 
-          // 3. Build astron fields
+          // 3. Generate login URL
+          const loginUrl = await getLoginUrl(String(user.id));
+
+          // 4. Build astron fields
           const astronFields: Record<string, unknown> = {
             astron_user_id: user.id,
             astron_status: user.status || "unknown",
@@ -123,13 +138,13 @@ Deno.serve(async (req) => {
             astron_plans_data: plansData,
             astron_courses_total: user.courses_total || 0,
             astron_courses_completed: user.courses_completed || 0,
-            astron_login_url: user.login_url || `https://smartdentacademy.astronmembers.com/`,
+            astron_login_url: loginUrl || `https://smartdentacademy.astronmembers.com/`,
             astron_created_at: user.created_at || null,
-            astron_last_login_at: user.last_login_at || user.last_access || null,
+            astron_last_login_at: user.time_last_login || user.last_login_at || user.last_access || null,
             astron_synced_at: new Date().toISOString(),
           };
 
-          // 4. Match by email in lia_attendances
+          // 5. Match by email in lia_attendances
           const { data: existing } = await supabase
             .from("lia_attendances")
             .select("id")
@@ -138,7 +153,6 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (existing) {
-            // UPDATE existing lead
             const { error: updateErr } = await supabase
               .from("lia_attendances")
               .update(astronFields)
@@ -146,7 +160,6 @@ Deno.serve(async (req) => {
             if (updateErr) throw updateErr;
             totalUpdated++;
           } else {
-            // INSERT new lead
             const phone = normalizePhone(user.phone || user.telefone);
             const { error: insertErr } = await supabase
               .from("lia_attendances")
@@ -161,7 +174,6 @@ Deno.serve(async (req) => {
               });
             if (insertErr) {
               if (insertErr.code === "23505") {
-                // Duplicate — try update
                 await supabase
                   .from("lia_attendances")
                   .update(astronFields)
@@ -181,7 +193,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // If we got fewer than pageSize, we're done
       if (users.length < pageSize) break;
       page++;
     }

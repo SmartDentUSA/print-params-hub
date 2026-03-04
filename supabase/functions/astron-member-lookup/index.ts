@@ -9,19 +9,21 @@ const corsHeaders = {
 const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
+/* ─── Astron API helper (GET + Basic Auth) ─── */
+async function astronFetch(endpoint: string, params: Record<string, string> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
+  const clubId = Deno.env.get("ASTRON_CLUB_ID")!;
 
-  const url = `${ASTRON_BASE}/${endpoint}`;
-  const body = { am_key: amKey, am_secret: amSecret, ...params };
+  const qs = new URLSearchParams({ club_id: clubId, ...params });
+  const url = `${ASTRON_BASE}/${endpoint}?${qs}`;
+  const auth = btoa(`${amKey}:${amSecret}`);
 
-  console.log(`[astron-lookup] POST ${url} (am_key=${amKey})`);
+  console.log(`[astron-lookup] GET ${url}`);
 
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method: "GET",
+    headers: { "Authorization": `Basic ${auth}` },
     signal: AbortSignal.timeout(10000),
   });
 
@@ -97,18 +99,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 3. Fresh lookup from Astron API
+    // 3. Fresh lookup from Astron API via GET
     const lookupEmail = lead.email.trim().toLowerCase();
     console.log(`[astron-lookup] Querying Astron for ${lookupEmail}`);
 
     try {
-      // Search by email in Astron
+      // Search by email using listClubUsers with email filter
       const usersResp = await astronFetch("listClubUsers", { email: lookupEmail });
       const users = usersResp?.data || usersResp?.users || usersResp || [];
       const astronUser = Array.isArray(users) ? users[0] : null;
 
       if (!astronUser) {
-        // Update synced_at to avoid re-querying too soon
         await supabase
           .from("lia_attendances")
           .update({ astron_synced_at: new Date().toISOString(), astron_status: "not_found" })
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
       let plansActive: string[] = [];
       try {
         const plansResp = await astronFetch("listClubUserPlans", {
-          user_id: astronUser.id,
+          user_id: String(astronUser.id),
         });
         plansData = plansResp?.data || plansResp?.plans || plansResp || [];
         if (Array.isArray(plansData)) {
@@ -135,6 +136,15 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.warn(`[astron-lookup] Plans fetch failed: ${e}`);
+      }
+
+      // Generate login URL
+      let loginUrl: string | null = null;
+      try {
+        const loginResp = await astronFetch("generateClubUserLoginUrl", { user_id: String(astronUser.id) });
+        loginUrl = loginResp?.login_url || loginResp?.url || null;
+      } catch (e) {
+        console.warn(`[astron-lookup] Login URL fetch failed: ${e}`);
       }
 
       // Update lia_attendances
@@ -148,9 +158,9 @@ Deno.serve(async (req) => {
         astron_plans_data: plansData,
         astron_courses_total: astronUser.courses_total || 0,
         astron_courses_completed: astronUser.courses_completed || 0,
-        astron_login_url: astronUser.login_url || "https://smartdentacademy.astronmembers.com/",
+        astron_login_url: loginUrl || "https://smartdentacademy.astronmembers.com/",
         astron_created_at: astronUser.created_at || null,
-        astron_last_login_at: astronUser.last_login_at || astronUser.last_access || null,
+        astron_last_login_at: astronUser.time_last_login || astronUser.last_login_at || astronUser.last_access || null,
         astron_synced_at: new Date().toISOString(),
       };
 
@@ -165,7 +175,6 @@ Deno.serve(async (req) => {
       );
     } catch (apiErr) {
       console.error(`[astron-lookup] API error: ${apiErr}`);
-      // Return cached data if available
       if (lead.astron_user_id) {
         return new Response(
           JSON.stringify({
