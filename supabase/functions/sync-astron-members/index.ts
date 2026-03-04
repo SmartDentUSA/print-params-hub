@@ -8,21 +8,21 @@ const corsHeaders = {
 
 const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 
-/* ─── Astron API helper (GET + Basic Auth) ─── */
-async function astronFetch(endpoint: string, params: Record<string, string> = {}) {
+/* ─── Astron API helper (POST + JSON body) ─── */
+async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
   const clubId = Deno.env.get("ASTRON_CLUB_ID")!;
 
-  const qs = new URLSearchParams({ club_id: clubId, ...params });
-  const url = `${ASTRON_BASE}/${endpoint}?${qs}`;
-  const auth = btoa(`${amKey}:${amSecret}`);
+  const url = `${ASTRON_BASE}/${endpoint}`;
+  const body = { am_key: amKey, am_secret: amSecret, club_id: clubId, ...params };
 
-  console.log(`[sync-astron] GET ${url}`);
+  console.log(`[sync-astron] POST ${url}`);
 
   const res = await fetch(url, {
-    method: "GET",
-    headers: { "Authorization": `Basic ${auth}` },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
   });
 
