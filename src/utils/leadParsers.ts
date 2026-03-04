@@ -7,7 +7,7 @@ type RawRow = Record<string, unknown>;
 type NormalizedLead = Record<string, unknown>;
 
 /* ─── Phone helpers ─── */
-function cleanPhone(v: unknown): string | null {
+export function cleanPhone(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   let s = String(v);
   // Scientific notation fix (e.g. 5.51399E+12)
@@ -18,14 +18,14 @@ function cleanPhone(v: unknown): string | null {
   return digits.length >= 8 ? digits : null;
 }
 
-function cleanEmail(v: unknown): string | null {
+export function cleanEmail(v: unknown): string | null {
   if (!v) return null;
   const s = String(v).trim().toLowerCase();
   if (s === "#n/a" || s === "n/a" || s === "-" || s === "" || !s.includes("@")) return null;
   return s;
 }
 
-function cleanMoney(v: unknown): number | null {
+export function cleanMoney(v: unknown): number | null {
   if (v === null || v === undefined) return null;
   if (typeof v === "number") return v;
   const s = String(v).replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
@@ -33,7 +33,7 @@ function cleanMoney(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-function cleanStr(v: unknown): string | null {
+export function cleanStr(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s === "" || s === "#N/A" || s === "-" ? null : s;
@@ -563,7 +563,7 @@ function parseSellFlux(rows: RawRow[]): NormalizedLead[] {
 }
 
 /* ─── PARSER: auto_detect (fuzzy column matching) ─── */
-function findColumn(headers: string[], patterns: RegExp[]): string | null {
+export function findColumn(headers: string[], patterns: RegExp[]): string | null {
   for (const p of patterns) {
     const found = headers.find((h) => p.test(h.toLowerCase()));
     if (found) return found;
@@ -654,3 +654,257 @@ export const PARSER_OPTIONS = [
   { key: "hadron_vendas", label: "Vendas Hadron (ERP)", override: true },
   { key: "omie_vendas", label: "Vendas Omie (ERP 2025)", override: true },
 ];
+
+/* ─── AUTO_DETECT_PATTERNS — exported for manual mapping UI ─── */
+export const AUTO_DETECT_PATTERNS: Record<string, RegExp[]> = {
+  nome: [/^nome$/i, /^name$/i, /nome\s*completo/i, /full\s*name/i, /^titulo$/i, /^título$/i, /^cliente$/i, /^contact/i, /nome.*pessoa/i, /nome.*contato/i, /razao\s*social/i],
+  email: [/^e-?mail$/i, /e-?mail.*pessoa/i, /e-?mail.*contato/i, /^correio/i],
+  telefone_raw: [/^telefone$/i, /^phone$/i, /^whatsapp$/i, /^celular$/i, /telefone.*pessoa/i, /telefone.*principal/i, /^fone$/i, /^mobile$/i],
+  cidade: [/cidade/i, /city/i],
+  uf: [/estado.*uf/i, /^uf$/i, /^estado$/i, /^state$/i],
+  produto_interesse: [/produto/i, /product/i, /interesse/i],
+  valor_oportunidade: [/^valor/i, /value/i, /amount/i],
+  proprietario_lead_crm: [/proprietario/i, /proprietário/i, /dono/i, /owner/i, /vendedor/i],
+  lead_status: [/^status$/i, /etapa/i, /stage/i],
+  tags_crm: [/^tags$/i, /rótulos/i, /labels/i],
+  area_atuacao: [/area.*atua/i, /área.*atua/i, /segmento/i],
+  especialidade: [/especialidade/i, /specialty/i],
+  empresa_nome: [/empresa/i, /company/i, /razao.*social/i],
+  empresa_cnpj: [/cnpj/i],
+  piperun_id: [/^id$/i, /piperun.*id/i],
+  origem_campanha: [/origem/i, /origin/i, /campanha/i, /campaign/i],
+  utm_source: [/utm_source/i],
+  utm_medium: [/utm_medium/i],
+  utm_campaign: [/utm_campaign/i],
+  form_name: [/formulario/i, /formulário/i, /form.*name/i],
+  impressora_modelo: [/impressora/i, /printer/i],
+  software_cad: [/software.*cad/i, /cad.*software/i],
+  como_digitaliza: [/digitaliza/i, /scan.*method/i],
+  tem_impressora: [/tem.*impressora/i, /has.*printer/i, /utiliza.*impress/i],
+  tem_scanner: [/tem.*scanner/i, /has.*scanner/i],
+  pais_origem: [/pais/i, /país/i, /country/i],
+  funil_entrada_crm: [/funil/i, /funnel/i, /pipeline/i],
+  motivo_perda: [/motivo.*perda/i, /loss.*reason/i],
+  comentario_perda: [/comentario.*perda/i, /comment.*loss/i],
+  temperatura_lead: [/temperatura/i, /temperature/i],
+  codigo_contrato: [/codigo.*contrato/i, /código.*contrato/i, /contract/i],
+  insumos_adquiridos: [/insumos/i, /supplies/i],
+  volume_mensal_pecas: [/volume.*mensal/i, /monthly.*volume/i],
+  principal_aplicacao: [/principal.*aplica/i, /main.*application/i],
+};
+
+/* ─── LIA_SYSTEM_FIELDS — all lia_attendances columns for dropdown ─── */
+export const LIA_SYSTEM_FIELDS: { value: string; label: string }[] = [
+  { value: "area_atuacao", label: "Área de Atuação" },
+  { value: "astron_courses_completed", label: "Astron Cursos Completados" },
+  { value: "astron_courses_total", label: "Astron Cursos Total" },
+  { value: "astron_created_at", label: "Astron Criado Em" },
+  { value: "astron_email", label: "Astron Email" },
+  { value: "astron_last_login_at", label: "Astron Último Login" },
+  { value: "astron_login_url", label: "Astron Login URL" },
+  { value: "astron_nome", label: "Astron Nome" },
+  { value: "astron_phone", label: "Astron Telefone" },
+  { value: "astron_plans_active", label: "Astron Planos Ativos" },
+  { value: "astron_status", label: "Astron Status" },
+  { value: "astron_synced_at", label: "Astron Sincronizado Em" },
+  { value: "astron_user_id", label: "Astron User ID" },
+  { value: "ativo_cad", label: "Ativo CAD" },
+  { value: "ativo_cad_ia", label: "Ativo CAD IA" },
+  { value: "ativo_cura", label: "Ativo Cura" },
+  { value: "ativo_insumos", label: "Ativo Insumos" },
+  { value: "ativo_notebook", label: "Ativo Notebook" },
+  { value: "ativo_print", label: "Ativo Print" },
+  { value: "ativo_scan", label: "Ativo Scan" },
+  { value: "ativo_smart_slice", label: "Ativo Smart Slice" },
+  { value: "automation_cooldown_until", label: "Automation Cooldown Até" },
+  { value: "cidade", label: "Cidade" },
+  { value: "codigo_contrato", label: "Código Contrato" },
+  { value: "cognitive_model_version", label: "Cognitive Model Version" },
+  { value: "comentario_perda", label: "Comentário Perda" },
+  { value: "como_digitaliza", label: "Como Digitaliza" },
+  { value: "confidence_score_analysis", label: "Confidence Score" },
+  { value: "crm_lock_source", label: "CRM Lock Source" },
+  { value: "crm_lock_until", label: "CRM Lock Até" },
+  { value: "cs_treinamento", label: "CS Treinamento" },
+  { value: "data_contrato", label: "Data Contrato" },
+  { value: "data_fechamento_crm", label: "Data Fechamento CRM" },
+  { value: "data_primeiro_contato", label: "Data Primeiro Contato" },
+  { value: "data_treinamento", label: "Data Treinamento" },
+  { value: "data_ultima_compra_cad", label: "Última Compra CAD" },
+  { value: "data_ultima_compra_cad_ia", label: "Última Compra CAD IA" },
+  { value: "data_ultima_compra_cura", label: "Última Compra Cura" },
+  { value: "data_ultima_compra_insumos", label: "Última Compra Insumos" },
+  { value: "data_ultima_compra_notebook", label: "Última Compra Notebook" },
+  { value: "data_ultima_compra_print", label: "Última Compra Print" },
+  { value: "data_ultima_compra_scan", label: "Última Compra Scan" },
+  { value: "data_ultima_compra_smart_slice", label: "Última Compra Smart Slice" },
+  { value: "email", label: "Email (chave)" },
+  { value: "empresa_cnae", label: "Empresa CNAE" },
+  { value: "empresa_cnpj", label: "Empresa CNPJ" },
+  { value: "empresa_ie", label: "Empresa IE" },
+  { value: "empresa_nome", label: "Empresa Nome" },
+  { value: "empresa_piperun_id", label: "Empresa PipeRun ID" },
+  { value: "empresa_porte", label: "Empresa Porte" },
+  { value: "empresa_razao_social", label: "Empresa Razão Social" },
+  { value: "empresa_segmento", label: "Empresa Segmento" },
+  { value: "empresa_situacao", label: "Empresa Situação" },
+  { value: "empresa_website", label: "Empresa Website" },
+  { value: "equip_cad", label: "Equip CAD" },
+  { value: "equip_cad_ativacao", label: "Equip CAD Ativação" },
+  { value: "equip_cad_serial", label: "Equip CAD Serial" },
+  { value: "equip_impressora", label: "Equip Impressora" },
+  { value: "equip_impressora_ativacao", label: "Equip Impressora Ativação" },
+  { value: "equip_impressora_serial", label: "Equip Impressora Serial" },
+  { value: "equip_notebook", label: "Equip Notebook" },
+  { value: "equip_notebook_ativacao", label: "Equip Notebook Ativação" },
+  { value: "equip_notebook_serial", label: "Equip Notebook Serial" },
+  { value: "equip_pos_impressao", label: "Equip Pós-Impressão" },
+  { value: "equip_pos_impressao_ativacao", label: "Equip Pós-Impressão Ativação" },
+  { value: "equip_pos_impressao_serial", label: "Equip Pós-Impressão Serial" },
+  { value: "equip_scanner", label: "Equip Scanner" },
+  { value: "equip_scanner_ativacao", label: "Equip Scanner Ativação" },
+  { value: "equip_scanner_serial", label: "Equip Scanner Serial" },
+  { value: "especialidade", label: "Especialidade" },
+  { value: "form_name", label: "Form Name" },
+  { value: "funil_entrada_crm", label: "Funil Entrada CRM" },
+  { value: "id_cliente_smart", label: "ID Cliente Smart" },
+  { value: "impressora_modelo", label: "Impressora Modelo" },
+  { value: "informacao_desejada", label: "Informação Desejada" },
+  { value: "insumos_adquiridos", label: "Insumos Adquiridos" },
+  { value: "interest_timeline", label: "Interest Timeline" },
+  { value: "ip_origem", label: "IP Origem" },
+  { value: "itens_proposta_crm", label: "Itens Proposta CRM" },
+  { value: "lead_stage_detected", label: "Lead Stage Detected" },
+  { value: "lead_status", label: "Lead Status" },
+  { value: "lead_timing_dias", label: "Lead Timing (dias)" },
+  { value: "lojaintegrada_bairro", label: "Loja Integrada Bairro" },
+  { value: "lojaintegrada_cep", label: "Loja Integrada CEP" },
+  { value: "lojaintegrada_cliente_id", label: "Loja Integrada Cliente ID" },
+  { value: "lojaintegrada_cliente_obs", label: "Loja Integrada Obs" },
+  { value: "lojaintegrada_complemento", label: "Loja Integrada Complemento" },
+  { value: "lojaintegrada_cupom_desconto", label: "Loja Integrada Cupom" },
+  { value: "lojaintegrada_data_nascimento", label: "Loja Integrada Data Nasc." },
+  { value: "lojaintegrada_endereco", label: "Loja Integrada Endereço" },
+  { value: "lojaintegrada_forma_envio", label: "Loja Integrada Forma Envio" },
+  { value: "lojaintegrada_forma_pagamento", label: "Loja Integrada Forma Pgto" },
+  { value: "lojaintegrada_numero", label: "Loja Integrada Número" },
+  { value: "lojaintegrada_referencia", label: "Loja Integrada Referência" },
+  { value: "lojaintegrada_sexo", label: "Loja Integrada Sexo" },
+  { value: "lojaintegrada_ultimo_pedido_data", label: "LI Último Pedido Data" },
+  { value: "lojaintegrada_ultimo_pedido_numero", label: "LI Último Pedido Número" },
+  { value: "lojaintegrada_ultimo_pedido_status", label: "LI Último Pedido Status" },
+  { value: "lojaintegrada_ultimo_pedido_valor", label: "LI Último Pedido Valor" },
+  { value: "lojaintegrada_utm_campaign", label: "LI UTM Campaign" },
+  { value: "motivo_perda", label: "Motivo Perda" },
+  { value: "nome", label: "Nome" },
+  { value: "objection_risk", label: "Objection Risk" },
+  { value: "origem_campanha", label: "Origem Campanha" },
+  { value: "pais_origem", label: "País Origem" },
+  { value: "pessoa_cargo", label: "Pessoa Cargo" },
+  { value: "pessoa_cpf", label: "Pessoa CPF" },
+  { value: "pessoa_facebook", label: "Pessoa Facebook" },
+  { value: "pessoa_genero", label: "Pessoa Gênero" },
+  { value: "pessoa_linkedin", label: "Pessoa LinkedIn" },
+  { value: "pessoa_nascimento", label: "Pessoa Nascimento" },
+  { value: "pessoa_observation", label: "Pessoa Observação" },
+  { value: "pessoa_piperun_id", label: "Pessoa PipeRun ID" },
+  { value: "piperun_id", label: "PipeRun ID" },
+  { value: "piperun_link", label: "PipeRun Link" },
+  { value: "primary_motivation", label: "Primary Motivation" },
+  { value: "principal_aplicacao", label: "Principal Aplicação" },
+  { value: "produto_interesse", label: "Produto Interesse" },
+  { value: "produto_interesse_auto", label: "Produto Interesse Auto" },
+  { value: "proprietario_lead_crm", label: "Proprietário Lead CRM" },
+  { value: "psychological_profile", label: "Psychological Profile" },
+  { value: "recommended_approach", label: "Recommended Approach" },
+  { value: "resina_interesse", label: "Resina Interesse" },
+  { value: "reuniao_agendada", label: "Reunião Agendada" },
+  { value: "score", label: "Score" },
+  { value: "sdr_caracterizacao_interesse", label: "SDR Caracterização Interesse" },
+  { value: "sdr_cursos_interesse", label: "SDR Cursos Interesse" },
+  { value: "sdr_dentistica_interesse", label: "SDR Dentística Interesse" },
+  { value: "sdr_impressora_interesse", label: "SDR Impressora Interesse" },
+  { value: "sdr_insumos_lab_interesse", label: "SDR Insumos Lab Interesse" },
+  { value: "sdr_marca_impressora_param", label: "SDR Marca Impressora Param" },
+  { value: "sdr_modelo_impressora_param", label: "SDR Modelo Impressora Param" },
+  { value: "sdr_pos_impressao_interesse", label: "SDR Pós-Impressão Interesse" },
+  { value: "sdr_resina_param", label: "SDR Resina Param" },
+  { value: "sdr_scanner_interesse", label: "SDR Scanner Interesse" },
+  { value: "sdr_software_cad_interesse", label: "SDR Software CAD Interesse" },
+  { value: "sdr_solucoes_interesse", label: "SDR Soluções Interesse" },
+  { value: "sdr_suporte_descricao", label: "SDR Suporte Descrição" },
+  { value: "sdr_suporte_equipamento", label: "SDR Suporte Equipamento" },
+  { value: "sdr_suporte_tipo", label: "SDR Suporte Tipo" },
+  { value: "software_cad", label: "Software CAD" },
+  { value: "source", label: "Source" },
+  { value: "status_oportunidade", label: "Status Oportunidade" },
+  { value: "tags_crm", label: "Tags CRM" },
+  { value: "telefone_normalized", label: "Telefone Normalizado" },
+  { value: "telefone_raw", label: "Telefone Raw" },
+  { value: "tem_impressora", label: "Tem Impressora" },
+  { value: "tem_scanner", label: "Tem Scanner" },
+  { value: "temperatura_lead", label: "Temperatura Lead" },
+  { value: "uf", label: "UF" },
+  { value: "ultima_etapa_comercial", label: "Última Etapa Comercial" },
+  { value: "urgency_level", label: "Urgency Level" },
+  { value: "utm_campaign", label: "UTM Campaign" },
+  { value: "utm_medium", label: "UTM Medium" },
+  { value: "utm_source", label: "UTM Source" },
+  { value: "utm_term", label: "UTM Term" },
+  { value: "valor_oportunidade", label: "Valor Oportunidade" },
+  { value: "volume_mensal_pecas", label: "Volume Mensal Peças" },
+];
+
+/* ─── applyMappings — transforms raw rows using user-configured field mappings ─── */
+export interface FieldMapping {
+  csvColumn: string;
+  systemField: string;    // lia field, "__ignore__", or "__new__"
+  newFieldName: string;
+  enabled: boolean;
+  samples: string[];
+}
+
+const PHONE_FIELDS = new Set(["telefone_raw", "telefone_normalized", "astron_phone"]);
+const MONEY_FIELDS = new Set(["valor_oportunidade", "proposals_total_value", "proposals_total_mrr", "piperun_value_mrr", "lojaintegrada_ultimo_pedido_valor"]);
+
+export function applyMappings(
+  rawRows: Record<string, unknown>[],
+  mappings: FieldMapping[]
+): Record<string, unknown>[] {
+  const activeMappings = mappings.filter(m => m.enabled && m.systemField !== "__ignore__");
+
+  return rawRows.map((row) => {
+    const lead: Record<string, unknown> = {};
+    for (const m of activeMappings) {
+      const targetField = m.systemField === "__new__" ? m.newFieldName : m.systemField;
+      if (!targetField) continue;
+      const rawVal = row[m.csvColumn];
+
+      if (targetField === "email") {
+        lead[targetField] = cleanEmail(rawVal);
+      } else if (PHONE_FIELDS.has(targetField)) {
+        lead[targetField] = cleanPhone(rawVal);
+      } else if (MONEY_FIELDS.has(targetField)) {
+        lead[targetField] = cleanMoney(rawVal);
+      } else if (targetField === "tags_crm") {
+        lead[targetField] = rawVal ? String(rawVal).split(",").map(t => t.trim()).filter(Boolean) : null;
+      } else {
+        lead[targetField] = cleanStr(rawVal);
+      }
+    }
+    // Ensure nome fallback
+    if (!lead.nome) lead.nome = "Sem Nome";
+    // Ensure source
+    if (!lead.source) lead.source = "csv_import";
+    return lead;
+  });
+}
+
+/* ─── findColumnByHeader — match a single header against all patterns ─── */
+export function findColumnByHeader(header: string): string | null {
+  const h = header.toLowerCase().trim();
+  for (const [field, patterns] of Object.entries(AUTO_DETECT_PATTERNS)) {
+    if (patterns.some(p => p.test(h))) return field;
+  }
+  return null;
+}
