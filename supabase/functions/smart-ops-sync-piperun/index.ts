@@ -28,6 +28,8 @@ const SYNC_PIPELINES = [
   PIPELINES.INSUMOS,
   PIPELINES.INTERESSE_CURSOS,
   PIPELINES.EBOOK,
+  PIPELINES.ECOMMERCE,
+  PIPELINES.ATOS,
 ];
 
 async function fetchDealsForPipeline(
@@ -149,7 +151,7 @@ Deno.serve(async (req) => {
     }
 
     const pipelineId = Number(singlePipeline);
-    const maxPages = fullSync ? 5 : 2;
+    const maxPages = fullSync ? 50 : 5;
 
     const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages);
     console.log(`[sync-piperun] Pipeline ${pipelineId}: ${allDeals.length} deals fetched`);
@@ -208,9 +210,9 @@ Deno.serve(async (req) => {
       } else {
         notFound++;
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
-        const nome = updatePayload.nome ? String(updatePayload.nome) : null;
+        const nome = updatePayload.nome ? String(updatePayload.nome) : (deal as any).title || null;
 
-        if (email && nome) {
+        if (email) {
           const { data: existingByEmail } = await supabase
             .from("lia_attendances")
             .select("id")
@@ -218,7 +220,6 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (existingByEmail) {
-            // Smart merge for email-matched leads too
             const smartPayload: Record<string, unknown> = { piperun_id: dealId };
             for (const [key, value] of Object.entries(updatePayload)) {
               if (value !== null && value !== undefined) {
@@ -231,8 +232,9 @@ Deno.serve(async (req) => {
               .eq("id", existingByEmail.id);
             updated++;
           } else {
-          const insertPayload = {
+            const insertPayload = {
               ...updatePayload,
+              nome: nome || `Deal #${dealId}`,
               piperun_id: dealId,
               source: "piperun",
               lead_status: deal.stage_id ? (STAGE_TO_ETAPA[deal.stage_id] || "sem_contato") : "sem_contato",
