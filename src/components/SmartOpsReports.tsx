@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, Users, AlertTriangle, TrendingDown } from "lucide-react";
+import { Download, Users, AlertTriangle, TrendingDown, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface Client {
   id: string;
@@ -27,6 +28,8 @@ const ASSETS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cu
 export function SmartOpsReports() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetch = async () => {
