@@ -26,6 +26,14 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // GET → validation probe from Astron platform
+  if (req.method === "GET") {
+    return new Response(
+      JSON.stringify({ status: "ok", service: "astron-postback" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method not allowed. Use POST." }),
@@ -34,7 +42,19 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    // Parse body: JSON or form-urlencoded
+    let body: Record<string, any>;
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      body = await req.json();
+    } else if (contentType.includes("form-urlencoded")) {
+      const text = await req.text();
+      body = Object.fromEntries(new URLSearchParams(text));
+    } else {
+      const text = await req.text();
+      try { body = JSON.parse(text); } catch { body = { raw: text }; }
+    }
 
     // 1. Validate token
     const expectedToken = Deno.env.get("ASTRON_POSTBACK_TOKEN");
