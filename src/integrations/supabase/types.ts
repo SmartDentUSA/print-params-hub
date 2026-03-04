@@ -312,6 +312,36 @@ export type Database = {
         }
         Relationships: []
       }
+      backfill_log: {
+        Row: {
+          batch_number: number
+          error_count: number | null
+          finished_at: string | null
+          id: string
+          processed_count: number | null
+          started_at: string | null
+          success_count: number | null
+        }
+        Insert: {
+          batch_number: number
+          error_count?: number | null
+          finished_at?: string | null
+          id?: string
+          processed_count?: number | null
+          started_at?: string | null
+          success_count?: number | null
+        }
+        Update: {
+          batch_number?: number
+          error_count?: number | null
+          finished_at?: string | null
+          id?: string
+          processed_count?: number | null
+          started_at?: string | null
+          success_count?: number | null
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           active: boolean
@@ -696,6 +726,33 @@ export type Database = {
           updated_at?: string | null
           url?: string
           usage_count?: number | null
+        }
+        Relationships: []
+      }
+      intelligence_score_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          thresholds: Json
+          version: number
+          weights: Json
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          thresholds: Json
+          version: number
+          weights: Json
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          thresholds?: Json
+          version?: number
+          weights?: Json
         }
         Relationships: []
       }
@@ -1134,6 +1191,91 @@ export type Database = {
           },
         ]
       }
+      lead_state_events: {
+        Row: {
+          changed_at: string
+          cognitive_stage: string | null
+          id: string
+          intelligence_score: Json | null
+          is_regression: boolean
+          lead_id: string
+          new_stage: string | null
+          old_stage: string | null
+          owner_id: string | null
+          regression_gap_days: number | null
+          source: string
+        }
+        Insert: {
+          changed_at?: string
+          cognitive_stage?: string | null
+          id?: string
+          intelligence_score?: Json | null
+          is_regression?: boolean
+          lead_id: string
+          new_stage?: string | null
+          old_stage?: string | null
+          owner_id?: string | null
+          regression_gap_days?: number | null
+          source?: string
+        }
+        Update: {
+          changed_at?: string
+          cognitive_stage?: string | null
+          id?: string
+          intelligence_score?: Json | null
+          is_regression?: boolean
+          lead_id?: string
+          new_stage?: string | null
+          old_stage?: string | null
+          owner_id?: string | null
+          regression_gap_days?: number | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           created_at: string | null
@@ -1204,14 +1346,21 @@ export type Database = {
           ativo_print: boolean | null
           ativo_scan: boolean | null
           ativo_smart_slice: boolean | null
+          automation_cooldown_until: string | null
           cidade: string | null
           codigo_contrato: string | null
           cognitive_analysis: Json | null
+          cognitive_analyzed_at: string | null
+          cognitive_context_hash: string | null
+          cognitive_model_version: string | null
+          cognitive_prompt_hash: string | null
           cognitive_updated_at: string | null
           comentario_perda: string | null
           como_digitaliza: string | null
           confidence_score_analysis: number | null
           created_at: string
+          crm_lock_source: string | null
+          crm_lock_until: string | null
           cs_treinamento: string | null
           data_contrato: string | null
           data_fechamento_crm: string | null
@@ -1261,10 +1410,15 @@ export type Database = {
           impressora_modelo: string | null
           informacao_desejada: string | null
           insumos_adquiridos: string | null
+          intelligence_score: Json | null
+          intelligence_score_backfilled_at: string | null
+          intelligence_score_total: number | null
+          intelligence_score_updated_at: string | null
           interest_timeline: string | null
           ip_origem: string | null
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
+          last_automated_action_at: string | null
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
@@ -1410,14 +1564,21 @@ export type Database = {
           ativo_print?: boolean | null
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
+          automation_cooldown_until?: string | null
           cidade?: string | null
           codigo_contrato?: string | null
           cognitive_analysis?: Json | null
+          cognitive_analyzed_at?: string | null
+          cognitive_context_hash?: string | null
+          cognitive_model_version?: string | null
+          cognitive_prompt_hash?: string | null
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
           confidence_score_analysis?: number | null
           created_at?: string
+          crm_lock_source?: string | null
+          crm_lock_until?: string | null
           cs_treinamento?: string | null
           data_contrato?: string | null
           data_fechamento_crm?: string | null
@@ -1467,10 +1628,15 @@ export type Database = {
           impressora_modelo?: string | null
           informacao_desejada?: string | null
           insumos_adquiridos?: string | null
+          intelligence_score?: Json | null
+          intelligence_score_backfilled_at?: string | null
+          intelligence_score_total?: number | null
+          intelligence_score_updated_at?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
+          last_automated_action_at?: string | null
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
@@ -1616,14 +1782,21 @@ export type Database = {
           ativo_print?: boolean | null
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
+          automation_cooldown_until?: string | null
           cidade?: string | null
           codigo_contrato?: string | null
           cognitive_analysis?: Json | null
+          cognitive_analyzed_at?: string | null
+          cognitive_context_hash?: string | null
+          cognitive_model_version?: string | null
+          cognitive_prompt_hash?: string | null
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
           confidence_score_analysis?: number | null
           created_at?: string
+          crm_lock_source?: string | null
+          crm_lock_until?: string | null
           cs_treinamento?: string | null
           data_contrato?: string | null
           data_fechamento_crm?: string | null
@@ -1673,10 +1846,15 @@ export type Database = {
           impressora_modelo?: string | null
           informacao_desejada?: string | null
           insumos_adquiridos?: string | null
+          intelligence_score?: Json | null
+          intelligence_score_backfilled_at?: string | null
+          intelligence_score_total?: number | null
+          intelligence_score_updated_at?: string | null
           interest_timeline?: string | null
           ip_origem?: string | null
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
+          last_automated_action_at?: string | null
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
@@ -1842,7 +2020,42 @@ export type Database = {
             foreignKeyName: "message_logs_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
           },
           {
@@ -2655,16 +2868,225 @@ export type Database = {
             foreignKeyName: "whatsapp_inbox_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
           },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      lead_model_routing: {
+        Row: {
+          id: string | null
+          intelligence_score_total: number | null
+          max_tokens_cognitive: number | null
+          recommended_model: string | null
+          telefone_normalized: string | null
+        }
+        Insert: {
+          id?: string | null
+          intelligence_score_total?: number | null
+          max_tokens_cognitive?: never
+          recommended_model?: never
+          telefone_normalized?: string | null
+        }
+        Update: {
+          id?: string | null
+          intelligence_score_total?: number | null
+          max_tokens_cognitive?: never
+          recommended_model?: never
+          telefone_normalized?: string | null
+        }
+        Relationships: []
+      }
+      v_lead_academy: {
+        Row: {
+          astron_completion_rate: number | null
+          astron_courses_completed: number | null
+          astron_courses_total: number | null
+          astron_last_login_at: string | null
+          astron_status: string | null
+          id: string | null
+          telefone_normalized: string | null
+        }
+        Insert: {
+          astron_completion_rate?: never
+          astron_courses_completed?: number | null
+          astron_courses_total?: number | null
+          astron_last_login_at?: string | null
+          astron_status?: string | null
+          id?: string | null
+          telefone_normalized?: string | null
+        }
+        Update: {
+          astron_completion_rate?: never
+          astron_courses_completed?: number | null
+          astron_courses_total?: number | null
+          astron_last_login_at?: string | null
+          astron_status?: string | null
+          id?: string | null
+          telefone_normalized?: string | null
+        }
+        Relationships: []
+      }
+      v_lead_cognitive: {
+        Row: {
+          cognitive_analysis: Json | null
+          cognitive_analyzed_at: string | null
+          cognitive_model_version: string | null
+          cognitive_prompt_hash: string | null
+          confidence_score_analysis: number | null
+          id: string | null
+          intelligence_score: Json | null
+          intelligence_score_total: number | null
+          lead_stage_detected: string | null
+          telefone_normalized: string | null
+        }
+        Insert: {
+          cognitive_analysis?: Json | null
+          cognitive_analyzed_at?: string | null
+          cognitive_model_version?: string | null
+          cognitive_prompt_hash?: string | null
+          confidence_score_analysis?: number | null
+          id?: string | null
+          intelligence_score?: Json | null
+          intelligence_score_total?: number | null
+          lead_stage_detected?: string | null
+          telefone_normalized?: string | null
+        }
+        Update: {
+          cognitive_analysis?: Json | null
+          cognitive_analyzed_at?: string | null
+          cognitive_model_version?: string | null
+          cognitive_prompt_hash?: string | null
+          confidence_score_analysis?: number | null
+          id?: string | null
+          intelligence_score?: Json | null
+          intelligence_score_total?: number | null
+          lead_stage_detected?: string | null
+          telefone_normalized?: string | null
+        }
+        Relationships: []
+      }
+      v_lead_commercial: {
+        Row: {
+          email: string | null
+          empresa_piperun_id: number | null
+          id: string | null
+          intelligence_score_total: number | null
+          intelligence_score_updated_at: string | null
+          lead_stage_detected: string | null
+          nome: string | null
+          pessoa_piperun_id: number | null
+          piperun_id: string | null
+          proposals_count: number | null
+          proposals_total_value: number | null
+          proprietario_lead_crm: string | null
+          telefone_normalized: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          email?: string | null
+          empresa_piperun_id?: number | null
+          id?: string | null
+          intelligence_score_total?: number | null
+          intelligence_score_updated_at?: string | null
+          lead_stage_detected?: string | null
+          nome?: string | null
+          pessoa_piperun_id?: number | null
+          piperun_id?: string | null
+          proposals_count?: never
+          proposals_total_value?: number | null
+          proprietario_lead_crm?: string | null
+          telefone_normalized?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          email?: string | null
+          empresa_piperun_id?: number | null
+          id?: string | null
+          intelligence_score_total?: number | null
+          intelligence_score_updated_at?: string | null
+          lead_stage_detected?: string | null
+          nome?: string | null
+          pessoa_piperun_id?: number | null
+          piperun_id?: string | null
+          proposals_count?: never
+          proposals_total_value?: number | null
+          proprietario_lead_crm?: string | null
+          telefone_normalized?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      v_lead_ecommerce: {
+        Row: {
+          id: string | null
+          lojaintegrada_cliente_id: number | null
+          lojaintegrada_ultimo_pedido_data: string | null
+          lojaintegrada_ultimo_pedido_numero: number | null
+          lojaintegrada_ultimo_pedido_valor: number | null
+          telefone_normalized: string | null
+        }
+        Insert: {
+          id?: string | null
+          lojaintegrada_cliente_id?: number | null
+          lojaintegrada_ultimo_pedido_data?: string | null
+          lojaintegrada_ultimo_pedido_numero?: number | null
+          lojaintegrada_ultimo_pedido_valor?: number | null
+          telefone_normalized?: string | null
+        }
+        Update: {
+          id?: string | null
+          lojaintegrada_cliente_id?: number | null
+          lojaintegrada_ultimo_pedido_data?: string | null
+          lojaintegrada_ultimo_pedido_numero?: number | null
+          lojaintegrada_ultimo_pedido_valor?: number | null
+          telefone_normalized?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      calculate_lead_intelligence_score: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       get_brand_distribution: {
         Args: never
         Returns: {

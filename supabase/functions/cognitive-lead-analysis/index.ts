@@ -17,6 +17,25 @@ const VALID_STAGES = ["MQL_pesquisador", "PQL_recompra", "SAL_comparador", "SQL_
 const VALID_URGENCY = ["alta", "media", "baixa"];
 const VALID_TIMELINE = ["imediato", "3_6_meses", "6_12_meses", "indefinido"];
 
+// ── Intelligence Score helpers ──
+
+const STAGE_ORDER = ["MQL_pesquisador", "PQL_recompra", "SAL_comparador", "SQL_decisor", "CLIENTE_ativo"];
+
+function isRegression(oldStage: string | null, newStage: string | null): boolean {
+  if (!oldStage || !newStage) return false;
+  const oldIdx = STAGE_ORDER.indexOf(oldStage);
+  const newIdx = STAGE_ORDER.indexOf(newStage);
+  if (oldIdx === -1 || newIdx === -1) return false;
+  return newIdx < oldIdx;
+}
+
+async function sha256(text: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").substring(0, 16);
+}
+
 // ── Longitudinal memory builder ──
 
 interface LongitudinalContext {
@@ -33,7 +52,6 @@ function buildLongitudinalContext(
   leadData: Record<string, unknown>,
   dealNotes: Array<{ text: string; created_at: string }>
 ): LongitudinalContext {
-  // 1. Session history from historico_resumos
   const resumos = Array.isArray(leadData.historico_resumos)
     ? (leadData.historico_resumos as Array<{ data?: string; resumo?: string; msgs?: number }>)
     : [];
@@ -43,7 +61,6 @@ function buildLongitudinalContext(
       ).join("\n")
     : "Nenhuma sessão anterior registrada";
 
-  // 2. Stage evolution
   const previousStage = leadData.previous_stage as string | null;
   const cogPrev = leadData.cognitive_analysis as Record<string, unknown> | null;
   const prevTrajectory = cogPrev?.stage_trajectory as string | null;
@@ -53,7 +70,6 @@ function buildLongitudinalContext(
       ? `Último estágio detectado: ${previousStage}`
       : "Primeiro contato cognitivo";
 
-  // 3. PipeRun enriched context
   const piperunParts: string[] = [];
   if (leadData.piperun_pipeline_name) piperunParts.push(`Pipeline: ${leadData.piperun_pipeline_name}`);
   if (leadData.piperun_stage_name) piperunParts.push(`Etapa CRM: ${leadData.piperun_stage_name}`);
@@ -71,12 +87,10 @@ function buildLongitudinalContext(
     piperunParts.push(`Última mudança etapa: ${new Date(leadData.piperun_stage_changed_at as string).toLocaleDateString("pt-BR")}`);
   const piperunContext = piperunParts.length > 0 ? piperunParts.join(" | ") : "Sem dados PipeRun";
 
-  // 4. Seller notes from PipeRun
   const piperunNotes = dealNotes.length > 0
     ? dealNotes.map((n) => `[${n.created_at ? new Date(n.created_at).toLocaleDateString("pt-BR") : "?"}] ${n.text}`).join("\n")
     : "Sem notas do vendedor";
 
-  // 5. Astron context
   const astronParts: string[] = [];
   if (leadData.astron_courses_total && Number(leadData.astron_courses_total) > 0) {
     astronParts.push(`${leadData.astron_courses_completed || 0}/${leadData.astron_courses_total} cursos concluídos`);
@@ -89,7 +103,6 @@ function buildLongitudinalContext(
   }
   const astronContext = astronParts.length > 0 ? astronParts.join(" | ") : "Sem dados Astron";
 
-  // 6. E-commerce context
   const ecommerceParts: string[] = [];
   if (leadData.lojaintegrada_ultimo_pedido_valor && Number(leadData.lojaintegrada_ultimo_pedido_valor) > 0) {
     ecommerceParts.push(`Último pedido: R$ ${Number(leadData.lojaintegrada_ultimo_pedido_valor).toLocaleString("pt-BR")}`);
@@ -114,13 +127,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000); // Increased for enrichment
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
   try {
     const { email, leadId } = await req.json();
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // ── Guard 1: Find lead (expanded SELECT for longitudinal memory) ──
+    // ── Guard 1: Find lead (expanded SELECT for longitudinal memory + audit) ──
     let query = supabase.from("lia_attendances").select(
       `id, nome, email, area_atuacao, tem_impressora, tem_scanner, impressora_modelo,
        volume_mensal_pecas, ultima_etapa_comercial, resumo_historico_ia,
@@ -132,7 +145,8 @@ serve(async (req) => {
        piperun_stage_changed_at, piperun_id,
        astron_courses_completed, astron_courses_total, astron_last_login_at,
        astron_plans_active,
-       lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor`
+       lojaintegrada_ultimo_pedido_data, lojaintegrada_ultimo_pedido_valor,
+       intelligence_score, proprietario_lead_crm`
     );
     if (email) query = query.eq("email", email);
     else if (leadId) query = query.eq("id", leadId);
@@ -264,7 +278,9 @@ ${contextString.slice(0, 3500)}
 
 Retorne APENAS o JSON, sem markdown, sem explicação.`;
 
-    // ── LLM call via DeepSeek API (deeper reasoning for psychological profiling) ──
+    const modelUsed = "deepseek-chat";
+
+    // ── LLM call via DeepSeek API ──
     const response = await fetch(DEEPSEEK_API, {
       method: "POST",
       headers: {
@@ -272,7 +288,7 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "deepseek-chat",
+        model: modelUsed,
         max_tokens: 800,
         temperature: 0.6,
         stream: false,
@@ -289,7 +305,7 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
     await logAIUsage({
       functionName: "cognitive-lead-analysis",
       actionLabel: "cognitive-profile-deepseek",
-      model: "deepseek-chat",
+      model: modelUsed,
       promptTokens: usage.prompt_tokens,
       completionTokens: usage.completion_tokens,
     });
@@ -332,6 +348,18 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
     if (typeof cognitiveData.seasonal_pattern !== "string") cognitiveData.seasonal_pattern = null;
     else cognitiveData.seasonal_pattern = (cognitiveData.seasonal_pattern as string).slice(0, 200);
 
+    // ── Audit trail ──
+    const promptHash = await sha256(prompt + modelUsed);
+    const contextHash = await sha256(JSON.stringify({ longitudinal, contextString: contextString.slice(0, 500) }) + modelUsed);
+
+    cognitiveData._audit = {
+      prompt_v: 2,
+      model: modelUsed,
+      prompt_hash: promptHash,
+      context_hash: contextHash,
+      calculated_at: new Date().toISOString(),
+    };
+
     // ── Upsert ──
     const { error: updateError } = await supabase
       .from("lia_attendances")
@@ -353,6 +381,42 @@ Retorne APENAS o JSON, sem markdown, sem explicação.`;
       console.error("[cognitive] Update error:", updateError);
       throw updateError;
     }
+
+    // ── Emit state event if stage changed ──
+    const oldStage = leadData.lead_stage_detected;
+    const newStage = cognitiveData.lead_stage_detected as string | null;
+
+    if (oldStage !== newStage && newStage) {
+      const regression = isRegression(oldStage, newStage);
+      const lastChangeAt = leadData.piperun_stage_changed_at;
+      const regressionGapDays = lastChangeAt
+        ? Math.floor((Date.now() - new Date(lastChangeAt as string).getTime()) / 86400000)
+        : null;
+
+      await supabase.from("lead_state_events").insert({
+        lead_id: leadData.id,
+        old_stage: oldStage,
+        new_stage: newStage,
+        cognitive_stage: newStage,
+        owner_id: (leadData.proprietario_lead_crm as string) || null,
+        source: "cognitive-lead-analysis",
+        is_regression: regression,
+        regression_gap_days: regressionGapDays,
+        intelligence_score: leadData.intelligence_score || null,
+      }).catch((e: unknown) => console.warn("[cognitive] State event insert failed:", e));
+    }
+
+    // ── Update audit fields ──
+    await supabase.from("lia_attendances").update({
+      cognitive_model_version: modelUsed,
+      cognitive_prompt_hash: promptHash,
+      cognitive_context_hash: contextHash,
+      cognitive_analyzed_at: new Date().toISOString(),
+    }).eq("id", leadData.id).catch((e: unknown) => console.warn("[cognitive] Audit fields update failed:", e));
+
+    // ── Recalculate intelligence score ──
+    await supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadData.id })
+      .catch((e: unknown) => console.warn("[cognitive] Intelligence score RPC failed:", e));
 
     // ── Push cognitive note to PipeRun deal ──
     if (PIPERUN_API_KEY) {

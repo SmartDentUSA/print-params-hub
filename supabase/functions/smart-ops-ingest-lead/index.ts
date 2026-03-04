@@ -204,6 +204,10 @@ Deno.serve(async (req) => {
 
       leadId = existingLead.id;
       console.log("[ingest-lead] Lead existente atualizado (merge):", leadId, "campos:", fieldsUpdated);
+
+      // Recalculate intelligence score after merge
+      supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadId })
+        .catch((e: unknown) => console.warn("[ingest-lead] Intelligence score RPC failed:", e));
     } else {
       // --- NEW LEAD: insert ---
       const newLeadData = {
@@ -237,6 +241,10 @@ Deno.serve(async (req) => {
       leadId = newLead.id;
       fieldsUpdated = Object.keys(incomingData).filter(k => incomingData[k] !== null);
       console.log("[ingest-lead] Novo lead criado:", leadId);
+
+      // Recalculate intelligence score for new lead
+      supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadId })
+        .catch((e: unknown) => console.warn("[ingest-lead] Intelligence score RPC failed:", e));
     }
 
     // --- Step 4: Fire-and-forget orchestration ---
