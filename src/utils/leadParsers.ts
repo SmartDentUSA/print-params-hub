@@ -7,7 +7,7 @@ type RawRow = Record<string, unknown>;
 type NormalizedLead = Record<string, unknown>;
 
 /* ─── Phone helpers ─── */
-function cleanPhone(v: unknown): string | null {
+export function cleanPhone(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   let s = String(v);
   // Scientific notation fix (e.g. 5.51399E+12)
