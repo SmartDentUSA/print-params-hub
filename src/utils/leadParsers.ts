@@ -18,14 +18,14 @@ export function cleanPhone(v: unknown): string | null {
   return digits.length >= 8 ? digits : null;
 }
 
-function cleanEmail(v: unknown): string | null {
+export function cleanEmail(v: unknown): string | null {
   if (!v) return null;
   const s = String(v).trim().toLowerCase();
   if (s === "#n/a" || s === "n/a" || s === "-" || s === "" || !s.includes("@")) return null;
   return s;
 }
 
-function cleanMoney(v: unknown): number | null {
+export function cleanMoney(v: unknown): number | null {
   if (v === null || v === undefined) return null;
   if (typeof v === "number") return v;
   const s = String(v).replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
@@ -33,7 +33,7 @@ function cleanMoney(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
-function cleanStr(v: unknown): string | null {
+export function cleanStr(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s === "" || s === "#N/A" || s === "-" ? null : s;
@@ -563,7 +563,7 @@ function parseSellFlux(rows: RawRow[]): NormalizedLead[] {
 }
 
 /* ─── PARSER: auto_detect (fuzzy column matching) ─── */
-function findColumn(headers: string[], patterns: RegExp[]): string | null {
+export function findColumn(headers: string[], patterns: RegExp[]): string | null {
   for (const p of patterns) {
     const found = headers.find((h) => p.test(h.toLowerCase()));
     if (found) return found;
