@@ -44,18 +44,19 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // 2. Migrate tags
+        // 2. Migrate tags + extract custom fields
         const migration = migrateLegacyTags(sfData.tags);
+        const cf = sfData.customFields || {};
 
-        if (migration.standardizedTags.length === 0 && Object.keys(migration.extractedFields).length === 0) {
-          results.push({ email, status: "no_tags_to_sync" });
+        if (migration.standardizedTags.length === 0 && Object.keys(migration.extractedFields).length === 0 && Object.keys(cf).length === 0) {
+          results.push({ email, status: "no_data_to_sync" });
           continue;
         }
 
         // 3. Get current lead from DB
         const { data: lead } = await supabase
           .from("lia_attendances")
-          .select("id, tags_crm, area_atuacao, tem_impressora, tem_scanner")
+          .select("id, tags_crm, area_atuacao, tem_impressora, tem_scanner, piperun_id, proprietario_lead_crm, data_treinamento")
           .eq("email", email)
           .maybeSingle();
 
@@ -78,6 +79,29 @@ Deno.serve(async (req) => {
         if (ef.area_atuacao && !lead.area_atuacao) updatePayload.area_atuacao = ef.area_atuacao;
         if (ef.tem_impressora && !lead.tem_impressora) updatePayload.tem_impressora = ef.tem_impressora;
         if (ef.tem_scanner && !lead.tem_scanner) updatePayload.tem_scanner = ef.tem_scanner;
+
+        // Map custom fields from SellFlux
+        if (cf["atual-id-pipe"] && !lead.piperun_id) updatePayload.piperun_id = cf["atual-id-pipe"];
+        if (cf.proprietario && !lead.proprietario_lead_crm) updatePayload.proprietario_lead_crm = cf.proprietario;
+        if (cf.train_date && !lead.data_treinamento) updatePayload.data_treinamento = cf.train_date;
+        if (cf.impressora) updatePayload.impressora_modelo = cf.impressora;
+
+        // Store extra custom fields as JSONB
+        const extraCustom: Record<string, string> = {};
+        for (const key of ["tracking_status", "tracking_code", "tracking_url", "shipping_method",
+          "transaction_status", "transaction_url", "payment_method", "transaction_product",
+          "transaction_value", "pix", "boleto", "group_train", "scheduled_by",
+          "train-dur", "train-time", "debtor-message", "invoice-track", "invoice-data", "vacancy"]) {
+          if (cf[key]) extraCustom[key] = cf[key];
+        }
+        if (Object.keys(extraCustom).length > 0) {
+          updatePayload.sellflux_custom_fields = extraCustom;
+        }
+
+        // Loja Integrada mapping from tracking/transaction
+        if (cf.shipping_method) updatePayload.lojaintegrada_forma_envio = cf.shipping_method;
+        if (cf.payment_method) updatePayload.lojaintegrada_forma_pagamento = cf.payment_method;
+        if (cf.tracking_status) updatePayload.lojaintegrada_ultimo_pedido_status = cf.tracking_status;
 
         // 6. Update DB
         await supabase

@@ -2,12 +2,19 @@ import { Badge } from "@/components/ui/badge";
 
 const LEAD_VARIABLES = [
   { key: "nome", label: "Nome" },
+  { key: "primeiro_nome", label: "Primeiro Nome" },
   { key: "produto_interesse", label: "Produto" },
   { key: "especialidade", label: "Especialidade" },
   { key: "cidade", label: "Cidade" },
   { key: "uf", label: "UF" },
   { key: "area_atuacao", label: "Área" },
   { key: "proprietario_lead_crm", label: "Proprietário" },
+  { key: "impressora_modelo", label: "Impressora" },
+  { key: "tem_scanner", label: "Scanner" },
+  { key: "piperun_id", label: "ID Pipe" },
+  { key: "data_treinamento", label: "Data Treino" },
+  { key: "software_cad", label: "Software CAD" },
+  { key: "astron_email", label: "Email Plataforma" },
 ];
 
 interface WaLeadsVariableBarProps {

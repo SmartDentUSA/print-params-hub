@@ -345,10 +345,19 @@ export function buildSellFluxCampaignPayload(
   lead: Record<string, unknown>,
   templateId?: string
 ): Record<string, unknown> {
+  // Derive primeiro_nome from nome
+  const nomeStr = String(lead.nome || "");
+  const primeiroNome = nomeStr.split(" ")[0] || nomeStr;
+
+  // Derive bought-resin from tags
+  const tags = (lead.tags_crm as string[]) || [];
+  const boughtResin = tags.includes("EC_PROD_RESINA") ? "sim" : "";
+
   return {
     email: lead.email || null,
     phone: lead.telefone_normalized || null,
     nome: lead.nome || null,
+    primeiro_nome: primeiroNome,
     ...(templateId ? { template_id: templateId } : {}),
     area_atuacao: lead.area_atuacao || "",
     especialidade: lead.especialidade || "",
@@ -362,7 +371,16 @@ export function buildSellFluxCampaignPayload(
     status_lead: lead.lead_status || "",
     proprietario: lead.proprietario_lead_crm || "",
     etapa_comercial: lead.ultima_etapa_comercial || "",
-    tags: (lead.tags_crm as string[]) || [],
+    tags,
+    // New SellFlux custom fields
+    "atual-id-pipe": lead.piperun_id || "",
+    "bought-resin": boughtResin,
+    platform_mail: lead.astron_email || "",
+    platform_pass: lead.astron_login_url || "",
+    train_date: lead.data_treinamento || "",
+    scheduled_by: lead.proprietario_lead_crm || "",
+    software_cad: lead.software_cad || "",
+    volume_pecas: lead.volume_mensal_pecas || "",
   };
 }
 
@@ -402,7 +420,7 @@ export const buildSellFluxPayload = buildSellFluxCampaignPayload;
  */
 export async function fetchLeadFromSellFlux(
   email: string
-): Promise<{ tags: string[]; fields: Record<string, unknown>; raw: unknown } | null> {
+): Promise<{ tags: string[]; fields: Record<string, unknown>; customFields: Record<string, string>; raw: unknown } | null> {
   const baseUrl = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
   if (!baseUrl) {
     console.warn("[sellflux] SELLFLUX_WEBHOOK_LEADS secret not set");
@@ -418,7 +436,7 @@ export async function fetchLeadFromSellFlux(
     const data = await res.json();
     console.log(`[sellflux] Lead API response for ${email}:`, JSON.stringify(data).slice(0, 500));
 
-    // Extract tags — SellFlux may return tags as array or comma-separated string
+    // Extract tags
     let rawTags: string[] = [];
     if (Array.isArray(data.tags)) {
       rawTags = data.tags;
@@ -433,7 +451,42 @@ export async function fetchLeadFromSellFlux(
     if (data.city || data.cidade) fields.cidade = data.city || data.cidade;
     if (data.state || data.uf) fields.uf = data.state || data.uf;
 
-    return { tags: rawTags, fields, raw: data };
+    // Extract SellFlux custom fields
+    const customFields: Record<string, string> = {};
+    const customKeys = [
+      "atual-id-pipe", "bought-resin", "platform_mail", "platform_pass",
+      "train_date", "train-dur", "train-time", "scheduled_by", "group_train",
+      "debtor-message", "invoice-track", "invoice-data", "vacancy",
+      "proprietario", "area_atuacao", "especialidade", "produto_interesse",
+      "scanner", "impressora",
+    ];
+    for (const key of customKeys) {
+      const val = data[key] || data[key.replace(/-/g, "_")];
+      if (val) customFields[key] = String(val);
+    }
+
+    // Extract tracking object
+    if (data.tracking && typeof data.tracking === "object") {
+      if (data.tracking.status) customFields["tracking_status"] = String(data.tracking.status);
+      if (data.tracking.tracking) customFields["tracking_code"] = String(data.tracking.tracking);
+      if (data.tracking.tracking_url) customFields["tracking_url"] = String(data.tracking.tracking_url);
+      if (data.tracking.shipping_method) customFields["shipping_method"] = String(data.tracking.shipping_method);
+    }
+
+    // Extract transaction object
+    if (data.transaction && typeof data.transaction === "object") {
+      if (data.transaction.status) customFields["transaction_status"] = String(data.transaction.status);
+      if (data.transaction.url) customFields["transaction_url"] = String(data.transaction.url);
+      if (data.transaction.payment_method) customFields["payment_method"] = String(data.transaction.payment_method);
+      if (data.transaction.product_name) customFields["transaction_product"] = String(data.transaction.product_name);
+      if (data.transaction.transaction_value) customFields["transaction_value"] = String(data.transaction.transaction_value);
+    }
+
+    // Payment codes
+    if (data.pix) customFields["pix"] = String(data.pix);
+    if (data.boleto) customFields["boleto"] = String(data.boleto);
+
+    return { tags: rawTags, fields, customFields, raw: data };
   } catch (err) {
     console.error("[sellflux] Lead API fetch error:", err);
     return null;

@@ -31,6 +31,33 @@ Deno.serve(async (req) => {
     const cidade = payload.city || payload.cidade || null;
     const uf = payload.state || payload.uf || payload.estado || null;
 
+    // --- Extract SellFlux custom fields ---
+    const piperunId = payload["atual-id-pipe"] || payload.atual_id_pipe || null;
+    const proprietario = payload.proprietario || null;
+    const platformMail = payload.platform_mail || null;
+    const trainDate = payload.train_date || null;
+    const scheduledBy = payload.scheduled_by || null;
+    const groupTrain = payload.group_train || null;
+
+    // Extract tracking object (from Loja Integrada via SellFlux)
+    const tracking = payload.tracking || {};
+    const trackingStatus = tracking.status || payload["tracking.status"] || null;
+    const trackingCode = tracking.tracking || payload["tracking.tracking"] || null;
+    const trackingUrl = tracking.tracking_url || payload["tracking.tracking_url"] || null;
+    const shippingMethod = tracking.shipping_method || payload["tracking.shipping_method"] || null;
+
+    // Extract transaction object
+    const transaction = payload.transaction || {};
+    const transactionStatus = transaction.status || payload["transaction.status"] || null;
+    const transactionUrl = transaction.url || payload["transaction.url"] || null;
+    const paymentMethod = transaction.payment_method || payload["transaction.payment_method"] || null;
+    const productName = transaction.product_name || payload["transaction.product_name"] || null;
+    const transactionValue = transaction.transaction_value || payload["transaction.transaction_value"] || null;
+
+    // Payment codes
+    const pixCode = payload.pix || null;
+    const boletoCode = payload.boleto || null;
+
     // --- Process tags ---
     const rawTags: string[] = Array.isArray(payload.tags)
       ? payload.tags
@@ -49,6 +76,28 @@ Deno.serve(async (req) => {
         console.log("[sellflux-webhook] Unmapped tags:", migration.unmappedTags);
       }
     }
+
+    // Build sellflux_custom_fields JSONB for extra data
+    const sellfluxCustom: Record<string, unknown> = {};
+    if (trainDate) sellfluxCustom.train_date = trainDate;
+    if (scheduledBy) sellfluxCustom.scheduled_by = scheduledBy;
+    if (groupTrain) sellfluxCustom.group_train = groupTrain;
+    if (payload["train-dur"]) sellfluxCustom.train_dur = payload["train-dur"];
+    if (payload["train-time"]) sellfluxCustom.train_time = payload["train-time"];
+    if (payload["debtor-message"]) sellfluxCustom.debtor_message = payload["debtor-message"];
+    if (payload["invoice-track"]) sellfluxCustom.invoice_track = payload["invoice-track"];
+    if (payload["invoice-data"]) sellfluxCustom.invoice_data = payload["invoice-data"];
+    if (payload.vacancy) sellfluxCustom.vacancy = payload.vacancy;
+    if (pixCode) sellfluxCustom.pix = pixCode;
+    if (boletoCode) sellfluxCustom.boleto = boletoCode;
+    if (trackingCode) sellfluxCustom.tracking_code = trackingCode;
+    if (trackingUrl) sellfluxCustom.tracking_url = trackingUrl;
+    if (trackingStatus) sellfluxCustom.tracking_status = trackingStatus;
+    if (shippingMethod) sellfluxCustom.shipping_method = shippingMethod;
+    if (transactionStatus) sellfluxCustom.transaction_status = transactionStatus;
+    if (transactionUrl) sellfluxCustom.transaction_url = transactionUrl;
+    if (paymentMethod) sellfluxCustom.payment_method = paymentMethod;
+    if (transactionValue) sellfluxCustom.transaction_value = transactionValue;
 
     // --- Build normalized payload for ingest-lead ---
     const normalizedPayload: Record<string, unknown> = {
@@ -69,11 +118,26 @@ Deno.serve(async (req) => {
       ...(extractedFields.tem_scanner ? { tem_scanner: extractedFields.tem_scanner } : {}),
       // Custom fields passthrough
       ...(payload.especialidade ? { especialidade: payload.especialidade } : {}),
-      ...(payload.produto_interesse ? { produto_interesse: payload.produto_interesse } : {}),
-      ...(payload.impressora_modelo ? { impressora_modelo: payload.impressora_modelo } : {}),
+      ...(payload.produto_interesse || productName ? { produto_interesse: payload.produto_interesse || productName } : {}),
+      ...(payload.impressora_modelo || payload.impressora ? { impressora_modelo: payload.impressora_modelo || payload.impressora } : {}),
       ...(payload.resina_interesse ? { resina_interesse: payload.resina_interesse } : {}),
+      // PipeRun ID from SellFlux
+      ...(piperunId ? { piperun_id: piperunId } : {}),
+      // Proprietario
+      ...(proprietario ? { proprietario_lead_crm: proprietario } : {}),
+      // Platform / Astron
+      ...(platformMail ? { astron_email: platformMail } : {}),
+      // Training
+      ...(trainDate ? { data_treinamento: trainDate } : {}),
+      // Loja Integrada tracking fields
+      ...(shippingMethod ? { lojaintegrada_forma_envio: shippingMethod } : {}),
+      ...(paymentMethod ? { lojaintegrada_forma_pagamento: paymentMethod } : {}),
+      ...(trackingStatus ? { lojaintegrada_ultimo_pedido_status: trackingStatus } : {}),
+      ...(transactionValue ? { valor_oportunidade: transactionValue } : {}),
       // Tags for CRM sync
       ...(standardizedTags.length > 0 ? { tags_crm: standardizedTags } : {}),
+      // SellFlux custom fields JSONB
+      ...(Object.keys(sellfluxCustom).length > 0 ? { sellflux_custom_fields: sellfluxCustom } : {}),
       // Keep original payload reference
       _sellflux_raw: payload,
     };
