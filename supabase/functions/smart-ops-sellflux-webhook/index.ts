@@ -157,18 +157,20 @@ Deno.serve(async (req) => {
 
     // --- Log to system_health_logs ---
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    await supabase.from("system_health_logs").insert({
-      function_name: "smart-ops-sellflux-webhook",
-      severity: ingestRes.ok ? "info" : "warning",
-      error_type: ingestRes.ok ? "webhook_received" : "ingest_failed",
-      lead_email: email,
-      details: {
-        tags_count: rawTags.length,
-        standardized_tags: standardizedTags,
-        extracted_fields: extractedFields,
-        ingest_status: ingestRes.status,
-      },
-    }).catch(() => {});
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-sellflux-webhook",
+        severity: ingestRes.ok ? "info" : "warning",
+        error_type: ingestRes.ok ? "webhook_received" : "ingest_failed",
+        lead_email: email,
+        details: {
+          tags_count: rawTags.length,
+          standardized_tags: standardizedTags,
+          extracted_fields: extractedFields,
+          ingest_status: ingestRes.status,
+        },
+      });
+    } catch {}
 
     return new Response(ingestBody, {
       status: ingestRes.status,

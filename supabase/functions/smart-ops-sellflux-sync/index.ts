@@ -121,16 +121,18 @@ Deno.serve(async (req) => {
     }
 
     // Log summary
-    await supabase.from("system_health_logs").insert({
-      function_name: "smart-ops-sellflux-sync",
-      severity: "info",
-      error_type: "batch_sync",
-      details: {
-        total: batch.length,
-        synced: results.filter((r) => r.status === "synced").length,
-        results,
-      },
-    }).catch(() => {});
+    try {
+      await supabase.from("system_health_logs").insert({
+        function_name: "smart-ops-sellflux-sync",
+        severity: "info",
+        error_type: "batch_sync",
+        details: {
+          total: batch.length,
+          synced: results.filter((r) => r.status === "synced").length,
+          results,
+        },
+      });
+    } catch {}
 
     return new Response(JSON.stringify({ results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

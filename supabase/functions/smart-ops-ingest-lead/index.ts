@@ -195,7 +195,7 @@ Deno.serve(async (req) => {
 
         if (updateError) {
           console.error("[ingest-lead] Update error:", updateError);
-          await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_update_failed", lead_email: email, details: { error: updateError.message } }).catch(() => {});
+          try { await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_update_failed", lead_email: email, details: { error: updateError.message } }); } catch {}
           return new Response(JSON.stringify({ error: updateError.message }), {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
 
       // Recalculate intelligence score after merge
       supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadId })
-        .catch((e: unknown) => console.warn("[ingest-lead] Intelligence score RPC failed:", e));
+        .then(({ error }: { error: unknown }) => { if (error) console.warn("[ingest-lead] Intelligence score RPC failed:", error); });
     } else {
       // --- NEW LEAD: insert ---
       const newLeadData = {
@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
 
       if (insertError) {
         console.error("[ingest-lead] Insert error:", insertError);
-        await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_insert_failed", lead_email: email, details: { error: insertError.message } }).catch(() => {});
+        try { await supabase.from("system_health_logs").insert({ function_name: "smart-ops-ingest-lead", severity: "error", error_type: "lead_insert_failed", lead_email: email, details: { error: insertError.message } }); } catch {}
         return new Response(JSON.stringify({ error: insertError.message }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
 
       // Recalculate intelligence score for new lead
       supabase.rpc("calculate_lead_intelligence_score", { p_lead_id: leadId })
-        .catch((e: unknown) => console.warn("[ingest-lead] Intelligence score RPC failed:", e));
+        .then(({ error }: { error: unknown }) => { if (error) console.warn("[ingest-lead] Intelligence score RPC failed:", error); });
     }
 
     // --- Step 4: Fire-and-forget orchestration ---
