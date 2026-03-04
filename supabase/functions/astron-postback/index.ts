@@ -69,6 +69,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validation probe: Astron sends {"key":"..."} to test the URL
+    if (!body.event && !body.event_type && !body.email && !body.user_email) {
+      console.log("[astron-postback] Validation probe received, returning 200");
+      return new Response(
+        JSON.stringify({ status: "ok", service: "astron-postback" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // 2. Extract event type (flat format from Astron)
     const eventType: string = body.event || body.event_type || "unknown";
 
