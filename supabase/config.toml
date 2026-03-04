@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.astron-postback]
 verify_jwt = false
+
+[functions.smart-ops-sellflux-webhook]
+verify_jwt = false
