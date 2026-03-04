@@ -23,13 +23,16 @@ function isInStagnantStatus(leadStatus: string): boolean {
 // Pipelines to sync in full mode (all relevant ones)
 const SYNC_PIPELINES = [
   PIPELINES.VENDAS,
+  PIPELINES.ATOS,
+  PIPELINES.EXPORTACAO,
+  PIPELINES.DISTRIBUIDOR_LEADS,
   PIPELINES.ESTAGNADOS,
   PIPELINES.CS_ONBOARDING,
   PIPELINES.INSUMOS,
   PIPELINES.INTERESSE_CURSOS,
   PIPELINES.EBOOK,
   PIPELINES.ECOMMERCE,
-  PIPELINES.ATOS,
+  PIPELINES.TULIP_TESTE,
 ];
 
 async function fetchDealsForPipeline(
