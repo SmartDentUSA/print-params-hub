@@ -135,13 +135,6 @@ Deno.serve(async (req) => {
       // We'll merge this into existing astron_courses_access below
       astronFields._course_entry = courseEntry;
 
-      if (body.user_course_percentage != null) {
-        const pct = Number(body.user_course_percentage);
-        if (pct >= 100) {
-          astronFields.astron_courses_completed =
-            (body.astron_courses_completed || 0) + 1;
-        }
-      }
     }
 
     // Event-specific: newcomment
@@ -187,6 +180,9 @@ Deno.serve(async (req) => {
       }
       astronFields.astron_courses_access = existingCourses;
       astronFields.astron_courses_total = existingCourses.length;
+      astronFields.astron_courses_completed = existingCourses.filter(
+        (c: any) => Number(c.percentage) >= 100
+      ).length;
     }
 
     // UTM fields (useradd)
