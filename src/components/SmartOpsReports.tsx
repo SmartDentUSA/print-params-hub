@@ -159,8 +159,9 @@ export function SmartOpsReports() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Detalhamento por Cliente</CardTitle>
-          <Button variant="outline" size="sm" onClick={exportCSV}>
-            <Download className="w-4 h-4 mr-1" /> Exportar CSV
+          <Button variant="outline" size="sm" onClick={exportCSV} disabled={isExporting}>
+            {isExporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+            {isExporting ? "Exportando..." : "Exportar CSV Completo"}
           </Button>
         </CardHeader>
         <CardContent>
