@@ -9,21 +9,21 @@ const corsHeaders = {
 const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-/* ─── Astron API helper (POST + JSON body) ─── */
-async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
+/* ─── Astron API helper (GET + Basic Auth) ─── */
+async function astronFetch(endpoint: string, params: Record<string, string> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
   const clubId = Deno.env.get("ASTRON_CLUB_ID")!;
 
-  const url = `${ASTRON_BASE}/${endpoint}`;
-  const body = { am_key: amKey, am_secret: amSecret, club_id: Number(clubId), ...params };
+  const qs = new URLSearchParams({ club_id: clubId, ...params });
+  const url = `${ASTRON_BASE}/${endpoint}?${qs}`;
+  const auth = btoa(`${amKey}:${amSecret}`);
 
-  console.log(`[astron-lookup] POST ${url}`, JSON.stringify({ ...body, am_key: "***", am_secret: "***" }));
+  console.log(`[astron-lookup] GET ${url}`);
 
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method: "GET",
+    headers: { "Authorization": `Basic ${auth}` },
     signal: AbortSignal.timeout(10000),
   });
 
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       let plansActive: string[] = [];
       try {
         const plansResp = await astronFetch("listClubUserPlans", {
-          user_id: astronUser.id,
+          user_id: String(astronUser.id),
         });
         plansData = plansResp?.data || plansResp?.plans || plansResp || [];
         if (Array.isArray(plansData)) {
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
       // Generate login URL
       let loginUrl: string | null = null;
       try {
-        const loginResp = await astronFetch("generateClubUserLoginUrl", { user_id: astronUser.id });
+        const loginResp = await astronFetch("generateClubUserLoginUrl", { user_id: String(astronUser.id) });
         loginUrl = loginResp?.login_url || loginResp?.url || null;
       } catch (e) {
         console.warn(`[astron-lookup] Login URL fetch failed: ${e}`);

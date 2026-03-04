@@ -8,21 +8,21 @@ const corsHeaders = {
 
 const ASTRON_BASE = "https://api.astronmembers.com.br/v1.0";
 
-/* ─── Astron API helper (POST + JSON body) ─── */
-async function astronFetch(endpoint: string, params: Record<string, unknown> = {}) {
+/* ─── Astron API helper (GET + Basic Auth) ─── */
+async function astronFetch(endpoint: string, params: Record<string, string> = {}) {
   const amKey = Deno.env.get("ASTRON_AM_KEY")!;
   const amSecret = Deno.env.get("ASTRON_AM_SECRET")!;
   const clubId = Deno.env.get("ASTRON_CLUB_ID")!;
 
-  const url = `${ASTRON_BASE}/${endpoint}`;
-  const body = { am_key: amKey, am_secret: amSecret, club_id: Number(clubId), ...params };
+  const qs = new URLSearchParams({ club_id: clubId, ...params });
+  const url = `${ASTRON_BASE}/${endpoint}?${qs}`;
+  const auth = btoa(`${amKey}:${amSecret}`);
 
-  console.log(`[sync-astron] POST ${url}`);
+  console.log(`[sync-astron] GET ${url}`);
 
   const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    method: "GET",
+    headers: { "Authorization": `Basic ${auth}` },
     signal: AbortSignal.timeout(15000),
   });
 
@@ -90,8 +90,8 @@ Deno.serve(async (req) => {
     while (page <= maxPages) {
       // 1. Fetch paginated users via GET
       const usersResp = await astronFetch("listClubUsers", {
-        page: page,
-        limit: pageSize,
+        page: String(page),
+        limit: String(pageSize),
       });
 
       const users = usersResp?.data || usersResp?.users || usersResp || [];
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
           let plansActive: string[] = [];
           try {
             const plansResp = await astronFetch("listClubUserPlans", {
-              user_id: user.id,
+              user_id: String(user.id),
             });
             plansData = plansResp?.data || plansResp?.plans || plansResp || [];
             if (Array.isArray(plansData)) {
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
           }
 
           // 3. Generate login URL
-          const loginUrl = await getLoginUrl(user.id);
+          const loginUrl = await getLoginUrl(String(user.id));
 
           // 4. Build astron fields
           const astronFields: Record<string, unknown> = {
