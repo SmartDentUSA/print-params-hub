@@ -1516,6 +1516,8 @@ export type Database = {
           sdr_suporte_descricao: string | null
           sdr_suporte_equipamento: string | null
           sdr_suporte_tipo: string | null
+          sellflux_custom_fields: Json | null
+          sellflux_synced_at: string | null
           software_cad: string | null
           source: string
           status_atual_lead_crm: string | null
@@ -1734,6 +1736,8 @@ export type Database = {
           sdr_suporte_descricao?: string | null
           sdr_suporte_equipamento?: string | null
           sdr_suporte_tipo?: string | null
+          sellflux_custom_fields?: Json | null
+          sellflux_synced_at?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
@@ -1952,6 +1956,8 @@ export type Database = {
           sdr_suporte_descricao?: string | null
           sdr_suporte_equipamento?: string | null
           sdr_suporte_tipo?: string | null
+          sellflux_custom_fields?: Json | null
+          sellflux_synced_at?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
