@@ -4,11 +4,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download, ShieldAlert } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download, ShieldAlert, Key, Plus } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { PARSER_MAP, PARSER_OPTIONS } from "@/utils/leadParsers";
+import {
+  PARSER_MAP, PARSER_OPTIONS,
+  LIA_SYSTEM_FIELDS, AUTO_DETECT_PATTERNS,
+  findColumnByHeader, applyMappings,
+  type FieldMapping,
+} from "@/utils/leadParsers";
 import * as XLSX from "xlsx";
 
 interface ImportResult {
@@ -31,6 +39,13 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
   const [allErrors, setAllErrors] = useState<{ row: number; email: string; error: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Auto-detect mapping states
+  const [rawRows, setRawRows] = useState<Record<string, unknown>[]>([]);
+  const [csvColumns, setCsvColumns] = useState<string[]>([]);
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+
+  const isAutoDetect = parserType === "auto_detect";
+
   const reset = () => {
     setPreview(null);
     setAllParsed([]);
@@ -38,15 +53,15 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
     setAllErrors([]);
     setProgress({ batch: 0, total: 0, inserted: 0, updated: 0, skipped: 0 });
     setImporting(false);
+    setRawRows([]);
+    setCsvColumns([]);
+    setFieldMappings([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !parserType) return;
-
-    const parser = PARSER_MAP[parserType];
-    if (!parser) { toast.error("Parser não encontrado"); return; }
 
     try {
       const buffer = await file.arrayBuffer();
@@ -63,13 +78,72 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
         rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
       }
 
-      const parsed = parser(rows);
-      setAllParsed(parsed);
-      setPreview(parsed.slice(0, 5));
-      toast.success(`${parsed.length} leads parseados de ${rows.length} linhas`);
+      if (isAutoDetect) {
+        // Store raw rows and build mappings
+        setRawRows(rows);
+        const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
+        setCsvColumns(headers);
+
+        const mappings: FieldMapping[] = headers.map((col) => {
+          const detected = findColumnByHeader(col);
+          const samples = rows
+            .slice(0, 10)
+            .map((r) => r[col])
+            .filter((v) => v !== null && v !== undefined && String(v).trim() !== "")
+            .slice(0, 3)
+            .map((v) => String(v));
+
+          return {
+            csvColumn: col,
+            systemField: detected || "__ignore__",
+            newFieldName: "",
+            enabled: detected !== null,
+            samples,
+          };
+        });
+
+        // Force email enabled + locked
+        const emailIdx = mappings.findIndex((m) => m.systemField === "email");
+        if (emailIdx >= 0) mappings[emailIdx].enabled = true;
+
+        setFieldMappings(mappings);
+        toast.success(`${rows.length} linhas detectadas com ${headers.length} colunas`);
+      } else {
+        const parser = PARSER_MAP[parserType];
+        if (!parser) { toast.error("Parser não encontrado"); return; }
+        const parsed = parser(rows);
+        setAllParsed(parsed);
+        setPreview(parsed.slice(0, 5));
+        toast.success(`${parsed.length} leads parseados de ${rows.length} linhas`);
+      }
     } catch (err) {
       toast.error(`Erro ao ler arquivo: ${err instanceof Error ? err.message : String(err)}`);
     }
+  };
+
+  const handleConfirmMappings = () => {
+    const active = fieldMappings.filter((m) => m.enabled && m.systemField !== "__ignore__");
+    const hasEmail = active.some((m) => m.systemField === "email");
+    if (!hasEmail) {
+      toast.error("É obrigatório mapear pelo menos uma coluna como 'email'");
+      return;
+    }
+
+    // Check new fields have names
+    const invalidNew = active.filter((m) => m.systemField === "__new__" && !m.newFieldName.trim());
+    if (invalidNew.length > 0) {
+      toast.error(`Preencha o nome para ${invalidNew.length} campo(s) novo(s)`);
+      return;
+    }
+
+    const normalized = applyMappings(rawRows, fieldMappings);
+    setAllParsed(normalized);
+    setPreview(normalized.slice(0, 5));
+    toast.success(`${normalized.length} leads mapeados para importação`);
+  };
+
+  const updateMapping = (index: number, updates: Partial<FieldMapping>) => {
+    setFieldMappings((prev) => prev.map((m, i) => (i === index ? { ...m, ...updates } : m)));
   };
 
   const handleImport = async () => {
@@ -137,6 +211,9 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
     ? ["nome", "email", "telefone_raw", "produto_interesse", "lead_status", "source"].filter((c) => preview.some((r) => r[c] !== null && r[c] !== undefined))
     : [];
 
+  // Show mapping step for auto_detect before confirming
+  const showMappingStep = isAutoDetect && fieldMappings.length > 0 && allParsed.length === 0;
+
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <DialogTrigger asChild>
@@ -144,7 +221,7 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
           <Upload className="w-4 h-4 mr-1" /> Importar
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5" />
@@ -185,15 +262,109 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
             </div>
           )}
 
-          {/* Step 3: Preview */}
+          {/* Step 3: Mapping (auto_detect only) */}
+          {showMappingStep && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium">3. Mapeamento de Campos ({csvColumns.length} colunas → {fieldMappings.filter(m => m.enabled).length} ativas)</label>
+              <div className="overflow-x-auto border rounded-md max-h-[400px] overflow-y-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10 text-xs">✓</TableHead>
+                      <TableHead className="text-xs min-w-[180px]">Coluna CSV</TableHead>
+                      <TableHead className="text-xs min-w-[220px]">Campo do Sistema</TableHead>
+                      <TableHead className="text-xs min-w-[150px]">Novo Campo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fieldMappings.map((m, i) => {
+                      const isEmail = m.systemField === "email";
+                      const isNew = m.systemField === "__new__";
+                      return (
+                        <TableRow key={i} className={!m.enabled ? "opacity-50" : ""}>
+                          <TableCell className="p-2">
+                            <Checkbox
+                              checked={m.enabled}
+                              disabled={isEmail}
+                              onCheckedChange={(checked) => updateMapping(i, { enabled: !!checked })}
+                            />
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <div>
+                              <span className="text-sm font-medium">{m.csvColumn}</span>
+                              {isEmail && (
+                                <Badge variant="outline" className="ml-1.5 text-[10px] px-1 py-0">
+                                  <Key className="w-2.5 h-2.5 mr-0.5" /> chave
+                                </Badge>
+                              )}
+                            </div>
+                            {m.samples.length > 0 && (
+                              <div className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[200px]">
+                                {m.samples.join(" · ")}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="p-2">
+                            <Select
+                              value={m.systemField}
+                              onValueChange={(v) => {
+                                const updates: Partial<FieldMapping> = { systemField: v };
+                                if (v !== "__new__") updates.newFieldName = "";
+                                if (v !== "__ignore__" && !m.enabled) updates.enabled = true;
+                                updateMapping(i, updates);
+                              }}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                <SelectItem value="__ignore__" className="text-xs text-muted-foreground">— ignorar —</SelectItem>
+                                {LIA_SYSTEM_FIELDS.map((f) => (
+                                  <SelectItem key={f.value} value={f.value} className="text-xs">
+                                    {f.label}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="__new__" className="text-xs font-semibold text-primary">
+                                  <span className="flex items-center gap-1"><Plus className="w-3 h-3" /> Criar novo campo</span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="p-2">
+                            {isNew && (
+                              <Input
+                                value={m.newFieldName}
+                                onChange={(e) => updateMapping(i, { newFieldName: e.target.value.replace(/\s+/g, "_").toLowerCase() })}
+                                placeholder="nome_do_campo"
+                                className="h-8 text-xs"
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleConfirmMappings}>
+                  <CheckCircle className="w-4 h-4 mr-1" />
+                  Aplicar Mapeamento ({rawRows.length} leads)
+                </Button>
+                <Button variant="outline" onClick={reset}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3/4: Preview (non-auto or after mapping confirmed) */}
           {preview && preview.length > 0 && (() => {
             const semNomeCount = allParsed.filter((r) => r.nome === "Sem Nome").length;
             const semNomePct = Math.round((semNomeCount / allParsed.length) * 100);
-            const blocked = semNomePct > 50;
+            const blocked = !isAutoDetect && semNomePct > 50;
             return (
             <div className="space-y-2">
-              <label className="text-sm font-medium">3. Preview (primeiras 5 linhas de {allParsed.length})</label>
-              {semNomeCount >= 3 && (
+              <label className="text-sm font-medium">{isAutoDetect ? "4" : "3"}. Preview (primeiras 5 linhas de {allParsed.length})</label>
+              {semNomeCount >= 3 && !isAutoDetect && (
                 <Alert variant="destructive">
                   <ShieldAlert className="w-4 h-4" />
                   <AlertDescription>
