@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
           }
 
           // 3. Generate login URL
-          const loginUrl = await getLoginUrl(String(user.id));
+          const loginUrl = await getLoginUrl(user.id);
 
           // 4. Build astron fields
           const astronFields: Record<string, unknown> = {
