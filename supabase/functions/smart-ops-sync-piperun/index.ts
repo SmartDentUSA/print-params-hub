@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
     }
 
     const pipelineId = Number(singlePipeline);
-    const maxPages = fullSync ? 5 : 2;
+    const maxPages = fullSync ? 50 : 5;
 
     const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages);
     console.log(`[sync-piperun] Pipeline ${pipelineId}: ${allDeals.length} deals fetched`);
