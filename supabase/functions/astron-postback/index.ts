@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     const expectedToken = Deno.env.get("ASTRON_POSTBACK_TOKEN");
     const receivedToken = req.headers.get("x-token") || body?.token;
 
-    if (expectedToken && expectedToken !== receivedToken) {
+    if (expectedToken && receivedToken && expectedToken !== receivedToken) {
       console.warn("[astron-postback] Invalid token received");
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
