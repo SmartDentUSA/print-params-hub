@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       let plansActive: string[] = [];
       try {
         const plansResp = await astronFetch("listClubUserPlans", {
-          user_id: String(astronUser.id),
+          user_id: astronUser.id,
         });
         plansData = plansResp?.data || plansResp?.plans || plansResp || [];
         if (Array.isArray(plansData)) {
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
       // Generate login URL
       let loginUrl: string | null = null;
       try {
-        const loginResp = await astronFetch("generateClubUserLoginUrl", { user_id: String(astronUser.id) });
+        const loginResp = await astronFetch("generateClubUserLoginUrl", { user_id: astronUser.id });
         loginUrl = loginResp?.login_url || loginResp?.url || null;
       } catch (e) {
         console.warn(`[astron-lookup] Login URL fetch failed: ${e}`);
