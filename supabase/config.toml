@@ -227,3 +227,6 @@ verify_jwt = false
 
 [functions.backfill-intelligence-score]
 verify_jwt = false
+
+[functions.astron-postback]
+verify_jwt = false
