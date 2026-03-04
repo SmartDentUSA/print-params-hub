@@ -57,18 +57,67 @@ export function SmartOpsReports() {
     return ativos >= 1 && ativos < 4;
   }).length;
 
-  const exportCSV = () => {
-    const header = "Nome,Email,Contrato," + ASSETS.join(",") + ",Ultima Compra Insumos\n";
-    const rows = clients.map((c) =>
-      [c.nome, c.email, c.data_contrato || "", ...ASSETS.map((a) => c[`ativo_${a}` as keyof Client] ? "Sim" : "Não"), c.data_ultima_compra_insumos || ""].join(",")
-    ).join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `smart-ops-recorrencia-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const exportCSV = async () => {
+    setIsExporting(true);
+    try {
+      // Fetch ALL leads in batches of 1000
+      const allRows: Record<string, unknown>[] = [];
+      const BATCH = 1000;
+      let offset = 0;
+      let done = false;
+
+      while (!done) {
+        const { data, error } = await supabase
+          .from("lia_attendances")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .range(offset, offset + BATCH - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) { done = true; break; }
+        allRows.push(...data);
+        if (data.length < BATCH) { done = true; } else { offset += BATCH; }
+      }
+
+      if (allRows.length === 0) {
+        toast({ title: "Nenhum lead encontrado", variant: "destructive" });
+        return;
+      }
+
+      // Dynamic headers from first record
+      const headers = Object.keys(allRows[0]);
+
+      const escapeCSV = (val: unknown): string => {
+        if (val === null || val === undefined) return "";
+        const str = typeof val === "object" ? JSON.stringify(val) : String(val);
+        if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvLines = [
+        headers.join(","),
+        ...allRows.map((row) => headers.map((h) => escapeCSV(row[h])).join(","))
+      ];
+
+      // BOM for Excel UTF-8 compat
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `smart-ops-leads-completo-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({ title: `${allRows.length} leads exportados com todos os campos` });
+    } catch (err) {
+      console.error("Export error:", err);
+      toast({ title: "Erro na exportação", description: String(err), variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando relatórios...</div>;
