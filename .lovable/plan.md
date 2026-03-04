@@ -1,26 +1,45 @@
 
 
-# Plano: Resolver 404 da Astron ao validar URL do postback
+# Plano: Corrigir validacao do astron-postback
 
-## Problema
+## Diagnostico
 
-O gateway do Supabase exige o header `apikey` em **todas** as requisicoes para edge functions, mesmo com `verify_jwt = false`. A Astron faz um GET simples sem esse header, resultando em 404 (a pagina de erro do Supabase que aparece no screenshot).
+Os logs confirmam:
+- `[astron-postback] Invalid token received` — a Astron envia POSTs de validacao **sem token**
+- O secret `ASTRON_POSTBACK_TOKEN` tem valor configurado
+- A condicao `if (expectedToken && expectedToken !== receivedToken)` rejeita com 401
+
+A Astron nao envia GET para validar — ela envia um POST sem token e espera receber 200.
 
 ## Solucao
 
-Incluir o `apikey` como query parameter na URL. O Supabase aceita a anon key via query string `?apikey=...`.
+Duas opcoes:
 
-## URL correta para colar no painel da Astron
+### Opcao A (recomendada): Preencher o token no painel da Astron
+- Voce precisa saber qual valor foi configurado no secret `ASTRON_POSTBACK_TOKEN`
+- Colar esse mesmo valor no campo "Token (Opcional)" do painel da Astron
+- Nenhuma alteracao de codigo necessaria
 
+### Opcao B: Tornar o token opcional na function
+- Modificar a validacao para so rejeitar quando um token **e enviado mas nao confere**
+- Se nenhum token for enviado, aceitar a requisicao (sem autenticacao)
+
+Alteracao no `supabase/functions/astron-postback/index.ts`, linha 63:
+
+```typescript
+// ANTES:
+if (expectedToken && expectedToken !== receivedToken) {
+
+// DEPOIS:
+if (expectedToken && receivedToken && expectedToken !== receivedToken) {
 ```
-https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/astron-postback?apikey=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk
-```
 
-## Nenhuma alteracao de codigo necessaria
+Isso faz com que:
+- Se a Astron envia token → valida
+- Se a Astron NAO envia token → aceita (probe de validacao passa)
+- Seguranca reduzida, mas funcional
 
-A edge function ja trata GET corretamente (retorna `{"status":"ok"}`). O unico problema e a falta da `apikey` na chamada da Astron.
+## Recomendacao
 
-## Seguranca
-
-A anon key e publica por design (ja e usada no frontend). A seguranca real esta no `ASTRON_POSTBACK_TOKEN` que valida os POSTs.
+Opcao B resolve o problema imediato. Para producao, configurar o token no painel da Astron (Opcao A) e mais seguro.
 
