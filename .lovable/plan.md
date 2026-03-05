@@ -1,19 +1,25 @@
 
 
-## Corrigir Deploy das Edge Functions SellFlux
+## Forcando Redeploy das Edge Functions
 
-### Problema
-Os logs de `2026-03-04T23:56` mostram dois erros:
-1. `smart-ops-sellflux-webhook` linha 195: `supabase.from(...).insert(...).catch is not a function`
-2. `smart-ops-ingest-lead`: `supabase.rpc(...).catch is not a function`
+### Diagnostico
 
-O código no repositório já foi corrigido (usa `try/catch` e `.then()`), mas as funções deployadas ainda executam a versão antiga.
+O codigo no repositorio esta **100% correto** — sem `.catch()` em chamadas Supabase client. Porem os logs mostram erros em linhas que nao correspondem ao codigo atual (ex: erro na linha 195 do webhook, mas o arquivo tem apenas 185 linhas). Isso confirma que o **Supabase continua executando a versao antiga**.
 
-### Solução
-Simplesmente **redeployar** as 3 funções afetadas:
-- `smart-ops-sellflux-webhook`
-- `smart-ops-ingest-lead`  
-- `smart-ops-sellflux-sync`
+O teste que voce fez agora provavelmente nao gerou logs novos porque:
+1. O deploy anterior pode nao ter sido efetivado corretamente
+2. Ou o teste nao chegou ao endpoint (URL incorreta no UI)
 
-Após o deploy, repetir o teste com o lead `oraculosmartdent@gmail.com` e verificar os logs.
+### Plano
+
+1. **Fazer novo deploy forcado** das 3 funcoes afetadas:
+   - `smart-ops-sellflux-webhook`
+   - `smart-ops-ingest-lead`
+   - `smart-ops-sellflux-sync`
+
+2. **Aguardar 30s** e verificar os logs do webhook para confirmar que a nova versao esta ativa
+
+3. **Executar teste via curl** diretamente para garantir que o endpoint responde com a versao corrigida
+
+Nao ha nenhuma alteracao de codigo necessaria — apenas redeployar o que ja esta correto no repositorio.
 
