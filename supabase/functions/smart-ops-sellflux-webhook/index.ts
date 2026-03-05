@@ -6,6 +6,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function detectRealSource(payload: Record<string, unknown>, tags: string[]): { source: string; utm_source: string } {
+  const hasTracking = payload.tracking && typeof payload.tracking === "object";
+  const hasTransaction = payload.transaction && typeof payload.transaction === "object";
+  const ecommerceTags = ["loja_integrada", "compra-realizada", "pedido-pago", "aguardandopagamento", "gerouboleto", "cancelado"];
+  const hasEcommerceTags = tags.some(t => ecommerceTags.some(ec => t.toLowerCase().includes(ec)));
+
+  if (hasTracking || hasTransaction || hasEcommerceTags) {
+    return { source: "loja_integrada", utm_source: "loja_integrada" };
+  }
+
+  const automationName = payload.automation_name || payload.form_name;
+  if (automationName) {
+    return { source: String(automationName), utm_source: "sellflux" };
+  }
+
+  return { source: "sellflux_webhook", utm_source: "sellflux" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
