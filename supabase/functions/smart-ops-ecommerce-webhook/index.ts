@@ -338,11 +338,11 @@ function enrichWithOrderHistory(
 
   // Build summary of last 10 orders (all orders, not just paid)
   const historicoPedidos = orders.slice(0, 10).map((o) => {
-    const sit = o.situacao as Record<string, unknown> | undefined;
+    const codigo = resolveSituacaoCodigo(o.situacao);
     return {
       numero: o.numero || o.id,
       valor: Number(o.valor_total) || 0,
-      status: sit?.nome || sit?.codigo || "?",
+      status: codigo || "?",
       data: o.data_criacao || null,
     };
   });
