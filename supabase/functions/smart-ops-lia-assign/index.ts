@@ -946,6 +946,7 @@ Deno.serve(async (req) => {
     let personId: number | null = lead.pessoa_piperun_id as number | null;
     let companyId: number | null = lead.empresa_piperun_id as number | null;
     let flowType = "unknown";
+    let vendaDeal: Record<string, unknown> | undefined;
 
     // Step 5a: Find or create Person
     if (!personId) {
