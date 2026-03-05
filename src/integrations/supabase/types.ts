@@ -1432,10 +1432,14 @@ export type Database = {
           lojaintegrada_endereco: string | null
           lojaintegrada_forma_envio: string | null
           lojaintegrada_forma_pagamento: string | null
+          lojaintegrada_historico_pedidos: Json | null
           lojaintegrada_itens_json: Json | null
+          lojaintegrada_ltv: number | null
           lojaintegrada_numero: string | null
+          lojaintegrada_primeira_compra: string | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
+          lojaintegrada_total_pedidos_pagos: number | null
           lojaintegrada_ultimo_pedido_data: string | null
           lojaintegrada_ultimo_pedido_numero: number | null
           lojaintegrada_ultimo_pedido_status: string | null
@@ -1652,10 +1656,14 @@ export type Database = {
           lojaintegrada_endereco?: string | null
           lojaintegrada_forma_envio?: string | null
           lojaintegrada_forma_pagamento?: string | null
+          lojaintegrada_historico_pedidos?: Json | null
           lojaintegrada_itens_json?: Json | null
+          lojaintegrada_ltv?: number | null
           lojaintegrada_numero?: string | null
+          lojaintegrada_primeira_compra?: string | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
+          lojaintegrada_total_pedidos_pagos?: number | null
           lojaintegrada_ultimo_pedido_data?: string | null
           lojaintegrada_ultimo_pedido_numero?: number | null
           lojaintegrada_ultimo_pedido_status?: string | null
@@ -1872,10 +1880,14 @@ export type Database = {
           lojaintegrada_endereco?: string | null
           lojaintegrada_forma_envio?: string | null
           lojaintegrada_forma_pagamento?: string | null
+          lojaintegrada_historico_pedidos?: Json | null
           lojaintegrada_itens_json?: Json | null
+          lojaintegrada_ltv?: number | null
           lojaintegrada_numero?: string | null
+          lojaintegrada_primeira_compra?: string | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
+          lojaintegrada_total_pedidos_pagos?: number | null
           lojaintegrada_ultimo_pedido_data?: string | null
           lojaintegrada_ultimo_pedido_numero?: number | null
           lojaintegrada_ultimo_pedido_status?: string | null
