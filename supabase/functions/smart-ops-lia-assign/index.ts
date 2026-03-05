@@ -1075,7 +1075,7 @@ Deno.serve(async (req) => {
       updateFields.ultima_etapa_comercial = piperunEtapa;
     }
 
-    if (piperunId && !lead.piperun_id) {
+    if (piperunId) {
       updateFields.piperun_id = piperunId;
       updateFields.piperun_link = `https://app.pipe.run/#/deals/${piperunId}`;
     }
@@ -1148,7 +1148,7 @@ Deno.serve(async (req) => {
       .update(updateFields)
       .eq("id", lead.id);
 
-    console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${piperunFunil}`);
+    console.log(`[lia-assign] Lead updated: owner=${assignedOwnerName}, flow=${flowType}, funil=${updateFields.funil_entrada_crm || "n/a"}`);
 
     // ── 7. Outbound automation ──
     await triggerOutboundMessages(supabase, SUPABASE_URL, SERVICE_ROLE_KEY, lead, assignedTeamMemberId, assignedOwnerName);
