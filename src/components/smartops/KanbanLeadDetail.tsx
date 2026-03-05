@@ -523,7 +523,8 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
                 {lead.tags_crm.map((t, i) => <Badge key={i} variant="secondary" className="text-[10px]">🏷️ {t}</Badge>)}
               </div>
             )}
-            <DetailRow label="Criado" value={fmtDateTime(lead.created_at)} />
+            <DetailRow label="🚪 Entrada no Sistema" value={fmtDateTime(s(lead, "entrada_sistema"))} />
+            <DetailRow label="Criado (banco)" value={fmtDateTime(lead.created_at)} />
             <DetailRow label="Atualizado" value={fmtDateTime(lead.updated_at)} />
           </Section>
           <Separator />

@@ -1,0 +1,2 @@
+ALTER TABLE public.lia_attendances ADD COLUMN IF NOT EXISTS entrada_sistema timestamptz NOT NULL DEFAULT now();
+UPDATE public.lia_attendances SET entrada_sistema = created_at WHERE entrada_sistema = now();

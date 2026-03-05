@@ -1386,6 +1386,7 @@ export type Database = {
           empresa_segmento: string | null
           empresa_situacao: string | null
           empresa_website: string | null
+          entrada_sistema: string
           equip_cad: string | null
           equip_cad_ativacao: string | null
           equip_cad_serial: string | null
@@ -1610,6 +1611,7 @@ export type Database = {
           empresa_segmento?: string | null
           empresa_situacao?: string | null
           empresa_website?: string | null
+          entrada_sistema?: string
           equip_cad?: string | null
           equip_cad_ativacao?: string | null
           equip_cad_serial?: string | null
@@ -1834,6 +1836,7 @@ export type Database = {
           empresa_segmento?: string | null
           empresa_situacao?: string | null
           empresa_website?: string | null
+          entrada_sistema?: string
           equip_cad?: string | null
           equip_cad_ativacao?: string | null
           equip_cad_serial?: string | null
