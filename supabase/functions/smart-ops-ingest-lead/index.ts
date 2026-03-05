@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
       const protectedFields = [
         "nome", "email", "telefone_normalized", "piperun_id",
         "proprietario_lead_crm", "status_oportunidade", "lead_stage_detected",
+        "entrada_sistema",
       ];
 
       const { merged, fieldsUpdated: updated } = smartMerge(existingLead, incomingData, protectedFields);
