@@ -1,12 +1,8 @@
 /**
  * Register webhooks at Loja Integrada API
  * 
- * Loja Integrada webhook API:
- *   POST https://api.awsli.com.br/v1/webhook/
- *   Body: { url, evento_tipo, formato }
- * 
- * For listing (GET), use query params auth:
- *   GET https://api.awsli.com.br/v1/webhook/?chave_api=X&chave_aplicacao=Y
+ * Auth: query params only (chave_api + chave_aplicacao)
+ * No Authorization headers — LI API requires query param auth.
  */
 
 const corsHeaders = {
@@ -28,18 +24,11 @@ function buildAuthParams(apiKey: string, appKey: string | null): string {
   return params.toString();
 }
 
-function buildAuthHeader(apiKey: string, appKey: string | null): string {
-  return appKey
-    ? `chave_api ${apiKey} aplicacao ${appKey}`
-    : `chave_api ${apiKey}`;
-}
-
 async function registerWebhook(
   apiKey: string,
   appKey: string | null,
   webhook: WebhookRegistration
 ): Promise<{ success: boolean; evento: string; status: number; body: string }> {
-  // POST uses both header auth AND query params for maximum compatibility
   const queryParams = buildAuthParams(apiKey, appKey);
   const url = `https://api.awsli.com.br/v1/webhook/?${queryParams}`;
 
@@ -47,7 +36,7 @@ async function registerWebhook(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: buildAuthHeader(apiKey, appKey),
+      "Accept": "application/json",
     },
     body: JSON.stringify(webhook),
   });
@@ -65,7 +54,6 @@ async function listWebhooks(
   apiKey: string,
   appKey: string | null
 ): Promise<{ success: boolean; status: number; data: unknown }> {
-  // GET uses query params auth (header alone may not work for reads)
   const queryParams = buildAuthParams(apiKey, appKey);
   const url = `https://api.awsli.com.br/v1/webhook/?${queryParams}`;
 
@@ -73,10 +61,7 @@ async function listWebhooks(
 
   const res = await fetch(url, {
     method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: buildAuthHeader(apiKey, appKey),
-    },
+    headers: { "Accept": "application/json" },
   });
 
   const body = await res.text();
@@ -99,9 +84,7 @@ async function deleteWebhook(
 
   const res = await fetch(url, {
     method: "DELETE",
-    headers: {
-      Authorization: buildAuthHeader(apiKey, appKey),
-    },
+    headers: { "Accept": "application/json" },
   });
   await res.text();
   return { success: res.ok, status: res.status };
@@ -124,22 +107,18 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const action = body.action || "register"; // "register" | "list" | "delete"
+    const action = body.action || "register";
 
-    // The public URL of our ecommerce webhook edge function
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const webhookUrl = `${SUPABASE_URL}/functions/v1/smart-ops-ecommerce-webhook`;
 
-    // Test auth by fetching a simple endpoint
+    // Test auth by fetching a simple endpoint (query params only)
     if (action === "test_auth") {
       const qp = buildAuthParams(apiKey, appKey || null);
       const testUrl = `https://api.awsli.com.br/v1/pedido/?${qp}&limit=1`;
       console.log(`[register-loja-webhooks] Testing auth: ${testUrl.replace(apiKey, "***")}`);
       const res = await fetch(testUrl, {
-        headers: {
-          Authorization: buildAuthHeader(apiKey, appKey || null),
-          Accept: "application/json",
-        },
+        headers: { "Accept": "application/json" },
       });
       const txt = await res.text();
       let data: unknown;
@@ -165,11 +144,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Register webhooks for all order + product events
-    const events = body.events || [
-      "pedido_criado",
-      "pedido_atualizado",
-    ];
+    // Register webhooks
+    const events = body.events || ["pedido_criado", "pedido_atualizado"];
 
     console.log(`[register-loja-webhooks] Registering ${events.length} webhooks → ${webhookUrl}`);
 
@@ -187,11 +163,7 @@ Deno.serve(async (req) => {
     const allSuccess = results.every((r) => r.success);
 
     return new Response(
-      JSON.stringify({
-        success: allSuccess,
-        webhook_url: webhookUrl,
-        results,
-      }),
+      JSON.stringify({ success: allSuccess, webhook_url: webhookUrl, results }),
       {
         status: allSuccess ? 200 : 207,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

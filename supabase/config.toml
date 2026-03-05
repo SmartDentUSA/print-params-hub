@@ -239,3 +239,6 @@ verify_jwt = false
 
 [functions.smart-ops-sellflux-sync]
 verify_jwt = false
+
+[functions.poll-loja-integrada-orders]
+verify_jwt = false

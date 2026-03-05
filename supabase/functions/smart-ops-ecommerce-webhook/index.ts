@@ -157,24 +157,27 @@ async function fetchOrderFromLI(
   appKey: string | null
 ): Promise<Record<string, unknown> | null> {
   try {
-    const url = `https://api.awsli.com.br${resourceUri}`;
-    const authHeader = appKey
-      ? `chave_api ${apiKey} aplicacao ${appKey}`
-      : `chave_api ${apiKey}`;
+    const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
+    const separator = resourceUri.includes('?') ? '&' : '?';
+    const url = `https://api.awsli.com.br${resourceUri}${separator}${authParams}`;
 
     const res = await fetch(url, {
-      headers: {
-        Authorization: authHeader,
-        "Content-Type": "application/json",
-      },
+      headers: { 'Accept': 'application/json' },
     });
 
     if (!res.ok) {
-      console.warn(`[ecommerce-webhook] Failed to fetch order from LI: ${res.status}`);
+      const errText = await res.text();
+      console.warn(`[ecommerce-webhook] Failed to fetch order from LI: ${res.status} ${errText.slice(0, 200)}`);
       return null;
     }
 
-    return await res.json();
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      console.error("[ecommerce-webhook] Invalid JSON from LI:", text.slice(0, 150));
+      return null;
+    }
   } catch (err) {
     console.error("[ecommerce-webhook] Error fetching LI order:", err);
     return null;
