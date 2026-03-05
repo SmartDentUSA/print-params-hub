@@ -1,172 +1,80 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+## Auditoria Completa do Revenue Intelligence OS
 
-## Diagnostico do Estado Atual
+### Secao 1: Resumo Executivo
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
-
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+**Status Geral: AMARELO** — O sistema tem arquitetura robusta mas contém 2 bugs criticos em producao, 3 problemas de alto impacto e 5 melhorias medias.
 
 ---
 
-## Fase 1: Tabela `whatsapp_inbox`
+### Secao 2: Bugs Criticos Encontrados
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+#### BUG 1 (CRITICO): `lia-assign` crash no fluxo `preserve_vendas`
+**Arquivo:** `supabase/functions/smart-ops-lia-assign/index.ts`, linha 1151
+**Problema:** A variavel `piperunFunil` e referenciada no log na linha 1151 mas e declarada somente dentro do bloco `else` (linha 1072). Quando o fluxo e `preserve_vendas`, o codigo lanca `ReferenceError: piperunFunil is not defined`, matando toda a execucao DEPOIS de ja ter atualizado o PipeRun mas ANTES de atualizar a `lia_attendances`.
+**Impacto:** Lead fica dessincronizado — PipeRun atualizado, base local nao.
+**Fix:** Substituir `piperunFunil` por `updateFields.funil_entrada_crm` no log.
 
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
-
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
-```
-
-RLS: `admin_only` (mesma policy de `lia_attendances`).
+#### BUG 2 (CRITICO): `ecommerce-webhook` LTV sempre = 0
+**Arquivo:** `supabase/functions/smart-ops-ecommerce-webhook/index.ts`, linhas 229-232
+**Problema:** A API da Loja Integrada retorna `codigo: "pedido_enviado"` (prefixo `pedido_`), mas `PAID_SITUACAO_CODIGOS` contém `"enviado"` sem o prefixo. O `resolveSituacaoCodigo()` retorna o codigo literal do objeto, que nao faz match.
+**Evidencia nos logs:** `situacao format sample: {"codigo":"pedido_enviado"}` + `Enrichment: LTV=0 | pedidosPagos=0` — 100% dos webhooks recentes mostram LTV=0.
+**Fix:** Adicionar os codigos com prefixo `pedido_` ao set: `"pedido_pago"`, `"pedido_enviado"`, `"pedido_entregue"`, `"pedido_em_producao"`, etc. OU normalizar removendo o prefixo `pedido_` antes da comparacao.
 
 ---
 
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
+### Secao 3: Problemas de Alto Impacto
 
-Endpoint publico que recebe POST do WaLeads quando lead responde.
+#### ALTO 1: `piperun-webhook` dispara cognitive-analysis com `SUPABASE_ANON_KEY`
+**Arquivo:** `smart-ops-piperun-webhook/index.ts`, linhas 286-293 e 354-361
+**Problema:** Usa `SUPABASE_ANON_KEY` no header Authorization em vez de `SERVICE_ROLE_KEY`. Como `verify_jwt = false` na config, funciona mas e uma falha de padrao — se mudar para `verify_jwt = true`, quebra silenciosamente.
+**Fix:** Usar `SERVICE_ROLE_KEY` consistentemente.
 
-**Fluxo:**
+#### ALTO 2: Idempotencia do `ecommerce-webhook` inexistente
+**Problema:** Se a Loja Integrada reenvia o mesmo webhook (retry, duplicata), o sistema processa novamente sem verificar se o pedido ja foi processado. Tags duplicam, LTV pode ser recalculado incorretamente.
+**Fix:** Adicionar campo `lojaintegrada_pedidos_processados` (array de IDs) e verificar antes de processar.
 
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
-
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
+#### ALTO 3: `lia-assign` piperun_id sobrescrito em fluxo `preserve_vendas`
+**Arquivo:** linha 1078: `if (piperunId && !lead.piperun_id)` — se o lead ja tem `piperun_id`, nao atualiza. Mas se o lead tem um `piperun_id` antigo de um deal perdido e agora tem um deal novo em Vendas, o ID antigo permanece.
+**Fix:** Sempre atualizar `piperun_id` com o deal ativo (vendaDeal ou novo deal).
 
 ---
 
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
+### Secao 4: Problemas de Medio Impacto
 
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
+1. **`astron-member-lookup` sem auto-criacao**: O plano original previa criar usuarios no Astron se nao existissem (`POST + senha hex`), mas a funcao atual so faz lookup. O `lia-assign` ja implementa auto-provisioning separadamente, mas sem o fluxo `GET-POST-Delay-GET` documentado.
 
-```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
+2. **`cognitive-lead-analysis` sem timeout no fetch de PipeRun notes**: Linha 207 — `fetchDealNotes` nao tem timeout explicito. Se o PipeRun estiver lento, bloqueia a funcao inteira.
 
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
-```
+3. **`poll-loja-integrada-orders` sem paginacao completa**: Busca apenas 1 pagina (`batch_size=50`). Se houver mais pedidos novos que 50 desde o ultimo poll, os excedentes sao ignorados ate o proximo ciclo.
 
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
+4. **`sellflux-webhook` nao protege `entrada_sistema`**: O `ingest-lead` protege via `protectedFields`, mas campos passados via `normalizedPayload` como `proprietario_lead_crm` podem sobrescrever dados de deals abertos em Vendas (viola a Golden Rule).
+
+5. **CORS inconsistente**: Algumas funcoes usam headers expandidos (com `x-supabase-client-*`), outras usam o minimo. Nao causa erro hoje mas pode causar em upgrades do SDK.
 
 ---
 
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
+### Secao 5: Plano de Correcao (Implementacao)
 
-Quando `intent_detected === 'interesse_imediato'`:
+| # | Arquivo | Mudanca | Prioridade |
+|---|---------|---------|------------|
+| 1 | `smart-ops-lia-assign/index.ts` L1151 | Corrigir referencia a `piperunFunil` — usar `updateFields.funil_entrada_crm` | CRITICO |
+| 2 | `smart-ops-ecommerce-webhook/index.ts` L229-232 | Expandir `PAID_SITUACAO_CODIGOS` com codigos prefixados (`pedido_pago`, `pedido_enviado`, `pedido_entregue`, `pedido_em_producao`, `pedido_em_separacao`, `pronto_para_envio`) | CRITICO |
+| 3 | `smart-ops-lia-assign/index.ts` L1078 | Sempre atualizar `piperun_id` com o deal ativo, remover `!lead.piperun_id` guard | ALTO |
+| 4 | `smart-ops-piperun-webhook/index.ts` L286,354 | Trocar `SUPABASE_ANON_KEY` por `SERVICE_ROLE_KEY` nos fire-and-forget | ALTO |
+| 5 | `smart-ops-ecommerce-webhook/index.ts` | Adicionar deduplicacao de pedidos processados | ALTO |
+| 6 | Deploy de todas as funcoes corrigidas | Redeploy | — |
 
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
+### Secao 6: Recomendacoes Futuras
 
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
+1. **Trigger SQL para recalc LIS on UPDATE**: Criar trigger `AFTER UPDATE ON lia_attendances` que chama `calculate_lead_intelligence_score` quando campos relevantes mudam (urgency_level, tem_impressora, etc.), eliminando a dependencia de chamadas RPC manuais espalhadas.
 
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
+2. **GIN index em `tags_crm`**: `CREATE INDEX idx_lia_tags_gin ON lia_attendances USING GIN (tags_crm)` — acelera queries de filtragem por tags no dashboard.
 
----
+3. **Deduplicacao de webhooks via `idempotency_key`**: Adicionar coluna `last_webhook_idempotency` e verificar no inicio de cada webhook.
 
-## Fase 5: Limpeza Automatica (Clean-up Job)
+4. **Circuit breaker centralizado**: Extrair o circuit breaker de `poll-loja-integrada-orders` para `_shared/` e reutilizar no `ecommerce-webhook` e `astron-member-lookup`.
 
-Adicionar logica no `smart-ops-stagnant-processor` existente:
-
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
-
----
-
-## Resumo de Arquivos
-
-| # | Arquivo | Acao |
-|---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
-
-```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
-```
-
-## Payload WaLeads Esperado
-
-O webhook do WaLeads envia POST com:
-
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
-}
-```
-
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+5. **TLDV integration**: Mencionada no briefing original mas nao implementada. Requer: secret `TLDV_API_KEY`, nova edge function `sync-tldv-recordings`, mapeamento para `lia_attendances.tldv_*` fields.
 
