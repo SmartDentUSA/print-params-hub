@@ -285,7 +285,26 @@ Deno.serve(async (req) => {
     }
 
     // ─── Extract customer data ───
-    const customer = (order.cliente || order.customer || {}) as Record<string, unknown>;
+    let customer = (typeof order.cliente === "object" && order.cliente !== null
+      ? order.cliente
+      : (order.customer || {})) as Record<string, unknown>;
+
+    // If cliente is a resource_uri string, resolve via API
+    if (typeof order.cliente === "string" && /\/cliente\//.test(order.cliente) && LI_API_KEY) {
+      const inlineEmail = String(customer.email || order.email || "").trim();
+      if (!inlineEmail) {
+        console.log(`[ecommerce-webhook] cliente is URI string: ${order.cliente} — resolving via API...`);
+        const resolvedCliente = await fetchClienteFromLI(order.cliente, LI_API_KEY, LI_APP_KEY || null);
+        if (resolvedCliente) {
+          // Merge resolved client data into customer object
+          customer = { ...customer, ...resolvedCliente };
+          console.log(`[ecommerce-webhook] Client resolved: email=${resolvedCliente.email || "?"} nome=${resolvedCliente.nome || "?"}`);
+        } else {
+          console.warn(`[ecommerce-webhook] Could not resolve client from URI: ${order.cliente}`);
+        }
+      }
+    }
+
     const nome = String(customer.nome || customer.name || order.nome || "Lead E-commerce");
     const email = String(customer.email || order.email || "").trim().toLowerCase();
 
