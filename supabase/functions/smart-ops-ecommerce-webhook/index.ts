@@ -184,6 +184,47 @@ async function fetchOrderFromLI(
   }
 }
 
+/**
+ * Fetch client data from LI when order only has a resource_uri string for cliente
+ */
+async function fetchClienteFromLI(
+  clienteUri: string,
+  apiKey: string,
+  appKey: string | null
+): Promise<Record<string, unknown> | null> {
+  try {
+    // Extract client ID from URI like /api/v1/cliente/12345/ or /cliente/12345
+    const match = clienteUri.match(/\/cliente\/(\d+)/);
+    if (!match) {
+      console.warn(`[ecommerce-webhook] Could not extract client ID from URI: ${clienteUri}`);
+      return null;
+    }
+    const clienteId = match[1];
+    const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
+    const url = `https://api.awsli.com.br/api/v1/cliente/${clienteId}/?${authParams}`;
+
+    console.log(`[ecommerce-webhook] Fetching client ${clienteId} from LI API...`);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn(`[ecommerce-webhook] Failed to fetch client from LI: ${res.status} ${errText.slice(0, 200)}`);
+      return null;
+    }
+
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      console.error("[ecommerce-webhook] Invalid JSON from LI client endpoint:", text.slice(0, 150));
+      return null;
+    }
+  } catch (err) {
+    console.error("[ecommerce-webhook] Error fetching LI client:", err);
+    return null;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
