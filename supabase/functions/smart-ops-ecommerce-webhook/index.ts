@@ -225,7 +225,123 @@ async function fetchClienteFromLI(
   }
 }
 
-Deno.serve(async (req) => {
+// Situação codes considered as "paid/delivered"
+const PAID_SITUACAO_CODIGOS = new Set([
+  "pago", "pagamento_confirmado", "pagamento_aprovado",
+  "em_producao", "pronto_envio", "enviado", "entregue",
+]);
+
+/**
+ * Fetch order history for a client from Loja Integrada API
+ */
+async function fetchClienteOrderHistory(
+  clienteId: number,
+  apiKey: string,
+  appKey: string | null
+): Promise<Array<Record<string, unknown>>> {
+  try {
+    const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
+    const url = `https://api.awsli.com.br/api/v1/pedido/?cliente_id=${clienteId}&limit=20&${authParams}`;
+
+    console.log(`[ecommerce-webhook] Fetching order history for cliente ${clienteId}...`);
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+    if (!res.ok) {
+      console.warn(`[ecommerce-webhook] Order history fetch failed: ${res.status}`);
+      return [];
+    }
+
+    const text = await res.text();
+    try {
+      const data = JSON.parse(text);
+      const objects = data.objects || data.results || (Array.isArray(data) ? data : []);
+      console.log(`[ecommerce-webhook] Found ${objects.length} orders for cliente ${clienteId}`);
+      return objects;
+    } catch {
+      console.error("[ecommerce-webhook] Invalid JSON from order history:", text.slice(0, 150));
+      return [];
+    }
+  } catch (err) {
+    console.error("[ecommerce-webhook] Error fetching order history:", err);
+    return [];
+  }
+}
+
+/**
+ * Enrich lead data with order history (LTV, recurrence, inactivity)
+ */
+function enrichWithOrderHistory(
+  orders: Array<Record<string, unknown>>,
+  tagsToAdd: string[]
+): {
+  ltv: number;
+  totalPedidosPagos: number;
+  dataPrimeiraCompra: string | null;
+  dataUltimaCompra: string | null;
+  historicoPedidos: Array<Record<string, unknown>>;
+  extraUpdateData: Record<string, unknown>;
+} {
+  // Filter paid/delivered orders
+  const paidOrders = orders.filter((o) => {
+    const sit = o.situacao as Record<string, unknown> | undefined;
+    if (!sit) return false;
+    const codigo = String(sit.codigo || "").toLowerCase();
+    return PAID_SITUACAO_CODIGOS.has(codigo);
+  });
+
+  const ltv = paidOrders.reduce((sum, o) => sum + (Number(o.valor_total) || 0), 0);
+  const totalPedidosPagos = paidOrders.length;
+
+  // Sort by date
+  const dates = paidOrders
+    .map((o) => String(o.data_criacao || ""))
+    .filter(Boolean)
+    .sort();
+  const dataPrimeiraCompra = dates[0] || null;
+  const dataUltimaCompra = dates[dates.length - 1] || null;
+
+  // Build summary of last 10 orders (all orders, not just paid)
+  const historicoPedidos = orders.slice(0, 10).map((o) => {
+    const sit = o.situacao as Record<string, unknown> | undefined;
+    return {
+      numero: o.numero || o.id,
+      valor: Number(o.valor_total) || 0,
+      status: sit?.nome || sit?.codigo || "?",
+      data: o.data_criacao || null,
+    };
+  });
+
+  const extraUpdateData: Record<string, unknown> = {
+    lojaintegrada_ltv: ltv || null,
+    lojaintegrada_total_pedidos_pagos: totalPedidosPagos || null,
+    lojaintegrada_historico_pedidos: historicoPedidos,
+  };
+  if (dataPrimeiraCompra) extraUpdateData.lojaintegrada_primeira_compra = dataPrimeiraCompra;
+
+  if (totalPedidosPagos > 0) {
+    tagsToAdd.push(ECOMMERCE_TAGS.EC_CLIENTE_RECORRENTE);
+    extraUpdateData.status_oportunidade = "ganha";
+    extraUpdateData.ativo_insumos = true;
+
+    // Check inactivity (>12 months since last purchase)
+    if (dataUltimaCompra) {
+      const lastPurchase = new Date(dataUltimaCompra);
+      const twelveMonthsAgo = new Date();
+      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+      if (lastPurchase < twelveMonthsAgo) {
+        tagsToAdd.push(ECOMMERCE_TAGS.EC_CLIENTE_INATIVO);
+      }
+    }
+
+    // Use LTV as valor_oportunidade if higher
+    if (ltv > 0) {
+      extraUpdateData.valor_oportunidade = ltv;
+    }
+  }
+
+  return { ltv, totalPedidosPagos, dataPrimeiraCompra, dataUltimaCompra, historicoPedidos, extraUpdateData };
+}
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
