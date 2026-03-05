@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_message_logs_dedupe ON message_logs (tipo, created_at DESC);
