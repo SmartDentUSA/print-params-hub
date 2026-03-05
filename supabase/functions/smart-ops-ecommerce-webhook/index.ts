@@ -267,6 +267,39 @@ async function fetchClienteOrderHistory(
   }
 }
 
+// Map Loja Integrada situacao IDs to codigo strings
+const SITUACAO_ID_TO_CODIGO: Record<number, string> = {
+  1: "aguardando_pagamento",
+  2: "pagamento_confirmado",
+  3: "pago",
+  4: "enviado",
+  5: "entregue",
+  6: "cancelado",
+  7: "pagamento_devolvido",
+  8: "aguardando_envio",
+  9: "em_producao",
+};
+
+/** Resolve situacao field (URI string, object, or unknown) to a codigo string */
+function resolveSituacaoCodigo(sit: unknown): string {
+  if (!sit) return "";
+  // URI string: "/api/v1/situacao/5/" → extract ID
+  if (typeof sit === "string") {
+    const match = sit.match(/\/situacao\/(\d+)/);
+    if (match) {
+      const id = Number(match[1]);
+      return (SITUACAO_ID_TO_CODIGO[id] || "").toLowerCase();
+    }
+    return sit.toLowerCase();
+  }
+  // Object with codigo field
+  if (typeof sit === "object" && sit !== null) {
+    const obj = sit as Record<string, unknown>;
+    return String(obj.codigo || obj.nome || "").toLowerCase();
+  }
+  return "";
+}
+
 /**
  * Enrich lead data with order history (LTV, recurrence, inactivity)
  */
@@ -281,11 +314,14 @@ function enrichWithOrderHistory(
   historicoPedidos: Array<Record<string, unknown>>;
   extraUpdateData: Record<string, unknown>;
 } {
-  // Filter paid/delivered orders
+  // Debug: log situacao format of first order
+  if (orders.length > 0) {
+    console.log(`[ecommerce-webhook] situacao format sample:`, JSON.stringify(orders[0].situacao));
+  }
+
+  // Filter paid/delivered orders using normalized situacao
   const paidOrders = orders.filter((o) => {
-    const sit = o.situacao as Record<string, unknown> | undefined;
-    if (!sit) return false;
-    const codigo = String(sit.codigo || "").toLowerCase();
+    const codigo = resolveSituacaoCodigo(o.situacao);
     return PAID_SITUACAO_CODIGOS.has(codigo);
   });
 
