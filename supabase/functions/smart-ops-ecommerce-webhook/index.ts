@@ -229,6 +229,9 @@ async function fetchClienteFromLI(
 const PAID_SITUACAO_CODIGOS = new Set([
   "pago", "pagamento_confirmado", "pagamento_aprovado",
   "em_producao", "pronto_envio", "enviado", "entregue",
+  // Loja Integrada returns codes with "pedido_" prefix
+  "pedido_pago", "pedido_enviado", "pedido_entregue",
+  "pedido_em_producao", "pedido_em_separacao", "pronto_para_envio",
 ]);
 
 /**

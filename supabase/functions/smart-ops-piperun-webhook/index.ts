@@ -283,10 +283,10 @@ Deno.serve(async (req) => {
           newStatus = mappedStatus;
 
           // Fire-and-forget cognitive re-analysis
-          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/cognitive-lead-analysis`, {
+          fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
             method: "POST",
             headers: {
-              Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+              Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({ leadId }),
@@ -351,10 +351,10 @@ Deno.serve(async (req) => {
       }
 
       // Fire cross-sell re-entry: cognitive re-analysis with portfolio context
-      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/cognitive-lead-analysis`, {
+      fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ leadId, trigger: "opp_closed", closedType, produtoEncerrado }),
