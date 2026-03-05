@@ -15,7 +15,24 @@ Deno.serve(async (req) => {
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   try {
-    const payload = await req.json();
+    const rawBody = await req.text();
+    if (!rawBody || rawBody.trim().length === 0) {
+      console.log("[sellflux-webhook] Empty body received, ignoring");
+      return new Response(JSON.stringify({ ok: true, skipped: "empty_body" }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      console.warn("[sellflux-webhook] Invalid JSON body:", rawBody.slice(0, 200));
+      return new Response(JSON.stringify({ error: "invalid_json" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     console.log("[sellflux-webhook] Payload:", JSON.stringify(payload).slice(0, 600));
 
     // --- Extract fields with flexible mapping ---
