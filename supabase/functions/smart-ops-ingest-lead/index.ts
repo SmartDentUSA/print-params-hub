@@ -97,7 +97,8 @@ Deno.serve(async (req) => {
       [extractField(payload, "first_name", "first name"), extractField(payload, "last_name", "last name")]
         .filter(Boolean).join(" ") || "Sem nome";
 
-    const email = extractField(payload, "email", "user_email") || "";
+    const emailRaw = extractField(payload, "email", "user_email") || "";
+    const email = emailRaw.toLowerCase().trim();
     if (!email) {
       return new Response(JSON.stringify({ error: "Email obrigatório" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
