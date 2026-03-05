@@ -596,6 +596,7 @@ function enrichWithOrderHistory(
         status_oportunidade: eventType === "order_paid" ? "ganha" : "aberta",
         ativo_insumos: eventType === "order_paid",
         valor_oportunidade: valorTotal,
+        ...enrichmentData,
       };
 
       if (cpf) insertData.pessoa_cpf = cpf;
