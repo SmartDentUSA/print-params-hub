@@ -6,6 +6,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function detectRealSource(payload: Record<string, unknown>, tags: string[]): { source: string; utm_source: string } {
+  const hasTracking = payload.tracking && typeof payload.tracking === "object";
+  const hasTransaction = payload.transaction && typeof payload.transaction === "object";
+  const ecommerceTags = ["loja_integrada", "compra-realizada", "pedido-pago", "aguardandopagamento", "gerouboleto", "cancelado"];
+  const hasEcommerceTags = tags.some(t => ecommerceTags.some(ec => t.toLowerCase().includes(ec)));
+
+  if (hasTracking || hasTransaction || hasEcommerceTags) {
+    return { source: "loja_integrada", utm_source: "loja_integrada" };
+  }
+
+  const automationName = payload.automation_name || payload.form_name;
+  if (automationName) {
+    return { source: String(automationName), utm_source: "sellflux" };
+  }
+
+  return { source: "sellflux_webhook", utm_source: "sellflux" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -116,13 +134,17 @@ Deno.serve(async (req) => {
     if (paymentMethod) sellfluxCustom.payment_method = paymentMethod;
     if (transactionValue) sellfluxCustom.transaction_value = transactionValue;
 
+    // --- Detect real source ---
+    const detected = detectRealSource(payload, standardizedTags.length > 0 ? standardizedTags : rawTags);
+    console.log("[sellflux-webhook] Detected source:", detected.source, "utm_source:", detected.utm_source);
+
     // --- Build normalized payload for ingest-lead ---
     const normalizedPayload: Record<string, unknown> = {
       email,
       full_name: nome,
       phone_number: phone,
-      source: "sellflux_webhook",
-      utm_source: payload.utm_source || "sellflux",
+      source: detected.source,
+      utm_source: payload.utm_source || detected.utm_source,
       utm_medium: payload.utm_medium || null,
       utm_campaign: payload.utm_campaign || null,
       form_name: payload.form_name || payload.automation_name || "sellflux_webhook",
