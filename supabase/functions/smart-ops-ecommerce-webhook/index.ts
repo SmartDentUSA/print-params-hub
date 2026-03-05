@@ -545,6 +545,28 @@ Deno.serve(async (req) => {
 
     console.log(`[ecommerce-webhook] Customer: ${nome} <${email}> | phone=${phoneRaw} | cidade=${cidade}/${uf} | cpf=${cpf} | valor=${valorTotal} | pedido=${numeroPedido} | produtos=${productNames.join("; ")}`);
 
+    // ─── Deduplication check ───
+    if (numeroPedido) {
+      try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: dupeCheck } = await supabase
+          .from("message_logs")
+          .select("id")
+          .eq("tipo", `ecommerce_${eventType}`)
+          .ilike("mensagem_preview", `%pedido=${numeroPedido}%`)
+          .gte("created_at", oneHourAgo)
+          .limit(1);
+        if (dupeCheck && dupeCheck.length > 0) {
+          console.log(`[ecommerce-webhook] Duplicate detected: pedido=${numeroPedido} event=${eventType}, skipping`);
+          return new Response(JSON.stringify({ skipped: true, reason: "duplicate", pedido: numeroPedido }), {
+            status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e) {
+        console.warn("[ecommerce-webhook] Dedupe check failed, proceeding:", e);
+      }
+    }
+
     // ─── Enrich with order history if we have a client ID ───
     let enrichmentData: Record<string, unknown> = {};
     if (liClienteId && LI_API_KEY) {
