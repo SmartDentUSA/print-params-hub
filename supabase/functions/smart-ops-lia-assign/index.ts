@@ -981,7 +981,7 @@ Deno.serve(async (req) => {
       }
 
       // Step 5e: Decision tree for open deals
-      const vendaDeal = openDeals.find(
+      vendaDeal = openDeals.find(
         (d) => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed
       );
       const estagnDeal = openDeals.find(
