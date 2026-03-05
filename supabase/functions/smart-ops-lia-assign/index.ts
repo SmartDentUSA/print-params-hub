@@ -2,7 +2,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 import {
   PIPELINES,
+  PIPELINE_NAMES,
   STAGES_VENDAS,
+  STAGE_TO_ETAPA,
+  DEAL_STATUS_MAP,
   PIPERUN_USERS,
   ORIGINS,
   piperunPost,
@@ -10,10 +13,12 @@ import {
   piperunGet,
   addDealNote,
   mapAttendanceToDealCustomFields,
+  mapDealToAttendance,
   customFieldsToHashMap,
   DEAL_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
+  type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
@@ -173,6 +178,28 @@ async function findOrCreateCompany(
 }
 
 /**
+ * Fetch company data from PipeRun to enrich lia_attendances.
+ */
+async function fetchCompanyData(
+  apiToken: string,
+  companyId: number
+): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await piperunGet(apiToken, `companies/${companyId}`, {});
+    if (res.success && res.data) {
+      const companyData = (res.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      if (companyData) {
+        console.log(`[lia-assign] Company ${companyId} fetched: ${companyData.name || "?"}`);
+        return companyData;
+      }
+    }
+  } catch (e) {
+    console.warn("[lia-assign] Error fetching company data:", e);
+  }
+  return null;
+}
+
+/**
  * Fetch all non-deleted deals for a person from PipeRun.
  */
 async function findPersonDeals(
@@ -197,10 +224,14 @@ async function findPersonDeals(
 /**
  * Update an existing deal (owner, custom fields, note).
  */
+/**
+ * Update an existing deal (owner, custom fields, note).
+ * Pass ownerId=null to skip owner change (golden rule: open Vendas deals).
+ */
 async function updateExistingDeal(
   apiToken: string,
   dealId: number,
-  ownerId: number,
+  ownerId: number | null,
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
   companyId: number | null | undefined,
@@ -208,13 +239,13 @@ async function updateExistingDeal(
 ): Promise<void> {
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
-    owner_id: ownerId,
     origin_id: ORIGINS.DRA_LIA.id,
     ...hashFields,
   };
+  if (ownerId !== null) updatePayload.owner_id = ownerId;
   if (companyId) updatePayload.company_id = companyId;
 
-  console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId}, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
+  console.log(`[lia-assign] Updating deal ${dealId}: owner=${ownerId ?? "PRESERVED"}, company=${companyId || "none"}`, JSON.stringify(updatePayload).slice(0, 500));
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
@@ -956,11 +987,32 @@ Deno.serve(async (req) => {
         (d) => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
       );
 
+      // ── GOLDEN RULE: Open deal in Vendas → NEVER change owner/stage ──
       if (vendaDeal) {
         piperunId = String(vendaDeal.id);
-        flowType = "update_vendas";
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), assignedOwnerId, customFields, lead as Record<string, unknown>, companyId, supabase);
-        console.log(`[lia-assign] Updated existing Vendas deal ${piperunId}`);
+        flowType = "preserve_vendas";
+
+        // Read owner FROM the deal (source of truth)
+        const dealOwnerId = Number(vendaDeal.owner_id);
+        const dealOwnerInfo = PIPERUN_USERS[dealOwnerId];
+        const dealOwnerName = dealOwnerInfo?.name || String(dealOwnerId);
+
+        // Override round-robin with deal's actual owner
+        assignedOwnerId = dealOwnerId;
+        assignedOwnerName = dealOwnerName;
+
+        // Find team member for this owner
+        const { data: dealTeamMember } = await supabase
+          .from("team_members")
+          .select("id")
+          .eq("piperun_owner_id", dealOwnerId)
+          .eq("ativo", true)
+          .maybeSingle();
+        if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
+
+        // Update ONLY custom fields + note (owner_id = null → preserved)
+        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase);
+        console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
       } else if (estagnDeal) {
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
@@ -976,20 +1028,51 @@ Deno.serve(async (req) => {
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
       }
+
+      // ── Step 5f: Enrich lia_attendances with primary deal data ──
+      const primaryDeal = vendaDeal || estagnDeal || (allDeals.length > 0 ? allDeals[0] : null);
+      if (primaryDeal) {
+        const dealEnrichment = mapDealToAttendance(primaryDeal as PipeRunDealData);
+        // Remove fields we don't want to overwrite blindly
+        delete dealEnrichment.email;
+        delete dealEnrichment.nome;
+        // Store enrichment for later use in updateFields
+        (lead as Record<string, unknown>)._dealEnrichment = dealEnrichment;
+      }
+
+      // Check if any deal is won → status_oportunidade = "ganha"
+      if (wonDeals.length > 0) {
+        (lead as Record<string, unknown>)._hasWonDeal = true;
+      }
+
+      // ── Step 5g: Fetch company data for enrichment ──
+      if (companyId) {
+        const companyData = await fetchCompanyData(PIPERUN_API_KEY, companyId);
+        if (companyData) {
+          (lead as Record<string, unknown>)._companyData = companyData;
+        }
+      }
     } else {
       console.error("[lia-assign] Could not find or create person in PipeRun");
       flowType = "error_no_person";
     }
 
     // ── 6. Update lead in lia_attendances ──
-    const piperunFunil = isDistribuidor ? "Distribuidor de Leads" : "Funil de vendas";
-    const piperunEtapa = isDistribuidor ? "distribuidor_leads" : "sem_contato";
-
     const updateFields: Record<string, unknown> = {
       proprietario_lead_crm: assignedOwnerName,
-      funil_entrada_crm: piperunFunil,
-      ultima_etapa_comercial: piperunEtapa,
     };
+
+    // Set pipeline/stage based on flow
+    if (flowType === "preserve_vendas" && vendaDeal) {
+      // Use the deal's ACTUAL pipeline/stage (read from PipeRun, don't invent)
+      updateFields.funil_entrada_crm = PIPELINE_NAMES[Number(vendaDeal.pipeline_id)] || "Funil de vendas";
+      updateFields.ultima_etapa_comercial = STAGE_TO_ETAPA[Number(vendaDeal.stage_id)] || "sem_contato";
+    } else {
+      const piperunFunil = isDistribuidor ? "Distribuidor de Leads" : "Funil de vendas";
+      const piperunEtapa = isDistribuidor ? "distribuidor_leads" : "sem_contato";
+      updateFields.funil_entrada_crm = piperunFunil;
+      updateFields.ultima_etapa_comercial = piperunEtapa;
+    }
 
     if (piperunId && !lead.piperun_id) {
       updateFields.piperun_id = piperunId;
@@ -999,6 +1082,65 @@ Deno.serve(async (req) => {
     // Save PipeRun hierarchy IDs
     if (personId) updateFields.pessoa_piperun_id = personId;
     if (companyId) updateFields.empresa_piperun_id = companyId;
+
+    // ── Enrich with deal data (from step 5f) ──
+    const dealEnrichment = (lead as Record<string, unknown>)._dealEnrichment as Record<string, unknown> | undefined;
+    if (dealEnrichment) {
+      // Only fill fields that are currently null/empty in the lead
+      const enrichFields = [
+        "valor_oportunidade", "data_primeiro_contato", "data_fechamento_crm",
+        "motivo_perda", "piperun_link", "origem_campanha",
+        "piperun_created_at", "piperun_pipeline_id", "piperun_pipeline_name",
+        "piperun_stage_id", "piperun_stage_name", "piperun_status",
+        "piperun_origin_id", "piperun_origin_name", "piperun_title",
+        "especialidade", "produto_interesse", "tem_scanner", "tem_impressora",
+        "pais_origem", "id_cliente_smart", "informacao_desejada",
+        "codigo_contrato", "data_treinamento", "telefone_raw",
+        "area_atuacao", "cidade", "uf",
+      ];
+      for (const field of enrichFields) {
+        if (dealEnrichment[field] !== null && dealEnrichment[field] !== undefined) {
+          const currentValue = (lead as Record<string, unknown>)[field];
+          if (currentValue === null || currentValue === undefined || currentValue === "") {
+            updateFields[field] = dealEnrichment[field];
+          }
+        }
+      }
+    }
+
+    // Set status_oportunidade if any won deal exists
+    if ((lead as Record<string, unknown>)._hasWonDeal) {
+      updateFields.status_oportunidade = "ganha";
+    }
+
+    // ── Enrich with company data (from step 5g) ──
+    const companyData = (lead as Record<string, unknown>)._companyData as Record<string, unknown> | undefined;
+    if (companyData) {
+      const companyFieldMap: Record<string, string> = {
+        cnpj: "empresa_cnpj",
+        name: "empresa_nome",
+        segment: "empresa_segmento",
+        website: "empresa_website",
+      };
+      // Also try razao_social / ie from custom_fields or direct fields
+      if (companyData.razao_social) companyFieldMap.razao_social = "empresa_razao_social";
+      if (companyData.ie) companyFieldMap.ie = "empresa_ie";
+
+      for (const [srcField, dstField] of Object.entries(companyFieldMap)) {
+        const val = companyData[srcField];
+        if (val !== null && val !== undefined && val !== "") {
+          const currentValue = (lead as Record<string, unknown>)[dstField];
+          if (currentValue === null || currentValue === undefined || currentValue === "") {
+            updateFields[dstField] = val;
+          }
+        }
+      }
+      // empresa_razao_social as fallback for empresa_nome
+      if (!updateFields.empresa_razao_social && companyData.name) {
+        const current = (lead as Record<string, unknown>).empresa_razao_social;
+        if (!current) updateFields.empresa_razao_social = companyData.name;
+      }
+    }
 
     await supabase
       .from("lia_attendances")
