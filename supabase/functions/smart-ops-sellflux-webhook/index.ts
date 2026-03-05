@@ -134,13 +134,17 @@ Deno.serve(async (req) => {
     if (paymentMethod) sellfluxCustom.payment_method = paymentMethod;
     if (transactionValue) sellfluxCustom.transaction_value = transactionValue;
 
+    // --- Detect real source ---
+    const detected = detectRealSource(payload, standardizedTags.length > 0 ? standardizedTags : rawTags);
+    console.log("[sellflux-webhook] Detected source:", detected.source, "utm_source:", detected.utm_source);
+
     // --- Build normalized payload for ingest-lead ---
     const normalizedPayload: Record<string, unknown> = {
       email,
       full_name: nome,
       phone_number: phone,
-      source: "sellflux_webhook",
-      utm_source: payload.utm_source || "sellflux",
+      source: detected.source,
+      utm_source: payload.utm_source || detected.utm_source,
       utm_medium: payload.utm_medium || null,
       utm_campaign: payload.utm_campaign || null,
       form_name: payload.form_name || payload.automation_name || "sellflux_webhook",
