@@ -505,6 +505,17 @@ function enrichWithOrderHistory(
 
     console.log(`[ecommerce-webhook] Customer: ${nome} <${email}> | phone=${phoneRaw} | cidade=${cidade}/${uf} | cpf=${cpf} | valor=${valorTotal} | pedido=${numeroPedido} | produtos=${productNames.join("; ")}`);
 
+    // ─── Enrich with order history if we have a client ID ───
+    let enrichmentData: Record<string, unknown> = {};
+    if (liClienteId && LI_API_KEY) {
+      const orderHistory = await fetchClienteOrderHistory(liClienteId, LI_API_KEY, LI_APP_KEY || null);
+      if (orderHistory.length > 0) {
+        const enrichment = enrichWithOrderHistory(orderHistory, tagsToAdd);
+        enrichmentData = enrichment.extraUpdateData;
+        console.log(`[ecommerce-webhook] Enrichment: LTV=${enrichment.ltv} | pedidosPagos=${enrichment.totalPedidosPagos} | primeiraCompra=${enrichment.dataPrimeiraCompra} | ultimaCompra=${enrichment.dataUltimaCompra}`);
+      }
+    }
+
     // ─── Upsert lead in lia_attendances ───
     const { data: existingLead } = await supabase
       .from("lia_attendances")
@@ -516,7 +527,7 @@ function enrichWithOrderHistory(
 
     if (existingLead) {
       const newTags = mergeTagsCrm(existingLead.tags_crm, tagsToAdd);
-      const updateData: Record<string, unknown> = { tags_crm: newTags };
+      const updateData: Record<string, unknown> = { tags_crm: newTags, ...enrichmentData };
 
       if (eventType === "order_paid") {
         updateData.status_oportunidade = "ganha";
