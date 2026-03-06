@@ -372,7 +372,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY não configurada");
 
-    const { title, productName, documentType, extractedTextPreview, productImageUrl } = await req.json();
+    const { title, productName, documentType, extractedTextPreview, productImageUrl, referenceImageUrls } = await req.json();
 
     const textContext = `${title || ''} ${extractedTextPreview || ''}`.toLowerCase();
     const docType = documentType || 'outro';
@@ -382,19 +382,66 @@ serve(async (req) => {
     const finalConfig = applyGoldenRules(baseConfig, textContext, productName);
     
     // Detectar modo de geração
-    const mode = detectGenerationMode(productImageUrl, textContext, productName);
+    const hasReferenceImages = Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0;
+    const mode = hasReferenceImages ? 'EDIT' : detectGenerationMode(productImageUrl, textContext, productName);
 
     console.log('📸 Gerando OG Image:', { 
       title: title?.substring(0, 50),
       documentType: docType,
       productName,
       modo: mode,
-      hasProductImage: !!productImageUrl
+      hasProductImage: !!productImageUrl,
+      referenceImagesCount: hasReferenceImages ? referenceImageUrls.length : 0
     });
 
     let response: Response;
 
-    if (mode === 'EDIT') {
+    if (hasReferenceImages) {
+      // ========================================
+      // MODO REFERÊNCIA: Compor múltiplas imagens do usuário
+      // ========================================
+      console.log('🖼️ Modo REFERENCE EDIT: Usando', referenceImageUrls.length, 'imagens de referência');
+      
+      const refPrompt = `Create a professional Open Graph image (1200x630 pixels) for a dental industry article.
+
+TITLE: "${title || 'Technical Document'}"
+
+INSTRUCTIONS:
+- Use the provided reference images as visual inspiration and source material
+- Compose them into a SINGLE cohesive, professional OG image
+- Apply professional dental/medical photography aesthetics
+- Environment: ${finalConfig.ambiente}
+- Lighting: ${finalConfig.iluminacao}
+- Mood: ${finalConfig.mood}
+
+${COMPOSITION_RULES}
+
+${GLOBAL_ANTI_HALLUCINATION}
+
+ABSOLUTE RESTRICTIONS:
+- NEVER add text, logos, or watermarks to the image
+- NEVER show human faces
+- NEVER distort product proportions
+${finalConfig.regra_anti_alucinacao}`;
+
+      const contentParts: any[] = [
+        { type: "text", text: refPrompt },
+        ...referenceImageUrls.map((url: string) => ({
+          type: "image_url",
+          image_url: { url }
+        }))
+      ];
+
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [{ role: "user", content: contentParts }],
+          modalities: ["image", "text"]
+        })
+      });
+    } else if (mode === 'EDIT') {
       // ========================================
       // MODO EDIÇÃO: Transforma imagem real com ZOOM OUT
       // ========================================

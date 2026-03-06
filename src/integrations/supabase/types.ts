@@ -262,6 +262,7 @@ export type Database = {
           mini_bio: string | null
           name: string
           order_index: number
+          photo_alt: string | null
           photo_url: string | null
           specialty: string | null
           tiktok_url: string | null
@@ -282,6 +283,7 @@ export type Database = {
           mini_bio?: string | null
           name: string
           order_index?: number
+          photo_alt?: string | null
           photo_url?: string | null
           specialty?: string | null
           tiktok_url?: string | null
@@ -302,6 +304,7 @@ export type Database = {
           mini_bio?: string | null
           name?: string
           order_index?: number
+          photo_alt?: string | null
           photo_url?: string | null
           specialty?: string | null
           tiktok_url?: string | null
@@ -2381,6 +2384,51 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           uf?: string | null
+        }
+        Relationships: []
+      }
+      products_catalog: {
+        Row: {
+          anti_hallucination_rules: Json | null
+          category: string | null
+          clinical_brain_status: string | null
+          forbidden_products: Json | null
+          name: string | null
+          product_id: string
+          required_products: Json | null
+          subcategory: string | null
+          synced_at: string | null
+          whatsapp_messages: Json | null
+          whatsapp_sequences: Json | null
+          workflow_stages: Json | null
+        }
+        Insert: {
+          anti_hallucination_rules?: Json | null
+          category?: string | null
+          clinical_brain_status?: string | null
+          forbidden_products?: Json | null
+          name?: string | null
+          product_id: string
+          required_products?: Json | null
+          subcategory?: string | null
+          synced_at?: string | null
+          whatsapp_messages?: Json | null
+          whatsapp_sequences?: Json | null
+          workflow_stages?: Json | null
+        }
+        Update: {
+          anti_hallucination_rules?: Json | null
+          category?: string | null
+          clinical_brain_status?: string | null
+          forbidden_products?: Json | null
+          name?: string | null
+          product_id?: string
+          required_products?: Json | null
+          subcategory?: string | null
+          synced_at?: string | null
+          whatsapp_messages?: Json | null
+          whatsapp_sequences?: Json | null
+          workflow_stages?: Json | null
         }
         Relationships: []
       }
