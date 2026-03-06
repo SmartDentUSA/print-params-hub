@@ -325,13 +325,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Build conversation history from agent_interactions
+    // 2. Build conversation history from agent_interactions (query by session_id, not lead_id)
+    const sessionId = `wa_${phoneDigits}`;
     const history: Array<{ role: string; content: string }> = [];
-    if (leadId) {
+    {
       const { data: interactions } = await supabase
         .from("agent_interactions")
         .select("user_message, agent_response")
-        .eq("lead_id", leadId)
+        .eq("session_id", sessionId)
         .order("created_at", { ascending: false })
         .limit(10);
 
@@ -345,8 +346,28 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 2b. Pre-seed agent_sessions so dra-lia skips email collection
+    if (leadId) {
+      const { error: sessErr } = await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        lead_id: leadId,
+        current_state: "chatting",
+        extracted_entities: {
+          lead_id: leadId,
+          lead_name: leadNome || `WhatsApp ${phoneDigits.slice(-4)}`,
+          lead_email: leadEmail,
+        },
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+
+      if (sessErr) {
+        console.warn("[dra-lia-wa] Failed to upsert agent_sessions:", sessErr.message);
+      } else {
+        console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} with lead ${leadId}`);
+      }
+    }
+
     // 3. Call dra-lia internally (SSE stream)
-    const sessionId = `wa_${phoneDigits}`;
     let liaResponse = "";
 
     try {
