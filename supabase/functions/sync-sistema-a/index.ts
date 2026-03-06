@@ -1,120 +1,106 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
+// pg_cron schedule — configure via Supabase SQL Editor:
+//
+//   SELECT cron.schedule(
+//     'sync-sistema-a-every-4h',
+//     '0 */4 * * *',
+//     $$
+//       SELECT net.http_post(
+//         url := current_setting('app.supabase_url') || '/functions/v1/sync-sistema-a',
+//         headers := jsonb_build_object(
+//           'Authorization', 'Bearer ' || current_setting('app.service_role_key'),
+//           'Content-Type', 'application/json'
+//         ),
+//         body := '{}'::jsonb
+//       );
+//     $$
+//   );
+
+const SISTEMA_A_KB_URL = 'https://pgfgripuanuwwolmtknn.supabase.co/functions/v1/knowledge-base';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { product_data } = await req.json();
-    
-    console.log('📦 Iniciando sincronização do Sistema A...');
-    
-    // Validar que recebeu dados do Sistema A
-    if (!product_data?.product_id || !product_data?.basic_info?.name) {
-      throw new Error('JSON do Sistema A inválido. Estrutura esperada: { product_id, basic_info: { name, brand } }');
+    console.log('Iniciando sincronizacao do catalogo de produtos do Sistema A...');
+
+    // Fetch product catalog from Sistema A Knowledge Base API
+    const kbResponse = await fetch(`${SISTEMA_A_KB_URL}?format=system_b`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!kbResponse.ok) {
+      throw new Error(`Knowledge Base API retornou status ${kbResponse.status}: ${await kbResponse.text()}`);
     }
+
+    const kbData = await kbResponse.json();
+
+    // Accept either an array directly or { products: [...] }
+    const products: Record<string, unknown>[] = Array.isArray(kbData)
+      ? kbData
+      : (kbData.products ?? []);
+
+    if (!products.length) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'Nenhum produto retornado pelo Sistema A', upserted: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      );
+    }
+
+    console.log(`Recebidos ${products.length} produtos do Sistema A`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Extrair dados relevantes
-    const productId = product_data.product_id;
-    const name = product_data.basic_info.name;
-    const manufacturer = product_data.basic_info.brand || 'Smart Dent';
-    const productUrl = product_data.media_library?.product_url || '';
-    const keywords = product_data.seo_data?.primary_keywords || [];
-    const description = product_data.marketing_data?.sales_pitch || '';
-    
-    // Tentar extrair external_id da URL (ID numérico da Loja Integrada)
-    const urlMatch = productUrl?.match(/\/(\d+)\//);
-    const externalId = urlMatch ? urlMatch[1] : null;
+    const now = new Date().toISOString();
 
-    console.log('📊 Dados extraídos:', {
-      productId,
-      name: name.substring(0, 50),
-      manufacturer,
-      externalId,
-      hasUrl: !!productUrl
-    });
+    // Map incoming products to products_catalog schema and upsert
+    const rows = products.map((p) => ({
+      product_id:               String(p.product_id ?? p.id ?? ''),
+      name:                     (p.name as string) ?? null,
+      category:                 (p.category as string) ?? null,
+      subcategory:              (p.subcategory as string) ?? null,
+      workflow_stages:          (p.workflow_stages as object) ?? null,
+      whatsapp_sequences:       (p.whatsapp_sequences as object) ?? null,
+      whatsapp_messages:        (p.whatsapp_messages as object) ?? null,
+      forbidden_products:       (p.forbidden_products as object) ?? null,
+      required_products:        (p.required_products as object) ?? null,
+      anti_hallucination_rules: (p.anti_hallucination_rules as object) ?? null,
+      clinical_brain_status:    (p.clinical_brain_status as string) ?? null,
+      synced_at:                now,
+    })).filter((r) => r.product_id);
 
-    // Limpar nome da resina (remover "Resina 3D " se existir)
-    const cleanName = name.replace(/^Resina 3D /i, '').trim();
+    const { error: upsertError } = await supabase
+      .from('products_catalog')
+      .upsert(rows, { onConflict: 'product_id', ignoreDuplicates: false });
 
-    // Upsert na tabela resins
-    const { data: resinData, error: resinError } = await supabase
-      .from('resins')
-      .upsert({
-        name: cleanName,
-        manufacturer: manufacturer,
-        external_id: externalId,
-        system_a_product_id: productId,
-        system_a_product_url: productUrl,
-        keywords: keywords,
-        description: description,
-        active: true,
-        type: 'standard'
-      }, {
-        onConflict: 'system_a_product_id',
-        ignoreDuplicates: false
-      })
-      .select(`
-        id, name, manufacturer, external_id, 
-        system_a_product_id, system_a_product_url,
-        processing_instructions, active, type
-      `)
-      .single();
-
-    if (resinError) {
-      console.error('❌ Erro ao fazer upsert:', resinError);
-      throw resinError;
+    if (upsertError) {
+      console.error('Erro ao fazer upsert em products_catalog:', upsertError);
+      throw upsertError;
     }
 
-    console.log('✅ Resina sincronizada:', {
-      id: resinData.id,
-      name: resinData.name,
-      system_a_product_id: resinData.system_a_product_id,
-      external_id: resinData.external_id
-    });
+    console.log(`${rows.length} produtos sincronizados com sucesso`);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Resina sincronizada com sucesso',
-        resin: {
-          id: resinData.id,
-          name: resinData.name,
-          manufacturer: resinData.manufacturer,
-          system_a_product_id: resinData.system_a_product_id,
-          external_id: resinData.external_id,
-          system_a_product_url: resinData.system_a_product_url,
-          processing_instructions: resinData.processing_instructions || null
-        }
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
-      }
+      JSON.stringify({ success: true, message: 'Catalogo sincronizado com sucesso', upserted: rows.length }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error) {
-    console.error('❌ Erro na sincronização:', error);
+    console.error('Erro na sincronizacao:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Erro desconhecido',
-        success: false
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido', success: false }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
