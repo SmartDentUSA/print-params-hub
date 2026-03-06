@@ -3801,6 +3801,27 @@ Receba o texto bruto abaixo e:
                       Template Canva
                     </Button>
                   </div>
+
+                  {/* Grid de imagens de referência para IA */}
+                  {ogReferenceImages.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Imagens de Referência para IA ({ogReferenceImages.length}/4)</Label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {ogReferenceImages.map((url, idx) => (
+                          <div key={idx} className="relative group">
+                            <img src={url} alt={`Ref ${idx + 1}`} className="w-full h-20 object-cover rounded border border-border" />
+                            <button
+                              type="button"
+                              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => setOgReferenceImages(prev => prev.filter((_, i) => i !== idx))}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Display Canva URL if exists */}
                   {formData.canva_template_url && (
