@@ -40,7 +40,7 @@ const STAGE_OPTIONS = [
   { key: "CLIENTE_ativo", label: "👑 Cliente" },
 ];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 200;
 
 const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
 
@@ -724,28 +724,32 @@ export function SmartOpsLeadsList() {
   const [leads, setLeads] = useState<LeadFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [tempFilter, setTempFilter] = useState("all");
   const [stageFilter, setStageFilter] = useState("all");
   const [stagnantOnly, setStagnantOnly] = useState(false);
   const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedLead, setSelectedLead] = useState<LeadFull | null>(null);
+  const [allSources, setAllSources] = useState<string[]>([]);
 
-  const fetchLeads = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("lia_attendances")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    setLeads((data as LeadFull[]) || []);
-    setLoading(false);
-  };
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  useEffect(() => { fetchLeads(); }, []);
-
-  const sources = useMemo(() => [...new Set(leads.map((l) => l.source))].sort(), [leads]);
+  // Fetch sources once
+  useEffect(() => {
+    supabase.from("lia_attendances").select("source").then(({ data }) => {
+      if (data) {
+        const unique = [...new Set(data.map((d: { source: string }) => d.source).filter(Boolean))].sort() as string[];
+        setAllSources(unique);
+      }
+    });
+  }, []);
 
   const thirtyDaysAgo = useMemo(() => {
     const d = new Date();
@@ -753,29 +757,44 @@ export function SmartOpsLeadsList() {
     return d.toISOString();
   }, []);
 
-  const filtered = useMemo(() => {
-    return leads.filter((l) => {
-      if (statusFilter !== "all" && l.lead_status !== statusFilter) return false;
-      if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
-      if (tempFilter !== "all" && (l.temperatura_lead || "").toLowerCase() !== tempFilter) return false;
-      if (stageFilter !== "all" && l.lead_stage_detected !== stageFilter) return false;
-      if (stagnantOnly && l.updated_at > thirtyDaysAgo) return false;
-      if (search) {
-        const q = search.toLowerCase();
-        if (!l.nome.toLowerCase().includes(q) && !l.email.toLowerCase().includes(q)) return false;
-      }
-      return true;
-    });
-  }, [leads, search, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly, thirtyDaysAgo]);
+  const fetchLeads = async () => {
+    setLoading(true);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+    // Build query with server-side filters
+    let query = supabase
+      .from("lia_attendances")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
 
-  useEffect(() => { setPage(0); }, [search, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly]);
+    if (statusFilter !== "all") query = query.eq("lead_status", statusFilter);
+    if (sourceFilter !== "all") query = query.eq("source", sourceFilter);
+    if (tempFilter !== "all") query = query.ilike("temperatura_lead", tempFilter);
+    if (stageFilter !== "all") query = query.eq("lead_stage_detected", stageFilter);
+    if (stagnantOnly) query = query.lte("updated_at", thirtyDaysAgo);
+    if (debouncedSearch) {
+      query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+    }
+
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    query = query.range(from, to);
+
+    const { data, count } = await query;
+    setLeads((data as LeadFull[]) || []);
+    setTotalCount(count ?? 0);
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchLeads(); }, [page, debouncedSearch, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly]);
+
+  useEffect(() => { setPage(0); }, [debouncedSearch, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly]);
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const paged = leads;
 
   const exportCSV = () => {
     const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "temperatura_lead", "ultima_etapa_comercial", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
-    const csv = [headers.join(","), ...filtered.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
+    const csv = [headers.join(","), ...leads.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -792,7 +811,7 @@ export function SmartOpsLeadsList() {
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-            <CardTitle className="text-lg">Lista de Leads ({filtered.length})</CardTitle>
+            <CardTitle className="text-lg">Lista de Leads ({totalCount.toLocaleString("pt-BR")})</CardTitle>
             <div className="flex gap-2">
               <SmartOpsLeadImporter onComplete={fetchLeads} />
               <Button variant="outline" size="sm" onClick={exportCSV}>
@@ -815,7 +834,7 @@ export function SmartOpsLeadsList() {
               <SelectTrigger className="w-[160px]"><SelectValue placeholder="Source" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {sources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {allSources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={tempFilter} onValueChange={setTempFilter}>
