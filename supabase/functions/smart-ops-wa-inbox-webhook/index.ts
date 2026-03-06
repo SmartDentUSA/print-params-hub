@@ -95,10 +95,29 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const body = await req.json();
-    const phone = body.phone || body.from || body.sender || "";
+    const rawPhone = String(body.phone || body.from || body.sender || "");
     const messageText = body.message || body.text || body.body || "";
     const mediaUrl = body.media_url || body.mediaUrl || null;
     const mediaType = body.media_type || body.mediaType || null;
+
+    // @lid resolution: resolve WhatsApp internal IDs to real phone numbers
+    let phone = rawPhone.replace(/@(c\.us|s\.whatsapp\.net|lid)$/i, "");
+    if (rawPhone.includes("@lid") || (phone.replace(/\D/g, "").length > 13)) {
+      const nested = (body.data || body.key || body._data && (body._data as Record<string, unknown>).key || {}) as Record<string, unknown>;
+      const altRaw = String(
+        body.senderPn || nested.senderPn ||
+        body.remoteJidAlt || nested.remoteJidAlt ||
+        body.participant || nested.participant || ""
+      );
+      const alt = altRaw.replace(/@(c\.us|s\.whatsapp\.net|lid)$/i, "");
+      const altDigits = alt.replace(/\D/g, "");
+      if (altDigits.length >= 10 && altDigits.length <= 15) {
+        console.log(`[wa-inbox] Resolved @lid "${phone}" → real phone "${alt}"`);
+        phone = alt;
+      } else {
+        console.warn(`[wa-inbox] @lid detected but no real phone in payload, using LID as fallback`);
+      }
+    }
 
     if (!phone) {
       return new Response(JSON.stringify({ error: "phone is required" }), {

@@ -38,12 +38,31 @@ function extractFields(body: Record<string, unknown>): { phone: string; messageT
   const nested = (body.data || body.contact || {}) as Record<string, unknown>;
   const customer = (body.customer || {}) as Record<string, unknown>;
   const combined = (body.combinedCardCustomer || {}) as Record<string, unknown>;
+  const keyData = (body.key || body._data && (body._data as Record<string, unknown>).key || {}) as Record<string, unknown>;
 
   const rawPhone = String(
     body.phone || body.from || body.sender || body.contact_phone ||
     body.chatId || body.chat || customer.phone || nested.phone || nested.chatId || ""
   );
-  const phone = stripWaSuffix(rawPhone);
+  let phone = stripWaSuffix(rawPhone);
+
+  // @lid resolution: WhatsApp sends internal IDs instead of real phone numbers.
+  // The real phone is available in alternative payload fields.
+  if (rawPhone.includes("@lid") || (phone.replace(/\D/g, "").length > 13)) {
+    const senderPn = String(
+      body.senderPn || nested.senderPn || keyData.senderPn ||
+      body.remoteJidAlt || nested.remoteJidAlt || keyData.remoteJidAlt ||
+      body.participant || nested.participant || ""
+    );
+    const altPhone = stripWaSuffix(senderPn);
+    const altDigits = altPhone.replace(/\D/g, "");
+    if (altDigits.length >= 10 && altDigits.length <= 15) {
+      console.log(`[dra-lia-wa] Resolved @lid "${phone}" → real phone "${altPhone}"`);
+      phone = altPhone;
+    } else {
+      console.warn(`[dra-lia-wa] @lid detected but no real phone found in payload. Using LID as fallback.`);
+    }
+  }
 
   const messageText = String(
     body.message || body.text || body.body || body.lastMessage ||
@@ -327,7 +346,7 @@ Deno.serve(async (req) => {
     }
 
     // 3. Call dra-lia internally (SSE stream)
-    const sessionId = `wa_${phoneDigits}_${Date.now()}`;
+    const sessionId = `wa_${phoneDigits}`;
     let liaResponse = "";
 
     try {
