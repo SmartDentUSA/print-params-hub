@@ -2246,6 +2246,75 @@ export type Database = {
         }
         Relationships: []
       }
+      piperun_pessoas_staging: {
+        Row: {
+          area_atuacao: string | null
+          cargo: string | null
+          cidade: string | null
+          cpf: string | null
+          data_cadastro_piperun: string | null
+          email: string
+          empresa_cnpj: string | null
+          empresa_nome: string | null
+          empresa_porte: string | null
+          empresa_razao_social: string | null
+          empresa_segmento: string | null
+          especialidade: string | null
+          genero: string | null
+          informacao_desejada: string | null
+          nascimento: string | null
+          pessoa_piperun_id: number | null
+          telefone: string | null
+          tem_impressora: string | null
+          tem_scanner: string | null
+          uf: string | null
+        }
+        Insert: {
+          area_atuacao?: string | null
+          cargo?: string | null
+          cidade?: string | null
+          cpf?: string | null
+          data_cadastro_piperun?: string | null
+          email: string
+          empresa_cnpj?: string | null
+          empresa_nome?: string | null
+          empresa_porte?: string | null
+          empresa_razao_social?: string | null
+          empresa_segmento?: string | null
+          especialidade?: string | null
+          genero?: string | null
+          informacao_desejada?: string | null
+          nascimento?: string | null
+          pessoa_piperun_id?: number | null
+          telefone?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          uf?: string | null
+        }
+        Update: {
+          area_atuacao?: string | null
+          cargo?: string | null
+          cidade?: string | null
+          cpf?: string | null
+          data_cadastro_piperun?: string | null
+          email?: string
+          empresa_cnpj?: string | null
+          empresa_nome?: string | null
+          empresa_porte?: string | null
+          empresa_razao_social?: string | null
+          empresa_segmento?: string | null
+          especialidade?: string | null
+          genero?: string | null
+          informacao_desejada?: string | null
+          nascimento?: string | null
+          pessoa_piperun_id?: number | null
+          telefone?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          uf?: string | null
+        }
+        Relationships: []
+      }
       piperun_staging: {
         Row: {
           area_atuacao: string | null
