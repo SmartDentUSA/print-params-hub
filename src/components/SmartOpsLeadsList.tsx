@@ -794,7 +794,7 @@ export function SmartOpsLeadsList() {
 
   const exportCSV = () => {
     const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "temperatura_lead", "ultima_etapa_comercial", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
-    const csv = [headers.join(","), ...filtered.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
+    const csv = [headers.join(","), ...leads.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -811,7 +811,7 @@ export function SmartOpsLeadsList() {
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-            <CardTitle className="text-lg">Lista de Leads ({filtered.length})</CardTitle>
+            <CardTitle className="text-lg">Lista de Leads ({totalCount.toLocaleString("pt-BR")})</CardTitle>
             <div className="flex gap-2">
               <SmartOpsLeadImporter onComplete={fetchLeads} />
               <Button variant="outline" size="sm" onClick={exportCSV}>
@@ -834,7 +834,7 @@ export function SmartOpsLeadsList() {
               <SelectTrigger className="w-[160px]"><SelectValue placeholder="Source" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {sources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {allSources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={tempFilter} onValueChange={setTempFilter}>
