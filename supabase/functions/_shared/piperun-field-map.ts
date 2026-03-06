@@ -399,15 +399,14 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   if (nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
-  // 1. person.phones (webhook format)
-  // 2. company.phones (organization)
-  // 3. Custom field WHATSAPP (549150)
-  const phone =
-    person?.phones?.[0]?.phone ||
-    company?.phones?.[0]?.phone ||
-    null;
+  // 1. Custom field WHATSAPP (549150) — most reliable, manually filled
+  // 2. person.phones array (from with[]=person or person.phones)
+  // 3. company.phones (organization fallback)
+  const whatsappPhone = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
+  const personPhone = person?.phones?.[0]?.phone || null;
+  const companyPhone = company?.phones?.[0]?.phone || null;
+  const phone = whatsappPhone || personPhone || companyPhone || null;
   if (phone) fields.telefone_raw = phone;
-
   // Person extra data
   if (person) {
     if (person.job_title) fields.area_atuacao = person.job_title;
@@ -434,9 +433,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   const bdId = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID);
   if (bdId) fields.id_cliente_smart = bdId;
 
-  // WhatsApp custom field as phone fallback
-  const whatsapp = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
-  if (whatsapp && !fields.telefone_raw) fields.telefone_raw = whatsapp;
+  // WhatsApp already extracted above as primary phone source
 
   // New custom fields
   const informacaoDesejada = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.INFORMACAO_DESEJADA);
