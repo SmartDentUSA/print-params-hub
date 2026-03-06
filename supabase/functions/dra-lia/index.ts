@@ -3220,16 +3220,6 @@ Campos:
         if (sessionData) {
           sessionEntities = (sessionData.extracted_entities as Record<string, unknown>) || null;
           currentLeadId = sessionData.lead_id as string || null;
-          console.log("[lead-collection] session found", {
-            session_id,
-            has_entities: !!sessionEntities,
-            has_lead_id_column: !!currentLeadId,
-            has_entity_lead_id: !!(sessionEntities as Record<string, unknown> | null)?.lead_id,
-            has_entity_lead_name: !!(sessionEntities as Record<string, unknown> | null)?.lead_name,
-            has_entity_lead_email: !!(sessionEntities as Record<string, unknown> | null)?.lead_email,
-          });
-        } else {
-          console.log("[lead-collection] session not found", { session_id });
         }
     } catch (e) {
       console.warn("[lead-collection] session lookup failed:", e);
