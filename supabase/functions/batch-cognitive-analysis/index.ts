@@ -26,7 +26,9 @@ Deno.serve(async (req) => {
       .select("id, nome, total_messages, cognitive_analyzed_at, ultima_sessao_at")
       .gte("total_messages", 5)
       .or("cognitive_analyzed_at.is.null,cognitive_analyzed_at.lt.ultima_sessao_at")
+      .order("intelligence_score_total", { ascending: false, nullsFirst: false })
       .order("total_messages", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(batchSize);
 
     if (queryError) {
