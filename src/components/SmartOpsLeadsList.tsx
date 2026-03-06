@@ -40,7 +40,7 @@ const STAGE_OPTIONS = [
   { key: "CLIENTE_ativo", label: "👑 Cliente" },
 ];
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 200;
 
 const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
 
