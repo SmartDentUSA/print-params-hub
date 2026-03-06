@@ -350,7 +350,9 @@ Deno.serve(async (req) => {
     if (leadId) {
       const { error: sessErr } = await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
-        lead_id: leadId,
+        // IMPORTANT: do not write lia_attendances.id into agent_sessions.lead_id
+        // because this FK points to public.leads.id and causes FK violations.
+        // We pre-seed recognition data only in extracted_entities.
         current_state: "chatting",
         extracted_entities: {
           lead_id: leadId,
