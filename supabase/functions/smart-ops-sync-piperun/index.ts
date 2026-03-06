@@ -50,7 +50,7 @@ async function fetchDealsForPipeline(
       page,
       pipeline_id: pipelineId,
     };
-    const arrayParams = { "with[]": ["person", "origin"] };
+    const arrayParams = { "with[]": ["person", "origin", "stage"] };
     if (since) params.updated_since = since;
 
     const result = await piperunGet(apiKey, "deals", params, arrayParams);

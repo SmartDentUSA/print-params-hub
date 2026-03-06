@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
         pipeline_id: pipelineId,
       };
       if (statusFilter) params.status = statusFilter;
-      const arrayParams = { "with[]": ["person", "origin"] };
+      const arrayParams = { "with[]": ["person", "origin", "stage"] };
 
       const result = await piperunGet(PIPERUN_API_KEY, "deals", params, arrayParams);
       if (!result.success) {
