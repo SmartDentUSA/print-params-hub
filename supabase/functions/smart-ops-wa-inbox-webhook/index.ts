@@ -71,6 +71,37 @@ function classifyMessage(text: string): IntentResult {
     }
   }
   
+  // ── Secondary patterns: linguagem coloquial brasileira ──────────────
+  const SECONDARY_PATTERNS: Array<{ pattern: RegExp; intent: string; confidence: number }> = [
+    // Perguntas de preço
+    { pattern: /quanto\s*(custa|vale|é|fica|tá|ta)/i,           intent: "pedido_info",        confidence: 65 },
+    { pattern: /qual\s*(o\s*)?(pre[çc]o|valor|custo)/i,          intent: "pedido_info",        confidence: 65 },
+    { pattern: /tem\s*(algum|esse|esses|aquele|pro|pra)/i,        intent: "pedido_info",        confidence: 55 },
+    // Perguntas de funcionamento
+    { pattern: /como\s*(funciona|seria|é|é\s*isso)/i,             intent: "pedido_info",        confidence: 60 },
+    { pattern: /queria\s*(saber|entender|conhecer|ver)/i,          intent: "pedido_info",        confidence: 60 },
+    { pattern: /me\s*(fala|conta|explica|diz)\s*(mais|sobre)?/i,  intent: "pedido_info",        confidence: 55 },
+    // Solicitações ativas (alta intenção)
+    { pattern: /me\s*(manda|envia|passa|encaminha)/i,              intent: "interesse_imediato", confidence: 70 },
+    { pattern: /pode\s*(me\s*)?(mandar|enviar|passar)/i,           intent: "interesse_imediato", confidence: 70 },
+    { pattern: /quero\s*(receber|ver|conhecer|saber\s*mais)/i,     intent: "interesse_imediato", confidence: 75 },
+    // Interesse futuro coloquial
+    { pattern: /vou\s*(pensar|ver|analis|consider)/i,              intent: "interesse_futuro",   confidence: 60 },
+    { pattern: /depois\s*(eu|a\s*gente)\s*(v[eê]|fal|entr)/i,     intent: "interesse_futuro",   confidence: 55 },
+    { pattern: /no\s*(momento|agora)\s*(n[aã]o|to|tô)/i,          intent: "interesse_futuro",   confidence: 60 },
+    // Objeções de preço coloquiais
+    { pattern: /t[áa]\s*(caro|salgado|pesado)/i,                   intent: "objecao",            confidence: 70 },
+    { pattern: /n[aã]o\s*(tenho|tô\s*com|estou\s*com)\s*(din|grana|verba)/i, intent: "objecao", confidence: 65 },
+  ];
+
+  for (const rule of SECONDARY_PATTERNS) {
+    if (rule.pattern.test(text) || rule.pattern.test(normalized)) {
+      console.log(`[wa-inbox] Secondary pattern matched: ${rule.intent} (${rule.confidence}%) — "${text.substring(0, 60)}"`);
+      return { intent: rule.intent, confidence: rule.confidence };
+    }
+  }
+  // ────────────────────────────────────────────────────────────────────
+
   return { intent: "indefinido", confidence: 20 };
 }
 
