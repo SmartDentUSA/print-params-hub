@@ -115,6 +115,13 @@ Deno.serve(async (req) => {
               "Content-Type": "application/json",
             },
           });
+          const ct = res.headers.get("content-type") || "";
+          if (!ct.includes("application/json")) {
+            const txt = await res.text();
+            console.error(`[sync-piperun] Pipeline ${pid} returned non-JSON (${res.status}):`, txt.substring(0, 200));
+            allResults[`pipeline_${pid}`] = { error: `Non-JSON response (${res.status})`, preview: txt.substring(0, 100) };
+            continue;
+          }
           const data = await res.json();
           allResults[`pipeline_${pid}`] = data;
           if (data.synced) totalUpdated += data.synced;
@@ -147,6 +154,13 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
         },
       });
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        const txt = await res.text();
+        return new Response(JSON.stringify({ error: "Orchestrator returned non-JSON", status: res.status, preview: txt.substring(0, 200) }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const data = await res.json();
       return new Response(JSON.stringify(data), {
         status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
