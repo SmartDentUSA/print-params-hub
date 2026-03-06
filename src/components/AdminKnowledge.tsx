@@ -3689,7 +3689,7 @@ Receba o texto bruto abaixo e:
                             content_image_alt: prev.title 
                           }))}
                         >
-                          <Image className="w-4 h-4 mr-2" />
+                          <ImageIcon className="w-4 h-4 mr-2" />
                           Usar como Imagem Principal (Hero)
                         </Button>
                       </div>
