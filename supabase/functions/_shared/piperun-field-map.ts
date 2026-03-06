@@ -286,6 +286,7 @@ export interface PipeRunDealData {
   company_id?: number;
   origin_id?: number;
   origin?: { id?: number; name?: string };
+  stage?: { id?: number; name?: string };
   person?: {
     name?: string;
     emails?: Array<{ email: string }>;
@@ -368,8 +369,11 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     piperun_pipeline_id: deal.pipeline_id || null,
     piperun_pipeline_name: deal.pipeline_id ? PIPELINE_NAMES[deal.pipeline_id] || null : null,
     piperun_stage_id: deal.stage_id || null,
-    piperun_stage_name: deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] || null : null,
+    piperun_stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
     piperun_status: deal.status ?? null,
+    piperun_owner_id: deal.owner_id || null,
+    pessoa_piperun_id: deal.person_id || null,
+    empresa_piperun_id: deal.company_id || null,
     piperun_origin_id: deal.origin_id || null,
     piperun_origin_name: deal.origin?.name || null,
     piperun_title: deal.title || null,

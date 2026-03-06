@@ -242,3 +242,6 @@ verify_jwt = false
 
 [functions.poll-loja-integrada-orders]
 verify_jwt = false
+
+[functions.batch-cognitive-analysis]
+verify_jwt = false
