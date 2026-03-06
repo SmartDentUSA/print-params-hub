@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
     const url = new URL(req.url);
@@ -384,7 +384,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ANON_KEY}`,
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         },
         body: JSON.stringify({
           message: messageText,
@@ -479,7 +479,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${ANON_KEY}`,
+            Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           },
           body: JSON.stringify({
             team_member_id: teamMemberId,
