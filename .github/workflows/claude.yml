@@ -18,12 +18,3 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-```
-
-**4 →** **Commit changes → Commit directly to main → Commit changes** ✅
-
----
-
-Depois volte na **Issue #2** e poste novamente:
-```
-@claude pode começar a implementação?
