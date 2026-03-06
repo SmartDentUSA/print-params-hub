@@ -3212,15 +3212,15 @@ Campos:
     let sessionEntities: Record<string, unknown> | null = null;
     let currentLeadId: string | null = null;
     try {
-      const { data: sessionData } = await supabase
-        .from("agent_sessions")
-        .select("extracted_entities, lead_id")
-        .eq("session_id", session_id)
-        .maybeSingle();
-      if (sessionData) {
-        sessionEntities = (sessionData.extracted_entities as Record<string, unknown>) || null;
-        currentLeadId = sessionData.lead_id as string || null;
-      }
+        const { data: sessionData } = await supabase
+          .from("agent_sessions")
+          .select("extracted_entities, lead_id")
+          .eq("session_id", session_id)
+          .maybeSingle();
+        if (sessionData) {
+          sessionEntities = (sessionData.extracted_entities as Record<string, unknown>) || null;
+          currentLeadId = sessionData.lead_id as string || null;
+        }
     } catch (e) {
       console.warn("[lead-collection] session lookup failed:", e);
     }

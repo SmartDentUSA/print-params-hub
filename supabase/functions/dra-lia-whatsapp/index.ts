@@ -346,11 +346,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // If lead is already known, remove prior assistant prompts asking for email
+    // to avoid reinforcing an unnecessary email-collection loop.
+    const filteredHistory = (leadEmail && leadNome)
+      ? history.filter((msg) => !(msg.role === "assistant" && /e-?mail|email|correo/i.test(msg.content) && /reconhecer|recognize|reconocerte|token|informe|informar|forneça|provide/i.test(msg.content)))
+      : history;
+
     // 2b. Pre-seed agent_sessions so dra-lia skips email collection
     if (leadId) {
       const { error: sessErr } = await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
-        lead_id: leadId,
+        // IMPORTANT: do not write lia_attendances.id into agent_sessions.lead_id
+        // because this FK points to public.leads.id and causes FK violations.
+        // We pre-seed recognition data only in extracted_entities.
         current_state: "chatting",
         extracted_entities: {
           lead_id: leadId,
@@ -380,7 +388,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           message: messageText,
-          history,
+          history: filteredHistory,
           lang: "pt-BR",
           session_id: sessionId,
           topic_context: null,
@@ -407,6 +415,12 @@ Deno.serve(async (req) => {
 
     if (!liaResponse) {
       liaResponse = "Desculpe, não consegui processar sua mensagem. Pode tentar novamente? 😊";
+    }
+
+    // Safety-net: if lead is already known, don't allow repeated email-collection responses.
+    if (leadEmail && leadNome && /e-?mail|email|correo/i.test(liaResponse) && /reconhecer|recognize|reconocerte|token|informe|informar|forneça|provide/i.test(liaResponse)) {
+      console.warn("[dra-lia-wa] Email-loop guard activated for known lead", { leadId, sessionId });
+      liaResponse = `${leadNome}, já te reconheci por aqui ✅\n\nComo posso te ajudar agora?`;
     }
 
     // 4. Format for WhatsApp
