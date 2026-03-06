@@ -1,172 +1,104 @@
 
 
-# Plano: WhatsApp Inbox Listener + Pipeline Reactivator Loop
+# WhatsApp LIA — 2 Bugs Criticos Encontrados
 
-## Diagnostico do Estado Atual
+## Diagnostico
 
-| Componente | Status | Onde |
-|------------|--------|------|
-| Hunter (Proactive Outreach) | EXISTE | `smart-ops-proactive-outreach/index.ts` — 4 regras, SellFlux + WaLeads |
-| Sentinela (Webhook Listener) | NAO EXISTE | Nenhum endpoint recebe respostas do WaLeads |
-| `whatsapp_inbox` | NAO EXISTE | Sem tabela de mensagens inbound |
-| `classifyMessage` | NAO EXISTE | Sem classificador de intencao |
-| `notifySeller` | EXISTE PARCIAL | `notifySellerEscalation` no dra-lia (apenas escalation, sem hot-lead alert) |
-| Phone normalization | EXISTE PARCIAL | `normalizePhone` no `smart-ops-ingest-lead` (remove nao-digitos, adiciona 55) |
-| Cognitive Analysis | EXISTE | `cognitive-lead-analysis/index.ts` deployado |
+Analisei a `dra-lia-whatsapp` inteira e identifiquei **2 bugs fatais** que se combinam para criar o comportamento que voce esta vendo:
 
-**Gap critico**: O Hunter dispara mensagens via WaLeads/SellFlux, mas nao existe endpoint para capturar as respostas. O loop esta aberto.
+### Bug 1: `@lid` — WhatsApp mudou o formato de identificador
 
----
+O WaLeads esta enviando IDs no formato `278404175765557@lid` em vez de numeros de telefone reais. A funcao `stripWaSuffix` (linha 33) remove o `@lid`, mas o numero que sobra (`278404175765557`) **nao e um telefone** — e um ID interno do WhatsApp.
 
-## Fase 1: Tabela `whatsapp_inbox`
+Resultado:
+- `phoneDigits` = `278404175765557` (nao e telefone)
+- `phoneSuffix` = `175765557` (ultimos 9 digitos do LID, nao do telefone)
+- Match por `telefone_normalized` **sempre falha**
+- Cria um **novo lead** cada vez que alguem manda mensagem
+- Os nomes na inbox aparecem como `278404175765557@lid`
 
-Tabela separada de `lia_attendances` para auditoria, retreinamento e performance.
+**Solucao**: O WhatsApp envia o telefone real em campos alternativos do payload: `senderPn`, `remoteJidAlt`, `_data.key.senderPn`, `participant`. Preciso atualizar `extractFields` para procurar nesses campos e usar o telefone real quando disponivel.
 
-```sql
-CREATE TABLE IF NOT EXISTS whatsapp_inbox (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  phone text NOT NULL,
-  phone_normalized text,
-  message_text text,
-  media_url text,
-  media_type text,
-  direction text NOT NULL DEFAULT 'inbound' CHECK (direction IN ('inbound', 'outbound')),
-  lead_id uuid REFERENCES lia_attendances(id),
-  matched_by text,
-  intent_detected text CHECK (intent_detected IS NULL OR intent_detected IN (
-    'interesse_imediato', 'interesse_futuro', 'pedido_info',
-    'objecao', 'sem_interesse', 'suporte', 'indefinido'
-  )),
-  confidence_score integer,
-  seller_notified boolean DEFAULT false,
-  processed_at timestamptz,
-  raw_payload jsonb DEFAULT '{}'
-);
+### Bug 2: Session ID muda a cada mensagem (CRITICO)
 
-CREATE INDEX idx_wainbox_phone ON whatsapp_inbox(phone_normalized);
-CREATE INDEX idx_wainbox_lead ON whatsapp_inbox(lead_id);
-CREATE INDEX idx_wainbox_intent ON whatsapp_inbox(intent_detected);
-CREATE INDEX idx_wainbox_created ON whatsapp_inbox(created_at DESC);
+Linha 330:
+```
+const sessionId = `wa_${phoneDigits}_${Date.now()}`;
 ```
 
-RLS: `admin_only` (mesma policy de `lia_attendances`).
+`Date.now()` muda a cada chamada! Cada mensagem recebida cria uma **sessao nova**. A LIA ve historico vazio, detecta `needs_email_first`, e pede o email de novo. Mesmo que o usuario responda com o email, a proxima mensagem cria outra sessao e pede de novo. Loop infinito.
 
----
+**Solucao**: Usar session ID estavel por telefone: `wa_${phoneDigits}` (sem timestamp).
 
-## Fase 2: Edge Function `smart-ops-wa-inbox-webhook`
-
-Endpoint publico que recebe POST do WaLeads quando lead responde.
-
-**Fluxo:**
-
-1. Recebe payload WaLeads (formato: `{ phone, message, media_url, ... }`)
-2. Normaliza telefone (ultimos 8-9 digitos para match)
-3. Busca lead em `lia_attendances` via `telefone_normalized`
-4. Classifica mensagem (rule-based v1):
-   - `interesse_imediato`: regex para "quero", "fechar", "parcelamento", "proposta", "quando entrega"
-   - `interesse_futuro`: "estou planejando", "semestre", "ano que vem"
-   - `pedido_info`: "catalogo", "preco", "como funciona", "diferenca"
-   - `objecao`: "caro", "vou pensar", "falar com socio"
-   - `sem_interesse`: "nao tenho interesse", "pare", "remover"
-   - `suporte`: "problema", "defeito", "troca", "garantia"
-5. Insere em `whatsapp_inbox`
-6. Se `interesse_imediato` ou `interesse_futuro`: notifica vendedor responsavel
-7. Se `sem_interesse`: atualiza `tags_crm` com `A_SEM_RESPOSTA`
-8. Se lead tem 5+ msgs: dispara `cognitive-lead-analysis` fire-and-forget
-
-**Config:** `[functions.smart-ops-wa-inbox-webhook] verify_jwt = false`
-
----
-
-## Fase 3: Funcao de Normalizacao de Telefone (Robusta)
-
-Criar helper `normalizePhoneForMatch` no `_shared/sellflux-field-map.ts`:
-
-```typescript
-export function normalizePhoneForMatch(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  // Extrair ultimos 8-9 digitos para match
-  return digits.length >= 8 ? digits.slice(-9) : digits;
-}
-
-export function matchPhoneLoose(a: string, b: string): boolean {
-  const na = normalizePhoneForMatch(a);
-  const nb = normalizePhoneForMatch(b);
-  return na.length >= 8 && nb.length >= 8 && (na.endsWith(nb) || nb.endsWith(na));
-}
-```
-
-O webhook usara ILIKE `%ultimos9digitos` no `telefone_normalized` para encontrar o lead.
-
----
-
-## Fase 4: Notificacao do Vendedor (Hot Lead Alert)
-
-Quando `intent_detected === 'interesse_imediato'`:
-
-1. Buscar `proprietario_lead_crm` em `lia_attendances`
-2. Buscar `team_member` correspondente
-3. Enviar mensagem via WaLeads/SellFlux para o vendedor:
-
-```
-OPORTUNIDADE QUENTE
-Lead: {nome} ({especialidade})
-Owner: {proprietario_lead_crm}
-Resposta: "{message_text}" (truncado 200 chars)
-Etapa CRM: {ultima_etapa_comercial}
-Analise Cognitiva: {lead_stage_detected} | Urgencia: {urgency_level}
-Acao: {recommended_approach}
-```
-
-4. Marcar `seller_notified = true` em `whatsapp_inbox`
-
----
-
-## Fase 5: Limpeza Automatica (Clean-up Job)
-
-Adicionar logica no `smart-ops-stagnant-processor` existente:
-
-- Quando `intent_detected === 'sem_interesse'` em `whatsapp_inbox` nos ultimos 7 dias
-- E lead nao tem outras interacoes positivas
-- Atualizar `lead_status = 'descartado'` e adicionar tag `A_SEM_RESPOSTA`
-
----
-
-## Resumo de Arquivos
-
-| # | Arquivo | Acao |
-|---|---------|------|
-| 1 | Migracao SQL | Nova tabela `whatsapp_inbox` + indices + RLS |
-| 2 | `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` | NOVO (~150 linhas) |
-| 3 | `supabase/functions/_shared/sellflux-field-map.ts` | +2 funcoes de normalizacao de telefone |
-| 4 | `supabase/config.toml` | +3 linhas para nova funcao |
-| 5 | `supabase/functions/smart-ops-stagnant-processor/index.ts` | +15 linhas para clean-up de `sem_interesse` |
-
-## Ordem de Execucao
+### Cascata de Falhas
 
 ```text
-1. Migracao SQL (whatsapp_inbox)
-2. Helpers de normalizacao em sellflux-field-map.ts
-3. Edge function smart-ops-wa-inbox-webhook + config.toml
-4. Integracao clean-up no stagnant-processor
-5. Deploy
+Mensagem chega com @lid
+  → phoneDigits = "278404175765557" (LID, nao telefone)
+  → match por telefone_normalized FALHA
+  → cria NOVO lead (wa_278..._1741...@whatsapp.lead)
+  → sessionId = wa_278..._{timestamp} (NOVO cada vez)
+  → dra-lia recebe sessao vazia
+  → detecta needs_email_first
+  → "Para que eu possa te reconhecer, informe seu e-mail"
+  → proximo mensagem → repete TUDO
 ```
 
-## Payload WaLeads Esperado
+## Plano de Correcao
 
-O webhook do WaLeads envia POST com:
+### 1. Extrair telefone real do payload WaLeads (`extractFields`)
 
-```json
-{
-  "event": "message_received",
-  "phone": "5511999887766",
-  "message": "Tenho interesse sim, como funciona?",
-  "media_url": null,
-  "timestamp": "2026-02-26T10:30:00Z"
+Atualizar a funcao para buscar o telefone real nos campos alternativos que o WhatsApp envia junto com o `@lid`:
+
+```typescript
+// Prioridade: senderPn > remoteJidAlt > participant > phone original
+const senderPn = body.senderPn || nested.senderPn || 
+  (body._data as any)?.key?.senderPn || 
+  (body.key as any)?.senderPn || "";
+const remoteJidAlt = body.remoteJidAlt || nested.remoteJidAlt ||
+  (body._data as any)?.key?.remoteJidAlt || "";
+
+// Se o phone principal e @lid, tentar alternativas
+let resolvedPhone = phone;
+if (rawPhone.includes("@lid")) {
+  const altPhone = stripWaSuffix(String(senderPn || remoteJidAlt));
+  if (altPhone && altPhone.replace(/\D/g, "").length >= 10) {
+    resolvedPhone = altPhone;
+    console.log(`[dra-lia-wa] Resolved @lid to real phone: ${resolvedPhone}`);
+  }
 }
 ```
 
-O endpoint a ser configurado no painel WaLeads sera:
-`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-wa-inbox-webhook`
+### 2. Session ID estavel (`dra-lia-whatsapp`)
+
+Trocar:
+```
+const sessionId = `wa_${phoneDigits}_${Date.now()}`;
+```
+Por:
+```
+const sessionId = `wa_${phoneDigits}`;
+```
+
+### 3. Mesma correcao no `smart-ops-wa-inbox-webhook`
+
+Aplicar a mesma logica de resolucao de `@lid` para que o webhook de inbox tambem armazene o telefone real.
+
+### 4. Log de fallback quando @lid nao tem alternativa
+
+Quando nenhum campo alternativo tem o telefone real, logar warning e continuar com o LID (melhor do que rejeitar). A LIA vai pedir email e identificar por email.
+
+## Arquivos Alterados
+
+- `supabase/functions/dra-lia-whatsapp/index.ts` (extractFields + sessionId)
+- `supabase/functions/smart-ops-wa-inbox-webhook/index.ts` (phone resolution)
+
+## Impacto
+
+| Antes | Depois |
+|-------|--------|
+| Todos aparecem como `@lid` | Telefone real quando disponivel |
+| Novo lead a cada mensagem | Lead correto por match de telefone |
+| Pede email infinitamente | Sessao persistente, fluxo normal |
+| Historico perdido | Historico acumulado por sessao |
 
