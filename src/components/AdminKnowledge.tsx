@@ -146,6 +146,10 @@ export function AdminKnowledge() {
   const [transcribingOrchestratorPdfs, setTranscribingOrchestratorPdfs] = useState<Set<string>>(new Set());
   const [orchestratorPdfProgress, setOrchestratorPdfProgress] = useState<{[key: string]: string}>({});
   
+  // OG reference images for AI generation
+  const [ogReferenceImages, setOgReferenceImages] = useState<string[]>([]);
+  const [uploadingOgRef, setUploadingOgRef] = useState(false);
+  
   const DEFAULT_AI_PROMPT = `Você é um especialista em SEO e formatação de conteúdo para blog odontológico.
 
 Receba o texto bruto abaixo e:
@@ -1528,39 +1532,47 @@ Receba o texto bruto abaixo e:
       // Get selected category info
       const currentCategory = categories.find(c => c.letter === selectedCategory);
 
-      // Tentar usar imagem real do produto/resina selecionado(a)
+      // Check for user-uploaded reference images first
       let productName: string | null = null;
       let productImageUrl: string | null = null;
+      let referenceImageUrls: string[] = [];
 
-      const firstResinId = formData.recommended_resins?.[0];
-      const firstProductId = formData.recommended_products?.[0];
+      if (ogReferenceImages.length > 0) {
+        // Use uploaded reference images
+        referenceImageUrls = ogReferenceImages;
+        console.log('🖼️ OG Image: usando', referenceImageUrls.length, 'imagens de referência do usuário');
+      } else {
+        // Fallback: use product/resin image
+        const firstResinId = formData.recommended_resins?.[0];
+        const firstProductId = formData.recommended_products?.[0];
 
-      if (firstResinId) {
-        const { data, error } = await supabase
-          .from('resins')
-          .select('name, image_url')
-          .eq('id', firstResinId)
-          .single();
+        if (firstResinId) {
+          const { data, error } = await supabase
+            .from('resins')
+            .select('name, image_url')
+            .eq('id', firstResinId)
+            .single();
 
-        if (!error && data?.image_url) {
-          productName = data.name;
-          productImageUrl = data.image_url;
+          if (!error && data?.image_url) {
+            productName = data.name;
+            productImageUrl = data.image_url;
+          }
+        } else if (firstProductId) {
+          const { data, error } = await supabase
+            .from('system_a_catalog')
+            .select('name, image_url')
+            .eq('id', firstProductId)
+            .single();
+
+          if (!error && data?.image_url) {
+            productName = data.name;
+            productImageUrl = data.image_url;
+          }
         }
-      } else if (firstProductId) {
-        const { data, error } = await supabase
-          .from('system_a_catalog')
-          .select('name, image_url')
-          .eq('id', firstProductId)
-          .single();
 
-        if (!error && data?.image_url) {
-          productName = data.name;
-          productImageUrl = data.image_url;
+        if (productImageUrl) {
+          console.log('🖼️ OG Image: usando imagem real:', productName, '| url:', productImageUrl);
         }
-      }
-
-      if (productImageUrl) {
-        console.log('🖼️ OG Image: usando imagem real:', productName, '| url:', productImageUrl);
       }
 
       const response = await fetch(
@@ -1578,6 +1590,7 @@ Receba o texto bruto abaixo e:
             category: currentCategory?.name || null,
             extractedTextPreview: formData.content_html?.substring(0, 500) || formData.excerpt || null,
             productImageUrl,
+            referenceImageUrls: referenceImageUrls.length > 0 ? referenceImageUrls : undefined,
           })
         }
       );
@@ -3658,14 +3671,28 @@ Receba o texto bruto abaixo e:
                         alt="OG Preview" 
                         className="w-full max-h-40 object-cover rounded border border-border"
                       />
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                        onClick={() => setFormData({ ...formData, og_image_url: '' })}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Remover
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => setFormData({ ...formData, og_image_url: '' })}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Remover
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setFormData(prev => ({ 
+                            ...prev, 
+                            content_image_url: prev.og_image_url, 
+                            content_image_alt: prev.title 
+                          }))}
+                        >
+                          <Image className="w-4 h-4 mr-2" />
+                          Usar como Imagem Principal (Hero)
+                        </Button>
+                      </div>
                     </div>
                   )}
                   
@@ -3710,6 +3737,52 @@ Receba o texto bruto abaixo e:
                           Gerar com IA
                         </>
                       )}
+                    </Button>
+
+                    {/* Upload de imagens de referência para IA */}
+                    <input 
+                      type="file" 
+                      multiple 
+                      accept="image/*" 
+                      className="hidden" 
+                      id="og-ref-upload"
+                      onChange={async (e) => {
+                        const files = e.target.files;
+                        if (!files || files.length === 0) return;
+                        setUploadingOgRef(true);
+                        try {
+                          const newUrls: string[] = [];
+                          for (const file of Array.from(files).slice(0, 4)) {
+                            if (file.size > 5 * 1024 * 1024) {
+                              toast({ title: `${file.name} excede 5MB`, variant: 'destructive' });
+                              continue;
+                            }
+                            const ext = file.name.split('.').pop() || 'jpg';
+                            const path = `og-references/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+                            const { error } = await supabase.storage.from('knowledge-images').upload(path, file, { cacheControl: '3600', upsert: true });
+                            if (error) { console.error(error); continue; }
+                            const { data } = supabase.storage.from('knowledge-images').getPublicUrl(path);
+                            newUrls.push(data.publicUrl);
+                          }
+                          setOgReferenceImages(prev => [...prev, ...newUrls].slice(0, 4));
+                          if (newUrls.length > 0) toast({ title: `${newUrls.length} imagem(ns) de referência adicionada(s)` });
+                        } catch (err) {
+                          console.error(err);
+                          toast({ title: 'Erro no upload de referência', variant: 'destructive' });
+                        } finally {
+                          setUploadingOgRef(false);
+                          e.target.value = '';
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById('og-ref-upload')?.click()}
+                      disabled={uploadingOgRef}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadingOgRef ? 'Enviando...' : `Fotos Referência (${ogReferenceImages.length}/4)`}
                     </Button>
                     
                     <Button 
