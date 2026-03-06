@@ -2246,6 +2246,75 @@ export type Database = {
         }
         Relationships: []
       }
+      piperun_staging: {
+        Row: {
+          area_atuacao: string | null
+          cidade: string | null
+          email: string | null
+          empresa_cnpj: string | null
+          empresa_nome: string | null
+          empresa_porte: string | null
+          empresa_razao_social: string | null
+          empresa_segmento: string | null
+          especialidade: string | null
+          informacao_desejada: string | null
+          pessoa_cargo: string | null
+          pessoa_cpf: string | null
+          pessoa_genero: string | null
+          pessoa_nascimento: string | null
+          pessoa_piperun_id: number | null
+          telefone_normalized: string | null
+          telefone_raw: string | null
+          tem_impressora: string | null
+          tem_scanner: string | null
+          uf: string | null
+        }
+        Insert: {
+          area_atuacao?: string | null
+          cidade?: string | null
+          email?: string | null
+          empresa_cnpj?: string | null
+          empresa_nome?: string | null
+          empresa_porte?: string | null
+          empresa_razao_social?: string | null
+          empresa_segmento?: string | null
+          especialidade?: string | null
+          informacao_desejada?: string | null
+          pessoa_cargo?: string | null
+          pessoa_cpf?: string | null
+          pessoa_genero?: string | null
+          pessoa_nascimento?: string | null
+          pessoa_piperun_id?: number | null
+          telefone_normalized?: string | null
+          telefone_raw?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          uf?: string | null
+        }
+        Update: {
+          area_atuacao?: string | null
+          cidade?: string | null
+          email?: string | null
+          empresa_cnpj?: string | null
+          empresa_nome?: string | null
+          empresa_porte?: string | null
+          empresa_razao_social?: string | null
+          empresa_segmento?: string | null
+          especialidade?: string | null
+          informacao_desejada?: string | null
+          pessoa_cargo?: string | null
+          pessoa_cpf?: string | null
+          pessoa_genero?: string | null
+          pessoa_nascimento?: string | null
+          pessoa_piperun_id?: number | null
+          telefone_normalized?: string | null
+          telefone_raw?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          uf?: string | null
+        }
+        Relationships: []
+      }
       resin_documents: {
         Row: {
           active: boolean | null

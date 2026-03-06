@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { KanbanColumn, type ColumnDef } from "@/components/smartops/KanbanColumn";
 import { KanbanLeadDetail } from "@/components/smartops/KanbanLeadDetail";
 import type { Lead } from "@/components/smartops/KanbanLeadCard";
-import { Search } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const COLUMNS: ColumnDef[] = [
   { key: "novo", label: "Novo", color: "bg-emerald-50 border-emerald-300" },
@@ -77,6 +78,7 @@ const TABS = [
 ];
 
 const ALL_KEYS = TABS.flatMap((t) => t.columns.map((c) => c.key));
+const POLLING_INTERVAL = 30_000;
 
 export function SmartOpsKanban() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -85,24 +87,64 @@ export function SmartOpsKanban() {
   const [movingToPiperun, setMovingToPiperun] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [activeTab, setActiveTab] = useState("vendas");
+  const [tabCounts, setTabCounts] = useState<Record<string, number>>({});
   const { toast } = useToast();
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const LEAD_SELECT = "*";
+  const activeTabColumns = useMemo(() => {
+    const tab = TABS.find((t) => t.id === activeTab);
+    return tab ? tab.columns.map((c) => c.key) : [];
+  }, [activeTab]);
 
-  const fetchLeads = async () => {
+  // Fetch leads for the active tab only
+  const fetchLeads = useCallback(async (tabKeys?: string[]) => {
+    const keys = tabKeys || activeTabColumns;
+    if (keys.length === 0) return;
     const { data } = await supabase
       .from("lia_attendances")
-      .select(LEAD_SELECT)
-      .in("lead_status", ALL_KEYS)
+      .select("*")
+      .in("lead_status", keys)
       .order("created_at", { ascending: false })
-      .limit(2000);
+      .limit(500);
     setLeads((data as unknown as Lead[]) || []);
     setLoading(false);
-  };
+  }, [activeTabColumns]);
 
-  useEffect(() => { fetchLeads(); }, []);
+  // Fetch server-side counts for ALL tabs
+  const fetchTabCounts = useCallback(async () => {
+    const counts: Record<string, number> = {};
+    const promises = TABS.map(async (tab) => {
+      const keys = tab.columns.map((c) => c.key);
+      const { count } = await supabase
+        .from("lia_attendances")
+        .select("*", { count: "exact", head: true })
+        .in("lead_status", keys);
+      counts[tab.id] = count || 0;
+    });
+    await Promise.all(promises);
+    setTabCounts(counts);
+  }, []);
 
-  // Realtime subscription for instant Kanban updates
+  // Initial load + tab change
+  useEffect(() => {
+    setLoading(true);
+    fetchLeads();
+    fetchTabCounts();
+  }, [activeTab]);
+
+  // Polling fallback every 30s
+  useEffect(() => {
+    pollingRef.current = setInterval(() => {
+      fetchLeads();
+      fetchTabCounts();
+    }, POLLING_INTERVAL);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [fetchLeads, fetchTabCounts]);
+
+  // Realtime subscription — filter by active tab
   useEffect(() => {
     const channel = supabase
       .channel("kanban-realtime")
@@ -111,7 +153,10 @@ export function SmartOpsKanban() {
         { event: "INSERT", schema: "public", table: "lia_attendances" },
         (payload) => {
           const newLead = payload.new as Lead;
-          if (ALL_KEYS.includes(newLead.lead_status)) {
+          // Always refresh counts
+          fetchTabCounts();
+          // Only add to local state if it belongs to active tab
+          if (activeTabColumns.includes(newLead.lead_status)) {
             setLeads((prev) => {
               if (prev.some((l) => l.id === newLead.id)) return prev;
               return [newLead, ...prev];
@@ -124,16 +169,17 @@ export function SmartOpsKanban() {
         { event: "UPDATE", schema: "public", table: "lia_attendances" },
         (payload) => {
           const updated = payload.new as Lead;
+          fetchTabCounts();
+          const inActiveTab = activeTabColumns.includes(updated.lead_status);
           setLeads((prev) => {
-            const inKanban = ALL_KEYS.includes(updated.lead_status);
             const exists = prev.some((l) => l.id === updated.id);
-            if (exists && inKanban) {
+            if (exists && inActiveTab) {
               return prev.map((l) => (l.id === updated.id ? updated : l));
             }
-            if (exists && !inKanban) {
+            if (exists && !inActiveTab) {
               return prev.filter((l) => l.id !== updated.id);
             }
-            if (!exists && inKanban) {
+            if (!exists && inActiveTab) {
               return [updated, ...prev];
             }
             return prev;
@@ -146,6 +192,7 @@ export function SmartOpsKanban() {
         (payload) => {
           const deletedId = (payload.old as { id: string }).id;
           setLeads((prev) => prev.filter((l) => l.id !== deletedId));
+          fetchTabCounts();
         }
       )
       .subscribe();
@@ -153,7 +200,7 @@ export function SmartOpsKanban() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [activeTabColumns, fetchTabCounts]);
 
   const filteredLeads = useMemo(() => {
     if (!search.trim()) return leads;
@@ -187,7 +234,13 @@ export function SmartOpsKanban() {
       return;
     }
 
-    setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, lead_status: newStatus } : l));
+    // If new status is in the active tab, update locally; otherwise remove
+    if (activeTabColumns.includes(newStatus)) {
+      setLeads((prev) => prev.map((l) => l.id === draggedId ? { ...l, lead_status: newStatus } : l));
+    } else {
+      setLeads((prev) => prev.filter((l) => l.id !== draggedId));
+    }
+    fetchTabCounts();
 
     if (lead.piperun_id) {
       setMovingToPiperun(true);
@@ -211,40 +264,43 @@ export function SmartOpsKanban() {
     setDraggedId(null);
   };
 
-  const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const tab of TABS) {
-      const keys = tab.columns.map((c) => c.key);
-      counts[tab.id] = filteredLeads.filter((l) => keys.includes(l.lead_status)).length;
-    }
-    return counts;
-  }, [filteredLeads]);
-
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando leads...</div>;
 
   return (
     <div className="space-y-3">
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar lead por nome, email, telefone..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-9 text-sm"
-        />
+      {/* Search + Refresh */}
+      <div className="flex items-center gap-2">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar lead por nome, email, telefone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9 text-sm"
+          />
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => { fetchLeads(); fetchTabCounts(); }}
+          className="h-9 px-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
       {movingToPiperun && (
         <div className="text-xs text-muted-foreground animate-pulse">⏳ Sincronizando PipeRun...</div>
       )}
 
-      <Tabs defaultValue="vendas" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1 bg-transparent p-0">
           {TABS.map((tab) => (
             <TabsTrigger key={tab.id} value={tab.id} className="text-xs px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               {tab.label}
-              <Badge variant="secondary" className="ml-1.5 text-[9px] px-1 py-0">{tabCounts[tab.id]}</Badge>
+              <Badge variant="secondary" className="ml-1.5 text-[9px] px-1 py-0">
+                {tabCounts[tab.id] ?? "…"}
+              </Badge>
             </TabsTrigger>
           ))}
         </TabsList>
