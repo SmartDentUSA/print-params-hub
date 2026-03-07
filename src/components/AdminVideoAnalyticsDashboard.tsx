@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableProductSelect } from './SearchableProductSelect';
 import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink, Loader2, Save } from 'lucide-react';
 import { useVideoOpportunities, VideoRow } from '@/hooks/useVideoOpportunities';
 import { AdminVideosList } from './AdminVideosList';
