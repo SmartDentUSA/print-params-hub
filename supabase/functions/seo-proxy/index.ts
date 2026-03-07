@@ -582,6 +582,8 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
   <meta name="description" content="${escapeHtml(description)}" />
   ${FAVICON_TAGS}
@@ -660,6 +662,8 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
@@ -747,6 +751,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
@@ -861,6 +867,8 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${seoTitle}</title>
   <meta name="description" content="${metaDescription}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
@@ -914,6 +922,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     <article>
       <h1>${escapeHtml(resinName)}</h1>
       ${buildAISummaryBlock(contextText)}
+      ${resinData?.image_url ? `<img src="${escapeHtml(resinData.image_url)}" alt="${escapeHtml(resinName)}" loading="eager" fetchpriority="high" decoding="async" style="width:100%;max-width:1200px;height:auto;border-radius:12px;margin:1.5rem 0" />` : ''}
       <p data-section="definition">${resinData?.description || `Parâmetros profissionais testados para ${escapeHtml(resinName)} na impressora ${escapeHtml(modelSlug)}.`}</p>
       <section data-section="technical-specs">
         <h2>Parâmetros de Impressão</h2>
@@ -991,6 +1000,8 @@ async function generateSystemACatalogHTML(
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(seoTitle)}</title>
   <meta name="description" content="${escapeHtml(metaDescription)}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
@@ -1092,6 +1103,8 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
@@ -1184,6 +1197,8 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
@@ -1355,6 +1370,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${escapeHtml(content.title)} | Base de Conhecimento Smart Dent</title>
   <meta name="description" content="${escapeHtml(desc)}" />
   ${FAVICON_TAGS}
@@ -1568,7 +1585,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
     <nav aria-label="Principal">
       <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
-        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" decoding="async" />
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="eager" decoding="async" />
         <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
       </a>
     </nav>
