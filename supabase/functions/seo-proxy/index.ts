@@ -1699,20 +1699,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       </div>
     </aside>
     ` : ''}
+    ${buildEntityIndexJsonLd(`${content.title} ${content.excerpt || ''} ${content.content_html?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`)}
   </article>
-  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
-    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
-    <p><a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a></p>
-  </footer>
-  <script>
-  (function() {
-    var ua = navigator.userAgent.toLowerCase();
-    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
-    if (!isBot && !navigator.webdriver) {
-      window.location.href = "/base-conhecimento/${letter}/${slug}";
-    }
-  })();
-  </script>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/base-conhecimento/${letter}/${slug}`)}
 </body>
 </html>`;
 }
