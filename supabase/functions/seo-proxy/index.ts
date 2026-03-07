@@ -983,11 +983,10 @@ async function generateSystemACatalogHTML(
   const faqs = extraData.faqs || [];
   const videos = extraData.videos || [];
 
-  return `<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <title>${escapeHtml(seoTitle)}</title>
   const aiContext = category === 'product' 
+    ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
+    : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
+
     ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
     : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
 
