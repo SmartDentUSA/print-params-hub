@@ -856,6 +856,8 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   const ogImage = resinData?.og_image_url || resinData?.image_url || `${baseUrl}/og-image.jpg`;
   const keywords = resinData?.keywords || [];
 
+  const contextText = `Resina ${escapeHtml(resinName)} (${escapeHtml(resinManufacturer)}) com parâmetros otimizados para impressora ${escapeHtml(modelSlug)}. Layer height: ${params.layer_height}mm, cure time: ${params.cure_time}s, light intensity: ${params.light_intensity}%.`;
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -868,91 +870,69 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <meta property="og:description" content="${metaDescription}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:type" content="product" />
+  ${buildAIHeadTags({ context: contextText, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "Smart Dent",
-    "url": baseUrl,
-    "logo": `${baseUrl}/og-image.jpg`,
-    "description": "Parâmetros profissionais para impressão 3D odontológica"
-  })}
-  </script>
-  <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "Product",
-    "name": escapeHtml(resinName),
-    "description": resinData?.description || `Resina ${escapeHtml(resinName)} com parâmetros otimizados`,
-    "brand": {
-      "@type": "Brand",
-      "name": escapeHtml(resinManufacturer)
-    },
-    "image": ogImage,
-    "offers": {
-      "@type": "Offer",
-      "availability": "https://schema.org/InStock",
-      "url": canonicalUrl,
-      "price": resinData?.price || undefined,
-      "priceCurrency": resinData?.price ? "BRL" : undefined
-    },
-    "additionalProperty": [
-      { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
-      { "@type": "PropertyValue", "name": "Cure Time", "value": `${params.cure_time}s` },
-      { "@type": "PropertyValue", "name": "Light Intensity", "value": `${params.light_intensity}%` }
+    "@graph": [
+      {
+        "@type": "Product",
+        "name": escapeHtml(resinName),
+        "description": resinData?.description || `Resina ${escapeHtml(resinName)} com parâmetros otimizados`,
+        "brand": { "@type": "Brand", "name": escapeHtml(resinManufacturer) },
+        "image": ogImage,
+        "offers": {
+          "@type": "Offer",
+          "availability": "https://schema.org/InStock",
+          "url": canonicalUrl,
+          "price": resinData?.price || undefined,
+          "priceCurrency": resinData?.price ? "BRL" : undefined
+        },
+        "additionalProperty": [
+          { "@type": "PropertyValue", "name": "Layer Height", "value": `${params.layer_height}mm` },
+          { "@type": "PropertyValue", "name": "Cure Time", "value": `${params.cure_time}s` },
+          { "@type": "PropertyValue", "name": "Light Intensity", "value": `${params.light_intensity}%` }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": escapeHtml(brandSlug), "item": `${baseUrl}/${brandSlug}` },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(modelSlug), "item": `${baseUrl}/${brandSlug}/${modelSlug}` },
+          { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinManufacturer)} ${escapeHtml(resinName)}`, "item": canonicalUrl }
+        ]
+      }
     ]
   })}
   </script>
-  <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": escapeHtml(brandSlug), "item": `${baseUrl}/${brandSlug}` },
-      { "@type": "ListItem", "position": 3, "name": escapeHtml(modelSlug), "item": `${baseUrl}/${brandSlug}/${modelSlug}` },
-      { "@type": "ListItem", "position": 4, "name": `${escapeHtml(resinManufacturer)} ${escapeHtml(resinName)}`, "item": canonicalUrl }
-    ]
-  })}
-  </script>
+  ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`)}
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
-    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
-  </header>
-  <h1>${escapeHtml(resinName)}</h1>
-  <p>${resinData?.description || `Parâmetros profissionais testados para ${escapeHtml(resinName)} na impressora ${escapeHtml(modelSlug)}.`}</p>
-  <h2>Parâmetros de Impressão</h2>
-  <ul>
-    <li><strong>Layer Height:</strong> ${params.layer_height}mm</li>
-    <li><strong>Cure Time:</strong> ${params.cure_time}s</li>
-    <li><strong>Bottom Cure Time:</strong> ${params.bottom_cure_time || 'N/A'}s</li>
-    <li><strong>Light Intensity:</strong> ${params.light_intensity}%</li>
-    <li><strong>Bottom Layers:</strong> ${params.bottom_layers || 5}</li>
-    <li><strong>Lift Distance:</strong> ${params.lift_distance || 5}mm</li>
-    <li><strong>Lift Speed:</strong> ${params.lift_speed || 3}mm/s</li>
-  </ul>
-  ${params.notes ? `<p><strong>Observações:</strong> ${escapeHtml(params.notes)}</p>` : ''}
-  ${resinData?.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
-  <script>
-  (function() {
-    var ua = navigator.userAgent.toLowerCase();
-    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
-    if (!isBot && !navigator.webdriver) {
-      window.location.href = "/${brandSlug}/${modelSlug}/${resinSlug}";
-    }
-  })();
-  </script>
+  ${buildStandardHeader()}
+  <main id="main-content">
+    <article>
+      <h1>${escapeHtml(resinName)}</h1>
+      ${buildAISummaryBlock(contextText)}
+      <p data-section="definition">${resinData?.description || `Parâmetros profissionais testados para ${escapeHtml(resinName)} na impressora ${escapeHtml(modelSlug)}.`}</p>
+      <section data-section="technical-specs">
+        <h2>Parâmetros de Impressão</h2>
+        <ul>
+          <li><strong>Layer Height:</strong> ${params.layer_height}mm</li>
+          <li><strong>Cure Time:</strong> ${params.cure_time}s</li>
+          <li><strong>Bottom Cure Time:</strong> ${params.bottom_cure_time || 'N/A'}s</li>
+          <li><strong>Light Intensity:</strong> ${params.light_intensity}%</li>
+          <li><strong>Bottom Layers:</strong> ${params.bottom_layers || 5}</li>
+          <li><strong>Lift Distance:</strong> ${params.lift_distance || 5}mm</li>
+          <li><strong>Lift Speed:</strong> ${params.lift_speed || 3}mm/s</li>
+        </ul>
+      </section>
+      ${params.notes ? `<p><strong>Observações:</strong> ${escapeHtml(params.notes)}</p>` : ''}
+      ${resinData?.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
+    </article>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/${brandSlug}/${modelSlug}/${resinSlug}`)}
 </body>
 </html>`;
 }
