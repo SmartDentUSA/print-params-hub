@@ -739,20 +739,23 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   const resinsCount = uniqueResins.length;
   const baseUrl = 'https://parametros.smartdent.com.br';
 
+  const title = `${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent`;
+  const description = `Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas.`;
+  const contextText = `Parâmetros de impressão 3D para ${escapeHtml(model.name)} (${escapeHtml((model.brands as any).name)}). ${resinsCount} resinas com configurações testadas para odontologia digital.`;
+  const ogImage = model.image_url || `${baseUrl}/og-image.jpg`;
+
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent</title>
-  <meta name="description" content="Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas." />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
-  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
-  <meta name="AI-context" content="Parâmetros de impressão 3D para ${escapeHtml(model.name)}. ${resinsCount} resinas com configurações testadas para odontologia digital." />
-  <meta property="og:title" content="${escapeHtml(model.name)} - Parâmetros de Impressão" />
+  <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
-  <meta property="og:image" content="${model.image_url || `${baseUrl}/og-image.jpg`}" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="${escapeHtml(model.name)} - Parâmetros" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:type" content="product" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: ogImage, canonicalUrl: `${baseUrl}/${brandSlug}/${modelSlug}` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -776,24 +779,15 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
     ]
   })}
   </script>
+  ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`)}
 </head>
 <body>
-  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <nav aria-label="Principal">
-      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
-        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
-        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-      </a>
-    </nav>
-    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
-  </header>
+  ${buildStandardHeader()}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(model.name)}</h1>
-      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
-        <p itemProp="abstract">Parâmetros profissionais testados para ${escapeHtml(model.name)} com ${resinsCount} resinas validadas para uso odontológico.</p>
-      </section>
-      ${model.notes ? `<p>${escapeHtml(model.notes)}</p>` : ''}
+      ${buildAISummaryBlock(contextText)}
+      ${model.notes ? `<p data-section="definition">${escapeHtml(model.notes)}</p>` : `<p data-section="definition">Impressora 3D ${escapeHtml(model.name)} da ${escapeHtml((model.brands as any).name)} com ${resinsCount} configurações de resina validadas para uso clínico em odontologia digital.</p>`}
       <h2>Resinas Disponíveis (${resinsCount})</h2>
       <ul>
         ${uniqueResins.map((r: any) => {
@@ -803,18 +797,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
       </ul>
     </article>
   </main>
-  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
-    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
-  </footer>
-  <script>
-  (function() {
-    var ua = navigator.userAgent.toLowerCase();
-    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
-    if (!isBot && !navigator.webdriver) {
-      window.location.href = "/${brandSlug}/${modelSlug}";
-    }
-  })();
-  </script>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/${brandSlug}/${modelSlug}`)}
 </body>
 </html>`;
 }
