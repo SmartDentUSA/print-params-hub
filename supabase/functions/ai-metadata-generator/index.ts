@@ -138,8 +138,8 @@ serve(async (req) => {
           console.log('✅ Generated keywords:', keywords);
         }
         if (type === 'faqs') {
-          faqs = aiRes.value;
-          console.log('✅ Generated FAQs:', faqs.length);
+          faqs = [...faqs, ...aiRes.value];
+          console.log('✅ Generated FAQs (appended):', faqs.length);
         }
       } else {
         console.error('❌ Promise failed:', result.reason);
