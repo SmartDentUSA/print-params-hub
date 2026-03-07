@@ -987,8 +987,6 @@ async function generateSystemACatalogHTML(
     ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
     : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
 
-    ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
-    : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
