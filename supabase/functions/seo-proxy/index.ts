@@ -458,10 +458,14 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <meta name="description" content="Base de dados profissional com parâmetros testados para ${brands?.length || 15}+ marcas de impressoras 3D odontológicas. Elegoo, Anycubic, Creality e mais." />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="Base de dados profissional de parâmetros de impressão 3D odontológica. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária." />
   <meta property="og:title" content="Parâmetros de Impressão 3D Odontológica" />
   <meta property="og:description" content="Configurações profissionais para impressoras e resinas 3D odontológicas" />
   <meta property="og:image" content="${baseUrl}/og-image.jpg" />
   <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Parâmetros de Impressão 3D Odontológica" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -478,25 +482,31 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   </script>
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <h1>Parâmetros de Impressão 3D Odontológica</h1>
-  <p>Base de dados profissional com parâmetros testados para impressoras e resinas Smart Dent.</p>
-  <h2>Marcas Disponíveis</h2>
-  <ul>
-    ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
-  </ul>
+  <main id="main-content">
+    <article>
+      <h1>Parâmetros de Impressão 3D Odontológica</h1>
+      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
+        <p itemProp="abstract">Base de dados profissional com parâmetros testados para impressoras e resinas Smart Dent. Configurações validadas para uso clínico em odontologia digital.</p>
+      </section>
+      <h2>Marcas Disponíveis</h2>
+      <ul>
+        ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+    <p><a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a></p>
+  </footer>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
