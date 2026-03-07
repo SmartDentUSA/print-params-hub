@@ -5,6 +5,8 @@ import { SYSTEM_SUPER_PROMPT } from "../_shared/system-prompt.ts";
 import { TESTIMONIAL_PROMPT } from "../_shared/testimonial-prompt.ts";
 import { DOCUMENT_PROMPTS } from "../_shared/document-prompts.ts";
 import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
+import { matchEntities, buildEntityGraph } from "../_shared/entity-dictionary.ts";
+import { buildCitationBlock, buildGeoContextBlock, buildEntityGraphJsonLd } from "../_shared/citation-builder.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1132,9 +1134,52 @@ Você DEVE extrair e gerar o campo "veredictData" no JSON de resposta.
       console.warn('⚠️ Nenhuma FAQ gerada pela IA');
     }
 
-    const generatedHTML = parsedResponse.html;
+    let generatedHTML = parsedResponse.html;
     const generatedFAQs = parsedResponse.faqs;
     const veredictData = (parsedResponse as any).veredictData || null;
+
+    // ═══════════════════════════════════════════════════════════
+    // 🧠 POST-PROCESSING: Entity Graph + Citation Block + Geo Context
+    // ═══════════════════════════════════════════════════════════
+    try {
+      // 1. Match entities in generated HTML
+      const matched = matchEntities(generatedHTML);
+      console.log(`🧠 Entity matching: ${matched.length} entities found`);
+
+      // 2. Build and inject citation block after first <h1>
+      const articleTitle = title || productName || 'Artigo Técnico';
+      const articleExcerpt = excerpt || parsedResponse.metadata?.aiContext || '';
+      if (articleExcerpt) {
+        const citationBlock = buildCitationBlock({
+          title: articleTitle,
+          summary: articleExcerpt,
+          productName: productName || undefined
+        });
+        const h1CloseIndex = generatedHTML.indexOf('</h1>');
+        if (h1CloseIndex !== -1) {
+          const insertPos = h1CloseIndex + 5;
+          generatedHTML = generatedHTML.slice(0, insertPos) + citationBlock + generatedHTML.slice(insertPos);
+        }
+      }
+
+      // 3. Build geo-context block
+      const geoSummary = `A Smart Dent (Mmtech) é referência no Brasil em fluxos CAD/CAM e impressão 3D odontológica desde 2009. ${articleTitle}.`;
+      const geoBlock = buildGeoContextBlock(geoSummary);
+      generatedHTML = geoBlock + generatedHTML;
+
+      // 4. Append entity graph as JSON-LD
+      if (matched.length > 0) {
+        const { about, mentions } = buildEntityGraph(matched);
+        const entityJsonLd = buildEntityGraphJsonLd(about, mentions);
+        if (entityJsonLd) {
+          generatedHTML += '\n' + entityJsonLd;
+        }
+      }
+
+      console.log(`✅ Post-processing complete: citation block injected, ${matched.length} entities linked`);
+    } catch (postError) {
+      console.warn('⚠️ Post-processing (entity/citation) failed, continuing without:', postError);
+    }
 
     console.log(`✅ Artigo orquestrado gerado: ${generatedHTML.length} chars, ${generatedFAQs.length} FAQs`);
     
