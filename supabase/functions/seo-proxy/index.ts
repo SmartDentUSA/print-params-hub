@@ -987,28 +987,24 @@ async function generateSystemACatalogHTML(
 <html lang="pt-BR">
 <head>
   <title>${escapeHtml(seoTitle)}</title>
+  const aiContext = category === 'product' 
+    ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
+    : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <title>${escapeHtml(seoTitle)}</title>
   <meta name="description" content="${escapeHtml(metaDescription)}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   ${FAVICON_TAGS}
   <link rel="canonical" href="${canonicalUrl}" />
-  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
-  <meta name="AI-context" content="${category === 'product' ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`}" />
-  
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
   <meta property="og:description" content="${escapeHtml(metaDescription)}" />
   <meta property="og:image" content="${ogImage}" />
   <meta property="og:url" content="${canonicalUrl}" />
   <meta property="og:type" content="${category === 'product' ? 'product' : 'article'}" />
-  
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:site" content="@smartdent" />
-  <meta name="twitter:creator" content="@smartdent" />
-  <meta name="twitter:title" content="${escapeHtml(seoTitle)}" />
-  <meta name="twitter:description" content="${escapeHtml(metaDescription)}" />
-  <meta name="twitter:image" content="${ogImage}" />
-  <meta name="twitter:image:alt" content="${escapeHtml(item.name)}" />
-  
-  <!-- Structured Data: Product/Review Schema with BreadcrumbList -->
+  ${buildAIHeadTags({ context: aiContext, title: seoTitle, description: metaDescription, image: ogImage, canonicalUrl })}
   <script type="application/ld+json">
   ${JSON.stringify(category === 'product' ? {
     "@context": "https://schema.org",
@@ -1019,214 +1015,63 @@ async function generateSystemACatalogHTML(
         "description": item.description,
         "image": ogImage,
         "brand": { "@type": "Brand", "name": "Smart Dent" },
-        "offers": {
-          "@type": "Offer",
-          "url": canonicalUrl,
-          "priceCurrency": item.currency || "BRL",
-          "price": item.promo_price || item.price || undefined,
-          "availability": "https://schema.org/InStock"
-        },
-        ...(item.rating && item.review_count > 0 && {
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": item.rating,
-            "reviewCount": item.review_count,
-            "bestRating": 5,
-            "worstRating": 1
-          }
-        }),
-        ...(faqs.length > 0 && {
-          "mainEntity": faqs.map((faq: any) => ({
-            "@type": "Question",
-            "name": faq.question,
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": faq.answer
-            }
-          }))
-        })
+        "offers": { "@type": "Offer", "url": canonicalUrl, "priceCurrency": item.currency || "BRL", "price": item.promo_price || item.price || undefined, "availability": "https://schema.org/InStock" },
+        ...(item.rating && item.review_count > 0 && { "aggregateRating": { "@type": "AggregateRating", "ratingValue": item.rating, "reviewCount": item.review_count, "bestRating": 5, "worstRating": 1 } }),
+        ...(faqs.length > 0 && { "mainEntity": faqs.map((faq: any) => ({ "@type": "Question", "name": faq.question, "acceptedAnswer": { "@type": "Answer", "text": faq.answer } })) })
       },
-      {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Produtos", "item": `${baseUrl}/produtos` },
-          { "@type": "ListItem", "position": 3, "name": item.name, "item": canonicalUrl }
-        ]
-      }
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Produtos", "item": `${baseUrl}/produtos` },
+        { "@type": "ListItem", "position": 3, "name": item.name, "item": canonicalUrl }
+      ]}
     ]
   } : category === 'video_testimonial' ? {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "Review",
-        "itemReviewed": {
-          "@type": "Product",
-          "name": extraData.products_mentioned?.[0] || "Smart Dent",
-          "brand": { "@type": "Brand", "name": "Smart Dent" }
-        },
-        "reviewRating": {
-          "@type": "Rating",
-          "ratingValue": extraData.rating || 5,
-          "bestRating": 5,
-          "worstRating": 1
-        },
-        "author": {
-          "@type": "Person",
-          "name": item.name,
-          "jobTitle": extraData.specialty,
-          "address": extraData.location ? {
-            "@type": "PostalAddress",
-            "addressLocality": extraData.location
-          } : undefined
-        },
+        "itemReviewed": { "@type": "Product", "name": extraData.products_mentioned?.[0] || "Smart Dent", "brand": { "@type": "Brand", "name": "Smart Dent" } },
+        "reviewRating": { "@type": "Rating", "ratingValue": extraData.rating || 5, "bestRating": 5, "worstRating": 1 },
+        "author": { "@type": "Person", "name": item.name, "jobTitle": extraData.specialty, "address": extraData.location ? { "@type": "PostalAddress", "addressLocality": extraData.location } : undefined },
         "reviewBody": item.description,
         "datePublished": item.created_at,
-        ...(videos.length > 0 && {
-          "video": {
-            "@type": "VideoObject",
-            "name": videos[0].title || item.name,
-            "description": item.description,
-            "thumbnailUrl": videos[0].thumbnail_url || ogImage,
-            "uploadDate": item.created_at,
-            "contentUrl": videos[0].url,
-            "embedUrl": videos[0].embed_url || videos[0].url,
-            "duration": videos[0].duration || "PT5M"
-          }
-        })
+        ...(videos.length > 0 && { "video": { "@type": "VideoObject", "name": videos[0].title || item.name, "description": item.description, "thumbnailUrl": videos[0].thumbnail_url || ogImage, "uploadDate": item.created_at, "contentUrl": videos[0].url, "embedUrl": videos[0].embed_url || videos[0].url, "duration": videos[0].duration || "PT5M" } })
       },
-      {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Depoimentos", "item": `${baseUrl}/depoimentos` },
-          { "@type": "ListItem", "position": 3, "name": item.name, "item": canonicalUrl }
-        ]
-      }
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Depoimentos", "item": `${baseUrl}/depoimentos` },
+        { "@type": "ListItem", "position": 3, "name": item.name, "item": canonicalUrl }
+      ]}
     ]
   } : {
     "@context": "https://schema.org",
-    "@type": "Article",
-    "headline": item.name,
-    "description": item.description,
-    "image": ogImage,
-    "author": { "@type": "Organization", "name": "Smart Dent" },
-    "publisher": { "@type": "Organization", "name": "Smart Dent" }
+    "@type": "Article", "headline": item.name, "description": item.description, "image": ogImage,
+    "author": { "@type": "Organization", "name": "Smart Dent" }, "publisher": { "@type": "Organization", "name": "Smart Dent" }
   })}
   </script>
+  ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`)}
 </head>
 <body>
-  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <nav aria-label="Principal">
-      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
-        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
-        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-      </a>
-    </nav>
-    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
-  </header>
+  ${buildStandardHeader()}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(item.name)}</h1>
-      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
-        <p itemProp="abstract">${item.description ? escapeHtml(item.description) : ''}</p>
-      </section>
-  
-  ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" />` : ''}
-  
-  ${benefits.length > 0 ? `
-    <h2>Benefícios</h2>
-    <ul>${benefits.map((b: string) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>
-  ` : ''}
-  
-  ${features.length > 0 ? `
-    <h2>Características</h2>
-    <ul>${features.map((f: string) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>
-  ` : ''}
-  
-  ${variations.length > 0 ? `
-    <h2>Opções Disponíveis</h2>
-    <ul>${variations.map((v: any) => `
-      <li>
-        <strong>${escapeHtml(v.name)}</strong>
-        ${v.price ? ` - R$ ${v.price}` : ''}
-        ${v.description ? `<br>${escapeHtml(v.description)}` : ''}
-      </li>
-    `).join('')}</ul>
-  ` : ''}
-  
-  ${videos.length > 0 ? `
-    <h2>Vídeos</h2>
-    <ul>${videos.map((video: any) => `<li><a href="${escapeHtml(video.url)}">${escapeHtml(video.title || 'Assistir vídeo')}</a></li>`).join('')}</ul>
-  ` : ''}
-  
-  ${faqs.length > 0 ? `
-    <h2>Perguntas Frequentes</h2>
-    ${faqs.map((faq: any) => `
-      <div>
-        <h3>${escapeHtml(faq.question)}</h3>
-        <p>${escapeHtml(faq.answer)}</p>
-      </div>
-    `).join('')}
-  ` : ''}
-  
-  ${item.rating && item.review_count > 0 ? `
-    <p>
-      <strong>Avaliação:</strong> 
-      ${'⭐'.repeat(Math.round(item.rating))} 
-      ${item.rating.toFixed(1)}/5 
-      (${item.review_count} ${item.review_count === 1 ? 'avaliação' : 'avaliações'})
-    </p>
-  ` : ''}
-  
-  ${item.promo_price && item.price ? `
-    <p>
-      <strong>De:</strong> <s>R$ ${item.price.toFixed(2)}</s><br>
-      <strong>Por:</strong> <span style="color:#e74c3c;font-size:1.2em">R$ ${item.promo_price.toFixed(2)}</span>
-      <span style="color:#27ae60;font-weight:bold">
-        (${Math.round(((item.price - item.promo_price) / item.price) * 100)}% OFF)
-      </span>
-    </p>
-  ` : item.price ? `
-    <p><strong>Preço:</strong> R$ ${item.price.toFixed(2)}</p>
-  ` : ''}
-  
-  ${item.cta_1_url ? `
-    <p>
-      <a href="${escapeHtml(item.cta_1_url)}" target="_blank" rel="noopener">
-        ${escapeHtml(item.cta_1_label || 'Ver na Loja')}
-      </a>
-      ${item.cta_1_description ? `<br><small>${escapeHtml(item.cta_1_description)}</small>` : ''}
-    </p>
-  ` : ''}
-  
-  ${item.cta_2_url ? `
-    <p>
-      <a href="${escapeHtml(item.cta_2_url)}" target="_blank" rel="noopener">
-        ${escapeHtml(item.cta_2_label || 'Saiba Mais')}
-      </a>
-      ${item.cta_2_description ? `<br><small>${escapeHtml(item.cta_2_description)}</small>` : ''}
-    </p>
-  ` : ''}
-  
-  ${item.cta_3_url ? `
-    <p>
-      <a href="${escapeHtml(item.cta_3_url)}" target="_blank" rel="noopener">
-        ${escapeHtml(item.cta_3_label || 'Mais Informações')}
-      </a>
-      ${item.cta_3_description ? `<br><small>${escapeHtml(item.cta_3_description)}</small>` : ''}
-    </p>
-  ` : ''}
-  
-  <script>
-  (function() {
-    var ua = navigator.userAgent.toLowerCase();
-    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
-    if (!isBot && !navigator.webdriver) {
-      window.location.href = "/${categoryPath}/${slug}";
-    }
-  })();
-  </script>
+      ${buildAISummaryBlock(item.description ? escapeHtml(item.description) : aiContext)}
+      ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" loading="eager" fetchpriority="high" decoding="async" style="width:100%;max-width:1200px;height:auto;border-radius:12px;margin:1.5rem 0" />` : ''}
+  ${benefits.length > 0 ? `<section data-section="benefits"><h2>Benefícios</h2><ul>${benefits.map((b: string) => `<li>${escapeHtml(b)}</li>`).join('')}</ul></section>` : ''}
+  ${features.length > 0 ? `<section data-section="features"><h2>Características</h2><ul>${features.map((f: string) => `<li>${escapeHtml(f)}</li>`).join('')}</ul></section>` : ''}
+  ${variations.length > 0 ? `<section data-section="variations"><h2>Opções Disponíveis</h2><ul>${variations.map((v: any) => `<li><strong>${escapeHtml(v.name)}</strong>${v.price ? ` - R$ ${v.price}` : ''}${v.description ? `<br>${escapeHtml(v.description)}` : ''}</li>`).join('')}</ul></section>` : ''}
+  ${videos.length > 0 ? `<section data-section="videos"><h2>Vídeos</h2><ul>${videos.map((video: any) => `<li><a href="${escapeHtml(video.url)}">${escapeHtml(video.title || 'Assistir vídeo')}</a></li>`).join('')}</ul></section>` : ''}
+  ${faqs.length > 0 ? `<section data-section="faq"><h2>Perguntas Frequentes</h2>${faqs.map((faq: any) => `<div><h3>${escapeHtml(faq.question)}</h3><p>${escapeHtml(faq.answer)}</p></div>`).join('')}</section>` : ''}
+  ${item.rating && item.review_count > 0 ? `<p><strong>Avaliação:</strong> ${'⭐'.repeat(Math.round(item.rating))} ${item.rating.toFixed(1)}/5 (${item.review_count} ${item.review_count === 1 ? 'avaliação' : 'avaliações'})</p>` : ''}
+  ${item.promo_price && item.price ? `<p><strong>De:</strong> <s>R$ ${item.price.toFixed(2)}</s><br><strong>Por:</strong> <span style="color:#e74c3c;font-size:1.2em">R$ ${item.promo_price.toFixed(2)}</span> <span style="color:#27ae60;font-weight:bold">(${Math.round(((item.price - item.promo_price) / item.price) * 100)}% OFF)</span></p>` : item.price ? `<p><strong>Preço:</strong> R$ ${item.price.toFixed(2)}</p>` : ''}
+  ${item.cta_1_url ? `<p><a href="${escapeHtml(item.cta_1_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_1_label || 'Ver na Loja')}</a></p>` : ''}
+  ${item.cta_2_url ? `<p><a href="${escapeHtml(item.cta_2_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_2_label || 'Saiba Mais')}</a></p>` : ''}
+  ${item.cta_3_url ? `<p><a href="${escapeHtml(item.cta_3_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_3_label || 'Mais Informações')}</a></p>` : ''}
+    </article>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/${categoryPath}/${slug}`)}
 </body>
 </html>`;
 }
@@ -1243,12 +1088,15 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   }
 
   const baseUrl = 'https://parametros.smartdent.com.br';
+  const title = 'Base de Conhecimento | Smart Dent';
+  const description = 'Artigos, tutoriais e guias sobre impressão 3D odontológica. Aprenda técnicas, resolução de problemas e melhores práticas.';
+  const contextText = 'Base de conhecimento profissional sobre impressão 3D odontológica. Conteúdo técnico-científico para cirurgiões-dentistas e técnicos em prótese dentária.';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>Base de Conhecimento | Smart Dent</title>
-  <meta name="description" content="Artigos, tutoriais e guias sobre impressão 3D odontológica. Aprenda técnicas, resolução de problemas e melhores práticas." />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/base-conhecimento" />
   <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento" />
@@ -1256,33 +1104,47 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento" />
   <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento" />
   <meta property="og:title" content="Base de Conhecimento Smart Dent" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${baseUrl}/og-image.jpg" />
   <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-image.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    "name": "Base de Conhecimento Smart Dent",
-    "url": `${baseUrl}/base-conhecimento`,
-    "description": "Artigos e tutoriais sobre impressão 3D odontológica"
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "name": "Base de Conhecimento Smart Dent",
+        "url": `${baseUrl}/base-conhecimento`,
+        "description": "Artigos e tutoriais sobre impressão 3D odontológica"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` }
+        ]
+      }
+    ]
   })}
   </script>
+  ${buildEntityIndexJsonLd('impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA CAD/CAM scanner intraoral prótese dentária odontologia digital')}
 </head>
 <body>
-  <h1>Base de Conhecimento</h1>
-  <p>Artigos, tutoriais e guias sobre impressão 3D odontológica.</p>
-  <h2>Categorias</h2>
-  <ul>
-    ${categories?.map((c: any) => `<li><a href="/conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
-  </ul>
-  <script>
-  (function() {
-    var ua = navigator.userAgent.toLowerCase();
-    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
-    if (!isBot && !navigator.webdriver) {
-      window.location.href = "/conhecimento";
-    }
-  })();
-  </script>
+  ${buildStandardHeader()}
+  <main id="main-content">
+    <article>
+      <h1>Base de Conhecimento</h1>
+      ${buildAISummaryBlock(contextText)}
+      <p data-section="definition">Artigos, tutoriais e guias sobre impressão 3D odontológica. Conteúdo produzido por especialistas para cirurgiões-dentistas e técnicos em prótese dentária.</p>
+      <h2>Categorias</h2>
+      <ul>
+        ${categories?.map((c: any) => `<li><a href="/conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript('/conhecimento')}
 </body>
 </html>`;
 }
@@ -1318,42 +1180,60 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   }
 
   const baseUrl = 'https://parametros.smartdent.com.br';
+  const title = `${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento Smart Dent`;
+  const description = `Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis na base de conhecimento Smart Dent.`;
+  const contextText = `Categoria "${escapeHtml(category.name)}" da base de conhecimento Smart Dent. ${contents?.length || 0} artigos técnicos sobre impressão 3D odontológica.`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <title>${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento</title>
-  <meta name="description" content="Artigos sobre ${escapeHtml(category.name)}. ${contents?.length || 0} conteúdos disponíveis." />
+  <title>${title}</title>
+  <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
-  <meta property="og:title" content="${escapeHtml(category.name)}" />
+  <meta property="og:title" content="${escapeHtml(category.name)} - Base de Conhecimento" />
+  <meta property="og:description" content="${description}" />
+  <meta property="og:image" content="${baseUrl}/og-image.jpg" />
+  <meta property="og:type" content="website" />
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-image.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
-      { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "name": `${category.letter} - ${category.name}`,
+        "description": description,
+        "url": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`,
+        "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
+        ]
+      }
     ]
   })}
   </script>
+  ${buildEntityIndexJsonLd(`${category.name} impressão 3D odontológica resina fotopolimerização odontologia digital`)}
 </head>
 <body>
-  <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
-  <p>${contents?.length || 0} artigos disponíveis nesta categoria.</p>
-  <ul>
-    ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a></li>`).join('') || ''}
-  </ul>
-  <script>
-  (function() {
-    var ua = navigator.userAgent.toLowerCase();
-    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
-    if (!isBot && !navigator.webdriver) {
-      window.location.href = "/base-conhecimento/${letter.toLowerCase()}";
-    }
-  })();
-  </script>
+  ${buildStandardHeader()}
+  <main id="main-content">
+    <article>
+      <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
+      ${buildAISummaryBlock(contextText)}
+      <p data-section="definition">${contents?.length || 0} artigos disponíveis nesta categoria.</p>
+      <ul>
+        ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a>${c.excerpt ? `<br><small>${escapeHtml(c.excerpt.substring(0, 120))}</small>` : ''}</li>`).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  ${buildStandardFooter()}
+  ${buildBotRedirectScript(`/base-conhecimento/${letter.toLowerCase()}`)}
 </body>
 </html>`;
 }
