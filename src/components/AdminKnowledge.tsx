@@ -3858,7 +3858,7 @@ Receba o texto bruto abaixo e:
                         🪄 Geração Automática de FAQs
                       </h4>
                       <p className="text-sm text-green-800 dark:text-green-200 mt-1">
-                        Gere 10 FAQs baseadas no conteúdo do artigo
+                        Acrescente +10 FAQs baseadas no conteúdo do artigo
                       </p>
                     </div>
                     <Button
@@ -3896,12 +3896,12 @@ Receba o texto bruto abaixo e:
                           
                           setFormData(prev => ({
                             ...prev,
-                            faqs: data.faqs
+                            faqs: [...(prev.faqs as any[] || []), ...data.faqs]
                           }));
                           
                           toast({
-                            title: '✅ FAQs gerados!',
-                            description: `${data.faqs.length} perguntas frequentes criadas por IA`,
+                            title: '✅ +10 FAQs adicionados!',
+                            description: `Total: ${((formData.faqs as any[])?.length || 0) + data.faqs.length} FAQs`,
                           });
                         } catch (err: any) {
                           console.error('❌ Erro ao gerar FAQs:', err);
@@ -3916,7 +3916,7 @@ Receba o texto bruto abaixo e:
                       }}
                       disabled={isGeneratingMetadata || !formData.title || !formData.content_html}
                     >
-                      {isGeneratingMetadata ? '⏳ Gerando...' : '🪄 Gerar 10 FAQs por IA'}
+                      {isGeneratingMetadata ? '⏳ Gerando...' : '🪄 Gerar +10 FAQs por IA'}
                     </Button>
                   </div>
                   
