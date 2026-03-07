@@ -161,12 +161,14 @@ export function useVideoOpportunities() {
 
   async function fetchProducts() {
     try {
+      // Fetch all products (bypass default 1000 row limit)
       const { data, error } = await supabase
         .from('system_a_catalog')
         .select('id, name, category')
         .eq('active', true)
         .eq('approved', true)
-        .order('name');
+        .order('name')
+        .limit(5000);
 
       if (error) throw error;
       return (data || []) as ProductOption[];
