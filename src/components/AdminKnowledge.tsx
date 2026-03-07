@@ -1537,42 +1537,41 @@ Receba o texto bruto abaixo e:
       let productImageUrl: string | null = null;
       let referenceImageUrls: string[] = [];
 
+      // Sempre buscar nome do produto para contexto (independente de ter referência)
+      const firstResinId = formData.recommended_resins?.[0];
+      const firstProductId = formData.recommended_products?.[0];
+
+      if (firstResinId) {
+        const { data, error } = await supabase
+          .from('resins')
+          .select('name, image_url')
+          .eq('id', firstResinId)
+          .single();
+
+        if (!error && data) {
+          productName = data.name;
+          if (data.image_url) productImageUrl = data.image_url;
+        }
+      } else if (firstProductId) {
+        const { data, error } = await supabase
+          .from('system_a_catalog')
+          .select('name, image_url')
+          .eq('id', firstProductId)
+          .single();
+
+        if (!error && data) {
+          productName = data.name;
+          if (data.image_url) productImageUrl = data.image_url;
+        }
+      }
+
       if (ogReferenceImages.length > 0) {
-        // Use uploaded reference images
+        // Use uploaded reference images (productImageUrl não é usado, mas productName sim)
         referenceImageUrls = ogReferenceImages;
-        console.log('🖼️ OG Image: usando', referenceImageUrls.length, 'imagens de referência do usuário');
-      } else {
-        // Fallback: use product/resin image
-        const firstResinId = formData.recommended_resins?.[0];
-        const firstProductId = formData.recommended_products?.[0];
-
-        if (firstResinId) {
-          const { data, error } = await supabase
-            .from('resins')
-            .select('name, image_url')
-            .eq('id', firstResinId)
-            .single();
-
-          if (!error && data?.image_url) {
-            productName = data.name;
-            productImageUrl = data.image_url;
-          }
-        } else if (firstProductId) {
-          const { data, error } = await supabase
-            .from('system_a_catalog')
-            .select('name, image_url')
-            .eq('id', firstProductId)
-            .single();
-
-          if (!error && data?.image_url) {
-            productName = data.name;
-            productImageUrl = data.image_url;
-          }
-        }
-
-        if (productImageUrl) {
-          console.log('🖼️ OG Image: usando imagem real:', productName, '| url:', productImageUrl);
-        }
+        productImageUrl = null; // referências substituem a imagem do produto
+        console.log('🖼️ OG Image: usando', referenceImageUrls.length, 'imagens de referência | produto:', productName);
+      } else if (productImageUrl) {
+        console.log('🖼️ OG Image: usando imagem real:', productName, '| url:', productImageUrl);
       }
 
       const response = await fetch(

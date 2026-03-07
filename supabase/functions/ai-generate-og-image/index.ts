@@ -379,10 +379,14 @@ serve(async (req) => {
     
     // Obter configuração base e aplicar regras de ouro
     const baseConfig = getBaseConfig(docType);
-    const finalConfig = applyGoldenRules(baseConfig, textContext, productName);
+    const hasReferenceImages = Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0;
+    
+    // Quando tem imagens de referência, NÃO aplicar golden rules (elas sobrescrevem com contexto genérico)
+    const finalConfig = hasReferenceImages 
+      ? baseConfig 
+      : applyGoldenRules(baseConfig, textContext, productName);
     
     // Detectar modo de geração
-    const hasReferenceImages = Array.isArray(referenceImageUrls) && referenceImageUrls.length > 0;
     const mode = hasReferenceImages ? 'EDIT' : detectGenerationMode(productImageUrl, textContext, productName);
 
     console.log('📸 Gerando OG Image:', { 
@@ -391,38 +395,43 @@ serve(async (req) => {
       productName,
       modo: mode,
       hasProductImage: !!productImageUrl,
-      referenceImagesCount: hasReferenceImages ? referenceImageUrls.length : 0
+      referenceImagesCount: hasReferenceImages ? referenceImageUrls.length : 0,
+      goldenRulesApplied: !hasReferenceImages
     });
 
     let response: Response;
 
     if (hasReferenceImages) {
       // ========================================
-      // MODO REFERÊNCIA: Compor múltiplas imagens do usuário
+      // MODO REFERÊNCIA: Usar fotos reais do usuário como conteúdo principal
       // ========================================
       console.log('🖼️ Modo REFERENCE EDIT: Usando', referenceImageUrls.length, 'imagens de referência');
       
-      const refPrompt = `Create a professional Open Graph image (1200x630 pixels) for a dental industry article.
+      const refPrompt = `You are creating a professional 1200x630 Open Graph banner image for a dental industry article.
 
-TITLE: "${title || 'Technical Document'}"
+ARTICLE TITLE: "${title || 'Technical Document'}"
+${productName ? `PRODUCT: ${productName}` : ''}
+${extractedTextPreview ? `ARTICLE CONTEXT: ${extractedTextPreview.substring(0, 300)}` : ''}
 
-INSTRUCTIONS:
-- Use the provided reference images as visual inspiration and source material
-- Compose them into a SINGLE cohesive, professional OG image
-- Apply professional dental/medical photography aesthetics
-- Environment: ${finalConfig.ambiente}
+YOUR TASK:
+The user has uploaded ${referenceImageUrls.length} reference photo(s) of their ACTUAL product/equipment.
+You MUST use these photos as the PRIMARY visual content of the OG image.
+Do NOT ignore them. Do NOT replace them with unrelated imagery.
+
+LAYOUT (1200x630):
+- Place the product/subject from the reference photos prominently in the LEFT-CENTER
+- Product occupies 40-50% of frame height
+- Right third has subtle gradient for text overlay space
+- Add a professional dental laboratory or clinical background context
 - Lighting: ${finalConfig.iluminacao}
-- Mood: ${finalConfig.mood}
 
-${COMPOSITION_RULES}
-
-${GLOBAL_ANTI_HALLUCINATION}
-
-ABSOLUTE RESTRICTIONS:
-- NEVER add text, logos, or watermarks to the image
-- NEVER show human faces
-- NEVER distort product proportions
-${finalConfig.regra_anti_alucinacao}`;
+CRITICAL RULES:
+- The reference photos show the REAL product — keep it recognizable
+- Do NOT invent new products or objects not in the photos
+- Do NOT add text, logos, watermarks, or human faces
+- Do NOT add product packaging or bottles unless shown in reference
+- Keep the product proportions accurate
+- Output must be photorealistic, professional dental photography style`;
 
       const contentParts: any[] = [
         { type: "text", text: refPrompt },
