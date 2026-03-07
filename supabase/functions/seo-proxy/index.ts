@@ -64,6 +64,130 @@ const FAVICON_TAGS = `
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232463eb' width='32' height='32' rx='4'/><text x='50%25' y='50%25' fill='white' font-family='sans-serif' font-size='14' font-weight='bold' text-anchor='middle' dy='.35em'>SD</text></svg>">
 `;
 
+// ===== SHARED HELPERS: AI-Ready Semantic Structure =====
+
+// Internal entity dictionary for entity index injection
+const ENTITY_INDEX: Record<string, { name: string; wikidata?: string; url?: string; description: string; aliases?: string[] }> = {
+  IMPRESSAO_3D: { name: "Impressão 3D", wikidata: "https://www.wikidata.org/wiki/Q229367", description: "Fabricação aditiva por deposição camada a camada de material.", aliases: ["3D printing", "impresión 3D", "manufatura aditiva"] },
+  CAD_CAM: { name: "CAD/CAM", wikidata: "https://www.wikidata.org/wiki/Q207696", description: "Projeto assistido por computador e manufatura assistida por computador.", aliases: ["computer-aided design"] },
+  ODONTOLOGIA_DIGITAL: { name: "Odontologia Digital", wikidata: "https://www.wikidata.org/wiki/Q1023932", description: "Integração de tecnologias digitais no fluxo de trabalho odontológico.", aliases: ["digital dentistry"] },
+  RESINA_COMPOSTA: { name: "Resina Composta", wikidata: "https://www.wikidata.org/wiki/Q1144215", description: "Material restaurador polimérico com partículas de carga inorgânica.", aliases: ["composite resin", "resina fotopolimerizável"] },
+  ZIRCONIA: { name: "Zircônia", wikidata: "https://www.wikidata.org/wiki/Q81727", description: "Cerâmica de dióxido de zircônio utilizada em próteses dentárias.", aliases: ["zirconia", "ZrO2"] },
+  FOTOPOLIMERIZACAO: { name: "Fotopolimerização", wikidata: "https://www.wikidata.org/wiki/Q899948", description: "Processo de polimerização iniciado por radiação luminosa.", aliases: ["photopolymerization", "cura UV", "light curing"] },
+  DLP: { name: "DLP (Digital Light Processing)", wikidata: "https://www.wikidata.org/wiki/Q631962", description: "Tecnologia de impressão 3D por processamento digital de luz.", aliases: ["digital light processing"] },
+  LCD_MSLA: { name: "LCD/mSLA", wikidata: "https://www.wikidata.org/wiki/Q229367", description: "Impressão 3D por fotopolimerização mascarada via painel LCD.", aliases: ["masked stereolithography"] },
+  SLA: { name: "SLA (Estereolitografia)", wikidata: "https://www.wikidata.org/wiki/Q746381", description: "Tecnologia de impressão 3D por estereolitografia a laser.", aliases: ["stereolithography"] },
+  PROTESE_DENTARIA: { name: "Prótese Dentária", wikidata: "https://www.wikidata.org/wiki/Q1397513", description: "Dispositivo artificial para substituição de dentes ausentes.", aliases: ["dental prosthesis", "prosthodontics"] },
+  SCANNER_INTRAORAL: { name: "Scanner Intraoral", wikidata: "https://www.wikidata.org/wiki/Q1023932", description: "Dispositivo de escaneamento digital para captura de impressões dentárias.", aliases: ["intraoral scanner"] },
+  GUIA_CIRURGICO: { name: "Guia Cirúrgico", wikidata: "https://www.wikidata.org/wiki/Q223809", description: "Dispositivo impresso em 3D para posicionamento preciso de implantes.", aliases: ["surgical guide"] },
+};
+
+function matchEntitiesInText(text: string): Array<{ id: string; name: string; wikidata?: string; description: string }> {
+  const lowerText = text.toLowerCase();
+  const matched: Array<{ id: string; name: string; wikidata?: string; description: string }> = [];
+  const seen = new Set<string>();
+  for (const [id, entity] of Object.entries(ENTITY_INDEX)) {
+    if (seen.has(id)) continue;
+    const terms = [entity.name, ...(entity.aliases || [])];
+    for (const term of terms) {
+      if (lowerText.includes(term.toLowerCase())) {
+        matched.push({ id, name: entity.name, wikidata: entity.wikidata, description: entity.description });
+        seen.add(id);
+        break;
+      }
+    }
+  }
+  return matched;
+}
+
+function buildEntityIndexJsonLd(text: string): string {
+  const entities = matchEntitiesInText(text);
+  if (entities.length === 0) return '';
+  const about = entities.slice(0, 3).map(e => {
+    const item: Record<string, string> = { "@type": "DefinedTerm", "name": e.name, "description": e.description };
+    if (e.wikidata) item.sameAs = e.wikidata;
+    return item;
+  });
+  const mentions = entities.slice(3).map(e => {
+    const item: Record<string, string> = { "@type": "DefinedTerm", "name": e.name, "description": e.description };
+    if (e.wikidata) item.sameAs = e.wikidata;
+    return item;
+  });
+  const schema: Record<string, unknown> = { "@context": "https://schema.org" };
+  if (about.length > 0) schema.about = about;
+  if (mentions.length > 0) schema.mentions = mentions;
+  return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+}
+
+function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string }): string {
+  return `
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="${escapeHtml(opts.context)}" />
+  <meta name="twitter:card" content="${opts.image ? 'summary_large_image' : 'summary'}" />
+  <meta name="twitter:site" content="@smartdent" />
+  <meta name="twitter:title" content="${escapeHtml(opts.title)}" />
+  <meta name="twitter:description" content="${escapeHtml(opts.description)}" />
+  ${opts.image ? `<meta name="twitter:image" content="${opts.image}" />
+  <meta name="twitter:image:alt" content="${escapeHtml(opts.title)}" />` : ''}
+  <meta name="citation_title" content="${escapeHtml(opts.title)}" />
+  ${opts.author ? `<meta name="citation_author" content="${escapeHtml(opts.author)}" />` : ''}
+  ${opts.date ? `<meta name="citation_date" content="${opts.date}" />` : ''}
+  <meta name="citation_publisher" content="Smart Dent" />
+  ${opts.canonicalUrl ? `<link rel="cite-as" href="${opts.canonicalUrl}" />` : ''}
+  <meta name="geo.region" content="BR-SP" />
+  <meta name="geo.placename" content="São Carlos" />
+  <meta name="publisher" content="Smart Dent" />`;
+}
+
+const HEADER_STYLE = 'background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)';
+
+function buildStandardHeader(): string {
+  return `
+  <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">Pular para conteúdo principal</a>
+  <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
+  <header role="banner" style="${HEADER_STYLE}">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="eager" decoding="async" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+  </header>`;
+}
+
+function buildStandardFooter(): string {
+  return `
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+    <nav aria-label="Footer">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a> |
+      <a href="${BASE_URL}/base-conhecimento" style="color:#2563eb">Base de Conhecimento</a> |
+      <a href="${BASE_URL}/sobre" style="color:#2563eb">Sobre</a>
+    </nav>
+  </footer>`;
+}
+
+function buildBotRedirectScript(targetPath: string): string {
+  return `<script>
+  (function() {
+    var ua = navigator.userAgent.toLowerCase();
+    var isBot = /bot|crawler|spider|googlebot|bingbot|slurp|facebook|twitter|whatsapp/i.test(ua);
+    if (!isBot && !navigator.webdriver) {
+      window.location.href = "${targetPath}";
+    }
+  })();
+  </script>`;
+}
+
+function buildAISummaryBlock(summary: string): string {
+  return `<section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
+        <div class="ai-citation-box" itemProp="abstract">
+          <p class="article-summary">${escapeHtml(summary)}</p>
+        </div>
+      </section>`;
+}
+
 const isBot = (ua: string): boolean => {
   if (!ua) return false;
   const lowerUa = ua.toLowerCase();
