@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableProductSelect } from './SearchableProductSelect';
 import { RefreshCw, Video, Flame, CheckCircle2, AlertTriangle, ExternalLink, Loader2, Save } from 'lucide-react';
 import { useVideoOpportunities, VideoRow } from '@/hooks/useVideoOpportunities';
 import { AdminVideosList } from './AdminVideosList';
@@ -239,46 +239,13 @@ export function AdminVideoAnalyticsDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Select
+                          <SearchableProductSelect
                             value={getCurrentValue(v)}
                             onValueChange={(value) => handleSelectChange(v.id, value)}
-                          >
-                            <SelectTrigger className="w-[180px] h-8 text-xs">
-                              <SelectValue placeholder="Selecionar..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                              <SelectItem value="none">
-                                <span className="text-muted-foreground">Nenhum</span>
-                              </SelectItem>
-                              
-                              {resins.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>Resinas ({resins.length})</SelectLabel>
-                                  {resins.map(r => (
-                                    <SelectItem key={r.id} value={`resin:${r.id}`}>
-                                      {r.manufacturer} - {r.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                              
-                              {products.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>Produtos ({products.length})</SelectLabel>
-                                  {products.slice(0, 50).map(p => (
-                                    <SelectItem key={p.id} value={`product:${p.id}`}>
-                                      {p.name}
-                                    </SelectItem>
-                                  ))}
-                                  {products.length > 50 && (
-                                    <SelectItem value="product:more" disabled>
-                                      ... e mais {products.length - 50} produtos
-                                    </SelectItem>
-                                  )}
-                                </SelectGroup>
-                              )}
-                            </SelectContent>
-                          </Select>
+                            products={products}
+                            resins={resins}
+                            className="w-[180px]"
+                          />
                           
                           {hasPendingEdit(v) && (
                             <Button
@@ -411,46 +378,13 @@ export function AdminVideoAnalyticsDashboard() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Select
+                          <SearchableProductSelect
                             value={getCurrentValue(c)}
                             onValueChange={(value) => handleSelectChange(c.id, value)}
-                          >
-                            <SelectTrigger className="w-[180px] h-8 text-xs">
-                              <SelectValue placeholder="Selecionar..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px]">
-                              <SelectItem value="none">
-                                <span className="text-muted-foreground">Nenhum</span>
-                              </SelectItem>
-                              
-                              {resins.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>Resinas ({resins.length})</SelectLabel>
-                                  {resins.map(r => (
-                                    <SelectItem key={r.id} value={`resin:${r.id}`}>
-                                      {r.manufacturer} - {r.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectGroup>
-                              )}
-                              
-                              {products.length > 0 && (
-                                <SelectGroup>
-                                  <SelectLabel>Produtos ({products.length})</SelectLabel>
-                                  {products.slice(0, 50).map(p => (
-                                    <SelectItem key={p.id} value={`product:${p.id}`}>
-                                      {p.name}
-                                    </SelectItem>
-                                  ))}
-                                  {products.length > 50 && (
-                                    <SelectItem value="product:more" disabled>
-                                      ... e mais {products.length - 50} produtos
-                                    </SelectItem>
-                                  )}
-                                </SelectGroup>
-                              )}
-                            </SelectContent>
-                          </Select>
+                            products={products}
+                            resins={resins}
+                            className="w-[180px]"
+                          />
                           
                           {hasPendingEdit(c) && (
                             <Button
