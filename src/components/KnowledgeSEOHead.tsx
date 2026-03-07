@@ -1028,7 +1028,15 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       
       {/* AI Meta Tags */}
       <meta name="ai-content-type" content="article" />
+      <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
       <meta name="ai-topic" content={content.keywords?.slice(0, 5).join(', ') || displayTitle} />
+      
+      {/* Citation Metadata (Google Scholar / LLM citation) */}
+      <meta name="citation_title" content={displayTitle} />
+      {content.authors?.name && <meta name="citation_author" content={content.authors.name} />}
+      <meta name="citation_date" content={content.created_at?.split('T')[0] || ''} />
+      <meta name="citation_publisher" content="Smart Dent" />
+      <link rel="cite-as" href={canonicalUrl} />
       
       {/* FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) */}
       <meta 

@@ -1727,7 +1727,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     ` : ''}
     
     ${content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0 ? `
-    <section>
+    <section data-section="faq">
       <h2>Perguntas Frequentes</h2>
       ${content.faqs.map((faq: any) => `
       <div>
@@ -1737,7 +1737,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     </section>` : ''}
     
     ${content.authors ? `
-    <aside style="border-top:2px solid #eee;margin-top:2rem;padding-top:2rem">
+    <aside data-section="author" style="border-top:2px solid #eee;margin-top:2rem;padding-top:2rem">
       <h3>Sobre o Autor</h3>
       <div style="display:flex;gap:1rem;align-items:start">
         ${content.authors.photo_url ? `
