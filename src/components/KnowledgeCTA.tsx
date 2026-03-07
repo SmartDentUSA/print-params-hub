@@ -124,7 +124,7 @@ export function KnowledgeCTA({ recommendedResins, articleTitle, position, resins
   if (resins.length === 0) return null;
 
   return (
-    <Card className="border-l-4 border-primary bg-muted/30">
+    <Card className="border-l-4 border-primary bg-muted/30" data-section="products">
       <CardContent className="p-3">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {/* Título + Resinas inline */}

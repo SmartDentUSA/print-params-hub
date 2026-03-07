@@ -19,7 +19,7 @@ export function AuthorBio({ author }: AuthorBioProps) {
   ].filter(link => link.url);
 
   return (
-    <div className="bg-gradient-card rounded-xl border border-border p-6 shadow-medium">
+    <div className="bg-gradient-card rounded-xl border border-border p-6 shadow-medium" data-section="author">
       <div className="flex flex-col items-center text-center space-y-4">
         {/* Foto do autor */}
         {author.photo_url ? (

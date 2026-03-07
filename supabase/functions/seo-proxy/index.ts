@@ -458,10 +458,14 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <meta name="description" content="Base de dados profissional com parâmetros testados para ${brands?.length || 15}+ marcas de impressoras 3D odontológicas. Elegoo, Anycubic, Creality e mais." />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="Base de dados profissional de parâmetros de impressão 3D odontológica. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária." />
   <meta property="og:title" content="Parâmetros de Impressão 3D Odontológica" />
   <meta property="og:description" content="Configurações profissionais para impressoras e resinas 3D odontológicas" />
   <meta property="og:image" content="${baseUrl}/og-image.jpg" />
   <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Parâmetros de Impressão 3D Odontológica" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -478,25 +482,31 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   </script>
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <h1>Parâmetros de Impressão 3D Odontológica</h1>
-  <p>Base de dados profissional com parâmetros testados para impressoras e resinas Smart Dent.</p>
-  <h2>Marcas Disponíveis</h2>
-  <ul>
-    ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
-  </ul>
+  <main id="main-content">
+    <article>
+      <h1>Parâmetros de Impressão 3D Odontológica</h1>
+      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
+        <p itemProp="abstract">Base de dados profissional com parâmetros testados para impressoras e resinas Smart Dent. Configurações validadas para uso clínico em odontologia digital.</p>
+      </section>
+      <h2>Marcas Disponíveis</h2>
+      <ul>
+        ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+    <p><a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a></p>
+  </footer>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
@@ -538,49 +548,60 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <meta name="description" content="Configurações profissionais para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos disponíveis com parâmetros testados." />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="Parâmetros de impressão 3D profissional para impressoras ${escapeHtml(brand.name)}. ${modelsCount} modelos com configurações testadas para uso odontológico." />
   <meta property="og:title" content="${escapeHtml(brand.name)} - Parâmetros de Impressão 3D" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
   <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-image.jpg`}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${escapeHtml(brand.name)} - Parâmetros de Impressão 3D" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": escapeHtml(brand.name),
-    "url": `${baseUrl}/${brandSlug}`,
-    "logo": brand.logo_url
-  })}
-  </script>
-  <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": escapeHtml(brand.name), "item": `${baseUrl}/${brandSlug}` }
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": escapeHtml(brand.name),
+        "url": `${baseUrl}/${brandSlug}`,
+        "logo": brand.logo_url
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": escapeHtml(brand.name), "item": `${baseUrl}/${brandSlug}` }
+        ]
+      }
     ]
   })}
   </script>
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
-  <p>Parâmetros profissionais testados para impressoras 3D ${escapeHtml(brand.name)}.</p>
-  <h2>Modelos Disponíveis (${modelsCount})</h2>
-  <ul>
-    ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
-  </ul>
+  <main id="main-content">
+    <article>
+      <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
+      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
+        <p itemProp="abstract">Parâmetros profissionais testados para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos com configurações validadas para odontologia digital.</p>
+      </section>
+      <h2>Modelos Disponíveis (${modelsCount})</h2>
+      <ul>
+        ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+    <p><a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a></p>
+  </footer>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
@@ -638,59 +659,66 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   <meta name="description" content="Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas." />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="Parâmetros de impressão 3D para ${escapeHtml(model.name)}. ${resinsCount} resinas com configurações testadas para odontologia digital." />
   <meta property="og:title" content="${escapeHtml(model.name)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
   <meta property="og:image" content="${model.image_url || `${baseUrl}/og-image.jpg`}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${escapeHtml(model.name)} - Parâmetros" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "Product",
-    "name": escapeHtml(model.name),
-    "description": escapeHtml(model.notes) || `Impressora 3D ${escapeHtml(model.name)}`,
-    "brand": {
-      "@type": "Brand",
-      "name": escapeHtml((model.brands as any).name)
-    },
-    "image": model.image_url,
-    "url": `${baseUrl}/${brandSlug}/${modelSlug}`
-  })}
-  </script>
-  <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": escapeHtml((model.brands as any).name), "item": `${baseUrl}/${brandSlug}` },
-      { "@type": "ListItem", "position": 3, "name": escapeHtml(model.name), "item": `${baseUrl}/${brandSlug}/${modelSlug}` }
+    "@graph": [
+      {
+        "@type": "Product",
+        "name": escapeHtml(model.name),
+        "description": escapeHtml(model.notes) || `Impressora 3D ${escapeHtml(model.name)}`,
+        "brand": { "@type": "Brand", "name": escapeHtml((model.brands as any).name) },
+        "image": model.image_url,
+        "url": `${baseUrl}/${brandSlug}/${modelSlug}`
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": escapeHtml((model.brands as any).name), "item": `${baseUrl}/${brandSlug}` },
+          { "@type": "ListItem", "position": 3, "name": escapeHtml(model.name), "item": `${baseUrl}/${brandSlug}/${modelSlug}` }
+        ]
+      }
     ]
   })}
   </script>
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <h1>${escapeHtml(model.name)}</h1>
-  <p>Parâmetros profissionais testados para ${escapeHtml(model.name)}.</p>
-  ${model.notes ? `<p>${escapeHtml(model.notes)}</p>` : ''}
-  <h2>Resinas Disponíveis (${resinsCount})</h2>
-  <ul>
-    ${uniqueResins.map((r: any) => {
-      const resinSlug = `${r.resin_manufacturer}-${r.resin_name}`.toLowerCase().replace(/\s+/g, '-');
-      return `<li><a href="/${brandSlug}/${modelSlug}/${resinSlug}">${r.resin_name}</a></li>`;
-    }).join('') || ''}
-  </ul>
+  <main id="main-content">
+    <article>
+      <h1>${escapeHtml(model.name)}</h1>
+      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
+        <p itemProp="abstract">Parâmetros profissionais testados para ${escapeHtml(model.name)} com ${resinsCount} resinas validadas para uso odontológico.</p>
+      </section>
+      ${model.notes ? `<p>${escapeHtml(model.notes)}</p>` : ''}
+      <h2>Resinas Disponíveis (${resinsCount})</h2>
+      <ul>
+        ${uniqueResins.map((r: any) => {
+          const resinSlug = `${r.resin_manufacturer}-${r.resin_name}`.toLowerCase().replace(/\s+/g, '-');
+          return `<li><a href="/${brandSlug}/${modelSlug}/${resinSlug}">${r.resin_name}</a></li>`;
+        }).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+  </footer>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
@@ -912,6 +940,8 @@ async function generateSystemACatalogHTML(
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   ${FAVICON_TAGS}
   <link rel="canonical" href="${canonicalUrl}" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="${category === 'product' ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`}" />
   
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
   <meta property="og:description" content="${escapeHtml(metaDescription)}" />
@@ -1035,21 +1065,21 @@ async function generateSystemACatalogHTML(
   </script>
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <h1>${escapeHtml(item.name)}</h1>
-  ${item.description ? `<p>${escapeHtml(item.description)}</p>` : ''}
+  <main id="main-content">
+    <article>
+      <h1>${escapeHtml(item.name)}</h1>
+      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
+        <p itemProp="abstract">${item.description ? escapeHtml(item.description) : ''}</p>
+      </section>
   
   ${item.image_url ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.name)}" />` : ''}
   
@@ -1593,39 +1623,46 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="geo.position" content="-22.0154;-47.8911" />
   <meta name="ICBM" content="-22.0154, -47.8911" />
   <meta name="publisher" content="Smart Dent" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="citation_title" content="${escapeHtml(content.title)}" />
+  ${content.authors?.name ? `<meta name="citation_author" content="${escapeHtml(content.authors.name)}" />` : ''}
+  <meta name="citation_date" content="${content.created_at?.split('T')[0] || ''}" />
+  <meta name="citation_publisher" content="Smart Dent" />
+  <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
 </head>
 <body>
-  <!-- 🆕 AUDITORIA: Skip Link para Acessibilidade (WCAG 2.1) -->
+  <!-- Skip Link para Acessibilidade (WCAG 2.1) -->
   <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">
     Pular para conteúdo principal
   </a>
   <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
   
   <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-        decoding="async"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" decoding="async" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
   <article role="main" id="main-content">
+    <h1>${escapeHtml(content.title)}</h1>
+    <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
+      <div class="ai-citation-box" itemProp="abstract">
+        <p class="article-summary">${escapeHtml(content.excerpt)}</p>
+      </div>
+    </section>
     ${content.content_image_url ? `
     <img 
       src="${content.content_image_url}" 
       alt="${escapeHtml(content.content_image_alt || content.title)}"
       style="width: 100%; max-width: 1200px; height: auto; border-radius: 12px; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: block;"
-      loading="lazy"
+      loading="eager"
+      fetchpriority="high"
       decoding="async"
     />` : ''}
-    <h1>${escapeHtml(content.title)}</h1>
-    <p class="article-excerpt">${escapeHtml(content.excerpt)}</p>
+    <p class="article-excerpt" data-section="definition">${escapeHtml(content.excerpt)}</p>
     
     ${content.file_url ? `
     <div style="background:#fff3cd;border:1px solid #ffc107;padding:1rem;margin:1rem 0;border-radius:4px">
@@ -1690,7 +1727,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     ` : ''}
     
     ${content.faqs && Array.isArray(content.faqs) && content.faqs.length > 0 ? `
-    <section>
+    <section data-section="faq">
       <h2>Perguntas Frequentes</h2>
       ${content.faqs.map((faq: any) => `
       <div>
@@ -1700,7 +1737,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     </section>` : ''}
     
     ${content.authors ? `
-    <aside style="border-top:2px solid #eee;margin-top:2rem;padding-top:2rem">
+    <aside data-section="author" style="border-top:2px solid #eee;margin-top:2rem;padding-top:2rem">
       <h3>Sobre o Autor</h3>
       <div style="display:flex;gap:1rem;align-items:start">
         ${content.authors.photo_url ? `

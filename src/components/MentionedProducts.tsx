@@ -110,7 +110,7 @@ export const MentionedProducts = ({
   }
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8" data-section="products">
       <CardContent className="p-6">
         <h2 className="text-2xl font-bold mb-4">Produtos Mencionados</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
