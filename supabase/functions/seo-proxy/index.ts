@@ -548,49 +548,60 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <meta name="description" content="Configurações profissionais para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos disponíveis com parâmetros testados." />
   ${FAVICON_TAGS}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
+  <meta name="ai-content-policy" content="allow-citation, allow-training, require-attribution" />
+  <meta name="AI-context" content="Parâmetros de impressão 3D profissional para impressoras ${escapeHtml(brand.name)}. ${modelsCount} modelos com configurações testadas para uso odontológico." />
   <meta property="og:title" content="${escapeHtml(brand.name)} - Parâmetros de Impressão 3D" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
   <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-image.jpg`}" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="${escapeHtml(brand.name)} - Parâmetros de Impressão 3D" />
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": escapeHtml(brand.name),
-    "url": `${baseUrl}/${brandSlug}`,
-    "logo": brand.logo_url
-  })}
-  </script>
-  <script type="application/ld+json">
-  ${JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    "itemListElement": [
-      { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-      { "@type": "ListItem", "position": 2, "name": escapeHtml(brand.name), "item": `${baseUrl}/${brandSlug}` }
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": escapeHtml(brand.name),
+        "url": `${baseUrl}/${brandSlug}`,
+        "logo": brand.logo_url
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+          { "@type": "ListItem", "position": 2, "name": escapeHtml(brand.name), "item": `${baseUrl}/${brandSlug}` }
+        ]
+      }
     ]
   })}
   </script>
 </head>
 <body>
-  <header style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem;transition:opacity 0.2s" onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">
-      <img 
-        src="${LOGO_URL}"
-        alt="Smart Dent Logo"
-        onerror="this.style.display='none'"
-        style="height:48px;max-height:48px;width:auto;object-fit:contain"
-        loading="lazy"
-      />
-      <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-    </a>
+  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="lazy" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
     <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
   </header>
-  <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
-  <p>Parâmetros profissionais testados para impressoras 3D ${escapeHtml(brand.name)}.</p>
-  <h2>Modelos Disponíveis (${modelsCount})</h2>
-  <ul>
-    ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
-  </ul>
+  <main id="main-content">
+    <article>
+      <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
+      <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo">
+        <p itemProp="abstract">Parâmetros profissionais testados para impressoras 3D ${escapeHtml(brand.name)}. ${modelsCount} modelos com configurações validadas para odontologia digital.</p>
+      </section>
+      <h2>Modelos Disponíveis (${modelsCount})</h2>
+      <ul>
+        ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
+      </ul>
+    </article>
+  </main>
+  <footer role="contentinfo" style="border-top:1px solid #e5e7eb;padding:2rem;text-align:center;color:#6b7280;font-size:0.875rem;margin-top:2rem">
+    <p>&copy; ${new Date().getFullYear()} Smart Dent - Todos os direitos reservados</p>
+    <p><a href="https://smartdent.com.br" target="_blank" rel="noopener" style="color:#2563eb">smartdent.com.br</a></p>
+  </footer>
   <script>
   (function() {
     var ua = navigator.userAgent.toLowerCase();
