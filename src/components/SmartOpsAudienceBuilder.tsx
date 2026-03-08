@@ -145,13 +145,28 @@ interface Filters {
   stagnant: boolean;
   valorMin: string;
   valorMax: string;
+  itemProposta: string;
 }
 
 const EMPTY_FILTERS: Filters = {
   search: "", pipeline: "all", status: "all", temperatura: "all", stage: "all",
   urgency: "all", source: "all", produto: "all", uf: "all", proprietario: "all",
   oportunidade: "all", activeProduct: "all", stagnant: false, valorMin: "", valorMax: "",
+  itemProposta: "all",
 };
+
+const ITEM_PROPOSTA_OPTIONS = [
+  { key: "all", label: "Todos Itens" },
+  { key: "Scanner", label: "Scanner" },
+  { key: "Impressora", label: "Impressora" },
+  { key: "CAD", label: "Software CAD" },
+  { key: "Notebook", label: "Notebook" },
+  { key: "Resina", label: "Resina" },
+  { key: "Insumo", label: "Insumos" },
+  { key: "Pós", label: "Pós-impressão" },
+  { key: "Cura", label: "Cura" },
+  { key: "Curso", label: "Cursos" },
+];
 
 // ─── Helper Components ───
 
@@ -295,6 +310,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.valorMin) query = query.gte("valor_oportunidade", Number(filters.valorMin));
     if (filters.valorMax) query = query.lte("valor_oportunidade", Number(filters.valorMax));
     if (filters.activeProduct !== "all") query = query.eq(`ativo_${filters.activeProduct}`, true);
+    if (filters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${filters.itemProposta}%`);
 
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
@@ -328,6 +344,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.proprietario !== "all") chips.push({ label: `Dono: ${filters.proprietario}`, key: "proprietario", resetValue: "all" });
     if (filters.oportunidade !== "all") chips.push({ label: `Oport: ${filters.oportunidade}`, key: "oportunidade", resetValue: "all" });
     if (filters.activeProduct !== "all") chips.push({ label: `Ativo: ${filters.activeProduct}`, key: "activeProduct", resetValue: "all" });
+    if (filters.itemProposta !== "all") chips.push({ label: `Proposta: ${filters.itemProposta}`, key: "itemProposta", resetValue: "all" });
     if (filters.stagnant) chips.push({ label: "Estagnados >30d", key: "stagnant", resetValue: false });
     if (filters.valorMin) chips.push({ label: `Valor ≥ ${filters.valorMin}`, key: "valorMin", resetValue: "" });
     if (filters.valorMax) chips.push({ label: `Valor ≤ ${filters.valorMax}`, key: "valorMax", resetValue: "" });
@@ -495,6 +512,14 @@ export function SmartOpsAudienceBuilder() {
                     <SelectItem value="all">Todos</SelectItem>
                     {PRODUCT_FLAGS.map((p) => (
                       <SelectItem key={p} value={p}>{p.replace("_", " ").toUpperCase()}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filters.itemProposta} onValueChange={(v) => setFilter("itemProposta", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Item Proposta" /></SelectTrigger>
+                  <SelectContent>
+                    {ITEM_PROPOSTA_OPTIONS.map((i) => (
+                      <SelectItem key={i.key} value={i.key}>{i.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
