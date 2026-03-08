@@ -118,9 +118,11 @@ const FIELD_TYPES = [
 const CUSTOM_CATEGORIES = [
   { value: "contato", label: "Contato" },
   { value: "profissional", label: "Profissional" },
+  { value: "empresa", label: "Empresa" },
   { value: "equipamentos", label: "Equipamentos" },
   { value: "interesse", label: "Interesse" },
   { value: "sdr", label: "SDR" },
+  { value: "marketing", label: "Marketing" },
 ];
 
 interface FormField {
