@@ -597,6 +597,13 @@ export function SmartOpsAudienceBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={filters.statusCRM} onValueChange={(v) => setFilter("statusCRM", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Status CRM" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Status CRM</SelectItem>
+                    {allStatusCRM.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Valor mín."
                   type="number"
@@ -667,6 +674,8 @@ export function SmartOpsAudienceBuilder() {
                       <TableHead>Data</TableHead>
                       <TableHead>Ativos</TableHead>
                       <TableHead>Interesse</TableHead>
+                      <TableHead>Proposta</TableHead>
+                      <TableHead>Status CRM</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -727,6 +736,12 @@ export function SmartOpsAudienceBuilder() {
                         <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
                         <TableCell><ActiveIcons lead={lead} /></TableCell>
                         <TableCell><InterestIcons lead={lead} /></TableCell>
+                        <TableCell className="text-xs max-w-[120px] truncate">
+                          {lead.itens_proposta_crm || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[100px] truncate">
+                          {lead.status_atual_lead_crm || "—"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
