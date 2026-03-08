@@ -97,6 +97,19 @@ const BASE_FORM_FIELDS = [
   { label: "Descrição do suporte", field_type: "textarea", db_column: "sdr_suporte_descricao", required: false, placeholder: "Descreva o problema ou necessidade", order_index: 38 },
   // Marketing
   { label: "Origem / Campanha", field_type: "text", db_column: "origem_campanha", required: false, placeholder: "Ex: Google Ads, Indicação", order_index: 39 },
+  // Empresa extras
+  { label: "Website da empresa", field_type: "text", db_column: "empresa_website", required: false, placeholder: "https://...", order_index: 40 },
+  { label: "Inscrição Estadual", field_type: "text", db_column: "empresa_ie", required: false, placeholder: "IE", order_index: 41 },
+  { label: "Porte da empresa", field_type: "select", db_column: "empresa_porte", required: false, placeholder: "Selecione", order_index: 42, options: ["MEI","ME","EPP","Médio","Grande"] },
+  // Pessoa extras
+  { label: "Data de nascimento", field_type: "text", db_column: "pessoa_nascimento", required: false, placeholder: "DD/MM/AAAA", order_index: 43 },
+  { label: "LinkedIn", field_type: "text", db_column: "pessoa_linkedin", required: false, placeholder: "https://linkedin.com/in/...", order_index: 44 },
+  { label: "Facebook", field_type: "text", db_column: "pessoa_facebook", required: false, placeholder: "https://facebook.com/...", order_index: 45 },
+  // Comercial extras
+  { label: "Informação desejada", field_type: "textarea", db_column: "informacao_desejada", required: false, placeholder: "O que gostaria de saber?", order_index: 46 },
+  { label: "Temperatura do lead", field_type: "select", db_column: "temperatura_lead", required: false, placeholder: "Selecione", order_index: 47, options: ["Frio","Morno","Quente"] },
+  { label: "País de origem", field_type: "select", db_column: "pais_origem", required: false, placeholder: "Selecione", order_index: 48, options: ["Brasil","Argentina","Chile","Colômbia","México","Peru","Portugal","Espanha","EUA","Outro"] },
+  { label: "Código do contrato", field_type: "text", db_column: "codigo_contrato", required: false, placeholder: "Código interno", order_index: 49 },
 ];
 
 export function SmartOpsFormBuilder() {
