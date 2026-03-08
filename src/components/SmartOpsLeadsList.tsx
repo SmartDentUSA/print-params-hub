@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag, Zap, Target, Pencil, Save, X } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
@@ -450,6 +452,44 @@ function DetailSection({ title, fields }: { title: string; fields: { label: stri
   if (nonEmpty.length === 0) return null;
   return (
     <EditableDetailSection title={title} fields={nonEmpty} editing={false} editValues={{}} onFieldChange={() => {}} />
+  );
+}
+
+function FieldGrid({ lead, fields, startIndex = 0 }: { lead: LeadFull; fields: string[]; startIndex?: number }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+      {fields.map((f, i) => {
+        const val = (lead as Record<string, unknown>)[f];
+        const isEmpty = val === null || val === undefined || val === "";
+        const num = startIndex + i + 1;
+        return (
+          <div key={f} className={`p-2 rounded border ${isEmpty ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
+            <div className="text-[10px] font-mono text-muted-foreground">
+              <span className="text-primary/60 font-bold">#{num}</span> · {f}
+            </div>
+            <div className={`text-sm break-all ${isEmpty ? "text-muted-foreground italic" : ""}`}>
+              {isEmpty ? "—"
+                : typeof val === "boolean" ? (val ? "✓" : "✗")
+                : Array.isArray(val) ? (val as string[]).join(", ")
+                : typeof val === "object" ? JSON.stringify(val).slice(0, 120) + "…"
+                : String(val)}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function JsonBlock({ label, data }: { label: string; data: unknown }) {
+  if (!data || (typeof data === "object" && Object.keys(data as object).length === 0) || (Array.isArray(data) && data.length === 0)) return null;
+  return (
+    <details className="mt-2">
+      <summary className="text-xs font-mono text-muted-foreground cursor-pointer hover:text-foreground">{label}</summary>
+      <pre className="text-[10px] bg-muted/50 p-2 rounded mt-1 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </details>
   );
 }
 
