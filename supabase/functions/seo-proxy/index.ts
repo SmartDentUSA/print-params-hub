@@ -1764,21 +1764,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
 </head>
 <body>
-  <!-- Skip Link para Acessibilidade (WCAG 2.1) -->
-  <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">
-    Pular para conteúdo principal
-  </a>
-  <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
-  
-  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <nav aria-label="Principal">
-      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
-        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="eager" decoding="async" />
-        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-      </a>
-    </nav>
-    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
-  </header>
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <article role="main" id="main-content">
     <h1>${escapeHtml(content.title)}</h1>
     <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
