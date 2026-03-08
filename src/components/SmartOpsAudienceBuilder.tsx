@@ -298,7 +298,8 @@ export function SmartOpsAudienceBuilder() {
 
     // Active product filter
     if (filters.activeProduct !== "all") {
-      query = query.eq(`ativo_${filters.activeProduct}` as any, true);
+      const col = `ativo_${filters.activeProduct}`;
+      query = query.eq(col, true);
     }
 
     // Search

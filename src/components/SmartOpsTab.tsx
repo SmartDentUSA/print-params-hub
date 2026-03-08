@@ -71,7 +71,7 @@ export function SmartOpsTab() {
       <Tabs defaultValue="bowtie" className="space-y-4">
         <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1" style={{ display: 'flex' }}>
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
-          <TabsTrigger value="kanban">Kanban</TabsTrigger>
+          <TabsTrigger value="kanban">Público / Lista</TabsTrigger>
           <TabsTrigger value="leads">Leads</TabsTrigger>
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           <TabsTrigger value="reguas">Automações</TabsTrigger>
@@ -90,7 +90,7 @@ export function SmartOpsTab() {
           <SmartOpsBowtie key={`bowtie-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="kanban">
-          <SmartOpsKanban key={`kanban-${refreshKey}`} />
+          <SmartOpsAudienceBuilder key={`audience-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="leads">
           <SmartOpsLeadsList key={`leads-${refreshKey}`} />
