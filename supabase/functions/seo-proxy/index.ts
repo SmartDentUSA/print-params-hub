@@ -128,6 +128,10 @@ function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): 
     knowledgeCtx.articles.forEach(a => {
       mentions.push({ "@type": "Article", "name": a.title, "url": `${BASE_URL}/base-conhecimento/${a.category_letter || 'a'}/${a.slug}` });
     });
+    // External Links as WebPage nodes
+    knowledgeCtx.externalLinks.forEach(l => {
+      mentions.push({ "@type": "WebPage", "name": l.name, "url": l.url });
+    });
   }
   
   if (about.length === 0 && mentions.length === 0) return '';
@@ -286,8 +290,9 @@ function buildEntityIndexSection(knowledgeCtx: KnowledgeContext): string {
   const hasProducts = knowledgeCtx.products.length > 0;
   const hasArticles = knowledgeCtx.articles.length > 0;
   const hasAuthors = knowledgeCtx.authors.length > 0;
+  const hasExternalLinks = knowledgeCtx.externalLinks.length > 0;
   
-  if (!hasProducts && !hasArticles && !hasAuthors) return '';
+  if (!hasProducts && !hasArticles && !hasAuthors && !hasExternalLinks) return '';
   
   return `
     <section data-section="entity-index" aria-label="Índice de Entidades" style="margin-top:2rem;padding:1.5rem;background:#f9fafb;border-radius:8px">
@@ -307,6 +312,11 @@ function buildEntityIndexSection(knowledgeCtx: KnowledgeContext): string {
         <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Especialistas</h3>
         <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.authors.map(a => 
           `<li style="margin:0.25rem 0">${escapeHtml(a.name)}${a.specialty ? ` - <em>${escapeHtml(a.specialty)}</em>` : ''}</li>`
+        ).join('')}</ul>` : ''}
+        ${hasExternalLinks ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Referências Externas</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.externalLinks.map(l => 
+          `<li style="margin:0.25rem 0"><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none">${escapeHtml(l.name)}</a></li>`
         ).join('')}</ul>` : ''}
       </nav>
     </section>`;
@@ -1020,6 +1030,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
       ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
   ${buildBotRedirectScript(`/${brandSlug}/${modelSlug}`)}
 </body>
@@ -1418,6 +1429,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
       ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
   ${buildBotRedirectScript(`/base-conhecimento/${letter.toLowerCase()}`)}
 </body>
@@ -1555,6 +1567,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento/${letter}/${slug}" />
   <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'article', name: content.title })}
   
   <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
   <meta name="AI-context" content="Conteúdo técnico-científico sobre ${escapeHtml(content.knowledge_categories?.name || 'odontologia')}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico." />
@@ -1750,21 +1764,7 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
 </head>
 <body>
-  <!-- Skip Link para Acessibilidade (WCAG 2.1) -->
-  <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">
-    Pular para conteúdo principal
-  </a>
-  <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
-  
-  <header role="banner" style="background:#fff;border-bottom:1px solid #e5e7eb;padding:1rem 2rem;margin-bottom:2rem;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-    <nav aria-label="Principal">
-      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
-        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="eager" decoding="async" />
-        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
-      </a>
-    </nav>
-    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
-  </header>
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <article role="main" id="main-content">
     <h1>${escapeHtml(content.title)}</h1>
     <section data-section="summary" class="llm-knowledge-layer" aria-label="Resumo para IA">
@@ -1887,8 +1887,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       </div>
     </aside>
     ` : ''}
-    ${buildEntityIndexJsonLd(`${content.title} ${content.excerpt || ''} ${content.content_html?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`)}
+    ${buildCitationBlocks(knowledgeCtx)}
+    ${buildLLMKnowledgeLayer(content.title, content.knowledge_categories?.name || 'Artigo Técnico', knowledgeCtx)}
+    ${buildEntityIndexSection(knowledgeCtx)}
+    ${buildEntityIndexJsonLd(`${content.title} ${content.excerpt || ''} ${content.content_html?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`, knowledgeCtx)}
   </article>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
   ${buildBotRedirectScript(`/base-conhecimento/${letter}/${slug}`)}
 </body>
