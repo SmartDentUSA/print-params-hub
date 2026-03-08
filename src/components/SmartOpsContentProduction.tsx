@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Sparkles, FileText, AlertTriangle, TrendingUp, Star, Users, BookOpen } from "lucide-react";
+import { Loader2, Sparkles, FileText, AlertTriangle, TrendingUp, Star, Users, BookOpen, Calculator } from "lucide-react";
+import { SmartOpsROICalculators } from "./SmartOpsROICalculators";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -301,173 +303,190 @@ export function SmartOpsContentProduction() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" /> Pedidos Abertos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{openCount}</p>
-            </CardContent>
-          </Card>
+      <Tabs defaultValue="producao" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="producao" className="gap-2">
+            <FileText className="w-4 h-4" /> Produção
+          </TabsTrigger>
+          <TabsTrigger value="roi" className="gap-2">
+            <Calculator className="w-4 h-4" /> Calculadoras ROI
+          </TabsTrigger>
+        </TabsList>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Star className="w-4 h-4" /> Alta Prioridade (≥4)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{highPriorityCount}</p>
-            </CardContent>
-          </Card>
+        <TabsContent value="producao">
+          <div className="space-y-4">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" /> Pedidos Abertos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{openCount}</p>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <TrendingUp className="w-4 h-4" /> Top Temas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-1">
-                {topThemes.map((r) => (
-                  <div key={r.id} className="flex justify-between text-sm">
-                    <span className="truncate max-w-[180px]">{r.tema}</span>
-                    <Badge variant="secondary" className="ml-2">{r.frequency || 1}x</Badge>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Star className="w-4 h-4" /> Alta Prioridade (≥4)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-bold">{highPriorityCount}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4" /> Top Temas
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1">
+                    {topThemes.map((r) => (
+                      <div key={r.id} className="flex justify-between text-sm">
+                        <span className="truncate max-w-[180px]">{r.tema}</span>
+                        <Badge variant="secondary" className="ml-2">{r.frequency || 1}x</Badge>
+                      </div>
+                    ))}
+                    {topThemes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pedido ainda</p>}
                   </div>
-                ))}
-                {topThemes.length === 0 && <p className="text-sm text-muted-foreground">Nenhum pedido ainda</p>}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Empty state info */}
+            {!loading && requests.length === 0 && (
+              <Card className="border-dashed">
+                <CardContent className="py-8 text-center">
+                  <BookOpen className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-lg font-medium">Nenhum pedido de conteúdo ainda</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Os pedidos são extraídos automaticamente dos resumos das conversas da Dra. LIA (campo PENDÊNCIAS).
+                    Conforme os leads conversam e a LIA identifica lacunas, os pedidos aparecerão aqui.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Filters */}
+            {requests.length > 0 && (
+              <div className="flex gap-3 items-center">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-48"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="solicitado">Solicitado</SelectItem>
+                    <SelectItem value="em_producao">Em produção</SelectItem>
+                    <SelectItem value="publicado">Publicado</SelectItem>
+                    <SelectItem value="descartado">Descartado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as "priority" | "frequency" | "date")}>
+                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="priority">Maior prioridade</SelectItem>
+                    <SelectItem value="frequency">Mais solicitados</SelectItem>
+                    <SelectItem value="date">Mais recentes</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Badge variant="outline">{filtered.length} registros</Badge>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            )}
 
-        {/* Empty state info */}
-        {!loading && requests.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-8 text-center">
-              <BookOpen className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
-              <p className="text-lg font-medium">Nenhum pedido de conteúdo ainda</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Os pedidos são extraídos automaticamente dos resumos das conversas da Dra. LIA (campo PENDÊNCIAS).
-                Conforme os leads conversam e a LIA identifica lacunas, os pedidos aparecerão aqui.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Filters */}
-        {requests.length > 0 && (
-          <div className="flex gap-3 items-center">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="solicitado">Solicitado</SelectItem>
-                <SelectItem value="em_producao">Em produção</SelectItem>
-                <SelectItem value="publicado">Publicado</SelectItem>
-                <SelectItem value="descartado">Descartado</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as "priority" | "frequency" | "date")}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="priority">Maior prioridade</SelectItem>
-                <SelectItem value="frequency">Mais solicitados</SelectItem>
-                <SelectItem value="date">Mais recentes</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Badge variant="outline">{filtered.length} registros</Badge>
-          </div>
-        )}
-
-        {/* Table */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : filtered.length > 0 && (
-          <div className="border border-border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">Data</TableHead>
-                  <TableHead className="w-[180px]">Tema</TableHead>
-                  <TableHead className="w-[100px]">Tipo</TableHead>
-                  <TableHead>Pendência</TableHead>
-                  <TableHead className="w-[70px] text-center">Leads</TableHead>
-                  <TableHead className="w-[70px] text-center">Freq.</TableHead>
-                  <TableHead className="w-[100px] text-center">Prioridade</TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
-                  <TableHead className="w-[80px]">Ação</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((req) => (
-                  <TableRow key={req.id}>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {req.updated_at ? format(new Date(req.updated_at), "dd/MM/yy", { locale: ptBR }) : "—"}
-                    </TableCell>
-                    <TableCell className="text-sm font-medium truncate max-w-[180px]">
-                      {req.tema}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={TIPO_COLORS[req.tipo_conteudo || "artigo"] || TIPO_COLORS.artigo}>
-                        {TIPO_LABELS[req.tipo_conteudo || "artigo"] || req.tipo_conteudo}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm max-w-[250px]">
-                      <span className="line-clamp-2">{req.pendencia_original}</span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Badge variant="secondary" className="gap-1">
-                            <Users className="w-3 h-3" />
-                            {req.source_leads?.length || 0}
+            {/* Table */}
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : filtered.length > 0 && (
+              <div className="border border-border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[100px]">Data</TableHead>
+                      <TableHead className="w-[180px]">Tema</TableHead>
+                      <TableHead className="w-[100px]">Tipo</TableHead>
+                      <TableHead>Pendência</TableHead>
+                      <TableHead className="w-[70px] text-center">Leads</TableHead>
+                      <TableHead className="w-[70px] text-center">Freq.</TableHead>
+                      <TableHead className="w-[100px] text-center">Prioridade</TableHead>
+                      <TableHead className="w-[100px]">Status</TableHead>
+                      <TableHead className="w-[80px]">Ação</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((req) => (
+                      <TableRow key={req.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {req.updated_at ? format(new Date(req.updated_at), "dd/MM/yy", { locale: ptBR }) : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium truncate max-w-[180px]">
+                          {req.tema}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={TIPO_COLORS[req.tipo_conteudo || "artigo"] || TIPO_COLORS.artigo}>
+                            {TIPO_LABELS[req.tipo_conteudo || "artigo"] || req.tipo_conteudo}
                           </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {req.source_leads?.length ? req.source_leads.join(", ") : "Nenhum lead"}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <FreqBadge freq={req.frequency || 1} />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <PriorityStars priority={req.prioridade || 1} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={STATUS_COLORS[req.status || "solicitado"] || STATUS_COLORS.solicitado}>
-                        {STATUS_LABELS[req.status || "solicitado"] || req.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {req.status !== "publicado" && req.status !== "descartado" && (
-                        <Button variant="outline" size="sm" onClick={() => { setSelectedRequest(req); setModalOpen(true); }} className="gap-1">
-                          <BookOpen className="w-3 h-3" /> Gerar
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[250px]">
+                          <span className="line-clamp-2">{req.pendencia_original}</span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Badge variant="secondary" className="gap-1">
+                                <Users className="w-3 h-3" />
+                                {req.source_leads?.length || 0}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {req.source_leads?.length ? req.source_leads.join(", ") : "Nenhum lead"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <FreqBadge freq={req.frequency || 1} />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <PriorityStars priority={req.prioridade || 1} />
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={STATUS_COLORS[req.status || "solicitado"] || STATUS_COLORS.solicitado}>
+                            {STATUS_LABELS[req.status || "solicitado"] || req.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {req.status !== "publicado" && req.status !== "descartado" && (
+                            <Button variant="outline" size="sm" onClick={() => { setSelectedRequest(req); setModalOpen(true); }} className="gap-1">
+                              <BookOpen className="w-3 h-3" /> Gerar
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
-        <ContentGeneratorModal
-          open={modalOpen} onOpenChange={setModalOpen}
-          request={selectedRequest} onSuccess={fetchRequests}
-        />
-      </div>
+            <ContentGeneratorModal
+              open={modalOpen} onOpenChange={setModalOpen}
+              request={selectedRequest} onSuccess={fetchRequests}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="roi">
+          <SmartOpsROICalculators />
+        </TabsContent>
+      </Tabs>
     </TooltipProvider>
   );
 }
