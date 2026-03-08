@@ -195,6 +195,33 @@ Deno.serve(async (req) => {
       sdr_suporte_equipamento: payload.sdr_suporte_equipamento || null,
       sdr_suporte_tipo: payload.sdr_suporte_tipo || null,
       sdr_suporte_descricao: payload.sdr_suporte_descricao || null,
+      // CS & Suporte
+      cs_treinamento: payload.cs_treinamento || null,
+      data_treinamento: payload.data_treinamento || null,
+      data_contrato: payload.data_contrato || null,
+      reuniao_agendada: payload.reuniao_agendada === "Sim" ? true : payload.reuniao_agendada === "Não" ? false : (payload.reuniao_agendada ?? null),
+      data_primeiro_contato: payload.data_primeiro_contato || null,
+      // Funil & Status
+      status_oportunidade: payload.status_oportunidade || null,
+      valor_oportunidade: payload.valor_oportunidade ? Number(payload.valor_oportunidade) : null,
+      proprietario_lead_crm: payload.proprietario_lead_crm || null,
+      produto_interesse_auto: payload.produto_interesse_auto || null,
+      // Equipamentos Ativos (seriais)
+      equip_scanner: payload.equip_scanner || null,
+      equip_scanner_serial: payload.equip_scanner_serial || null,
+      equip_impressora: payload.equip_impressora || null,
+      equip_impressora_serial: payload.equip_impressora_serial || null,
+      equip_cad: payload.equip_cad || null,
+      equip_cad_serial: payload.equip_cad_serial || null,
+      equip_pos_impressao: payload.equip_pos_impressao || null,
+      equip_pos_impressao_serial: payload.equip_pos_impressao_serial || null,
+      equip_notebook: payload.equip_notebook || null,
+      equip_notebook_serial: payload.equip_notebook_serial || null,
+      insumos_adquiridos: payload.insumos_adquiridos || null,
+      // Tags
+      motivo_perda: payload.motivo_perda || null,
+      comentario_perda: payload.comentario_perda || null,
+      id_cliente_smart: payload.id_cliente_smart || null,
       ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
