@@ -1027,50 +1027,34 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
 }
 
 async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug: string, supabase: any): Promise<string> {
-  // Buscar parameter_sets primeiro
-  const { data: paramSets, error: paramError } = await supabase
-    .from('parameter_sets')
-    .select('*')
-    .eq('brand_slug', brandSlug)
-    .eq('model_slug', modelSlug)
-    .eq('active', true);
+  // Buscar parameter_sets e knowledge context em paralelo
+  const [paramRes, knowledgeCtx] = await Promise.all([
+    supabase.from('parameter_sets').select('*').eq('brand_slug', brandSlug).eq('model_slug', modelSlug).eq('active', true),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (paramError) {
-    console.error('Supabase error fetching parameter_sets:', paramError.message);
+  if (paramRes.error) {
+    console.error('Supabase error fetching parameter_sets:', paramRes.error.message);
     return '';
   }
-
+  const paramSets = paramRes.data;
   if (!paramSets || paramSets.length === 0) {
     console.log('No parameter_sets found for:', brandSlug, modelSlug);
     return '';
   }
 
-  // FASE 4: Matching robusto de slugs para encontrar o parameter_set correto
   const paramData = paramSets.find((p: any) => {
     const dbSlug = normalizeSlug(`${p.resin_manufacturer}-${p.resin_name}`);
     const requestSlug = normalizeSlug(resinSlug);
     return dbSlug === requestSlug;
   }) || paramSets[0];
 
-  // Buscar dados da resina separadamente
   const { data: resinData, error: resinError } = await supabase
-    .from('resins')
-    .select('*')
-    .eq('manufacturer', paramData.resin_manufacturer)
-    .eq('name', paramData.resin_name)
-    .eq('active', true)
-    .maybeSingle();
+    .from('resins').select('*').eq('manufacturer', paramData.resin_manufacturer).eq('name', paramData.resin_name).eq('active', true).maybeSingle();
+  if (resinError) console.error('Supabase error fetching resin:', resinError.message);
 
-  if (resinError) {
-    console.error('Supabase error fetching resin:', resinError.message);
-  }
-
-  // Usar parameter_set como fonte principal
   const params = paramData;
-
   const baseUrl = 'https://parametros.smartdent.com.br';
-  
-  // Usar campos SEO da tabela resins se disponível
   const resinName = params.resin_name;
   const resinManufacturer = params.resin_manufacturer;
   const seoTitle = resinData?.seo_title_override || `${escapeHtml(resinName)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
@@ -1078,7 +1062,6 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   const canonicalUrl = resinData?.canonical_url || `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`;
   const ogImage = resinData?.og_image_url || resinData?.image_url || `${baseUrl}/og-image.jpg`;
   const keywords = resinData?.keywords || [];
-
   const contextText = `Resina ${escapeHtml(resinName)} (${escapeHtml(resinManufacturer)}) com parâmetros otimizados para impressora ${escapeHtml(modelSlug)}. Layer height: ${params.layer_height}mm, cure time: ${params.cure_time}s, light intensity: ${params.light_intensity}%.`;
 
   return `<!DOCTYPE html>
@@ -1090,6 +1073,8 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <meta name="description" content="${metaDescription}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: resinName })}
   <link rel="canonical" href="${canonicalUrl}" />
   <meta property="og:title" content="${escapeHtml(resinData?.name || resinName)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${metaDescription}" />
@@ -1131,10 +1116,10 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`)}
+  ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`, knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(resinName)}</h1>
@@ -1155,6 +1140,9 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
       </section>
       ${params.notes ? `<p><strong>Observações:</strong> ${escapeHtml(params.notes)}</p>` : ''}
       ${resinData?.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
+      ${buildCitationBlocks(knowledgeCtx)}
+      ${buildLLMKnowledgeLayer(resinName, 'Resina para Impressão 3D', knowledgeCtx, { 'Technology': 'Fotopolimerização', 'Layer Height': `${params.layer_height}mm`, 'Cure Time': `${params.cure_time}s` })}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
