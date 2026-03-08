@@ -368,6 +368,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.activeProduct !== "all") query = query.eq(`ativo_${filters.activeProduct}`, true);
     if (filters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${filters.itemProposta}%`);
     if (filters.interestProduct !== "all") query = query.not(filters.interestProduct, "is", null);
+    if (filters.statusCRM !== "all") query = query.eq("status_atual_lead_crm", filters.statusCRM);
 
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
@@ -407,6 +408,7 @@ export function SmartOpsAudienceBuilder() {
       chips.push({ label: `Interesse: ${opt?.label.replace(/^[^\s]+ /, '') || filters.interestProduct}`, key: "interestProduct", resetValue: "all" });
     }
     if (filters.stagnant) chips.push({ label: "Estagnados >30d", key: "stagnant", resetValue: false });
+    if (filters.statusCRM !== "all") chips.push({ label: `Status CRM: ${filters.statusCRM}`, key: "statusCRM", resetValue: "all" });
     if (filters.valorMin) chips.push({ label: `Valor ≥ ${filters.valorMin}`, key: "valorMin", resetValue: "" });
     if (filters.valorMax) chips.push({ label: `Valor ≤ ${filters.valorMax}`, key: "valorMax", resetValue: "" });
     return chips;
