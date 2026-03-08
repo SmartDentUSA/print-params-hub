@@ -110,6 +110,38 @@ const BASE_FORM_FIELDS = [
   { label: "Temperatura do lead", field_type: "select", db_column: "temperatura_lead", required: false, placeholder: "Selecione", order_index: 47, options: ["Frio","Morno","Quente"] },
   { label: "País de origem", field_type: "select", db_column: "pais_origem", required: false, placeholder: "Selecione", order_index: 48, options: ["Brasil","Argentina","Chile","Colômbia","México","Peru","Portugal","Espanha","EUA","Outro"] },
   { label: "Código do contrato", field_type: "text", db_column: "codigo_contrato", required: false, placeholder: "Código interno", order_index: 49 },
+  // CS & Suporte
+  { label: "Treinamento CS", field_type: "select", db_column: "cs_treinamento", required: false, placeholder: "Selecione", order_index: 50, options: ["pendente","agendado","concluido"] },
+  { label: "Data do treinamento", field_type: "text", db_column: "data_treinamento", required: false, placeholder: "DD/MM/AAAA", order_index: 51 },
+  { label: "Data do contrato", field_type: "text", db_column: "data_contrato", required: false, placeholder: "DD/MM/AAAA", order_index: 52 },
+  { label: "Reunião agendada?", field_type: "radio", db_column: "reuniao_agendada", required: false, placeholder: "", order_index: 53, options: ["Sim","Não"] },
+  { label: "Data primeiro contato", field_type: "text", db_column: "data_primeiro_contato", required: false, placeholder: "DD/MM/AAAA", order_index: 54 },
+  // Funil & Status
+  { label: "Status da oportunidade", field_type: "select", db_column: "status_oportunidade", required: false, placeholder: "Selecione", order_index: 55, options: ["aberta","ganha","perdida"] },
+  { label: "Valor da oportunidade", field_type: "number", db_column: "valor_oportunidade", required: false, placeholder: "R$ 0,00", order_index: 56 },
+  { label: "Proprietário do lead (CRM)", field_type: "text", db_column: "proprietario_lead_crm", required: false, placeholder: "Nome do vendedor", order_index: 57 },
+  { label: "Produto interesse (auto)", field_type: "text", db_column: "produto_interesse_auto", required: false, placeholder: "Detectado automaticamente", order_index: 58 },
+  // Equipamentos Ativos (seriais)
+  { label: "Scanner (modelo)", field_type: "text", db_column: "equip_scanner", required: false, placeholder: "Ex: Medit i700", order_index: 59 },
+  { label: "Scanner (nº série)", field_type: "text", db_column: "equip_scanner_serial", required: false, placeholder: "Nº série", order_index: 60 },
+  { label: "Impressora (modelo)", field_type: "text", db_column: "equip_impressora", required: false, placeholder: "Ex: MiiCraft 125", order_index: 61 },
+  { label: "Impressora (nº série)", field_type: "text", db_column: "equip_impressora_serial", required: false, placeholder: "Nº série", order_index: 62 },
+  { label: "CAD (modelo)", field_type: "text", db_column: "equip_cad", required: false, placeholder: "Ex: Exocad", order_index: 63 },
+  { label: "CAD (nº série)", field_type: "text", db_column: "equip_cad_serial", required: false, placeholder: "Nº série", order_index: 64 },
+  { label: "Pós-impressão (modelo)", field_type: "text", db_column: "equip_pos_impressao", required: false, placeholder: "Ex: Bre.Lux Power", order_index: 65 },
+  { label: "Pós-impressão (nº série)", field_type: "text", db_column: "equip_pos_impressao_serial", required: false, placeholder: "Nº série", order_index: 66 },
+  { label: "Notebook (modelo)", field_type: "text", db_column: "equip_notebook", required: false, placeholder: "Ex: Dell Precision", order_index: 67 },
+  { label: "Notebook (nº série)", field_type: "text", db_column: "equip_notebook_serial", required: false, placeholder: "Nº série", order_index: 68 },
+  { label: "Insumos adquiridos", field_type: "textarea", db_column: "insumos_adquiridos", required: false, placeholder: "Liste os insumos já adquiridos", order_index: 69 },
+  // Marketing / UTM
+  { label: "UTM Source", field_type: "text", db_column: "utm_source", required: false, placeholder: "google, facebook...", order_index: 70 },
+  { label: "UTM Medium", field_type: "text", db_column: "utm_medium", required: false, placeholder: "cpc, email...", order_index: 71 },
+  { label: "UTM Campaign", field_type: "text", db_column: "utm_campaign", required: false, placeholder: "nome_campanha", order_index: 72 },
+  { label: "UTM Term", field_type: "text", db_column: "utm_term", required: false, placeholder: "palavra-chave", order_index: 73 },
+  // Tags & Status
+  { label: "Motivo de perda", field_type: "text", db_column: "motivo_perda", required: false, placeholder: "Motivo da perda", order_index: 74 },
+  { label: "Comentário de perda", field_type: "textarea", db_column: "comentario_perda", required: false, placeholder: "Detalhes sobre a perda", order_index: 75 },
+  { label: "ID Cliente Smart", field_type: "text", db_column: "id_cliente_smart", required: false, placeholder: "ID interno", order_index: 76 },
 ];
 
 export function SmartOpsFormBuilder() {

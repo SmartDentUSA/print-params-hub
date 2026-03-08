@@ -98,6 +98,48 @@ const DB_COLUMNS: Record<string, { label: string; columns: { value: string; labe
     label: "Marketing",
     columns: [
       { value: "origem_campanha", label: "Origem / Campanha" },
+      { value: "utm_source", label: "UTM Source" },
+      { value: "utm_medium", label: "UTM Medium" },
+      { value: "utm_campaign", label: "UTM Campaign" },
+      { value: "utm_term", label: "UTM Term" },
+    ],
+  },
+  "CS & Suporte": {
+    label: "CS & Suporte",
+    columns: [
+      { value: "cs_treinamento", label: "Treinamento CS" },
+      { value: "data_treinamento", label: "Data treinamento" },
+      { value: "data_contrato", label: "Data contrato" },
+      { value: "reuniao_agendada", label: "Reunião agendada?" },
+      { value: "data_primeiro_contato", label: "Data primeiro contato" },
+    ],
+  },
+  "Funil & Status": {
+    label: "Funil & Status",
+    columns: [
+      { value: "status_oportunidade", label: "Status oportunidade" },
+      { value: "valor_oportunidade", label: "Valor oportunidade" },
+      { value: "proprietario_lead_crm", label: "Proprietário lead (CRM)" },
+      { value: "produto_interesse_auto", label: "Produto interesse (auto)" },
+      { value: "motivo_perda", label: "Motivo de perda" },
+      { value: "comentario_perda", label: "Comentário de perda" },
+      { value: "id_cliente_smart", label: "ID Cliente Smart" },
+    ],
+  },
+  "Equip. Ativos": {
+    label: "Equip. Ativos",
+    columns: [
+      { value: "equip_scanner", label: "Scanner (modelo)" },
+      { value: "equip_scanner_serial", label: "Scanner (nº série)" },
+      { value: "equip_impressora", label: "Impressora (modelo)" },
+      { value: "equip_impressora_serial", label: "Impressora (nº série)" },
+      { value: "equip_cad", label: "CAD (modelo)" },
+      { value: "equip_cad_serial", label: "CAD (nº série)" },
+      { value: "equip_pos_impressao", label: "Pós-impressão (modelo)" },
+      { value: "equip_pos_impressao_serial", label: "Pós-impressão (nº série)" },
+      { value: "equip_notebook", label: "Notebook (modelo)" },
+      { value: "equip_notebook_serial", label: "Notebook (nº série)" },
+      { value: "insumos_adquiridos", label: "Insumos adquiridos" },
     ],
   },
 };
