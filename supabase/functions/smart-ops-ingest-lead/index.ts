@@ -92,10 +92,9 @@ Deno.serve(async (req) => {
     const source = payload.source || payload.utm_source || "formulario";
     const formName = payload.form_name || payload.formName || payload.form || null;
 
-    // --- Extract fields with flexible mapping (including TikTok fields) ---
-    const nome = extractField(payload, "full_name", "name", "nome", "user_name") ||
-      [extractField(payload, "first_name", "first name"), extractField(payload, "last_name", "last name")]
-        .filter(Boolean).join(" ") || "Sem nome";
+    // --- Extract fields with EXPLICIT keys (avoid form_name collision) ---
+    const nome = payload.nome || payload.full_name || payload.name || payload.user_name ||
+      [payload.first_name, payload.last_name].filter(Boolean).join(" ").trim() || "Sem nome";
 
     const emailRaw = extractField(payload, "email", "user_email") || "";
     const email = emailRaw.toLowerCase().trim();
