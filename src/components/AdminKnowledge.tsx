@@ -28,6 +28,7 @@ import { useExternalLinks } from '@/hooks/useExternalLinks';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateFileSize } from '@/utils/security';
 import { AdminLinkBuildingValidator } from '@/components/AdminLinkBuildingValidator';
+import { SmartOpsROICalculators } from '@/components/SmartOpsROICalculators';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -1635,12 +1636,15 @@ Receba o texto bruto abaixo e:
       <CardContent>
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-2">
             {categories.map((cat) => (
               <TabsTrigger key={cat.id} value={cat.letter}>
                 {cat.letter} • {cat.name}
               </TabsTrigger>
             ))}
+            <TabsTrigger value="roi-calculators">
+              F • Calculadora de ROI
+            </TabsTrigger>
             <TabsTrigger value="link-validator">
               🔗 Validador
             </TabsTrigger>
@@ -1733,6 +1737,11 @@ Receba o texto bruto abaixo e:
             </TabsContent>
           ))}
           
+          {/* ROI Calculators Tab */}
+          <TabsContent value="roi-calculators" className="space-y-4">
+            <SmartOpsROICalculators />
+          </TabsContent>
+
           {/* Link Building Validator Tab */}
           <TabsContent value="link-validator" className="space-y-4">
             <AdminLinkBuildingValidator />
