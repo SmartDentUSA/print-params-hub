@@ -1442,11 +1442,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     return '';
   }
 
-  // Buscar vídeos relacionados ao artigo
-  const { data: videos } = await supabase
-    .from('knowledge_videos')
-    .select('*')
-    .eq('content_id', content.id)
+  // Buscar vídeos, resinas e knowledge context em paralelo
+  const [videosRes, knowledgeCtx] = await Promise.all([
+    supabase.from('knowledge_videos').select('*').eq('content_id', content.id).order('order_index'),
+    fetchKnowledgeContext(supabase, { categoryId: content.category_id, limit: 5 }),
+  ]);
+  const videos = videosRes.data;
     .order('order_index');
 
   // Buscar resinas recomendadas com brand/model slugs
