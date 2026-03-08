@@ -226,24 +226,28 @@ function UrgencyIcon({ urgency }: { urgency: string | null }) {
   return <span title="Baixa">🟢</span>;
 }
 
-function FieldGrid({ lead, fields }: { lead: LeadRow; fields: string[] }) {
-  const items = fields
-    .map((f) => ({ key: f, value: lead[f] }))
-    .filter((i) => i.value !== null && i.value !== undefined && i.value !== "" && i.value !== false);
-  if (items.length === 0) return <p className="text-xs text-muted-foreground italic">Nenhum dado</p>;
+function FieldGrid({ lead, fields, startIndex = 0 }: { lead: LeadRow; fields: string[]; startIndex?: number }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-      {items.map((i) => (
-        <div key={i.key} className="p-2 rounded border bg-muted/30">
-          <div className="text-[10px] text-muted-foreground font-mono">{i.key}</div>
-          <div className="text-sm break-all">
-            {typeof i.value === "boolean" ? (i.value ? "✓" : "✗")
-              : Array.isArray(i.value) ? (i.value as string[]).join(", ")
-              : typeof i.value === "object" ? JSON.stringify(i.value).slice(0, 120) + "…"
-              : String(i.value)}
+      {fields.map((f, i) => {
+        const val = lead[f];
+        const isEmpty = val === null || val === undefined || val === "";
+        const num = startIndex + i + 1;
+        return (
+          <div key={f} className={`p-2 rounded border ${isEmpty ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
+            <div className="text-[10px] font-mono text-muted-foreground">
+              <span className="text-primary/60 font-bold">#{num}</span> · {f}
+            </div>
+            <div className={`text-sm break-all ${isEmpty ? "text-muted-foreground italic" : ""}`}>
+              {isEmpty ? "—"
+                : typeof val === "boolean" ? (val ? "✓" : "✗")
+                : Array.isArray(val) ? (val as string[]).join(", ")
+                : typeof val === "object" ? JSON.stringify(val).slice(0, 120) + "…"
+                : String(val)}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
