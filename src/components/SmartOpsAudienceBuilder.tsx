@@ -151,6 +151,7 @@ interface LeadRow {
   sdr_dentistica_interesse: string | null;
   sdr_insumos_lab_interesse: string | null;
   sdr_solucoes_interesse: string | null;
+  status_atual_lead_crm: string | null;
 }
 
 interface Filters {
@@ -171,13 +172,14 @@ interface Filters {
   valorMin: string;
   valorMax: string;
   itemProposta: string;
+  statusCRM: string;
 }
 
 const EMPTY_FILTERS: Filters = {
   search: "", pipeline: "all", status: "all", temperatura: "all", stage: "all",
   urgency: "all", source: "all", produto: "all", uf: "all", proprietario: "all",
   oportunidade: "all", activeProduct: "all", interestProduct: "all", stagnant: false,
-  valorMin: "", valorMax: "", itemProposta: "all",
+  valorMin: "", valorMax: "", itemProposta: "all", statusCRM: "all",
 };
 
 const ITEM_PROPOSTA_OPTIONS = [
@@ -301,6 +303,7 @@ export function SmartOpsAudienceBuilder() {
   const [allUFs, setAllUFs] = useState<string[]>([]);
   const [allOwners, setAllOwners] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [allStatusCRM, setAllStatusCRM] = useState<string[]>([]);
 
   const setFilter = useCallback(<K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -319,13 +322,15 @@ export function SmartOpsAudienceBuilder() {
       supabase.from("lia_attendances").select("uf").limit(1000),
       supabase.from("lia_attendances").select("proprietario_lead_crm").limit(1000),
       supabase.from("lia_attendances").select("produto_interesse").limit(1000),
-    ]).then(([sources, ufs, owners, products]) => {
+      supabase.from("lia_attendances").select("status_atual_lead_crm").limit(1000),
+    ]).then(([sources, ufs, owners, products, statusCRMs]) => {
       const unique = (data: { [k: string]: string | null }[] | null, key: string) =>
         [...new Set((data || []).map((d) => d[key]).filter(Boolean))].sort() as string[];
       setAllSources(unique(sources.data as { source: string }[], "source"));
       setAllUFs(unique(ufs.data as { uf: string }[], "uf"));
       setAllOwners(unique(owners.data as { proprietario_lead_crm: string }[], "proprietario_lead_crm"));
       setAllProducts(unique(products.data as { produto_interesse: string }[], "produto_interesse"));
+      setAllStatusCRM(unique(statusCRMs.data as { status_atual_lead_crm: string }[], "status_atual_lead_crm"));
     });
   }, []);
 
@@ -363,6 +368,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.activeProduct !== "all") query = query.eq(`ativo_${filters.activeProduct}`, true);
     if (filters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${filters.itemProposta}%`);
     if (filters.interestProduct !== "all") query = query.not(filters.interestProduct, "is", null);
+    if (filters.statusCRM !== "all") query = query.eq("status_atual_lead_crm", filters.statusCRM);
 
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
@@ -402,6 +408,7 @@ export function SmartOpsAudienceBuilder() {
       chips.push({ label: `Interesse: ${opt?.label.replace(/^[^\s]+ /, '') || filters.interestProduct}`, key: "interestProduct", resetValue: "all" });
     }
     if (filters.stagnant) chips.push({ label: "Estagnados >30d", key: "stagnant", resetValue: false });
+    if (filters.statusCRM !== "all") chips.push({ label: `Status CRM: ${filters.statusCRM}`, key: "statusCRM", resetValue: "all" });
     if (filters.valorMin) chips.push({ label: `Valor ≥ ${filters.valorMin}`, key: "valorMin", resetValue: "" });
     if (filters.valorMax) chips.push({ label: `Valor ≤ ${filters.valorMax}`, key: "valorMax", resetValue: "" });
     return chips;
@@ -590,6 +597,13 @@ export function SmartOpsAudienceBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={filters.statusCRM} onValueChange={(v) => setFilter("statusCRM", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Status CRM" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Status CRM</SelectItem>
+                    {allStatusCRM.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Valor mín."
                   type="number"
@@ -660,6 +674,8 @@ export function SmartOpsAudienceBuilder() {
                       <TableHead>Data</TableHead>
                       <TableHead>Ativos</TableHead>
                       <TableHead>Interesse</TableHead>
+                      <TableHead>Proposta</TableHead>
+                      <TableHead>Status CRM</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -720,6 +736,12 @@ export function SmartOpsAudienceBuilder() {
                         <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
                         <TableCell><ActiveIcons lead={lead} /></TableCell>
                         <TableCell><InterestIcons lead={lead} /></TableCell>
+                        <TableCell className="text-xs max-w-[120px] truncate">
+                          {lead.itens_proposta_crm || "—"}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[100px] truncate">
+                          {lead.status_atual_lead_crm || "—"}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
