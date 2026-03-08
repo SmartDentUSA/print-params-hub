@@ -310,6 +310,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.valorMin) query = query.gte("valor_oportunidade", Number(filters.valorMin));
     if (filters.valorMax) query = query.lte("valor_oportunidade", Number(filters.valorMax));
     if (filters.activeProduct !== "all") query = query.eq(`ativo_${filters.activeProduct}`, true);
+    if (filters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${filters.itemProposta}%`);
 
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
