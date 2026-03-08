@@ -515,6 +515,14 @@ export function SmartOpsAudienceBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={filters.itemProposta} onValueChange={(v) => setFilter("itemProposta", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Item Proposta" /></SelectTrigger>
+                  <SelectContent>
+                    {ITEM_PROPOSTA_OPTIONS.map((i) => (
+                      <SelectItem key={i.key} value={i.key}>{i.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Input
                   placeholder="Valor mín."
                   type="number"
