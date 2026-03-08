@@ -66,7 +66,7 @@ const FAVICON_TAGS = `
 
 // ===== SHARED HELPERS: AI-Ready Semantic Structure =====
 
-// Internal entity dictionary for entity index injection
+// Internal entity dictionary for entity index injection (static Wikidata-linked terms)
 const ENTITY_INDEX: Record<string, { name: string; wikidata?: string; url?: string; description: string; aliases?: string[] }> = {
   IMPRESSAO_3D: { name: "Impressão 3D", wikidata: "https://www.wikidata.org/wiki/Q229367", description: "Fabricação aditiva por deposição camada a camada de material.", aliases: ["3D printing", "impresión 3D", "manufatura aditiva"] },
   CAD_CAM: { name: "CAD/CAM", wikidata: "https://www.wikidata.org/wiki/Q207696", description: "Projeto assistido por computador e manufatura assistida por computador.", aliases: ["computer-aided design"] },
@@ -100,23 +100,242 @@ function matchEntitiesInText(text: string): Array<{ id: string; name: string; wi
   return matched;
 }
 
-function buildEntityIndexJsonLd(text: string): string {
-  const entities = matchEntitiesInText(text);
-  if (entities.length === 0) return '';
-  const about = entities.slice(0, 3).map(e => {
+function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): string {
+  // Combine static dictionary entities with dynamic DB entities
+  const staticEntities = matchEntitiesInText(text);
+  
+  const about: Array<Record<string, string>> = [];
+  const mentions: Array<Record<string, string>> = [];
+  
+  // Static entities first
+  staticEntities.forEach((e, i) => {
     const item: Record<string, string> = { "@type": "DefinedTerm", "name": e.name, "description": e.description };
     if (e.wikidata) item.sameAs = e.wikidata;
-    return item;
+    (i < 3 ? about : mentions).push(item);
   });
-  const mentions = entities.slice(3).map(e => {
-    const item: Record<string, string> = { "@type": "DefinedTerm", "name": e.name, "description": e.description };
-    if (e.wikidata) item.sameAs = e.wikidata;
-    return item;
-  });
+  
+  // Dynamic entities from DB
+  if (knowledgeCtx) {
+    // Products as Product nodes
+    knowledgeCtx.products.forEach(p => {
+      mentions.push({ "@type": "Product", "name": p.name, "description": p.description || '', "url": `${BASE_URL}/produtos/${p.slug}` });
+    });
+    // Authors as Person nodes
+    knowledgeCtx.authors.forEach(a => {
+      mentions.push({ "@type": "Person", "name": a.name, "jobTitle": a.specialty || '', "description": a.mini_bio || '' });
+    });
+    // Articles as Article nodes
+    knowledgeCtx.articles.forEach(a => {
+      mentions.push({ "@type": "Article", "name": a.title, "url": `${BASE_URL}/base-conhecimento/${a.category_letter || 'a'}/${a.slug}` });
+    });
+  }
+  
+  if (about.length === 0 && mentions.length === 0) return '';
+  
   const schema: Record<string, unknown> = { "@context": "https://schema.org" };
   if (about.length > 0) schema.about = about;
   if (mentions.length > 0) schema.mentions = mentions;
   return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+}
+
+// ===== KNOWLEDGE CONTEXT: Dynamic data from system =====
+
+interface KnowledgeContext {
+  products: Array<{ name: string; slug: string; description?: string; image_url?: string; category?: string }>;
+  categories: Array<{ id: string; name: string; letter: string }>;
+  authors: Array<{ name: string; specialty?: string; mini_bio?: string; photo_url?: string }>;
+  articles: Array<{ title: string; slug: string; excerpt?: string; category_letter?: string }>;
+  testimonials: Array<{ name: string; description?: string; specialty?: string; rating?: number }>;
+  externalLinks: Array<{ name: string; url: string; category?: string }>;
+}
+
+async function fetchKnowledgeContext(supabase: any, opts?: { categoryId?: string; limit?: number }): Promise<KnowledgeContext> {
+  const limit = opts?.limit || 5;
+  
+  const [productsRes, categoriesRes, authorsRes, articlesRes, testimonialsRes, linksRes] = await Promise.all([
+    supabase.from('system_a_catalog').select('name, slug, description, image_url, category').eq('active', true).eq('approved', true).eq('category', 'product').order('order_index').limit(limit),
+    supabase.from('knowledge_categories').select('id, name, letter').eq('enabled', true).order('order_index'),
+    supabase.from('authors').select('name, specialty, mini_bio, photo_url').eq('active', true).order('order_index').limit(limit),
+    (() => {
+      let q = supabase.from('knowledge_contents').select('title, slug, excerpt, category_id').eq('active', true).order('updated_at', { ascending: false }).limit(limit);
+      if (opts?.categoryId) q = q.eq('category_id', opts.categoryId);
+      return q;
+    })(),
+    supabase.from('system_a_catalog').select('name, description, extra_data, slug').eq('active', true).eq('approved', true).eq('category', 'video_testimonial').order('created_at', { ascending: false }).limit(3),
+    supabase.from('external_links').select('name, url, category').eq('approved', true).order('relevance_score', { ascending: false }).limit(limit),
+  ]);
+
+  // Map articles to include category letter
+  const cats = categoriesRes.data || [];
+  const catMap = new Map(cats.map((c: any) => [c.id, c.letter]));
+  const articles = (articlesRes.data || []).map((a: any) => ({
+    ...a,
+    category_letter: catMap.get(a.category_id) || 'a'
+  }));
+
+  return {
+    products: productsRes.data || [],
+    categories: cats,
+    authors: authorsRes.data || [],
+    articles,
+    testimonials: (testimonialsRes.data || []).map((t: any) => ({
+      name: t.name,
+      description: t.description,
+      specialty: t.extra_data?.specialty,
+      rating: t.extra_data?.rating
+    })),
+    externalLinks: linksRes.data || [],
+  };
+}
+
+// ===== NEW HELPERS: Knowledge Integration =====
+
+function buildAICrawlerPolicy(): string {
+  return `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="ai-crawler-policy" content="allow: GPTBot, ClaudeBot, PerplexityBot, Google-Extended" />`;
+}
+
+function buildEntityReferenceMetas(knowledgeCtx: KnowledgeContext, pageEntity?: { type: string; name: string }): string {
+  const metas: string[] = [];
+  metas.push(`<meta name="entity:organization" content="Smart Dent" />`);
+  if (pageEntity) {
+    metas.push(`<meta name="entity:${pageEntity.type}" content="${escapeHtml(pageEntity.name)}" />`);
+  }
+  // Add top products
+  knowledgeCtx.products.slice(0, 3).forEach(p => {
+    metas.push(`<meta name="entity:product" content="${escapeHtml(p.name)}" />`);
+  });
+  // Add experts
+  knowledgeCtx.authors.slice(0, 2).forEach(a => {
+    metas.push(`<meta name="entity:expert" content="${escapeHtml(a.name)}" />`);
+  });
+  return metas.join('\n  ');
+}
+
+function buildKnowledgeNav(knowledgeCtx: KnowledgeContext): string {
+  if (knowledgeCtx.categories.length === 0) return '';
+  return `
+    <nav aria-label="Categorias" data-section="knowledge-nav" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.5rem">
+      ${knowledgeCtx.categories.map(c => 
+        `<a href="/base-conhecimento/${c.letter.toLowerCase()}" style="color:#2563eb;text-decoration:none;font-size:0.8rem;padding:0.25rem 0.5rem;border:1px solid #e5e7eb;border-radius:4px">${c.letter} - ${escapeHtml(c.name)}</a>`
+      ).join('')}
+      <a href="/produtos" style="color:#2563eb;text-decoration:none;font-size:0.8rem;padding:0.25rem 0.5rem;border:1px solid #e5e7eb;border-radius:4px">Produtos</a>
+    </nav>`;
+}
+
+function buildStandardHeaderWithNav(knowledgeCtx: KnowledgeContext): string {
+  return `
+  <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">Pular para conteúdo principal</a>
+  <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
+  <header role="banner" style="${HEADER_STYLE}">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="eager" decoding="async" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+    ${buildKnowledgeNav(knowledgeCtx)}
+  </header>`;
+}
+
+function buildCitationBlocks(knowledgeCtx: KnowledgeContext): string {
+  const testimonials = knowledgeCtx.testimonials.filter(t => t.description);
+  if (testimonials.length === 0) return '';
+  
+  return `
+    <section data-section="citations" class="llm-citation-layer" aria-label="Citações de Especialistas" style="margin:2rem 0;padding:1.5rem;background:#f8fafc;border-left:4px solid #2563eb;border-radius:0 8px 8px 0">
+      <h2 style="font-size:1.1rem;margin:0 0 1rem 0;color:#1e3a5f">Depoimentos de Especialistas</h2>
+      ${testimonials.slice(0, 3).map(t => `
+        <blockquote cite="${BASE_URL}/depoimentos" data-expert="${escapeHtml(t.name)}" data-role="${escapeHtml(t.specialty || 'Especialista')}" style="margin:0.75rem 0;padding:0.75rem;background:#fff;border-radius:6px;font-style:italic;color:#374151">
+          <p style="margin:0">"${escapeHtml((t.description || '').substring(0, 200))}"</p>
+          <footer style="margin-top:0.5rem;font-style:normal;font-size:0.85rem;color:#6b7280">— <strong>${escapeHtml(t.name)}</strong>${t.specialty ? `, ${escapeHtml(t.specialty)}` : ''}${t.rating ? ` ⭐ ${t.rating}/5` : ''}</footer>
+        </blockquote>
+      `).join('')}
+    </section>`;
+}
+
+function buildLLMKnowledgeLayer(entityName: string, entityCategory: string, knowledgeCtx: KnowledgeContext, extraFields?: Record<string, string>): string {
+  const experts = knowledgeCtx.authors.map(a => a.name).join(', ');
+  const products = knowledgeCtx.products.map(p => p.name).join(', ');
+  const relatedArticles = knowledgeCtx.articles.map(a => a.title).join(', ');
+  
+  let dlItems = `
+    <dt>Entity</dt><dd>${escapeHtml(entityName)}</dd>
+    <dt>Category</dt><dd>${escapeHtml(entityCategory)}</dd>
+    <dt>Organization</dt><dd>Smart Dent</dd>`;
+  
+  if (products) dlItems += `\n    <dt>Related Products</dt><dd>${escapeHtml(products)}</dd>`;
+  if (experts) dlItems += `\n    <dt>Experts</dt><dd>${escapeHtml(experts)}</dd>`;
+  if (relatedArticles) dlItems += `\n    <dt>Related Articles</dt><dd>${escapeHtml(relatedArticles)}</dd>`;
+  
+  if (extraFields) {
+    for (const [key, value] of Object.entries(extraFields)) {
+      dlItems += `\n    <dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`;
+    }
+  }
+  
+  return `
+    <section data-section="knowledge-graph" class="llm-knowledge-layer" aria-label="Dados Estruturados para IA" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
+      <dl>${dlItems}
+      </dl>
+    </section>`;
+}
+
+function buildEntityIndexSection(knowledgeCtx: KnowledgeContext): string {
+  const hasProducts = knowledgeCtx.products.length > 0;
+  const hasArticles = knowledgeCtx.articles.length > 0;
+  const hasAuthors = knowledgeCtx.authors.length > 0;
+  
+  if (!hasProducts && !hasArticles && !hasAuthors) return '';
+  
+  return `
+    <section data-section="entity-index" aria-label="Índice de Entidades" style="margin-top:2rem;padding:1.5rem;background:#f9fafb;border-radius:8px">
+      <h2 style="font-size:1.1rem;margin:0 0 1rem 0">Entidades Relacionadas</h2>
+      <nav>
+        ${hasProducts ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Produtos</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.products.map(p => 
+          `<li style="margin:0.25rem 0"><a href="/produtos/${p.slug}" style="color:#2563eb;text-decoration:none">${escapeHtml(p.name)}</a></li>`
+        ).join('')}</ul>` : ''}
+        ${hasArticles ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Artigos</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.articles.map(a => 
+          `<li style="margin:0.25rem 0"><a href="/base-conhecimento/${a.category_letter || 'a'}/${a.slug}" style="color:#2563eb;text-decoration:none">${escapeHtml(a.title)}</a></li>`
+        ).join('')}</ul>` : ''}
+        ${hasAuthors ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Especialistas</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.authors.map(a => 
+          `<li style="margin:0.25rem 0">${escapeHtml(a.name)}${a.specialty ? ` - <em>${escapeHtml(a.specialty)}</em>` : ''}</li>`
+        ).join('')}</ul>` : ''}
+      </nav>
+    </section>`;
+}
+
+function buildKnowledgeGraphJsonLd(knowledgeCtx: KnowledgeContext): string {
+  const nodes: any[] = [];
+  
+  knowledgeCtx.products.slice(0, 3).forEach(p => {
+    nodes.push({
+      "@type": "Product",
+      "name": p.name,
+      "url": `${BASE_URL}/produtos/${p.slug}`,
+      "brand": { "@type": "Brand", "name": "Smart Dent" },
+      ...(p.image_url && { "image": p.image_url })
+    });
+  });
+  
+  knowledgeCtx.authors.slice(0, 3).forEach(a => {
+    nodes.push({
+      "@type": "Person",
+      "name": a.name,
+      "jobTitle": a.specialty || "Especialista",
+      ...(a.photo_url && { "image": a.photo_url })
+    });
+  });
+  
+  if (nodes.length === 0) return '';
+  return `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
 }
 
 function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string }): string {
@@ -561,16 +780,14 @@ function extractHowToStepsFromHTML(htmlContent: string): string[] {
 }
 
 async function generateHomepageHTML(supabase: any): Promise<string> {
-  const { data: brands, error } = await supabase
-    .from('brands')
-    .select('name, slug, logo_url')
-    .eq('active', true)
-    .order('name')
-    .limit(20);
+  const [brandsRes, knowledgeCtx] = await Promise.all([
+    supabase.from('brands').select('name, slug, logo_url').eq('active', true).order('name').limit(20),
+    fetchKnowledgeContext(supabase),
+  ]);
 
-  if (error) {
-    console.error('Supabase error fetching brands:', error.message);
-    return '';
+  const brands = brandsRes.data;
+  if (brandsRes.error) {
+    console.error('Supabase error fetching brands:', brandsRes.error.message);
   }
 
   const baseUrl = 'https://parametros.smartdent.com.br';
@@ -587,6 +804,8 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <title>${title}</title>
   <meta name="description" content="${escapeHtml(description)}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Impressão 3D Odontológica' })}
   <link rel="canonical" href="${baseUrl}/" />
   <meta property="og:title" content="Parâmetros de Impressão 3D Odontológica" />
   <meta property="og:description" content="Configurações profissionais para impressoras e resinas 3D odontológicas" />
@@ -617,10 +836,11 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(entityText)}
+  ${buildEntityIndexJsonLd(entityText, knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>Parâmetros de Impressão 3D Odontológica</h1>
@@ -630,6 +850,9 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
       <ul>
         ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
       </ul>
+      ${buildCitationBlocks(knowledgeCtx)}
+      ${buildLLMKnowledgeLayer('Parâmetros de Impressão 3D', 'Plataforma de Referência', knowledgeCtx, { 'Technology': 'Impressão 3D LCD, DLP, SLA', 'Applications': 'modelos dentários, guias cirúrgicos, próteses provisórias, alinhadores' })}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -639,18 +862,16 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
 }
 
 async function generateBrandHTML(brandSlug: string, supabase: any): Promise<string> {
-  const { data: brand, error } = await supabase
-    .from('brands')
-    .select('*, models(name, slug, image_url)')
-    .eq('slug', brandSlug)
-    .eq('active', true)
-    .single();
+  const [brandRes, knowledgeCtx] = await Promise.all([
+    supabase.from('brands').select('*, models(name, slug, image_url)').eq('slug', brandSlug).eq('active', true).single(),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (error) {
-    console.error('Supabase error fetching brand:', brandSlug, error.message);
+  if (brandRes.error) {
+    console.error('Supabase error fetching brand:', brandSlug, brandRes.error.message);
     return '';
   }
-
+  const brand = brandRes.data;
   if (!brand) return '';
 
   const modelsCount = brand.models?.length || 0;
@@ -667,6 +888,8 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'brand', name: brand.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
@@ -685,10 +908,11 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`Impressora 3D ${brand.name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`)}
+  ${buildEntityIndexJsonLd(`Impressora 3D ${brand.name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
@@ -698,6 +922,8 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
       <ul>
         ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
       </ul>
+      ${buildLLMKnowledgeLayer(brand.name, 'Marca de Impressoras 3D', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -707,42 +933,29 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
 }
 
 async function generateModelHTML(brandSlug: string, modelSlug: string, supabase: any): Promise<string> {
-  const { data: model, error: modelError } = await supabase
-    .from('models')
-    .select('*, brands!inner(*)')
-    .eq('slug', modelSlug)
-    .eq('brands.slug', brandSlug)
-    .eq('active', true)
-    .single();
+  const [modelRes, resinsRes, knowledgeCtx] = await Promise.all([
+    supabase.from('models').select('*, brands!inner(*)').eq('slug', modelSlug).eq('brands.slug', brandSlug).eq('active', true).single(),
+    supabase.from('parameter_sets').select('resin_name, resin_manufacturer').eq('brand_slug', brandSlug).eq('model_slug', modelSlug).eq('active', true),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (modelError) {
-    console.error('Supabase error fetching model:', modelSlug, modelError.message);
+  if (modelRes.error) {
+    console.error('Supabase error fetching model:', modelSlug, modelRes.error.message);
     return '';
   }
+  const model = modelRes.data;
+  if (!model) { console.log('Model not found:', modelSlug); return ''; }
 
-  if (!model) {
-    console.log('Model not found:', modelSlug);
-    return '';
+  if (resinsRes.error) {
+    console.error('Supabase error fetching resins:', resinsRes.error.message);
   }
 
-  const { data: resins, error: resinsError } = await supabase
-    .from('parameter_sets')
-    .select('resin_name, resin_manufacturer')
-    .eq('brand_slug', brandSlug)
-    .eq('model_slug', modelSlug)
-    .eq('active', true);
-
-  if (resinsError) {
-    console.error('Supabase error fetching resins:', resinsError.message);
-  }
-
-  const uniqueResins = [...new Map(resins?.map((r: any) => 
+  const uniqueResins = [...new Map((resinsRes.data || []).map((r: any) => 
     [`${r.resin_manufacturer}-${r.resin_name}`, r]
   )).values()];
 
   const resinsCount = uniqueResins.length;
   const baseUrl = 'https://parametros.smartdent.com.br';
-
   const title = `${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent`;
   const description = `Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas.`;
   const contextText = `Parâmetros de impressão 3D para ${escapeHtml(model.name)} (${escapeHtml((model.brands as any).name)}). ${resinsCount} resinas com configurações testadas para odontologia digital.`;
@@ -756,6 +969,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: model.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
@@ -785,10 +1000,10 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`)}
+  ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(model.name)}</h1>
@@ -801,6 +1016,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
           return `<li><a href="/${brandSlug}/${modelSlug}/${resinSlug}">${r.resin_name}</a></li>`;
         }).join('') || ''}
       </ul>
+      ${buildLLMKnowledgeLayer(model.name, 'Impressora 3D', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -810,50 +1027,34 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
 }
 
 async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug: string, supabase: any): Promise<string> {
-  // Buscar parameter_sets primeiro
-  const { data: paramSets, error: paramError } = await supabase
-    .from('parameter_sets')
-    .select('*')
-    .eq('brand_slug', brandSlug)
-    .eq('model_slug', modelSlug)
-    .eq('active', true);
+  // Buscar parameter_sets e knowledge context em paralelo
+  const [paramRes, knowledgeCtx] = await Promise.all([
+    supabase.from('parameter_sets').select('*').eq('brand_slug', brandSlug).eq('model_slug', modelSlug).eq('active', true),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (paramError) {
-    console.error('Supabase error fetching parameter_sets:', paramError.message);
+  if (paramRes.error) {
+    console.error('Supabase error fetching parameter_sets:', paramRes.error.message);
     return '';
   }
-
+  const paramSets = paramRes.data;
   if (!paramSets || paramSets.length === 0) {
     console.log('No parameter_sets found for:', brandSlug, modelSlug);
     return '';
   }
 
-  // FASE 4: Matching robusto de slugs para encontrar o parameter_set correto
   const paramData = paramSets.find((p: any) => {
     const dbSlug = normalizeSlug(`${p.resin_manufacturer}-${p.resin_name}`);
     const requestSlug = normalizeSlug(resinSlug);
     return dbSlug === requestSlug;
   }) || paramSets[0];
 
-  // Buscar dados da resina separadamente
   const { data: resinData, error: resinError } = await supabase
-    .from('resins')
-    .select('*')
-    .eq('manufacturer', paramData.resin_manufacturer)
-    .eq('name', paramData.resin_name)
-    .eq('active', true)
-    .maybeSingle();
+    .from('resins').select('*').eq('manufacturer', paramData.resin_manufacturer).eq('name', paramData.resin_name).eq('active', true).maybeSingle();
+  if (resinError) console.error('Supabase error fetching resin:', resinError.message);
 
-  if (resinError) {
-    console.error('Supabase error fetching resin:', resinError.message);
-  }
-
-  // Usar parameter_set como fonte principal
   const params = paramData;
-
   const baseUrl = 'https://parametros.smartdent.com.br';
-  
-  // Usar campos SEO da tabela resins se disponível
   const resinName = params.resin_name;
   const resinManufacturer = params.resin_manufacturer;
   const seoTitle = resinData?.seo_title_override || `${escapeHtml(resinName)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
@@ -861,7 +1062,6 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   const canonicalUrl = resinData?.canonical_url || `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`;
   const ogImage = resinData?.og_image_url || resinData?.image_url || `${baseUrl}/og-image.jpg`;
   const keywords = resinData?.keywords || [];
-
   const contextText = `Resina ${escapeHtml(resinName)} (${escapeHtml(resinManufacturer)}) com parâmetros otimizados para impressora ${escapeHtml(modelSlug)}. Layer height: ${params.layer_height}mm, cure time: ${params.cure_time}s, light intensity: ${params.light_intensity}%.`;
 
   return `<!DOCTYPE html>
@@ -873,6 +1073,8 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   <meta name="description" content="${metaDescription}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: resinName })}
   <link rel="canonical" href="${canonicalUrl}" />
   <meta property="og:title" content="${escapeHtml(resinData?.name || resinName)} - Parâmetros de Impressão" />
   <meta property="og:description" content="${metaDescription}" />
@@ -914,10 +1116,10 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`)}
+  ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`, knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(resinName)}</h1>
@@ -938,6 +1140,9 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
       </section>
       ${params.notes ? `<p><strong>Observações:</strong> ${escapeHtml(params.notes)}</p>` : ''}
       ${resinData?.cta_1_url ? `<p><a href="${escapeHtml(resinData.cta_1_url)}" target="_blank">${escapeHtml(resinData.cta_1_label || 'Saiba mais')}</a></p>` : ''}
+      ${buildCitationBlocks(knowledgeCtx)}
+      ${buildLLMKnowledgeLayer(resinName, 'Resina para Impressão 3D', knowledgeCtx, { 'Technology': 'Fotopolimerização', 'Layer Height': `${params.layer_height}mm`, 'Cure Time': `${params.cure_time}s` })}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -951,20 +1156,15 @@ async function generateSystemACatalogHTML(
   slug: string, 
   supabase: any
 ): Promise<string> {
-  // FIX: Handle both slug formats (simple slug and full URLs)
-  const { data: item, error } = await supabase
-    .from('system_a_catalog')
-    .select('*')
-    .eq('category', category)
-    .or(`slug.eq.${slug},slug.like.%/${slug}`)
-    .eq('active', true)
-    .eq('approved', true)
-    .maybeSingle();
+  const [itemRes, knowledgeCtx] = await Promise.all([
+    supabase.from('system_a_catalog').select('*').eq('category', category).or(`slug.eq.${slug},slug.like.%/${slug}`).eq('active', true).eq('approved', true).maybeSingle(),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (error || !item) return generate404();
+  if (itemRes.error || !itemRes.data) return generate404();
+  const item = itemRes.data;
 
   const baseUrl = 'https://parametros.smartdent.com.br';
-  // SEO Meta Tags: Use product-specific data when available
   const seoTitle = category === 'product' 
     ? (item.seo_title_override || `${item.name} | Smart Dent - Odontologia de Precisão`)
     : category === 'video_testimonial'
@@ -996,7 +1196,6 @@ async function generateSystemACatalogHTML(
     ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
     : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
 
-
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1006,6 +1205,8 @@ async function generateSystemACatalogHTML(
   <meta name="description" content="${escapeHtml(metaDescription)}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: category === 'product' ? 'product' : 'review', name: item.name })}
   <link rel="canonical" href="${canonicalUrl}" />
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
   <meta property="og:description" content="${escapeHtml(metaDescription)}" />
@@ -1057,10 +1258,11 @@ async function generateSystemACatalogHTML(
     "author": { "@type": "Organization", "name": "Smart Dent" }, "publisher": { "@type": "Organization", "name": "Smart Dent" }
   })}
   </script>
-  ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`)}
+  ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`, knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(item.name)}</h1>
@@ -1076,6 +1278,9 @@ async function generateSystemACatalogHTML(
   ${item.cta_1_url ? `<p><a href="${escapeHtml(item.cta_1_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_1_label || 'Ver na Loja')}</a></p>` : ''}
   ${item.cta_2_url ? `<p><a href="${escapeHtml(item.cta_2_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_2_label || 'Saiba Mais')}</a></p>` : ''}
   ${item.cta_3_url ? `<p><a href="${escapeHtml(item.cta_3_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_3_label || 'Mais Informações')}</a></p>` : ''}
+      ${buildCitationBlocks(knowledgeCtx)}
+      ${buildLLMKnowledgeLayer(item.name, category === 'product' ? 'Produto Odontológico' : 'Depoimento', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -1085,15 +1290,8 @@ async function generateSystemACatalogHTML(
 }
 
 async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
-  const { data: categories, error } = await supabase
-    .from('knowledge_categories')
-    .select('*, knowledge_contents(count)')
-    .eq('enabled', true)
-    .order('order_index');
-
-  if (error) {
-    console.error('Supabase error fetching knowledge categories:', error.message);
-  }
+  const knowledgeCtx = await fetchKnowledgeContext(supabase);
+  const categories = knowledgeCtx.categories;
 
   const baseUrl = 'https://parametros.smartdent.com.br';
   const title = 'Base de Conhecimento | Smart Dent';
@@ -1108,6 +1306,8 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Base de Conhecimento' })}
   <link rel="canonical" href="${baseUrl}/base-conhecimento" />
   <link rel="alternate" hreflang="pt-BR" href="${baseUrl}/base-conhecimento" />
   <link rel="alternate" hreflang="en-US" href="${baseUrl}/en/knowledge-base" />
@@ -1122,26 +1322,19 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "WebSite",
-        "name": "Base de Conhecimento Smart Dent",
-        "url": `${baseUrl}/base-conhecimento`,
-        "description": "Artigos e tutoriais sobre impressão 3D odontológica"
-      },
-      {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` }
-        ]
-      }
+      { "@type": "WebSite", "name": "Base de Conhecimento Smart Dent", "url": `${baseUrl}/base-conhecimento`, "description": "Artigos e tutoriais sobre impressão 3D odontológica" },
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` }
+      ]}
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd('impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA CAD/CAM scanner intraoral prótese dentária odontologia digital')}
+  ${buildEntityIndexJsonLd('impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA CAD/CAM scanner intraoral prótese dentária odontologia digital', knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>Base de Conhecimento</h1>
@@ -1149,8 +1342,10 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
       <p data-section="definition">Artigos, tutoriais e guias sobre impressão 3D odontológica. Conteúdo produzido por especialistas para cirurgiões-dentistas e técnicos em prótese dentária.</p>
       <h2>Categorias</h2>
       <ul>
-        ${categories?.map((c: any) => `<li><a href="/conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
+        ${categories?.map((c: any) => `<li><a href="/base-conhecimento/${c.letter.toLowerCase()}">${c.letter} - ${c.name}</a></li>`).join('') || ''}
       </ul>
+      ${buildLLMKnowledgeLayer('Base de Conhecimento', 'Portal Educacional', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -1161,33 +1356,17 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
 
 async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Promise<string> {
   const { data: category, error: categoryError } = await supabase
-    .from('knowledge_categories')
-    .select('*')
-    .eq('letter', letter.toUpperCase())
-    .eq('enabled', true)
-    .single();
+    .from('knowledge_categories').select('*').eq('letter', letter.toUpperCase()).eq('enabled', true).single();
 
-  if (categoryError) {
-    console.error('Supabase error fetching category:', letter, categoryError.message);
-    return '';
-  }
+  if (categoryError) { console.error('Supabase error fetching category:', letter, categoryError.message); return ''; }
+  if (!category) { console.log('Category not found:', letter); return ''; }
 
-  if (!category) {
-    console.log('Category not found:', letter);
-    return '';
-  }
-
-  const { data: contents, error: contentsError } = await supabase
-    .from('knowledge_contents')
-    .select('title, slug, excerpt')
-    .eq('category_id', category.id)
-    .eq('active', true)
-    .order('order_index')
-    .limit(50);
-
-  if (contentsError) {
-    console.error('Supabase error fetching contents:', contentsError.message);
-  }
+  const [contentsRes, knowledgeCtx] = await Promise.all([
+    supabase.from('knowledge_contents').select('title, slug, excerpt').eq('category_id', category.id).eq('active', true).order('order_index').limit(50),
+    fetchKnowledgeContext(supabase, { categoryId: category.id, limit: 5 }),
+  ]);
+  const contents = contentsRes.data;
+  if (contentsRes.error) console.error('Supabase error fetching contents:', contentsRes.error.message);
 
   const baseUrl = 'https://parametros.smartdent.com.br';
   const title = `${escapeHtml(category.letter)} - ${escapeHtml(category.name)} | Base de Conhecimento Smart Dent`;
@@ -1202,6 +1381,8 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'category', name: category.name })}
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
   <meta property="og:title" content="${escapeHtml(category.name)} - Base de Conhecimento" />
   <meta property="og:description" content="${description}" />
@@ -1212,28 +1393,19 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   ${JSON.stringify({
     "@context": "https://schema.org",
     "@graph": [
-      {
-        "@type": "CollectionPage",
-        "name": `${category.letter} - ${category.name}`,
-        "description": description,
-        "url": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`,
-        "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl }
-      },
-      {
-        "@type": "BreadcrumbList",
-        "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
-          { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
-          { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
-        ]
-      }
+      { "@type": "CollectionPage", "name": `${category.letter} - ${category.name}`, "description": description, "url": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}`, "isPartOf": { "@type": "WebSite", "name": "Smart Dent", "url": baseUrl } },
+      { "@type": "BreadcrumbList", "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Início", "item": baseUrl },
+        { "@type": "ListItem", "position": 2, "name": "Base de Conhecimento", "item": `${baseUrl}/base-conhecimento` },
+        { "@type": "ListItem", "position": 3, "name": escapeHtml(category.name), "item": `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` }
+      ]}
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`${category.name} impressão 3D odontológica resina fotopolimerização odontologia digital`)}
+  ${buildEntityIndexJsonLd(`${category.name} impressão 3D odontológica resina fotopolimerização odontologia digital`, knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(category.letter)} - ${escapeHtml(category.name)}</h1>
@@ -1242,6 +1414,8 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
       <ul>
         ${contents?.map((c: any) => `<li><a href="/base-conhecimento/${letter.toLowerCase()}/${c.slug}">${c.title}</a>${c.excerpt ? `<br><small>${escapeHtml(c.excerpt.substring(0, 120))}</small>` : ''}</li>`).join('') || ''}
       </ul>
+      ${buildLLMKnowledgeLayer(category.name, 'Categoria de Conhecimento', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
@@ -1268,11 +1442,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     return '';
   }
 
-  // Buscar vídeos relacionados ao artigo
-  const { data: videos } = await supabase
-    .from('knowledge_videos')
-    .select('*')
-    .eq('content_id', content.id)
+  // Buscar vídeos, resinas e knowledge context em paralelo
+  const [videosRes, knowledgeCtx] = await Promise.all([
+    supabase.from('knowledge_videos').select('*').eq('content_id', content.id).order('order_index'),
+    fetchKnowledgeContext(supabase, { categoryId: content.category_id, limit: 5 }),
+  ]);
+  const videos = videosRes.data;
     .order('order_index');
 
   // Buscar resinas recomendadas com brand/model slugs
