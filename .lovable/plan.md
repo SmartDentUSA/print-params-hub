@@ -1,318 +1,185 @@
 
 
-# Auditoria Completa: Estrutura HTML dos 8 Geradores do seo-proxy
+# Integração do Knowledge System nos Geradores HTML do seo-proxy
 
-## Arquitetura de Referência
+## Objetivo
 
-```text
-HTML
- ├── HEAD
- │   ├── meta charset
- │   ├── viewport
- │   ├── title
- │   ├── meta description
- │   ├── canonical
- │   ├── Open Graph
- │   ├── Twitter Card
- │   ├── AI Policy
- │   └── JSON-LD @graph
- │
- └── BODY
-     ├── header (role="banner", nav)
-     ├── main > article
-     │   ├── H1
-     │   ├── AI summary (llm-knowledge-layer)
-     │   ├── hero image (eager, fetchpriority=high)
-     │   ├── definition paragraph (data-section)
-     │   ├── seções de conteúdo
-     │   ├── LLM knowledge layer
-     │   └── entity index (JSON-LD)
-     └── footer (role="contentinfo", nav)
-```
+Transformar cada página HTML gerada pelo `seo-proxy` em um **semantic entity document** que consome dados reais do sistema (produtos, categorias, especialistas, artigos, depoimentos, links externos) para alimentar um Knowledge Layer completo para LLMs e motores de busca.
 
----
+## Estado Atual vs. Desejado
 
-## Helpers Compartilhados
+Atualmente o seo-proxy usa um dicionário estático (`ENTITY_INDEX`) com ~12 termos fixos. A proposta é substituí-lo por dados dinâmicos do banco de dados, criando um grafo de conhecimento real.
 
-Existem 5 helpers reutilizáveis que padronizam a estrutura:
-
-| Helper | Função |
-|--------|--------|
-| `buildStandardHeader()` | skip-link + `<header role="banner">` + `<nav>` + logo eager + tagline |
-| `buildStandardFooter()` | `<footer role="contentinfo">` + `<nav aria-label="Footer">` + copyright |
-| `buildAIHeadTags()` | ai-content-policy, AI-context, Twitter Card completo, citation_*, cite-as, geo tags |
-| `buildAISummaryBlock()` | `<section data-section="summary" class="llm-knowledge-layer">` + `itemProp="abstract"` |
-| `buildEntityIndexJsonLd()` | Matches entities via `ENTITY_INDEX` dict → JSON-LD com `about` + `mentions` |
-
----
-
-## 1. `generateHomepageHTML` — ✅ 10/10
+## Arquitetura da Integração
 
 ```text
-HEAD
- ├── meta charset="utf-8"                             ✅
- ├── meta viewport                                    ✅
- ├── title                                            ✅ "Parâmetros de Impressão 3D Odontológica | Smart Dent"
- ├── meta description                                 ✅ Dinâmica (conta marcas)
- ├── canonical                                        ✅ baseUrl + "/"
- ├── Open Graph (title, desc, image, type=website)    ✅
- ├── Twitter Card (via buildAIHeadTags)               ✅ summary_large_image
- ├── AI Policy (ai-content-policy, AI-context,
- │    citation_*, cite-as, geo)                       ✅
- └── JSON-LD @graph [WebSite+SearchAction,
-      BreadcrumbList] + entity index                  ✅
-
-BODY
- ├── header (buildStandardHeader)                     ✅ role="banner", nav, logo eager
- ├── main#main-content > article                      ✅
- │   ├── H1                                           ✅
- │   ├── AI summary (buildAISummaryBlock)             ✅
- │   ├── hero image                                   — N/A (página de listagem)
- │   ├── p[data-section="definition"]                 ✅
- │   ├── lista de marcas (ul > li > a)                ✅
- │   └── entity index (inline JSON-LD)                ✅
- └── footer (buildStandardFooter)                     ✅ role="contentinfo", nav
+┌─────────────────────────────────────────────────┐
+│           seo-proxy/index.ts                     │
+│                                                   │
+│  fetchKnowledgeContext(supabase, pageContext)     │
+│    ├── products (system_a_catalog)                │
+│    ├── categories (knowledge_categories)          │
+│    ├── experts/authors (authors)                  │
+│    ├── articles (knowledge_contents)              │
+│    ├── testimonials (system_a_catalog)            │
+│    ├── external_links (external_links)            │
+│    └── resins (resins)                            │
+│                                                   │
+│  buildKnowledgeLayer(data)                        │
+│    ├── HEAD: entity meta tags                     │
+│    ├── HEAD: ai-crawler-policy                    │
+│    ├── HEAD: JSON-LD @graph enrichment            │
+│    ├── BODY: nav with categories/products         │
+│    ├── BODY: citation blocks                      │
+│    ├── BODY: LLM knowledge layer section          │
+│    └── BODY: entity index section                 │
+└─────────────────────────────────────────────────┘
 ```
 
----
+## Implementação (1 arquivo: `seo-proxy/index.ts`)
 
-## 2. `generateBrandHTML` — ✅ 10/10
+### 1. Nova função: `fetchKnowledgeContext()`
 
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title                                            ✅ "${brand.name} - Parâmetros..."
- ├── meta description                                 ✅ Dinâmica (conta modelos)
- ├── canonical                                        ✅ baseUrl + "/" + brandSlug
- ├── Open Graph (title, desc, image, type=website)    ✅
- ├── Twitter Card                                     ✅
- ├── AI Policy                                        ✅
- └── JSON-LD @graph [Organization, BreadcrumbList]
-      + entity index                                  ✅
+Busca dados do sistema em paralelo para montar o contexto de conhecimento da página:
 
-BODY
- ├── header (buildStandardHeader)                     ✅
- ├── main > article                                   ✅
- │   ├── H1                                           ✅
- │   ├── AI summary                                   ✅
- │   ├── p[data-section="definition"]                 ✅
- │   └── lista de modelos                             ✅
- └── footer (buildStandardFooter)                     ✅
+- **Products**: Top 5 produtos ativos do `system_a_catalog` (category=product)
+- **Categories**: Todas as categorias ativas do `knowledge_categories`
+- **Authors/Experts**: Autores com artigos publicados
+- **Related Articles**: 5 artigos mais recentes da mesma categoria (quando aplicável)
+- **Testimonials**: 3 depoimentos recentes (category=video_testimonial)
+- **External Links**: Links externos aprovados e relevantes
+
+Usa `Promise.all()` para executar as queries em paralelo sem impactar performance.
+
+### 2. HEAD — Knowledge Metadata Layer
+
+#### 2.1 AI Crawler Policy (novo)
+```html
+<meta name="robots" content="index, follow" />
+<meta name="ai-crawler-policy" content="allow: GPTBot, ClaudeBot, PerplexityBot, Google-Extended" />
 ```
 
----
-
-## 3. `generateModelHTML` — ✅ 10/10
-
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title / description / canonical                  ✅ / ✅ / ✅
- ├── Open Graph (type=product, image dinâmica)        ✅
- ├── Twitter Card                                     ✅
- ├── AI Policy                                        ✅
- └── JSON-LD @graph [Product, BreadcrumbList]
-      + entity index                                  ✅
-
-BODY
- ├── header                                           ✅
- ├── main > article                                   ✅
- │   ├── H1                                           ✅
- │   ├── AI summary                                   ✅
- │   ├── p[data-section="definition"]                 ✅ (model.notes ou fallback)
- │   └── lista de resinas                             ✅
- └── footer                                           ✅
+#### 2.2 Entity References (novo)
+Meta tags dinâmicas baseadas nos dados reais da página:
+```html
+<meta name="entity:product" content="SmartPrint Model" />
+<meta name="entity:technology" content="Impressão 3D LCD" />
+<meta name="entity:organization" content="Smart Dent" />
+<meta name="entity:expert" content="Dr. João Silva" />
 ```
 
----
+#### 2.3 JSON-LD @graph expandido
+Adicionar ao @graph existente as entidades reais:
+- `Product` nodes para produtos relacionados
+- `Person` nodes para especialistas
+- `MedicalEntity` quando aplicável
+- `Article` nodes para artigos relacionados
 
-## 4. `generateResinHTML` — ✅ 10/10
+### 3. BODY — Header com navegação por entidades
 
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title (seo_title_override ou fallback)           ✅
- ├── description (meta_description ou fallback)       ✅
- ├── keywords (da tabela resins)                      ✅
- ├── canonical (canonical_url ou fallback)            ✅
- ├── Open Graph (type=product, og_image_url)          ✅
- ├── Twitter Card                                     ✅
- ├── AI Policy                                        ✅
- └── JSON-LD @graph [Product+PropertyValues,
-      BreadcrumbList] + entity index                  ✅
+O `buildStandardHeader()` será expandido para incluir navegação por categorias e seções de produtos vindos do banco:
 
-BODY
- ├── header (buildStandardHeader)                     ✅
- ├── main > article                                   ✅
- │   ├── H1                                           ✅
- │   ├── AI summary                                   ✅
- │   ├── hero image (eager, fetchpriority=high)       ✅ (condicional a resinData.image_url)
- │   ├── p[data-section="definition"]                 ✅
- │   ├── section[data-section="technical-specs"]      ✅ (7 parâmetros)
- │   ├── notas + CTA                                  ✅
- │   └── entity index                                 ✅
- └── footer (buildStandardFooter)                     ✅
+```html
+<header role="banner">
+  <nav aria-label="Principal">...</nav>
+  <nav aria-label="Categorias" data-section="knowledge-nav">
+    <a href="/base-conhecimento/a">Impressoras</a>
+    <a href="/base-conhecimento/b">Resinas</a>
+    <a href="/produtos">Produtos</a>
+  </nav>
+</header>
 ```
 
----
+### 4. BODY — Citation Blocks (novo helper)
 
-## 5. `generateSystemACatalogHTML` — ✅ 10/10
+`buildCitationBlocks()` — gera blocos de citação com dados reais de especialistas e depoimentos:
 
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title / description / keywords / canonical       ✅ / ✅ / ✅ / ✅
- ├── Open Graph (type=product|article, url)           ✅
- ├── Twitter Card                                     ✅
- ├── AI Policy                                        ✅
- └── JSON-LD @graph:
-      product → [Product+AggregateRating, Breadcrumb] ✅
-      testimonial → [Review+VideoObject, Breadcrumb]  ✅
-      + entity index                                  ✅
-
-BODY
- ├── header                                           ✅
- ├── main > article                                   ✅
- │   ├── H1                                           ✅
- │   ├── AI summary                                   ✅
- │   ├── hero image (eager, fetchpriority=high)       ✅
- │   ├── benefits (data-section="benefits")           ✅
- │   ├── features (data-section="features")           ✅
- │   ├── variations (data-section="variations")       ✅
- │   ├── videos (data-section="videos")               ✅
- │   ├── FAQ (data-section="faq")                     ✅
- │   ├── avaliação + preço + CTAs                     ✅
- │   └── entity index                                 ✅
- └── footer (buildStandardFooter)                     ✅
+```html
+<section data-section="citations" class="llm-citation-layer">
+  <blockquote cite="..." data-expert="Dr. João Silva" data-role="Especialista">
+    Texto do depoimento ou citação técnica...
+  </blockquote>
+</section>
 ```
 
----
+### 5. BODY — LLM Knowledge Layer expandido (novo helper)
 
-## 6. `generateKnowledgeHubHTML` — ✅ 10/10
+`buildLLMKnowledgeLayer()` — seção estruturada com dados do sistema:
 
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title / description / canonical                  ✅ / ✅ / ✅
- ├── hreflang (pt-BR, en-US, es-ES, x-default)       ✅
- ├── Open Graph (title, desc, image, type=website)    ✅
- ├── Twitter Card                                     ✅
- ├── AI Policy                                        ✅
- └── JSON-LD @graph [WebSite, BreadcrumbList]
-      + entity index                                  ✅
-
-BODY
- ├── header                                           ✅
- ├── main > article                                   ✅
- │   ├── H1                                           ✅
- │   ├── AI summary                                   ✅
- │   ├── p[data-section="definition"]                 ✅
- │   └── lista de categorias                          ✅
- └── footer                                           ✅
+```html
+<section data-section="knowledge-graph" class="llm-knowledge-layer" 
+         aria-label="Dados Estruturados para IA" 
+         style="position:absolute;left:-9999px;...">
+  <dl>
+    <dt>Entity</dt><dd>Resina SmartPrint</dd>
+    <dt>Category</dt><dd>Material para impressão 3D</dd>
+    <dt>Organization</dt><dd>Smart Dent</dd>
+    <dt>Applications</dt><dd>modelos dentários, guias cirúrgicos</dd>
+    <dt>Technology</dt><dd>impressão 3D LCD</dd>
+    <dt>Experts</dt><dd>Dr. João, Dra. Maria</dd>
+    <dt>Related Products</dt><dd>SmartPrint Model, SmartPrint Surgical</dd>
+  </dl>
+</section>
 ```
 
----
+### 6. BODY — Entity Index expandido (novo helper)
 
-## 7. `generateKnowledgeCategoryHTML` — ✅ 10/10
+`buildEntityIndexSection()` — índice visível de entidades no final da página:
 
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title / description / canonical                  ✅ / ✅ / ✅
- ├── Open Graph (title, desc, image, type=website)    ✅
- ├── Twitter Card                                     ✅
- ├── AI Policy                                        ✅
- └── JSON-LD @graph [CollectionPage, BreadcrumbList]
-      + entity index                                  ✅
-
-BODY
- ├── header                                           ✅
- ├── main > article                                   ✅
- │   ├── H1                                           ✅
- │   ├── AI summary                                   ✅
- │   ├── p[data-section="definition"]                 ✅
- │   └── lista de artigos com excerpts                ✅
- └── footer                                           ✅
+```html
+<section data-section="entity-index" aria-label="Índice de Entidades">
+  <h2>Entidades Relacionadas</h2>
+  <nav>
+    <h3>Produtos</h3>
+    <ul><li><a href="/produtos/smartprint">SmartPrint Model</a></li></ul>
+    <h3>Artigos</h3>
+    <ul><li><a href="/base-conhecimento/b/guia-resinas">Guia de Resinas</a></li></ul>
+    <h3>Especialistas</h3>
+    <ul><li>Dr. João Silva - Prótese Dentária</li></ul>
+  </nav>
+</section>
 ```
 
----
+### 7. Entity Index JSON-LD expandido
 
-## 8. `generateKnowledgeArticleHTML` — ✅ 10/10
+Substituir o `buildEntityIndexJsonLd()` estático por um que combine:
+- Entidades do dicionário estático (Wikidata)
+- Produtos reais do `system_a_catalog`
+- Autores reais da tabela `authors`
+- Artigos relacionados do `knowledge_contents`
 
-```text
-HEAD
- ├── meta charset / viewport                          ✅ / ✅
- ├── title / description / keywords / canonical       ✅ / ✅ / ✅ / ✅
- ├── hreflang (pt-BR, en-US, es-ES, x-default)       ✅
- ├── AI-context (inline)                              ✅
- ├── Open Graph (title, desc, type=article, image
- │    com width/height/alt, section, published_time,
- │    modified_time, tags, author, author:instagram,
- │    author:linkedin)                                ✅
- ├── Twitter Card (player p/ YouTube OU
- │    summary_large_image, creator, image:alt)        ✅
- ├── AI Policy (ai-content-policy, citation_title,
- │    citation_author, citation_date,
- │    citation_publisher, cite-as)                    ✅
- ├── Geo (geo.region, geo.placename,
- │    geo.position, ICBM)                             ✅
- └── JSON-LD @graph:
-      Organization (Publisher, legalName, address,
-        sameAs, expertise, knowsAbout, award)         ✅
-      Person/Author (hasCredential, alumniOf,
-        memberOf CNPq, knowsAbout)                    ✅
-      TechArticle|MedicalWebPage|ScholarlyArticle
-        (detecção automática por keywords)            ✅
-      BreadcrumbList (4 níveis)                       ✅
-      VideoObject[] (YouTube + PandaVideo)            ✅
-      FAQPage (se faqs existem)                       ✅
-      HowTo (extração automática de <ol>/<h2-4>)     ✅
-      LearningResource (educationalLevel, teaches)    ✅
-      SpeakableSpecification (Voice Search)           ✅
+## Aplicação por Gerador
 
-BODY
- ├── skip-link (acessibilidade WCAG)                  ✅
- ├── header (role="banner", nav, logo eager)          ✅
- ├── article (role="main", id="main-content")         ✅
- │   ├── H1                                           ✅
- │   ├── AI summary (llm-knowledge-layer,
- │   │    ai-citation-box, itemProp="abstract")       ✅
- │   ├── hero image (eager, fetchpriority=high,
- │   │    decoding=async, content_image_alt)           ✅
- │   ├── p.article-excerpt[data-section="definition"] ✅
- │   ├── material complementar (download link)        ✅
- │   ├── content_html (corpo do artigo)               ✅
- │   ├── resinas recomendadas (com imagem, preço,
- │   │    links completos brand/model/slug)            ✅
- │   ├── FAQ (data-section="faq")                     ✅
- │   ├── aside[data-section="author"] (foto, nome,
- │   │    specialty, mini_bio, 8 redes sociais)       ✅
- │   └── entity index (buildEntityIndexJsonLd)        ✅
- └── footer (buildStandardFooter)                     ✅
-```
+| Gerador | Knowledge Context | Nav Expandido | Citations | LLM Layer | Entity Index |
+|---------|-------------------|---------------|-----------|-----------|--------------|
+| Homepage | Full (products, categories, experts) | Categories + Products | Top testimonials | Completo | Todos |
+| Brand | Products da marca | Categories | — | Marca + Produtos | Produtos |
+| Model | Resinas do modelo | Categories | — | Modelo + Resinas | Resinas |
+| Resin | Produto específico | Categories | Testimonials da resina | Completo | Relacionados |
+| Catalog | Produto/Depoimento | Categories + Products | Self (se testimonial) | Completo | Relacionados |
+| KB Hub | All categories | Categories | — | Categorias | Categorias + Artigos |
+| KB Category | Artigos da categoria | Categories | — | Categoria | Artigos |
+| KB Article | Full context | Categories | Expert citations | Completo | Todos |
 
----
+## Performance
 
-## Resumo Final
+- Todas as queries extras usam `Promise.all()` em paralelo
+- Limite de 5-10 itens por query (sem impacto significativo)
+- Cache HTTP existente (`s-maxage=3600`) protege contra queries repetidas
+- Total estimado: +3 queries por página (~50ms extra)
 
-| # | Gerador | Score | Status |
-|---|---------|-------|--------|
-| 1 | Homepage | **10/10** | ✅ Completo |
-| 2 | Brand | **10/10** | ✅ Completo |
-| 3 | Model | **10/10** | ✅ Completo |
-| 4 | Resin | **10/10** | ✅ Completo |
-| 5 | System A Catalog | **10/10** | ✅ Completo |
-| 6 | Knowledge Hub | **10/10** | ✅ Completo |
-| 7 | Knowledge Category | **10/10** | ✅ Completo |
-| 8 | Knowledge Article | **10/10** | ✅ Completo |
+## Resumo das Mudanças
 
-**Todos os 8 geradores estão em conformidade total com a arquitetura AI-ready semantic article structure.** Nenhuma correção necessária.
+Arquivo único: `supabase/functions/seo-proxy/index.ts`
 
-### Diferenciais do Knowledge Article (gerador mais rico):
-- Detecção automática de tipo de conteúdo (`MedicalWebPage` / `ScholarlyArticle` / `TechArticle`)
-- E-E-A-T completo (credenciais acadêmicas, Lattes/CNPq, universidades)
-- HowTo Schema extraído automaticamente do HTML
-- SpeakableSpecification para Voice Search
-- Suporte a YouTube Player Card no Twitter
-- 8 redes sociais do autor no `aside`
+1. Nova função `fetchKnowledgeContext()` — busca dados do sistema em paralelo
+2. Novo helper `buildAICrawlerPolicy()` — meta tags de crawler AI
+3. Novo helper `buildEntityReferenceMetas()` — entity:* meta tags
+4. Expandir `buildStandardHeader()` — nav com categorias/produtos do DB
+5. Novo helper `buildCitationBlocks()` — citações com dados reais
+6. Novo helper `buildLLMKnowledgeLayer()` — knowledge layer estruturado com dados do DB
+7. Novo helper `buildEntityIndexSection()` — índice de entidades no final da página
+8. Expandir `buildEntityIndexJsonLd()` — combinar dicionário estático + dados reais
+9. Expandir JSON-LD @graph de cada gerador — adicionar Product/Person/Article nodes reais
+10. Aplicar todos os novos helpers nos 8 geradores
 
