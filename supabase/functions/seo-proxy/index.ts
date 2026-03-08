@@ -66,7 +66,7 @@ const FAVICON_TAGS = `
 
 // ===== SHARED HELPERS: AI-Ready Semantic Structure =====
 
-// Internal entity dictionary for entity index injection
+// Internal entity dictionary for entity index injection (static Wikidata-linked terms)
 const ENTITY_INDEX: Record<string, { name: string; wikidata?: string; url?: string; description: string; aliases?: string[] }> = {
   IMPRESSAO_3D: { name: "Impressão 3D", wikidata: "https://www.wikidata.org/wiki/Q229367", description: "Fabricação aditiva por deposição camada a camada de material.", aliases: ["3D printing", "impresión 3D", "manufatura aditiva"] },
   CAD_CAM: { name: "CAD/CAM", wikidata: "https://www.wikidata.org/wiki/Q207696", description: "Projeto assistido por computador e manufatura assistida por computador.", aliases: ["computer-aided design"] },
@@ -100,23 +100,242 @@ function matchEntitiesInText(text: string): Array<{ id: string; name: string; wi
   return matched;
 }
 
-function buildEntityIndexJsonLd(text: string): string {
-  const entities = matchEntitiesInText(text);
-  if (entities.length === 0) return '';
-  const about = entities.slice(0, 3).map(e => {
+function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): string {
+  // Combine static dictionary entities with dynamic DB entities
+  const staticEntities = matchEntitiesInText(text);
+  
+  const about: Array<Record<string, string>> = [];
+  const mentions: Array<Record<string, string>> = [];
+  
+  // Static entities first
+  staticEntities.forEach((e, i) => {
     const item: Record<string, string> = { "@type": "DefinedTerm", "name": e.name, "description": e.description };
     if (e.wikidata) item.sameAs = e.wikidata;
-    return item;
+    (i < 3 ? about : mentions).push(item);
   });
-  const mentions = entities.slice(3).map(e => {
-    const item: Record<string, string> = { "@type": "DefinedTerm", "name": e.name, "description": e.description };
-    if (e.wikidata) item.sameAs = e.wikidata;
-    return item;
-  });
+  
+  // Dynamic entities from DB
+  if (knowledgeCtx) {
+    // Products as Product nodes
+    knowledgeCtx.products.forEach(p => {
+      mentions.push({ "@type": "Product", "name": p.name, "description": p.description || '', "url": `${BASE_URL}/produtos/${p.slug}` });
+    });
+    // Authors as Person nodes
+    knowledgeCtx.authors.forEach(a => {
+      mentions.push({ "@type": "Person", "name": a.name, "jobTitle": a.specialty || '', "description": a.mini_bio || '' });
+    });
+    // Articles as Article nodes
+    knowledgeCtx.articles.forEach(a => {
+      mentions.push({ "@type": "Article", "name": a.title, "url": `${BASE_URL}/base-conhecimento/${a.category_letter || 'a'}/${a.slug}` });
+    });
+  }
+  
+  if (about.length === 0 && mentions.length === 0) return '';
+  
   const schema: Record<string, unknown> = { "@context": "https://schema.org" };
   if (about.length > 0) schema.about = about;
   if (mentions.length > 0) schema.mentions = mentions;
   return `<script type="application/ld+json">${JSON.stringify(schema)}</script>`;
+}
+
+// ===== KNOWLEDGE CONTEXT: Dynamic data from system =====
+
+interface KnowledgeContext {
+  products: Array<{ name: string; slug: string; description?: string; image_url?: string; category?: string }>;
+  categories: Array<{ id: string; name: string; letter: string }>;
+  authors: Array<{ name: string; specialty?: string; mini_bio?: string; photo_url?: string }>;
+  articles: Array<{ title: string; slug: string; excerpt?: string; category_letter?: string }>;
+  testimonials: Array<{ name: string; description?: string; specialty?: string; rating?: number }>;
+  externalLinks: Array<{ name: string; url: string; category?: string }>;
+}
+
+async function fetchKnowledgeContext(supabase: any, opts?: { categoryId?: string; limit?: number }): Promise<KnowledgeContext> {
+  const limit = opts?.limit || 5;
+  
+  const [productsRes, categoriesRes, authorsRes, articlesRes, testimonialsRes, linksRes] = await Promise.all([
+    supabase.from('system_a_catalog').select('name, slug, description, image_url, category').eq('active', true).eq('approved', true).eq('category', 'product').order('order_index').limit(limit),
+    supabase.from('knowledge_categories').select('id, name, letter').eq('enabled', true).order('order_index'),
+    supabase.from('authors').select('name, specialty, mini_bio, photo_url').eq('active', true).order('order_index').limit(limit),
+    (() => {
+      let q = supabase.from('knowledge_contents').select('title, slug, excerpt, category_id').eq('active', true).order('updated_at', { ascending: false }).limit(limit);
+      if (opts?.categoryId) q = q.eq('category_id', opts.categoryId);
+      return q;
+    })(),
+    supabase.from('system_a_catalog').select('name, description, extra_data, slug').eq('active', true).eq('approved', true).eq('category', 'video_testimonial').order('created_at', { ascending: false }).limit(3),
+    supabase.from('external_links').select('name, url, category').eq('approved', true).order('relevance_score', { ascending: false }).limit(limit),
+  ]);
+
+  // Map articles to include category letter
+  const cats = categoriesRes.data || [];
+  const catMap = new Map(cats.map((c: any) => [c.id, c.letter]));
+  const articles = (articlesRes.data || []).map((a: any) => ({
+    ...a,
+    category_letter: catMap.get(a.category_id) || 'a'
+  }));
+
+  return {
+    products: productsRes.data || [],
+    categories: cats,
+    authors: authorsRes.data || [],
+    articles,
+    testimonials: (testimonialsRes.data || []).map((t: any) => ({
+      name: t.name,
+      description: t.description,
+      specialty: t.extra_data?.specialty,
+      rating: t.extra_data?.rating
+    })),
+    externalLinks: linksRes.data || [],
+  };
+}
+
+// ===== NEW HELPERS: Knowledge Integration =====
+
+function buildAICrawlerPolicy(): string {
+  return `<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="ai-crawler-policy" content="allow: GPTBot, ClaudeBot, PerplexityBot, Google-Extended" />`;
+}
+
+function buildEntityReferenceMetas(knowledgeCtx: KnowledgeContext, pageEntity?: { type: string; name: string }): string {
+  const metas: string[] = [];
+  metas.push(`<meta name="entity:organization" content="Smart Dent" />`);
+  if (pageEntity) {
+    metas.push(`<meta name="entity:${pageEntity.type}" content="${escapeHtml(pageEntity.name)}" />`);
+  }
+  // Add top products
+  knowledgeCtx.products.slice(0, 3).forEach(p => {
+    metas.push(`<meta name="entity:product" content="${escapeHtml(p.name)}" />`);
+  });
+  // Add experts
+  knowledgeCtx.authors.slice(0, 2).forEach(a => {
+    metas.push(`<meta name="entity:expert" content="${escapeHtml(a.name)}" />`);
+  });
+  return metas.join('\n  ');
+}
+
+function buildKnowledgeNav(knowledgeCtx: KnowledgeContext): string {
+  if (knowledgeCtx.categories.length === 0) return '';
+  return `
+    <nav aria-label="Categorias" data-section="knowledge-nav" style="margin-top:0.5rem;display:flex;flex-wrap:wrap;gap:0.5rem">
+      ${knowledgeCtx.categories.map(c => 
+        `<a href="/base-conhecimento/${c.letter.toLowerCase()}" style="color:#2563eb;text-decoration:none;font-size:0.8rem;padding:0.25rem 0.5rem;border:1px solid #e5e7eb;border-radius:4px">${c.letter} - ${escapeHtml(c.name)}</a>`
+      ).join('')}
+      <a href="/produtos" style="color:#2563eb;text-decoration:none;font-size:0.8rem;padding:0.25rem 0.5rem;border:1px solid #e5e7eb;border-radius:4px">Produtos</a>
+    </nav>`;
+}
+
+function buildStandardHeaderWithNav(knowledgeCtx: KnowledgeContext): string {
+  return `
+  <a href="#main-content" class="skip-link" style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;z-index:9999;padding:1rem 1.5rem;background:#2463eb;color:#fff;font-weight:600;text-decoration:none;border-radius:0 0 0.5rem 0">Pular para conteúdo principal</a>
+  <style>.skip-link:focus{left:0;top:0;width:auto;height:auto;overflow:visible}</style>
+  <header role="banner" style="${HEADER_STYLE}">
+    <nav aria-label="Principal">
+      <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" style="text-decoration:none;display:inline-flex;align-items:center;gap:0.75rem">
+        <img src="${LOGO_URL}" alt="Smart Dent Logo" onerror="this.style.display='none'" style="height:48px;max-height:48px;width:auto;object-fit:contain" loading="eager" decoding="async" />
+        <span style="color:#2563eb;font-size:1.5rem;font-weight:700">Smart Dent</span>
+      </a>
+    </nav>
+    <p style="margin:0.5rem 0 0 0;font-size:0.875rem;color:#6b7280;font-weight:400">Parâmetros de Impressão 3D Odontológica</p>
+    ${buildKnowledgeNav(knowledgeCtx)}
+  </header>`;
+}
+
+function buildCitationBlocks(knowledgeCtx: KnowledgeContext): string {
+  const testimonials = knowledgeCtx.testimonials.filter(t => t.description);
+  if (testimonials.length === 0) return '';
+  
+  return `
+    <section data-section="citations" class="llm-citation-layer" aria-label="Citações de Especialistas" style="margin:2rem 0;padding:1.5rem;background:#f8fafc;border-left:4px solid #2563eb;border-radius:0 8px 8px 0">
+      <h2 style="font-size:1.1rem;margin:0 0 1rem 0;color:#1e3a5f">Depoimentos de Especialistas</h2>
+      ${testimonials.slice(0, 3).map(t => `
+        <blockquote cite="${BASE_URL}/depoimentos" data-expert="${escapeHtml(t.name)}" data-role="${escapeHtml(t.specialty || 'Especialista')}" style="margin:0.75rem 0;padding:0.75rem;background:#fff;border-radius:6px;font-style:italic;color:#374151">
+          <p style="margin:0">"${escapeHtml((t.description || '').substring(0, 200))}"</p>
+          <footer style="margin-top:0.5rem;font-style:normal;font-size:0.85rem;color:#6b7280">— <strong>${escapeHtml(t.name)}</strong>${t.specialty ? `, ${escapeHtml(t.specialty)}` : ''}${t.rating ? ` ⭐ ${t.rating}/5` : ''}</footer>
+        </blockquote>
+      `).join('')}
+    </section>`;
+}
+
+function buildLLMKnowledgeLayer(entityName: string, entityCategory: string, knowledgeCtx: KnowledgeContext, extraFields?: Record<string, string>): string {
+  const experts = knowledgeCtx.authors.map(a => a.name).join(', ');
+  const products = knowledgeCtx.products.map(p => p.name).join(', ');
+  const relatedArticles = knowledgeCtx.articles.map(a => a.title).join(', ');
+  
+  let dlItems = `
+    <dt>Entity</dt><dd>${escapeHtml(entityName)}</dd>
+    <dt>Category</dt><dd>${escapeHtml(entityCategory)}</dd>
+    <dt>Organization</dt><dd>Smart Dent</dd>`;
+  
+  if (products) dlItems += `\n    <dt>Related Products</dt><dd>${escapeHtml(products)}</dd>`;
+  if (experts) dlItems += `\n    <dt>Experts</dt><dd>${escapeHtml(experts)}</dd>`;
+  if (relatedArticles) dlItems += `\n    <dt>Related Articles</dt><dd>${escapeHtml(relatedArticles)}</dd>`;
+  
+  if (extraFields) {
+    for (const [key, value] of Object.entries(extraFields)) {
+      dlItems += `\n    <dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value)}</dd>`;
+    }
+  }
+  
+  return `
+    <section data-section="knowledge-graph" class="llm-knowledge-layer" aria-label="Dados Estruturados para IA" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;">
+      <dl>${dlItems}
+      </dl>
+    </section>`;
+}
+
+function buildEntityIndexSection(knowledgeCtx: KnowledgeContext): string {
+  const hasProducts = knowledgeCtx.products.length > 0;
+  const hasArticles = knowledgeCtx.articles.length > 0;
+  const hasAuthors = knowledgeCtx.authors.length > 0;
+  
+  if (!hasProducts && !hasArticles && !hasAuthors) return '';
+  
+  return `
+    <section data-section="entity-index" aria-label="Índice de Entidades" style="margin-top:2rem;padding:1.5rem;background:#f9fafb;border-radius:8px">
+      <h2 style="font-size:1.1rem;margin:0 0 1rem 0">Entidades Relacionadas</h2>
+      <nav>
+        ${hasProducts ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Produtos</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.products.map(p => 
+          `<li style="margin:0.25rem 0"><a href="/produtos/${p.slug}" style="color:#2563eb;text-decoration:none">${escapeHtml(p.name)}</a></li>`
+        ).join('')}</ul>` : ''}
+        ${hasArticles ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Artigos</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.articles.map(a => 
+          `<li style="margin:0.25rem 0"><a href="/base-conhecimento/${a.category_letter || 'a'}/${a.slug}" style="color:#2563eb;text-decoration:none">${escapeHtml(a.title)}</a></li>`
+        ).join('')}</ul>` : ''}
+        ${hasAuthors ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Especialistas</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.authors.map(a => 
+          `<li style="margin:0.25rem 0">${escapeHtml(a.name)}${a.specialty ? ` - <em>${escapeHtml(a.specialty)}</em>` : ''}</li>`
+        ).join('')}</ul>` : ''}
+      </nav>
+    </section>`;
+}
+
+function buildKnowledgeGraphJsonLd(knowledgeCtx: KnowledgeContext): string {
+  const nodes: any[] = [];
+  
+  knowledgeCtx.products.slice(0, 3).forEach(p => {
+    nodes.push({
+      "@type": "Product",
+      "name": p.name,
+      "url": `${BASE_URL}/produtos/${p.slug}`,
+      "brand": { "@type": "Brand", "name": "Smart Dent" },
+      ...(p.image_url && { "image": p.image_url })
+    });
+  });
+  
+  knowledgeCtx.authors.slice(0, 3).forEach(a => {
+    nodes.push({
+      "@type": "Person",
+      "name": a.name,
+      "jobTitle": a.specialty || "Especialista",
+      ...(a.photo_url && { "image": a.photo_url })
+    });
+  });
+  
+  if (nodes.length === 0) return '';
+  return `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": nodes })}</script>`;
 }
 
 function buildAIHeadTags(opts: { context: string; title: string; description: string; image?: string; author?: string; date?: string; canonicalUrl?: string }): string {
