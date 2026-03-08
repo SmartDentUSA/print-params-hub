@@ -817,6 +817,25 @@ export function SmartOpsAudienceBuilder() {
                 </div>
               </div>
 
+              {/* Produtos de Interesse (SDR) */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Produtos de Interesse</h4>
+                <div className="flex gap-1.5 flex-wrap">
+                  {INTEREST_OPTIONS.filter(o => o.key !== "all").map((o) => {
+                    const val = selectedLead[o.key as keyof LeadRow] as string | null;
+                    return (
+                      <Badge
+                        key={o.key}
+                        variant="outline"
+                        className={`text-[10px] ${val ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/30 text-muted-foreground"}`}
+                      >
+                        {o.label}: {val || "—"}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Tags */}
               {selectedLead.tags_crm && selectedLead.tags_crm.length > 0 && (
                 <div>
