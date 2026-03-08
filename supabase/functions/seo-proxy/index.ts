@@ -780,16 +780,14 @@ function extractHowToStepsFromHTML(htmlContent: string): string[] {
 }
 
 async function generateHomepageHTML(supabase: any): Promise<string> {
-  const { data: brands, error } = await supabase
-    .from('brands')
-    .select('name, slug, logo_url')
-    .eq('active', true)
-    .order('name')
-    .limit(20);
+  const [brandsRes, knowledgeCtx] = await Promise.all([
+    supabase.from('brands').select('name, slug, logo_url').eq('active', true).order('name').limit(20),
+    fetchKnowledgeContext(supabase),
+  ]);
 
-  if (error) {
-    console.error('Supabase error fetching brands:', error.message);
-    return '';
+  const brands = brandsRes.data;
+  if (brandsRes.error) {
+    console.error('Supabase error fetching brands:', brandsRes.error.message);
   }
 
   const baseUrl = 'https://parametros.smartdent.com.br';
@@ -806,6 +804,8 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   <title>${title}</title>
   <meta name="description" content="${escapeHtml(description)}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Impressão 3D Odontológica' })}
   <link rel="canonical" href="${baseUrl}/" />
   <meta property="og:title" content="Parâmetros de Impressão 3D Odontológica" />
   <meta property="og:description" content="Configurações profissionais para impressoras e resinas 3D odontológicas" />
@@ -836,10 +836,11 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(entityText)}
+  ${buildEntityIndexJsonLd(entityText, knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>Parâmetros de Impressão 3D Odontológica</h1>
@@ -849,6 +850,9 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
       <ul>
         ${brands?.map((b: any) => `<li><a href="/${b.slug}">${b.name}</a></li>`).join('') || ''}
       </ul>
+      ${buildCitationBlocks(knowledgeCtx)}
+      ${buildLLMKnowledgeLayer('Parâmetros de Impressão 3D', 'Plataforma de Referência', knowledgeCtx, { 'Technology': 'Impressão 3D LCD, DLP, SLA', 'Applications': 'modelos dentários, guias cirúrgicos, próteses provisórias, alinhadores' })}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
