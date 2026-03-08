@@ -24,6 +24,7 @@ const DB_COLUMNS: Record<string, { label: string; columns: { value: string; labe
       { value: "telefone_raw", label: "Telefone" },
       { value: "cidade", label: "Cidade" },
       { value: "uf", label: "UF" },
+      { value: "pais_origem", label: "País de origem" },
     ],
   },
   "Profissional": {
@@ -33,6 +34,22 @@ const DB_COLUMNS: Record<string, { label: string; columns: { value: string; labe
       { value: "area_atuacao", label: "Área de atuação" },
       { value: "empresa_nome", label: "Empresa" },
       { value: "pessoa_cargo", label: "Cargo" },
+      { value: "pessoa_cpf", label: "CPF" },
+      { value: "pessoa_genero", label: "Gênero" },
+      { value: "pessoa_nascimento", label: "Data nascimento" },
+      { value: "pessoa_linkedin", label: "LinkedIn" },
+      { value: "pessoa_facebook", label: "Facebook" },
+    ],
+  },
+  "Empresa": {
+    label: "Empresa",
+    columns: [
+      { value: "empresa_cnpj", label: "CNPJ" },
+      { value: "empresa_razao_social", label: "Razão Social" },
+      { value: "empresa_segmento", label: "Segmento" },
+      { value: "empresa_website", label: "Website" },
+      { value: "empresa_ie", label: "Inscrição Estadual" },
+      { value: "empresa_porte", label: "Porte" },
     ],
   },
   "Equipamentos": {
@@ -52,6 +69,9 @@ const DB_COLUMNS: Record<string, { label: string; columns: { value: string; labe
       { value: "resina_interesse", label: "Resina de interesse" },
       { value: "principal_aplicacao", label: "Principal aplicação" },
       { value: "volume_mensal_pecas", label: "Volume mensal peças" },
+      { value: "informacao_desejada", label: "Informação desejada" },
+      { value: "temperatura_lead", label: "Temperatura do lead" },
+      { value: "codigo_contrato", label: "Código contrato" },
     ],
   },
   "SDR": {
@@ -66,6 +86,18 @@ const DB_COLUMNS: Record<string, { label: string; columns: { value: string; labe
       { value: "sdr_solucoes_interesse", label: "Soluções interesse" },
       { value: "sdr_dentistica_interesse", label: "Dentística interesse" },
       { value: "sdr_caracterizacao_interesse", label: "Caracterização interesse" },
+      { value: "sdr_marca_impressora_param", label: "Marca impressora (param)" },
+      { value: "sdr_modelo_impressora_param", label: "Modelo impressora (param)" },
+      { value: "sdr_resina_param", label: "Resina (param)" },
+      { value: "sdr_suporte_equipamento", label: "Equipamento (suporte)" },
+      { value: "sdr_suporte_tipo", label: "Tipo de suporte" },
+      { value: "sdr_suporte_descricao", label: "Descrição suporte" },
+    ],
+  },
+  "Marketing": {
+    label: "Marketing",
+    columns: [
+      { value: "origem_campanha", label: "Origem / Campanha" },
     ],
   },
 };
