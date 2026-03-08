@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -12,8 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Loader2, Sparkles, FileText, AlertTriangle, TrendingUp, Star, Users, BookOpen, Calculator } from "lucide-react";
-import { SmartOpsROICalculators } from "./SmartOpsROICalculators";
+import { Loader2, Sparkles, FileText, AlertTriangle, TrendingUp, Star, Users, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -303,18 +301,7 @@ export function SmartOpsContentProduction() {
 
   return (
     <TooltipProvider>
-      <Tabs defaultValue="producao" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="producao" className="gap-2">
-            <FileText className="w-4 h-4" /> Produção
-          </TabsTrigger>
-          <TabsTrigger value="roi" className="gap-2">
-            <Calculator className="w-4 h-4" /> Calculadoras ROI
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="producao">
-          <div className="space-y-4">
+      <div className="space-y-4">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card>
@@ -480,13 +467,7 @@ export function SmartOpsContentProduction() {
               open={modalOpen} onOpenChange={setModalOpen}
               request={selectedRequest} onSuccess={fetchRequests}
             />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="roi">
-          <SmartOpsROICalculators />
-        </TabsContent>
-      </Tabs>
+      </div>
     </TooltipProvider>
   );
 }
