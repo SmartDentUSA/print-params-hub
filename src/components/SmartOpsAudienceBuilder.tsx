@@ -226,24 +226,28 @@ function UrgencyIcon({ urgency }: { urgency: string | null }) {
   return <span title="Baixa">🟢</span>;
 }
 
-function FieldGrid({ lead, fields }: { lead: LeadRow; fields: string[] }) {
-  const items = fields
-    .map((f) => ({ key: f, value: lead[f] }))
-    .filter((i) => i.value !== null && i.value !== undefined && i.value !== "" && i.value !== false);
-  if (items.length === 0) return <p className="text-xs text-muted-foreground italic">Nenhum dado</p>;
+function FieldGrid({ lead, fields, startIndex = 0 }: { lead: LeadRow; fields: string[]; startIndex?: number }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-      {items.map((i) => (
-        <div key={i.key} className="p-2 rounded border bg-muted/30">
-          <div className="text-[10px] text-muted-foreground font-mono">{i.key}</div>
-          <div className="text-sm break-all">
-            {typeof i.value === "boolean" ? (i.value ? "✓" : "✗")
-              : Array.isArray(i.value) ? (i.value as string[]).join(", ")
-              : typeof i.value === "object" ? JSON.stringify(i.value).slice(0, 120) + "…"
-              : String(i.value)}
+      {fields.map((f, i) => {
+        const val = lead[f];
+        const isEmpty = val === null || val === undefined || val === "";
+        const num = startIndex + i + 1;
+        return (
+          <div key={f} className={`p-2 rounded border ${isEmpty ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
+            <div className="text-[10px] font-mono text-muted-foreground">
+              <span className="text-primary/60 font-bold">#{num}</span> · {f}
+            </div>
+            <div className={`text-sm break-all ${isEmpty ? "text-muted-foreground italic" : ""}`}>
+              {isEmpty ? "—"
+                : typeof val === "boolean" ? (val ? "✓" : "✗")
+                : Array.isArray(val) ? (val as string[]).join(", ")
+                : typeof val === "object" ? JSON.stringify(val).slice(0, 120) + "…"
+                : String(val)}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -825,7 +829,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="ident">
                   <AccordionTrigger className="text-sm font-semibold">📇 Identificação</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={0} fields={[
                       "nome","email","telefone_normalized","telefone_raw","cidade","uf","pais_origem",
                       "area_atuacao","especialidade","como_digitaliza","tem_impressora","impressora_modelo",
                       "tem_scanner","software_cad","volume_mensal_pecas","principal_aplicacao",
@@ -837,7 +841,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="funil">
                   <AccordionTrigger className="text-sm font-semibold">🎯 Funil & Status</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={16} fields={[
                       "lead_status","status_oportunidade","temperatura_lead","lead_stage_detected",
                       "urgency_level","status_atual_lead_crm","funil_entrada_crm","ultima_etapa_comercial",
                       "proprietario_lead_crm","produto_interesse","produto_interesse_auto","resina_interesse",
@@ -854,7 +858,7 @@ export function SmartOpsAudienceBuilder() {
                         Abrir no PipeRun →
                       </a>
                     )}
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={28} fields={[
                       "piperun_id","piperun_title","piperun_hash","piperun_pipeline_name","piperun_stage_name",
                       "piperun_origin_name","piperun_description","piperun_observation","piperun_probability",
                       "piperun_lead_time","piperun_value_mrr","piperun_status","piperun_frozen","piperun_frozen_at",
@@ -870,7 +874,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="pessoa">
                   <AccordionTrigger className="text-sm font-semibold">🏢 Pessoa & Empresa</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={54} fields={[
                       "pessoa_cpf","pessoa_cargo","pessoa_genero","pessoa_nascimento",
                       "pessoa_linkedin","pessoa_facebook","pessoa_observation","pessoa_piperun_id",
                       "empresa_cnpj","empresa_razao_social","empresa_nome","empresa_ie",
@@ -892,7 +896,7 @@ export function SmartOpsAudienceBuilder() {
                         </Badge>
                       ))}
                     </div>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={72} fields={[
                       "equip_scanner","equip_scanner_serial","equip_scanner_ativacao",
                       "equip_impressora","equip_impressora_serial","equip_impressora_ativacao",
                       "equip_cad","equip_cad_serial","equip_cad_ativacao",
@@ -910,7 +914,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="interesse">
                   <AccordionTrigger className="text-sm font-semibold">🎯 Produtos de Interesse (SDR)</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={96} fields={[
                       "sdr_scanner_interesse","sdr_impressora_interesse","sdr_software_cad_interesse",
                       "sdr_pos_impressao_interesse","sdr_caracterizacao_interesse","sdr_cursos_interesse",
                       "sdr_dentistica_interesse","sdr_insumos_lab_interesse","sdr_solucoes_interesse",
@@ -924,7 +928,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="proposta">
                   <AccordionTrigger className="text-sm font-semibold">📋 Proposta</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={109} fields={[
                       "itens_proposta_crm","proposals_total_value","proposals_total_mrr","proposals_last_status",
                     ]} />
                     <JsonBlock label="itens_proposta_parsed" data={selectedLead.itens_proposta_parsed} />
@@ -936,7 +940,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="intel">
                   <AccordionTrigger className="text-sm font-semibold">🧠 Inteligência & Cognitivo</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={113} fields={[
                       "intelligence_score_total","confidence_score_analysis","prediction_accuracy",
                       "lead_stage_detected","psychological_profile","primary_motivation",
                       "objection_risk","recommended_approach","interest_timeline","urgency_level",
@@ -960,7 +964,7 @@ export function SmartOpsAudienceBuilder() {
                         <p className="text-sm whitespace-pre-wrap">{String(selectedLead.resumo_historico_ia)}</p>
                       </div>
                     )}
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={125} fields={[
                       "total_sessions","total_messages","ultima_sessao_at","rota_inicial_lia",
                       "proactive_count","proactive_sent_at","score",
                     ]} />
@@ -972,7 +976,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="astron">
                   <AccordionTrigger className="text-sm font-semibold">🎓 Astron</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={132} fields={[
                       "astron_status","astron_user_id","astron_nome","astron_email","astron_phone",
                       "astron_plans_active","astron_courses_total","astron_courses_completed",
                       "astron_last_login_at","astron_created_at","astron_synced_at","astron_login_url",
@@ -986,7 +990,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="loja">
                   <AccordionTrigger className="text-sm font-semibold">🛒 Loja Integrada</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={144} fields={[
                       "lojaintegrada_cliente_id","lojaintegrada_ltv","lojaintegrada_total_pedidos_pagos",
                       "lojaintegrada_primeira_compra","lojaintegrada_ultimo_pedido_numero",
                       "lojaintegrada_ultimo_pedido_data","lojaintegrada_ultimo_pedido_valor",
@@ -1006,7 +1010,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="utm">
                   <AccordionTrigger className="text-sm font-semibold">📡 UTM & Origem</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={166} fields={[
                       "source","form_name","origem_campanha","utm_source","utm_medium","utm_campaign","utm_term","ip_origem",
                     ]} />
                   </AccordionContent>
@@ -1016,7 +1020,7 @@ export function SmartOpsAudienceBuilder() {
                 <AccordionItem value="cs">
                   <AccordionTrigger className="text-sm font-semibold">🎧 CS & Suporte</AccordionTrigger>
                   <AccordionContent>
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={174} fields={[
                       "cs_treinamento","data_treinamento","data_contrato","codigo_contrato",
                       "sdr_suporte_equipamento","sdr_suporte_tipo","sdr_suporte_descricao",
                       "reuniao_agendada","data_primeiro_contato",
@@ -1035,7 +1039,7 @@ export function SmartOpsAudienceBuilder() {
                         ))}
                       </div>
                     )}
-                    <FieldGrid lead={selectedLead} fields={[
+                    <FieldGrid lead={selectedLead} startIndex={183} fields={[
                       "motivo_perda","comentario_perda","id_cliente_smart","entrada_sistema",
                       "created_at","updated_at","last_automated_action_at","automation_cooldown_until",
                       "crm_lock_until","crm_lock_source",
