@@ -145,13 +145,28 @@ interface Filters {
   stagnant: boolean;
   valorMin: string;
   valorMax: string;
+  itemProposta: string;
 }
 
 const EMPTY_FILTERS: Filters = {
   search: "", pipeline: "all", status: "all", temperatura: "all", stage: "all",
   urgency: "all", source: "all", produto: "all", uf: "all", proprietario: "all",
   oportunidade: "all", activeProduct: "all", stagnant: false, valorMin: "", valorMax: "",
+  itemProposta: "all",
 };
+
+const ITEM_PROPOSTA_OPTIONS = [
+  { key: "all", label: "Todos Itens" },
+  { key: "Scanner", label: "Scanner" },
+  { key: "Impressora", label: "Impressora" },
+  { key: "CAD", label: "Software CAD" },
+  { key: "Notebook", label: "Notebook" },
+  { key: "Resina", label: "Resina" },
+  { key: "Insumo", label: "Insumos" },
+  { key: "Pós", label: "Pós-impressão" },
+  { key: "Cura", label: "Cura" },
+  { key: "Curso", label: "Cursos" },
+];
 
 // ─── Helper Components ───
 
