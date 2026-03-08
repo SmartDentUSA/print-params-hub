@@ -1030,6 +1030,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
       ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
   ${buildBotRedirectScript(`/${brandSlug}/${modelSlug}`)}
 </body>
