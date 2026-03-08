@@ -226,6 +226,40 @@ function UrgencyIcon({ urgency }: { urgency: string | null }) {
   return <span title="Baixa">🟢</span>;
 }
 
+function FieldGrid({ lead, fields }: { lead: LeadRow; fields: string[] }) {
+  const items = fields
+    .map((f) => ({ key: f, value: lead[f] }))
+    .filter((i) => i.value !== null && i.value !== undefined && i.value !== "" && i.value !== false);
+  if (items.length === 0) return <p className="text-xs text-muted-foreground italic">Nenhum dado</p>;
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+      {items.map((i) => (
+        <div key={i.key} className="p-2 rounded border bg-muted/30">
+          <div className="text-[10px] text-muted-foreground font-mono">{i.key}</div>
+          <div className="text-sm break-all">
+            {typeof i.value === "boolean" ? (i.value ? "✓" : "✗")
+              : Array.isArray(i.value) ? (i.value as string[]).join(", ")
+              : typeof i.value === "object" ? JSON.stringify(i.value).slice(0, 120) + "…"
+              : String(i.value)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function JsonBlock({ label, data }: { label: string; data: unknown }) {
+  if (!data || (typeof data === "object" && Object.keys(data as object).length === 0) || (Array.isArray(data) && data.length === 0)) return null;
+  return (
+    <details className="mt-2">
+      <summary className="text-xs font-mono text-muted-foreground cursor-pointer hover:text-foreground">{label}</summary>
+      <pre className="text-[10px] bg-muted/50 p-2 rounded mt-1 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </details>
+  );
+}
+
 function ActiveIcons({ lead }: { lead: LeadRow }) {
   const active = PRODUCT_FLAGS.filter((p) => lead[`ativo_${p}`] === true);
   if (active.length === 0) return <span className="text-muted-foreground text-[10px]">—</span>;
