@@ -1636,7 +1636,7 @@ Receba o texto bruto abaixo e:
       <CardContent>
         {/* Category Tabs */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 gap-2">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 gap-2">
             {categories.map((cat) => (
               <TabsTrigger key={cat.id} value={cat.letter}>
                 {cat.letter} • {cat.name}
