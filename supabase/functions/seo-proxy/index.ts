@@ -862,18 +862,16 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
 }
 
 async function generateBrandHTML(brandSlug: string, supabase: any): Promise<string> {
-  const { data: brand, error } = await supabase
-    .from('brands')
-    .select('*, models(name, slug, image_url)')
-    .eq('slug', brandSlug)
-    .eq('active', true)
-    .single();
+  const [brandRes, knowledgeCtx] = await Promise.all([
+    supabase.from('brands').select('*, models(name, slug, image_url)').eq('slug', brandSlug).eq('active', true).single(),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (error) {
-    console.error('Supabase error fetching brand:', brandSlug, error.message);
+  if (brandRes.error) {
+    console.error('Supabase error fetching brand:', brandSlug, brandRes.error.message);
     return '';
   }
-
+  const brand = brandRes.data;
   if (!brand) return '';
 
   const modelsCount = brand.models?.length || 0;
@@ -890,6 +888,8 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'brand', name: brand.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
@@ -908,10 +908,11 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`Impressora 3D ${brand.name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`)}
+  ${buildEntityIndexJsonLd(`Impressora 3D ${brand.name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>Impressoras 3D ${escapeHtml(brand.name)}</h1>
@@ -921,6 +922,8 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
       <ul>
         ${brand.models?.map((m: any) => `<li><a href="/${brandSlug}/${m.slug}">${m.name}</a></li>`).join('') || ''}
       </ul>
+      ${buildLLMKnowledgeLayer(brand.name, 'Marca de Impressoras 3D', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
