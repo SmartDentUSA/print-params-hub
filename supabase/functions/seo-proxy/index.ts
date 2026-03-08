@@ -128,6 +128,10 @@ function buildEntityIndexJsonLd(text: string, knowledgeCtx?: KnowledgeContext): 
     knowledgeCtx.articles.forEach(a => {
       mentions.push({ "@type": "Article", "name": a.title, "url": `${BASE_URL}/base-conhecimento/${a.category_letter || 'a'}/${a.slug}` });
     });
+    // External Links as WebPage nodes
+    knowledgeCtx.externalLinks.forEach(l => {
+      mentions.push({ "@type": "WebPage", "name": l.name, "url": l.url });
+    });
   }
   
   if (about.length === 0 && mentions.length === 0) return '';
@@ -286,8 +290,9 @@ function buildEntityIndexSection(knowledgeCtx: KnowledgeContext): string {
   const hasProducts = knowledgeCtx.products.length > 0;
   const hasArticles = knowledgeCtx.articles.length > 0;
   const hasAuthors = knowledgeCtx.authors.length > 0;
+  const hasExternalLinks = knowledgeCtx.externalLinks.length > 0;
   
-  if (!hasProducts && !hasArticles && !hasAuthors) return '';
+  if (!hasProducts && !hasArticles && !hasAuthors && !hasExternalLinks) return '';
   
   return `
     <section data-section="entity-index" aria-label="Índice de Entidades" style="margin-top:2rem;padding:1.5rem;background:#f9fafb;border-radius:8px">
@@ -307,6 +312,11 @@ function buildEntityIndexSection(knowledgeCtx: KnowledgeContext): string {
         <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Especialistas</h3>
         <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.authors.map(a => 
           `<li style="margin:0.25rem 0">${escapeHtml(a.name)}${a.specialty ? ` - <em>${escapeHtml(a.specialty)}</em>` : ''}</li>`
+        ).join('')}</ul>` : ''}
+        ${hasExternalLinks ? `
+        <h3 style="font-size:0.95rem;margin:0.75rem 0 0.25rem 0">Referências Externas</h3>
+        <ul style="list-style:none;padding:0;margin:0">${knowledgeCtx.externalLinks.map(l => 
+          `<li style="margin:0.25rem 0"><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none">${escapeHtml(l.name)}</a></li>`
         ).join('')}</ul>` : ''}
       </nav>
     </section>`;
