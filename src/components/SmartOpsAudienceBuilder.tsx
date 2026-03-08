@@ -82,6 +82,21 @@ const OPORT_OPTIONS = [
 
 const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
 
+const INTEREST_OPTIONS = [
+  { key: "all", label: "Todos Interesses" },
+  { key: "sdr_scanner_interesse", label: "📷 Scanner" },
+  { key: "sdr_impressora_interesse", label: "🖨️ Impressora" },
+  { key: "sdr_software_cad_interesse", label: "💻 Software CAD" },
+  { key: "sdr_pos_impressao_interesse", label: "♨️ Pós-impressão" },
+  { key: "sdr_caracterizacao_interesse", label: "🔬 Caracterização" },
+  { key: "sdr_cursos_interesse", label: "🎓 Cursos" },
+  { key: "sdr_dentistica_interesse", label: "🦷 Dentística" },
+  { key: "sdr_insumos_lab_interesse", label: "🧪 Insumos Lab" },
+  { key: "sdr_solucoes_interesse", label: "🔧 Soluções" },
+] as const;
+
+const SDR_FIELDS = INTEREST_OPTIONS.filter(o => o.key !== "all").map(o => o.key);
+
 const PAGE_SIZE = 200;
 
 // ─── Types ───
@@ -127,6 +142,15 @@ interface LeadRow {
   utm_source: string | null;
   confidence_score_analysis: number | null;
   recommended_approach: string | null;
+  sdr_scanner_interesse: string | null;
+  sdr_impressora_interesse: string | null;
+  sdr_software_cad_interesse: string | null;
+  sdr_pos_impressao_interesse: string | null;
+  sdr_caracterizacao_interesse: string | null;
+  sdr_cursos_interesse: string | null;
+  sdr_dentistica_interesse: string | null;
+  sdr_insumos_lab_interesse: string | null;
+  sdr_solucoes_interesse: string | null;
 }
 
 interface Filters {
@@ -142,6 +166,7 @@ interface Filters {
   proprietario: string;
   oportunidade: string;
   activeProduct: string;
+  interestProduct: string;
   stagnant: boolean;
   valorMin: string;
   valorMax: string;
@@ -151,8 +176,8 @@ interface Filters {
 const EMPTY_FILTERS: Filters = {
   search: "", pipeline: "all", status: "all", temperatura: "all", stage: "all",
   urgency: "all", source: "all", produto: "all", uf: "all", proprietario: "all",
-  oportunidade: "all", activeProduct: "all", stagnant: false, valorMin: "", valorMax: "",
-  itemProposta: "all",
+  oportunidade: "all", activeProduct: "all", interestProduct: "all", stagnant: false,
+  valorMin: "", valorMax: "", itemProposta: "all",
 };
 
 const ITEM_PROPOSTA_OPTIONS = [
