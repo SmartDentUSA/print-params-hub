@@ -544,221 +544,381 @@ function LeadDetailDialog({ lead, onClose, onSaved }: {
 
   return (
     <Dialog open={!!lead} onOpenChange={(open) => { if (!open) { handleCancel(); onClose(); } }}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle>Detalhes — {lead.nome}</DialogTitle>
-            <div className="flex gap-2">
-              {editing ? (
-                <>
-                  <Button size="sm" variant="outline" onClick={handleCancel} disabled={saving}>
-                    <X className="w-4 h-4 mr-1" /> Cancelar
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2 flex-wrap">
+                {lead.nome}
+                <Badge variant="outline">{lead.lead_status}</Badge>
+                <TempBadge temp={lead.temperatura_lead} />
+                <StageBadge stage={lead.lead_stage_detected} />
+                <UrgencyIcon urgency={lead.urgency_level} />
+              </DialogTitle>
+              <div className="flex gap-2">
+                {editing ? (
+                  <>
+                    <Button size="sm" variant="outline" onClick={handleCancel} disabled={saving}>
+                      <X className="w-4 h-4 mr-1" /> Cancelar
+                    </Button>
+                    <Button size="sm" onClick={handleSave} disabled={saving}>
+                      <Save className="w-4 h-4 mr-1" /> {saving ? "Salvando..." : "Salvar"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                    <Pencil className="w-4 h-4 mr-1" /> Editar
                   </Button>
-                  <Button size="sm" onClick={handleSave} disabled={saving}>
-                    <Save className="w-4 h-4 mr-1" /> {saving ? "Salvando..." : "Salvar"}
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                  <Pencil className="w-4 h-4 mr-1" /> Editar
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          {/* AI Summary */}
-          {(lead.resumo_historico_ia || editing) && (
-            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Brain className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-primary">Resumo IA do Histórico</span>
-              </div>
-              {editing ? (
-                <Input className="text-sm" value={editValues.resumo_historico_ia != null ? String(editValues.resumo_historico_ia) : (lead.resumo_historico_ia || "")} onChange={(e) => handleFieldChange("resumo_historico_ia", e.target.value || null)} />
-              ) : (
-                <p className="text-sm">{lead.resumo_historico_ia}</p>
-              )}
-            </div>
-          )}
-
-          {/* Cognitive Analysis */}
-          {lead.lead_stage_detected && (
-            <div className="p-3 rounded-lg bg-accent/30 border border-accent">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Zap className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-primary">Análise Cognitiva</span>
-                {lead.confidence_score_analysis != null && (
-                  <Badge variant="outline" className="text-[9px] ml-auto">Confiança: {lead.confidence_score_analysis}%</Badge>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div><span className="text-muted-foreground">Estágio:</span> <StageBadge stage={lead.lead_stage_detected} /></div>
-                <div><span className="text-muted-foreground">Urgência:</span> <UrgencyIcon urgency={lead.urgency_level} /> {lead.urgency_level}</div>
-                <div><span className="text-muted-foreground">Timeline:</span> {lead.interest_timeline || "—"}</div>
-                <div><span className="text-muted-foreground">Perfil:</span> {lead.psychological_profile || "—"}</div>
-                <div className="col-span-2"><span className="text-muted-foreground">Motivação:</span> {lead.primary_motivation || "—"}</div>
-                <div className="col-span-2"><span className="text-muted-foreground">Risco objeção:</span> {lead.objection_risk || "—"}</div>
-                <div className="col-span-2 p-2 rounded bg-muted/50 border"><span className="text-muted-foreground font-semibold">Abordagem:</span> {lead.recommended_approach || "—"}</div>
-              </div>
             </div>
-          )}
+          </DialogHeader>
 
-          {/* Journey Visualizer */}
-          {lead.tags_crm && lead.tags_crm.some((t) => t.startsWith("J0")) && (
-            <div className="p-3 rounded-lg bg-muted/30 border">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Route className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Jornada do Cliente</span>
+          {editing ? (
+            <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
+              <div className="space-y-4">
+                {/* AI Summary editable */}
+                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Brain className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-semibold text-primary">Resumo IA do Histórico</span>
+                  </div>
+                  <Input className="text-sm" value={editValues.resumo_historico_ia != null ? String(editValues.resumo_historico_ia) : (lead.resumo_historico_ia || "")} onChange={(e) => handleFieldChange("resumo_historico_ia", e.target.value || null)} />
+                </div>
+
+                <EditableDetailSection title="Dados Pessoais" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "Nome", value: lead.nome, fieldKey: "nome" },
+                  { label: "Email", value: lead.email, fieldKey: "email" },
+                  { label: "Telefone Raw", value: lead.telefone_raw, fieldKey: "telefone_raw" },
+                  { label: "Telefone Normalizado", value: lead.telefone_normalized, fieldKey: "telefone_normalized" },
+                  { label: "Cidade", value: lead.cidade, fieldKey: "cidade" },
+                  { label: "UF", value: lead.uf, fieldKey: "uf" },
+                  { label: "País", value: lead.pais_origem, fieldKey: "pais_origem" },
+                  { label: "Área de atuação", value: lead.area_atuacao, fieldKey: "area_atuacao" },
+                  { label: "Especialidade", value: lead.especialidade, fieldKey: "especialidade" },
+                  { label: "Aplicação principal", value: lead.principal_aplicacao, fieldKey: "principal_aplicacao" },
+                ]} />
+
+                <EditableDetailSection title="Comercial" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "Status Lead", value: lead.lead_status, fieldKey: "lead_status", type: "select", options: STATUS_EDIT_OPTIONS },
+                  { label: "Temperatura", value: lead.temperatura_lead, fieldKey: "temperatura_lead", type: "select", options: TEMP_EDIT_OPTIONS },
+                  { label: "Produto de Interesse", value: lead.produto_interesse, fieldKey: "produto_interesse" },
+                  { label: "Resina de Interesse", value: lead.resina_interesse, fieldKey: "resina_interesse" },
+                  { label: "Score", value: lead.score, fieldKey: "score", type: "number" },
+                  { label: "Valor Oportunidade", value: lead.valor_oportunidade, fieldKey: "valor_oportunidade", type: "number" },
+                  { label: "Status Oportunidade", value: lead.status_oportunidade, fieldKey: "status_oportunidade", type: "select", options: OPORTUNIDADE_OPTIONS },
+                  { label: "Última Etapa Comercial", value: lead.ultima_etapa_comercial, fieldKey: "ultima_etapa_comercial" },
+                  { label: "Motivo Perda", value: lead.motivo_perda, fieldKey: "motivo_perda" },
+                  { label: "Comentário Perda", value: lead.comentario_perda, fieldKey: "comentario_perda" },
+                  { label: "Reunião Agendada", value: lead.reuniao_agendada, fieldKey: "reuniao_agendada", type: "boolean" },
+                ]} />
+
+                <EditableDetailSection title="CRM / PipeRun" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "PipeRun ID", value: lead.piperun_id, fieldKey: "piperun_id" },
+                  { label: "PipeRun Link", value: lead.piperun_link, fieldKey: "piperun_link" },
+                  { label: "Proprietário", value: lead.proprietario_lead_crm, fieldKey: "proprietario_lead_crm" },
+                  { label: "Status CRM", value: lead.status_atual_lead_crm, fieldKey: "status_atual_lead_crm" },
+                  { label: "Funil", value: lead.funil_entrada_crm, fieldKey: "funil_entrada_crm" },
+                  { label: "Itens Proposta", value: lead.itens_proposta_crm, fieldKey: "itens_proposta_crm" },
+                  { label: "Data Fechamento CRM", value: lead.data_fechamento_crm, fieldKey: "data_fechamento_crm" },
+                ]} />
+
+                <EditableDetailSection title="Equipamentos / Técnico" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "Tem impressora", value: lead.tem_impressora, fieldKey: "tem_impressora" },
+                  { label: "Modelo impressora", value: lead.impressora_modelo, fieldKey: "impressora_modelo" },
+                  { label: "Software CAD", value: lead.software_cad, fieldKey: "software_cad" },
+                  { label: "Como digitaliza", value: lead.como_digitaliza, fieldKey: "como_digitaliza" },
+                  { label: "Tem scanner", value: lead.tem_scanner, fieldKey: "tem_scanner" },
+                  { label: "Volume mensal peças", value: lead.volume_mensal_pecas, fieldKey: "volume_mensal_pecas" },
+                ]} />
+
+                <EditableDetailSection title="Soluções de Interesse (SDR)" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "Scanner", value: (lead as Record<string, unknown>).sdr_scanner_interesse, fieldKey: "sdr_scanner_interesse" },
+                  { label: "Impressora", value: (lead as Record<string, unknown>).sdr_impressora_interesse, fieldKey: "sdr_impressora_interesse" },
+                  { label: "Software CAD", value: (lead as Record<string, unknown>).sdr_software_cad_interesse, fieldKey: "sdr_software_cad_interesse" },
+                  { label: "Caracterização", value: (lead as Record<string, unknown>).sdr_caracterizacao_interesse, fieldKey: "sdr_caracterizacao_interesse" },
+                  { label: "Cursos", value: (lead as Record<string, unknown>).sdr_cursos_interesse, fieldKey: "sdr_cursos_interesse" },
+                  { label: "Dentística", value: (lead as Record<string, unknown>).sdr_dentistica_interesse, fieldKey: "sdr_dentistica_interesse" },
+                  { label: "Insumos Lab", value: (lead as Record<string, unknown>).sdr_insumos_lab_interesse, fieldKey: "sdr_insumos_lab_interesse" },
+                  { label: "Pós-impressão", value: (lead as Record<string, unknown>).sdr_pos_impressao_interesse, fieldKey: "sdr_pos_impressao_interesse" },
+                  { label: "Soluções", value: (lead as Record<string, unknown>).sdr_solucoes_interesse, fieldKey: "sdr_solucoes_interesse" },
+                  { label: "Marca param.", value: (lead as Record<string, unknown>).sdr_marca_impressora_param, fieldKey: "sdr_marca_impressora_param" },
+                  { label: "Modelo param.", value: (lead as Record<string, unknown>).sdr_modelo_impressora_param, fieldKey: "sdr_modelo_impressora_param" },
+                  { label: "Resina param.", value: (lead as Record<string, unknown>).sdr_resina_param, fieldKey: "sdr_resina_param" },
+                  { label: "Suporte Equipamento", value: (lead as Record<string, unknown>).sdr_suporte_equipamento, fieldKey: "sdr_suporte_equipamento" },
+                  { label: "Tipo Suporte", value: (lead as Record<string, unknown>).sdr_suporte_tipo, fieldKey: "sdr_suporte_tipo" },
+                  { label: "Descrição Suporte", value: (lead as Record<string, unknown>).sdr_suporte_descricao, fieldKey: "sdr_suporte_descricao" },
+                ]} />
+
+                <EditableDetailSection title="Campanha / UTM" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "Source", value: lead.source, fieldKey: "source" },
+                  { label: "Form Name", value: lead.form_name, fieldKey: "form_name" },
+                  { label: "Origem Campanha", value: lead.origem_campanha, fieldKey: "origem_campanha" },
+                  { label: "utm_source", value: lead.utm_source, fieldKey: "utm_source" },
+                  { label: "utm_medium", value: lead.utm_medium, fieldKey: "utm_medium" },
+                  { label: "utm_campaign", value: lead.utm_campaign, fieldKey: "utm_campaign" },
+                  { label: "utm_term", value: lead.utm_term, fieldKey: "utm_term" },
+                  { label: "IP Origem", value: lead.ip_origem, fieldKey: "ip_origem" },
+                ]} />
+
+                <EditableDetailSection title="IA / LIA" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  { label: "Rota Inicial LIA", value: lead.rota_inicial_lia, fieldKey: "rota_inicial_lia" },
+                  { label: "ID Cliente Smart", value: lead.id_cliente_smart, fieldKey: "id_cliente_smart" },
+                  { label: "CS Treinamento", value: lead.cs_treinamento, fieldKey: "cs_treinamento", type: "select", options: TREINAMENTO_OPTIONS },
+                ]} />
+
+                <EditableDetailSection title="Ativos (Produtos)" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
+                  ...PRODUCT_FLAGS.map((p) => ({
+                    label: `Ativo ${p.replace("_", " ").toUpperCase()}`,
+                    value: lead[`ativo_${p}`],
+                    fieldKey: `ativo_${p}`,
+                    type: "boolean" as const,
+                  })),
+                ]} />
               </div>
-              <JourneyVisualizer tags={lead.tags_crm} />
-            </div>
+            </ScrollArea>
+          ) : (
+            <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
+              <Accordion type="multiple" defaultValue={["ident","funil"]} className="w-full">
+                {/* 1 — Identificação */}
+                <AccordionItem value="ident">
+                  <AccordionTrigger className="text-sm font-semibold">📇 Identificação</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={0} fields={[
+                      "nome","email","telefone_normalized","telefone_raw","cidade","uf","pais_origem",
+                      "area_atuacao","especialidade","como_digitaliza","tem_impressora","impressora_modelo",
+                      "tem_scanner","software_cad","volume_mensal_pecas","principal_aplicacao",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 2 — Funil & Status */}
+                <AccordionItem value="funil">
+                  <AccordionTrigger className="text-sm font-semibold">🎯 Funil & Status</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={16} fields={[
+                      "lead_status","status_oportunidade","temperatura_lead","lead_stage_detected",
+                      "urgency_level","status_atual_lead_crm","funil_entrada_crm","ultima_etapa_comercial",
+                      "proprietario_lead_crm","produto_interesse","produto_interesse_auto","resina_interesse",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 3 — Oportunidade CRM / PipeRun */}
+                <AccordionItem value="crm">
+                  <AccordionTrigger className="text-sm font-semibold">💼 Oportunidade CRM</AccordionTrigger>
+                  <AccordionContent>
+                    {lead.piperun_link && (
+                      <a href={String(lead.piperun_link)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mb-2 inline-block">
+                        Abrir no PipeRun →
+                      </a>
+                    )}
+                    <FieldGrid lead={lead} startIndex={28} fields={[
+                      "piperun_id","piperun_title","piperun_hash","piperun_pipeline_name","piperun_stage_name",
+                      "piperun_origin_name","piperun_description","piperun_observation","piperun_probability",
+                      "piperun_lead_time","piperun_value_mrr","piperun_status","piperun_frozen","piperun_frozen_at",
+                      "piperun_created_at","piperun_closed_at","piperun_probably_closed_at",
+                      "piperun_last_contact_at","piperun_stage_changed_at","piperun_pipeline_id",
+                      "piperun_stage_id","piperun_origin_id","piperun_owner_id",
+                      "valor_oportunidade","data_fechamento_crm","lead_timing_dias",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 4 — Pessoa & Empresa */}
+                <AccordionItem value="pessoa">
+                  <AccordionTrigger className="text-sm font-semibold">🏢 Pessoa & Empresa</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={54} fields={[
+                      "pessoa_cpf","pessoa_cargo","pessoa_genero","pessoa_nascimento",
+                      "pessoa_linkedin","pessoa_facebook","pessoa_observation","pessoa_piperun_id",
+                      "empresa_cnpj","empresa_razao_social","empresa_nome","empresa_ie",
+                      "empresa_porte","empresa_segmento","empresa_situacao","empresa_website","empresa_cnae",
+                      "empresa_piperun_id",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 5 — Produtos Ativos */}
+                <AccordionItem value="ativos">
+                  <AccordionTrigger className="text-sm font-semibold">✅ Produtos Ativos & Equipamentos</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex gap-1.5 flex-wrap mb-3">
+                      {PRODUCT_FLAGS.map((p) => (
+                        <Badge key={p} variant="outline"
+                          className={`text-[10px] ${lead[`ativo_${p}`] ? "bg-green-50 text-green-700 border-green-300" : "bg-muted/30 text-muted-foreground"}`}>
+                          {p.replace("_", " ").toUpperCase()}: {lead[`ativo_${p}`] ? "✓" : "—"}
+                        </Badge>
+                      ))}
+                    </div>
+                    <FieldGrid lead={lead} startIndex={72} fields={[
+                      "equip_scanner","equip_scanner_serial","equip_scanner_ativacao",
+                      "equip_impressora","equip_impressora_serial","equip_impressora_ativacao",
+                      "equip_cad","equip_cad_serial","equip_cad_ativacao",
+                      "equip_pos_impressao","equip_pos_impressao_serial","equip_pos_impressao_ativacao",
+                      "equip_notebook","equip_notebook_serial","equip_notebook_ativacao",
+                      "insumos_adquiridos",
+                      "data_ultima_compra_scan","data_ultima_compra_notebook","data_ultima_compra_cad",
+                      "data_ultima_compra_cad_ia","data_ultima_compra_smart_slice","data_ultima_compra_print",
+                      "data_ultima_compra_cura","data_ultima_compra_insumos",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 6 — Produtos de Interesse (SDR) */}
+                <AccordionItem value="interesse">
+                  <AccordionTrigger className="text-sm font-semibold">🎯 Produtos de Interesse (SDR)</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={96} fields={[
+                      "sdr_scanner_interesse","sdr_impressora_interesse","sdr_software_cad_interesse",
+                      "sdr_pos_impressao_interesse","sdr_caracterizacao_interesse","sdr_cursos_interesse",
+                      "sdr_dentistica_interesse","sdr_insumos_lab_interesse","sdr_solucoes_interesse",
+                      "sdr_marca_impressora_param","sdr_modelo_impressora_param","sdr_resina_param",
+                      "informacao_desejada",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 7 — Proposta */}
+                <AccordionItem value="proposta">
+                  <AccordionTrigger className="text-sm font-semibold">📋 Proposta</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={109} fields={[
+                      "itens_proposta_crm","proposals_total_value","proposals_total_mrr","proposals_last_status",
+                    ]} />
+                    <JsonBlock label="itens_proposta_parsed" data={(lead as Record<string, unknown>).itens_proposta_parsed} />
+                    <JsonBlock label="proposals_data" data={(lead as Record<string, unknown>).proposals_data} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 8 — Inteligência & Cognitivo */}
+                <AccordionItem value="intel">
+                  <AccordionTrigger className="text-sm font-semibold">🧠 Inteligência & Cognitivo</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={113} fields={[
+                      "intelligence_score_total","confidence_score_analysis","prediction_accuracy",
+                      "lead_stage_detected","psychological_profile","primary_motivation",
+                      "objection_risk","recommended_approach","interest_timeline","urgency_level",
+                      "cognitive_analyzed_at","cognitive_model_version",
+                    ]} />
+                    <JsonBlock label="intelligence_score" data={(lead as Record<string, unknown>).intelligence_score} />
+                    <JsonBlock label="cognitive_analysis" data={lead.cognitive_analysis} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 9 — Histórico LIA */}
+                <AccordionItem value="lia">
+                  <AccordionTrigger className="text-sm font-semibold">💬 Histórico LIA</AccordionTrigger>
+                  <AccordionContent>
+                    {lead.resumo_historico_ia && (
+                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mb-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Brain className="w-4 h-4 text-primary" />
+                          <span className="text-xs font-semibold text-primary">Resumo IA</span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{lead.resumo_historico_ia}</p>
+                      </div>
+                    )}
+                    <FieldGrid lead={lead} startIndex={125} fields={[
+                      "total_sessions","total_messages","ultima_sessao_at","rota_inicial_lia",
+                      "proactive_count","proactive_sent_at","score",
+                    ]} />
+                    <JsonBlock label="historico_resumos" data={(lead as Record<string, unknown>).historico_resumos} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 10 — Astron */}
+                <AccordionItem value="astron">
+                  <AccordionTrigger className="text-sm font-semibold">🎓 Astron</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={132} fields={[
+                      "astron_status","astron_user_id","astron_nome","astron_email","astron_phone",
+                      "astron_plans_active","astron_courses_total","astron_courses_completed",
+                      "astron_last_login_at","astron_created_at","astron_synced_at","astron_login_url",
+                    ]} />
+                    <JsonBlock label="astron_plans_data" data={(lead as Record<string, unknown>).astron_plans_data} />
+                    <JsonBlock label="astron_courses_access" data={(lead as Record<string, unknown>).astron_courses_access} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 11 — Loja Integrada */}
+                <AccordionItem value="loja">
+                  <AccordionTrigger className="text-sm font-semibold">🛒 Loja Integrada</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={144} fields={[
+                      "lojaintegrada_cliente_id","lojaintegrada_ltv","lojaintegrada_total_pedidos_pagos",
+                      "lojaintegrada_primeira_compra","lojaintegrada_ultimo_pedido_numero",
+                      "lojaintegrada_ultimo_pedido_data","lojaintegrada_ultimo_pedido_valor",
+                      "lojaintegrada_ultimo_pedido_status","lojaintegrada_forma_pagamento",
+                      "lojaintegrada_forma_envio","lojaintegrada_cupom_desconto","lojaintegrada_utm_campaign",
+                      "lojaintegrada_sexo","lojaintegrada_data_nascimento","lojaintegrada_cliente_obs",
+                      "lojaintegrada_endereco","lojaintegrada_numero","lojaintegrada_complemento",
+                      "lojaintegrada_bairro","lojaintegrada_cep","lojaintegrada_referencia",
+                      "lojaintegrada_updated_at",
+                    ]} />
+                    <JsonBlock label="lojaintegrada_itens_json" data={(lead as Record<string, unknown>).lojaintegrada_itens_json} />
+                    <JsonBlock label="lojaintegrada_historico_pedidos" data={(lead as Record<string, unknown>).lojaintegrada_historico_pedidos} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 12 — UTM & Origem */}
+                <AccordionItem value="utm">
+                  <AccordionTrigger className="text-sm font-semibold">📡 UTM & Origem</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={166} fields={[
+                      "source","form_name","origem_campanha","utm_source","utm_medium","utm_campaign","utm_term","ip_origem",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 13 — CS & Suporte */}
+                <AccordionItem value="cs">
+                  <AccordionTrigger className="text-sm font-semibold">🎧 CS & Suporte</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={lead} startIndex={174} fields={[
+                      "cs_treinamento","data_treinamento","data_contrato","codigo_contrato",
+                      "sdr_suporte_equipamento","sdr_suporte_tipo","sdr_suporte_descricao",
+                      "reuniao_agendada","data_primeiro_contato",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 14 — Tags & Metadados */}
+                <AccordionItem value="meta">
+                  <AccordionTrigger className="text-sm font-semibold">🏷️ Tags & Metadados</AccordionTrigger>
+                  <AccordionContent>
+                    {lead.tags_crm && lead.tags_crm.length > 0 && (
+                      <div className="flex gap-1 flex-wrap mb-3">
+                        {lead.tags_crm.map((tag: string) => (
+                          <Badge key={tag} variant="outline" className="text-[9px]">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    <FieldGrid lead={lead} startIndex={183} fields={[
+                      "motivo_perda","comentario_perda","id_cliente_smart","entrada_sistema",
+                      "created_at","updated_at","last_automated_action_at","automation_cooldown_until",
+                      "crm_lock_until","crm_lock_source",
+                      "sellflux_synced_at","intelligence_score_updated_at","intelligence_score_backfilled_at",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 15 — Raw Data */}
+                <AccordionItem value="raw">
+                  <AccordionTrigger className="text-sm font-semibold">🗄️ Raw Data (JSON)</AccordionTrigger>
+                  <AccordionContent>
+                    <JsonBlock label="raw_payload" data={(lead as Record<string, unknown>).raw_payload} />
+                    <JsonBlock label="piperun_custom_fields" data={(lead as Record<string, unknown>).piperun_custom_fields} />
+                    <JsonBlock label="empresa_custom_fields" data={(lead as Record<string, unknown>).empresa_custom_fields} />
+                    <JsonBlock label="sellflux_custom_fields" data={(lead as Record<string, unknown>).sellflux_custom_fields} />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </ScrollArea>
           )}
-
-          {/* Route + badges */}
-          <div className="flex gap-2 flex-wrap">
-            {lead.rota_inicial_lia && (
-              <Badge variant="secondary" className="gap-1">
-                <Route className="w-3 h-3" />
-                Rota: {ROUTE_LABELS[lead.rota_inicial_lia] || lead.rota_inicial_lia}
-              </Badge>
-            )}
-            {lead.temperatura_lead && <TempBadge temp={lead.temperatura_lead} />}
-            {lead.especialidade && (
-              <Badge variant="outline">Especialidade: {lead.especialidade}</Badge>
-            )}
-          </div>
-
-          {/* TAGs Section */}
-          {lead.tags_crm && lead.tags_crm.length > 0 && (
-            <div className="p-3 rounded-lg bg-muted/20 border">
-              <div className="flex items-center gap-1.5 mb-2">
-                <Tag className="w-4 h-4 text-muted-foreground" />
-                <span className="text-xs font-semibold text-muted-foreground uppercase">TAGs ({lead.tags_crm.length})</span>
-              </div>
-              <TagsBadges tags={lead.tags_crm} />
-            </div>
-          )}
-
-          {/* Editable Sections */}
-          <EditableDetailSection title="Dados Pessoais" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Nome", value: lead.nome, fieldKey: "nome" },
-            { label: "Email", value: lead.email, fieldKey: "email" },
-            { label: "Telefone Raw", value: lead.telefone_raw, fieldKey: "telefone_raw" },
-            { label: "Telefone Normalizado", value: lead.telefone_normalized, fieldKey: "telefone_normalized" },
-            { label: "Cidade", value: lead.cidade, fieldKey: "cidade" },
-            { label: "UF", value: lead.uf, fieldKey: "uf" },
-            { label: "País", value: lead.pais_origem, fieldKey: "pais_origem" },
-            { label: "Área de atuação", value: lead.area_atuacao, fieldKey: "area_atuacao" },
-            { label: "Especialidade", value: lead.especialidade, fieldKey: "especialidade" },
-            { label: "Aplicação principal", value: lead.principal_aplicacao, fieldKey: "principal_aplicacao" },
-          ]} />
-
-          <EditableDetailSection title="Comercial" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Status Lead", value: lead.lead_status, fieldKey: "lead_status", type: "select", options: STATUS_EDIT_OPTIONS },
-            { label: "Temperatura", value: lead.temperatura_lead, fieldKey: "temperatura_lead", type: "select", options: TEMP_EDIT_OPTIONS },
-            { label: "Produto de Interesse", value: lead.produto_interesse, fieldKey: "produto_interesse" },
-            { label: "Resina de Interesse", value: lead.resina_interesse, fieldKey: "resina_interesse" },
-            { label: "Score", value: lead.score, fieldKey: "score", type: "number" },
-            { label: "Valor Oportunidade", value: lead.valor_oportunidade, fieldKey: "valor_oportunidade", type: "number" },
-            { label: "Status Oportunidade", value: lead.status_oportunidade, fieldKey: "status_oportunidade", type: "select", options: OPORTUNIDADE_OPTIONS },
-            { label: "Última Etapa Comercial", value: lead.ultima_etapa_comercial, fieldKey: "ultima_etapa_comercial" },
-            { label: "Motivo Perda", value: lead.motivo_perda, fieldKey: "motivo_perda" },
-            { label: "Comentário Perda", value: lead.comentario_perda, fieldKey: "comentario_perda" },
-            { label: "Reunião Agendada", value: lead.reuniao_agendada, fieldKey: "reuniao_agendada", type: "boolean" },
-          ]} />
-
-          <EditableDetailSection title="CRM / PipeRun" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "PipeRun ID", value: lead.piperun_id, fieldKey: "piperun_id" },
-            { label: "PipeRun Link", value: lead.piperun_link, fieldKey: "piperun_link" },
-            { label: "Proprietário", value: lead.proprietario_lead_crm, fieldKey: "proprietario_lead_crm" },
-            { label: "Status CRM", value: lead.status_atual_lead_crm, fieldKey: "status_atual_lead_crm" },
-            { label: "Funil", value: lead.funil_entrada_crm, fieldKey: "funil_entrada_crm" },
-            { label: "Itens Proposta", value: lead.itens_proposta_crm, fieldKey: "itens_proposta_crm" },
-            { label: "Data Fechamento CRM", value: lead.data_fechamento_crm, fieldKey: "data_fechamento_crm" },
-          ]} />
-          {!editing && <ProposalItemsDisplay raw={lead.itens_proposta_crm} />}
-
-          <EditableDetailSection title="Equipamentos / Técnico" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Tem impressora", value: lead.tem_impressora, fieldKey: "tem_impressora" },
-            { label: "Modelo impressora", value: lead.impressora_modelo, fieldKey: "impressora_modelo" },
-            { label: "Software CAD", value: lead.software_cad, fieldKey: "software_cad" },
-            { label: "Como digitaliza", value: lead.como_digitaliza, fieldKey: "como_digitaliza" },
-            { label: "Tem scanner", value: lead.tem_scanner, fieldKey: "tem_scanner" },
-            { label: "Volume mensal peças", value: lead.volume_mensal_pecas, fieldKey: "volume_mensal_pecas" },
-          ]} />
-
-          <EditableDetailSection title="Soluções de Interesse (SDR)" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Scanner", value: (lead as Record<string, unknown>).sdr_scanner_interesse, fieldKey: "sdr_scanner_interesse" },
-            { label: "Impressora", value: (lead as Record<string, unknown>).sdr_impressora_interesse, fieldKey: "sdr_impressora_interesse" },
-            { label: "Software CAD", value: (lead as Record<string, unknown>).sdr_software_cad_interesse, fieldKey: "sdr_software_cad_interesse" },
-            { label: "Caracterização", value: (lead as Record<string, unknown>).sdr_caracterizacao_interesse, fieldKey: "sdr_caracterizacao_interesse" },
-            { label: "Cursos", value: (lead as Record<string, unknown>).sdr_cursos_interesse, fieldKey: "sdr_cursos_interesse" },
-            { label: "Dentística", value: (lead as Record<string, unknown>).sdr_dentistica_interesse, fieldKey: "sdr_dentistica_interesse" },
-            { label: "Insumos Lab", value: (lead as Record<string, unknown>).sdr_insumos_lab_interesse, fieldKey: "sdr_insumos_lab_interesse" },
-            { label: "Pós-impressão", value: (lead as Record<string, unknown>).sdr_pos_impressao_interesse, fieldKey: "sdr_pos_impressao_interesse" },
-            { label: "Soluções", value: (lead as Record<string, unknown>).sdr_solucoes_interesse, fieldKey: "sdr_solucoes_interesse" },
-            { label: "Marca param.", value: (lead as Record<string, unknown>).sdr_marca_impressora_param, fieldKey: "sdr_marca_impressora_param" },
-            { label: "Modelo param.", value: (lead as Record<string, unknown>).sdr_modelo_impressora_param, fieldKey: "sdr_modelo_impressora_param" },
-            { label: "Resina param.", value: (lead as Record<string, unknown>).sdr_resina_param, fieldKey: "sdr_resina_param" },
-            { label: "Suporte Equipamento", value: (lead as Record<string, unknown>).sdr_suporte_equipamento, fieldKey: "sdr_suporte_equipamento" },
-            { label: "Tipo Suporte", value: (lead as Record<string, unknown>).sdr_suporte_tipo, fieldKey: "sdr_suporte_tipo" },
-            { label: "Descrição Suporte", value: (lead as Record<string, unknown>).sdr_suporte_descricao, fieldKey: "sdr_suporte_descricao" },
-          ]} />
-
-          <EditableDetailSection title="Campanha / UTM" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Source", value: lead.source, fieldKey: "source" },
-            { label: "Form Name", value: lead.form_name, fieldKey: "form_name" },
-            { label: "Origem Campanha", value: lead.origem_campanha, fieldKey: "origem_campanha" },
-            { label: "utm_source", value: lead.utm_source, fieldKey: "utm_source" },
-            { label: "utm_medium", value: lead.utm_medium, fieldKey: "utm_medium" },
-            { label: "utm_campaign", value: lead.utm_campaign, fieldKey: "utm_campaign" },
-            { label: "utm_term", value: lead.utm_term, fieldKey: "utm_term" },
-            { label: "IP Origem", value: lead.ip_origem, fieldKey: "ip_origem" },
-          ]} />
-
-          <EditableDetailSection title="IA / LIA" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Rota Inicial LIA", value: lead.rota_inicial_lia, fieldKey: "rota_inicial_lia" },
-            { label: "ID Cliente Smart", value: lead.id_cliente_smart, fieldKey: "id_cliente_smart" },
-            { label: "CS Treinamento", value: lead.cs_treinamento, fieldKey: "cs_treinamento", type: "select", options: TREINAMENTO_OPTIONS },
-            { label: "Proativo enviado em", value: lead.proactive_sent_at ? formatDateTime(lead.proactive_sent_at) : null },
-            { label: "Proativos enviados", value: lead.proactive_count },
-          ]} />
-
-          <EditableDetailSection title="Ativos (Produtos)" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            ...PRODUCT_FLAGS.map((p) => ({
-              label: `Ativo ${p.replace("_", " ").toUpperCase()}`,
-              value: lead[`ativo_${p}`],
-              fieldKey: `ativo_${p}`,
-              type: "boolean" as const,
-            })),
-          ]} />
-
-          <EditableDetailSection title="Datas" editing={editing} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-            { label: "Criado em", value: formatDateTime(lead.created_at) },
-            { label: "Atualizado em", value: formatDateTime(lead.updated_at) },
-            { label: "1º Contato", value: lead.data_primeiro_contato ? formatDateTime(lead.data_primeiro_contato) : null },
-            { label: "Data Contrato", value: lead.data_contrato ? formatDate(lead.data_contrato) : null },
-            { label: "Lead Timing (dias)", value: lead.lead_timing_dias, fieldKey: "lead_timing_dias", type: "number" },
-          ]} />
-
-          {/* Astron Section */}
-          <EditableDetailSection title="Astron (EAD)" editing={false} editValues={{}} onFieldChange={() => {}} fields={[
-            { label: "Status", value: (lead as Record<string, unknown>).astron_status },
-            { label: "Nome", value: (lead as Record<string, unknown>).astron_nome },
-            { label: "Email", value: (lead as Record<string, unknown>).astron_email },
-            { label: "Planos ativos", value: (lead as Record<string, unknown>).astron_plans_active ? ((lead as Record<string, unknown>).astron_plans_active as string[]).join(", ") : null },
-            { label: "Cursos completados", value: (lead as Record<string, unknown>).astron_courses_completed },
-            { label: "Total cursos", value: (lead as Record<string, unknown>).astron_courses_total },
-            { label: "Último login", value: (lead as Record<string, unknown>).astron_last_login_at ? formatDateTime(String((lead as Record<string, unknown>).astron_last_login_at)) : null },
-            { label: "Sincronizado em", value: (lead as Record<string, unknown>).astron_synced_at ? formatDateTime(String((lead as Record<string, unknown>).astron_synced_at)) : null },
-          ]} />
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
 export function SmartOpsLeadsList() {
   const [leads, setLeads] = useState<LeadFull[]>([]);
