@@ -933,42 +933,29 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
 }
 
 async function generateModelHTML(brandSlug: string, modelSlug: string, supabase: any): Promise<string> {
-  const { data: model, error: modelError } = await supabase
-    .from('models')
-    .select('*, brands!inner(*)')
-    .eq('slug', modelSlug)
-    .eq('brands.slug', brandSlug)
-    .eq('active', true)
-    .single();
+  const [modelRes, resinsRes, knowledgeCtx] = await Promise.all([
+    supabase.from('models').select('*, brands!inner(*)').eq('slug', modelSlug).eq('brands.slug', brandSlug).eq('active', true).single(),
+    supabase.from('parameter_sets').select('resin_name, resin_manufacturer').eq('brand_slug', brandSlug).eq('model_slug', modelSlug).eq('active', true),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (modelError) {
-    console.error('Supabase error fetching model:', modelSlug, modelError.message);
+  if (modelRes.error) {
+    console.error('Supabase error fetching model:', modelSlug, modelRes.error.message);
     return '';
   }
+  const model = modelRes.data;
+  if (!model) { console.log('Model not found:', modelSlug); return ''; }
 
-  if (!model) {
-    console.log('Model not found:', modelSlug);
-    return '';
+  if (resinsRes.error) {
+    console.error('Supabase error fetching resins:', resinsRes.error.message);
   }
 
-  const { data: resins, error: resinsError } = await supabase
-    .from('parameter_sets')
-    .select('resin_name, resin_manufacturer')
-    .eq('brand_slug', brandSlug)
-    .eq('model_slug', modelSlug)
-    .eq('active', true);
-
-  if (resinsError) {
-    console.error('Supabase error fetching resins:', resinsError.message);
-  }
-
-  const uniqueResins = [...new Map(resins?.map((r: any) => 
+  const uniqueResins = [...new Map((resinsRes.data || []).map((r: any) => 
     [`${r.resin_manufacturer}-${r.resin_name}`, r]
   )).values()];
 
   const resinsCount = uniqueResins.length;
   const baseUrl = 'https://parametros.smartdent.com.br';
-
   const title = `${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent`;
   const description = `Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas.`;
   const contextText = `Parâmetros de impressão 3D para ${escapeHtml(model.name)} (${escapeHtml((model.brands as any).name)}). ${resinsCount} resinas com configurações testadas para odontologia digital.`;
@@ -982,6 +969,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   <title>${title}</title>
   <meta name="description" content="${description}" />
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'product', name: model.name })}
   <link rel="canonical" href="${baseUrl}/${brandSlug}/${modelSlug}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="${resinsCount} resinas disponíveis para ${escapeHtml(model.name)}" />
@@ -1011,10 +1000,10 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
     ]
   })}
   </script>
-  ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`)}
+  ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(model.name)}</h1>
@@ -1027,6 +1016,8 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
           return `<li><a href="/${brandSlug}/${modelSlug}/${resinSlug}">${r.resin_name}</a></li>`;
         }).join('') || ''}
       </ul>
+      ${buildLLMKnowledgeLayer(model.name, 'Impressora 3D', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
