@@ -1429,6 +1429,7 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
       ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
   ${buildBotRedirectScript(`/base-conhecimento/${letter.toLowerCase()}`)}
 </body>
@@ -1566,6 +1567,8 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <link rel="alternate" hreflang="es-ES" href="${baseUrl}/es/base-conocimiento/${letter}/${slug}" />
   <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
   ${content.keywords ? `<meta name="keywords" content="${escapeHtml(content.keywords.join(', '))}" />` : ''}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: 'article', name: content.title })}
   
   <!-- FASE 3: AI-Context Meta Tag (Experimental para IA Regenerativa) -->
   <meta name="AI-context" content="Conteúdo técnico-científico sobre ${escapeHtml(content.knowledge_categories?.name || 'odontologia')}. Público-alvo: cirurgiões-dentistas e técnicos em prótese dentária. Nível: Expert. Tipo: Artigo técnico." />
