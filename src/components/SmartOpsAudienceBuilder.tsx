@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Fragment } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag, Zap, Target,
@@ -769,117 +771,257 @@ export function SmartOpsAudienceBuilder() {
         </CardContent>
       </Card>
 
-      {/* Lead Detail Dialog — simplified inline version */}
+      {/* Lead Detail Dialog — full fields */}
       {selectedLead && (
         <Dialog open={!!selectedLead} onOpenChange={(open) => { if (!open) setSelectedLead(null); }}>
-          <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Detalhes — {selectedLead.nome}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Summary badges */}
-              <div className="flex gap-2 flex-wrap">
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+            <DialogHeader className="px-6 pt-6 pb-2">
+              <DialogTitle className="flex items-center gap-2 flex-wrap">
+                {selectedLead.nome}
                 <Badge variant="outline">{getPipelineForStatus(selectedLead.lead_status)}</Badge>
                 <Badge variant="outline">{STATUS_LABEL[selectedLead.lead_status] || selectedLead.lead_status}</Badge>
                 <TempBadge temp={selectedLead.temperatura_lead} />
                 <StageBadge stage={selectedLead.lead_stage_detected} />
                 <UrgencyIcon urgency={selectedLead.urgency_level} />
-              </div>
+              </DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
+              <Accordion type="multiple" defaultValue={["ident","funil"]} className="w-full">
+                {/* 1 — Identificação */}
+                <AccordionItem value="ident">
+                  <AccordionTrigger className="text-sm font-semibold">📇 Identificação</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "nome","email","telefone_normalized","telefone_raw","cidade","uf","pais_origem",
+                      "area_atuacao","especialidade","como_digitaliza","tem_impressora","impressora_modelo",
+                      "tem_scanner","software_cad","volume_mensal_pecas","principal_aplicacao",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* AI Summary */}
-              {selectedLead.resumo_historico_ia && (
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Brain className="w-4 h-4 text-primary" />
-                    <span className="text-xs font-semibold text-primary">Resumo IA</span>
-                  </div>
-                  <p className="text-sm">{selectedLead.resumo_historico_ia}</p>
-                </div>
-              )}
+                {/* 2 — Funil & Status */}
+                <AccordionItem value="funil">
+                  <AccordionTrigger className="text-sm font-semibold">🎯 Funil & Status</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "lead_status","status_oportunidade","temperatura_lead","lead_stage_detected",
+                      "urgency_level","status_atual_lead_crm","funil_entrada_crm","ultima_etapa_comercial",
+                      "proprietario_lead_crm","produto_interesse","produto_interesse_auto","resina_interesse",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* Data grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {[
-                  { label: "Email", value: selectedLead.email },
-                  { label: "Telefone", value: selectedLead.telefone_normalized },
-                  { label: "Cidade/UF", value: selectedLead.cidade && selectedLead.uf ? `${selectedLead.cidade}/${selectedLead.uf}` : selectedLead.uf },
-                  { label: "Produto Interesse", value: selectedLead.produto_interesse },
-                  { label: "Proprietário", value: selectedLead.proprietario_lead_crm },
-                  { label: "Origem", value: selectedLead.source },
-                  { label: "Funil CRM", value: selectedLead.funil_entrada_crm },
-                  { label: "PipeRun ID", value: selectedLead.piperun_id },
-                  { label: "Oportunidade", value: selectedLead.status_oportunidade },
-                  { label: "Valor", value: selectedLead.valor_oportunidade ? `R$ ${Number(selectedLead.valor_oportunidade).toLocaleString("pt-BR")}` : null },
-                  { label: "Score", value: selectedLead.intelligence_score_total ?? selectedLead.score },
-                  { label: "Rota LIA", value: selectedLead.rota_inicial_lia },
-                  { label: "Itens Proposta", value: selectedLead.itens_proposta_crm },
-                  { label: "Abordagem", value: selectedLead.recommended_approach },
-                  { label: "Campanha", value: selectedLead.origem_campanha },
-                  { label: "UTM Source", value: selectedLead.utm_source },
-                  { label: "Criado", value: formatDate(selectedLead.created_at) },
-                  { label: "Atualizado", value: formatDate(selectedLead.updated_at) },
-                ].filter((f) => f.value !== null && f.value !== undefined && f.value !== "").map((f) => (
-                  <div key={f.label} className="p-2 rounded border bg-muted/30">
-                    <div className="text-[10px] text-muted-foreground font-mono">{f.label}</div>
-                    <div className="text-sm break-all">{String(f.value)}</div>
-                  </div>
-                ))}
-              </div>
+                {/* 3 — Oportunidade CRM / PipeRun */}
+                <AccordionItem value="crm">
+                  <AccordionTrigger className="text-sm font-semibold">💼 Oportunidade CRM</AccordionTrigger>
+                  <AccordionContent>
+                    {selectedLead.piperun_link && (
+                      <a href={String(selectedLead.piperun_link)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mb-2 inline-block">
+                        Abrir no PipeRun →
+                      </a>
+                    )}
+                    <FieldGrid lead={selectedLead} fields={[
+                      "piperun_id","piperun_title","piperun_hash","piperun_pipeline_name","piperun_stage_name",
+                      "piperun_origin_name","piperun_description","piperun_observation","piperun_probability",
+                      "piperun_lead_time","piperun_value_mrr","piperun_status","piperun_frozen","piperun_frozen_at",
+                      "piperun_created_at","piperun_closed_at","piperun_probably_closed_at",
+                      "piperun_last_contact_at","piperun_stage_changed_at","piperun_pipeline_id",
+                      "piperun_stage_id","piperun_origin_id","piperun_owner_id",
+                      "valor_oportunidade","data_fechamento_crm","lead_timing_dias",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* Active Products */}
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Produtos Ativos</h4>
-                <div className="flex gap-1.5 flex-wrap">
-                  {PRODUCT_FLAGS.map((p) => (
-                    <Badge
-                      key={p}
-                      variant="outline"
-                      className={`text-[10px] ${selectedLead[`ativo_${p}`] ? "bg-green-50 text-green-700 border-green-300" : "bg-muted/30 text-muted-foreground"}`}
-                    >
-                      {p.replace("_", " ").toUpperCase()}: {selectedLead[`ativo_${p}`] ? "✓" : "—"}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+                {/* 4 — Pessoa & Empresa */}
+                <AccordionItem value="pessoa">
+                  <AccordionTrigger className="text-sm font-semibold">🏢 Pessoa & Empresa</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "pessoa_cpf","pessoa_cargo","pessoa_genero","pessoa_nascimento",
+                      "pessoa_linkedin","pessoa_facebook","pessoa_observation","pessoa_piperun_id",
+                      "empresa_cnpj","empresa_razao_social","empresa_nome","empresa_ie",
+                      "empresa_porte","empresa_segmento","empresa_situacao","empresa_website","empresa_cnae",
+                      "empresa_piperun_id",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* Produtos de Interesse (SDR) */}
-              <div>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Produtos de Interesse</h4>
-                <div className="flex gap-1.5 flex-wrap">
-                  {INTEREST_OPTIONS.filter(o => o.key !== "all").map((o) => {
-                    const val = selectedLead[o.key as keyof LeadRow] as string | null;
-                    return (
-                      <Badge
-                        key={o.key}
-                        variant="outline"
-                        className={`text-[10px] ${val ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/30 text-muted-foreground"}`}
-                      >
-                        {o.label}: {val || "—"}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </div>
+                {/* 5 — Produtos Ativos */}
+                <AccordionItem value="ativos">
+                  <AccordionTrigger className="text-sm font-semibold">✅ Produtos Ativos & Equipamentos</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex gap-1.5 flex-wrap mb-3">
+                      {PRODUCT_FLAGS.map((p) => (
+                        <Badge key={p} variant="outline"
+                          className={`text-[10px] ${selectedLead[`ativo_${p}`] ? "bg-green-50 text-green-700 border-green-300" : "bg-muted/30 text-muted-foreground"}`}>
+                          {p.replace("_", " ").toUpperCase()}: {selectedLead[`ativo_${p}`] ? "✓" : "—"}
+                        </Badge>
+                      ))}
+                    </div>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "equip_scanner","equip_scanner_serial","equip_scanner_ativacao",
+                      "equip_impressora","equip_impressora_serial","equip_impressora_ativacao",
+                      "equip_cad","equip_cad_serial","equip_cad_ativacao",
+                      "equip_pos_impressao","equip_pos_impressao_serial","equip_pos_impressao_ativacao",
+                      "equip_notebook","equip_notebook_serial","equip_notebook_ativacao",
+                      "insumos_adquiridos",
+                      "data_ultima_compra_scan","data_ultima_compra_notebook","data_ultima_compra_cad",
+                      "data_ultima_compra_cad_ia","data_ultima_compra_smart_slice","data_ultima_compra_print",
+                      "data_ultima_compra_cura","data_ultima_compra_insumos",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* Tags */}
-              {selectedLead.tags_crm && selectedLead.tags_crm.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Tags CRM ({selectedLead.tags_crm.length})</h4>
-                  <div className="flex gap-1 flex-wrap">
-                    {selectedLead.tags_crm.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-[9px]">{tag}</Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+                {/* 6 — Produtos de Interesse (SDR) */}
+                <AccordionItem value="interesse">
+                  <AccordionTrigger className="text-sm font-semibold">🎯 Produtos de Interesse (SDR)</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "sdr_scanner_interesse","sdr_impressora_interesse","sdr_software_cad_interesse",
+                      "sdr_pos_impressao_interesse","sdr_caracterizacao_interesse","sdr_cursos_interesse",
+                      "sdr_dentistica_interesse","sdr_insumos_lab_interesse","sdr_solucoes_interesse",
+                      "sdr_marca_impressora_param","sdr_modelo_impressora_param","sdr_resina_param",
+                      "informacao_desejada",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* PipeRun link */}
-              {selectedLead.piperun_link && (
-                <a href={selectedLead.piperun_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
-                  Abrir no PipeRun →
-                </a>
-              )}
-            </div>
+                {/* 7 — Proposta */}
+                <AccordionItem value="proposta">
+                  <AccordionTrigger className="text-sm font-semibold">📋 Proposta</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "itens_proposta_crm","proposals_total_value","proposals_total_mrr","proposals_last_status",
+                    ]} />
+                    <JsonBlock label="itens_proposta_parsed" data={selectedLead.itens_proposta_parsed} />
+                    <JsonBlock label="proposals_data" data={selectedLead.proposals_data} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 8 — Inteligência & Cognitivo */}
+                <AccordionItem value="intel">
+                  <AccordionTrigger className="text-sm font-semibold">🧠 Inteligência & Cognitivo</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "intelligence_score_total","confidence_score_analysis","prediction_accuracy",
+                      "lead_stage_detected","psychological_profile","primary_motivation",
+                      "objection_risk","recommended_approach","interest_timeline","urgency_level",
+                      "cognitive_analyzed_at","cognitive_model_version",
+                    ]} />
+                    <JsonBlock label="intelligence_score" data={selectedLead.intelligence_score} />
+                    <JsonBlock label="cognitive_analysis" data={selectedLead.cognitive_analysis} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 9 — Histórico LIA */}
+                <AccordionItem value="lia">
+                  <AccordionTrigger className="text-sm font-semibold">💬 Histórico LIA</AccordionTrigger>
+                  <AccordionContent>
+                    {selectedLead.resumo_historico_ia && (
+                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mb-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Brain className="w-4 h-4 text-primary" />
+                          <span className="text-xs font-semibold text-primary">Resumo IA</span>
+                        </div>
+                        <p className="text-sm whitespace-pre-wrap">{String(selectedLead.resumo_historico_ia)}</p>
+                      </div>
+                    )}
+                    <FieldGrid lead={selectedLead} fields={[
+                      "total_sessions","total_messages","ultima_sessao_at","rota_inicial_lia",
+                      "proactive_count","proactive_sent_at","score",
+                    ]} />
+                    <JsonBlock label="historico_resumos" data={selectedLead.historico_resumos} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 10 — Astron */}
+                <AccordionItem value="astron">
+                  <AccordionTrigger className="text-sm font-semibold">🎓 Astron</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "astron_status","astron_user_id","astron_nome","astron_email","astron_phone",
+                      "astron_plans_active","astron_courses_total","astron_courses_completed",
+                      "astron_last_login_at","astron_created_at","astron_synced_at","astron_login_url",
+                    ]} />
+                    <JsonBlock label="astron_plans_data" data={selectedLead.astron_plans_data} />
+                    <JsonBlock label="astron_courses_access" data={selectedLead.astron_courses_access} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 11 — Loja Integrada */}
+                <AccordionItem value="loja">
+                  <AccordionTrigger className="text-sm font-semibold">🛒 Loja Integrada</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "lojaintegrada_cliente_id","lojaintegrada_ltv","lojaintegrada_total_pedidos_pagos",
+                      "lojaintegrada_primeira_compra","lojaintegrada_ultimo_pedido_numero",
+                      "lojaintegrada_ultimo_pedido_data","lojaintegrada_ultimo_pedido_valor",
+                      "lojaintegrada_ultimo_pedido_status","lojaintegrada_forma_pagamento",
+                      "lojaintegrada_forma_envio","lojaintegrada_cupom_desconto","lojaintegrada_utm_campaign",
+                      "lojaintegrada_sexo","lojaintegrada_data_nascimento","lojaintegrada_cliente_obs",
+                      "lojaintegrada_endereco","lojaintegrada_numero","lojaintegrada_complemento",
+                      "lojaintegrada_bairro","lojaintegrada_cep","lojaintegrada_referencia",
+                      "lojaintegrada_updated_at",
+                    ]} />
+                    <JsonBlock label="lojaintegrada_itens_json" data={selectedLead.lojaintegrada_itens_json} />
+                    <JsonBlock label="lojaintegrada_historico_pedidos" data={selectedLead.lojaintegrada_historico_pedidos} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 12 — UTM & Origem */}
+                <AccordionItem value="utm">
+                  <AccordionTrigger className="text-sm font-semibold">📡 UTM & Origem</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "source","form_name","origem_campanha","utm_source","utm_medium","utm_campaign","utm_term","ip_origem",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 13 — CS & Suporte */}
+                <AccordionItem value="cs">
+                  <AccordionTrigger className="text-sm font-semibold">🎧 CS & Suporte</AccordionTrigger>
+                  <AccordionContent>
+                    <FieldGrid lead={selectedLead} fields={[
+                      "cs_treinamento","data_treinamento","data_contrato","codigo_contrato",
+                      "sdr_suporte_equipamento","sdr_suporte_tipo","sdr_suporte_descricao",
+                      "reuniao_agendada","data_primeiro_contato",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 14 — Tags & Metadados */}
+                <AccordionItem value="meta">
+                  <AccordionTrigger className="text-sm font-semibold">🏷️ Tags & Metadados</AccordionTrigger>
+                  <AccordionContent>
+                    {selectedLead.tags_crm && (selectedLead.tags_crm as string[]).length > 0 && (
+                      <div className="flex gap-1 flex-wrap mb-3">
+                        {(selectedLead.tags_crm as string[]).map((tag: string) => (
+                          <Badge key={tag} variant="outline" className="text-[9px]">{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    <FieldGrid lead={selectedLead} fields={[
+                      "motivo_perda","comentario_perda","id_cliente_smart","entrada_sistema",
+                      "created_at","updated_at","last_automated_action_at","automation_cooldown_until",
+                      "crm_lock_until","crm_lock_source",
+                      "sellflux_synced_at","intelligence_score_updated_at","intelligence_score_backfilled_at",
+                    ]} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 15 — Raw Data */}
+                <AccordionItem value="raw">
+                  <AccordionTrigger className="text-sm font-semibold">🗄️ Raw Data (JSON)</AccordionTrigger>
+                  <AccordionContent>
+                    <JsonBlock label="raw_payload" data={selectedLead.raw_payload} />
+                    <JsonBlock label="piperun_custom_fields" data={selectedLead.piperun_custom_fields} />
+                    <JsonBlock label="empresa_custom_fields" data={selectedLead.empresa_custom_fields} />
+                    <JsonBlock label="sellflux_custom_fields" data={selectedLead.sellflux_custom_fields} />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       )}
