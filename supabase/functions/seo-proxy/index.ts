@@ -1887,8 +1887,12 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
       </div>
     </aside>
     ` : ''}
-    ${buildEntityIndexJsonLd(`${content.title} ${content.excerpt || ''} ${content.content_html?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`)}
+    ${buildCitationBlocks(knowledgeCtx)}
+    ${buildLLMKnowledgeLayer(content.title, content.knowledge_categories?.name || 'Artigo Técnico', knowledgeCtx)}
+    ${buildEntityIndexSection(knowledgeCtx)}
+    ${buildEntityIndexJsonLd(`${content.title} ${content.excerpt || ''} ${content.content_html?.replace(/<[^>]*>/g, '').substring(0, 500) || ''}`, knowledgeCtx)}
   </article>
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
   ${buildStandardFooter()}
   ${buildBotRedirectScript(`/base-conhecimento/${letter}/${slug}`)}
 </body>
