@@ -417,6 +417,9 @@ export function SmartOpsAudienceBuilder() {
       "valor_oportunidade", "score", "intelligence_score_total", "proprietario_lead_crm",
       "source", "funil_entrada_crm", "itens_proposta_crm", "tags_crm",
       "ativo_scan", "ativo_print", "ativo_cad", "ativo_notebook", "ativo_insumos",
+      "sdr_scanner_interesse", "sdr_impressora_interesse", "sdr_software_cad_interesse",
+      "sdr_pos_impressao_interesse", "sdr_cursos_interesse", "sdr_dentistica_interesse",
+      "sdr_insumos_lab_interesse", "sdr_solucoes_interesse", "sdr_caracterizacao_interesse",
       "rota_inicial_lia", "resumo_historico_ia", "created_at", "updated_at"
     ];
     const escape = (v: unknown) => {
