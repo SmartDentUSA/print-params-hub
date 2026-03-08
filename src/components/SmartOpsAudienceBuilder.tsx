@@ -237,6 +237,32 @@ function ActiveIcons({ lead }: { lead: LeadRow }) {
   );
 }
 
+function InterestIcons({ lead }: { lead: LeadRow }) {
+  const interests = SDR_FIELDS.filter((f) => lead[f] != null && lead[f] !== "");
+  if (interests.length === 0) return <span className="text-muted-foreground text-[10px]">—</span>;
+  const labelMap: Record<string, string> = {
+    sdr_scanner_interesse: "📷",
+    sdr_impressora_interesse: "🖨️",
+    sdr_software_cad_interesse: "💻",
+    sdr_pos_impressao_interesse: "♨️",
+    sdr_caracterizacao_interesse: "🔬",
+    sdr_cursos_interesse: "🎓",
+    sdr_dentistica_interesse: "🦷",
+    sdr_insumos_lab_interesse: "🧪",
+    sdr_solucoes_interesse: "🔧",
+  };
+  return (
+    <div className="flex gap-0.5 flex-wrap">
+      {interests.slice(0, 4).map((f) => (
+        <Badge key={f} variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 text-primary border-primary/30">
+          {labelMap[f] || "?"} {String(lead[f]).length > 12 ? String(lead[f]).slice(0, 12) + "…" : lead[f]}
+        </Badge>
+      ))}
+      {interests.length > 4 && <Badge variant="outline" className="text-[9px] px-1 py-0">+{interests.length - 4}</Badge>}
+    </div>
+  );
+}
+
 function getPipelineForStatus(status: string): string {
   for (const [key, group] of Object.entries(PIPELINE_GROUPS)) {
     if (group.statuses.includes(status)) return `${group.emoji} ${group.label}`;
@@ -545,6 +571,14 @@ export function SmartOpsAudienceBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={filters.interestProduct} onValueChange={(v) => setFilter("interestProduct", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Interesse" /></SelectTrigger>
+                  <SelectContent>
+                    {INTEREST_OPTIONS.map((i) => (
+                      <SelectItem key={i.key} value={i.key}>{i.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={filters.itemProposta} onValueChange={(v) => setFilter("itemProposta", v)}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Item Proposta" /></SelectTrigger>
                   <SelectContent>
@@ -622,6 +656,7 @@ export function SmartOpsAudienceBuilder() {
                       <TableHead>Origem</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Ativos</TableHead>
+                      <TableHead>Interesse</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -681,6 +716,7 @@ export function SmartOpsAudienceBuilder() {
                         <TableCell className="text-xs">{lead.source || "—"}</TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
                         <TableCell><ActiveIcons lead={lead} /></TableCell>
+                        <TableCell><InterestIcons lead={lead} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
