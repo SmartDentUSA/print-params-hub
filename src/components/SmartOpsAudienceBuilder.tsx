@@ -275,14 +275,13 @@ export function SmartOpsAudienceBuilder() {
     let query = supabase
       .from("lia_attendances")
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false }) as any;
 
     // Pipeline filter → multiple statuses
     if (filters.pipeline !== "all") {
       const group = PIPELINE_GROUPS[filters.pipeline];
       if (group) query = query.in("lead_status", group.statuses);
     }
-    // Individual status
     if (filters.status !== "all") query = query.eq("lead_status", filters.status);
     if (filters.temperatura !== "all") query = query.ilike("temperatura_lead", filters.temperatura);
     if (filters.stage !== "all") query = query.eq("lead_stage_detected", filters.stage);
@@ -295,14 +294,8 @@ export function SmartOpsAudienceBuilder() {
     if (filters.stagnant) query = query.lte("updated_at", thirtyDaysAgo);
     if (filters.valorMin) query = query.gte("valor_oportunidade", Number(filters.valorMin));
     if (filters.valorMax) query = query.lte("valor_oportunidade", Number(filters.valorMax));
+    if (filters.activeProduct !== "all") query = query.eq(`ativo_${filters.activeProduct}`, true);
 
-    // Active product filter
-    if (filters.activeProduct !== "all") {
-      const col = `ativo_${filters.activeProduct}`;
-      query = query.eq(col, true);
-    }
-
-    // Search
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
     }
