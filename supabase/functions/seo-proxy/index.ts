@@ -1156,20 +1156,15 @@ async function generateSystemACatalogHTML(
   slug: string, 
   supabase: any
 ): Promise<string> {
-  // FIX: Handle both slug formats (simple slug and full URLs)
-  const { data: item, error } = await supabase
-    .from('system_a_catalog')
-    .select('*')
-    .eq('category', category)
-    .or(`slug.eq.${slug},slug.like.%/${slug}`)
-    .eq('active', true)
-    .eq('approved', true)
-    .maybeSingle();
+  const [itemRes, knowledgeCtx] = await Promise.all([
+    supabase.from('system_a_catalog').select('*').eq('category', category).or(`slug.eq.${slug},slug.like.%/${slug}`).eq('active', true).eq('approved', true).maybeSingle(),
+    fetchKnowledgeContext(supabase, { limit: 3 }),
+  ]);
 
-  if (error || !item) return generate404();
+  if (itemRes.error || !itemRes.data) return generate404();
+  const item = itemRes.data;
 
   const baseUrl = 'https://parametros.smartdent.com.br';
-  // SEO Meta Tags: Use product-specific data when available
   const seoTitle = category === 'product' 
     ? (item.seo_title_override || `${item.name} | Smart Dent - Odontologia de Precisão`)
     : category === 'video_testimonial'
@@ -1201,7 +1196,6 @@ async function generateSystemACatalogHTML(
     ? `Produto odontológico: ${escapeHtml(item.name)}. Smart Dent - soluções para odontologia digital.` 
     : `Depoimento sobre Smart Dent: ${escapeHtml(item.name)}.`;
 
-
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1211,6 +1205,8 @@ async function generateSystemACatalogHTML(
   <meta name="description" content="${escapeHtml(metaDescription)}" />
   ${keywords.length > 0 ? `<meta name="keywords" content="${keywords.map(escapeHtml).join(', ')}" />` : ''}
   ${FAVICON_TAGS}
+  ${buildAICrawlerPolicy()}
+  ${buildEntityReferenceMetas(knowledgeCtx, { type: category === 'product' ? 'product' : 'review', name: item.name })}
   <link rel="canonical" href="${canonicalUrl}" />
   <meta property="og:title" content="${escapeHtml(seoTitle)}" />
   <meta property="og:description" content="${escapeHtml(metaDescription)}" />
@@ -1262,10 +1258,11 @@ async function generateSystemACatalogHTML(
     "author": { "@type": "Organization", "name": "Smart Dent" }, "publisher": { "@type": "Organization", "name": "Smart Dent" }
   })}
   </script>
-  ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`)}
+  ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`, knowledgeCtx)}
+  ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
 </head>
 <body>
-  ${buildStandardHeader()}
+  ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
       <h1>${escapeHtml(item.name)}</h1>
@@ -1281,6 +1278,9 @@ async function generateSystemACatalogHTML(
   ${item.cta_1_url ? `<p><a href="${escapeHtml(item.cta_1_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_1_label || 'Ver na Loja')}</a></p>` : ''}
   ${item.cta_2_url ? `<p><a href="${escapeHtml(item.cta_2_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_2_label || 'Saiba Mais')}</a></p>` : ''}
   ${item.cta_3_url ? `<p><a href="${escapeHtml(item.cta_3_url)}" target="_blank" rel="noopener">${escapeHtml(item.cta_3_label || 'Mais Informações')}</a></p>` : ''}
+      ${buildCitationBlocks(knowledgeCtx)}
+      ${buildLLMKnowledgeLayer(item.name, category === 'product' ? 'Produto Odontológico' : 'Depoimento', knowledgeCtx)}
+      ${buildEntityIndexSection(knowledgeCtx)}
     </article>
   </main>
   ${buildStandardFooter()}
