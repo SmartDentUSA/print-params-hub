@@ -151,6 +151,7 @@ interface LeadRow {
   sdr_dentistica_interesse: string | null;
   sdr_insumos_lab_interesse: string | null;
   sdr_solucoes_interesse: string | null;
+  status_atual_lead_crm: string | null;
 }
 
 interface Filters {
@@ -171,13 +172,14 @@ interface Filters {
   valorMin: string;
   valorMax: string;
   itemProposta: string;
+  statusCRM: string;
 }
 
 const EMPTY_FILTERS: Filters = {
   search: "", pipeline: "all", status: "all", temperatura: "all", stage: "all",
   urgency: "all", source: "all", produto: "all", uf: "all", proprietario: "all",
   oportunidade: "all", activeProduct: "all", interestProduct: "all", stagnant: false,
-  valorMin: "", valorMax: "", itemProposta: "all",
+  valorMin: "", valorMax: "", itemProposta: "all", statusCRM: "all",
 };
 
 const ITEM_PROPOSTA_OPTIONS = [
@@ -301,6 +303,7 @@ export function SmartOpsAudienceBuilder() {
   const [allUFs, setAllUFs] = useState<string[]>([]);
   const [allOwners, setAllOwners] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [allStatusCRM, setAllStatusCRM] = useState<string[]>([]);
 
   const setFilter = useCallback(<K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -319,13 +322,15 @@ export function SmartOpsAudienceBuilder() {
       supabase.from("lia_attendances").select("uf").limit(1000),
       supabase.from("lia_attendances").select("proprietario_lead_crm").limit(1000),
       supabase.from("lia_attendances").select("produto_interesse").limit(1000),
-    ]).then(([sources, ufs, owners, products]) => {
+      supabase.from("lia_attendances").select("status_atual_lead_crm").limit(1000),
+    ]).then(([sources, ufs, owners, products, statusCRMs]) => {
       const unique = (data: { [k: string]: string | null }[] | null, key: string) =>
         [...new Set((data || []).map((d) => d[key]).filter(Boolean))].sort() as string[];
       setAllSources(unique(sources.data as { source: string }[], "source"));
       setAllUFs(unique(ufs.data as { uf: string }[], "uf"));
       setAllOwners(unique(owners.data as { proprietario_lead_crm: string }[], "proprietario_lead_crm"));
       setAllProducts(unique(products.data as { produto_interesse: string }[], "produto_interesse"));
+      setAllStatusCRM(unique(statusCRMs.data as { status_atual_lead_crm: string }[], "status_atual_lead_crm"));
     });
   }, []);
 
