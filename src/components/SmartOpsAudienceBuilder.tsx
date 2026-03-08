@@ -82,6 +82,21 @@ const OPORT_OPTIONS = [
 
 const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
 
+const INTEREST_OPTIONS = [
+  { key: "all", label: "Todos Interesses" },
+  { key: "sdr_scanner_interesse", label: "📷 Scanner" },
+  { key: "sdr_impressora_interesse", label: "🖨️ Impressora" },
+  { key: "sdr_software_cad_interesse", label: "💻 Software CAD" },
+  { key: "sdr_pos_impressao_interesse", label: "♨️ Pós-impressão" },
+  { key: "sdr_caracterizacao_interesse", label: "🔬 Caracterização" },
+  { key: "sdr_cursos_interesse", label: "🎓 Cursos" },
+  { key: "sdr_dentistica_interesse", label: "🦷 Dentística" },
+  { key: "sdr_insumos_lab_interesse", label: "🧪 Insumos Lab" },
+  { key: "sdr_solucoes_interesse", label: "🔧 Soluções" },
+] as const;
+
+const SDR_FIELDS = INTEREST_OPTIONS.filter(o => o.key !== "all").map(o => o.key);
+
 const PAGE_SIZE = 200;
 
 // ─── Types ───
@@ -127,6 +142,15 @@ interface LeadRow {
   utm_source: string | null;
   confidence_score_analysis: number | null;
   recommended_approach: string | null;
+  sdr_scanner_interesse: string | null;
+  sdr_impressora_interesse: string | null;
+  sdr_software_cad_interesse: string | null;
+  sdr_pos_impressao_interesse: string | null;
+  sdr_caracterizacao_interesse: string | null;
+  sdr_cursos_interesse: string | null;
+  sdr_dentistica_interesse: string | null;
+  sdr_insumos_lab_interesse: string | null;
+  sdr_solucoes_interesse: string | null;
 }
 
 interface Filters {
@@ -142,6 +166,7 @@ interface Filters {
   proprietario: string;
   oportunidade: string;
   activeProduct: string;
+  interestProduct: string;
   stagnant: boolean;
   valorMin: string;
   valorMax: string;
@@ -151,8 +176,8 @@ interface Filters {
 const EMPTY_FILTERS: Filters = {
   search: "", pipeline: "all", status: "all", temperatura: "all", stage: "all",
   urgency: "all", source: "all", produto: "all", uf: "all", proprietario: "all",
-  oportunidade: "all", activeProduct: "all", stagnant: false, valorMin: "", valorMax: "",
-  itemProposta: "all",
+  oportunidade: "all", activeProduct: "all", interestProduct: "all", stagnant: false,
+  valorMin: "", valorMax: "", itemProposta: "all",
 };
 
 const ITEM_PROPOSTA_OPTIONS = [
@@ -208,6 +233,32 @@ function ActiveIcons({ lead }: { lead: LeadRow }) {
         </Badge>
       ))}
       {active.length > 3 && <Badge variant="outline" className="text-[9px] px-1 py-0">+{active.length - 3}</Badge>}
+    </div>
+  );
+}
+
+function InterestIcons({ lead }: { lead: LeadRow }) {
+  const interests = SDR_FIELDS.filter((f) => lead[f] != null && lead[f] !== "");
+  if (interests.length === 0) return <span className="text-muted-foreground text-[10px]">—</span>;
+  const labelMap: Record<string, string> = {
+    sdr_scanner_interesse: "📷",
+    sdr_impressora_interesse: "🖨️",
+    sdr_software_cad_interesse: "💻",
+    sdr_pos_impressao_interesse: "♨️",
+    sdr_caracterizacao_interesse: "🔬",
+    sdr_cursos_interesse: "🎓",
+    sdr_dentistica_interesse: "🦷",
+    sdr_insumos_lab_interesse: "🧪",
+    sdr_solucoes_interesse: "🔧",
+  };
+  return (
+    <div className="flex gap-0.5 flex-wrap">
+      {interests.slice(0, 4).map((f) => (
+        <Badge key={f} variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 text-primary border-primary/30">
+          {labelMap[f] || "?"} {String(lead[f]).length > 12 ? String(lead[f]).slice(0, 12) + "…" : lead[f]}
+        </Badge>
+      ))}
+      {interests.length > 4 && <Badge variant="outline" className="text-[9px] px-1 py-0">+{interests.length - 4}</Badge>}
     </div>
   );
 }
@@ -311,6 +362,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.valorMax) query = query.lte("valor_oportunidade", Number(filters.valorMax));
     if (filters.activeProduct !== "all") query = query.eq(`ativo_${filters.activeProduct}`, true);
     if (filters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${filters.itemProposta}%`);
+    if (filters.interestProduct !== "all") query = query.not(filters.interestProduct, "is", null);
 
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
@@ -345,6 +397,10 @@ export function SmartOpsAudienceBuilder() {
     if (filters.oportunidade !== "all") chips.push({ label: `Oport: ${filters.oportunidade}`, key: "oportunidade", resetValue: "all" });
     if (filters.activeProduct !== "all") chips.push({ label: `Ativo: ${filters.activeProduct}`, key: "activeProduct", resetValue: "all" });
     if (filters.itemProposta !== "all") chips.push({ label: `Proposta: ${filters.itemProposta}`, key: "itemProposta", resetValue: "all" });
+    if (filters.interestProduct !== "all") {
+      const opt = INTEREST_OPTIONS.find(o => o.key === filters.interestProduct);
+      chips.push({ label: `Interesse: ${opt?.label.replace(/^[^\s]+ /, '') || filters.interestProduct}`, key: "interestProduct", resetValue: "all" });
+    }
     if (filters.stagnant) chips.push({ label: "Estagnados >30d", key: "stagnant", resetValue: false });
     if (filters.valorMin) chips.push({ label: `Valor ≥ ${filters.valorMin}`, key: "valorMin", resetValue: "" });
     if (filters.valorMax) chips.push({ label: `Valor ≤ ${filters.valorMax}`, key: "valorMax", resetValue: "" });
@@ -361,6 +417,9 @@ export function SmartOpsAudienceBuilder() {
       "valor_oportunidade", "score", "intelligence_score_total", "proprietario_lead_crm",
       "source", "funil_entrada_crm", "itens_proposta_crm", "tags_crm",
       "ativo_scan", "ativo_print", "ativo_cad", "ativo_notebook", "ativo_insumos",
+      "sdr_scanner_interesse", "sdr_impressora_interesse", "sdr_software_cad_interesse",
+      "sdr_pos_impressao_interesse", "sdr_cursos_interesse", "sdr_dentistica_interesse",
+      "sdr_insumos_lab_interesse", "sdr_solucoes_interesse", "sdr_caracterizacao_interesse",
       "rota_inicial_lia", "resumo_historico_ia", "created_at", "updated_at"
     ];
     const escape = (v: unknown) => {
@@ -515,6 +574,14 @@ export function SmartOpsAudienceBuilder() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={filters.interestProduct} onValueChange={(v) => setFilter("interestProduct", v)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Interesse" /></SelectTrigger>
+                  <SelectContent>
+                    {INTEREST_OPTIONS.map((i) => (
+                      <SelectItem key={i.key} value={i.key}>{i.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={filters.itemProposta} onValueChange={(v) => setFilter("itemProposta", v)}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Item Proposta" /></SelectTrigger>
                   <SelectContent>
@@ -592,6 +659,7 @@ export function SmartOpsAudienceBuilder() {
                       <TableHead>Origem</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Ativos</TableHead>
+                      <TableHead>Interesse</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -651,6 +719,7 @@ export function SmartOpsAudienceBuilder() {
                         <TableCell className="text-xs">{lead.source || "—"}</TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
                         <TableCell><ActiveIcons lead={lead} /></TableCell>
+                        <TableCell><InterestIcons lead={lead} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -748,6 +817,25 @@ export function SmartOpsAudienceBuilder() {
                       {p.replace("_", " ").toUpperCase()}: {selectedLead[`ativo_${p}`] ? "✓" : "—"}
                     </Badge>
                   ))}
+                </div>
+              </div>
+
+              {/* Produtos de Interesse (SDR) */}
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1">Produtos de Interesse</h4>
+                <div className="flex gap-1.5 flex-wrap">
+                  {INTEREST_OPTIONS.filter(o => o.key !== "all").map((o) => {
+                    const val = selectedLead[o.key as keyof LeadRow] as string | null;
+                    return (
+                      <Badge
+                        key={o.key}
+                        variant="outline"
+                        className={`text-[10px] ${val ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/30 text-muted-foreground"}`}
+                      >
+                        {o.label}: {val || "—"}
+                      </Badge>
+                    );
+                  })}
                 </div>
               </div>
 
