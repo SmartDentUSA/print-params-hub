@@ -344,6 +344,7 @@ export function SmartOpsAudienceBuilder() {
     if (filters.proprietario !== "all") chips.push({ label: `Dono: ${filters.proprietario}`, key: "proprietario", resetValue: "all" });
     if (filters.oportunidade !== "all") chips.push({ label: `Oport: ${filters.oportunidade}`, key: "oportunidade", resetValue: "all" });
     if (filters.activeProduct !== "all") chips.push({ label: `Ativo: ${filters.activeProduct}`, key: "activeProduct", resetValue: "all" });
+    if (filters.itemProposta !== "all") chips.push({ label: `Proposta: ${filters.itemProposta}`, key: "itemProposta", resetValue: "all" });
     if (filters.stagnant) chips.push({ label: "Estagnados >30d", key: "stagnant", resetValue: false });
     if (filters.valorMin) chips.push({ label: `Valor ≥ ${filters.valorMin}`, key: "valorMin", resetValue: "" });
     if (filters.valorMax) chips.push({ label: `Valor ≤ ${filters.valorMax}`, key: "valorMax", resetValue: "" });
