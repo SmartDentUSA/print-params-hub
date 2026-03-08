@@ -1448,7 +1448,6 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
     fetchKnowledgeContext(supabase, { categoryId: content.category_id, limit: 5 }),
   ]);
   const videos = videosRes.data;
-    .order('order_index');
 
   // Buscar resinas recomendadas com brand/model slugs
   let recommendedResins: any[] = [];
