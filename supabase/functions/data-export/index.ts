@@ -662,6 +662,9 @@ async function fetchKnowledgeVideos(supabase: any) {
       pandavideo_id, description, thumbnail_url, embed_url, hls_url,
       video_duration_seconds, video_transcript,
       panda_config, panda_custom_fields, panda_tags,
+      product_id, resin_id,
+      analytics_views, analytics_plays,
+      preview_url, folder_id, product_match_status, content_type,
       created_at, updated_at,
       knowledge_contents(title)
     `)
@@ -957,6 +960,19 @@ function formatCompact(data: any) {
       ...(c.ai_metadata && {
         ai_metadata: c.ai_metadata
       })
+    })),
+    knowledge_videos: (data.knowledge_videos || []).map((v: any) => ({
+      id: v.id,
+      pandavideo_id: v.pandavideo_id,
+      content_id: v.content_id,
+      content_title: v.content_title,
+      title: v.title,
+      embed_url: v.embed_url,
+      thumbnail_url: v.thumbnail_url,
+      video_duration_seconds: v.video_duration_seconds,
+      panda_tags: v.panda_tags,
+      product_id: v.product_id,
+      resin_id: v.resin_id
     })),
     keywords: data.keywords,
     authors: data.authors
@@ -1453,7 +1469,196 @@ function formatAiReady(data: any) {
         foto: item.image_url,
         dados_completos: item.extra_data
       }))
-    } : null
+    } : null,
+    knowledge_graph: buildKnowledgeGraph(data)
+  };
+}
+
+// ===== KNOWLEDGE GRAPH BUILDER =====
+
+function buildKnowledgeGraph(data: any) {
+  const relations: any[] = [];
+
+  // --- NODES: documents ---
+  const resinDocs = (data.resin_documents || []).map((doc: any) => ({
+    id: `doc_${doc.id}`,
+    entity_type: 'document',
+    title: doc.document_name || doc.file_name,
+    file_url: doc.file_url,
+    file_size: doc.file_size || null,
+    mime_type: doc.document_type || null,
+    description: doc.document_description || null,
+    language: null,
+    date_published: doc.created_at,
+    related_resin_id: doc.resin_id || null,
+    related_product_id: null
+  }));
+
+  const catalogDocs = (data.catalog_documents || []).map((doc: any) => ({
+    id: `doc_${doc.id}`,
+    entity_type: 'document',
+    title: doc.document_name || doc.file_name,
+    file_url: doc.file_url,
+    file_size: doc.file_size || null,
+    mime_type: doc.document_type || null,
+    description: doc.document_description || null,
+    language: doc.language || null,
+    date_published: doc.created_at,
+    related_resin_id: null,
+    related_product_id: doc.product_id || null
+  }));
+
+  const documents = [...resinDocs, ...catalogDocs];
+
+  // Document relations
+  for (const doc of documents) {
+    if (doc.related_resin_id) {
+      relations.push({
+        source_type: 'document',
+        source_id: doc.id,
+        target_type: 'resin',
+        target_id: doc.related_resin_id,
+        relation: 'technical_documentation'
+      });
+    }
+    if (doc.related_product_id) {
+      relations.push({
+        source_type: 'document',
+        source_id: doc.id,
+        target_type: 'product',
+        target_id: doc.related_product_id,
+        relation: 'technical_documentation'
+      });
+    }
+  }
+
+  // --- NODES: videos (deduplicated) ---
+  const seenVideoIds = new Set<string>();
+  const allRawVideos = [
+    ...(data.product_videos || []),
+    ...(data.resin_videos || []),
+    ...(data.knowledge_videos || [])
+  ];
+
+  const videos: any[] = [];
+  for (const v of allRawVideos) {
+    if (seenVideoIds.has(v.id)) continue;
+    seenVideoIds.add(v.id);
+
+    const videoNode = {
+      id: `video_${v.id}`,
+      entity_type: 'video',
+      title: v.title,
+      embed_url: v.embed_url || getEmbedUrl(v.url),
+      thumbnail: v.thumbnail_url || null,
+      transcription: v.video_transcript || null,
+      tags: v.panda_tags || [],
+      duration_seconds: v.video_duration_seconds || null,
+      source_platform: v.video_type || 'unknown',
+      upload_date: v.created_at,
+      related_product_id: v.product_id || null,
+      related_resin_id: v.resin_id || null
+    };
+    videos.push(videoNode);
+
+    // Video relations
+    if (v.product_id) {
+      relations.push({
+        source_type: 'video',
+        source_id: videoNode.id,
+        target_type: 'product',
+        target_id: v.product_id,
+        relation: 'demonstrates'
+      });
+    }
+    if (v.resin_id) {
+      relations.push({
+        source_type: 'video',
+        source_id: videoNode.id,
+        target_type: 'resin',
+        target_id: v.resin_id,
+        relation: 'demonstrates'
+      });
+    }
+    if (v.content_id) {
+      relations.push({
+        source_type: 'video',
+        source_id: videoNode.id,
+        target_type: 'article',
+        target_id: `article_${v.content_id}`,
+        relation: 'explains'
+      });
+    }
+  }
+
+  // --- NODES: authors ---
+  const authors = (data.authors || []).map((a: any) => ({
+    id: `author_${a.id}`,
+    entity_type: 'author',
+    name: a.name,
+    specialty: a.specialty || null,
+    bio: a.full_bio || a.mini_bio || null,
+    photo_url: a.photo_url || null,
+    instagram: a.instagram_url || null,
+    youtube: a.youtube_url || null,
+    lattes: a.lattes_url || null
+  }));
+
+  // --- NODES: articles ---
+  const articles = (data.knowledge_contents || []).map((c: any) => {
+    const letter = c.category_letter?.toLowerCase() || 'a';
+    const articleNode = {
+      id: `article_${c.id}`,
+      entity_type: 'article',
+      title: c.title,
+      slug: c.slug,
+      excerpt: c.excerpt,
+      category: c.category_name || c.category_letter || null,
+      public_url: c.public_url || `https://parametros.smartdent.com.br/base-conhecimento/${letter}/${c.slug}`,
+      author_id: c.author_id ? `author_${c.author_id}` : null,
+      keywords: c.keywords || []
+    };
+
+    // Article relations
+    if (c.author_id) {
+      relations.push({
+        source_type: 'article',
+        source_id: articleNode.id,
+        target_type: 'author',
+        target_id: `author_${c.author_id}`,
+        relation: 'authored_by'
+      });
+    }
+    if (c.recommended_resins && Array.isArray(c.recommended_resins)) {
+      for (const resinId of c.recommended_resins) {
+        relations.push({
+          source_type: 'article',
+          source_id: articleNode.id,
+          target_type: 'resin',
+          target_id: resinId,
+          relation: 'recommends'
+        });
+      }
+    }
+
+    return articleNode;
+  });
+
+  const nodeCount = documents.length + videos.length + authors.length + articles.length;
+
+  return {
+    nodes: {
+      documents,
+      videos,
+      authors,
+      articles
+    },
+    relations,
+    meta: {
+      node_count: nodeCount,
+      relation_count: relations.length,
+      generated_at: new Date().toISOString()
+    }
   };
 }
 
