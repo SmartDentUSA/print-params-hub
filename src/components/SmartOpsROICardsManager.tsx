@@ -28,6 +28,9 @@ interface ROICard {
   cad_time_smart: number;
   cad_cost_manual: number;
   cad_cost_smart: number;
+  cam_time_manual: number;
+  cam_time_smart: number;
+  asb_cam: boolean;
   print_time_manual: number;
   print_time_smart: number;
   clean_time_manual: number;
@@ -88,12 +91,13 @@ const EMPTY_CARD: Omit<ROICard, "id"> = {
   scan_time_manual: 15, scan_time_smart: 5,
   cad_time_manual: 20, cad_time_smart: 4,
   cad_cost_manual: 50, cad_cost_smart: 8,
+  cam_time_manual: 5, cam_time_smart: 0.5, asb_cam: true,
   print_time_manual: 15, print_time_smart: 0.5,
   clean_time_manual: 10, clean_time_smart: 0.67,
   cure_time_manual: 15, cure_time_smart: 5,
   finish_time_manual: 30, finish_time_smart: 9,
   waste_pct_manual: 20, waste_pct_smart: 0,
-  asb_scan: true, asb_cad: false, asb_print: true,
+  asb_scan: true, asb_cad: false, asb_cam: true, asb_print: true,
   asb_clean: true, asb_cure: true, asb_finish: true,
   preco_mercado: null, preco_combo: null, rendimento_unidades: null,
   investimento_inicial: 77900, faturamento_kit: 128524.82,
@@ -105,10 +109,11 @@ const EMPTY_CARD: Omit<ROICard, "id"> = {
 
 const STAGES = [
   { key: "scan", label: "Escaneamento" },
-  { key: "cad", label: "CAD/Planejamento" },
+  { key: "cad", label: "CAD Planejamento" },
+  { key: "cam", label: "CAM Impressão" },
   { key: "print", label: "Impressão" },
-  { key: "clean", label: "Limpeza" },
-  { key: "cure", label: "Pós-Cura" },
+  { key: "clean", label: "Limpeza Pós impressão" },
+  { key: "cure", label: "Pós cura" },
   { key: "finish", label: "Finalização" },
 ] as const;
 

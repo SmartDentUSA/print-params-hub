@@ -24,11 +24,12 @@ interface WorkflowStage {
 function buildStages(card: any): WorkflowStage[] {
   return [
     { name: "Escaneamento", manual_min: Number(card.scan_time_manual) || 0, smart_min: Number(card.scan_time_smart) || 0, asb: !!card.asb_scan },
-    { name: "CAD/Planejamento", manual_min: Number(card.cad_time_manual) || 0, smart_min: Number(card.cad_time_smart) || 0, manual_cost: Number(card.cad_cost_manual) || 0, smart_cost: Number(card.cad_cost_smart) || 0, asb: !!card.asb_cad },
-    { name: "CAM & Impressão", manual_min: Number(card.print_time_manual) || 0, smart_min: Number(card.print_time_smart) || 0, asb: !!card.asb_print },
-    { name: "Limpeza", manual_min: Number(card.clean_time_manual) || 0, smart_min: Number(card.clean_time_smart) || 0, asb: !!card.asb_clean },
-    { name: "Pós-Cura", manual_min: Number(card.cure_time_manual) || 0, smart_min: Number(card.cure_time_smart) || 0, asb: !!card.asb_cure },
-    { name: "Finalização (Make)", manual_min: Number(card.finish_time_manual) || 0, smart_min: Number(card.finish_time_smart) || 0, asb: !!card.asb_finish },
+    { name: "CAD Planejamento", manual_min: Number(card.cad_time_manual) || 0, smart_min: Number(card.cad_time_smart) || 0, manual_cost: Number(card.cad_cost_manual) || 0, smart_cost: Number(card.cad_cost_smart) || 0, asb: !!card.asb_cad },
+    { name: "CAM Impressão", manual_min: Number(card.cam_time_manual) || 0, smart_min: Number(card.cam_time_smart) || 0, asb: !!card.asb_cam },
+    { name: "Impressão", manual_min: Number(card.print_time_manual) || 0, smart_min: Number(card.print_time_smart) || 0, asb: !!card.asb_print },
+    { name: "Limpeza Pós impressão", manual_min: Number(card.clean_time_manual) || 0, smart_min: Number(card.clean_time_smart) || 0, asb: !!card.asb_clean },
+    { name: "Pós cura", manual_min: Number(card.cure_time_manual) || 0, smart_min: Number(card.cure_time_smart) || 0, asb: !!card.asb_cure },
+    { name: "Finalização", manual_min: Number(card.finish_time_manual) || 0, smart_min: Number(card.finish_time_smart) || 0, asb: !!card.asb_finish },
   ];
 }
 
@@ -77,38 +78,36 @@ function ROICardCalculator({ card }: { card: any }) {
         </Card>
       </div>
 
-      {/* Workflow stages comparison */}
+      {/* Workflow stages comparison — horizontal columns */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Comparação de Workflow por Etapa</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <CardContent className="overflow-x-auto">
+          <div className="flex gap-2 min-w-[700px]">
             {stages.map((stage) => {
               const delta = stage.manual_min - stage.smart_min;
               return (
-                <div key={stage.name} className="rounded-lg border p-3 relative">
+                <div key={stage.name} className="flex-1 rounded-lg border p-3 flex flex-col items-center text-center relative min-w-[90px]">
                   {stage.asb && (
-                    <Badge variant="secondary" className="absolute top-2 right-2 text-xs gap-1">
+                    <Badge variant="secondary" className="text-[10px] gap-0.5 mb-1 px-1.5 py-0.5">
                       <Bot className="w-3 h-3" /> ASB
                     </Badge>
                   )}
-                  <p className="font-medium text-sm mb-2">{stage.name}</p>
-                  <div className="grid grid-cols-3 gap-1 text-center text-xs">
-                    <div>
-                      <span className="text-muted-foreground flex items-center justify-center gap-1"><User className="w-3 h-3" /> Manual</span>
-                      <span className="text-base font-semibold text-destructive">{stage.manual_min} min</span>
-                      {stage.manual_cost ? <span className="block text-muted-foreground">R$ {stage.manual_cost}</span> : null}
+                  <p className="font-semibold text-xs mb-2 leading-tight">{stage.name}</p>
+                  <div className="space-y-1.5 w-full">
+                    <div className="bg-destructive/10 rounded px-2 py-1.5">
+                      <span className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5"><User className="w-3 h-3" /> Manual</span>
+                      <span className="text-sm font-bold text-destructive">{stage.manual_min} min</span>
+                      {stage.manual_cost ? <span className="block text-[10px] text-muted-foreground">R$ {stage.manual_cost}</span> : null}
                     </div>
-                    <div className="flex items-center justify-center">
-                      <Badge className="bg-primary/10 text-primary border-primary/30 text-xs">
-                        Δ -{delta.toFixed(1)}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground flex items-center justify-center gap-1"><Zap className="w-3 h-3" /> Smart</span>
-                      <span className="text-base font-semibold text-primary">{stage.smart_min} min</span>
-                      {stage.smart_cost ? <span className="block text-muted-foreground">R$ {stage.smart_cost}</span> : null}
+                    <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px] w-full justify-center">
+                      Δ -{delta.toFixed(1)} min
+                    </Badge>
+                    <div className="bg-primary/10 rounded px-2 py-1.5">
+                      <span className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5"><Zap className="w-3 h-3" /> Smart</span>
+                      <span className="text-sm font-bold text-primary">{stage.smart_min} min</span>
+                      {stage.smart_cost ? <span className="block text-[10px] text-muted-foreground">R$ {stage.smart_cost}</span> : null}
                     </div>
                   </div>
                 </div>
