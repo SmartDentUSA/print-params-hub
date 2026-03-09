@@ -3584,6 +3584,58 @@ Campos:
       const leadId = await upsertLead(supabase, leadState.name, leadState.email, session_id);
       currentLeadId = leadId;
 
+      // Merge WhatsApp placeholder: if session has placeholder_lia_id, update lia_attendances
+      // with the real name/email collected, preserving phone data from the placeholder
+      try {
+        const { data: sess } = await supabase.from("agent_sessions")
+          .select("extracted_entities")
+          .eq("session_id", session_id)
+          .single();
+        const entities = (sess?.extracted_entities || {}) as Record<string, unknown>;
+        const placeholderLiaId = entities.placeholder_lia_id as string | undefined;
+        const placeholderPhone = entities.placeholder_phone as string | undefined;
+
+        if (placeholderLiaId) {
+          const normalizedEmail = leadState.email.toLowerCase();
+          console.log(`[dra-lia] Merging placeholder ${placeholderLiaId} → real email ${normalizedEmail}`);
+
+          // Check if a lia_attendances with the real email already exists
+          const { data: existingLia } = await supabase
+            .from("lia_attendances")
+            .select("id, telefone_raw, telefone_normalized")
+            .eq("email", normalizedEmail)
+            .maybeSingle();
+
+          if (existingLia) {
+            // Real lead already exists — update it with phone from placeholder, then delete placeholder
+            const phoneUpdates: Record<string, unknown> = {};
+            if (placeholderPhone && !existingLia.telefone_raw) {
+              phoneUpdates.telefone_raw = placeholderPhone;
+            }
+            if (placeholderPhone && !existingLia.telefone_normalized) {
+              const suffix = placeholderPhone.replace(/\D/g, "");
+              phoneUpdates.telefone_normalized = suffix.length >= 8 ? suffix.slice(-9) : suffix;
+            }
+            if (Object.keys(phoneUpdates).length > 0) {
+              await supabase.from("lia_attendances").update(phoneUpdates).eq("id", existingLia.id);
+            }
+            // Delete the placeholder
+            await supabase.from("lia_attendances").delete().eq("id", placeholderLiaId);
+            console.log(`[dra-lia] Merged phone into existing lead ${existingLia.id}, deleted placeholder ${placeholderLiaId}`);
+          } else {
+            // No existing lead with real email — update the placeholder record itself
+            await supabase.from("lia_attendances").update({
+              nome: leadState.name,
+              email: normalizedEmail,
+              updated_at: new Date().toISOString(),
+            }).eq("id", placeholderLiaId);
+            console.log(`[dra-lia] Updated placeholder ${placeholderLiaId} with real data: ${leadState.name} <${normalizedEmail}>`);
+          }
+        }
+      } catch (mergeErr) {
+        console.warn("[dra-lia] Placeholder merge failed:", mergeErr);
+      }
+
       // Mark session as awaiting phone (NEW leads now collect phone before area)
       try {
         await supabase.from("agent_sessions").upsert({
