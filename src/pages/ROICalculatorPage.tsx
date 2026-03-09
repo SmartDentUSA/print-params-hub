@@ -101,7 +101,7 @@ function ROICardCalculator({ card }: { card: any }) {
                       {stage.manual_cost ? <span className="block text-muted-foreground">R$ {stage.manual_cost}</span> : null}
                     </div>
                     <div className="flex items-center justify-center">
-                      <Badge className="bg-green-500/20 text-green-600 border-green-500/30 text-xs">
+                      <Badge className="bg-primary/10 text-primary border-primary/30 text-xs">
                         Δ -{delta.toFixed(1)}
                       </Badge>
                     </div>
