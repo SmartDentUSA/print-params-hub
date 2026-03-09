@@ -12,6 +12,7 @@ import ParameterPageExample from "./pages/ParameterPageExample";
 import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
 import PublicFormPage from "./pages/PublicFormPage";
+import ROICalculatorPage from "./pages/ROICalculatorPage";
 import DraLIA from "./components/DraLIA";
 
 const App = () => (
@@ -25,16 +26,22 @@ const App = () => (
       
       {/* Portuguese routes (default) */}
       <Route path="/base-conhecimento" element={<KnowledgeBase lang="pt" />} />
+      <Route path="/base-conhecimento/calculadora-roi" element={<ROICalculatorPage />} />
+      <Route path="/base-conhecimento/calculadora-roi/:slug" element={<ROICalculatorPage />} />
       <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase lang="pt" />} />
       <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="pt" />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
+      <Route path="/en/knowledge-base/roi-calculator" element={<ROICalculatorPage />} />
+      <Route path="/en/knowledge-base/roi-calculator/:slug" element={<ROICalculatorPage />} />
       <Route path="/en/knowledge-base/:categoryLetter" element={<KnowledgeBase lang="en" />} />
       <Route path="/en/knowledge-base/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="en" />} />
       
       {/* Spanish routes */}
       <Route path="/es/base-conocimiento" element={<KnowledgeBase lang="es" />} />
+      <Route path="/es/base-conocimiento/calculadora-roi" element={<ROICalculatorPage />} />
+      <Route path="/es/base-conocimiento/calculadora-roi/:slug" element={<ROICalculatorPage />} />
       <Route path="/es/base-conocimiento/:categoryLetter" element={<KnowledgeBase lang="es" />} />
       <Route path="/es/base-conocimiento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="es" />} />
       

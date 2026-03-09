@@ -49,6 +49,20 @@ export function KnowledgeCategoryPills({
                 {cat.letter} • {getCategoryName(cat.letter)}
               </Button>
             ))}
+            {/* ROI Calculator pill */}
+            <Button
+              variant={selectedCategory === 'ROI' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                const basePath = t('knowledge.roi_calculator') === 'ROI Calculator' ? '/en/knowledge-base' :
+                  t('knowledge.roi_calculator') === 'Calculadora ROI' ? '/es/base-conocimiento' : 
+                  '/base-conhecimento';
+                window.location.href = `${basePath}/calculadora-roi`;
+              }}
+              className="transition-smooth hover:shadow-soft"
+            >
+              F • {t('knowledge.roi_calculator')}
+            </Button>
           </div>
         </div>
         
