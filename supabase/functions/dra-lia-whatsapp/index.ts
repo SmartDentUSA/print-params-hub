@@ -357,7 +357,9 @@ Deno.serve(async (req) => {
       : history;
 
     // 2b. Pre-seed agent_sessions so dra-lia skips email collection
-    if (leadId) {
+    // ONLY for REAL leads (pre-existing in DB). Placeholder leads (@whatsapp.lead)
+    // must NOT be pre-seeded so dra-lia asks for name/email normally.
+    if (leadId && !isPlaceholderLead) {
       const { error: sessErr } = await supabase.from("agent_sessions").upsert({
         session_id: sessionId,
         // IMPORTANT: do not write lia_attendances.id into agent_sessions.lead_id
@@ -377,6 +379,18 @@ Deno.serve(async (req) => {
       } else {
         console.log(`[dra-lia-wa] Pre-seeded agent_sessions for ${sessionId} with lead ${leadId}`);
       }
+    } else if (isPlaceholderLead) {
+      console.log(`[dra-lia-wa] Skipping pre-seed for placeholder lead ${leadId} — dra-lia will collect name/email`);
+      // Store only the lia_attendances placeholder ID in session so we can merge later
+      await supabase.from("agent_sessions").upsert({
+        session_id: sessionId,
+        current_state: "chatting",
+        extracted_entities: {
+          placeholder_lia_id: leadId,
+          placeholder_phone: phoneDigits,
+        },
+        last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" }).catch(() => {});
     }
 
     // 3. Call dra-lia internally (SSE stream)
