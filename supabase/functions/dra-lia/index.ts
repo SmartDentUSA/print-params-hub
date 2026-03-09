@@ -3956,9 +3956,83 @@ Campos:
       return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    // If lead already identified from session, set currentLeadId
+    // If lead already identified from session, verify profile completeness before proceeding
     if (leadState.state === "from_session") {
       currentLeadId = leadState.leadId;
+
+      // ── Profile completeness gate: force phone → area → specialty before RAG ──
+      const { data: profileCheck } = await supabase.from("lia_attendances")
+        .select("telefone_normalized, area_atuacao, especialidade")
+        .eq("email", leadState.email)
+        .maybeSingle();
+
+      const missingPhone = !profileCheck?.telefone_normalized;
+      const missingArea = !profileCheck?.area_atuacao;
+      const missingSpecialty = !profileCheck?.especialidade;
+
+      if (missingPhone || missingArea || missingSpecialty) {
+        // Determine which field to ask for next (sequential order)
+        const { data: sess } = await supabase.from("agent_sessions")
+          .select("extracted_entities").eq("session_id", session_id).single();
+        const ent = (sess?.extracted_entities || {}) as Record<string, unknown>;
+
+        if (missingPhone) {
+          // Set awaiting_phone flag and ask
+          await supabase.from("agent_sessions").upsert({
+            session_id,
+            extracted_entities: { ...ent, awaiting_phone: true },
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          const phoneAskText: Record<string, string> = {
+            "pt-BR": `${leadState.name}, para manter seu cadastro completo, qual é o seu **telefone** com DDD? (ex: 11999998888)`,
+            "en-US": `${leadState.name}, to complete your profile, what's your **phone number** with area code?`,
+            "es-ES": `${leadState.name}, para completar tu registro, ¿cuál es tu **teléfono** con código de área?`,
+          };
+          const phoneText = phoneAskText[lang] || phoneAskText["pt-BR"];
+          try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: phoneText, lang, top_similarity: 1, unanswered: false, lead_id: leadState.leadId, context_raw: "[INTERCEPTOR] from_session→needs_phone" }); } catch { /* ignore */ }
+          return streamTextResponse(phoneText, corsHeaders);
+
+        } else if (missingArea) {
+          // Set awaiting_area flag and show area grid
+          await supabase.from("agent_sessions").upsert({
+            session_id,
+            extracted_entities: { ...ent, awaiting_area: true },
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          const areaText = (ASK_AREA[lang] || ASK_AREA["pt-BR"])(leadState.name);
+          try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: areaText, lang, top_similarity: 1, unanswered: false, lead_id: leadState.leadId, context_raw: "[INTERCEPTOR] from_session→needs_area" }); } catch { /* ignore */ }
+
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({ start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", ui_action: "show_area_grid", area_options: AREA_OPTIONS })}\n\n`));
+            const words = areaText.split(" "); let i = 0;
+            const interval = setInterval(() => { if (i < words.length) { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: (i === 0 ? "" : " ") + words[i] } }] })}\n\n`)); i++; } else { controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); clearInterval(interval); } }, 25);
+          }});
+          return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+
+        } else if (missingSpecialty) {
+          // Set awaiting_specialty flag and show specialty grid
+          const area = profileCheck?.area_atuacao || "";
+          await supabase.from("agent_sessions").upsert({
+            session_id,
+            extracted_entities: { ...ent, lead_area: area, awaiting_specialty: true },
+            last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          const specialtyText = (ASK_SPECIALTY[lang] || ASK_SPECIALTY["pt-BR"])(leadState.name, area);
+          try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: specialtyText, lang, top_similarity: 1, unanswered: false, lead_id: leadState.leadId, context_raw: "[INTERCEPTOR] from_session→needs_specialty" }); } catch { /* ignore */ }
+
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({ start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "meta", ui_action: "show_specialty_grid", specialty_options: SPECIALTY_OPTIONS, selected_area: area })}\n\n`));
+            const words = specialtyText.split(" "); let i = 0;
+            const interval = setInterval(() => { if (i < words.length) { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: (i === 0 ? "" : " ") + words[i] } }] })}\n\n`)); i++; } else { controller.enqueue(encoder.encode("data: [DONE]\n\n")); controller.close(); clearInterval(interval); } }, 25);
+          }});
+          return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+        }
+      }
     }
 
     // ── SDR: Persist product_selections to sdr_* fields ──────────────────
