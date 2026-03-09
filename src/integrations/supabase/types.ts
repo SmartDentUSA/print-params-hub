@@ -2703,6 +2703,100 @@ export type Database = {
         }
         Relationships: []
       }
+      roi_card_cad_types: {
+        Row: {
+          cad_ia_cost: number | null
+          cad_ia_time: number | null
+          cad_manual_cost: number | null
+          cad_manual_time: number | null
+          cad_mentoria_cost: number | null
+          cad_terceirizado_cost: number | null
+          cad_terceirizado_time: number | null
+          created_at: string | null
+          id: string
+          procedure_name: string
+          roi_card_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          cad_ia_cost?: number | null
+          cad_ia_time?: number | null
+          cad_manual_cost?: number | null
+          cad_manual_time?: number | null
+          cad_mentoria_cost?: number | null
+          cad_terceirizado_cost?: number | null
+          cad_terceirizado_time?: number | null
+          created_at?: string | null
+          id?: string
+          procedure_name?: string
+          roi_card_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          cad_ia_cost?: number | null
+          cad_ia_time?: number | null
+          cad_manual_cost?: number | null
+          cad_manual_time?: number | null
+          cad_mentoria_cost?: number | null
+          cad_terceirizado_cost?: number | null
+          cad_terceirizado_time?: number | null
+          created_at?: string | null
+          id?: string
+          procedure_name?: string
+          roi_card_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roi_card_cad_types_roi_card_id_fkey"
+            columns: ["roi_card_id"]
+            isOneToOne: false
+            referencedRelation: "roi_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roi_card_items: {
+        Row: {
+          created_at: string | null
+          description: string
+          economia_imediata: number | null
+          id: string
+          investimento_com_combo: number | null
+          investimento_fora_combo: number | null
+          roi_card_id: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string
+          economia_imediata?: number | null
+          id?: string
+          investimento_com_combo?: number | null
+          investimento_fora_combo?: number | null
+          roi_card_id: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          economia_imediata?: number | null
+          id?: string
+          investimento_com_combo?: number | null
+          investimento_fora_combo?: number | null
+          roi_card_id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roi_card_items_roi_card_id_fkey"
+            columns: ["roi_card_id"]
+            isOneToOne: false
+            referencedRelation: "roi_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roi_cards: {
         Row: {
           active: boolean | null
@@ -2716,6 +2810,9 @@ export type Database = {
           cad_cost_smart: number | null
           cad_time_manual: number | null
           cad_time_smart: number | null
+          cam_operator: string | null
+          cam_support_time: number | null
+          cam_support_type: string | null
           category: string
           clean_time_manual: number | null
           clean_time_smart: number | null
@@ -2733,7 +2830,9 @@ export type Database = {
           preco_mercado: number | null
           print_time_manual: number | null
           print_time_smart: number | null
+          printer_model_id: string | null
           rendimento_unidades: number | null
+          resin_id: string | null
           scan_time_manual: number | null
           scan_time_smart: number | null
           slug: string | null
@@ -2741,6 +2840,7 @@ export type Database = {
           updated_at: string | null
           waste_pct_manual: number | null
           waste_pct_smart: number | null
+          workflow_descriptions: Json | null
         }
         Insert: {
           active?: boolean | null
@@ -2754,6 +2854,9 @@ export type Database = {
           cad_cost_smart?: number | null
           cad_time_manual?: number | null
           cad_time_smart?: number | null
+          cam_operator?: string | null
+          cam_support_time?: number | null
+          cam_support_type?: string | null
           category?: string
           clean_time_manual?: number | null
           clean_time_smart?: number | null
@@ -2771,7 +2874,9 @@ export type Database = {
           preco_mercado?: number | null
           print_time_manual?: number | null
           print_time_smart?: number | null
+          printer_model_id?: string | null
           rendimento_unidades?: number | null
+          resin_id?: string | null
           scan_time_manual?: number | null
           scan_time_smart?: number | null
           slug?: string | null
@@ -2779,6 +2884,7 @@ export type Database = {
           updated_at?: string | null
           waste_pct_manual?: number | null
           waste_pct_smart?: number | null
+          workflow_descriptions?: Json | null
         }
         Update: {
           active?: boolean | null
@@ -2792,6 +2898,9 @@ export type Database = {
           cad_cost_smart?: number | null
           cad_time_manual?: number | null
           cad_time_smart?: number | null
+          cam_operator?: string | null
+          cam_support_time?: number | null
+          cam_support_type?: string | null
           category?: string
           clean_time_manual?: number | null
           clean_time_smart?: number | null
@@ -2809,7 +2918,9 @@ export type Database = {
           preco_mercado?: number | null
           print_time_manual?: number | null
           print_time_smart?: number | null
+          printer_model_id?: string | null
           rendimento_unidades?: number | null
+          resin_id?: string | null
           scan_time_manual?: number | null
           scan_time_smart?: number | null
           slug?: string | null
@@ -2817,8 +2928,24 @@ export type Database = {
           updated_at?: string | null
           waste_pct_manual?: number | null
           waste_pct_smart?: number | null
+          workflow_descriptions?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "roi_cards_printer_model_id_fkey"
+            columns: ["printer_model_id"]
+            isOneToOne: false
+            referencedRelation: "models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roi_cards_resin_id_fkey"
+            columns: ["resin_id"]
+            isOneToOne: false
+            referencedRelation: "resins"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       site_settings: {
         Row: {
