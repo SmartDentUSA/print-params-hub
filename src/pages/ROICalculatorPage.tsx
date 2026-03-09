@@ -52,25 +52,25 @@ function ROICardCalculator({ card }: { card: any }) {
             <p className="text-lg font-bold text-primary">{economiaMin.toFixed(1)} min</p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-500/20">
+        <Card className="border-secondary/40">
           <CardContent className="pt-4 pb-3 px-4 text-center">
-            <TrendingUp className="w-5 h-5 mx-auto text-emerald-500 mb-1" />
+            <TrendingUp className="w-5 h-5 mx-auto text-secondary-foreground mb-1" />
             <p className="text-xs text-muted-foreground">Investimento</p>
-            <p className="text-lg font-bold text-emerald-600">R$ {investimento.toLocaleString("pt-BR")}</p>
+            <p className="text-lg font-bold text-foreground">R$ {investimento.toLocaleString("pt-BR")}</p>
           </CardContent>
         </Card>
-        <Card className="border-amber-500/20">
+        <Card className="border-accent/40">
           <CardContent className="pt-4 pb-3 px-4 text-center">
-            <Zap className="w-5 h-5 mx-auto text-amber-500 mb-1" />
+            <Zap className="w-5 h-5 mx-auto text-accent-foreground mb-1" />
             <p className="text-xs text-muted-foreground">Faturamento Kit</p>
-            <p className="text-lg font-bold text-amber-600">R$ {faturamento.toLocaleString("pt-BR")}</p>
+            <p className="text-lg font-bold text-foreground">R$ {faturamento.toLocaleString("pt-BR")}</p>
           </CardContent>
         </Card>
-        <Card className="border-purple-500/20">
+        <Card className="border-primary/20">
           <CardContent className="pt-4 pb-3 px-4 text-center">
-            <Calculator className="w-5 h-5 mx-auto text-purple-500 mb-1" />
+            <Calculator className="w-5 h-5 mx-auto text-primary mb-1" />
             <p className="text-xs text-muted-foreground">Lucro Kit</p>
-            <p className={`text-lg font-bold ${lucro >= 0 ? "text-emerald-600" : "text-destructive"}`}>
+            <p className={`text-lg font-bold ${lucro >= 0 ? "text-primary" : "text-destructive"}`}>
               R$ {lucro.toLocaleString("pt-BR")}
             </p>
           </CardContent>
