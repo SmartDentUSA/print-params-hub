@@ -1080,6 +1080,100 @@ function buildReturningLeadMessage(name: string, lang: string, lastDate?: string
   return msg;
 }
 
+async function generateDynamicGreeting(params: {
+  name: string;
+  lang: string;
+  lastDate?: string | null;
+  summary?: string | null;
+  historico?: Array<{ date: string; summary: string }> | null;
+  profile?: string;
+  archetype?: string;
+}): Promise<string> {
+  try {
+    const { name, lang, lastDate, summary, historico, profile, archetype } = params;
+    const sessionsCount = (historico?.length || 0) + (summary ? 1 : 0);
+    const { date: formattedDate } = lastDate ? formatLastContactDate(lastDate, lang) : { date: "" };
+
+    const langInstruction: Record<string, string> = {
+      "pt-BR": "Responda em português brasileiro.",
+      "en-US": "Respond in English.",
+      "es-ES": "Responde en español.",
+    };
+
+    // Build recent topics from historico_resumos
+    const recentTopics = (historico || [])
+      .slice(0, 3)
+      .map(h => h.summary)
+      .filter(Boolean)
+      .join("; ");
+
+    const prompt = `Você é a Dra. L.I.A., consultora especialista em odontologia digital da Smart Dent.
+Um lead está retornando ao chat. Gere uma saudação personalizada, calorosa e natural (máximo 3 frases curtas).
+
+DADOS DO LEAD:
+- Nome: ${name}
+- Última conversa: ${formattedDate || "data desconhecida"}
+- Resumo última conversa: ${summary || "não disponível"}
+${recentTopics ? `- Temas de conversas anteriores: ${recentTopics}` : ""}
+${profile ? `- Perfil: ${profile}` : ""}
+${archetype ? `- Arquétipo: ${archetype}` : ""}
+- Total de sessões anteriores: ${sessionsCount}
+
+REGRAS:
+1. Use emoji com moderação (máx 1).
+2. Mencione algo específico da última conversa ou do perfil do lead se disponível.
+3. Termine com uma pergunta aberta sobre como ajudar hoje.
+4. NÃO use a estrutura "Olá X! Que bom te ver. Nos falamos no dia Y. Sobre Z." — varie o formato.
+5. Seja breve e direta — máximo 3 frases.
+6. ${langInstruction[lang] || langInstruction["pt-BR"]}`;
+
+    const aiResp = await fetch(CHAT_API, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.9,
+      }),
+    });
+
+    if (!aiResp.ok) {
+      console.warn(`[generateDynamicGreeting] AI call failed: ${aiResp.status}`);
+      return buildReturningLeadMessage(name, lang, lastDate || undefined, summary);
+    }
+
+    const aiData = await aiResp.json();
+    const greeting = aiData?.choices?.[0]?.message?.content?.trim();
+
+    if (!greeting || greeting.length < 10) {
+      console.warn("[generateDynamicGreeting] Empty or too short greeting, using fallback");
+      return buildReturningLeadMessage(name, lang, lastDate || undefined, summary);
+    }
+
+    // Log usage
+    const usage = aiData?.usage;
+    if (usage) {
+      logAIUsage({
+        functionName: "dra-lia",
+        actionLabel: "dynamic-greeting",
+        model: "google/gemini-2.5-flash-lite",
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+      }).catch(() => {});
+    }
+
+    console.log(`[generateDynamicGreeting] Generated for ${name}: ${greeting.slice(0, 80)}...`);
+    return greeting;
+  } catch (e) {
+    console.warn("[generateDynamicGreeting] Error, using fallback:", e);
+    return buildReturningLeadMessage(params.name, params.lang, params.lastDate || undefined, params.summary);
+  }
+}
+
 const RETURNING_LEAD: Record<string, (name: string, topicContext?: string) => string> = {
   "pt-BR": (name, _tc) => buildReturningLeadMessage(name, "pt-BR"),
   "en-US": (name, _tc) => buildReturningLeadMessage(name, "en-US"),
@@ -3278,7 +3372,7 @@ Campos:
           // Fetch lia_attendances for full lead profile + resumo
           const { data: attendance } = await supabase
             .from("lia_attendances")
-            .select("resumo_historico_ia, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad, astron_status, astron_plans_active, astron_courses_total, astron_courses_completed, astron_login_url, astron_synced_at")
+            .select("resumo_historico_ia, historico_resumos, area_atuacao, especialidade, telefone_normalized, tem_impressora, impressora_modelo, tem_scanner, como_digitaliza, produto_interesse, temperatura_lead, cidade, uf, score, status_oportunidade, ultima_etapa_comercial, rota_inicial_lia, software_cad, volume_mensal_pecas, principal_aplicacao, resina_interesse, ativo_print, ativo_scan, ativo_cad, astron_status, astron_plans_active, astron_courses_total, astron_courses_completed, astron_login_url, astron_synced_at, cognitive_analysis")
             .eq("email", leadState.email)
             .maybeSingle();
 
@@ -3401,8 +3495,22 @@ Campos:
             responseText = greetAndArea[lang] || greetAndArea["pt-BR"];
             console.log(`[lead-collection] Returning lead missing area: ${existingLead.name} (${leadState.email})`);
           } else {
-            responseText = buildReturningLeadMessage(existingLead.name, lang, lastDate || undefined, returningLeadSummary);
-            console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId} | summary: ${returningLeadSummary?.slice(0, 50) || "none"}`);
+            // Parse historico_resumos for dynamic greeting
+            const historicoRaw = attendance?.historico_resumos as Array<{ date?: string; summary?: string }> | null;
+            const historicoForGreeting = (historicoRaw || [])
+              .filter((h: { date?: string; summary?: string }) => h?.summary)
+              .map((h: { date?: string; summary?: string }) => ({ date: h.date || "", summary: h.summary || "" }));
+
+            responseText = await generateDynamicGreeting({
+              name: existingLead.name,
+              lang,
+              lastDate,
+              summary: returningLeadSummary,
+              historico: historicoForGreeting,
+              profile: profileFields.join(" | "),
+              archetype: leadArchetype,
+            });
+            console.log(`[lead-collection] Returning lead (dynamic greeting): ${existingLead.name} (${leadState.email}) → ${leadId}`);
           }
         } else {
           // NEW LEAD — ask for name
