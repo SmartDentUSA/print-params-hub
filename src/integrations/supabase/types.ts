@@ -2515,6 +2515,59 @@ export type Database = {
           },
         ]
       }
+      resin_presentations: {
+        Row: {
+          cost_per_print: number | null
+          created_at: string | null
+          grams_per_print: number | null
+          id: string
+          label: string
+          price: number | null
+          price_per_gram: number | null
+          print_type: string | null
+          prints_per_bottle: number | null
+          resin_id: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          cost_per_print?: number | null
+          created_at?: string | null
+          grams_per_print?: number | null
+          id?: string
+          label?: string
+          price?: number | null
+          price_per_gram?: number | null
+          print_type?: string | null
+          prints_per_bottle?: number | null
+          resin_id: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          cost_per_print?: number | null
+          created_at?: string | null
+          grams_per_print?: number | null
+          id?: string
+          label?: string
+          price?: number | null
+          price_per_gram?: number | null
+          print_type?: string | null
+          prints_per_bottle?: number | null
+          resin_id?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resin_presentations_resin_id_fkey"
+            columns: ["resin_id"]
+            isOneToOne: false
+            referencedRelation: "resins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resins: {
         Row: {
           active: boolean

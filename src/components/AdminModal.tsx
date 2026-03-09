@@ -225,7 +225,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [savedDocId, setSavedDocId] = useState<string | null>(null);
   const [isFormattingInstructions, setIsFormattingInstructions] = useState(false);
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const presentationTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
+  const [presentations, setPresentations] = useState<any[]>([]);
   
   // 🆕 Recursos do sistema para CTA4
   const [systemResources, setSystemResources] = useState<{
@@ -250,6 +252,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           if (type === 'resin') {
             const docs = await fetchResinDocuments(item.id);
             setDocuments(docs);
+            
+            // Fetch presentations
+            const { data: pres } = await supabase
+              .from('resin_presentations')
+              .select('*')
+              .eq('resin_id', item.id)
+              .order('sort_order');
+            setPresentations(pres || []);
             
             // Buscar recursos do sistema para CTA - APENAS documentos desta resina
             const { data: allDocs } = await supabase
@@ -309,6 +319,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         } else {
           // Novo item: sem documentos ainda
           setDocuments([]);
+          setPresentations([]);
           
           const { data: links } = await supabase
             .from('external_links')
@@ -2265,7 +2276,182 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   ADICIONAR DOCUMENTO
                 </Button>
               </div>
-              
+
+              {/* SEÇÃO: Apresentações (SKUs) */}
+              <div className="space-y-4 mt-6 pt-6 border-t">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  📦 Apresentações (SKUs)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Cadastre as diferentes apresentações de peso, preço e rendimento desta resina
+                </p>
+
+                {presentations.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-2 text-xs font-semibold text-muted-foreground mb-2 min-w-[900px]">
+                      <span>Apresentação (grs)</span>
+                      <span>Preço normal</span>
+                      <span>Preço/grama</span>
+                      <span>Tipo impressão</span>
+                      <span>Grs/impressão</span>
+                      <span>Imp./frasco</span>
+                      <span>Custo/impressão</span>
+                      <span></span>
+                    </div>
+                    {presentations.map((pres, idx) => (
+                      <div key={pres.id || idx} className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-2 mb-2 min-w-[900px]">
+                        <Input
+                          placeholder="ex: 1kg"
+                          value={pres.label || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, label: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-label`]);
+                              presentationTimers.current[`${pres.id}-label`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ label: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={pres.price || ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, price: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-price`]);
+                              presentationTimers.current[`${pres.id}-price`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ price: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={pres.price_per_gram || ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, price_per_gram: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-ppg`]);
+                              presentationTimers.current[`${pres.id}-ppg`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ price_per_gram: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Input
+                          placeholder="ex: DLP"
+                          value={pres.print_type || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, print_type: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-pt`]);
+                              presentationTimers.current[`${pres.id}-pt`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ print_type: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={pres.grams_per_print || ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, grams_per_print: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-gpp`]);
+                              presentationTimers.current[`${pres.id}-gpp`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ grams_per_print: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={pres.prints_per_bottle || ''}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, prints_per_bottle: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-ppb`]);
+                              presentationTimers.current[`${pres.id}-ppb`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ prints_per_bottle: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          value={pres.cost_per_print || ''}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, cost_per_print: val } : p));
+                            if (pres.id) {
+                              clearTimeout(presentationTimers.current[`${pres.id}-cpp`]);
+                              presentationTimers.current[`${pres.id}-cpp`] = setTimeout(() => {
+                                supabase.from('resin_presentations').update({ cost_per_print: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
+                              }, 800);
+                            }
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={async () => {
+                            if (pres.id) {
+                              await supabase.from('resin_presentations').delete().eq('id', pres.id);
+                            }
+                            setPresentations(prev => prev.filter((_, i) => i !== idx));
+                            toast({ title: "Apresentação removida" });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <Button
+                  variant="outline"
+                  disabled={!item?.id}
+                  onClick={async () => {
+                    if (!item?.id) {
+                      toast({ title: "Salve a resina primeiro", variant: "destructive" });
+                      return;
+                    }
+                    const { data, error } = await supabase
+                      .from('resin_presentations')
+                      .insert({ resin_id: item.id, sort_order: presentations.length })
+                      .select()
+                      .single();
+                    if (data) {
+                      setPresentations(prev => [...prev, data]);
+                      toast({ title: "Apresentação adicionada" });
+                    }
+                    if (error) {
+                      toast({ title: "Erro ao adicionar", description: error.message, variant: "destructive" });
+                    }
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  ADICIONAR APRESENTAÇÃO
+                </Button>
+                {!item?.id && (
+                  <p className="text-xs text-muted-foreground">Salve a resina primeiro para adicionar apresentações</p>
+                )}
+              </div>
+
               <div className="flex items-center space-x-2">
                 <Switch
                   id="active"
