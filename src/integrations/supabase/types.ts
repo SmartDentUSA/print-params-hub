@@ -2650,6 +2650,123 @@ export type Database = {
         }
         Relationships: []
       }
+      roi_cards: {
+        Row: {
+          active: boolean | null
+          asb_cad: boolean | null
+          asb_clean: boolean | null
+          asb_cure: boolean | null
+          asb_finish: boolean | null
+          asb_print: boolean | null
+          asb_scan: boolean | null
+          cad_cost_manual: number | null
+          cad_cost_smart: number | null
+          cad_time_manual: number | null
+          cad_time_smart: number | null
+          category: string
+          clean_time_manual: number | null
+          clean_time_smart: number | null
+          created_at: string | null
+          cure_time_manual: number | null
+          cure_time_smart: number | null
+          faturamento_kit: number | null
+          finish_time_manual: number | null
+          finish_time_smart: number | null
+          id: string
+          image_url: string | null
+          investimento_inicial: number | null
+          name: string
+          preco_combo: number | null
+          preco_mercado: number | null
+          print_time_manual: number | null
+          print_time_smart: number | null
+          rendimento_unidades: number | null
+          scan_time_manual: number | null
+          scan_time_smart: number | null
+          slug: string | null
+          status: string | null
+          updated_at: string | null
+          waste_pct_manual: number | null
+          waste_pct_smart: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          asb_cad?: boolean | null
+          asb_clean?: boolean | null
+          asb_cure?: boolean | null
+          asb_finish?: boolean | null
+          asb_print?: boolean | null
+          asb_scan?: boolean | null
+          cad_cost_manual?: number | null
+          cad_cost_smart?: number | null
+          cad_time_manual?: number | null
+          cad_time_smart?: number | null
+          category?: string
+          clean_time_manual?: number | null
+          clean_time_smart?: number | null
+          created_at?: string | null
+          cure_time_manual?: number | null
+          cure_time_smart?: number | null
+          faturamento_kit?: number | null
+          finish_time_manual?: number | null
+          finish_time_smart?: number | null
+          id?: string
+          image_url?: string | null
+          investimento_inicial?: number | null
+          name: string
+          preco_combo?: number | null
+          preco_mercado?: number | null
+          print_time_manual?: number | null
+          print_time_smart?: number | null
+          rendimento_unidades?: number | null
+          scan_time_manual?: number | null
+          scan_time_smart?: number | null
+          slug?: string | null
+          status?: string | null
+          updated_at?: string | null
+          waste_pct_manual?: number | null
+          waste_pct_smart?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          asb_cad?: boolean | null
+          asb_clean?: boolean | null
+          asb_cure?: boolean | null
+          asb_finish?: boolean | null
+          asb_print?: boolean | null
+          asb_scan?: boolean | null
+          cad_cost_manual?: number | null
+          cad_cost_smart?: number | null
+          cad_time_manual?: number | null
+          cad_time_smart?: number | null
+          category?: string
+          clean_time_manual?: number | null
+          clean_time_smart?: number | null
+          created_at?: string | null
+          cure_time_manual?: number | null
+          cure_time_smart?: number | null
+          faturamento_kit?: number | null
+          finish_time_manual?: number | null
+          finish_time_smart?: number | null
+          id?: string
+          image_url?: string | null
+          investimento_inicial?: number | null
+          name?: string
+          preco_combo?: number | null
+          preco_mercado?: number | null
+          print_time_manual?: number | null
+          print_time_smart?: number | null
+          rendimento_unidades?: number | null
+          scan_time_manual?: number | null
+          scan_time_smart?: number | null
+          slug?: string | null
+          status?: string | null
+          updated_at?: string | null
+          waste_pct_manual?: number | null
+          waste_pct_smart?: number | null
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           created_at: string | null
