@@ -2801,6 +2801,7 @@ export type Database = {
         Row: {
           active: boolean | null
           asb_cad: boolean | null
+          asb_cam: boolean | null
           asb_clean: boolean | null
           asb_cure: boolean | null
           asb_finish: boolean | null
@@ -2813,6 +2814,8 @@ export type Database = {
           cam_operator: string | null
           cam_support_time: number | null
           cam_support_type: string | null
+          cam_time_manual: number | null
+          cam_time_smart: number | null
           category: string
           clean_time_manual: number | null
           clean_time_smart: number | null
@@ -2845,6 +2848,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           asb_cad?: boolean | null
+          asb_cam?: boolean | null
           asb_clean?: boolean | null
           asb_cure?: boolean | null
           asb_finish?: boolean | null
@@ -2857,6 +2861,8 @@ export type Database = {
           cam_operator?: string | null
           cam_support_time?: number | null
           cam_support_type?: string | null
+          cam_time_manual?: number | null
+          cam_time_smart?: number | null
           category?: string
           clean_time_manual?: number | null
           clean_time_smart?: number | null
@@ -2889,6 +2895,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           asb_cad?: boolean | null
+          asb_cam?: boolean | null
           asb_clean?: boolean | null
           asb_cure?: boolean | null
           asb_finish?: boolean | null
@@ -2901,6 +2908,8 @@ export type Database = {
           cam_operator?: string | null
           cam_support_time?: number | null
           cam_support_type?: string | null
+          cam_time_manual?: number | null
+          cam_time_smart?: number | null
           category?: string
           clean_time_manual?: number | null
           clean_time_smart?: number | null
