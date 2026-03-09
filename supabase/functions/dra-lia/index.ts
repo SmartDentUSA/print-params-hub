@@ -1080,6 +1080,100 @@ function buildReturningLeadMessage(name: string, lang: string, lastDate?: string
   return msg;
 }
 
+async function generateDynamicGreeting(params: {
+  name: string;
+  lang: string;
+  lastDate?: string | null;
+  summary?: string | null;
+  historico?: Array<{ date: string; summary: string }> | null;
+  profile?: string;
+  archetype?: string;
+}): Promise<string> {
+  try {
+    const { name, lang, lastDate, summary, historico, profile, archetype } = params;
+    const sessionsCount = (historico?.length || 0) + (summary ? 1 : 0);
+    const { date: formattedDate } = lastDate ? formatLastContactDate(lastDate, lang) : { date: "" };
+
+    const langInstruction: Record<string, string> = {
+      "pt-BR": "Responda em português brasileiro.",
+      "en-US": "Respond in English.",
+      "es-ES": "Responde en español.",
+    };
+
+    // Build recent topics from historico_resumos
+    const recentTopics = (historico || [])
+      .slice(0, 3)
+      .map(h => h.summary)
+      .filter(Boolean)
+      .join("; ");
+
+    const prompt = `Você é a Dra. L.I.A., consultora especialista em odontologia digital da Smart Dent.
+Um lead está retornando ao chat. Gere uma saudação personalizada, calorosa e natural (máximo 3 frases curtas).
+
+DADOS DO LEAD:
+- Nome: ${name}
+- Última conversa: ${formattedDate || "data desconhecida"}
+- Resumo última conversa: ${summary || "não disponível"}
+${recentTopics ? `- Temas de conversas anteriores: ${recentTopics}` : ""}
+${profile ? `- Perfil: ${profile}` : ""}
+${archetype ? `- Arquétipo: ${archetype}` : ""}
+- Total de sessões anteriores: ${sessionsCount}
+
+REGRAS:
+1. Use emoji com moderação (máx 1).
+2. Mencione algo específico da última conversa ou do perfil do lead se disponível.
+3. Termine com uma pergunta aberta sobre como ajudar hoje.
+4. NÃO use a estrutura "Olá X! Que bom te ver. Nos falamos no dia Y. Sobre Z." — varie o formato.
+5. Seja breve e direta — máximo 3 frases.
+6. ${langInstruction[lang] || langInstruction["pt-BR"]}`;
+
+    const aiResp = await fetch(CHAT_API, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-lite",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 150,
+        temperature: 0.9,
+      }),
+    });
+
+    if (!aiResp.ok) {
+      console.warn(`[generateDynamicGreeting] AI call failed: ${aiResp.status}`);
+      return buildReturningLeadMessage(name, lang, lastDate || undefined, summary);
+    }
+
+    const aiData = await aiResp.json();
+    const greeting = aiData?.choices?.[0]?.message?.content?.trim();
+
+    if (!greeting || greeting.length < 10) {
+      console.warn("[generateDynamicGreeting] Empty or too short greeting, using fallback");
+      return buildReturningLeadMessage(name, lang, lastDate || undefined, summary);
+    }
+
+    // Log usage
+    const usage = aiData?.usage;
+    if (usage) {
+      logAIUsage({
+        functionName: "dra-lia",
+        actionLabel: "dynamic-greeting",
+        model: "google/gemini-2.5-flash-lite",
+        promptTokens: usage.prompt_tokens || 0,
+        completionTokens: usage.completion_tokens || 0,
+      }).catch(() => {});
+    }
+
+    console.log(`[generateDynamicGreeting] Generated for ${name}: ${greeting.slice(0, 80)}...`);
+    return greeting;
+  } catch (e) {
+    console.warn("[generateDynamicGreeting] Error, using fallback:", e);
+    return buildReturningLeadMessage(params.name, params.lang, params.lastDate || undefined, params.summary);
+  }
+}
+
 const RETURNING_LEAD: Record<string, (name: string, topicContext?: string) => string> = {
   "pt-BR": (name, _tc) => buildReturningLeadMessage(name, "pt-BR"),
   "en-US": (name, _tc) => buildReturningLeadMessage(name, "en-US"),
