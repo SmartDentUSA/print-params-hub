@@ -2298,110 +2298,84 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       <span>Custo/impressão</span>
                       <span></span>
                     </div>
-                    {presentations.map((pres, idx) => (
+                    {presentations.map((pres, idx) => {
+                      // Helper: extract grams from label (e.g. "1kg"→1000, "500g"→500, "1.5kg"→1500)
+                      const extractGrams = (label: string): number => {
+                        if (!label) return 0;
+                        const kg = label.match(/([\d.,]+)\s*kg/i);
+                        if (kg) return parseFloat(kg[1].replace(',', '.')) * 1000;
+                        const g = label.match(/([\d.,]+)\s*g/i);
+                        if (g) return parseFloat(g[1].replace(',', '.'));
+                        const num = parseFloat(label.replace(',', '.'));
+                        return isNaN(num) ? 0 : num;
+                      };
+
+                      const calcAndSave = (updated: any) => {
+                        const grams = extractGrams(updated.label || '');
+                        const price = parseFloat(updated.price) || 0;
+                        const ppg = grams > 0 ? parseFloat((price / grams).toFixed(4)) : 0;
+                        const gpp = parseFloat(updated.grams_per_print) || 0;
+                        const cpp = ppg > 0 && gpp > 0 ? parseFloat((ppg * gpp).toFixed(4)) : 0;
+                        const printsPerBottle = grams > 0 && gpp > 0 ? Math.floor(grams / gpp) : (parseInt(updated.prints_per_bottle) || 0);
+                        const final_ = { ...updated, price_per_gram: ppg, cost_per_print: cpp, prints_per_bottle: printsPerBottle };
+                        setPresentations(prev => prev.map((p, i) => i === idx ? final_ : p));
+                        if (updated.id) {
+                          clearTimeout(presentationTimers.current[`${updated.id}-calc`]);
+                          presentationTimers.current[`${updated.id}-calc`] = setTimeout(() => {
+                            supabase.from('resin_presentations').update({
+                              label: final_.label, price: final_.price, price_per_gram: ppg,
+                              print_type: final_.print_type, grams_per_print: gpp,
+                              prints_per_bottle: printsPerBottle, cost_per_print: cpp,
+                              updated_at: new Date().toISOString()
+                            }).eq('id', updated.id).then();
+                          }, 800);
+                        }
+                      };
+
+                      return (
                       <div key={pres.id || idx} className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_1fr_auto] gap-2 mb-2 min-w-[900px]">
                         <Input
                           placeholder="ex: 1kg"
                           value={pres.label || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, label: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-label`]);
-                              presentationTimers.current[`${pres.id}-label`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ label: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          onChange={(e) => calcAndSave({ ...pres, label: e.target.value })}
                         />
                         <Input
                           type="number"
                           placeholder="0"
                           value={pres.price || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, price: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-price`]);
-                              presentationTimers.current[`${pres.id}-price`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ price: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          onChange={(e) => calcAndSave({ ...pres, price: e.target.value })}
                         />
                         <Input
                           type="number"
-                          placeholder="0"
+                          placeholder="auto"
                           value={pres.price_per_gram || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, price_per_gram: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-ppg`]);
-                              presentationTimers.current[`${pres.id}-ppg`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ price_per_gram: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          disabled
+                          className="bg-muted/50"
                         />
                         <Input
                           placeholder="ex: DLP"
                           value={pres.print_type || ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, print_type: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-pt`]);
-                              presentationTimers.current[`${pres.id}-pt`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ print_type: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          onChange={(e) => calcAndSave({ ...pres, print_type: e.target.value })}
                         />
                         <Input
                           type="number"
                           placeholder="0"
                           value={pres.grams_per_print || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, grams_per_print: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-gpp`]);
-                              presentationTimers.current[`${pres.id}-gpp`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ grams_per_print: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          onChange={(e) => calcAndSave({ ...pres, grams_per_print: e.target.value })}
                         />
                         <Input
                           type="number"
-                          placeholder="0"
+                          placeholder="auto"
                           value={pres.prints_per_bottle || ''}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value) || 0;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, prints_per_bottle: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-ppb`]);
-                              presentationTimers.current[`${pres.id}-ppb`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ prints_per_bottle: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          disabled
+                          className="bg-muted/50"
                         />
                         <Input
                           type="number"
-                          placeholder="0"
+                          placeholder="auto"
                           value={pres.cost_per_print || ''}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setPresentations(prev => prev.map((p, i) => i === idx ? { ...p, cost_per_print: val } : p));
-                            if (pres.id) {
-                              clearTimeout(presentationTimers.current[`${pres.id}-cpp`]);
-                              presentationTimers.current[`${pres.id}-cpp`] = setTimeout(() => {
-                                supabase.from('resin_presentations').update({ cost_per_print: val, updated_at: new Date().toISOString() }).eq('id', pres.id).then();
-                              }, 800);
-                            }
-                          }}
+                          disabled
+                          className="bg-muted/50"
                         />
                         <Button
                           variant="ghost"
@@ -2418,7 +2392,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
