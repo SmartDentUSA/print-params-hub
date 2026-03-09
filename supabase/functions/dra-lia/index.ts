@@ -3495,8 +3495,22 @@ Campos:
             responseText = greetAndArea[lang] || greetAndArea["pt-BR"];
             console.log(`[lead-collection] Returning lead missing area: ${existingLead.name} (${leadState.email})`);
           } else {
-            responseText = buildReturningLeadMessage(existingLead.name, lang, lastDate || undefined, returningLeadSummary);
-            console.log(`[lead-collection] Returning lead: ${existingLead.name} (${leadState.email}) → ${leadId} | summary: ${returningLeadSummary?.slice(0, 50) || "none"}`);
+            // Parse historico_resumos for dynamic greeting
+            const historicoRaw = attendance?.historico_resumos as Array<{ date?: string; summary?: string }> | null;
+            const historicoForGreeting = (historicoRaw || [])
+              .filter((h: { date?: string; summary?: string }) => h?.summary)
+              .map((h: { date?: string; summary?: string }) => ({ date: h.date || "", summary: h.summary || "" }));
+
+            responseText = await generateDynamicGreeting({
+              name: existingLead.name,
+              lang,
+              lastDate,
+              summary: returningLeadSummary,
+              historico: historicoForGreeting,
+              profile: profileFields.join(" | "),
+              archetype: leadArchetype,
+            });
+            console.log(`[lead-collection] Returning lead (dynamic greeting): ${existingLead.name} (${leadState.email}) → ${leadId}`);
           }
         } else {
           // NEW LEAD — ask for name
