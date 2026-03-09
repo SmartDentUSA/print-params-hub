@@ -91,7 +91,7 @@ const EMPTY_CARD: Omit<ROICard, "id"> = {
   scan_time_manual: 15, scan_time_smart: 5,
   cad_time_manual: 20, cad_time_smart: 4,
   cad_cost_manual: 50, cad_cost_smart: 8,
-  cam_time_manual: 5, cam_time_smart: 0.5, asb_cam: true,
+  cam_time_manual: 5, cam_time_smart: 0.5,
   print_time_manual: 15, print_time_smart: 0.5,
   clean_time_manual: 10, clean_time_smart: 0.67,
   cure_time_manual: 15, cure_time_smart: 5,
@@ -144,7 +144,7 @@ export function SmartOpsROICardsManager() {
     queryFn: async () => {
       const { data, error } = await supabase.from("roi_cards").select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      return data as ROICard[];
+      return data as unknown as ROICard[];
     },
   });
 
