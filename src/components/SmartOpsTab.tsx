@@ -18,6 +18,7 @@ import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
 import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
 import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "./SmartOpsReports";
+import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
 
 
 export function SmartOpsTab() {
@@ -84,6 +85,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="formularios">Formulários</TabsTrigger>
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
           <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
+          <TabsTrigger value="roi">ROI</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bowtie">
@@ -124,6 +126,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="intelligence">
           <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />
+        </TabsContent>
+        <TabsContent value="roi">
+          <SmartOpsSmartFlowAnalytics />
         </TabsContent>
       </Tabs>
     </div>
