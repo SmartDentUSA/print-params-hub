@@ -2392,7 +2392,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 
