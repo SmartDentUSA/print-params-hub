@@ -299,6 +299,9 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Track whether this is a pre-existing lead (real) vs newly created placeholder
+    let isPlaceholderLead = false;
+
     if (!leadId) {
       const placeholderEmail = `wa_${phoneDigits}_${Date.now()}@whatsapp.lead`;
       const nome = senderName || `WhatsApp ${phoneDigits.slice(-4)}`;
@@ -321,7 +324,8 @@ Deno.serve(async (req) => {
         leadId = newLead.id;
         leadEmail = newLead.email;
         leadNome = newLead.nome;
-        console.log(`[dra-lia-wa] Created new lead: ${leadNome} (${leadId})`);
+        isPlaceholderLead = true;
+        console.log(`[dra-lia-wa] Created new PLACEHOLDER lead: ${leadNome} (${leadId}) — will NOT pre-seed session`);
       }
     }
 
