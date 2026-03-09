@@ -225,7 +225,9 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [savedDocId, setSavedDocId] = useState<string | null>(null);
   const [isFormattingInstructions, setIsFormattingInstructions] = useState(false);
   const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
+  const presentationTimers = useRef<Record<string, NodeJS.Timeout>>({});
   const { fetchResinDocuments, insertResinDocument, updateResinDocument, deleteResinDocument } = useSupabaseCRUD();
+  const [presentations, setPresentations] = useState<any[]>([]);
   
   // 🆕 Recursos do sistema para CTA4
   const [systemResources, setSystemResources] = useState<{
@@ -250,6 +252,14 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           if (type === 'resin') {
             const docs = await fetchResinDocuments(item.id);
             setDocuments(docs);
+            
+            // Fetch presentations
+            const { data: pres } = await supabase
+              .from('resin_presentations')
+              .select('*')
+              .eq('resin_id', item.id)
+              .order('sort_order');
+            setPresentations(pres || []);
             
             // Buscar recursos do sistema para CTA - APENAS documentos desta resina
             const { data: allDocs } = await supabase
@@ -309,6 +319,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         } else {
           // Novo item: sem documentos ainda
           setDocuments([]);
+          setPresentations([]);
           
           const { data: links } = await supabase
             .from('external_links')
