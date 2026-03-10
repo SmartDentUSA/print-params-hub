@@ -154,30 +154,71 @@ function MessageSection({ title, emoji, messages }: { title: string; emoji: stri
   );
 }
 
+interface AgentInteraction {
+  id: string;
+  created_at: string;
+  user_message: string;
+  agent_response: string | null;
+  feedback: string | null;
+  lang: string | null;
+}
+
+interface WhatsAppMsg {
+  id: string;
+  created_at: string;
+  message_text: string | null;
+  direction: string;
+  intent_detected: string | null;
+  media_url: string | null;
+  media_type: string | null;
+}
+
 export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps) {
   const [systemMsgs, setSystemMsgs] = useState<MsgLog[]>([]);
   const [sellerMsgs, setSellerMsgs] = useState<MsgLog[]>([]);
+  const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
+  const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
 
   useEffect(() => {
     if (!lead?.id || !open) {
       setSystemMsgs([]);
       setSellerMsgs([]);
+      setLiaInteractions([]);
+      setWhatsappMsgs([]);
       return;
     }
     setLoadingMsgs(true);
-    supabase
+
+    const p1 = supabase
       .from("message_logs")
       .select("id, tipo, mensagem_preview, status, data_envio, whatsapp_number")
       .eq("lead_id", lead.id)
       .order("data_envio", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        const logs = (data || []) as MsgLog[];
-        setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
-        setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
-        setLoadingMsgs(false);
-      });
+      .limit(50);
+
+    const p2 = supabase
+      .from("agent_interactions")
+      .select("id, created_at, user_message, agent_response, feedback, lang")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const p3 = supabase
+      .from("whatsapp_inbox")
+      .select("id, created_at, message_text, direction, intent_detected, media_url, media_type")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    Promise.all([p1, p2, p3]).then(([r1, r2, r3]) => {
+      const logs = (r1.data || []) as MsgLog[];
+      setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
+      setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
+      setLiaInteractions((r2.data || []) as AgentInteraction[]);
+      setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
+      setLoadingMsgs(false);
+    });
   }, [lead?.id, open]);
 
   if (!lead) return null;
