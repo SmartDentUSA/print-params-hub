@@ -4179,48 +4179,208 @@ Campos:
       return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    // 0b. Support question guard — redirect to WhatsApp without RAG
-    // Only triggers on keyword match, NOT on topic_context === "support" (which would block all subsequent messages)
-    if (isSupportQuestion(message)) {
-      const supportText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          const words = supportText.split(" ");
-          let i = 0;
-          const interval = setInterval(() => {
-            if (i < words.length) {
-              const token = (i === 0 ? "" : " ") + words[i];
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: token } }] })}\n\n`)
-              );
-              i++;
-            } else {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-              controller.close();
-              clearInterval(interval);
-            }
-          }, 25);
-        },
-      });
-      // Save interaction
-      try {
-        await supabase.from("agent_interactions").insert({
-          session_id,
-          user_message: message,
-          agent_response: supportText,
-          lang,
-          top_similarity: 1,
-          unanswered: false,
-          lead_id: currentLeadId,
-          context_raw: "[INTERCEPTOR] support_guard",
-        });
-      } catch (e) {
-        console.error("Failed to insert agent_interaction (support guard):", e);
+    // 0b. Support Ticket Flow — multi-stage conversational support with automatic ticket creation
+    // Check if we're already in a support flow stage
+    const supportFlowStage = (sessionEntities as Record<string, unknown>)?.support_flow_stage as string | undefined;
+
+    if (supportFlowStage) {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const supportEnt = (sessionEntities || {}) as Record<string, unknown>;
+      const supportAnswers = (supportEnt.support_answers || {}) as Record<string, string>;
+
+      // ── Stage: select_equipment — user is choosing which equipment has the problem ──
+      if (supportFlowStage === "select_equipment") {
+        const chosenEquipment = message.trim();
+        const newEnt = { ...supportEnt, support_flow_stage: "diagnosing", support_equipment: chosenEquipment, support_answers: {} };
+        await supabase.from("agent_sessions").upsert({
+          session_id, extracted_entities: newEnt, last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+
+        const diagTexts: Record<string, string> = {
+          "pt-BR": `Entendi, o problema é no **${chosenEquipment}**. Para encaminhar ao suporte técnico com o máximo de informação, preciso de algumas respostas:\n\n1️⃣ **Qual o comportamento ou erro apresentado?**\n\n(Descreva o que acontece — ex: "não liga", "trava no meio da impressão", "mensagem de erro na tela")`,
+          "en-US": `Got it, the issue is with the **${chosenEquipment}**. To forward to technical support with maximum context, I need a few answers:\n\n1️⃣ **What behavior or error is occurring?**\n\n(Describe what happens — e.g., "won't turn on", "freezes mid-print", "error message on screen")`,
+          "es-ES": `Entendido, el problema es con el **${chosenEquipment}**. Para reenviar al soporte técnico con la máxima información, necesito algunas respuestas:\n\n1️⃣ **¿Cuál es el comportamiento o error presentado?**\n\n(Describe qué sucede — ej: "no enciende", "se traba durante la impresión", "mensaje de error en pantalla")`,
+        };
+        const diagText = diagTexts[lang] || diagTexts["pt-BR"];
+        try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: diagText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→select_equipment" }); } catch { /* ignore */ }
+        return streamTextResponse(diagText, corsHeaders);
       }
-      return new Response(stream, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
+
+      // ── Stage: diagnosing — collecting structured answers one by one ──
+      if (supportFlowStage === "diagnosing") {
+        const answer = message.trim();
+        
+        if (!supportAnswers.behavior) {
+          // Got behavior answer, ask when it started
+          const newAnswers = { ...supportAnswers, behavior: answer };
+          const newEnt2 = { ...supportEnt, support_answers: newAnswers };
+          await supabase.from("agent_sessions").upsert({
+            session_id, extracted_entities: newEnt2, last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          const whenTexts: Record<string, string> = {
+            "pt-BR": `Anotado! ✏️\n\n2️⃣ **Quando o problema começou?**\n\n(Ex: "hoje", "há 3 dias", "depois de uma atualização", "sempre aconteceu")`,
+            "en-US": `Noted! ✏️\n\n2️⃣ **When did the problem start?**\n\n(E.g., "today", "3 days ago", "after an update", "it's always been this way")`,
+            "es-ES": `¡Anotado! ✏️\n\n2️⃣ **¿Cuándo comenzó el problema?**\n\n(Ej: "hoy", "hace 3 días", "después de una actualización", "siempre ha sido así")`,
+          };
+          const whenText = whenTexts[lang] || whenTexts["pt-BR"];
+          try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: whenText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→diag_behavior" }); } catch { /* ignore */ }
+          return streamTextResponse(whenText, corsHeaders);
+
+        } else if (!supportAnswers.when_started) {
+          // Got when it started, ask for screen message
+          const newAnswers = { ...supportAnswers, when_started: answer };
+          const newEnt2 = { ...supportEnt, support_answers: newAnswers };
+          await supabase.from("agent_sessions").upsert({
+            session_id, extracted_entities: newEnt2, last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          const screenTexts: Record<string, string> = {
+            "pt-BR": `3️⃣ **O equipamento apresenta alguma mensagem na tela ou LED piscando?**\n\n(Se não tiver tela, descreva qualquer indicação visual — luzes, sons, etc. Se não houver, pode dizer "nenhuma")`,
+            "en-US": `3️⃣ **Does the equipment show any on-screen message or flashing LED?**\n\n(If no screen, describe any visual indicators — lights, sounds, etc. If none, just say "none")`,
+            "es-ES": `3️⃣ **¿El equipo muestra algún mensaje en pantalla o LED parpadeante?**\n\n(Si no tiene pantalla, describe cualquier indicación visual — luces, sonidos, etc. Si no hay, puedes decir "ninguna")`,
+          };
+          const screenText = screenTexts[lang] || screenTexts["pt-BR"];
+          try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: screenText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→diag_when" }); } catch { /* ignore */ }
+          return streamTextResponse(screenText, corsHeaders);
+
+        } else if (!supportAnswers.screen_message) {
+          // Got screen message — all diagnostic answers collected, ask for summary
+          const newAnswers = { ...supportAnswers, screen_message: answer };
+          const newEnt2 = { ...supportEnt, support_flow_stage: "awaiting_summary", support_answers: newAnswers };
+          await supabase.from("agent_sessions").upsert({
+            session_id, extracted_entities: newEnt2, last_activity_at: new Date().toISOString(),
+          }, { onConflict: "session_id" });
+
+          const summaryTexts: Record<string, string> = {
+            "pt-BR": `Obrigada pelas informações! 📋\n\nPara agilizar o atendimento técnico, escreva um **breve resumo do problema** que está enfrentando.\nEssa informação será enviada diretamente ao suporte especializado.`,
+            "en-US": `Thank you for the information! 📋\n\nTo speed up technical support, please write a **brief summary of the problem** you're experiencing.\nThis will be sent directly to our specialized support team.`,
+            "es-ES": `¡Gracias por la información! 📋\n\nPara agilizar la atención técnica, escribe un **breve resumen del problema** que estás enfrentando.\nEsta información será enviada directamente al soporte especializado.`,
+          };
+          const summaryText = summaryTexts[lang] || summaryTexts["pt-BR"];
+          try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: summaryText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→diag_screen" }); } catch { /* ignore */ }
+          return streamTextResponse(summaryText, corsHeaders);
+        }
+      }
+
+      // ── Stage: awaiting_summary — user sends their free-text summary → create ticket immediately ──
+      if (supportFlowStage === "awaiting_summary") {
+        const clientSummary = message.trim();
+        const equipment = (supportEnt.support_equipment as string) || "";
+
+        // Build conversation log from recent interactions
+        const { data: recentMsgs } = await supabase
+          .from("agent_interactions")
+          .select("user_message, agent_response, created_at")
+          .eq("session_id", session_id)
+          .order("created_at", { ascending: true })
+          .limit(30);
+
+        const conversationLog = (recentMsgs || []).flatMap((m: { user_message: string; agent_response: string | null }) => {
+          const entries: Array<{ role: string; content: string }> = [];
+          if (m.user_message) entries.push({ role: "user", content: m.user_message });
+          if (m.agent_response) entries.push({ role: "assistant", content: m.agent_response });
+          return entries;
+        });
+
+        // Clear support flow from session
+        const clearedEnt = { ...supportEnt };
+        delete clearedEnt.support_flow_stage;
+        delete clearedEnt.support_equipment;
+        delete clearedEnt.support_answers;
+        await supabase.from("agent_sessions").upsert({
+          session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+
+        // Fire ticket creation (fire-and-forget with inline confirmation)
+        let ticketConfirmText: string;
+        try {
+          const ticketResp = await fetch(`${SUPABASE_URL}/functions/v1/create-technical-ticket`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              lead_id: currentLeadId,
+              equipment,
+              client_summary: clientSummary,
+              support_answers: supportAnswers,
+              conversation_log: conversationLog,
+              session_id,
+              lang,
+            }),
+          });
+          const ticketResult = await ticketResp.json();
+
+          if (ticketResult.success) {
+            const ticketId = ticketResult.ticket_full_id;
+            const confirmTexts: Record<string, string> = {
+              "pt-BR": `✅ **Chamado #${ticketId} criado com sucesso!**\n\nSeu chamado já foi enviado diretamente ao suporte técnico especializado com todas as informações que você forneceu.\n\n🔧 A equipe vai entrar em contato com você em breve.\n\nPrecisa de algo mais? Posso te ajudar com outras dúvidas! 😊`,
+              "en-US": `✅ **Ticket #${ticketId} created successfully!**\n\nYour ticket has been sent directly to specialized technical support with all the information you provided.\n\n🔧 The team will reach out to you shortly.\n\nNeed anything else? I can help with other questions! 😊`,
+              "es-ES": `✅ **Ticket #${ticketId} creado con éxito!**\n\nSu ticket ha sido enviado directamente al soporte técnico especializado con toda la información que proporcionó.\n\n🔧 El equipo se pondrá en contacto contigo pronto.\n\n¿Necesitas algo más? ¡Puedo ayudarte con otras preguntas! 😊`,
+            };
+            ticketConfirmText = confirmTexts[lang] || confirmTexts["pt-BR"];
+          } else {
+            console.error("[support_flow] Ticket creation failed:", ticketResult);
+            ticketConfirmText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
+          }
+        } catch (e) {
+          console.error("[support_flow] Ticket creation error:", e);
+          ticketConfirmText = SUPPORT_FALLBACK[lang] || SUPPORT_FALLBACK["pt-BR"];
+        }
+
+        try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: ticketConfirmText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→ticket_created" }); } catch { /* ignore */ }
+        return streamTextResponse(ticketConfirmText, corsHeaders);
+      }
+    }
+
+    // 0b-entry. Support question detection — start support ticket flow instead of static redirect
+    if (isSupportQuestion(message)) {
+      // Fetch lead equipment for selection
+      let equipmentOptions: string[] = [];
+      if (currentLeadId) {
+        const { data: leadProfile } = await supabase
+          .from("lia_attendances")
+          .select("impressora_modelo, equip_scanner, equip_pos_impressao, equip_cad, equip_notebook, ativo_print, ativo_scan, ativo_cura, ativo_cad, ativo_notebook")
+          .eq("id", currentLeadId)
+          .maybeSingle();
+
+        if (leadProfile) {
+          if (leadProfile.ativo_print && leadProfile.impressora_modelo) equipmentOptions.push(leadProfile.impressora_modelo);
+          if (leadProfile.ativo_scan && leadProfile.equip_scanner) equipmentOptions.push(leadProfile.equip_scanner);
+          if (leadProfile.ativo_cura && leadProfile.equip_pos_impressao) equipmentOptions.push(leadProfile.equip_pos_impressao);
+          if (leadProfile.ativo_cad && leadProfile.equip_cad) equipmentOptions.push(leadProfile.equip_cad);
+          if (leadProfile.ativo_notebook && leadProfile.equip_notebook) equipmentOptions.push(leadProfile.equip_notebook);
+        }
+      }
+
+      // Set support flow stage
+      const newEnt = { ...(sessionEntities || {}), support_flow_stage: "select_equipment" };
+      await supabase.from("agent_sessions").upsert({
+        session_id, extracted_entities: newEnt, last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+
+      let selectText: string;
+      if (equipmentOptions.length > 0) {
+        const equipList = equipmentOptions.map((e, i) => `${i + 1}️⃣ ${e}`).join("\n");
+        const selectTexts: Record<string, string> = {
+          "pt-BR": `Vou abrir um chamado técnico para você! 🔧\n\nIdentifiquei esses equipamentos no seu cadastro:\n\n${equipList}\n\n**Qual equipamento está apresentando problema?**\n\n(Responda com o nome ou número do equipamento, ou digite outro se não estiver na lista)`,
+          "en-US": `I'll open a technical support ticket for you! 🔧\n\nI found these devices in your profile:\n\n${equipList}\n\n**Which device is having the issue?**\n\n(Reply with the name or number, or type another if not listed)`,
+          "es-ES": `¡Voy a abrir un ticket de soporte técnico para ti! 🔧\n\nIdentifiqué estos equipos en tu registro:\n\n${equipList}\n\n**¿Cuál equipo está presentando el problema?**\n\n(Responde con el nombre o número del equipo, o escribe otro si no está en la lista)`,
+        };
+        selectText = selectTexts[lang] || selectTexts["pt-BR"];
+      } else {
+        const noEquipTexts: Record<string, string> = {
+          "pt-BR": `Vou abrir um chamado técnico para você! 🔧\n\n**Qual equipamento está apresentando problema?**\n\n(Ex: impressora 3D, scanner, unidade de pós-processamento, notebook, software)`,
+          "en-US": `I'll open a technical support ticket for you! 🔧\n\n**Which device is having the issue?**\n\n(E.g., 3D printer, scanner, post-processing unit, notebook, software)`,
+          "es-ES": `¡Voy a abrir un ticket de soporte técnico para ti! 🔧\n\n**¿Cuál equipo está presentando el problema?**\n\n(Ej: impresora 3D, escáner, unidad de post-procesamiento, notebook, software)`,
+        };
+        selectText = noEquipTexts[lang] || noEquipTexts["pt-BR"];
+      }
+
+      try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: selectText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→start" }); } catch { /* ignore */ }
+      return streamTextResponse(selectText, corsHeaders);
     }
 
     // 0c. Guided printer dialog — asks brand → model → sends link
