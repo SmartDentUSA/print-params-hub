@@ -154,30 +154,71 @@ function MessageSection({ title, emoji, messages }: { title: string; emoji: stri
   );
 }
 
+interface AgentInteraction {
+  id: string;
+  created_at: string;
+  user_message: string;
+  agent_response: string | null;
+  feedback: string | null;
+  lang: string | null;
+}
+
+interface WhatsAppMsg {
+  id: string;
+  created_at: string;
+  message_text: string | null;
+  direction: string;
+  intent_detected: string | null;
+  media_url: string | null;
+  media_type: string | null;
+}
+
 export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps) {
   const [systemMsgs, setSystemMsgs] = useState<MsgLog[]>([]);
   const [sellerMsgs, setSellerMsgs] = useState<MsgLog[]>([]);
+  const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
+  const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
 
   useEffect(() => {
     if (!lead?.id || !open) {
       setSystemMsgs([]);
       setSellerMsgs([]);
+      setLiaInteractions([]);
+      setWhatsappMsgs([]);
       return;
     }
     setLoadingMsgs(true);
-    supabase
+
+    const p1 = supabase
       .from("message_logs")
       .select("id, tipo, mensagem_preview, status, data_envio, whatsapp_number")
       .eq("lead_id", lead.id)
       .order("data_envio", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        const logs = (data || []) as MsgLog[];
-        setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
-        setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
-        setLoadingMsgs(false);
-      });
+      .limit(50);
+
+    const p2 = supabase
+      .from("agent_interactions")
+      .select("id, created_at, user_message, agent_response, feedback, lang")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    const p3 = supabase
+      .from("whatsapp_inbox")
+      .select("id, created_at, message_text, direction, intent_detected, media_url, media_type")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(100);
+
+    Promise.all([p1, p2, p3]).then(([r1, r2, r3]) => {
+      const logs = (r1.data || []) as MsgLog[];
+      setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
+      setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
+      setLiaInteractions((r2.data || []) as AgentInteraction[]);
+      setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
+      setLoadingMsgs(false);
+    });
   }, [lead?.id, open]);
 
   if (!lead) return null;
@@ -529,8 +570,84 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           </Section>
           <Separator />
 
-          {/* ===== MENSAGENS ===== */}
-          <Section title="Histórico de Mensagens" emoji="💬">
+          {/* ===== CONVERSAS LIA (Web) ===== */}
+          <Section title={`Conversas LIA (${liaInteractions.length})`} emoji="💬" defaultOpen>
+            {loadingMsgs ? (
+              <p className="text-xs text-muted-foreground">Carregando...</p>
+            ) : liaInteractions.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhuma conversa com a LIA</p>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {liaInteractions.map((item) => (
+                  <div key={item.id} className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground block">
+                      {new Date(item.created_at).toLocaleString("pt-BR")}
+                      {item.feedback && item.feedback !== "none" && (
+                        <span className="ml-1">{item.feedback === "positive" ? "👍" : item.feedback === "negative" ? "👎" : ""}</span>
+                      )}
+                    </span>
+                    {/* Client message - left */}
+                    <div className="bg-muted rounded-lg px-2.5 py-1.5 text-xs mr-8 whitespace-pre-wrap">
+                      {item.user_message}
+                    </div>
+                    {/* LIA response - right */}
+                    {item.agent_response && (
+                      <div className="bg-primary/10 text-foreground rounded-lg px-2.5 py-1.5 text-xs ml-8 whitespace-pre-wrap">
+                        {item.agent_response.length > 300 ? item.agent_response.slice(0, 300) + "…" : item.agent_response}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+          <Separator />
+
+          {/* ===== WHATSAPP INBOX ===== */}
+          <Section title={`WhatsApp Inbox (${whatsappMsgs.length})`} emoji="📱">
+            {loadingMsgs ? (
+              <p className="text-xs text-muted-foreground">Carregando...</p>
+            ) : whatsappMsgs.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhuma mensagem WhatsApp</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                {whatsappMsgs.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs ${
+                      msg.direction === "inbound"
+                        ? "bg-muted mr-8"
+                        : "bg-primary/10 ml-8"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(msg.created_at).toLocaleString("pt-BR")}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                        {msg.direction === "inbound" ? "⬅️ entrada" : "➡️ saída"}
+                      </Badge>
+                      {msg.intent_detected && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                          {msg.intent_detected}
+                        </Badge>
+                      )}
+                    </div>
+                    {msg.media_url && (
+                      <a href={msg.media_url} target="_blank" rel="noreferrer" className="text-primary underline text-[10px] block">
+                        📎 {msg.media_type || "arquivo"}
+                      </a>
+                    )}
+                    <p className="whitespace-pre-wrap">{msg.message_text || "[sem texto]"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+          <Separator />
+
+          {/* ===== MENSAGENS (Sistema/Vendedor) ===== */}
+          <Section title="Mensagens Sistema" emoji="📨">
             {loadingMsgs ? (
               <p className="text-xs text-muted-foreground">Carregando...</p>
             ) : (
