@@ -570,8 +570,84 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
           </Section>
           <Separator />
 
-          {/* ===== MENSAGENS ===== */}
-          <Section title="Histórico de Mensagens" emoji="💬">
+          {/* ===== CONVERSAS LIA (Web) ===== */}
+          <Section title={`Conversas LIA (${liaInteractions.length})`} emoji="💬" defaultOpen>
+            {loadingMsgs ? (
+              <p className="text-xs text-muted-foreground">Carregando...</p>
+            ) : liaInteractions.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhuma conversa com a LIA</p>
+            ) : (
+              <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                {liaInteractions.map((item) => (
+                  <div key={item.id} className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground block">
+                      {new Date(item.created_at).toLocaleString("pt-BR")}
+                      {item.feedback && item.feedback !== "none" && (
+                        <span className="ml-1">{item.feedback === "positive" ? "👍" : item.feedback === "negative" ? "👎" : ""}</span>
+                      )}
+                    </span>
+                    {/* Client message - left */}
+                    <div className="bg-muted rounded-lg px-2.5 py-1.5 text-xs mr-8 whitespace-pre-wrap">
+                      {item.user_message}
+                    </div>
+                    {/* LIA response - right */}
+                    {item.agent_response && (
+                      <div className="bg-primary/10 text-foreground rounded-lg px-2.5 py-1.5 text-xs ml-8 whitespace-pre-wrap">
+                        {item.agent_response.length > 300 ? item.agent_response.slice(0, 300) + "…" : item.agent_response}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+          <Separator />
+
+          {/* ===== WHATSAPP INBOX ===== */}
+          <Section title={`WhatsApp Inbox (${whatsappMsgs.length})`} emoji="📱">
+            {loadingMsgs ? (
+              <p className="text-xs text-muted-foreground">Carregando...</p>
+            ) : whatsappMsgs.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhuma mensagem WhatsApp</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                {whatsappMsgs.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`rounded-lg px-2.5 py-1.5 text-xs ${
+                      msg.direction === "inbound"
+                        ? "bg-muted mr-8"
+                        : "bg-primary/10 ml-8"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(msg.created_at).toLocaleString("pt-BR")}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0">
+                        {msg.direction === "inbound" ? "⬅️ entrada" : "➡️ saída"}
+                      </Badge>
+                      {msg.intent_detected && (
+                        <Badge variant="secondary" className="text-[9px] px-1 py-0">
+                          {msg.intent_detected}
+                        </Badge>
+                      )}
+                    </div>
+                    {msg.media_url && (
+                      <a href={msg.media_url} target="_blank" rel="noreferrer" className="text-primary underline text-[10px] block">
+                        📎 {msg.media_type || "arquivo"}
+                      </a>
+                    )}
+                    <p className="whitespace-pre-wrap">{msg.message_text || "[sem texto]"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Section>
+          <Separator />
+
+          {/* ===== MENSAGENS (Sistema/Vendedor) ===== */}
+          <Section title="Mensagens Sistema" emoji="📨">
             {loadingMsgs ? (
               <p className="text-xs text-muted-foreground">Carregando...</p>
             ) : (
