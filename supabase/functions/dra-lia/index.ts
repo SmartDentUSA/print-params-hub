@@ -3396,6 +3396,89 @@ Campos:
           returningLeadSummary = attendance?.resumo_historico_ia || null;
           const lastDate = lastInteraction?.created_at || null;
 
+          // ── SERVER-SIDE SUMMARIZE: resumo_historico_ia catch-up ──
+          // If the lead has previous interactions but no summary, or the summary is stale
+          // (older than the last interaction), generate it now server-side.
+          try {
+            const lastInteractionTime = lastDate ? new Date(lastDate).getTime() : 0;
+            const lastSummaryTime = attendance?.historico_resumos && Array.isArray(attendance.historico_resumos) && attendance.historico_resumos.length > 0
+              ? new Date((attendance.historico_resumos as Array<{ data?: string }>)[0]?.data || "1970-01-01").getTime()
+              : 0;
+            const hasUnsummarizedInteractions = lastInteractionTime > 0 && (
+              !returningLeadSummary ||
+              lastSummaryTime < lastInteractionTime - 86400000 // summary older than last interaction by 1+ day
+            );
+
+            if (hasUnsummarizedInteractions && recentInteractions && recentInteractions.length > 0) {
+              console.log(`[server-summarize] Generating catch-up summary for returning lead ${leadState.email}`);
+              const convoText = (recentInteractions || [])
+                .reverse()
+                .map((i: { user_message: string; agent_response: string | null; created_at: string | null }) => {
+                  const time = i.created_at ? new Date(i.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "";
+                  let line = `[${time}] Usuário: ${i.user_message}`;
+                  if (i.agent_response) line += `\n[${time}] LIA: ${i.agent_response.slice(0, 300)}`;
+                  return line;
+                }).join("\n\n");
+
+              const previousSummary = returningLeadSummary || "";
+              const aiResp = await fetch(CHAT_API, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash-lite",
+                  messages: [
+                    { role: "system", content: `Você DEVE responder EXATAMENTE neste formato, sem exceção:
+ASSUNTOS: [tópicos discutidos separados por vírgula] | PENDÊNCIAS: [dúvidas não resolvidas, próximos passos, ou "Nenhuma"] | INTERESSE: [1=pesquisando, 2=comparando, 3=pronto para comprar]
+
+REGRAS:
+- Use EXATAMENTE as palavras-chave ASSUNTOS, PENDÊNCIAS e INTERESSE seguidas de dois-pontos
+- Separe as seções com pipe |
+- Se houver RESUMO ANTERIOR, incorpore temas relevantes não rediscutidos
+- PENDÊNCIAS devem descrever o que o lead ainda precisa saber ou decidir
+- Sem saudações, sem emojis, sem texto fora do formato` },
+                    { role: "user", content: `RESUMO ANTERIOR: ${previousSummary || "Nenhum"}\n\nCONVERSA RECENTE:\n${convoText.slice(0, 4000)}` },
+                  ],
+                  stream: false,
+                  max_tokens: 300,
+                }),
+              });
+
+              if (aiResp.ok) {
+                const aiData = await aiResp.json();
+                let newSummary = aiData.choices?.[0]?.message?.content?.trim() || "";
+                newSummary = newSummary.replace(/^["']|["']$/g, "").trim();
+                if (newSummary && newSummary.length > 10) {
+                  const today = new Date().toISOString().slice(0, 10);
+                  const previousHistorico = Array.isArray(attendance?.historico_resumos) ? attendance.historico_resumos : [];
+                  const updatedHistorico = [{ data: today, resumo: newSummary, msgs: recentInteractions.length }, ...previousHistorico as Array<Record<string, unknown>>].slice(0, 20);
+                  
+                  await supabase.from("lia_attendances").update({
+                    resumo_historico_ia: newSummary,
+                    historico_resumos: updatedHistorico,
+                    updated_at: new Date().toISOString(),
+                  }).eq("email", leadState.email);
+
+                  returningLeadSummary = newSummary;
+                  console.log(`[server-summarize] Updated resumo_historico_ia for ${leadState.email}: "${newSummary.slice(0, 80)}..."`);
+
+                  // Log AI usage
+                  const usage = aiData.usage || {};
+                  logAIUsage({
+                    functionName: "dra-lia",
+                    actionLabel: "server_side_summarize",
+                    model: "google/gemini-2.5-flash-lite",
+                    promptTokens: usage.prompt_tokens || Math.ceil(convoText.length / 4),
+                    completionTokens: usage.completion_tokens || Math.ceil(newSummary.length / 4),
+                  }).catch(() => {});
+                }
+              } else {
+                console.warn(`[server-summarize] AI call failed: ${aiResp.status}`);
+              }
+            }
+          } catch (sumErr) {
+            console.warn("[server-summarize] Error (non-blocking):", sumErr);
+          }
+
           // Build compact history from recent interactions
           const recentHistoryCompact = (recentInteractions || [])
             .reverse()
