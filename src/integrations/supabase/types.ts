@@ -3300,6 +3300,139 @@ export type Database = {
         }
         Relationships: []
       }
+      technical_ticket_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sender: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sender?: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sender?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "technical_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technical_tickets: {
+        Row: {
+          ai_summary: string | null
+          client_summary: string | null
+          conversation_log: Json | null
+          created_at: string
+          equipment: string | null
+          id: string
+          lead_id: string | null
+          notified_at: string | null
+          resolved_at: string | null
+          status: string
+          support_team_member_id: string | null
+          ticket_full_id: string
+          ticket_sequence: number
+          ticket_version: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          client_summary?: string | null
+          conversation_log?: Json | null
+          created_at?: string
+          equipment?: string | null
+          id?: string
+          lead_id?: string | null
+          notified_at?: string | null
+          resolved_at?: string | null
+          status?: string
+          support_team_member_id?: string | null
+          ticket_full_id: string
+          ticket_sequence: number
+          ticket_version?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          client_summary?: string | null
+          conversation_log?: Json | null
+          created_at?: string
+          equipment?: string | null
+          id?: string
+          lead_id?: string | null
+          notified_at?: string | null
+          resolved_at?: string | null
+          status?: string
+          support_team_member_id?: string | null
+          ticket_full_id?: string
+          ticket_sequence?: number
+          ticket_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_support_team_member_id_fkey"
+            columns: ["support_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
