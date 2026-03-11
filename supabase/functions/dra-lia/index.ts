@@ -4400,25 +4400,27 @@ REGRAS:
         delete clearedEnt.support_flow_stage;
         delete clearedEnt.support_equipment;
         delete clearedEnt.support_answers;
+        delete clearedEnt.lia_lead_id;
         await supabase.from("agent_sessions").upsert({
           session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
         }, { onConflict: "session_id" });
 
-        // Resolve lia_attendances.id from leads.id (currentLeadId points to leads table)
-        let liaLeadId: string | null = null;
-        if (currentLeadId) {
-          // First try: get email from leads table, then find lia_attendances by email
+        // Resolve lia_attendances.id — prefer cached lia_lead_id from session entities
+        let liaLeadId: string | null = (supportEnt.lia_lead_id as string) || null;
+        
+        if (!liaLeadId && currentLeadId) {
+          // Fallback: resolve from leads.id → email → lia_attendances
           const { data: leadsRow } = await supabase.from("leads").select("email").eq("id", currentLeadId).maybeSingle();
           if (leadsRow?.email) {
             const { data: liaRow } = await supabase.from("lia_attendances").select("id").eq("email", leadsRow.email).maybeSingle();
             liaLeadId = liaRow?.id || null;
           }
-          // Fallback: try entities lead_id (might be lia_attendances ID from WhatsApp flow)
+          // Fallback: try entities from WhatsApp flow
           if (!liaLeadId) {
             const entLeadId = supportEnt.lead_id as string || (supportEnt as any).placeholder_lia_id as string || null;
             if (entLeadId) liaLeadId = entLeadId;
           }
-          // Last fallback: try currentLeadId directly (maybe it IS a lia_attendances ID)
+          // Last fallback
           if (!liaLeadId) liaLeadId = currentLeadId;
         }
 
@@ -4469,26 +4471,41 @@ REGRAS:
 
     // 0b-entry. Support question detection — start support ticket flow instead of static redirect
     if (isSupportQuestion(message)) {
-      // Fetch lead equipment for selection
+      // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
+      let liaIdForSupport: string | null = null;
       if (currentLeadId) {
-        const { data: leadProfile } = await supabase
-          .from("lia_attendances")
-          .select("impressora_modelo, equip_scanner, equip_pos_impressao, equip_cad, equip_notebook, ativo_print, ativo_scan, ativo_cura, ativo_cad, ativo_notebook")
-          .eq("id", currentLeadId)
-          .maybeSingle();
+        // Resolve lia_attendances.id from leads.id (currentLeadId is from leads table)
+        const { data: leadsRow } = await supabase.from("leads").select("email").eq("id", currentLeadId).maybeSingle();
+        let liaQuery = supabase.from("lia_attendances")
+          .select("id, impressora_modelo, equip_scanner, equip_pos_impressao, equip_cad, equip_notebook, ativo_print, ativo_scan, ativo_cura, ativo_cad, ativo_notebook");
+        
+        if (leadsRow?.email) {
+          liaQuery = liaQuery.eq("email", leadsRow.email);
+        } else {
+          // Fallback: try currentLeadId directly
+          liaQuery = liaQuery.eq("id", currentLeadId);
+        }
+        
+        const { data: leadProfile } = await liaQuery.maybeSingle();
 
         if (leadProfile) {
-          if (leadProfile.ativo_print && leadProfile.impressora_modelo) equipmentOptions.push(leadProfile.impressora_modelo);
-          if (leadProfile.ativo_scan && leadProfile.equip_scanner) equipmentOptions.push(leadProfile.equip_scanner);
-          if (leadProfile.ativo_cura && leadProfile.equip_pos_impressao) equipmentOptions.push(leadProfile.equip_pos_impressao);
-          if (leadProfile.ativo_cad && leadProfile.equip_cad) equipmentOptions.push(leadProfile.equip_cad);
-          if (leadProfile.ativo_notebook && leadProfile.equip_notebook) equipmentOptions.push(leadProfile.equip_notebook);
+          liaIdForSupport = leadProfile.id;
+          // Show equipment if registered — don't require ativo_* flag (may not be set yet)
+          if (leadProfile.impressora_modelo) equipmentOptions.push(leadProfile.impressora_modelo);
+          if (leadProfile.equip_scanner) equipmentOptions.push(leadProfile.equip_scanner);
+          if (leadProfile.equip_pos_impressao) equipmentOptions.push(leadProfile.equip_pos_impressao);
+          if (leadProfile.equip_cad) equipmentOptions.push(leadProfile.equip_cad);
+          if (leadProfile.equip_notebook) equipmentOptions.push(leadProfile.equip_notebook);
+          // Deduplicate
+          equipmentOptions = [...new Set(equipmentOptions.filter(Boolean))];
         }
+        console.log(`[support_flow] Resolved lia ID: ${liaIdForSupport}, equipment found: ${equipmentOptions.length} items: ${equipmentOptions.join(", ")}`);
       }
 
       // Set support flow stage
-      const newEnt = { ...(sessionEntities || {}), support_flow_stage: "select_equipment" };
+      // Store lia_attendances ID in session entities so ticket creation can use it
+      const newEnt = { ...(sessionEntities || {}), support_flow_stage: "select_equipment", lia_lead_id: liaIdForSupport };
       await supabase.from("agent_sessions").upsert({
         session_id, extracted_entities: newEnt, last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" });
