@@ -38,6 +38,13 @@ export function SmartOpsCopilot() {
   const recognitionRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Persist messages to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("copilot-chat-history", JSON.stringify(messages));
+    } catch { /* storage full, ignore */ }
+  }, [messages]);
+
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
