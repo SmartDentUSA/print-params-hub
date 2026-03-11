@@ -4404,21 +4404,22 @@ REGRAS:
           session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
         }, { onConflict: "session_id" });
 
-        // Resolve lia_attendances.id from leads.id (currentLeadId points to leads table)
-        let liaLeadId: string | null = null;
-        if (currentLeadId) {
-          // First try: get email from leads table, then find lia_attendances by email
+        // Resolve lia_attendances.id — prefer cached lia_lead_id from session entities
+        let liaLeadId: string | null = (supportEnt.lia_lead_id as string) || null;
+        
+        if (!liaLeadId && currentLeadId) {
+          // Fallback: resolve from leads.id → email → lia_attendances
           const { data: leadsRow } = await supabase.from("leads").select("email").eq("id", currentLeadId).maybeSingle();
           if (leadsRow?.email) {
             const { data: liaRow } = await supabase.from("lia_attendances").select("id").eq("email", leadsRow.email).maybeSingle();
             liaLeadId = liaRow?.id || null;
           }
-          // Fallback: try entities lead_id (might be lia_attendances ID from WhatsApp flow)
+          // Fallback: try entities from WhatsApp flow
           if (!liaLeadId) {
             const entLeadId = supportEnt.lead_id as string || (supportEnt as any).placeholder_lia_id as string || null;
             if (entLeadId) liaLeadId = entLeadId;
           }
-          // Last fallback: try currentLeadId directly (maybe it IS a lia_attendances ID)
+          // Last fallback
           if (!liaLeadId) liaLeadId = currentLeadId;
         }
 
