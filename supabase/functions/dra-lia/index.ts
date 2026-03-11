@@ -4400,6 +4400,7 @@ REGRAS:
         delete clearedEnt.support_flow_stage;
         delete clearedEnt.support_equipment;
         delete clearedEnt.support_answers;
+        delete clearedEnt.lia_lead_id;
         await supabase.from("agent_sessions").upsert({
           session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
         }, { onConflict: "session_id" });
