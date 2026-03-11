@@ -3462,8 +3462,79 @@ Campos:
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data } = await req.json();
     const session_id = rawSessionId || crypto.randomUUID();
+
+    // ── IMAGE GATEKEEPER — classify image intent before expensive processing ──
+    let imageContext: { intent: "clinical" | "troubleshooting" | "generic"; ragResults?: Array<{ source_type: string; chunk_text: string; metadata: Record<string, unknown>; similarity: number }>; base64?: string; mimeType?: string } | null = null;
+
+    if (image_data && image_data.base64 && image_data.mime_type) {
+      try {
+        // Gatekeeper: lightweight classification via Gemini Flash Lite
+        const classifyResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: 'Classify this image into ONE category. Reply with ONLY the category name:\n- "clinical" (dental prosthesis, CAD project, dental impression, dental model, resin print, 3D printed dental piece)\n- "troubleshooting" (failed 3D print, print defect, layer issues, support marks, detachment, warping)\n- "generic" (screenshot, meme, selfie, unrelated photo, document scan)\n\nCategory:' },
+                { type: "image_url", image_url: { url: `data:${image_data.mime_type};base64,${image_data.base64}` } },
+              ],
+            }],
+            max_tokens: 10,
+          }),
+        });
+
+        if (classifyResp.ok) {
+          const classifyData = await classifyResp.json();
+          const classification = (classifyData.choices?.[0]?.message?.content || "generic").trim().toLowerCase();
+          const intent = classification.includes("clinical") ? "clinical" as const
+            : classification.includes("troubleshooting") ? "troubleshooting" as const
+            : "generic" as const;
+
+          console.log(`[IMAGE_GATEKEEPER] Classification: ${intent}`);
+
+          if (intent !== "generic") {
+            imageContext = { intent, base64: image_data.base64, mimeType: image_data.mime_type };
+
+            // Try multimodal embedding search if model supports it
+            if (isMultimodalEnabled()) {
+              const imageEmbedding = await generateImageEmbedding(
+                image_data.base64,
+                image_data.mime_type,
+                message || (intent === "clinical" ? "dental product recommendation" : "3D print troubleshooting"),
+              );
+
+              if (imageEmbedding) {
+                const { data: visualMatches } = await supabase.rpc("match_agent_embeddings", {
+                  query_embedding: imageEmbedding,
+                  match_threshold: 0.55,
+                  match_count: 6,
+                });
+
+                if (visualMatches && visualMatches.length > 0) {
+                  imageContext.ragResults = visualMatches;
+                  console.log(`[IMAGE_RAG] Found ${visualMatches.length} visual matches (top: ${visualMatches[0].similarity.toFixed(3)})`);
+                }
+              }
+            }
+          }
+        }
+
+        // Log gatekeeper usage
+        await logAIUsage({
+          functionName: "dra-lia",
+          actionLabel: "image-gatekeeper",
+          model: "google/gemini-2.5-flash-lite",
+          promptTokens: 100,
+          completionTokens: 5,
+        }).catch(() => {});
+      } catch (e) {
+        console.warn("[IMAGE_GATEKEEPER] Error:", e);
+      }
+    }
 
     // ── RATE LIMITING ─────────────────────────────────────────────
     const rateLimitKey = session_id || req.headers.get("x-forwarded-for") || "anonymous";
