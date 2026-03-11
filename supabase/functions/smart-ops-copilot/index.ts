@@ -1,17 +1,40 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { logAIUsage, extractUsage } from "../_shared/log-ai-usage.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const DEEPSEEK_API_KEY = Deno.env.get("DEEPSEEK_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// --- MODEL CONFIG ---
+type ModelId = "deepseek" | "gemini";
+
+function getModelConfig(modelId: ModelId) {
+  if (modelId === "gemini") {
+    return {
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      model: "google/gemini-3-flash-preview",
+      apiKey: LOVABLE_API_KEY!,
+      label: "gemini",
+    };
+  }
+  return {
+    url: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-chat",
+    apiKey: DEEPSEEK_API_KEY,
+    label: "deepseek",
+  };
+}
+
+// --- TOOLS (same as before) ---
 const tools = [
   {
     type: "function",
@@ -392,8 +415,7 @@ async function executeSendWhatsapp(args: any) {
       const text = await response.text();
       return { error: `Resposta não-JSON: ${text.slice(0, 200)}` };
     }
-    const result = await response.json();
-    return result;
+    return await response.json();
   } catch (e) {
     return { error: e.message };
   }
@@ -403,7 +425,6 @@ async function executeNotifySeller(args: any) {
   const { data: sellers } = await supabase.from("team_members").select("id,nome,telefone,email").ilike("nome", `%${args.seller_name}%`).limit(3);
   if (!sellers || sellers.length === 0) return { error: `Vendedor "${args.seller_name}" não encontrado` };
   const seller = sellers[0];
-  // Try to send WhatsApp notification to seller
   if (seller.telefone) {
     const msg = args.message + (args.lead_id ? ` (Lead ID: ${args.lead_id})` : "");
     await executeSendWhatsapp({ phone: seller.telefone, message: msg });
@@ -414,7 +435,7 @@ async function executeNotifySeller(args: any) {
 async function executeSearchVideos(args: any) {
   const limit = Math.min(args.limit || 10, 30);
   const { data, error } = await supabase.from("knowledge_videos")
-    .select("id,title,description,thumbnail_url,url,embed_url,video_type,panda_tags")
+    .select("id,title,description,thumbnail_url,url,embed_url,video_type,panda_tags,pandavideo_id")
     .or(`title.ilike.%${args.query}%,description.ilike.%${args.query}%`)
     .limit(limit);
   if (error) return { error: error.message };
@@ -458,13 +479,13 @@ async function executeQueryTable(args: any) {
 }
 
 async function executeDescribeTable(args: any) {
-  // Return known schema info
   const schemas: Record<string, string[]> = {
-    lia_attendances: ["id","nome","email","telefone","cidade","etapa_crm","tags_crm","intelligence_score_total","urgency_level","interest_timeline","tem_impressora","tem_scanner","especialidade","created_at","proprietario_lead_crm","total_messages","total_sessions"],
+    lia_attendances: ["id","nome","email","telefone","cidade","etapa_crm","tags_crm","intelligence_score_total","urgency_level","interest_timeline","tem_impressora","tem_scanner","especialidade","created_at","proprietario_lead_crm","total_messages","total_sessions","proposals_total_value","lojaintegrada_ultimo_pedido_valor"],
     knowledge_contents: ["id","title","excerpt","slug","content_html","category_id","keywords","active","author_id","created_at"],
-    knowledge_videos: ["id","title","description","url","embed_url","thumbnail_url","video_type","panda_tags","content_id"],
+    knowledge_videos: ["id","title","description","url","embed_url","thumbnail_url","video_type","panda_tags","content_id","pandavideo_id","analytics_views","analytics_plays"],
     team_members: ["id","nome","email","telefone","papel","ativo"],
-    system_a_catalog: ["id","product_name","slug","brand","category","subcategory","active"]
+    system_a_catalog: ["id","product_name","slug","brand","category","subcategory","active"],
+    ai_token_usage: ["id","function_name","action_label","provider","model","prompt_tokens","completion_tokens","total_tokens","estimated_cost_usd","created_at"],
   };
   return { table: args.table, columns: schemas[args.table] || ["Use query_table para explorar"] };
 }
@@ -507,7 +528,6 @@ async function executeCheckMissingFields(args: any) {
   const fields = args.fields || [];
   let query = supabase.from("lia_attendances").select(`id,nome,email,${fields.join(",")}`).limit(args.limit || 20);
   if (args.lead_ids?.length) query = query.in("id", args.lead_ids);
-  // Filter where any field is null
   for (const f of fields) {
     query = query.is(f, null);
   }
@@ -649,14 +669,16 @@ COMPORTAMENTO:
 - Seja conciso e objetivo nas respostas
 - Confirme ações de escrita antes de executar (update, send, etc.)
 - Quando encontrar um lead, mostre nome, email, telefone e etapa CRM
+- IMPORTANTE: Sempre que tiver os dados de uma ferramenta, responda com o resultado formatado. Nunca retorne sem uma resposta textual.
 
 TABELAS PRINCIPAIS:
 - lia_attendances: Hub central de leads (~200 colunas)
 - knowledge_contents: Artigos da base de conhecimento
-- knowledge_videos: Vídeos educacionais
+- knowledge_videos: Vídeos educacionais (com pandavideo_id para vídeos do PandaVideo)
 - team_members: Equipe de vendas
 - system_a_catalog: Catálogo de produtos
 - cs_automation_rules: Regras de automação
+- ai_token_usage: Consumo de tokens IA
 
 CAMPOS IMPORTANTES de lia_attendances:
 - id, nome, email, telefone, cidade, etapa_crm, tags_crm
@@ -665,13 +687,45 @@ CAMPOS IMPORTANTES de lia_attendances:
 - proprietario_lead_crm, total_messages, total_sessions
 - created_at, ultima_sessao_at`;
 
+// --- Helper: simulate SSE from a string ---
+function createSSEFromText(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      // Send in chunks for smooth streaming effect
+      const chunkSize = 20;
+      for (let i = 0; i < text.length; i += chunkSize) {
+        const chunk = text.slice(i, i + chunkSize);
+        const payload = JSON.stringify({ choices: [{ delta: { content: chunk } }] });
+        controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    }
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, csv_data } = await req.json();
+    const { messages, csv_data, model: requestedModel } = await req.json();
     
-    const allMessages = [
+    // Determine which model to use
+    const modelId: ModelId = requestedModel === "gemini" ? "gemini" : "deepseek";
+    const config = getModelConfig(modelId);
+
+    // Validate API key
+    if (!config.apiKey) {
+      const errorMsg = modelId === "gemini" 
+        ? "LOVABLE_API_KEY não configurada. Gemini indisponível."
+        : "DEEPSEEK_API_KEY não configurada.";
+      return new Response(JSON.stringify({ error: errorMsg }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const allMessages: any[] = [
       { role: "system", content: SYSTEM_PROMPT },
       ...messages
     ];
@@ -684,16 +738,19 @@ serve(async (req) => {
       }
     }
 
-    // DeepSeek with tool calling (non-streaming for tool calls, then stream final answer)
     let currentMessages = [...allMessages];
-    let maxIterations = 5;
+    const MAX_ITERATIONS = 10;
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
 
-    while (maxIterations-- > 0) {
-      const response = await fetch("https://api.deepseek.com/chat/completions", {
+    for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+      console.log(`[Copilot] Iteration ${iteration + 1}/${MAX_ITERATIONS} using ${config.label}`);
+      
+      const response = await fetch(config.url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${DEEPSEEK_API_KEY}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.apiKey}` },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: config.model,
           messages: currentMessages,
           tools,
           tool_choice: "auto",
@@ -703,14 +760,31 @@ serve(async (req) => {
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error("DeepSeek error:", response.status, errText);
-        return new Response(JSON.stringify({ error: "Erro ao chamar DeepSeek" }), {
+        console.error(`${config.label} error:`, response.status, errText);
+        
+        if (response.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limit atingido. Tente novamente em alguns segundos." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        if (response.status === 402) {
+          return new Response(JSON.stringify({ error: "Créditos insuficientes para Lovable AI. Adicione créditos no workspace." }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" }
+          });
+        }
+        
+        return new Response(JSON.stringify({ error: `Erro ao chamar ${config.label}: ${response.status}` }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
       }
 
       const result = await response.json();
       const choice = result.choices?.[0];
+      
+      // Track tokens
+      const usage = extractUsage(result);
+      totalPromptTokens += usage.prompt_tokens;
+      totalCompletionTokens += usage.completion_tokens;
 
       if (!choice) {
         return new Response(JSON.stringify({ error: "Sem resposta do modelo" }), {
@@ -718,27 +792,23 @@ serve(async (req) => {
         });
       }
 
-      // If no tool calls, stream the final answer
+      // If the model returned text content WITHOUT tool calls → stream it directly
       if (!choice.message.tool_calls || choice.message.tool_calls.length === 0) {
-        // Stream the final response
-        const streamResp = await fetch("https://api.deepseek.com/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${DEEPSEEK_API_KEY}` },
-          body: JSON.stringify({
-            model: "deepseek-chat",
-            messages: currentMessages,
-            stream: true
-          })
+        const content = choice.message.content || "Operação concluída.";
+        
+        // Log usage
+        logAIUsage({
+          functionName: "smart-ops-copilot",
+          actionLabel: `copilot-chat-${config.label}`,
+          model: config.model,
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens,
+          metadata: { iterations: iteration + 1, modelId }
         });
-
-        if (!streamResp.ok || !streamResp.body) {
-          const content = choice.message.content || "Operação concluída.";
-          return new Response(JSON.stringify({ content }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-          });
-        }
-
-        return new Response(streamResp.body, {
+        
+        // Simulate SSE stream from the existing content (no duplicate API call!)
+        const sseStream = createSSEFromText(content);
+        return new Response(sseStream, {
           headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
         });
       }
@@ -748,8 +818,13 @@ serve(async (req) => {
 
       for (const toolCall of choice.message.tool_calls) {
         const fn = toolCall.function.name;
-        const args = JSON.parse(toolCall.function.arguments || "{}");
-        console.log(`Executing tool: ${fn}`, JSON.stringify(args).slice(0, 200));
+        let args: any;
+        try {
+          args = JSON.parse(toolCall.function.arguments || "{}");
+        } catch {
+          args = {};
+        }
+        console.log(`[Copilot] Tool: ${fn}`, JSON.stringify(args).slice(0, 200));
 
         const executor = toolExecutors[fn];
         let toolResult: any;
@@ -771,8 +846,53 @@ serve(async (req) => {
       }
     }
 
-    // Fallback if max iterations reached
-    return new Response(JSON.stringify({ content: "Operação concluída após múltiplas etapas." }), {
+    // --- SMART FALLBACK: If we hit max iterations, ask model to summarize ---
+    console.log(`[Copilot] Max iterations reached, requesting summary from ${config.label}`);
+    
+    currentMessages.push({
+      role: "user",
+      content: "SISTEMA: Você atingiu o limite de iterações. Com base em todos os resultados das ferramentas acima, forneça uma resposta final resumida e útil ao usuário. Não chame mais ferramentas."
+    });
+
+    try {
+      const summaryResp = await fetch(config.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${config.apiKey}` },
+        body: JSON.stringify({
+          model: config.model,
+          messages: currentMessages,
+          stream: false
+        })
+      });
+
+      if (summaryResp.ok) {
+        const summaryResult = await summaryResp.json();
+        const summaryContent = summaryResult.choices?.[0]?.message?.content || "Operação concluída. Os dados foram processados com sucesso.";
+        
+        const summaryUsage = extractUsage(summaryResult);
+        totalPromptTokens += summaryUsage.prompt_tokens;
+        totalCompletionTokens += summaryUsage.completion_tokens;
+        
+        logAIUsage({
+          functionName: "smart-ops-copilot",
+          actionLabel: `copilot-chat-${config.label}-summary`,
+          model: config.model,
+          promptTokens: totalPromptTokens,
+          completionTokens: totalCompletionTokens,
+          metadata: { iterations: MAX_ITERATIONS, fallback: true, modelId }
+        });
+        
+        const sseStream = createSSEFromText(summaryContent);
+        return new Response(sseStream, {
+          headers: { ...corsHeaders, "Content-Type": "text/event-stream" }
+        });
+      }
+    } catch (e) {
+      console.error("[Copilot] Summary fallback failed:", e);
+    }
+
+    // Ultimate fallback
+    return new Response(JSON.stringify({ content: "Processamento concluído, mas não foi possível gerar um resumo." }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 

@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
-  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles
+  Send, Mic, MicOff, Paperclip, Bot, User, Loader2, Sparkles, Zap, Brain
 } from "lucide-react";
 import { toast } from "sonner";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Message = { role: "user" | "assistant"; content: string };
+type ModelId = "deepseek" | "gemini";
 
 const SUGGESTIONS = [
   "Quantos leads temos no total?",
@@ -25,6 +27,7 @@ export function SmartOpsCopilot() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<ModelId>("deepseek");
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -107,7 +110,7 @@ export function SmartOpsCopilot() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, model: selectedModel }),
       });
 
       if (!resp.ok) {
@@ -260,6 +263,25 @@ export function SmartOpsCopilot() {
 
   return (
     <Card className="h-[calc(100vh-220px)] flex flex-col">
+      {/* Model selector header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <span className="text-xs font-medium text-muted-foreground">Modelo IA</span>
+        <ToggleGroup
+          type="single"
+          value={selectedModel}
+          onValueChange={(v) => { if (v) setSelectedModel(v as ModelId); }}
+          size="sm"
+        >
+          <ToggleGroupItem value="deepseek" className="text-xs gap-1 px-2.5 h-7">
+            <Zap className="w-3 h-3" />
+            DeepSeek
+          </ToggleGroupItem>
+          <ToggleGroupItem value="gemini" className="text-xs gap-1 px-2.5 h-7">
+            <Brain className="w-3 h-3" />
+            Gemini
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         {/* Messages area */}
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
