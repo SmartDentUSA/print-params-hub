@@ -694,6 +694,14 @@ async function detectPrinterDialogState(
   const currentState = sessionData?.current_state || "idle";
   const entities = sessionData?.extracted_entities || {};
 
+  // ── Guard: if session has active support_flow_stage, skip printer dialog entirely ──
+  if (sessionData?.extracted_entities) {
+    const ent = sessionData.extracted_entities as Record<string, unknown>;
+    if (ent.support_flow_stage) {
+      return { state: "not_in_dialog" };
+    }
+  }
+
   // ── topic_context override: if user declared "parameters" intent and session is idle, start dialog directly ──
   if (topic_context === "parameters" && (currentState === "idle" || currentState === "not_in_dialog")) {
     await persistState("needs_brand", {});
