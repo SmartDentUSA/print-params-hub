@@ -16,41 +16,10 @@ const DELAY_MS = 2000; // 2s between batches to avoid rate limits
 
 const EXTERNAL_KB_URL = `${SUPABASE_URL}/functions/v1/knowledge-base`;
 
+import { generateTextEmbedding } from "../_shared/generate-embedding.ts";
+
 async function generateEmbedding(text: string): Promise<number[]> {
-  const modelsToTry = [
-    { model: "models/gemini-embedding-001", version: "v1beta" },
-  ];
-
-  for (const { model, version } of modelsToTry) {
-    const modelId = model.replace("models/", "");
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/${version}/models/${modelId}:embedContent?key=${GOOGLE_AI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          content: { parts: [{ text }] },
-          taskType: "RETRIEVAL_DOCUMENT",
-          outputDimensionality: 768,
-        }),
-      }
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      const values = data.embedding?.values || [];
-      if (values.length > 0) return values;
-    } else {
-      const err = await response.text();
-      console.log(`${model}@${version}: ${response.status} - ${err.slice(0, 100)}`);
-      if (response.status !== 404 && response.status !== 429) {
-        throw new Error(`Embedding API error ${response.status}: ${err}`);
-      }
-    }
-  }
-
-  throw new Error("All embedding models failed. Check logs for details.");
+  return generateTextEmbedding(text, "RETRIEVAL_DOCUMENT");
 }
 
 async function sleep(ms: number) {

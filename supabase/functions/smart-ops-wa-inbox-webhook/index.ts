@@ -210,6 +210,26 @@ Deno.serve(async (req) => {
       console.error("[wa-inbox] Insert error:", insertErr);
     }
 
+    // 4b. Route image to Dra. LIA for visual analysis (fire-and-forget)
+    if (mediaUrl && mediaType === "image" && leadId) {
+      try {
+        const imgResp = await fetch(mediaUrl);
+        if (imgResp.ok) {
+          const imgBuffer = await imgResp.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+          const mimeType = imgResp.headers.get("content-type") || "image/jpeg";
+          fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+            body: JSON.stringify({ message: messageText || "Analise esta imagem", image_data: { base64, mime_type: mimeType }, session_id: `wa-${phoneDigits}`, lang: "pt-BR", topic_context: "support" }),
+          }).catch(e => console.warn("[wa-inbox] LIA image routing error:", e));
+          console.log(`[wa-inbox] Image routed to Dra. LIA for lead ${leadId}`);
+        }
+      } catch (e) {
+        console.warn("[wa-inbox] Image download/route error:", e);
+      }
+    }
+
     // 5. Post-processing based on intent
     let sellerNotified = false;
 

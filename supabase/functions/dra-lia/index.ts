@@ -2194,30 +2194,11 @@ const LANG_INSTRUCTIONS: Record<string, string> = {
   "es-ES": "RESPONDE SIEMPRE en español (es-ES). Aunque los datos del contexto estén en portugués. Traduce las descripciones pero mantén los valores numéricos.",
 };
 
-// Generate embedding via Google AI API (if key available) or return null
-async function generateEmbedding(text: string): Promise<number[] | null> {
-  if (!GOOGLE_AI_KEY) return null;
+// Generate embedding via shared utility (supports text + multimodal)
+import { generateEmbedding as _generateEmbedding, generateImageEmbedding, isMultimodalEnabled } from "../_shared/generate-embedding.ts";
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GOOGLE_AI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/gemini-embedding-001",
-          content: { parts: [{ text }] },
-          taskType: "RETRIEVAL_QUERY",
-          outputDimensionality: 768,
-        }),
-      }
-    );
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.embedding?.values || null;
-  } catch {
-    return null;
-  }
+async function generateEmbedding(text: string): Promise<number[] | null> {
+  return _generateEmbedding({ text, taskType: "RETRIEVAL_QUERY" });
 }
 
 // ── Helper: upsert knowledge gap with frequency increment ─────────────────
@@ -3481,8 +3462,79 @@ Campos:
     }
 
     // ── ACTION: chat ─────────────────────────────────────────────
-    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections } = await req.json();
+    const { message, history = [], lang = "pt-BR", session_id: rawSessionId, topic_context, product_selections, image_data } = await req.json();
     const session_id = rawSessionId || crypto.randomUUID();
+
+    // ── IMAGE GATEKEEPER — classify image intent before expensive processing ──
+    let imageContext: { intent: "clinical" | "troubleshooting" | "generic"; ragResults?: Array<{ source_type: string; chunk_text: string; metadata: Record<string, unknown>; similarity: number }>; base64?: string; mimeType?: string } | null = null;
+
+    if (image_data && image_data.base64 && image_data.mime_type) {
+      try {
+        // Gatekeeper: lightweight classification via Gemini Flash Lite
+        const classifyResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: 'Classify this image into ONE category. Reply with ONLY the category name:\n- "clinical" (dental prosthesis, CAD project, dental impression, dental model, resin print, 3D printed dental piece)\n- "troubleshooting" (failed 3D print, print defect, layer issues, support marks, detachment, warping)\n- "generic" (screenshot, meme, selfie, unrelated photo, document scan)\n\nCategory:' },
+                { type: "image_url", image_url: { url: `data:${image_data.mime_type};base64,${image_data.base64}` } },
+              ],
+            }],
+            max_tokens: 10,
+          }),
+        });
+
+        if (classifyResp.ok) {
+          const classifyData = await classifyResp.json();
+          const classification = (classifyData.choices?.[0]?.message?.content || "generic").trim().toLowerCase();
+          const intent = classification.includes("clinical") ? "clinical" as const
+            : classification.includes("troubleshooting") ? "troubleshooting" as const
+            : "generic" as const;
+
+          console.log(`[IMAGE_GATEKEEPER] Classification: ${intent}`);
+
+          if (intent !== "generic") {
+            imageContext = { intent, base64: image_data.base64, mimeType: image_data.mime_type };
+
+            // Try multimodal embedding search if model supports it
+            if (isMultimodalEnabled()) {
+              const imageEmbedding = await generateImageEmbedding(
+                image_data.base64,
+                image_data.mime_type,
+                message || (intent === "clinical" ? "dental product recommendation" : "3D print troubleshooting"),
+              );
+
+              if (imageEmbedding) {
+                const { data: visualMatches } = await supabase.rpc("match_agent_embeddings", {
+                  query_embedding: imageEmbedding,
+                  match_threshold: 0.55,
+                  match_count: 6,
+                });
+
+                if (visualMatches && visualMatches.length > 0) {
+                  imageContext.ragResults = visualMatches;
+                  console.log(`[IMAGE_RAG] Found ${visualMatches.length} visual matches (top: ${visualMatches[0].similarity.toFixed(3)})`);
+                }
+              }
+            }
+          }
+        }
+
+        // Log gatekeeper usage
+        await logAIUsage({
+          functionName: "dra-lia",
+          actionLabel: "image-gatekeeper",
+          model: "google/gemini-2.5-flash-lite",
+          promptTokens: 100,
+          completionTokens: 5,
+        }).catch(() => {});
+      } catch (e) {
+        console.warn("[IMAGE_GATEKEEPER] Error:", e);
+      }
+    }
 
     // ── RATE LIMITING ─────────────────────────────────────────────
     const rateLimitKey = session_id || req.headers.get("x-forwarded-for") || "anonymous";
@@ -4906,6 +4958,15 @@ REGRAS:
       }
     }
 
+    // 3d. Inject image RAG results if gatekeeper classified as clinical/troubleshooting
+    if (imageContext && imageContext.ragResults && imageContext.ragResults.length > 0) {
+      allResults.push(...imageContext.ragResults.map(r => ({
+        ...r,
+        metadata: { ...r.metadata, _visual_match: true },
+      })));
+      console.log(`[RAG] Image visual matches injected: ${imageContext.ragResults.length}`);
+    }
+
     const hasResults = allResults.length > 0;
 
     // 3b. Menu Loop Detection — if last 2 bot responses both contained brand lists, force handoff
@@ -5450,13 +5511,21 @@ ${context}
 Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
     // 6. Stream response via Gemini
+    // Build user message: text + optional image for multimodal LLM
+    const userMessageContent: unknown = (imageContext && imageContext.intent !== "generic" && imageContext.base64)
+      ? [
+          { type: "text", text: `${message}${imageContext.intent === "clinical" ? "\n\n[O usuário enviou uma foto de uma peça clínica/projeto. Analise a imagem e recomende produtos/resinas adequados do portfólio SmartDent com base nos DADOS DAS FONTES.]" : "\n\n[O usuário enviou uma foto de uma falha de impressão 3D. Analise a imagem e identifique o problema, sugerindo a solução com base nos DADOS DAS FONTES e vídeos de troubleshooting.]"}` },
+          { type: "image_url", image_url: { url: `data:${imageContext.mimeType};base64,${imageContext.base64}` } },
+        ]
+      : message;
+
     const messagesForAI = [
       { role: "system", content: systemPrompt },
       ...history.slice(-8).map((h: { role: string; content: string }) => ({
         role: h.role,
         content: h.content,
       })),
-      { role: "user", content: message },
+      { role: "user", content: userMessageContent },
     ];
 
     // Helper com retry automático com suporte a truncar mensagens para modelos com contexto menor

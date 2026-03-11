@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
 import ProductsFlow from './ProductsFlow';
 import CommercialFlow, { type CommercialStep } from './CommercialFlow';
-import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2, ImagePlus } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -22,6 +22,7 @@ interface Message {
   interactionId?: string;
   feedbackSent?: boolean;
   mediaCards?: MediaCard[];
+  imagePreview?: string; // base64 data URL for user-sent images
 }
 
 interface DraLIAProps {
@@ -320,6 +321,38 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [areaGridOptions, setAreaGridOptions] = useState<string[] | null>(null);
   const [specialtyGridOptions, setSpecialtyGridOptions] = useState<string[] | null>(null);
 
+  // Image upload state
+  const [pendingImage, setPendingImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Max 4MB
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Imagem muito grande. Máximo 4MB.');
+      return;
+    }
+
+    // Only images
+    if (!file.type.startsWith('image/')) {
+      alert('Selecione uma imagem (JPEG, PNG, etc.)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      setPendingImage({ base64, mimeType: file.type, preview: dataUrl });
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, []);
+
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
     if (embedded) return;
@@ -339,15 +372,17 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
-    if (!text || text.length < 3 || isLoading) return;
-    sessionStorage.removeItem('dra_lia_summarized'); // Allow re-summarization with updated conversation
+    if ((!text || text.length < 3) && !pendingImage) return;
+    if (isLoading) return;
+    sessionStorage.removeItem('dra_lia_summarized');
     sentMsgCountRef.current += 1;
-    resetInactivityTimer(); // Reset inactivity timer on every message
+    resetInactivityTimer();
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: text,
+      content: text || '📷 Imagem enviada',
+      imagePreview: pendingImage?.preview,
     };
 
     const assistantMsg: Message = {
@@ -360,22 +395,27 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setInput('');
     setIsLoading(true);
 
+    const currentImage = pendingImage;
+    setPendingImage(null);
+
     try {
       const history = messages
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
       const bodyPayload: Record<string, unknown> = {
-        message: text,
+        message: text || 'Analise esta imagem',
         history,
         lang,
         session_id: sessionId.current,
         topic_context: topicContext || undefined,
       };
-      // Attach SDR product selections if present
       if (pendingSdrSelectionsRef.current) {
         bodyPayload.product_selections = pendingSdrSelectionsRef.current;
         pendingSdrSelectionsRef.current = null;
+      }
+      if (currentImage) {
+        bodyPayload.image_data = { base64: currentImage.base64, mime_type: currentImage.mimeType };
       }
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
         method: 'POST',
@@ -758,6 +798,12 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className="max-w-[85%]">
+              {/* Image preview for user messages */}
+              {msg.role === 'user' && msg.imagePreview && (
+                <div className="mb-1 rounded-xl overflow-hidden" style={{ maxWidth: 200 }}>
+                  <img src={msg.imagePreview} alt="Imagem enviada" className="w-full h-auto rounded-xl" />
+                </div>
+              )}
               <div
                 className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
@@ -1127,7 +1173,35 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
             </button>
           </div>
         )}
+        {/* Pending image preview */}
+        {pendingImage && (
+          <div className="px-3 pt-2 flex items-center gap-2">
+            <div className="relative">
+              <img src={pendingImage.preview} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-gray-200" />
+              <button
+                onClick={() => setPendingImage(null)}
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] leading-none"
+              >×</button>
+            </div>
+            <span className="text-[10px] text-gray-400">Imagem anexada</span>
+          </div>
+        )}
         <div className="flex gap-2 items-end p-3 pt-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            aria-label="Anexar imagem"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 disabled:opacity-40"
+          >
+            <ImagePlus size={16} />
+          </button>
           <textarea
             ref={inputRef}
             className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent max-h-24 min-h-[40px]"
@@ -1145,7 +1219,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || input.trim().length < 3 || isLoading}
+            disabled={(!input.trim() || input.trim().length < 3) && !pendingImage || isLoading}
             aria-label={t('dra_lia.send_aria')}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-white disabled:opacity-40 transition-opacity shrink-0"
             style={{ background: '#1e3a5f' }}
