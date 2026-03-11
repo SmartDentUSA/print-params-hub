@@ -4,7 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
 import ProductsFlow from './ProductsFlow';
 import CommercialFlow, { type CommercialStep } from './CommercialFlow';
-import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Send, ThumbsUp, ThumbsDown, Loader2, ImagePlus } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
