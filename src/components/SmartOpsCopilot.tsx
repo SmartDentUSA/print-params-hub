@@ -285,6 +285,7 @@ export function SmartOpsCopilot() {
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         {/* Messages area */}
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 py-12">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                 <Sparkles className="w-8 h-8 text-primary" />
