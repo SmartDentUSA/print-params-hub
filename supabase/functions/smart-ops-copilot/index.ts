@@ -720,12 +720,13 @@ function applyAdvancedFilters(query: any, args: any): any {
   if (args.where_not_null) {
     for (const f of args.where_not_null) query = query.not(f, "is", null);
   }
-  // Text search in JSONB/text fields uses casting — handled via ilike on ::text
+  // Text search in JSONB/text fields — for JSONB we use textRepresentation.cd operator
+  // For regular text fields, just use ilike
   if (args.where_text_search) {
     for (const [k, v] of Object.entries(args.where_text_search)) {
-      // For JSONB fields like itens_proposta_parsed, proposals_data, cognitive_analysis
-      // We use the text representation search
-      query = query.ilike(k + "::text", `%${v}%`);
+      // Use ilike which works on text columns; for JSONB columns like itens_proposta_parsed,
+      // itens_proposta_crm is actually text so ilike works directly
+      query = query.ilike(k, `%${v}%`);
     }
   }
   if (args.order_by) query = query.order(args.order_by, { ascending: args.ascending ?? false });
