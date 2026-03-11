@@ -498,10 +498,80 @@ async function executeCreateAudience(args: any) {
 
 async function executeSendWhatsapp(args: any) {
   try {
+    // 1. Resolve seller (team_member_id) by name
+    let teamMemberId: string | undefined;
+    if (args.seller_name) {
+      const { data: sellers } = await supabase.from("team_members")
+        .select("id,nome_completo,whatsapp_number,waleads_api_key")
+        .ilike("nome_completo", `%${args.seller_name}%`)
+        .eq("ativo", true)
+        .limit(3);
+      if (!sellers || sellers.length === 0) {
+        // Try nome field too
+        const { data: sellers2 } = await supabase.from("team_members")
+          .select("id,nome_completo,whatsapp_number,waleads_api_key")
+          .ilike("nome_completo", `%${args.seller_name}%`)
+          .limit(3);
+        if (!sellers2 || sellers2.length === 0) return { error: `Vendedor "${args.seller_name}" não encontrado em team_members` };
+        teamMemberId = sellers2[0].id;
+        console.log(`[Copilot] Resolved seller: ${args.seller_name} → ${sellers2[0].nome_completo} (${sellers2[0].id})`);
+      } else {
+        teamMemberId = sellers[0].id;
+        console.log(`[Copilot] Resolved seller: ${args.seller_name} → ${sellers[0].nome_completo} (${sellers[0].id})`);
+      }
+    }
+
+    // 2. Resolve lead phone by name or lead_id
+    let phone = args.phone;
+    let leadId = args.lead_id;
+
+    if (!phone && (args.lead_name || args.lead_id)) {
+      let leadQuery = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").limit(1);
+      if (args.lead_id) {
+        leadQuery = leadQuery.eq("id", args.lead_id);
+      } else if (args.lead_name) {
+        leadQuery = leadQuery.ilike("nome", `%${args.lead_name}%`);
+      }
+      const { data: leads } = await leadQuery;
+      if (!leads || leads.length === 0) return { error: `Lead "${args.lead_name || args.lead_id}" não encontrado` };
+      phone = leads[0].telefone_normalized || leads[0].telefone;
+      leadId = leads[0].id;
+      if (!phone) return { error: `Lead "${leads[0].nome}" encontrado mas não tem telefone cadastrado` };
+      console.log(`[Copilot] Resolved lead: ${args.lead_name || args.lead_id} → ${leads[0].nome} (${phone})`);
+    }
+
+    if (!phone) return { error: "Telefone não informado e não foi possível resolver pelo lead_name/lead_id" };
+
+    // 3. If no seller specified, try to find first active team member with waleads_api_key
+    if (!teamMemberId) {
+      const { data: defaultSeller } = await supabase.from("team_members")
+        .select("id,nome_completo")
+        .not("waleads_api_key", "is", null)
+        .eq("ativo", true)
+        .limit(1);
+      if (defaultSeller && defaultSeller.length > 0) {
+        teamMemberId = defaultSeller[0].id;
+        console.log(`[Copilot] No seller specified, using default: ${defaultSeller[0].nome_completo}`);
+      } else {
+        return { error: "Nenhum vendedor com WaLeads configurado encontrado. Informe seller_name." };
+      }
+    }
+
+    // 4. Call send-waleads with team_member_id
+    const payload: any = {
+      team_member_id: teamMemberId,
+      phone,
+      message: args.message,
+      lead_id: leadId,
+      tipo: args.tipo || "text",
+    };
+    if (args.media_url) payload.media_url = args.media_url;
+    if (args.caption) payload.caption = args.caption;
+
     const response = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-      body: JSON.stringify({ phone: args.phone, message: args.message, lead_id: args.lead_id })
+      body: JSON.stringify(payload)
     });
     const ct = response.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
