@@ -1538,6 +1538,165 @@ async function classifyLeadMaturity(
   return { maturity: null, cognitiveData };
 }
 
+// ── searchContentDirect: Busca direta + cache inteligente (agent_internal_lookups) ──
+const CONTENT_REQUEST_REGEX = /v[ií]deo|video|tutorial|assistir|watch|mostrar|documento|apostila|manual|artigo|publica[çc][ãa]o|material|conte[úu]do|explica[çc][ãa]o|tem algo sobre/i;
+
+async function searchContentDirect(
+  supabaseClient: ReturnType<typeof createClient>,
+  userMessage: string,
+  sessionId?: string,
+  leadId?: string | null
+): Promise<Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>> {
+  const queryNormalized = userMessage.toLowerCase()
+    .replace(/[áàâã]/g, "a").replace(/[éèê]/g, "e").replace(/[íìî]/g, "i")
+    .replace(/[óòôõ]/g, "o").replace(/[úùû]/g, "u").replace(/[ç]/g, "c")
+    .replace(/[^\w\s]/g, "").trim();
+
+  const results: Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }> = [];
+
+  // ETAPA 1: Cache check (FTS em agent_internal_lookups)
+  try {
+    const tsQuery = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5).join(" & ");
+    if (tsQuery) {
+      const { data: cached } = await supabaseClient
+        .from("agent_internal_lookups")
+        .select("id, results_json, results_count, hit_count")
+        .textSearch("query_normalized", tsQuery, { type: "plain", config: "portuguese" })
+        .gt("results_count", 0)
+        .gte("created_at", new Date(Date.now() - 30 * 86400000).toISOString())
+        .order("hit_count", { ascending: false })
+        .limit(3);
+
+      if (cached && cached.length > 0) {
+        console.log(`[searchContentDirect] Cache HIT: ${cached.length} entries, returning ${cached[0].results_count} results`);
+        for (const c of cached) {
+          supabaseClient.from("agent_internal_lookups").update({ hit_count: (c.hit_count || 1) + 1, last_hit_at: new Date().toISOString() }).eq("id", c.id).then(() => {});
+        }
+        return (cached[0].results_json as Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>) || [];
+      }
+    }
+  } catch (e) {
+    console.warn("[searchContentDirect] Cache check failed:", e);
+  }
+
+  // ETAPA 2: Busca direta nas tabelas
+  const searchTerms = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5);
+  const searchPattern = `%${searchTerms.join("%")}%`;
+
+  // 2a. knowledge_videos (FTS via search_vector)
+  try {
+    const tsQuery = searchTerms.join(" & ");
+    if (tsQuery) {
+      const { data: videos } = await supabaseClient
+        .from("knowledge_videos")
+        .select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags")
+        .textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" })
+        .limit(5);
+
+      if (videos) {
+        for (const v of videos) {
+          const videoUrl = v.content_id ? `${SITE_BASE_URL}/base-de-conhecimento/${v.content_id}` : v.url || v.embed_url;
+          results.push({
+            source_type: "video",
+            similarity: 0.75,
+            chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`,
+            metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url_interna: videoUrl, embed_url: v.embed_url, panda_tags: v.panda_tags },
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[searchContentDirect] Videos search failed:", e);
+  }
+
+  // 2b. knowledge_contents (ILIKE título/excerpt)
+  try {
+    const { data: articles } = await supabaseClient
+      .from("knowledge_contents")
+      .select("id, title, excerpt, slug, category_id")
+      .eq("active", true)
+      .or(`title.ilike.${searchPattern},excerpt.ilike.${searchPattern}`)
+      .limit(5);
+
+    if (articles) {
+      for (const a of articles) {
+        results.push({
+          source_type: "article",
+          similarity: 0.70,
+          chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`,
+          metadata: { title: a.title, slug: a.slug, url_publica: `${SITE_BASE_URL}/base-de-conhecimento/${a.slug}` },
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[searchContentDirect] Articles search failed:", e);
+  }
+
+  // 2c. catalog_documents (ILIKE título/descrição)
+  try {
+    const { data: docs } = await supabaseClient
+      .from("catalog_documents")
+      .select("id, document_name, document_description, file_url, document_category")
+      .eq("active", true)
+      .or(`document_name.ilike.${searchPattern},document_description.ilike.${searchPattern}`)
+      .limit(5);
+
+    if (docs) {
+      for (const d of docs) {
+        results.push({
+          source_type: "article",
+          similarity: 0.65,
+          chunk_text: `[DOCUMENTO] ${d.document_name}${d.document_description ? ` — ${d.document_description.slice(0, 200)}` : ""}`,
+          metadata: { title: d.document_name, category: d.document_category, url_publica: d.file_url },
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[searchContentDirect] Documents search failed:", e);
+  }
+
+  // 2d. resins (ILIKE nome)
+  try {
+    const { data: resins } = await supabaseClient
+      .from("resins")
+      .select("id, name, slug, clinical_indication, biocompatibility_class")
+      .ilike("name", searchPattern)
+      .limit(3);
+
+    if (resins) {
+      for (const r of resins) {
+        results.push({
+          source_type: "resin",
+          similarity: 0.70,
+          chunk_text: `Resina ${r.name} — Indicação: ${r.clinical_indication || "uso geral"}. Biocompatibilidade: ${r.biocompatibility_class || "N/A"}`,
+          metadata: { title: r.name, slug: r.slug, url_publica: `${SITE_BASE_URL}/resinas/${r.slug}` },
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[searchContentDirect] Resins search failed:", e);
+  }
+
+  // ETAPA 3: Salvar no cache (fire-and-forget)
+  const resultTypes = [...new Set(results.map(r => r.source_type))];
+  supabaseClient.from("agent_internal_lookups").insert({
+    query_normalized: queryNormalized,
+    query_original: userMessage,
+    source_function: "dra-lia",
+    results_json: results,
+    results_count: results.length,
+    result_types: resultTypes,
+    session_id: sessionId || null,
+    lead_id: leadId || null,
+  }).then(({ error }) => {
+    if (error) console.warn("[searchContentDirect] Cache insert failed:", error.message);
+    else console.log(`[searchContentDirect] Cached ${results.length} results for "${queryNormalized.slice(0, 50)}..."`);
+  });
+
+  console.log(`[searchContentDirect] Direct search found ${results.length} results (${resultTypes.join(", ")})`);
+  return results;
+}
+
 // Helper to stream a simple text response
 function streamTextResponse(text: string, corsHeaders: Record<string, string>, interactionId?: string): Response {
   const encoder = new TextEncoder();
