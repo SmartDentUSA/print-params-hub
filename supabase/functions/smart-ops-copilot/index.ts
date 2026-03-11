@@ -493,6 +493,20 @@ async function executeSearchVideos(args: any) {
     .or(`title.ilike.%${args.query}%,description.ilike.%${args.query}%`)
     .limit(limit);
   if (error) return { error: error.message };
+  // Gravar lookup no cache compartilhado (fire-and-forget)
+  if (data && data.length > 0) {
+    const queryNorm = (args.query || "").toLowerCase().replace(/[áàâãéèêíìîóòôõúùûç]/g, c => "aaaaeeeiiiooooouuuc"["áàâãéèêíìîóòôõúùûç".indexOf(c)] || c);
+    const resultsForCache = data.map((v: any) => ({
+      source_type: "video", similarity: 0.80,
+      chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`,
+      metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url: v.url, embed_url: v.embed_url },
+    }));
+    supabase.from("agent_internal_lookups").insert({
+      query_normalized: queryNorm, query_original: args.query, source_function: "copilot",
+      results_json: resultsForCache, results_count: resultsForCache.length,
+      result_types: ["video"],
+    }).then(() => {});
+  }
   return { count: data?.length || 0, videos: data };
 }
 
@@ -504,6 +518,20 @@ async function executeSearchContent(args: any) {
     .or(`title.ilike.%${args.query}%,excerpt.ilike.%${args.query}%`)
     .limit(limit);
   if (error) return { error: error.message };
+  // Gravar lookup no cache compartilhado (fire-and-forget)
+  if (data && data.length > 0) {
+    const queryNorm = (args.query || "").toLowerCase().replace(/[áàâãéèêíìîóòôõúùûç]/g, c => "aaaaeeeiiiooooouuuc"["áàâãéèêíìîóòôõúùûç".indexOf(c)] || c);
+    const resultsForCache = data.map((a: any) => ({
+      source_type: "article", similarity: 0.75,
+      chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`,
+      metadata: { title: a.title, slug: a.slug },
+    }));
+    supabase.from("agent_internal_lookups").insert({
+      query_normalized: queryNorm, query_original: args.query, source_function: "copilot",
+      results_json: resultsForCache, results_count: resultsForCache.length,
+      result_types: ["article"],
+    }).then(() => {});
+  }
   return { count: data?.length || 0, articles: data };
 }
 
