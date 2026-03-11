@@ -1173,7 +1173,35 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
             </button>
           </div>
         )}
+        {/* Pending image preview */}
+        {pendingImage && (
+          <div className="px-3 pt-2 flex items-center gap-2">
+            <div className="relative">
+              <img src={pendingImage.preview} alt="Preview" className="w-12 h-12 rounded-lg object-cover border border-gray-200" />
+              <button
+                onClick={() => setPendingImage(null)}
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] leading-none"
+              >×</button>
+            </div>
+            <span className="text-[10px] text-gray-400">Imagem anexada</span>
+          </div>
+        )}
         <div className="flex gap-2 items-end p-3 pt-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageSelect}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            aria-label="Anexar imagem"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 disabled:opacity-40"
+          >
+            <ImagePlus size={16} />
+          </button>
           <textarea
             ref={inputRef}
             className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:border-transparent max-h-24 min-h-[40px]"
@@ -1191,7 +1219,7 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           />
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || input.trim().length < 3 || isLoading}
+            disabled={(!input.trim() || input.trim().length < 3) && !pendingImage || isLoading}
             aria-label={t('dra_lia.send_aria')}
             className="w-9 h-9 rounded-xl flex items-center justify-center text-white disabled:opacity-40 transition-opacity shrink-0"
             style={{ background: '#1e3a5f' }}
