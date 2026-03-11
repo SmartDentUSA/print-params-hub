@@ -4502,7 +4502,8 @@ REGRAS:
       }
 
       // Set support flow stage
-      const newEnt = { ...(sessionEntities || {}), support_flow_stage: "select_equipment" };
+      // Store lia_attendances ID in session entities so ticket creation can use it
+      const newEnt = { ...(sessionEntities || {}), support_flow_stage: "select_equipment", lia_lead_id: liaIdForSupport };
       await supabase.from("agent_sessions").upsert({
         session_id, extracted_entities: newEnt, last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" });
