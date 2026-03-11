@@ -330,6 +330,60 @@ const tools = [
         required: ["calculation"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_leads_advanced",
+      description: "Busca avançada de leads com filtros complexos: JSONB (propostas, cognitive_analysis), datas (created_at, updated_at, entrada_sistema), ranges numéricos (score, valor), array contains (tags_crm contém tag X), texto em campos JSONB (itens_proposta_parsed contém 'charo side'). Retorna até 200 leads.",
+      parameters: {
+        type: "object",
+        properties: {
+          select: { type: "string", description: "Colunas a retornar" },
+          where_ilike: { type: "object", description: "Filtros ILIKE: {campo: 'valor'}" },
+          where_eq: { type: "object", description: "Filtros exatos: {campo: valor}" },
+          where_gte: { type: "object", description: "Maior ou igual: {campo: valor}" },
+          where_lte: { type: "object", description: "Menor ou igual: {campo: valor}" },
+          where_in: { type: "object", description: "In array: {campo: ['val1','val2']}" },
+          where_contains: { type: "object", description: "Array contém: {tags_crm: 'TAG_X'} — verifica se o array contém o valor" },
+          where_text_search: { type: "object", description: "Busca textual em campos JSONB/text: {campo: 'texto'} — usa casting ::text ILIKE" },
+          where_not: { type: "object", description: "Diferente de: {campo: valor}" },
+          where_is_null: { type: "array", items: { type: "string" }, description: "Campos que devem ser NULL" },
+          where_not_null: { type: "array", items: { type: "string" }, description: "Campos que NÃO devem ser NULL" },
+          order_by: { type: "string", description: "Coluna para ordenar" },
+          ascending: { type: "boolean", description: "Ordem ascendente" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 50, máx 200)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_campaign",
+      description: "Executa campanha em lote: filtra leads por critérios avançados, adiciona tag(s) a todos, e envia cada um para SellFlux via webhook de campanhas. Loga tudo em message_logs. Use para reativação, nurturing, ou qualquer ação em massa. Aceita os mesmos filtros de query_leads_advanced.",
+      parameters: {
+        type: "object",
+        properties: {
+          campaign_name: { type: "string", description: "Nome da campanha para log" },
+          tags_to_add: { type: "array", items: { type: "string" }, description: "Tags a adicionar em todos os leads" },
+          sellflux_template: { type: "string", description: "Template ID do SellFlux (opcional)" },
+          send_to_sellflux: { type: "boolean", description: "Se true, envia cada lead para SellFlux (padrão true)" },
+          where_ilike: { type: "object", description: "Filtros ILIKE" },
+          where_eq: { type: "object", description: "Filtros exatos" },
+          where_gte: { type: "object", description: "Maior ou igual" },
+          where_lte: { type: "object", description: "Menor ou igual" },
+          where_in: { type: "object", description: "In array" },
+          where_contains: { type: "object", description: "Array contém" },
+          where_text_search: { type: "object", description: "Busca textual em JSONB/text" },
+          where_not: { type: "object", description: "Diferente de" },
+          where_not_null: { type: "array", items: { type: "string" }, description: "Campos que NÃO devem ser NULL" },
+          limit: { type: "number", description: "Máximo de leads a processar (padrão 100, máx 500)" }
+        },
+        required: ["campaign_name"]
+      }
+    }
   }
 ];
 
