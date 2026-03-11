@@ -4958,6 +4958,15 @@ REGRAS:
       }
     }
 
+    // 3d. Inject image RAG results if gatekeeper classified as clinical/troubleshooting
+    if (imageContext && imageContext.ragResults && imageContext.ragResults.length > 0) {
+      allResults.push(...imageContext.ragResults.map(r => ({
+        ...r,
+        metadata: { ...r.metadata, _visual_match: true },
+      })));
+      console.log(`[RAG] Image visual matches injected: ${imageContext.ragResults.length}`);
+    }
+
     const hasResults = allResults.length > 0;
 
     // 3b. Menu Loop Detection — if last 2 bot responses both contained brand lists, force handoff
