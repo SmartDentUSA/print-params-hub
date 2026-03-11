@@ -19,6 +19,7 @@ import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
 import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
+import { SmartOpsCopilot } from "./SmartOpsCopilot";
 
 
 export function SmartOpsTab() {
