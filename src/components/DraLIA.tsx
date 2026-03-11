@@ -321,6 +321,38 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [areaGridOptions, setAreaGridOptions] = useState<string[] | null>(null);
   const [specialtyGridOptions, setSpecialtyGridOptions] = useState<string[] | null>(null);
 
+  // Image upload state
+  const [pendingImage, setPendingImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Max 4MB
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Imagem muito grande. Máximo 4MB.');
+      return;
+    }
+
+    // Only images
+    if (!file.type.startsWith('image/')) {
+      alert('Selecione uma imagem (JPEG, PNG, etc.)');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(',')[1];
+      setPendingImage({ base64, mimeType: file.type, preview: dataUrl });
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  }, []);
+
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
     if (embedded) return;
