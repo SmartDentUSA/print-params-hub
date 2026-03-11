@@ -388,6 +388,40 @@ const tools = [
         },
         required: ["campaign_name"]
       }
+     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "move_crm_stage",
+      description: "Move um lead para outra etapa do funil CRM (PipeRun + local). Atualiza o deal no PipeRun via smart-ops-kanban-move e o campo etapa_crm no lia_attendances.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead" },
+          lead_name: { type: "string", description: "Nome do lead (alternativa ao lead_id)" },
+          new_stage: { type: "string", description: "Nova etapa: novo_lead, em_atendimento, agendamento, negociacao, proposta, ganho, perdido, estagnado, etc." }
+        },
+        required: ["new_stage"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_ecommerce_orders",
+      description: "Consulta pedidos e-commerce na tabela lia_attendances filtrando por status do último pedido, data, e outras condições. Ideal para carrinhos abandonados, pedidos pendentes, clientes recorrentes.",
+      parameters: {
+        type: "object",
+        properties: {
+          order_status: { type: "string", description: "Status do último pedido: checkout_iniciado, aguardando_pagamento, pedido_pago, pedido_entregue, pedido_cancelado" },
+          since: { type: "string", description: "Data ISO mínima do último pedido (ex: 2026-03-11)" },
+          until: { type: "string", description: "Data ISO máxima do último pedido" },
+          min_value: { type: "number", description: "Valor mínimo do último pedido" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 50)" }
+        },
+        required: []
+      }
     }
   }
 ];
