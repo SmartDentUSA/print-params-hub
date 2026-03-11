@@ -5511,13 +5511,21 @@ ${context}
 Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
     // 6. Stream response via Gemini
+    // Build user message: text + optional image for multimodal LLM
+    const userMessageContent: unknown = (imageContext && imageContext.intent !== "generic" && imageContext.base64)
+      ? [
+          { type: "text", text: `${message}${imageContext.intent === "clinical" ? "\n\n[O usuário enviou uma foto de uma peça clínica/projeto. Analise a imagem e recomende produtos/resinas adequados do portfólio SmartDent com base nos DADOS DAS FONTES.]" : "\n\n[O usuário enviou uma foto de uma falha de impressão 3D. Analise a imagem e identifique o problema, sugerindo a solução com base nos DADOS DAS FONTES e vídeos de troubleshooting.]"}` },
+          { type: "image_url", image_url: { url: `data:${imageContext.mimeType};base64,${imageContext.base64}` } },
+        ]
+      : message;
+
     const messagesForAI = [
       { role: "system", content: systemPrompt },
       ...history.slice(-8).map((h: { role: string; content: string }) => ({
         role: h.role,
         content: h.content,
       })),
-      { role: "user", content: message },
+      { role: "user", content: userMessageContent },
     ];
 
     // Helper com retry automático com suporte a truncar mensagens para modelos com contexto menor
