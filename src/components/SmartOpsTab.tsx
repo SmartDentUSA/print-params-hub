@@ -132,6 +132,9 @@ export function SmartOpsTab() {
         <TabsContent value="roi">
           <SmartOpsSmartFlowAnalytics />
         </TabsContent>
+        <TabsContent value="copilot">
+          <SmartOpsCopilot />
+        </TabsContent>
       </Tabs>
     </div>
   );
