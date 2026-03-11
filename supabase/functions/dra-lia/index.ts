@@ -2194,30 +2194,11 @@ const LANG_INSTRUCTIONS: Record<string, string> = {
   "es-ES": "RESPONDE SIEMPRE en español (es-ES). Aunque los datos del contexto estén en portugués. Traduce las descripciones pero mantén los valores numéricos.",
 };
 
-// Generate embedding via Google AI API (if key available) or return null
-async function generateEmbedding(text: string): Promise<number[] | null> {
-  if (!GOOGLE_AI_KEY) return null;
+// Generate embedding via shared utility (supports text + multimodal)
+import { generateEmbedding as _generateEmbedding, generateImageEmbedding, isMultimodalEnabled } from "../_shared/generate-embedding.ts";
 
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${GOOGLE_AI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "models/gemini-embedding-001",
-          content: { parts: [{ text }] },
-          taskType: "RETRIEVAL_QUERY",
-          outputDimensionality: 768,
-        }),
-      }
-    );
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data.embedding?.values || null;
-  } catch {
-    return null;
-  }
+async function generateEmbedding(text: string): Promise<number[] | null> {
+  return _generateEmbedding({ text, taskType: "RETRIEVAL_QUERY" });
 }
 
 // ── Helper: upsert knowledge gap with frequency increment ─────────────────

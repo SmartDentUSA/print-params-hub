@@ -28,26 +28,10 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return magA && magB ? dot / (magA * magB) : 0;
 }
 
-async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "models/gemini-embedding-001",
-        content: { parts: [{ text }] },
-        taskType: "RETRIEVAL_DOCUMENT",
-        outputDimensionality: 768,
-      }),
-    }
-  );
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Embedding API error: ${err}`);
-  }
-  const data = await res.json();
-  return data.embedding?.values ?? [];
+import { generateTextEmbedding } from "../_shared/generate-embedding.ts";
+
+async function generateEmbedding(text: string, _apiKey?: string): Promise<number[]> {
+  return generateTextEmbedding(text, "RETRIEVAL_DOCUMENT");
 }
 
 interface FAQResult {
