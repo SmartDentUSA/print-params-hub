@@ -4404,6 +4404,26 @@ REGRAS:
           session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
         }, { onConflict: "session_id" });
 
+        // Resolve lia_attendances.id from leads.id (currentLeadId points to leads table)
+        let liaLeadId: string | null = null;
+        if (currentLeadId) {
+          // First try: get email from leads table, then find lia_attendances by email
+          const { data: leadsRow } = await supabase.from("leads").select("email").eq("id", currentLeadId).maybeSingle();
+          if (leadsRow?.email) {
+            const { data: liaRow } = await supabase.from("lia_attendances").select("id").eq("email", leadsRow.email).maybeSingle();
+            liaLeadId = liaRow?.id || null;
+          }
+          // Fallback: try entities lead_id (might be lia_attendances ID from WhatsApp flow)
+          if (!liaLeadId) {
+            const entLeadId = supportEnt.lead_id as string || (supportEnt as any).placeholder_lia_id as string || null;
+            if (entLeadId) liaLeadId = entLeadId;
+          }
+          // Last fallback: try currentLeadId directly (maybe it IS a lia_attendances ID)
+          if (!liaLeadId) liaLeadId = currentLeadId;
+        }
+
+        console.log(`[support_flow] Resolved lia_attendances ID: ${liaLeadId} (from leads.id: ${currentLeadId})`);
+
         // Fire ticket creation (fire-and-forget with inline confirmation)
         let ticketConfirmText: string;
         try {
@@ -4414,7 +4434,7 @@ REGRAS:
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              lead_id: currentLeadId,
+              lead_id: liaLeadId,
               equipment,
               client_summary: clientSummary,
               support_answers: supportAnswers,
