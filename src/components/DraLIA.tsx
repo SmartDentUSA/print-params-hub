@@ -798,6 +798,12 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className="max-w-[85%]">
+              {/* Image preview for user messages */}
+              {msg.role === 'user' && msg.imagePreview && (
+                <div className="mb-1 rounded-xl overflow-hidden" style={{ maxWidth: 200 }}>
+                  <img src={msg.imagePreview} alt="Imagem enviada" className="w-full h-auto rounded-xl" />
+                </div>
+              )}
               <div
                 className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
                   msg.role === 'user'
