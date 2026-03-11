@@ -1554,25 +1554,51 @@ async function searchContentDirect(
 
   const results: Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }> = [];
 
-  // ETAPA 1: Cache check (FTS em agent_internal_lookups)
+  // ETAPA 1: Cache check — busca exata primeiro (UNIQUE index), FTS como fallback
   try {
+    // 1a. Exact match (mais rápido com UNIQUE constraint)
+    const { data: exactHit } = await supabaseClient
+      .from("agent_internal_lookups")
+      .select("id, results_json, results_count, hit_count, last_hit_at")
+      .eq("query_normalized", queryNormalized)
+      .single();
+
+    if (exactHit) {
+      const hoursSinceHit = (Date.now() - new Date(exactHit.last_hit_at).getTime()) / 3600000;
+      // TTL dinâmico: 30 dias para resultados positivos, 24h para negative cache
+      const isCacheValid = exactHit.results_count > 0
+        ? hoursSinceHit < (24 * 30)
+        : hoursSinceHit < 24;
+
+      if (isCacheValid) {
+        console.log(`[searchContentDirect] Cache EXACT HIT: ${exactHit.results_count} results (age: ${Math.round(hoursSinceHit)}h)`);
+        // Incremento atômico via RPC (fire-and-forget)
+        supabaseClient.rpc("increment_lookup_hit", { lookup_id: exactHit.id }).then(() => {});
+        return (exactHit.results_json as Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>) || [];
+      }
+    }
+
+    // 1b. FTS fallback para variações de ordem de palavras
     const tsQuery = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5).join(" & ");
     if (tsQuery) {
       const { data: cached } = await supabaseClient
         .from("agent_internal_lookups")
-        .select("id, results_json, results_count, hit_count")
-        .textSearch("query_normalized", tsQuery, { type: "plain", config: "portuguese" })
-        .gt("results_count", 0)
-        .gte("created_at", new Date(Date.now() - 30 * 86400000).toISOString())
+        .select("id, results_json, results_count, hit_count, last_hit_at")
+        .textSearch("query_normalized", tsQuery, { type: "plain", config: "simple" })
+        .gte("last_hit_at", new Date(Date.now() - 30 * 86400000).toISOString())
         .order("hit_count", { ascending: false })
         .limit(3);
 
       if (cached && cached.length > 0) {
-        console.log(`[searchContentDirect] Cache HIT: ${cached.length} entries, returning ${cached[0].results_count} results`);
-        for (const c of cached) {
-          supabaseClient.from("agent_internal_lookups").update({ hit_count: (c.hit_count || 1) + 1, last_hit_at: new Date().toISOString() }).eq("id", c.id).then(() => {});
+        const best = cached.find(c => c.results_count > 0) || cached[0];
+        const hoursSinceHit = (Date.now() - new Date(best.last_hit_at).getTime()) / 3600000;
+        const isCacheValid = best.results_count > 0 ? hoursSinceHit < (24 * 30) : hoursSinceHit < 24;
+
+        if (isCacheValid) {
+          console.log(`[searchContentDirect] Cache FTS HIT: ${cached.length} entries, returning ${best.results_count} results`);
+          supabaseClient.rpc("increment_lookup_hit", { lookup_id: best.id }).then(() => {});
+          return (best.results_json as Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>) || [];
         }
-        return (cached[0].results_json as Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>) || [];
       }
     }
   } catch (e) {
@@ -1677,19 +1703,21 @@ async function searchContentDirect(
     console.warn("[searchContentDirect] Resins search failed:", e);
   }
 
-  // ETAPA 3: Salvar no cache (fire-and-forget)
+  // ETAPA 3: Upsert no cache (fire-and-forget) — ON CONFLICT atualiza resultados existentes
   const resultTypes = [...new Set(results.map(r => r.source_type))];
-  supabaseClient.from("agent_internal_lookups").insert({
+  supabaseClient.from("agent_internal_lookups").upsert({
     query_normalized: queryNormalized,
     query_original: userMessage,
     source_function: "dra-lia",
     results_json: results,
     results_count: results.length,
     result_types: resultTypes,
+    hit_count: 1,
+    last_hit_at: new Date().toISOString(),
     session_id: sessionId || null,
     lead_id: leadId || null,
-  }).then(({ error }) => {
-    if (error) console.warn("[searchContentDirect] Cache insert failed:", error.message);
+  }, { onConflict: "query_normalized" }).then(({ error }) => {
+    if (error) console.warn("[searchContentDirect] Cache upsert failed:", error.message);
     else console.log(`[searchContentDirect] Cached ${results.length} results for "${queryNormalized.slice(0, 50)}..."`);
   });
 
