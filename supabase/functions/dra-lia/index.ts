@@ -615,18 +615,20 @@ const DIALOG_BREAK_PATTERNS = [
   /^(quais|voc[eê]s (têm|vendem|trabalham)|vcs (têm|vendem|trabalham|tem)|tem (algum|impressora|scanner|resina))/i,
 
   // ── Intenção de compra e curiosidade de produto ──
-
-  // Intenção de compra / interesse em produto
   /\b(quero (comprar|adquirir|ver|conhecer|saber (mais )?sobre)|tenho interesse|como (comprar|adquirir)|onde (comprar|encontrar))\b/i,
-  // Perguntas sobre características do produto
   /\b(o que (tem|há|ela tem|ele tem) de|quais (são |as )?(vantagens|benefícios|diferenciais|características|recursos)|para que serve|é indicad[ao] para)\b/i,
-  // "sobre a X", "me conta sobre", "fala mais sobre"
   /\b(fala(r)?(?: mais| um pouco)? sobre|me conta(r)? (mais )?sobre|quero saber (mais )?sobre)\b/i,
 
   // ── Intenção de falar com humano / suporte / vendedor ──
   /\b(falar com|quero falar|preciso falar|me (conecta|transfira|passa)|atendente|humano|pessoa real|suporte|vendedor|especialista|consultor)\b/i,
-  // Perguntas de venda com abreviações comuns
   /\b(vcs|voc[eê]s)\b.{0,15}\b(vendem|vende|tem|têm)\b/i,
+
+  // ── Perguntas casuais / follow-up (NÃO são respostas de marca/modelo/resina) ──
+  /\b(eles|elas|vocês|vcs|alguém|quando)\b.{0,15}\b(vão|vai|vem|liga|chama|entra|retorna)\b/i,
+  /\b(vai me|vão me|vou receber|alguém vai)\b/i,
+  /\?$/,  // Messages ending with ? are usually questions, not brand/model answers
+  /\b(obrigad[ao]|valeu|agradeço|thanks|gracias)\b/i,
+  /\b(tchau|bye|até logo|até mais|adeus)\b/i,
 ];
 
 function isOffTopicFromDialog(message: string): boolean {
@@ -692,6 +694,14 @@ async function detectPrinterDialogState(
   const currentState = sessionData?.current_state || "idle";
   const entities = sessionData?.extracted_entities || {};
 
+  // ── Guard: if session has active support_flow_stage, skip printer dialog entirely ──
+  if (sessionData?.extracted_entities) {
+    const ent = sessionData.extracted_entities as Record<string, unknown>;
+    if (ent.support_flow_stage) {
+      return { state: "not_in_dialog" };
+    }
+  }
+
   // ── topic_context override: if user declared "parameters" intent and session is idle, start dialog directly ──
   if (topic_context === "parameters" && (currentState === "idle" || currentState === "not_in_dialog")) {
     await persistState("needs_brand", {});
@@ -717,9 +727,11 @@ async function detectPrinterDialogState(
       await persistState("needs_model", { brand_name: brand.name, brand_slug: brand.slug, brand_id: brand.id });
       return { state: "needs_model", brand: brand.name, brandSlug: brand.slug, brandId: brand.id, availableModels: modelNames };
     }
-    const guess = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim();
+    // Extract only meaningful words for brand guess (not the entire sentence)
+    const msgWords = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim().split(/\s+/).filter(w => w.length >= 3);
+    const guess = msgWords.slice(0, 3).join(" ") || message.trim().slice(0, 30);
     await persistState("brand_not_found", {});
-    return { state: "brand_not_found", brandGuess: guess || message.trim(), availableBrands: brandNames };
+    return { state: "brand_not_found", brandGuess: guess, availableBrands: brandNames };
   }
 
   // State: needs_resin → user is responding with a model name
@@ -4348,8 +4360,25 @@ REGRAS:
 
       // ── Stage: awaiting_summary — user sends their free-text summary → create ticket immediately ──
       if (supportFlowStage === "awaiting_summary") {
-        const clientSummary = message.trim();
         const equipment = (supportEnt.support_equipment as string) || "";
+
+        // Detect frustration or refusal to repeat — auto-generate summary from collected answers
+        const FRUSTRATION_PATTERNS = /\b(burr[ao]?|idiota|inútil|estúpid[ao]|já (escrevi|disse|falei|informei|respondi)|repet|de novo|outra vez|vc [eé]|você [eé]|tá (surd|ceg)|estou (surd|ceg)|não (leu|entend|ler)|pqp|porra|merda|caralho|wtf|stupid|dumb|idiot|already told)\b/i;
+        const isFrustrated = FRUSTRATION_PATTERNS.test(message);
+        
+        let clientSummary: string;
+        if (isFrustrated) {
+          // Auto-generate summary from already collected answers instead of asking again
+          const parts: string[] = [];
+          if (equipment) parts.push(`Equipamento: ${equipment}`);
+          if (supportAnswers.behavior) parts.push(`Problema: ${supportAnswers.behavior}`);
+          if (supportAnswers.when_started) parts.push(`Início: ${supportAnswers.when_started}`);
+          if (supportAnswers.screen_message) parts.push(`Indicação visual: ${supportAnswers.screen_message}`);
+          clientSummary = parts.join(". ") || message.trim();
+          console.log(`[support_flow] Frustration detected, auto-generating summary from collected answers: "${clientSummary}"`);
+        } else {
+          clientSummary = message.trim();
+        }
 
         // Build conversation log from recent interactions
         const { data: recentMsgs } = await supabase
