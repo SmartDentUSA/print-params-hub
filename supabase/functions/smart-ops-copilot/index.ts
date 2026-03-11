@@ -102,15 +102,20 @@ const tools = [
     type: "function",
     function: {
       name: "send_whatsapp",
-      description: "Envia mensagem WhatsApp para um lead via WaLeads. Precisa do telefone do lead.",
+      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um vendedor específico. Pode resolver vendedor e lead por nome automaticamente.",
       parameters: {
         type: "object",
         properties: {
+          seller_name: { type: "string", description: "Nome do vendedor (busca em team_members para encontrar o team_member_id e waleads_api_key)" },
+          lead_name: { type: "string", description: "Nome do lead (alternativa ao phone — busca em lia_attendances)" },
           lead_id: { type: "string", description: "UUID do lead" },
-          phone: { type: "string", description: "Telefone do lead com DDD" },
-          message: { type: "string", description: "Mensagem a enviar" }
+          phone: { type: "string", description: "Telefone do lead com DDD (se não informar, busca pelo lead_name ou lead_id)" },
+          message: { type: "string", description: "Mensagem a enviar" },
+          tipo: { type: "string", description: "Tipo de mensagem: text, image, audio, video, document (padrão: text)" },
+          media_url: { type: "string", description: "URL da mídia (para tipos image/audio/video/document)" },
+          caption: { type: "string", description: "Legenda da mídia" }
         },
-        required: ["phone", "message"]
+        required: ["message"]
       }
     }
   },
