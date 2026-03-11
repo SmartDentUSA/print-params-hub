@@ -372,15 +372,17 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
 
   const sendMessage = useCallback(async () => {
     const text = input.trim();
-    if (!text || text.length < 3 || isLoading) return;
-    sessionStorage.removeItem('dra_lia_summarized'); // Allow re-summarization with updated conversation
+    if ((!text || text.length < 3) && !pendingImage) return;
+    if (isLoading) return;
+    sessionStorage.removeItem('dra_lia_summarized');
     sentMsgCountRef.current += 1;
-    resetInactivityTimer(); // Reset inactivity timer on every message
+    resetInactivityTimer();
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: text,
+      content: text || '📷 Imagem enviada',
+      imagePreview: pendingImage?.preview,
     };
 
     const assistantMsg: Message = {
@@ -393,22 +395,27 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     setInput('');
     setIsLoading(true);
 
+    const currentImage = pendingImage;
+    setPendingImage(null);
+
     try {
       const history = messages
         .slice(-8)
         .map((m) => ({ role: m.role, content: m.content }));
 
       const bodyPayload: Record<string, unknown> = {
-        message: text,
+        message: text || 'Analise esta imagem',
         history,
         lang,
         session_id: sessionId.current,
         topic_context: topicContext || undefined,
       };
-      // Attach SDR product selections if present
       if (pendingSdrSelectionsRef.current) {
         bodyPayload.product_selections = pendingSdrSelectionsRef.current;
         pendingSdrSelectionsRef.current = null;
+      }
+      if (currentImage) {
+        bodyPayload.image_data = { base64: currentImage.base64, mime_type: currentImage.mimeType };
       }
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/dra-lia?action=chat`, {
         method: 'POST',
