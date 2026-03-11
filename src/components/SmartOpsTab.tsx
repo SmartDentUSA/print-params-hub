@@ -87,6 +87,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
           <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           <TabsTrigger value="roi">ROI</TabsTrigger>
+          <TabsTrigger value="copilot">🤖 Copilot</TabsTrigger>
         </TabsList>
 
         <TabsContent value="bowtie">
