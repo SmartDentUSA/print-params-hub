@@ -965,6 +965,87 @@ async function executeBulkCampaign(args: any) {
   };
 }
 
+async function executeMoveCrmStage(args: any) {
+  try {
+    // Resolve lead by name if needed
+    let leadId = args.lead_id;
+    if (!leadId && args.lead_name) {
+      const { data: leads } = await supabase.from("lia_attendances")
+        .select("id,nome,piperun_id,etapa_crm")
+        .ilike("nome", `%${args.lead_name}%`)
+        .limit(1);
+      if (!leads || leads.length === 0) return { error: `Lead "${args.lead_name}" não encontrado` };
+      leadId = leads[0].id;
+    }
+    if (!leadId) return { error: "Informe lead_id ou lead_name" };
+
+    // Get lead's piperun_id
+    const { data: lead } = await supabase.from("lia_attendances")
+      .select("id,nome,piperun_id,etapa_crm")
+      .eq("id", leadId)
+      .single();
+    if (!lead) return { error: "Lead não encontrado" };
+
+    // Update local etapa_crm
+    await supabase.from("lia_attendances")
+      .update({ etapa_crm: args.new_stage, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+
+    // If has piperun_id, also update PipeRun
+    let piperunResult: any = null;
+    if (lead.piperun_id) {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-kanban-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ piperun_id: lead.piperun_id, new_status: args.new_stage })
+      });
+      const ct = resp.headers.get("content-type") || "";
+      piperunResult = ct.includes("application/json") ? await resp.json() : { raw: await resp.text() };
+    }
+
+    return {
+      success: true,
+      lead: { id: lead.id, nome: lead.nome },
+      old_stage: lead.etapa_crm,
+      new_stage: args.new_stage,
+      piperun_synced: !!lead.piperun_id,
+      piperun_result: piperunResult,
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+async function executeQueryEcommerceOrders(args: any) {
+  try {
+    const limit = Math.min(args.limit || 50, 200);
+    let query = supabase.from("lia_attendances")
+      .select("id,nome,email,telefone_normalized,cidade,lojaintegrada_ultimo_pedido_status,lojaintegrada_ultimo_pedido_valor,lojaintegrada_ultimo_pedido_data,lojaintegrada_ultimo_pedido_numero,lojaintegrada_ltv,lojaintegrada_total_pedidos_pagos,tags_crm,proprietario_lead_crm")
+      .not("lojaintegrada_ultimo_pedido_status", "is", null)
+      .limit(limit);
+
+    if (args.order_status) {
+      query = query.ilike("lojaintegrada_ultimo_pedido_status", `%${args.order_status}%`);
+    }
+    if (args.since) {
+      query = query.gte("lojaintegrada_ultimo_pedido_data", args.since);
+    }
+    if (args.until) {
+      query = query.lte("lojaintegrada_ultimo_pedido_data", args.until);
+    }
+    if (args.min_value) {
+      query = query.gte("lojaintegrada_ultimo_pedido_valor", args.min_value);
+    }
+
+    query = query.order("lojaintegrada_ultimo_pedido_data", { ascending: false });
+    const { data, error } = await query;
+    if (error) return { error: error.message };
+    return { count: data?.length || 0, orders: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -987,6 +1068,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   calculate: executeCalculate,
   query_leads_advanced: executeQueryLeadsAdvanced,
   bulk_campaign: executeBulkCampaign,
+  move_crm_stage: executeMoveCrmStage,
+  query_ecommerce_orders: executeQueryEcommerceOrders,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
