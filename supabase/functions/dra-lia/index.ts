@@ -4704,6 +4704,21 @@ REGRAS:
       }
     }
 
+    // 3c. Content Direct Search: if user requested media/content and RAG didn't return relevant results
+    const userRequestedContent = CONTENT_REQUEST_REGEX.test(message);
+    const hasMediaInResults = allResults.some((r: { source_type: string }) => ["video", "article"].includes(r.source_type));
+    if (userRequestedContent && (!hasMediaInResults || topSimilarity < 0.5)) {
+      try {
+        const directResults = await searchContentDirect(supabase, message, session_id, currentLeadId);
+        if (directResults.length > 0) {
+          allResults.push(...directResults);
+          console.log(`[RAG] searchContentDirect added ${directResults.length} results`);
+        }
+      } catch (e) {
+        console.warn("[RAG] searchContentDirect failed:", e);
+      }
+    }
+
     const hasResults = allResults.length > 0;
 
     // 3b. Menu Loop Detection — if last 2 bot responses both contained brand lists, force handoff
