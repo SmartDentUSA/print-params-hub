@@ -22,6 +22,7 @@ interface Message {
   interactionId?: string;
   feedbackSent?: boolean;
   mediaCards?: MediaCard[];
+  imagePreview?: string; // base64 data URL for user-sent images
 }
 
 interface DraLIAProps {
