@@ -719,9 +719,11 @@ async function detectPrinterDialogState(
       await persistState("needs_model", { brand_name: brand.name, brand_slug: brand.slug, brand_id: brand.id });
       return { state: "needs_model", brand: brand.name, brandSlug: brand.slug, brandId: brand.id, availableModels: modelNames };
     }
-    const guess = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim();
+    // Extract only meaningful words for brand guess (not the entire sentence)
+    const msgWords = message.trim().replace(/[^a-zA-ZÀ-ÿ0-9\s]/g, "").trim().split(/\s+/).filter(w => w.length >= 3);
+    const guess = msgWords.slice(0, 3).join(" ") || message.trim().slice(0, 30);
     await persistState("brand_not_found", {});
-    return { state: "brand_not_found", brandGuess: guess || message.trim(), availableBrands: brandNames };
+    return { state: "brand_not_found", brandGuess: guess, availableBrands: brandNames };
   }
 
   // State: needs_resin → user is responding with a model name
