@@ -493,6 +493,20 @@ async function executeSearchVideos(args: any) {
     .or(`title.ilike.%${args.query}%,description.ilike.%${args.query}%`)
     .limit(limit);
   if (error) return { error: error.message };
+  // Gravar lookup no cache compartilhado (fire-and-forget)
+  if (data && data.length > 0) {
+    const queryNorm = (args.query || "").toLowerCase().replace(/[áàâãéèêíìîóòôõúùûç]/g, c => "aaaaeeeiiiooooouuuc"["áàâãéèêíìîóòôõúùûç".indexOf(c)] || c);
+    const resultsForCache = data.map((v: any) => ({
+      source_type: "video", similarity: 0.80,
+      chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`,
+      metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url: v.url, embed_url: v.embed_url },
+    }));
+    supabase.from("agent_internal_lookups").insert({
+      query_normalized: queryNorm, query_original: args.query, source_function: "copilot",
+      results_json: resultsForCache, results_count: resultsForCache.length,
+      result_types: ["video"],
+    }).then(() => {});
+  }
   return { count: data?.length || 0, videos: data };
 }
 
@@ -504,6 +518,20 @@ async function executeSearchContent(args: any) {
     .or(`title.ilike.%${args.query}%,excerpt.ilike.%${args.query}%`)
     .limit(limit);
   if (error) return { error: error.message };
+  // Gravar lookup no cache compartilhado (fire-and-forget)
+  if (data && data.length > 0) {
+    const queryNorm = (args.query || "").toLowerCase().replace(/[áàâãéèêíìîóòôõúùûç]/g, c => "aaaaeeeiiiooooouuuc"["áàâãéèêíìîóòôõúùûç".indexOf(c)] || c);
+    const resultsForCache = data.map((a: any) => ({
+      source_type: "article", similarity: 0.75,
+      chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`,
+      metadata: { title: a.title, slug: a.slug },
+    }));
+    supabase.from("agent_internal_lookups").insert({
+      query_normalized: queryNorm, query_original: args.query, source_function: "copilot",
+      results_json: resultsForCache, results_count: resultsForCache.length,
+      result_types: ["article"],
+    }).then(() => {});
+  }
   return { count: data?.length || 0, articles: data };
 }
 
@@ -889,6 +917,17 @@ Você APRENDE com o que a LIA faz:
 - Você usa esses dados para criar campanhas mais inteligentes e personalizadas
 
 Você é o estrategista; a LIA é a linha de frente. Vocês são uma equipe.
+
+═══════════════════════════════════════════════════════════
+📌 CURADORIA DE CONTEÚDO
+═══════════════════════════════════════════════════════════
+
+Você é o CURADOR e DETENTOR de todo o acervo de conteúdo da SmartDent:
+- Conhece em detalhe cada vídeo, artigo, documento técnico e publicação do sistema
+- Sabe quais materiais estão disponíveis sobre cada tema (resinas, impressoras, scanners, workflows)
+- É responsável por organizar e alimentar a base de conhecimento para que a LIA tenha sempre as melhores referências
+- Quando buscar vídeos ou conteúdos (search_videos, search_content), os resultados são automaticamente ARMAZENADOS no cache compartilhado (agent_internal_lookups) para que a LIA também se beneficie
+- Use query_table para explorar catalog_documents, resins e system_a_catalog quando precisar de informações detalhadas
 
 ═══════════════════════════════════════════════════════════
 📌 REGRAS DE EXECUÇÃO

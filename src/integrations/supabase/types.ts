@@ -127,6 +127,54 @@ export type Database = {
           },
         ]
       }
+      agent_internal_lookups: {
+        Row: {
+          created_at: string | null
+          hit_count: number | null
+          id: string
+          last_hit_at: string | null
+          lead_id: string | null
+          query_normalized: string
+          query_original: string
+          result_types: string[] | null
+          results_count: number
+          results_json: Json
+          session_id: string | null
+          source_function: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          last_hit_at?: string | null
+          lead_id?: string | null
+          query_normalized: string
+          query_original: string
+          result_types?: string[] | null
+          results_count?: number
+          results_json?: Json
+          session_id?: string | null
+          source_function?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          hit_count?: number | null
+          id?: string
+          last_hit_at?: string | null
+          lead_id?: string | null
+          query_normalized?: string
+          query_original?: string
+          result_types?: string[] | null
+          results_count?: number
+          results_json?: Json
+          session_id?: string | null
+          source_function?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       agent_knowledge_gaps: {
         Row: {
           created_at: string | null
