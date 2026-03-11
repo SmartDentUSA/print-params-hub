@@ -3802,6 +3802,7 @@ export type Database = {
         Returns: Database["public"]["Enums"]["app_role"]
       }
       has_panel_access: { Args: { user_id: string }; Returns: boolean }
+      increment_lookup_hit: { Args: { lookup_id: string }; Returns: undefined }
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
       match_agent_embeddings: {
