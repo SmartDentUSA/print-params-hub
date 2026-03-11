@@ -20,30 +20,36 @@ export type Database = {
           content_id: string | null
           created_at: string | null
           embedding: string | null
+          embedding_model: string | null
           embedding_updated_at: string | null
           id: string
           metadata: Json | null
           source_type: string
+          vector_v2: string | null
         }
         Insert: {
           chunk_text: string
           content_id?: string | null
           created_at?: string | null
           embedding?: string | null
+          embedding_model?: string | null
           embedding_updated_at?: string | null
           id?: string
           metadata?: Json | null
           source_type: string
+          vector_v2?: string | null
         }
         Update: {
           chunk_text?: string
           content_id?: string | null
           created_at?: string | null
           embedding?: string | null
+          embedding_model?: string | null
           embedding_updated_at?: string | null
           id?: string
           metadata?: Json | null
           source_type?: string
+          vector_v2?: string | null
         }
         Relationships: []
       }
@@ -3806,6 +3812,20 @@ export type Database = {
       is_admin: { Args: { user_id: string }; Returns: boolean }
       is_author: { Args: { user_id: string }; Returns: boolean }
       match_agent_embeddings: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_text: string
+          id: string
+          metadata: Json
+          similarity: number
+          source_type: string
+        }[]
+      }
+      match_agent_embeddings_v2: {
         Args: {
           match_count?: number
           match_threshold?: number
