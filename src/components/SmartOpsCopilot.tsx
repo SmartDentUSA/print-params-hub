@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 type Message = { role: "user" | "assistant"; content: string };
+type ModelId = "deepseek" | "gemini";
 
 const SUGGESTIONS = [
   "Quantos leads temos no total?",
