@@ -102,15 +102,20 @@ const tools = [
     type: "function",
     function: {
       name: "send_whatsapp",
-      description: "Envia mensagem WhatsApp para um lead via WaLeads. Precisa do telefone do lead.",
+      description: "Envia mensagem WhatsApp para um lead via WaLeads usando o celular de um vendedor específico. Pode resolver vendedor e lead por nome automaticamente.",
       parameters: {
         type: "object",
         properties: {
+          seller_name: { type: "string", description: "Nome do vendedor (busca em team_members para encontrar o team_member_id e waleads_api_key)" },
+          lead_name: { type: "string", description: "Nome do lead (alternativa ao phone — busca em lia_attendances)" },
           lead_id: { type: "string", description: "UUID do lead" },
-          phone: { type: "string", description: "Telefone do lead com DDD" },
-          message: { type: "string", description: "Mensagem a enviar" }
+          phone: { type: "string", description: "Telefone do lead com DDD (se não informar, busca pelo lead_name ou lead_id)" },
+          message: { type: "string", description: "Mensagem a enviar" },
+          tipo: { type: "string", description: "Tipo de mensagem: text, image, audio, video, document (padrão: text)" },
+          media_url: { type: "string", description: "URL da mídia (para tipos image/audio/video/document)" },
+          caption: { type: "string", description: "Legenda da mídia" }
         },
-        required: ["phone", "message"]
+        required: ["message"]
       }
     }
   },
@@ -383,6 +388,40 @@ const tools = [
         },
         required: ["campaign_name"]
       }
+     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "move_crm_stage",
+      description: "Move um lead para outra etapa do funil CRM (PipeRun + local). Atualiza o deal no PipeRun via smart-ops-kanban-move e o campo etapa_crm no lia_attendances.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID do lead" },
+          lead_name: { type: "string", description: "Nome do lead (alternativa ao lead_id)" },
+          new_stage: { type: "string", description: "Nova etapa: novo_lead, em_atendimento, agendamento, negociacao, proposta, ganho, perdido, estagnado, etc." }
+        },
+        required: ["new_stage"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_ecommerce_orders",
+      description: "Consulta pedidos e-commerce na tabela lia_attendances filtrando por status do último pedido, data, e outras condições. Ideal para carrinhos abandonados, pedidos pendentes, clientes recorrentes.",
+      parameters: {
+        type: "object",
+        properties: {
+          order_status: { type: "string", description: "Status do último pedido: checkout_iniciado, aguardando_pagamento, pedido_pago, pedido_entregue, pedido_cancelado" },
+          since: { type: "string", description: "Data ISO mínima do último pedido (ex: 2026-03-11)" },
+          until: { type: "string", description: "Data ISO máxima do último pedido" },
+          min_value: { type: "number", description: "Valor mínimo do último pedido" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 50)" }
+        },
+        required: []
+      }
     }
   }
 ];
@@ -459,10 +498,80 @@ async function executeCreateAudience(args: any) {
 
 async function executeSendWhatsapp(args: any) {
   try {
+    // 1. Resolve seller (team_member_id) by name
+    let teamMemberId: string | undefined;
+    if (args.seller_name) {
+      const { data: sellers } = await supabase.from("team_members")
+        .select("id,nome_completo,whatsapp_number,waleads_api_key")
+        .ilike("nome_completo", `%${args.seller_name}%`)
+        .eq("ativo", true)
+        .limit(3);
+      if (!sellers || sellers.length === 0) {
+        // Try nome field too
+        const { data: sellers2 } = await supabase.from("team_members")
+          .select("id,nome_completo,whatsapp_number,waleads_api_key")
+          .ilike("nome_completo", `%${args.seller_name}%`)
+          .limit(3);
+        if (!sellers2 || sellers2.length === 0) return { error: `Vendedor "${args.seller_name}" não encontrado em team_members` };
+        teamMemberId = sellers2[0].id;
+        console.log(`[Copilot] Resolved seller: ${args.seller_name} → ${sellers2[0].nome_completo} (${sellers2[0].id})`);
+      } else {
+        teamMemberId = sellers[0].id;
+        console.log(`[Copilot] Resolved seller: ${args.seller_name} → ${sellers[0].nome_completo} (${sellers[0].id})`);
+      }
+    }
+
+    // 2. Resolve lead phone by name or lead_id
+    let phone = args.phone;
+    let leadId = args.lead_id;
+
+    if (!phone && (args.lead_name || args.lead_id)) {
+      let leadQuery = supabase.from("lia_attendances").select("id,nome,telefone_normalized,telefone").limit(1);
+      if (args.lead_id) {
+        leadQuery = leadQuery.eq("id", args.lead_id);
+      } else if (args.lead_name) {
+        leadQuery = leadQuery.ilike("nome", `%${args.lead_name}%`);
+      }
+      const { data: leads } = await leadQuery;
+      if (!leads || leads.length === 0) return { error: `Lead "${args.lead_name || args.lead_id}" não encontrado` };
+      phone = leads[0].telefone_normalized || leads[0].telefone;
+      leadId = leads[0].id;
+      if (!phone) return { error: `Lead "${leads[0].nome}" encontrado mas não tem telefone cadastrado` };
+      console.log(`[Copilot] Resolved lead: ${args.lead_name || args.lead_id} → ${leads[0].nome} (${phone})`);
+    }
+
+    if (!phone) return { error: "Telefone não informado e não foi possível resolver pelo lead_name/lead_id" };
+
+    // 3. If no seller specified, try to find first active team member with waleads_api_key
+    if (!teamMemberId) {
+      const { data: defaultSeller } = await supabase.from("team_members")
+        .select("id,nome_completo")
+        .not("waleads_api_key", "is", null)
+        .eq("ativo", true)
+        .limit(1);
+      if (defaultSeller && defaultSeller.length > 0) {
+        teamMemberId = defaultSeller[0].id;
+        console.log(`[Copilot] No seller specified, using default: ${defaultSeller[0].nome_completo}`);
+      } else {
+        return { error: "Nenhum vendedor com WaLeads configurado encontrado. Informe seller_name." };
+      }
+    }
+
+    // 4. Call send-waleads with team_member_id
+    const payload: any = {
+      team_member_id: teamMemberId,
+      phone,
+      message: args.message,
+      lead_id: leadId,
+      tipo: args.tipo || "text",
+    };
+    if (args.media_url) payload.media_url = args.media_url;
+    if (args.caption) payload.caption = args.caption;
+
     const response = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
-      body: JSON.stringify({ phone: args.phone, message: args.message, lead_id: args.lead_id })
+      body: JSON.stringify(payload)
     });
     const ct = response.headers.get("content-type") || "";
     if (!ct.includes("application/json")) {
@@ -856,6 +965,87 @@ async function executeBulkCampaign(args: any) {
   };
 }
 
+async function executeMoveCrmStage(args: any) {
+  try {
+    // Resolve lead by name if needed
+    let leadId = args.lead_id;
+    if (!leadId && args.lead_name) {
+      const { data: leads } = await supabase.from("lia_attendances")
+        .select("id,nome,piperun_id,etapa_crm")
+        .ilike("nome", `%${args.lead_name}%`)
+        .limit(1);
+      if (!leads || leads.length === 0) return { error: `Lead "${args.lead_name}" não encontrado` };
+      leadId = leads[0].id;
+    }
+    if (!leadId) return { error: "Informe lead_id ou lead_name" };
+
+    // Get lead's piperun_id
+    const { data: lead } = await supabase.from("lia_attendances")
+      .select("id,nome,piperun_id,etapa_crm")
+      .eq("id", leadId)
+      .single();
+    if (!lead) return { error: "Lead não encontrado" };
+
+    // Update local etapa_crm
+    await supabase.from("lia_attendances")
+      .update({ etapa_crm: args.new_stage, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+
+    // If has piperun_id, also update PipeRun
+    let piperunResult: any = null;
+    if (lead.piperun_id) {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-kanban-move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` },
+        body: JSON.stringify({ piperun_id: lead.piperun_id, new_status: args.new_stage })
+      });
+      const ct = resp.headers.get("content-type") || "";
+      piperunResult = ct.includes("application/json") ? await resp.json() : { raw: await resp.text() };
+    }
+
+    return {
+      success: true,
+      lead: { id: lead.id, nome: lead.nome },
+      old_stage: lead.etapa_crm,
+      new_stage: args.new_stage,
+      piperun_synced: !!lead.piperun_id,
+      piperun_result: piperunResult,
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+async function executeQueryEcommerceOrders(args: any) {
+  try {
+    const limit = Math.min(args.limit || 50, 200);
+    let query = supabase.from("lia_attendances")
+      .select("id,nome,email,telefone_normalized,cidade,lojaintegrada_ultimo_pedido_status,lojaintegrada_ultimo_pedido_valor,lojaintegrada_ultimo_pedido_data,lojaintegrada_ultimo_pedido_numero,lojaintegrada_ltv,lojaintegrada_total_pedidos_pagos,tags_crm,proprietario_lead_crm")
+      .not("lojaintegrada_ultimo_pedido_status", "is", null)
+      .limit(limit);
+
+    if (args.order_status) {
+      query = query.ilike("lojaintegrada_ultimo_pedido_status", `%${args.order_status}%`);
+    }
+    if (args.since) {
+      query = query.gte("lojaintegrada_ultimo_pedido_data", args.since);
+    }
+    if (args.until) {
+      query = query.lte("lojaintegrada_ultimo_pedido_data", args.until);
+    }
+    if (args.min_value) {
+      query = query.gte("lojaintegrada_ultimo_pedido_valor", args.min_value);
+    }
+
+    query = query.order("lojaintegrada_ultimo_pedido_data", { ascending: false });
+    const { data, error } = await query;
+    if (error) return { error: error.message };
+    return { count: data?.length || 0, orders: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -878,6 +1068,8 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   calculate: executeCalculate,
   query_leads_advanced: executeQueryLeadsAdvanced,
   bulk_campaign: executeBulkCampaign,
+  move_crm_stage: executeMoveCrmStage,
+  query_ecommerce_orders: executeQueryEcommerceOrders,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
@@ -946,13 +1138,32 @@ COMPORTAMENTO:
 - Sempre que o usuário pedir para fazer algo com leads, use as ferramentas disponíveis
 - Para buscar leads, use query_leads (simples) ou query_leads_advanced (filtros complexos, JSONB, datas, ranges)
 - Para campanhas em massa (reativação, WhatsApp, SellFlux), use bulk_campaign — filtra, tageia e envia em um passo
-- Para enviar mensagens individuais, use send_whatsapp
+- Para enviar mensagens individuais via WhatsApp, use send_whatsapp com seller_name (nome do vendedor que envia) e lead_name ou phone
+- Para mover um lead de etapa no CRM, use move_crm_stage com lead_id ou lead_name e new_stage
+- Para carrinhos abandonados ou pedidos e-commerce, use query_ecommerce_orders com order_status e since
 - Para notificar vendedores, use notify_seller
 - Para consultar dados, use query_table ou query_stats
 - Quando o resultado for uma lista, formate como tabela markdown
 - Seja conciso e objetivo nas respostas — mas quando fizer análise de dados, seja detalhista nos insights
 - IMPORTANTE: Sempre que tiver os dados de uma ferramenta, responda com o resultado formatado
 - Ao criar campanhas, adicione sempre um RESUMO ANALÍTICO: quantos leads, distribuição por score, por cidade, por produto — os números que importam
+
+ENVIO DE WHATSAPP (send_whatsapp):
+- O send_whatsapp resolve vendedor e lead por nome automaticamente
+- "Envie msg da Patricia para o lead João dizendo X" → use send_whatsapp com seller_name="Patricia", lead_name="João", message="X"
+- "Mande uma mensagem do celular do vendedor X para o suporte" → use send_whatsapp com seller_name="X", phone="número_suporte", message="..."
+- Se o usuário não especificar vendedor, o sistema usa o primeiro vendedor ativo com WaLeads configurado
+- Suporta tipos: text (padrão), image, audio, video, document — informe tipo e media_url quando necessário
+
+MOVIMENTAÇÃO DE CRM (move_crm_stage):
+- "Mude o lead X para negociação" → use move_crm_stage com lead_name="X", new_stage="negociacao"
+- Sincroniza automaticamente com PipeRun se o lead tiver piperun_id
+- Etapas disponíveis: novo_lead, em_atendimento, agendamento, negociacao, proposta, ganho, perdido, estagnado
+
+CONSULTA E-COMMERCE (query_ecommerce_orders):
+- "Quem tem carrinho abandonado hoje?" → use query_ecommerce_orders com order_status="checkout_iniciado", since="data_de_hoje"
+- "Pedidos pagos esta semana" → order_status="pedido_pago" com since="data_inicio_semana"
+- Pode combinar com send_whatsapp para enviar mensagens automaticamente para cada resultado
 
 CAMPANHAS EM MASSA (bulk_campaign):
 - Use quando o usuário pedir algo como "envie campanha de reativação para leads que..."
