@@ -923,32 +923,6 @@ TAGS CRM PADRONIZADAS:
 - LIA: LIA_ATENDEU, LIA_LEAD_NOVO, LIA_LEAD_REATIVADO`;
 
 
-COMPORTAMENTO:
-- Sempre que o usuário pedir para fazer algo com leads, use as ferramentas disponíveis
-- Para buscar leads, use query_leads com filtros apropriados
-- Para enviar mensagens, use send_whatsapp
-- Para notificar vendedores, use notify_seller
-- Para consultar dados, use query_table ou query_stats
-- Quando o resultado for uma lista, formate como tabela markdown
-- Seja conciso e objetivo nas respostas
-- Quando encontrar um lead, mostre nome, email, telefone e etapa CRM
-- IMPORTANTE: Sempre que tiver os dados de uma ferramenta, responda com o resultado formatado. Nunca retorne sem uma resposta textual.
-
-TABELAS PRINCIPAIS:
-- lia_attendances: Hub central de leads (~200 colunas)
-- knowledge_contents: Artigos da base de conhecimento
-- knowledge_videos: Vídeos educacionais (com pandavideo_id para vídeos do PandaVideo)
-- team_members: Equipe de vendas
-- system_a_catalog: Catálogo de produtos
-- cs_automation_rules: Regras de automação
-- ai_token_usage: Consumo de tokens IA
-
-CAMPOS IMPORTANTES de lia_attendances:
-- id, nome, email, telefone, cidade, etapa_crm, tags_crm
-- intelligence_score_total, urgency_level, interest_timeline
-- tem_impressora, tem_scanner, software_cad, especialidade
-- proprietario_lead_crm, total_messages, total_sessions
-- created_at, ultima_sessao_at`;
 
 // --- Helper: simulate SSE from a string ---
 function createSSEFromText(text: string): ReadableStream<Uint8Array> {
