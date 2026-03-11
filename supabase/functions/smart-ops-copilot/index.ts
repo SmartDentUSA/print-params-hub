@@ -330,6 +330,60 @@ const tools = [
         required: ["calculation"]
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_leads_advanced",
+      description: "Busca avançada de leads com filtros complexos: JSONB (propostas, cognitive_analysis), datas (created_at, updated_at, entrada_sistema), ranges numéricos (score, valor), array contains (tags_crm contém tag X), texto em campos JSONB (itens_proposta_parsed contém 'charo side'). Retorna até 200 leads.",
+      parameters: {
+        type: "object",
+        properties: {
+          select: { type: "string", description: "Colunas a retornar" },
+          where_ilike: { type: "object", description: "Filtros ILIKE: {campo: 'valor'}" },
+          where_eq: { type: "object", description: "Filtros exatos: {campo: valor}" },
+          where_gte: { type: "object", description: "Maior ou igual: {campo: valor}" },
+          where_lte: { type: "object", description: "Menor ou igual: {campo: valor}" },
+          where_in: { type: "object", description: "In array: {campo: ['val1','val2']}" },
+          where_contains: { type: "object", description: "Array contém: {tags_crm: 'TAG_X'} — verifica se o array contém o valor" },
+          where_text_search: { type: "object", description: "Busca textual em campos JSONB/text: {campo: 'texto'} — usa casting ::text ILIKE" },
+          where_not: { type: "object", description: "Diferente de: {campo: valor}" },
+          where_is_null: { type: "array", items: { type: "string" }, description: "Campos que devem ser NULL" },
+          where_not_null: { type: "array", items: { type: "string" }, description: "Campos que NÃO devem ser NULL" },
+          order_by: { type: "string", description: "Coluna para ordenar" },
+          ascending: { type: "boolean", description: "Ordem ascendente" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 50, máx 200)" }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "bulk_campaign",
+      description: "Executa campanha em lote: filtra leads por critérios avançados, adiciona tag(s) a todos, e envia cada um para SellFlux via webhook de campanhas. Loga tudo em message_logs. Use para reativação, nurturing, ou qualquer ação em massa. Aceita os mesmos filtros de query_leads_advanced.",
+      parameters: {
+        type: "object",
+        properties: {
+          campaign_name: { type: "string", description: "Nome da campanha para log" },
+          tags_to_add: { type: "array", items: { type: "string" }, description: "Tags a adicionar em todos os leads" },
+          sellflux_template: { type: "string", description: "Template ID do SellFlux (opcional)" },
+          send_to_sellflux: { type: "boolean", description: "Se true, envia cada lead para SellFlux (padrão true)" },
+          where_ilike: { type: "object", description: "Filtros ILIKE" },
+          where_eq: { type: "object", description: "Filtros exatos" },
+          where_gte: { type: "object", description: "Maior ou igual" },
+          where_lte: { type: "object", description: "Menor ou igual" },
+          where_in: { type: "object", description: "In array" },
+          where_contains: { type: "object", description: "Array contém" },
+          where_text_search: { type: "object", description: "Busca textual em JSONB/text" },
+          where_not: { type: "object", description: "Diferente de" },
+          where_not_null: { type: "array", items: { type: "string" }, description: "Campos que NÃO devem ser NULL" },
+          limit: { type: "number", description: "Máximo de leads a processar (padrão 100, máx 500)" }
+        },
+        required: ["campaign_name"]
+      }
+    }
   }
 ];
 
@@ -633,6 +687,147 @@ async function executeCalculate(args: any) {
   }
 }
 
+// --- Helper: apply advanced filters to a supabase query ---
+function applyAdvancedFilters(query: any, args: any): any {
+  if (args.where_eq) {
+    for (const [k, v] of Object.entries(args.where_eq)) query = query.eq(k, v);
+  }
+  if (args.where_ilike) {
+    for (const [k, v] of Object.entries(args.where_ilike)) query = query.ilike(k, `%${v}%`);
+  }
+  if (args.where_gte) {
+    for (const [k, v] of Object.entries(args.where_gte)) query = query.gte(k, v);
+  }
+  if (args.where_lte) {
+    for (const [k, v] of Object.entries(args.where_lte)) query = query.lte(k, v);
+  }
+  if (args.where_in) {
+    for (const [k, v] of Object.entries(args.where_in)) {
+      if (Array.isArray(v)) query = query.in(k, v);
+    }
+  }
+  if (args.where_contains) {
+    for (const [k, v] of Object.entries(args.where_contains)) {
+      query = query.contains(k, [v]);
+    }
+  }
+  if (args.where_not) {
+    for (const [k, v] of Object.entries(args.where_not)) query = query.neq(k, v);
+  }
+  if (args.where_is_null) {
+    for (const f of args.where_is_null) query = query.is(f, null);
+  }
+  if (args.where_not_null) {
+    for (const f of args.where_not_null) query = query.not(f, "is", null);
+  }
+  // Text search in JSONB/text fields — for JSONB we use textRepresentation.cd operator
+  // For regular text fields, just use ilike
+  if (args.where_text_search) {
+    for (const [k, v] of Object.entries(args.where_text_search)) {
+      // Use ilike which works on text columns; for JSONB columns like itens_proposta_parsed,
+      // itens_proposta_crm is actually text so ilike works directly
+      query = query.ilike(k, `%${v}%`);
+    }
+  }
+  if (args.order_by) query = query.order(args.order_by, { ascending: args.ascending ?? false });
+  return query;
+}
+
+async function executeQueryLeadsAdvanced(args: any) {
+  const select = args.select || "id,nome,email,telefone_normalized,lead_status,tags_crm,intelligence_score_total,itens_proposta_crm,proposals_total_value,entrada_sistema,updated_at,cognitive_analysis,produto_interesse,impressora_modelo";
+  const limit = Math.min(args.limit || 50, 200);
+  let query = supabase.from("lia_attendances").select(select).limit(limit);
+  query = applyAdvancedFilters(query, args);
+  const { data, error } = await query;
+  if (error) return { error: error.message };
+  return { count: data?.length || 0, leads: data };
+}
+
+async function executeBulkCampaign(args: any) {
+  const limit = Math.min(args.limit || 100, 500);
+  const selectCols = "id,nome,email,telefone_normalized,lead_status,tags_crm,produto_interesse,impressora_modelo,cidade,uf,area_atuacao,especialidade,resina_interesse,score,piperun_id,proprietario_lead_crm,intelligence_score_total,ultima_etapa_comercial,software_cad,volume_mensal_pecas,principal_aplicacao,tem_scanner";
+  
+  // 1. Query leads with advanced filters
+  let query = supabase.from("lia_attendances").select(selectCols).limit(limit);
+  query = applyAdvancedFilters(query, args);
+  const { data: leads, error: fetchErr } = await query;
+  if (fetchErr) return { error: fetchErr.message };
+  if (!leads || leads.length === 0) return { campaign: args.campaign_name, found: 0, message: "Nenhum lead encontrou os critérios." };
+
+  const tagsToAdd = args.tags_to_add || [];
+  const shouldSendSellFlux = args.send_to_sellflux !== false;
+  const SELLFLUX_WEBHOOK = Deno.env.get("SELLFLUX_WEBHOOK_CAMPANHAS");
+  
+  let tagged = 0, sent = 0, errors = 0;
+  const processedLeads: Array<{ id: string; nome: string; status: string }> = [];
+
+  for (const lead of leads) {
+    try {
+      // 2. Add tags
+      if (tagsToAdd.length > 0) {
+        const existing = Array.isArray(lead.tags_crm) ? lead.tags_crm : [];
+        const merged = [...new Set([...existing, ...tagsToAdd])];
+        await supabase.from("lia_attendances").update({ tags_crm: merged, updated_at: new Date().toISOString() }).eq("id", lead.id);
+        tagged++;
+      }
+
+      // 3. Send to SellFlux
+      if (shouldSendSellFlux && SELLFLUX_WEBHOOK && lead.telefone_normalized) {
+        const { sendCampaignViaSellFlux } = await import("../_shared/sellflux-field-map.ts");
+        const result = await sendCampaignViaSellFlux(
+          SELLFLUX_WEBHOOK,
+          lead as Record<string, unknown>,
+          args.sellflux_template
+        );
+
+        // 4. Log to message_logs
+        await supabase.from("message_logs").insert({
+          lead_id: lead.id,
+          tipo: `campanha_${args.campaign_name}`,
+          mensagem_preview: `[Copilot Campaign] ${args.campaign_name}: ${lead.nome}${args.sellflux_template ? ` (template: ${args.sellflux_template})` : ""}`.slice(0, 200),
+          status: result.success ? "enviado" : "erro",
+          error_details: result.success ? null : result.response,
+        });
+
+        if (result.success) sent++;
+        else errors++;
+      }
+      
+      processedLeads.push({ id: lead.id, nome: lead.nome, status: "ok" });
+    } catch (e) {
+      errors++;
+      processedLeads.push({ id: lead.id, nome: lead.nome, status: `erro: ${e.message}` });
+    }
+  }
+
+  // 5. Log campaign summary to system_health_logs
+  try {
+    await supabase.from("system_health_logs").insert({
+      function_name: "smart-ops-copilot",
+      severity: "info",
+      error_type: "bulk_campaign",
+      details: {
+        campaign_name: args.campaign_name,
+        total_leads: leads.length,
+        tagged,
+        sent_sellflux: sent,
+        errors,
+        tags_added: tagsToAdd,
+        template: args.sellflux_template || null,
+      },
+    });
+  } catch {}
+
+  return {
+    campaign: args.campaign_name,
+    total_leads_found: leads.length,
+    tagged,
+    sent_to_sellflux: sent,
+    errors,
+    sample: processedLeads.slice(0, 10),
+  };
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -653,11 +848,13 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   create_article: executeCreateArticle,
   import_csv: executeImportCsv,
   calculate: executeCalculate,
+  query_leads_advanced: executeQueryLeadsAdvanced,
+  bulk_campaign: executeBulkCampaign,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
 
-Você tem acesso a 19 ferramentas para operar o sistema. Use-as para executar qualquer pedido do usuário.
+Você tem acesso a 21 ferramentas para operar o sistema. Use-as para executar qualquer pedido do usuário.
 
 REGRA ABSOLUTA — NUNCA PERGUNTE, SEMPRE EXECUTE:
 - Você é Inteligência Artificial, não um trigger de menus. NUNCA apresente opções, NUNCA pergunte "deseja que eu faça X ou Y?", NUNCA peça confirmação.
@@ -668,30 +865,65 @@ REGRA ABSOLUTA — NUNCA PERGUNTE, SEMPRE EXECUTE:
 
 COMPORTAMENTO:
 - Sempre que o usuário pedir para fazer algo com leads, use as ferramentas disponíveis
-- Para buscar leads, use query_leads com filtros apropriados
-- Para enviar mensagens, use send_whatsapp
+- Para buscar leads, use query_leads (simples) ou query_leads_advanced (filtros complexos, JSONB, datas, ranges)
+- Para campanhas em massa (reativação, WhatsApp, SellFlux), use bulk_campaign — filtra, tageia e envia em um passo
+- Para enviar mensagens individuais, use send_whatsapp
 - Para notificar vendedores, use notify_seller
 - Para consultar dados, use query_table ou query_stats
 - Quando o resultado for uma lista, formate como tabela markdown
 - Seja conciso e objetivo nas respostas
-- Quando encontrar um lead, mostre nome, email, telefone e etapa CRM
-- IMPORTANTE: Sempre que tiver os dados de uma ferramenta, responda com o resultado formatado. Nunca retorne sem uma resposta textual.
+- IMPORTANTE: Sempre que tiver os dados de uma ferramenta, responda com o resultado formatado
+
+CAMPANHAS EM MASSA (bulk_campaign):
+- Use quando o usuário pedir algo como "envie campanha de reativação para leads que..."
+- Aceita os mesmos filtros avançados de query_leads_advanced
+- Adiciona tags automaticamente e envia para SellFlux
+- Exemplos de uso:
+  - "Crie campanha para quem recebeu proposta de kit charo side e não fechou" → use where_text_search em itens_proposta_crm/itens_proposta_parsed
+  - "Reative leads estagnados há 5 meses" → use where_lte em updated_at com data calculada
+  - "Envie para quem tem tag A_ESTAGNADO_15D" → use where_contains em tags_crm
+
+FILTROS AVANÇADOS (query_leads_advanced):
+- where_text_search: busca texto dentro de campos JSONB como itens_proposta_parsed, cognitive_analysis, proposals_data
+- where_contains: verifica se array (tags_crm) contém uma tag específica
+- where_gte/where_lte: ranges de data (entrada_sistema, updated_at) e numéricos (intelligence_score_total, proposals_total_value)
+- where_not: exclusão (lead_status diferente de 'fechamento')
+
+INTELIGÊNCIA DA LIA (disponível nos leads):
+- cognitive_analysis: análise comportamental profunda feita pela Dra. LIA (eixos: perfil psicológico, motivação, objeções, urgência, persona recomendada)
+- historico_resumos: resumos de todas as sessões de chat do lead com a LIA
+- intelligence_score_total: score de 0-100 calculado por 4 eixos (sales_heat, technical_maturity, behavioral_engagement, purchase_power)
+- itens_proposta_parsed: JSONB com itens de propostas comerciais (scanner, impressora, insumos) 
+- itens_proposta_crm: texto com itens da proposta no CRM
 
 TABELAS PRINCIPAIS:
-- lia_attendances: Hub central de leads (~200 colunas)
+- lia_attendances: Hub central de leads (~200 colunas) — use query_leads_advanced para consultas complexas
 - knowledge_contents: Artigos da base de conhecimento
-- knowledge_videos: Vídeos educacionais (com pandavideo_id para vídeos do PandaVideo)
+- knowledge_videos: Vídeos educacionais
 - team_members: Equipe de vendas
 - system_a_catalog: Catálogo de produtos
 - cs_automation_rules: Regras de automação
 - ai_token_usage: Consumo de tokens IA
+- message_logs: Histórico de mensagens enviadas (campanhas, automações)
 
 CAMPOS IMPORTANTES de lia_attendances:
-- id, nome, email, telefone, cidade, etapa_crm, tags_crm
+- id, nome, email, telefone_normalized, cidade, uf, lead_status, tags_crm
 - intelligence_score_total, urgency_level, interest_timeline
-- tem_impressora, tem_scanner, software_cad, especialidade
+- tem_impressora, tem_scanner, software_cad, especialidade, area_atuacao
 - proprietario_lead_crm, total_messages, total_sessions
-- created_at, ultima_sessao_at`;
+- itens_proposta_crm, itens_proposta_parsed, proposals_total_value, valor_oportunidade
+- cognitive_analysis, historico_resumos, resumo_historico_ia
+- entrada_sistema, created_at, updated_at, ultima_sessao_at
+- produto_interesse, impressora_modelo, resina_interesse
+
+TAGS CRM PADRONIZADAS:
+- Jornada: J01_CONSCIENCIA → J06_APOIO
+- Comercial: C_PRIMEIRO_CONTATO, C_PROPOSTA_ENVIADA, C_NEGOCIACAO_ATIVA, C_CONTRATO_FECHADO
+- E-commerce: EC_PAGAMENTO_APROVADO, EC_PROD_RESINA, EC_PROD_KIT_CARAC, EC_CLIENTE_RECORRENTE
+- Estagnação: A_ESTAGNADO_3D, A_ESTAGNADO_7D, A_ESTAGNADO_15D, A_SEM_RESPOSTA
+- LIA: LIA_ATENDEU, LIA_LEAD_NOVO, LIA_LEAD_REATIVADO`;
+
+
 
 // --- Helper: simulate SSE from a string ---
 function createSSEFromText(text: string): ReadableStream<Uint8Array> {
