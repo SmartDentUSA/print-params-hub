@@ -248,3 +248,6 @@ verify_jwt = false
 
 [functions.batch-cognitive-analysis]
 verify_jwt = false
+
+[functions.smart-ops-copilot]
+verify_jwt = false
