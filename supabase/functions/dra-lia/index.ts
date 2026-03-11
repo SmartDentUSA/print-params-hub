@@ -1703,19 +1703,21 @@ async function searchContentDirect(
     console.warn("[searchContentDirect] Resins search failed:", e);
   }
 
-  // ETAPA 3: Salvar no cache (fire-and-forget)
+  // ETAPA 3: Upsert no cache (fire-and-forget) — ON CONFLICT atualiza resultados existentes
   const resultTypes = [...new Set(results.map(r => r.source_type))];
-  supabaseClient.from("agent_internal_lookups").insert({
+  supabaseClient.from("agent_internal_lookups").upsert({
     query_normalized: queryNormalized,
     query_original: userMessage,
     source_function: "dra-lia",
     results_json: results,
     results_count: results.length,
     result_types: resultTypes,
+    hit_count: 1,
+    last_hit_at: new Date().toISOString(),
     session_id: sessionId || null,
     lead_id: leadId || null,
-  }).then(({ error }) => {
-    if (error) console.warn("[searchContentDirect] Cache insert failed:", error.message);
+  }, { onConflict: "query_normalized" }).then(({ error }) => {
+    if (error) console.warn("[searchContentDirect] Cache upsert failed:", error.message);
     else console.log(`[searchContentDirect] Cached ${results.length} results for "${queryNormalized.slice(0, 50)}..."`);
   });
 
