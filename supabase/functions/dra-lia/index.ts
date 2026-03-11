@@ -4469,22 +4469,36 @@ REGRAS:
 
     // 0b-entry. Support question detection — start support ticket flow instead of static redirect
     if (isSupportQuestion(message)) {
-      // Fetch lead equipment for selection
+      // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
+      let liaIdForSupport: string | null = null;
       if (currentLeadId) {
-        const { data: leadProfile } = await supabase
-          .from("lia_attendances")
-          .select("impressora_modelo, equip_scanner, equip_pos_impressao, equip_cad, equip_notebook, ativo_print, ativo_scan, ativo_cura, ativo_cad, ativo_notebook")
-          .eq("id", currentLeadId)
-          .maybeSingle();
+        // Resolve lia_attendances.id from leads.id (currentLeadId is from leads table)
+        const { data: leadsRow } = await supabase.from("leads").select("email").eq("id", currentLeadId).maybeSingle();
+        let liaQuery = supabase.from("lia_attendances")
+          .select("id, impressora_modelo, equip_scanner, equip_pos_impressao, equip_cad, equip_notebook, ativo_print, ativo_scan, ativo_cura, ativo_cad, ativo_notebook");
+        
+        if (leadsRow?.email) {
+          liaQuery = liaQuery.eq("email", leadsRow.email);
+        } else {
+          // Fallback: try currentLeadId directly
+          liaQuery = liaQuery.eq("id", currentLeadId);
+        }
+        
+        const { data: leadProfile } = await liaQuery.maybeSingle();
 
         if (leadProfile) {
-          if (leadProfile.ativo_print && leadProfile.impressora_modelo) equipmentOptions.push(leadProfile.impressora_modelo);
-          if (leadProfile.ativo_scan && leadProfile.equip_scanner) equipmentOptions.push(leadProfile.equip_scanner);
-          if (leadProfile.ativo_cura && leadProfile.equip_pos_impressao) equipmentOptions.push(leadProfile.equip_pos_impressao);
-          if (leadProfile.ativo_cad && leadProfile.equip_cad) equipmentOptions.push(leadProfile.equip_cad);
-          if (leadProfile.ativo_notebook && leadProfile.equip_notebook) equipmentOptions.push(leadProfile.equip_notebook);
+          liaIdForSupport = leadProfile.id;
+          // Show equipment if registered — don't require ativo_* flag (may not be set yet)
+          if (leadProfile.impressora_modelo) equipmentOptions.push(leadProfile.impressora_modelo);
+          if (leadProfile.equip_scanner) equipmentOptions.push(leadProfile.equip_scanner);
+          if (leadProfile.equip_pos_impressao) equipmentOptions.push(leadProfile.equip_pos_impressao);
+          if (leadProfile.equip_cad) equipmentOptions.push(leadProfile.equip_cad);
+          if (leadProfile.equip_notebook) equipmentOptions.push(leadProfile.equip_notebook);
+          // Deduplicate
+          equipmentOptions = [...new Set(equipmentOptions.filter(Boolean))];
         }
+        console.log(`[support_flow] Resolved lia ID: ${liaIdForSupport}, equipment found: ${equipmentOptions.length} items: ${equipmentOptions.join(", ")}`);
       }
 
       // Set support flow stage
