@@ -263,10 +263,28 @@ export function SmartOpsCopilot() {
 
   return (
     <Card className="h-[calc(100vh-220px)] flex flex-col">
+      {/* Model selector header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <span className="text-xs font-medium text-muted-foreground">Modelo IA</span>
+        <ToggleGroup
+          type="single"
+          value={selectedModel}
+          onValueChange={(v) => { if (v) setSelectedModel(v as ModelId); }}
+          size="sm"
+        >
+          <ToggleGroupItem value="deepseek" className="text-xs gap-1 px-2.5 h-7">
+            <Zap className="w-3 h-3" />
+            DeepSeek
+          </ToggleGroupItem>
+          <ToggleGroupItem value="gemini" className="text-xs gap-1 px-2.5 h-7">
+            <Brain className="w-3 h-3" />
+            Gemini
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
       <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
         {/* Messages area */}
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-          {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 py-12">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
                 <Sparkles className="w-8 h-8 text-primary" />
