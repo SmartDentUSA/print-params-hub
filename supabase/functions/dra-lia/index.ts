@@ -4348,8 +4348,25 @@ REGRAS:
 
       // ── Stage: awaiting_summary — user sends their free-text summary → create ticket immediately ──
       if (supportFlowStage === "awaiting_summary") {
-        const clientSummary = message.trim();
         const equipment = (supportEnt.support_equipment as string) || "";
+
+        // Detect frustration or refusal to repeat — auto-generate summary from collected answers
+        const FRUSTRATION_PATTERNS = /\b(burr[ao]?|idiota|inútil|estúpid[ao]|já (escrevi|disse|falei|informei|respondi)|repet|de novo|outra vez|vc [eé]|você [eé]|tá (surd|ceg)|estou (surd|ceg)|não (leu|entend|ler)|pqp|porra|merda|caralho|wtf|stupid|dumb|idiot|already told)\b/i;
+        const isFrustrated = FRUSTRATION_PATTERNS.test(message);
+        
+        let clientSummary: string;
+        if (isFrustrated) {
+          // Auto-generate summary from already collected answers instead of asking again
+          const parts: string[] = [];
+          if (equipment) parts.push(`Equipamento: ${equipment}`);
+          if (supportAnswers.behavior) parts.push(`Problema: ${supportAnswers.behavior}`);
+          if (supportAnswers.when_started) parts.push(`Início: ${supportAnswers.when_started}`);
+          if (supportAnswers.screen_message) parts.push(`Indicação visual: ${supportAnswers.screen_message}`);
+          clientSummary = parts.join(". ") || message.trim();
+          console.log(`[support_flow] Frustration detected, auto-generating summary from collected answers: "${clientSummary}"`);
+        } else {
+          clientSummary = message.trim();
+        }
 
         // Build conversation log from recent interactions
         const { data: recentMsgs } = await supabase
