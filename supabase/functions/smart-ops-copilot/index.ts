@@ -610,11 +610,11 @@ async function executeSearchVideos(args: any) {
       chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`,
       metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url: v.url, embed_url: v.embed_url },
     }));
-    supabase.from("agent_internal_lookups").insert({
+    supabase.from("agent_internal_lookups").upsert({
       query_normalized: queryNorm, query_original: args.query, source_function: "copilot",
       results_json: resultsForCache, results_count: resultsForCache.length,
-      result_types: ["video"],
-    }).then(() => {});
+      result_types: ["video"], hit_count: 1, last_hit_at: new Date().toISOString(),
+    }, { onConflict: "query_normalized" }).then(() => {});
   }
   return { count: data?.length || 0, videos: data };
 }
