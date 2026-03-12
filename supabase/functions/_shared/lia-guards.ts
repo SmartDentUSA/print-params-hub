@@ -29,6 +29,11 @@ const SUPPORT_KEYWORDS = [
   /(resina).{0,20}(não (curou|curar|endureceu|endureceu|polimerizo|aderiu))/i,
   /\b(quero|preciso|gostaria de|need to|want to)\b.{0,15}\b(falar com|talk to|hablar con)\b.{0,15}\b(suporte|support|soporte|atendente|humano|pessoa|human|someone)\b/i,
   /\b(falar com o suporte|falar com suporte|talk to support|hablar con soporte)\b/i,
+  // NEW: broader support intent patterns
+  /(preciso|quero|necessito|gostaria).{0,15}(de )?(suporte|ajuda técnica|assistência)/i,
+  /(abrir|criar|gerar).{0,10}(chamado|ticket|ocorrência)/i,
+  /(chamar|acionar|contactar|contatar).{0,10}(o )?(suporte|técnico|assistência)/i,
+  /preciso de (uma )?m[ãa]ozinha/i,
 ];
 
 export const SUPPORT_FALLBACK: Record<string, string> = {
