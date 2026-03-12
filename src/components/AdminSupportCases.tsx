@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,8 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Plus, ArrowLeft, Trash2, Check, X, ChevronDown, Loader2 } from 'lucide-react';
+import { Plus, ArrowLeft, Trash2, Check, X, ChevronDown, Loader2, ImageIcon, Upload } from 'lucide-react';
 import { useSupportCases, FAILURE_TYPES, type SupportCase } from '@/hooks/useSupportCases';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { validateFileSize } from '@/utils/security';
 
 // ── Workflow stage definitions ───────────────────────────────────────────────
 const WORKFLOW_STAGES = [
