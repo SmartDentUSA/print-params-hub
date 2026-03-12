@@ -1501,6 +1501,7 @@ export type Database = {
           empresa_custom_fields: Json | null
           empresa_endereco: Json | null
           empresa_facebook: string | null
+          empresa_hash: string | null
           empresa_ie: string | null
           empresa_linkedin: string | null
           empresa_nome: string | null
@@ -1583,6 +1584,7 @@ export type Database = {
           pessoa_endereco: Json | null
           pessoa_facebook: string | null
           pessoa_genero: string | null
+          pessoa_hash: string | null
           pessoa_linkedin: string | null
           pessoa_nascimento: string | null
           pessoa_observation: string | null
@@ -1591,6 +1593,7 @@ export type Database = {
           piperun_closed_at: string | null
           piperun_created_at: string | null
           piperun_custom_fields: Json | null
+          piperun_deals_history: Json | null
           piperun_deleted: boolean | null
           piperun_description: string | null
           piperun_frozen: boolean | null
@@ -1737,6 +1740,7 @@ export type Database = {
           empresa_custom_fields?: Json | null
           empresa_endereco?: Json | null
           empresa_facebook?: string | null
+          empresa_hash?: string | null
           empresa_ie?: string | null
           empresa_linkedin?: string | null
           empresa_nome?: string | null
@@ -1819,6 +1823,7 @@ export type Database = {
           pessoa_endereco?: Json | null
           pessoa_facebook?: string | null
           pessoa_genero?: string | null
+          pessoa_hash?: string | null
           pessoa_linkedin?: string | null
           pessoa_nascimento?: string | null
           pessoa_observation?: string | null
@@ -1827,6 +1832,7 @@ export type Database = {
           piperun_closed_at?: string | null
           piperun_created_at?: string | null
           piperun_custom_fields?: Json | null
+          piperun_deals_history?: Json | null
           piperun_deleted?: boolean | null
           piperun_description?: string | null
           piperun_frozen?: boolean | null
@@ -1973,6 +1979,7 @@ export type Database = {
           empresa_custom_fields?: Json | null
           empresa_endereco?: Json | null
           empresa_facebook?: string | null
+          empresa_hash?: string | null
           empresa_ie?: string | null
           empresa_linkedin?: string | null
           empresa_nome?: string | null
@@ -2055,6 +2062,7 @@ export type Database = {
           pessoa_endereco?: Json | null
           pessoa_facebook?: string | null
           pessoa_genero?: string | null
+          pessoa_hash?: string | null
           pessoa_linkedin?: string | null
           pessoa_nascimento?: string | null
           pessoa_observation?: string | null
@@ -2063,6 +2071,7 @@ export type Database = {
           piperun_closed_at?: string | null
           piperun_created_at?: string | null
           piperun_custom_fields?: Json | null
+          piperun_deals_history?: Json | null
           piperun_deleted?: boolean | null
           piperun_description?: string | null
           piperun_frozen?: boolean | null
