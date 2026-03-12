@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
     }
 
     // ─── Identity Resolution (cascading search) ───
-    const personEmail = ids.personEmail || (deal.person as Record<string, unknown>)?.email as string | null;
+    const personEmail = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
     const currentLead = await findLeadByCascade(supabase, dealId, ids.personHash, ids.personId, personEmail);
 
     let leadId: string;
