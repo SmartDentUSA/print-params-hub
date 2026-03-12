@@ -473,6 +473,16 @@ Deno.serve(async (req) => {
     updateData.piperun_id = dealId;
     updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
 
+    // Always update nome & telefone from PipeRun (source of truth)
+    if (ids.personName) updateData.nome = ids.personName;
+    if (ids.personPhone) {
+      updateData.telefone_raw = ids.personPhone;
+      let digits = ids.personPhone.replace(/\D/g, "");
+      if (digits.startsWith("0")) digits = digits.slice(1);
+      if (!digits.startsWith("55")) digits = "55" + digits;
+      if (digits.length >= 12 && digits.length <= 13) updateData.telefone_normalized = "+" + digits;
+    }
+
     // Identity keys (always persist, never overwrite with null)
     if (ids.personHash) updateData.pessoa_hash = ids.personHash;
     if (ids.personId) updateData.pessoa_piperun_id = ids.personId;
