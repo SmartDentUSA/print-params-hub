@@ -168,6 +168,9 @@ export function AdminSupportCases() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<SupportCase>>(emptyForm());
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Reference data
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
