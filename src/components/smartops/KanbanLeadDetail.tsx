@@ -13,7 +13,14 @@ function formatCurrency(val: number): string {
 
 function fmtDate(d: string | null | undefined): string | null {
   if (!d) return null;
-  try { return new Date(d).toLocaleDateString("pt-BR"); } catch { return d; }
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return d;
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch { return d; }
 }
 function fmtDateTime(d: string | null | undefined): string | null {
   if (!d) return null;
