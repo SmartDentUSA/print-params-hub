@@ -416,6 +416,8 @@ Deno.serve(async (req) => {
         piperun_id: dealId,
         piperun_link: `https://app.pipe.run/#/deals/${dealId}`,
         source: "piperun_webhook",
+        entrada_sistema: ids.dealCreatedAt || new Date().toISOString(),
+        data_primeiro_contato: ids.dealCreatedAt || new Date().toISOString(),
         lead_status: resolvedStatus,
         produto_interesse: customFields.produtoInteresse || null,
         area_atuacao: ids.personJobTitle || null,
