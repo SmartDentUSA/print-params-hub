@@ -365,6 +365,73 @@ export function AdminSupportCases() {
                   <Label>Tags (separadas por vírgula)</Label>
                   <Input value={tagsText} onChange={(e) => setTagsText(e.target.value)} placeholder="warping, resina, DLP" />
                 </div>
+
+                {/* Image Upload Section */}
+                <div>
+                  <Label className="flex items-center gap-1.5 mb-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Imagens ({(form.image_urls || []).length}/8)
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(form.image_urls || []).map((url, idx) => (
+                      <div key={idx} className="relative group w-20 h-20 rounded-md border overflow-hidden bg-muted">
+                        <img src={url} alt={`Caso img ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setField('image_urls', (form.image_urls || []).filter((_, i) => i !== idx) as any)}
+                          className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {(form.image_urls || []).length < 8 && (
+                      <button
+                        type="button"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={uploadingImage}
+                        className="w-20 h-20 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors disabled:opacity-50"
+                      >
+                        {uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+                        <span className="text-[10px]">{uploadingImage ? 'Enviando' : 'Adicionar'}</span>
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (!file.type.startsWith('image/')) {
+                        toast({ title: 'Selecione apenas imagens', variant: 'destructive' });
+                        return;
+                      }
+                      if (!validateFileSize(file, 10)) {
+                        toast({ title: 'Imagem deve ter no máximo 10MB', variant: 'destructive' });
+                        return;
+                      }
+                      setUploadingImage(true);
+                      try {
+                        const ext = file.name.split('.').pop();
+                        const path = `support-cases/${Date.now()}.${ext}`;
+                        const { error } = await supabase.storage.from('model-images').upload(path, file, { cacheControl: '3600', upsert: true });
+                        if (error) throw error;
+                        const { data } = supabase.storage.from('model-images').getPublicUrl(path);
+                        setField('image_urls', [...(form.image_urls || []), data.publicUrl] as any);
+                        toast({ title: 'Imagem enviada!' });
+                      } catch (err) {
+                        console.error('Upload error:', err);
+                        toast({ title: 'Erro ao enviar imagem', variant: 'destructive' });
+                      } finally {
+                        setUploadingImage(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
               </AccordionContent>
             </AccordionItem>
 
