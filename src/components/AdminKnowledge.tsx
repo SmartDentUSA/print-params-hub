@@ -29,6 +29,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { validateFileSize } from '@/utils/security';
 import { AdminLinkBuildingValidator } from '@/components/AdminLinkBuildingValidator';
 import { SmartOpsROICalculators } from '@/components/SmartOpsROICalculators';
+import { AdminSupportCases } from '@/components/AdminSupportCases';
 
 export function AdminKnowledge() {
   const [categories, setCategories] = useState<any[]>([]);
