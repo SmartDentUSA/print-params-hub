@@ -786,7 +786,7 @@ export function SmartOpsAudienceBuilder() {
                           </div>
                         </TableCell>
                         <TableCell className="text-xs">{lead.source || "—"}</TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDate(lead.created_at)}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">{formatDate(getLeadCardDate(lead as Record<string, unknown>))}</TableCell>
                         <TableCell><ActiveIcons lead={lead} /></TableCell>
                         <TableCell><InterestIcons lead={lead} /></TableCell>
                         <TableCell className="text-xs max-w-[120px] truncate">

@@ -602,7 +602,12 @@ Deno.serve(async (req) => {
     if (ids.dealValueMrr != null) updateData.piperun_value_mrr = ids.dealValueMrr;
     if (ids.dealLastContact) updateData.piperun_last_contact_at = ids.dealLastContact;
     if (ids.dealStageChangedAt) updateData.piperun_stage_changed_at = ids.dealStageChangedAt;
-    if (ids.dealCreatedAt) updateData.piperun_created_at = ids.dealCreatedAt;
+    if (ids.dealCreatedAt) {
+      updateData.piperun_created_at = ids.dealCreatedAt;
+      updateData.data_primeiro_contato = ids.dealCreatedAt;
+      updateData.entrada_sistema = ids.dealCreatedAt;
+      updateData.created_at = ids.dealCreatedAt;
+    }
     if (ids.dealClosedAt) updateData.piperun_closed_at = ids.dealClosedAt;
     if (ids.dealProbablyClosedAt) updateData.piperun_probably_closed_at = ids.dealProbablyClosedAt;
     if (deal.custom_fields) updateData.piperun_custom_fields = deal.custom_fields;
