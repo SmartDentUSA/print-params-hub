@@ -593,7 +593,8 @@ Deno.serve(async (req) => {
     if (deal.value != null) updateData.valor_oportunidade = Number(deal.value) || null;
     if (deal.temperature) updateData.temperatura_lead = String(deal.temperature);
     if (lossReason?.name) updateData.motivo_perda = String(lossReason.name);
-    if (lossReason?.comment) updateData.comentario_perda = String(lossReason.comment);
+    if (lossReason?.description) updateData.comentario_perda = String(lossReason.description);
+    else if (lossReason?.comment) updateData.comentario_perda = String(lossReason.comment);
     if (deal.lead_timing != null) updateData.lead_timing_dias = Number(deal.lead_timing) || null;
     if (deal.closed_at) updateData.data_fechamento_crm = String(deal.closed_at);
 
