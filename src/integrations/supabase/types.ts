@@ -786,6 +786,69 @@ export type Database = {
         }
         Relationships: []
       }
+      image_embedding_cache: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          hit_count: number | null
+          image_hash: string
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          hit_count?: number | null
+          image_hash: string
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          hit_count?: number | null
+          image_hash?: string
+        }
+        Relationships: []
+      }
+      image_query_logs: {
+        Row: {
+          cache_hit: boolean | null
+          created_at: string | null
+          embedding_time_ms: number | null
+          failure_detected: string | null
+          gatekeeper_result: string | null
+          id: string
+          image_hash: string | null
+          image_size_kb: number | null
+          session_id: string | null
+          top_match_score: number | null
+          vector_results_count: number | null
+        }
+        Insert: {
+          cache_hit?: boolean | null
+          created_at?: string | null
+          embedding_time_ms?: number | null
+          failure_detected?: string | null
+          gatekeeper_result?: string | null
+          id?: string
+          image_hash?: string | null
+          image_size_kb?: number | null
+          session_id?: string | null
+          top_match_score?: number | null
+          vector_results_count?: number | null
+        }
+        Update: {
+          cache_hit?: boolean | null
+          created_at?: string | null
+          embedding_time_ms?: number | null
+          failure_detected?: string | null
+          gatekeeper_result?: string | null
+          id?: string
+          image_hash?: string | null
+          image_size_kb?: number | null
+          session_id?: string | null
+          top_match_score?: number | null
+          vector_results_count?: number | null
+        }
+        Relationships: []
+      }
       intelligence_score_config: {
         Row: {
           created_at: string | null
@@ -3141,6 +3204,130 @@ export type Database = {
         }
         Relationships: []
       }
+      support_cases: {
+        Row: {
+          author_user_id: string | null
+          brand_id: string | null
+          causes: Json | null
+          confidence: number | null
+          created_at: string | null
+          failure_type: string
+          id: string
+          image_urls: string[] | null
+          model_id: string | null
+          problem_description: string
+          resin_id: string | null
+          solutions: Json | null
+          status: string
+          tags: string[] | null
+          title: string
+          updated_at: string | null
+          workflow_cad_softwares: string[] | null
+          workflow_characterization: string[] | null
+          workflow_cure_equipment: string[] | null
+          workflow_dentistry_ortho: string[] | null
+          workflow_final_equipment: string[] | null
+          workflow_finishing: string[] | null
+          workflow_installation: string[] | null
+          workflow_lab_supplies: string[] | null
+          workflow_notebook: string | null
+          workflow_print_accessories: string[] | null
+          workflow_print_parts: string[] | null
+          workflow_print_software: string[] | null
+          workflow_printers: string[] | null
+          workflow_resins: string[] | null
+          workflow_scanners: string[] | null
+        }
+        Insert: {
+          author_user_id?: string | null
+          brand_id?: string | null
+          causes?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          failure_type?: string
+          id?: string
+          image_urls?: string[] | null
+          model_id?: string | null
+          problem_description: string
+          resin_id?: string | null
+          solutions?: Json | null
+          status?: string
+          tags?: string[] | null
+          title: string
+          updated_at?: string | null
+          workflow_cad_softwares?: string[] | null
+          workflow_characterization?: string[] | null
+          workflow_cure_equipment?: string[] | null
+          workflow_dentistry_ortho?: string[] | null
+          workflow_final_equipment?: string[] | null
+          workflow_finishing?: string[] | null
+          workflow_installation?: string[] | null
+          workflow_lab_supplies?: string[] | null
+          workflow_notebook?: string | null
+          workflow_print_accessories?: string[] | null
+          workflow_print_parts?: string[] | null
+          workflow_print_software?: string[] | null
+          workflow_printers?: string[] | null
+          workflow_resins?: string[] | null
+          workflow_scanners?: string[] | null
+        }
+        Update: {
+          author_user_id?: string | null
+          brand_id?: string | null
+          causes?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          failure_type?: string
+          id?: string
+          image_urls?: string[] | null
+          model_id?: string | null
+          problem_description?: string
+          resin_id?: string | null
+          solutions?: Json | null
+          status?: string
+          tags?: string[] | null
+          title?: string
+          updated_at?: string | null
+          workflow_cad_softwares?: string[] | null
+          workflow_characterization?: string[] | null
+          workflow_cure_equipment?: string[] | null
+          workflow_dentistry_ortho?: string[] | null
+          workflow_final_equipment?: string[] | null
+          workflow_finishing?: string[] | null
+          workflow_installation?: string[] | null
+          workflow_lab_supplies?: string[] | null
+          workflow_notebook?: string | null
+          workflow_print_accessories?: string[] | null
+          workflow_print_parts?: string[] | null
+          workflow_print_software?: string[] | null
+          workflow_printers?: string[] | null
+          workflow_resins?: string[] | null
+          workflow_scanners?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_cases_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cases_model_id_fkey"
+            columns: ["model_id"]
+            isOneToOne: false
+            referencedRelation: "models"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_cases_resin_id_fkey"
+            columns: ["resin_id"]
+            isOneToOne: false
+            referencedRelation: "resins"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_a_catalog: {
         Row: {
           active: boolean | null
@@ -3486,6 +3673,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      text_embedding_cache: {
+        Row: {
+          created_at: string | null
+          embedding: string | null
+          hit_count: number | null
+          text_hash: string
+        }
+        Insert: {
+          created_at?: string | null
+          embedding?: string | null
+          hit_count?: number | null
+          text_hash: string
+        }
+        Update: {
+          created_at?: string | null
+          embedding?: string | null
+          hit_count?: number | null
+          text_hash?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

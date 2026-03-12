@@ -3536,6 +3536,24 @@ Campos:
       }
     }
 
+    // ── IMAGE TELEMETRY — log visual query metrics (fire-and-forget) ──
+    if (image_data && image_data.base64) {
+      const imgSizeKb = Math.round((image_data.base64.length * 3) / 4 / 1024);
+      const telemetryPayload: Record<string, unknown> = {
+        session_id,
+        image_size_kb: imgSizeKb,
+        gatekeeper_result: imageContext?.intent || "no_image",
+        cache_hit: false, // TODO: wire from generate-embedding cache
+        vector_results_count: imageContext?.ragResults?.length || 0,
+        top_match_score: imageContext?.ragResults?.[0]?.similarity || null,
+        failure_detected: imageContext?.intent === "troubleshooting" ? "possible" : null,
+      };
+      supabase.from("image_query_logs").insert(telemetryPayload).then(({ error }) => {
+        if (error) console.warn("[IMAGE_TELEMETRY] Insert error:", error.message);
+        else console.log("[IMAGE_TELEMETRY] Logged successfully");
+      });
+    }
+
     // ── RATE LIMITING ─────────────────────────────────────────────
     const rateLimitKey = session_id || req.headers.get("x-forwarded-for") || "anonymous";
     if (!checkRateLimit(rateLimitKey)) {

@@ -325,33 +325,87 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const [pendingImage, setPendingImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  // Normalize image: resize to max 1024px, JPEG 80%, skip if < 500KB
+  const normalizeImage = useCallback(async (file: File): Promise<{ base64: string; mimeType: string; preview: string }> => {
+    // Skip normalization for small files
+    if (file.size < 500 * 1024) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          const base64 = dataUrl.split(',')[1];
+          resolve({ base64, mimeType: file.type, preview: dataUrl });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const img = await createImageBitmap(file);
+    const maxDim = 1024;
+    let { width, height } = img;
+    if (width > maxDim || height > maxDim) {
+      if (width > height) {
+        height = Math.round(height * (maxDim / width));
+        width = maxDim;
+      } else {
+        width = Math.round(width * (maxDim / height));
+        height = maxDim;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise<Blob>((resolve) =>
+      canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.8)
+    );
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    const preview = `data:image/jpeg;base64,${base64}`;
+
+    console.log(`[normalizeImage] ${(file.size / 1024).toFixed(0)}KB → ${(blob.size / 1024).toFixed(0)}KB (${width}x${height})`);
+    return { base64, mimeType: 'image/jpeg', preview };
+  }, []);
+
+  const handleImageSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Max 4MB
+    // Max 4MB raw
     if (file.size > 4 * 1024 * 1024) {
       alert('Imagem muito grande. Máximo 4MB.');
       return;
     }
 
-    // Only images
     if (!file.type.startsWith('image/')) {
       alert('Selecione uma imagem (JPEG, PNG, etc.)');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      const base64 = dataUrl.split(',')[1];
-      setPendingImage({ base64, mimeType: file.type, preview: dataUrl });
-    };
-    reader.readAsDataURL(file);
+    try {
+      const normalized = await normalizeImage(file);
+      setPendingImage(normalized);
+    } catch (err) {
+      console.error('[handleImageSelect] Normalization failed, using raw:', err);
+      // Fallback to raw
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(',')[1];
+        setPendingImage({ base64, mimeType: file.type, preview: dataUrl });
+      };
+      reader.readAsDataURL(file);
+    }
 
-    // Reset input so same file can be selected again
     e.target.value = '';
-  }, []);
+  }, [normalizeImage]);
 
   // Listen for dra-lia:ask CustomEvent from KnowledgeBase search
   useEffect(() => {
