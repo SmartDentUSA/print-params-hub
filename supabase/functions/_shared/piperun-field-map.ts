@@ -289,16 +289,34 @@ export interface PipeRunDealData {
   stage?: { id?: number; name?: string };
   person?: {
     name?: string;
+    // API list format
     emails?: Array<{ email: string }>;
     phones?: Array<{ phone: string }>;
+    // Webhook format
+    contact_emails?: Array<{ address?: string }>;
+    contact_phones?: Array<{ number?: string }>;
     job_title?: string;
-    city?: { name?: string };
-    state?: { initials?: string };
+    city?: { name?: string; uf?: string };
+    state?: { initials?: string; abbr?: string; name?: string };
   };
   company?: {
     name?: string;
+    // API list format
     phones?: Array<{ phone: string }>;
     emails?: Array<{ email: string }>;
+    // Webhook format
+    contact_phones?: Array<{ number?: string }>;
+    contact_emails?: Array<{ address?: string }>;
+    segment?: { id?: number; name?: string } | string;
+    company_situation?: string;
+    situation?: string;
+    city?: { name?: string; uf?: string };
+    state?: { abbr?: string; name?: string };
+    address_street?: string;
+    address_number?: string;
+    address_complement?: string;
+    address_postal_code?: string;
+    district?: string;
   };
   custom_fields?: Array<{
     custom_field_id: number;
