@@ -4806,7 +4806,7 @@ REGRAS:
     if (skipDialog) {
       console.log(`[PROBLEM_GUARD] Skipping printer dialog — problem/protocol detected in: "${message.substring(0, 80)}"`);
     }
-    const dialogState = (topic_context === "commercial" || skipDialog)
+    const dialogState = (topic_context === "commercial" || topic_context === "support" || skipDialog)
       ? { state: "not_in_dialog" as const }
       : await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
 
