@@ -13,11 +13,27 @@ function formatCurrency(val: number): string {
 
 function fmtDate(d: string | null | undefined): string | null {
   if (!d) return null;
-  try { return new Date(d).toLocaleDateString("pt-BR"); } catch { return d; }
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return d;
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch { return d; }
 }
 function fmtDateTime(d: string | null | undefined): string | null {
   if (!d) return null;
-  try { return new Date(d).toLocaleString("pt-BR"); } catch { return d; }
+  try {
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return d;
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const mins = String(date.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}:${mins}`;
+  } catch { return d; }
 }
 
 interface KanbanLeadDetailProps {
@@ -33,6 +49,18 @@ function DetailRow({ label, value, emoji }: { label: string; value: string | num
     <div className="flex justify-between text-sm py-1">
       <span className="text-muted-foreground">{emoji && `${emoji} `}{label}</span>
       <span className="font-medium text-right max-w-[60%] break-words">{display}</span>
+    </div>
+  );
+}
+
+/** Always visible row — shows "—" for empty values */
+function TrackingRow({ label, value, emoji }: { label: string; value: string | number | boolean | null | undefined; emoji?: string }) {
+  const isEmpty = value === null || value === undefined || value === "";
+  const display = isEmpty ? "—" : typeof value === "boolean" ? (value ? "✔" : "✗") : String(value);
+  return (
+    <div className="flex justify-between text-sm py-1">
+      <span className="text-muted-foreground">{emoji && `${emoji} `}{label}</span>
+      <span className={`font-medium text-right max-w-[60%] break-words ${isEmpty ? "text-muted-foreground/50" : ""}`}>{display}</span>
     </div>
   );
 }
@@ -539,6 +567,20 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             </>
           )}
 
+          {/* ===== CS & SUPORTE ===== */}
+          <Section title="CS & Suporte" emoji="🎧">
+            <TrackingRow label="CS Treinamento" value={s(lead, "cs_treinamento")} emoji="🎓" />
+            <TrackingRow label="Data Treinamento" value={fmtDate(s(lead, "data_treinamento"))} emoji="📅" />
+            <TrackingRow label="Data Contrato" value={fmtDate(s(lead, "data_contrato"))} emoji="📝" />
+            <TrackingRow label="Código Contrato" value={s(lead, "codigo_contrato")} emoji="🔖" />
+            <TrackingRow label="Suporte Equip." value={s(lead, "sdr_suporte_equipamento")} emoji="🔧" />
+            <TrackingRow label="Suporte Tipo" value={s(lead, "sdr_suporte_tipo")} emoji="📋" />
+            <TrackingRow label="Suporte Descrição" value={s(lead, "sdr_suporte_descricao")} emoji="📝" />
+            <TrackingRow label="Reunião Agendada" value={b(lead, "reuniao_agendada")} emoji="📅" />
+            <TrackingRow label="1º Contato" value={fmtDateTime(s(lead, "data_primeiro_contato"))} emoji="🤝" />
+          </Section>
+          <Separator />
+
           {/* ===== ORIGEM & META ===== */}
           <Section title="Origem & Meta" emoji="🔗">
             <DetailRow label="Origem" value={lead.source === "piperun_sync" ? "PipeRun" : lead.source} emoji="📡" />
@@ -553,20 +595,26 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             <DetailRow label="Mensagens" value={lead.total_messages?.toString()} />
             <DetailRow label="Sessões" value={lead.total_sessions?.toString()} />
             <DetailRow label="Última Sessão" value={fmtDateTime(s(lead, "ultima_sessao_at"))} />
-            {lead.reuniao_agendada && <DetailRow label="Reunião" value="Agendada" emoji="📅" />}
-            <DetailRow label="CS Treinamento" value={lead.cs_treinamento === "pendente" ? null : lead.cs_treinamento} emoji="🎓" />
             <DetailRow label="Proactive Sent" value={fmtDateTime(s(lead, "proactive_sent_at"))} />
             <DetailRow label="Proactive Count" value={s(lead, "proactive_count")} />
             <DetailRow label="Lead Timing (dias)" value={s(lead, "lead_timing_dias")} />
             <DetailRow label="Fechamento CRM" value={fmtDate(s(lead, "data_fechamento_crm"))} />
+          </Section>
+          <Separator />
+
+          {/* ===== TAGS & RASTREAMENTO ===== */}
+          <Section title="Tags & Rastreamento" emoji="🏷️" defaultOpen>
             {lead.tags_crm && lead.tags_crm.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
+              <div className="flex flex-wrap gap-1 mt-1 mb-2">
                 {lead.tags_crm.map((t, i) => <Badge key={i} variant="secondary" className="text-[10px]">🏷️ {t}</Badge>)}
               </div>
             )}
-            <DetailRow label="🚪 Entrada no Sistema" value={fmtDateTime(s(lead, "entrada_sistema"))} />
-            <DetailRow label="Criado (banco)" value={fmtDateTime(lead.created_at)} />
-            <DetailRow label="Atualizado" value={fmtDateTime(lead.updated_at)} />
+            <TrackingRow label="Motivo Perda" value={s(lead, "motivo_perda")} emoji="❌" />
+            <TrackingRow label="Comentário Perda" value={s(lead, "comentario_perda")} emoji="💬" />
+            <TrackingRow label="ID Cliente Smart" value={s(lead, "id_cliente_smart")} emoji="🔑" />
+            <TrackingRow label="Entrada no Sistema" value={fmtDateTime(s(lead, "entrada_sistema"))} emoji="🚪" />
+            <TrackingRow label="Criado (banco)" value={fmtDateTime(lead.created_at)} emoji="📅" />
+            <TrackingRow label="Atualizado" value={fmtDateTime(lead.updated_at)} emoji="🔄" />
           </Section>
           <Separator />
 
