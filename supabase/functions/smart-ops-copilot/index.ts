@@ -1062,6 +1062,77 @@ async function executeQueryEcommerceOrders(args: any) {
   }
 }
 
+async function executeVerifyConsolidation(args: any) {
+  try {
+    const criticalFields = [
+      "pessoa_hash", "empresa_hash", "nome", "email", "telefone_normalized",
+      "etapa_crm", "piperun_deals_history", "empresa_nome", "empresa_piperun_id",
+      "proposals_data", "proposals_total_value", "piperun_id", "pessoa_piperun_id",
+      "cidade", "produto_interesse", "proprietario_lead_crm"
+    ];
+    const selectCols = `id,nome,email,${criticalFields.join(",")}`;
+    const limit = Math.min(args.limit || 10, 50);
+
+    let query = supabase.from("lia_attendances").select(selectCols);
+
+    if (args.lead_id) {
+      query = query.eq("id", args.lead_id);
+    } else if (args.email) {
+      query = query.ilike("email", `%${args.email}%`);
+    } else {
+      query = query.not("piperun_id", "is", null).order("updated_at", { ascending: false });
+    }
+    query = query.limit(limit);
+
+    const { data: leads, error } = await query;
+    if (error) return { error: error.message };
+    if (!leads || leads.length === 0) return { message: "Nenhum lead encontrado para verificação" };
+
+    const totalCheckFields = 16;
+    const results = leads.map((lead: any) => {
+      const missing: string[] = [];
+
+      if (!lead.pessoa_hash) missing.push("pessoa_hash");
+      if (!lead.empresa_hash) missing.push("empresa_hash");
+      if (!lead.telefone_normalized) missing.push("telefone");
+      if (!lead.etapa_crm) missing.push("etapa_crm");
+      if (!lead.cidade) missing.push("cidade");
+      if (!lead.produto_interesse) missing.push("produto_interesse");
+      if (!lead.proprietario_lead_crm) missing.push("proprietario_lead_crm");
+      if (!lead.pessoa_piperun_id) missing.push("pessoa_piperun_id");
+      if (!lead.piperun_id) missing.push("piperun_id");
+      // Consistency
+      if (lead.empresa_piperun_id && !lead.empresa_nome) missing.push("empresa_nome (has empresa_id)");
+      if (lead.piperun_id && (!Array.isArray(lead.piperun_deals_history) || lead.piperun_deals_history.length === 0)) missing.push("deals_history_empty");
+      if (lead.proposals_data && (!lead.proposals_total_value || lead.proposals_total_value <= 0)) missing.push("proposals_value_zero");
+
+      const completeness = Math.round(((totalCheckFields - missing.length) / totalCheckFields) * 100);
+
+      return {
+        id: lead.id,
+        nome: lead.nome,
+        email: lead.email,
+        completeness_pct: completeness,
+        missing_count: missing.length,
+        missing_fields: missing,
+        status: completeness >= 80 ? "✅ OK" : completeness >= 50 ? "⚠️ Parcial" : "❌ Incompleto",
+      };
+    });
+
+    const avgCompleteness = Math.round(results.reduce((s: number, r: any) => s + r.completeness_pct, 0) / results.length);
+    const criticalCount = results.filter((r: any) => r.completeness_pct < 50).length;
+
+    return {
+      total_verified: results.length,
+      avg_completeness_pct: avgCompleteness,
+      critical_count: criticalCount,
+      leads: results,
+    };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
