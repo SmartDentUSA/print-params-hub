@@ -132,13 +132,13 @@ export function useSupportCases() {
   const fetchProductsByCategory = async (category: string, subcategory?: string) => {
     let query = supabase
       .from('system_a_catalog')
-      .select('id, product_name, product_category, product_subcategory')
+      .select('id, name, product_category, product_subcategory')
       .eq('active', true)
       .eq('product_category', category)
-      .order('product_name');
+      .order('name');
     if (subcategory) query = query.eq('product_subcategory', subcategory);
     const { data } = await query;
-    return data || [];
+    return (data || []).map(d => ({ ...d, product_name: d.name })) as any[];
   };
 
   return {
