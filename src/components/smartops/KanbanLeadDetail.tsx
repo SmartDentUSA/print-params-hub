@@ -53,6 +53,18 @@ function DetailRow({ label, value, emoji }: { label: string; value: string | num
   );
 }
 
+/** Always visible row — shows "—" for empty values */
+function TrackingRow({ label, value, emoji }: { label: string; value: string | number | boolean | null | undefined; emoji?: string }) {
+  const isEmpty = value === null || value === undefined || value === "";
+  const display = isEmpty ? "—" : typeof value === "boolean" ? (value ? "✔" : "✗") : String(value);
+  return (
+    <div className="flex justify-between text-sm py-1">
+      <span className="text-muted-foreground">{emoji && `${emoji} `}{label}</span>
+      <span className={`font-medium text-right max-w-[60%] break-words ${isEmpty ? "text-muted-foreground/50" : ""}`}>{display}</span>
+    </div>
+  );
+}
+
 function EquipRow({ emoji, label, name, serial, date }: { emoji: string; label: string; name: string | null; serial: string | null; date: string | null }) {
   if (!name) return null;
   return (
