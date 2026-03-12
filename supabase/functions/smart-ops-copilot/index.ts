@@ -423,6 +423,22 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "verify_consolidation",
+      description: "Verifica a consolidação de dados de leads: chaves de identidade (pessoa_hash, empresa_hash), campos críticos, consistência entre propostas e valores, deals history. Retorna score de completude e campos faltantes. Se nenhum filtro for passado, verifica os últimos 10 leads atualizados.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_id: { type: "string", description: "UUID de um lead específico" },
+          email: { type: "string", description: "Email do lead" },
+          limit: { type: "number", description: "Quantidade de leads a verificar (padrão 10, máx 50)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
