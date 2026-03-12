@@ -398,38 +398,58 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   };
 
   // ─── Email extraction cascade ───
-  // 1. person.emails (webhook format)
-  // 2. deal.reference (API list format - most common)
-  // 3. deal.rdstation_reference (RD Station fallback)
-  // 4. company.emails (organization fallback)
+  // 1. person.contact_emails (webhook format)
+  // 2. person.emails (API list format with[]=person)
+  // 3. deal.reference (API list format - most common)
+  // 4. deal.rdstation_reference (RD Station fallback)
+  // 5. company.contact_emails / company.emails (organization fallback)
   const email =
+    person?.contact_emails?.[0]?.address ||
     person?.emails?.[0]?.email ||
     deal.reference ||
     deal.rdstation_reference ||
+    company?.contact_emails?.[0]?.address ||
     company?.emails?.[0]?.email ||
     null;
   if (email) fields.email = String(email).trim().toLowerCase();
 
   // ─── Name extraction cascade ───
-  // 1. person.name cleaned (webhook/with[]=person) - remove timestamps
-  // 2. deal.title cleaned (API list format - remove " - timestamp" suffixes)
   const nome = cleanPersonName(person?.name) || cleanDealName(deal.title) || null;
   if (nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
-  // 1. Custom field WHATSAPP (549150) — most reliable, manually filled
-  // 2. person.phones array (from with[]=person or person.phones)
-  // 3. company.phones (organization fallback)
+  // 1. Custom field WHATSAPP
+  // 2. person.contact_phones (webhook) / person.phones (API list)
+  // 3. company.contact_phones / company.phones
   const whatsappPhone = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
-  const personPhone = person?.phones?.[0]?.phone || null;
-  const companyPhone = company?.phones?.[0]?.phone || null;
+  const personPhone = person?.contact_phones?.[0]?.number || person?.phones?.[0]?.phone || null;
+  const companyPhone = company?.contact_phones?.[0]?.number || company?.phones?.[0]?.phone || null;
   const phone = whatsappPhone || personPhone || companyPhone || null;
   if (phone) fields.telefone_raw = phone;
+
   // Person extra data
   if (person) {
     if (person.job_title) fields.area_atuacao = person.job_title;
     if (person.city?.name) fields.cidade = person.city.name;
-    if (person.state?.initials) fields.uf = person.state.initials;
+    // UF: cascade city.uf → state.initials → state.abbr
+    const personUf = person.city?.uf || person.state?.initials || person.state?.abbr || null;
+    if (personUf) fields.uf = personUf;
+  }
+
+  // Company extra data
+  if (company) {
+    // Segment: object.name or string
+    const seg = company.segment;
+    if (seg) {
+      fields.empresa_segmento = typeof seg === "object" ? ((seg as Record<string, unknown>).name ? String((seg as Record<string, unknown>).name) : null) : String(seg);
+    }
+    // Situation: cascade
+    const situacao = company.company_situation || company.situation;
+    if (situacao) fields.empresa_situacao = String(situacao);
+    // City/UF
+    if (company.city?.name) fields.empresa_cidade = String(company.city.name);
+    const companyUf = company.city?.uf || company.state?.abbr || null;
+    if (companyUf) fields.empresa_uf = String(companyUf);
   }
 
   // Custom fields
