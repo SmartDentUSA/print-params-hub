@@ -317,6 +317,19 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
+function getLeadCardDate(lead: Record<string, unknown>) {
+  const piperunCreatedAt = lead.piperun_created_at;
+  if (typeof piperunCreatedAt === "string" && piperunCreatedAt) return piperunCreatedAt;
+
+  const firstContact = lead.data_primeiro_contato;
+  if (typeof firstContact === "string" && firstContact) return firstContact;
+
+  const systemEntry = lead.entrada_sistema;
+  if (typeof systemEntry === "string" && systemEntry) return systemEntry;
+
+  return typeof lead.created_at === "string" ? lead.created_at : null;
+}
+
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <Badge variant="secondary" className="gap-1 text-xs pl-2 pr-1 py-0.5">
