@@ -9,6 +9,7 @@ import {
   PIPERUN_USERS,
   getCustomFieldValue,
   parseProposalItems,
+  cleanPersonName,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
