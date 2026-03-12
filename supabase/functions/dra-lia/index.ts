@@ -4732,7 +4732,9 @@ REGRAS:
     }
 
     // 0b-entry. Support question detection — start support ticket flow instead of static redirect
-    if (isSupportQuestion(message)) {
+    // Also force support flow when topic_context === "support" (card "Preciso de uma mãozinha")
+    if (isSupportQuestion(message) || (topic_context === "support" && !supportFlowStage)) {
+      console.log(`[support_flow] Triggered — isSupportQuestion=${isSupportQuestion(message)}, topic_context=${topic_context}`);
       // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
       let liaIdForSupport: string | null = null;
