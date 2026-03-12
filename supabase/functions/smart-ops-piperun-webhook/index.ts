@@ -9,6 +9,7 @@ import {
   PIPERUN_USERS,
   getCustomFieldValue,
   parseProposalItems,
+  cleanPersonName,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
@@ -51,7 +52,7 @@ function extractIds(deal: Record<string, unknown>) {
       if (person?.email) return String(person.email);
       return null;
     })(),
-    personName: person?.name ? String(person.name) : null,
+    personName: person?.name ? cleanPersonName(String(person.name)) : null,
     // Person phone: cascade (contact_phones array → flat phone/mobile)
     personPhone: (() => {
       const phones = person?.contact_phones as Array<{ number?: string }> | undefined;
@@ -415,6 +416,8 @@ Deno.serve(async (req) => {
         piperun_id: dealId,
         piperun_link: `https://app.pipe.run/#/deals/${dealId}`,
         source: "piperun_webhook",
+        entrada_sistema: ids.dealCreatedAt || new Date().toISOString(),
+        data_primeiro_contato: ids.dealCreatedAt || new Date().toISOString(),
         lead_status: resolvedStatus,
         produto_interesse: customFields.produtoInteresse || null,
         area_atuacao: ids.personJobTitle || null,
@@ -497,6 +500,27 @@ Deno.serve(async (req) => {
         newLeadData.proposals_total_value = proposalAgg.totalValue;
         newLeadData.proposals_total_mrr = proposalAgg.totalMrr;
         if (proposalAgg.lastStatus != null) newLeadData.proposals_last_status = proposalAgg.lastStatus;
+      }
+
+      // Stratify proposal items for searchability
+      if (ids.dealProposals?.length) {
+        const itemTexts: string[] = [];
+        for (const p of ids.dealProposals) {
+          const items = (p as Record<string, unknown>).items as Array<Record<string, unknown>> | undefined;
+          if (items) {
+            for (const item of items) {
+              const name = item.name || item.description || "";
+              const qty = item.quantity || 1;
+              if (name) itemTexts.push(`[${qty}] ${name}`);
+            }
+          }
+        }
+        if (itemTexts.length) {
+          const rawText = itemTexts.join(", ");
+          newLeadData.itens_proposta_crm = rawText;
+          const parsed = parseProposalItems(rawText);
+          newLeadData.itens_proposta_parsed = parsed.parsed;
+        }
       }
 
       const { data: newLead, error: insertError } = await supabase
@@ -643,6 +667,27 @@ Deno.serve(async (req) => {
       updateData.proposals_total_value = proposalAgg.totalValue;
       updateData.proposals_total_mrr = proposalAgg.totalMrr;
       if (proposalAgg.lastStatus != null) updateData.proposals_last_status = proposalAgg.lastStatus;
+    }
+
+    // Stratify proposal items for searchability
+    if (ids.dealProposals?.length) {
+      const itemTexts: string[] = [];
+      for (const p of ids.dealProposals) {
+        const items = (p as Record<string, unknown>).items as Array<Record<string, unknown>> | undefined;
+        if (items) {
+          for (const item of items) {
+            const name = item.name || item.description || "";
+            const qty = item.quantity || 1;
+            if (name) itemTexts.push(`[${qty}] ${name}`);
+          }
+        }
+      }
+      if (itemTexts.length) {
+        const rawText = itemTexts.join(", ");
+        updateData.itens_proposta_crm = rawText;
+        const parsed = parseProposalItems(rawText);
+        updateData.itens_proposta_parsed = parsed.parsed;
+      }
     }
 
     // ─── Deals History (upsert current deal snapshot) ───
