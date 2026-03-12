@@ -52,7 +52,7 @@ function extractIds(deal: Record<string, unknown>) {
       if (person?.email) return String(person.email);
       return null;
     })(),
-    personName: person?.name ? String(person.name) : null,
+    personName: person?.name ? cleanPersonName(String(person.name)) : null,
     // Person phone: cascade (contact_phones array → flat phone/mobile)
     personPhone: (() => {
       const phones = person?.contact_phones as Array<{ number?: string }> | undefined;
