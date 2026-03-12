@@ -785,6 +785,56 @@ Deno.serve(async (req) => {
       error_details: errorDetails,
     });
 
+    // ─── Post-update Consolidation Verification (inline, no AI cost) ───
+    try {
+      const { data: check } = await supabase
+        .from("lia_attendances")
+        .select("pessoa_hash, empresa_hash, nome, email, telefone_normalized, etapa_crm, piperun_deals_history, empresa_nome, empresa_piperun_id, proposals_data, proposals_total_value, piperun_id, pessoa_piperun_id, cidade, produto_interesse, proprietario_lead_crm")
+        .eq("id", leadId)
+        .single();
+
+      if (check) {
+        const missing: string[] = [];
+        const totalFields = 15;
+
+        if (!check.pessoa_hash) missing.push("pessoa_hash");
+        if (!check.empresa_hash) missing.push("empresa_hash");
+        if (!check.telefone_normalized) missing.push("telefone");
+        if (!check.etapa_crm) missing.push("etapa_crm");
+        if (!check.cidade) missing.push("cidade");
+        if (!check.produto_interesse) missing.push("produto_interesse");
+        if (!check.proprietario_lead_crm) missing.push("proprietario_lead_crm");
+        if (!check.pessoa_piperun_id) missing.push("pessoa_piperun_id");
+        // Consistency checks
+        if (check.empresa_piperun_id && !check.empresa_nome) missing.push("empresa_nome (has empresa_id)");
+        if (check.piperun_id && (!Array.isArray(check.piperun_deals_history) || check.piperun_deals_history.length === 0)) missing.push("deals_history_empty");
+        if (check.proposals_data && (!check.proposals_total_value || check.proposals_total_value <= 0)) missing.push("proposals_value_zero");
+
+        const completeness = Math.round(((totalFields - missing.length) / totalFields) * 100);
+
+        if (missing.length > 3) {
+          await supabase.from("system_health_logs").insert({
+            function_name: "piperun-webhook-consolidation",
+            severity: missing.length > 6 ? "error" : "warning",
+            error_type: "incomplete_consolidation",
+            lead_email: personEmail,
+            details: {
+              lead_id: leadId,
+              deal_id: dealId,
+              is_new: isNewLead,
+              missing_fields: missing,
+              missing_count: missing.length,
+              completeness_pct: completeness,
+              timestamp: new Date().toISOString(),
+            },
+          });
+          console.log(`[piperun-webhook] Consolidation check: ${completeness}% complete, missing: ${missing.join(", ")}`);
+        }
+      }
+    } catch (verifyErr) {
+      console.warn("[piperun-webhook] Consolidation verify error (non-blocking):", verifyErr);
+    }
+
     return new Response(JSON.stringify({
       success: true,
       lead_id: leadId,
