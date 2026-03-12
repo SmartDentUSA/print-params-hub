@@ -253,6 +253,11 @@ const SUPPORT_KEYWORDS = [
   // Explicit intent to reach support/human
   /\b(quero|preciso|gostaria de|need to|want to)\b.{0,15}\b(falar com|talk to|hablar con)\b.{0,15}\b(suporte|support|soporte|atendente|humano|pessoa|human|someone)\b/i,
   /\b(falar com o suporte|falar com suporte|talk to support|hablar con soporte)\b/i,
+  // NEW: broader support intent patterns (Rota 4 card + natural language)
+  /(preciso|quero|necessito|gostaria).{0,15}(de )?(suporte|ajuda técnica|assistência)/i,
+  /(abrir|criar|gerar).{0,10}(chamado|ticket|ocorrência)/i,
+  /(chamar|acionar|contactar|contatar).{0,10}(o )?(suporte|técnico|assistência)/i,
+  /preciso de (uma )?m[ãa]ozinha/i,
 ];
 
 const SUPPORT_FALLBACK: Record<string, string> = {
@@ -1901,11 +1906,13 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     console.log(`[handoff] Lead ${leadEmail} classified as ${leadClassification} (${daysSinceActivity}d inactive, status=${currentLead?.lead_status})`);
 
+    // Skip "quente" classification if this is a support route — support leads are NOT sales opportunities
+    const isSupportRoute = topicContext === "support";
     await supabase.from("lia_attendances")
       .update({
         tags_crm: newTags,
-        ultima_etapa_comercial: "contato_feito",
-        temperatura_lead: "quente",
+        ultima_etapa_comercial: isSupportRoute ? undefined : "contato_feito",
+        temperatura_lead: isSupportRoute ? undefined : "quente",
         lead_status: "em_atendimento",
         origem_campanha: origemCampanha,
         updated_at: new Date().toISOString(),
@@ -4727,7 +4734,9 @@ REGRAS:
     }
 
     // 0b-entry. Support question detection — start support ticket flow instead of static redirect
-    if (isSupportQuestion(message)) {
+    // Also force support flow when topic_context === "support" (card "Preciso de uma mãozinha")
+    if (isSupportQuestion(message) || (topic_context === "support" && !supportFlowStage)) {
+      console.log(`[support_flow] Triggered — isSupportQuestion=${isSupportQuestion(message)}, topic_context=${topic_context}`);
       // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
       let liaIdForSupport: string | null = null;
@@ -4799,7 +4808,7 @@ REGRAS:
     if (skipDialog) {
       console.log(`[PROBLEM_GUARD] Skipping printer dialog — problem/protocol detected in: "${message.substring(0, 80)}"`);
     }
-    const dialogState = (topic_context === "commercial" || skipDialog)
+    const dialogState = (topic_context === "commercial" || topic_context === "support" || skipDialog)
       ? { state: "not_in_dialog" as const }
       : await detectPrinterDialogState(supabase, message, history, session_id, topic_context);
 
@@ -5794,7 +5803,12 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
               // Fire-and-forget: extract implicit lead data + increment counters + cognitive trigger
               if (currentLeadId && leadState.state === "from_session") {
                 const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
-                extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+                // Skip product interest detection for support route — equipment with problems should NOT be saved as purchase interest
+                if (topic_context !== "support") {
+                  extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+                } else {
+                  console.log(`[extractImplicit] Skipped — topic_context is support, avoiding false produto_interesse`);
+                }
 
                 // ── Increment total_messages in real-time (bypass summarize_session dependency) ──
                 supabase
