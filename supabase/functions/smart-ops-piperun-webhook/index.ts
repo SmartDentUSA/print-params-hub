@@ -562,6 +562,7 @@ Deno.serve(async (req) => {
     if (ids.companyState) updateData.empresa_uf = ids.companyState;
     if (ids.companyAddress) updateData.empresa_endereco = ids.companyAddress;
     if (ids.companyCustomFields) updateData.empresa_custom_fields = ids.companyCustomFields;
+    if (ids.companySegment) updateData.empresa_segmento = ids.companySegment;
 
     // Custom fields from shared mapping
     if (customFields.produtoInteresse) updateData.produto_interesse = customFields.produtoInteresse;
