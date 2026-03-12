@@ -345,7 +345,7 @@ Deno.serve(async (req) => {
 
     const deal = (payload.deal || payload) as Record<string, unknown>;
     const dealId = String(deal.id || payload.deal_id || "");
-    const lossReason = deal.loss_reason as Record<string, unknown> | undefined;
+    const lossReason = (deal.lost_reason || deal.loss_reason) as Record<string, unknown> | undefined;
     const tags = deal.tags as Array<{ name?: string }> | undefined;
 
     const ids = extractIds(deal);
