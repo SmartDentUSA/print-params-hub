@@ -391,6 +391,7 @@ Deno.serve(async (req) => {
         empresa_cidade: ids.companyCity,
         empresa_uf: ids.companyState,
         empresa_endereco: ids.companyAddress || null,
+        empresa_segmento: ids.companySegment,
         empresa_custom_fields: ids.companyCustomFields || [],
         // Deal metadata
         piperun_pipeline_id: ids.pipelineId || null,
@@ -473,6 +474,16 @@ Deno.serve(async (req) => {
     updateData.piperun_id = dealId;
     updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
 
+    // Always update nome & telefone from PipeRun (source of truth)
+    if (ids.personName) updateData.nome = ids.personName;
+    if (ids.personPhone) {
+      updateData.telefone_raw = ids.personPhone;
+      let digits = ids.personPhone.replace(/\D/g, "");
+      if (digits.startsWith("0")) digits = digits.slice(1);
+      if (!digits.startsWith("55")) digits = "55" + digits;
+      if (digits.length >= 12 && digits.length <= 13) updateData.telefone_normalized = "+" + digits;
+    }
+
     // Identity keys (always persist, never overwrite with null)
     if (ids.personHash) updateData.pessoa_hash = ids.personHash;
     if (ids.personId) updateData.pessoa_piperun_id = ids.personId;
@@ -551,6 +562,7 @@ Deno.serve(async (req) => {
     if (ids.companyState) updateData.empresa_uf = ids.companyState;
     if (ids.companyAddress) updateData.empresa_endereco = ids.companyAddress;
     if (ids.companyCustomFields) updateData.empresa_custom_fields = ids.companyCustomFields;
+    if (ids.companySegment) updateData.empresa_segmento = ids.companySegment;
 
     // Custom fields from shared mapping
     if (customFields.produtoInteresse) updateData.produto_interesse = customFields.produtoInteresse;
