@@ -1906,11 +1906,13 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     console.log(`[handoff] Lead ${leadEmail} classified as ${leadClassification} (${daysSinceActivity}d inactive, status=${currentLead?.lead_status})`);
 
+    // Skip "quente" classification if this is a support route — support leads are NOT sales opportunities
+    const isSupportRoute = topicContext === "support";
     await supabase.from("lia_attendances")
       .update({
         tags_crm: newTags,
-        ultima_etapa_comercial: "contato_feito",
-        temperatura_lead: "quente",
+        ultima_etapa_comercial: isSupportRoute ? undefined : "contato_feito",
+        temperatura_lead: isSupportRoute ? undefined : "quente",
         lead_status: "em_atendimento",
         origem_campanha: origemCampanha,
         updated_at: new Date().toISOString(),
