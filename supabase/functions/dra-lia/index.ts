@@ -5803,7 +5803,12 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
               // Fire-and-forget: extract implicit lead data + increment counters + cognitive trigger
               if (currentLeadId && leadState.state === "from_session") {
                 const convoText = history.map((h: { content: string }) => h.content).join(" ") + " " + message + " " + fullResponse;
-                extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+                // Skip product interest detection for support route — equipment with problems should NOT be saved as purchase interest
+                if (topic_context !== "support") {
+                  extractImplicitLeadData(supabase, leadState.email, convoText).catch(e => console.warn("[extractImplicit] error:", e));
+                } else {
+                  console.log(`[extractImplicit] Skipped — topic_context is support, avoiding false produto_interesse`);
+                }
 
                 // ── Increment total_messages in real-time (bypass summarize_session dependency) ──
                 supabase
