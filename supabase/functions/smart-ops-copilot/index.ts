@@ -1070,6 +1070,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   bulk_campaign: executeBulkCampaign,
   move_crm_stage: executeMoveCrmStage,
   query_ecommerce_orders: executeQueryEcommerceOrders,
+  verify_consolidation: executeVerifyConsolidation,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
