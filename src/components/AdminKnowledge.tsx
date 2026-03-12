@@ -1750,6 +1750,11 @@ Receba o texto bruto abaixo e:
           <TabsContent value="link-validator" className="space-y-4">
             <AdminLinkBuildingValidator />
           </TabsContent>
+
+          {/* Support Cases Tab */}
+          <TabsContent value="support-cases" className="space-y-4">
+            <AdminSupportCases />
+          </TabsContent>
         </Tabs>
 
         {/* Edit Modal */}
