@@ -669,6 +669,27 @@ Deno.serve(async (req) => {
       if (proposalAgg.lastStatus != null) updateData.proposals_last_status = proposalAgg.lastStatus;
     }
 
+    // Stratify proposal items for searchability
+    if (ids.dealProposals?.length) {
+      const itemTexts: string[] = [];
+      for (const p of ids.dealProposals) {
+        const items = (p as Record<string, unknown>).items as Array<Record<string, unknown>> | undefined;
+        if (items) {
+          for (const item of items) {
+            const name = item.name || item.description || "";
+            const qty = item.quantity || 1;
+            if (name) itemTexts.push(`[${qty}] ${name}`);
+          }
+        }
+      }
+      if (itemTexts.length) {
+        const rawText = itemTexts.join(", ");
+        updateData.itens_proposta_crm = rawText;
+        const parsed = parseProposalItems(rawText);
+        updateData.itens_proposta_parsed = parsed.parsed;
+      }
+    }
+
     // ─── Deals History (upsert current deal snapshot) ───
     const currentDealStatus = dealStatus !== undefined
       ? (typeof dealStatus === "number" ? (DEAL_STATUS_MAP[dealStatus] || "aberta") : String(dealStatus))
