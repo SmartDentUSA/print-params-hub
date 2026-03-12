@@ -44,9 +44,22 @@ function extractIds(deal: Record<string, unknown>) {
     // Person identity
     personId: Number(person?.id) || undefined,
     personHash: person?.hash ? String(person.hash) : null,
-    personEmail: person?.email ? String(person.email) : null,
+    // Person email: cascade (contact_emails array → flat email)
+    personEmail: (() => {
+      const emails = person?.contact_emails as Array<{ address?: string }> | undefined;
+      if (emails?.[0]?.address) return String(emails[0].address);
+      if (person?.email) return String(person.email);
+      return null;
+    })(),
     personName: person?.name ? String(person.name) : null,
-    personPhone: person?.phone ? String(person.phone) : (person?.mobile ? String(person.mobile) : null),
+    // Person phone: cascade (contact_phones array → flat phone/mobile)
+    personPhone: (() => {
+      const phones = person?.contact_phones as Array<{ number?: string }> | undefined;
+      if (phones?.[0]?.number) return String(phones[0].number);
+      if (person?.phone) return String(person.phone);
+      if (person?.mobile) return String(person.mobile);
+      return null;
+    })(),
     personCpf: person?.cpf ? String(person.cpf) : null,
     personJobTitle: person?.job_title ? String(person.job_title) : null,
     personGender: person?.gender ? String(person.gender) : null,
@@ -57,7 +70,13 @@ function extractIds(deal: Record<string, unknown>) {
     personWebsite: person?.website ? String(person.website) : null,
     personAddress: person?.address as Record<string, unknown> | undefined,
     personCity: (person?.city as Record<string, unknown>)?.name ? String((person?.city as Record<string, unknown>).name) : null,
-    personState: (person?.state as Record<string, unknown>)?.abbr ? String((person?.state as Record<string, unknown>).abbr) : ((person?.state as Record<string, unknown>)?.name ? String((person?.state as Record<string, unknown>).name) : null),
+    // Person UF: cascade (city.uf → state.abbr → state.initials → state.name)
+    personState: (() => {
+      const city = person?.city as Record<string, unknown> | undefined;
+      if (city?.uf) return String(city.uf);
+      const state = person?.state as Record<string, unknown> | undefined;
+      return state?.abbr ? String(state.abbr) : (state?.initials ? String(state.initials) : (state?.name ? String(state.name) : null));
+    })(),
     // Company identity
     companyId: Number(company?.id) || undefined,
     companyHash: company?.hash ? String(company.hash) : null,
@@ -65,17 +84,56 @@ function extractIds(deal: Record<string, unknown>) {
     companyRazaoSocial: company?.company_name ? String(company.company_name) : null,
     companyCnpj: company?.cnpj ? String(company.cnpj) : null,
     companyIe: company?.ie ? String(company.ie) : null,
-    companySegment: company?.segment ? String(company.segment) : null,
+    // Company segment: cascade (object.name → string)
+    companySegment: (() => {
+      const seg = company?.segment;
+      if (!seg) return null;
+      if (typeof seg === "object" && (seg as Record<string, unknown>).name) return String((seg as Record<string, unknown>).name);
+      return String(seg);
+    })(),
     companyWebsite: company?.website ? String(company.website) : null,
     companyCnae: company?.cnae ? String(company.cnae) : null,
-    companySituacao: company?.situation ? String(company.situation) : null,
+    // Company situation: cascade (company_situation → situation)
+    companySituacao: company?.company_situation ? String(company.company_situation) : (company?.situation ? String(company.situation) : null),
     companyFacebook: company?.facebook ? String(company.facebook) : null,
     companyLinkedin: company?.linkedin ? String(company.linkedin) : null,
     companyTouchModel: company?.status_touch ? String(company.status_touch) : null,
-    companyAddress: company?.address as Record<string, unknown> | undefined,
+    // Company address: merge flat fields + nested object
+    companyAddress: (() => {
+      const nested = company?.address as Record<string, unknown> | undefined;
+      const flat: Record<string, unknown> = {};
+      if (company?.address_street) flat.street = String(company.address_street);
+      if (company?.address_number) flat.number = String(company.address_number);
+      if (company?.address_complement) flat.complement = String(company.address_complement);
+      if (company?.address_postal_code) flat.postal_code = String(company.address_postal_code);
+      if (company?.district) flat.district = String(company.district);
+      const hasFlat = Object.keys(flat).length > 0;
+      if (hasFlat) return { ...(nested || {}), ...flat };
+      return nested || null;
+    })(),
     companyCity: (company?.city as Record<string, unknown>)?.name ? String((company?.city as Record<string, unknown>).name) : null,
-    companyState: (company?.state as Record<string, unknown>)?.abbr ? String((company?.state as Record<string, unknown>).abbr) : ((company?.state as Record<string, unknown>)?.name ? String((company?.state as Record<string, unknown>).name) : null),
+    // Company UF: cascade (city.uf → state.abbr → state.name)
+    companyState: (() => {
+      const city = company?.city as Record<string, unknown> | undefined;
+      if (city?.uf) return String(city.uf);
+      const state = company?.state as Record<string, unknown> | undefined;
+      return state?.abbr ? String(state.abbr) : (state?.name ? String(state.name) : null);
+    })(),
     companyCustomFields: company?.custom_fields as unknown[] | undefined,
+    // Company phone: cascade (contact_phones → phones)
+    companyPhone: (() => {
+      const phones = company?.contact_phones as Array<{ number?: string }> | undefined;
+      if (phones?.[0]?.number) return String(phones[0].number);
+      const oldPhones = company?.phones as Array<{ phone?: string }> | undefined;
+      return oldPhones?.[0]?.phone ? String(oldPhones[0].phone) : null;
+    })(),
+    // Company email: cascade (contact_emails → emails)
+    companyEmail: (() => {
+      const emails = company?.contact_emails as Array<{ address?: string }> | undefined;
+      if (emails?.[0]?.address) return String(emails[0].address);
+      const oldEmails = company?.emails as Array<{ email?: string }> | undefined;
+      return oldEmails?.[0]?.email ? String(oldEmails[0].email) : null;
+    })(),
     // Deal metadata
     dealHash: deal.hash ? String(deal.hash) : null,
     dealDescription: deal.description ? String(deal.description) : null,
@@ -93,7 +151,12 @@ function extractIds(deal: Record<string, unknown>) {
     dealProbablyClosedAt: deal.probably_closed_at ? String(deal.probably_closed_at) : null,
     dealOriginId: Number((deal.origin as Record<string, unknown>)?.id) || undefined,
     dealOriginName: (deal.origin as Record<string, unknown>)?.name ? String((deal.origin as Record<string, unknown>).name) : null,
-    dealOriginSubName: (deal.origin as Record<string, unknown>)?.origin ? String((deal.origin as Record<string, unknown>).origin) : null,
+    dealOriginSubName: (() => {
+      const originSub = (deal.origin as Record<string, unknown>)?.origin;
+      if (!originSub) return null;
+      if (typeof originSub === "object" && (originSub as Record<string, unknown>).name) return String((originSub as Record<string, unknown>).name);
+      return String(originSub);
+    })(),
     dealInvolvedUsers: deal.involved_users as unknown[] | undefined,
     dealProposals: deal.proposals as unknown[] | undefined,
   };
