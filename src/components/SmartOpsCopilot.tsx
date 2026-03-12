@@ -46,6 +46,43 @@ export function SmartOpsCopilot() {
     } catch { /* storage full, ignore */ }
   }, [messages]);
 
+  // ─── Realtime: listen for new leads from webhook ───
+  useEffect(() => {
+    const channel = supabase
+      .channel("copilot-new-leads")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "lia_attendances" },
+        (payload) => {
+          const lead = payload.new as Record<string, unknown>;
+          const nome = lead.nome || "Desconhecido";
+          const email = lead.email || "—";
+          const source = lead.source || "—";
+          const produto = lead.produto_interesse || "—";
+          const cidade = lead.cidade || "";
+          const uf = lead.uf || "";
+          const loc = [cidade, uf].filter(Boolean).join("/") || "—";
+
+          const alertMsg = `🚨 **Novo lead chegou!**\n\n` +
+            `| Campo | Valor |\n|---|---|\n` +
+            `| **Nome** | ${nome} |\n` +
+            `| **Email** | ${email} |\n` +
+            `| **Origem** | ${source} |\n` +
+            `| **Produto** | ${produto} |\n` +
+            `| **Local** | ${loc} |\n\n` +
+            `_Recebido agora via webhook._`;
+
+          setMessages((prev) => [...prev, { role: "assistant", content: alertMsg }]);
+          toast.success(`Novo lead: ${nome}`, { description: String(email) });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
