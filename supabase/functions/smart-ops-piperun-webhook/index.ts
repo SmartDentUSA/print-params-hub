@@ -391,6 +391,7 @@ Deno.serve(async (req) => {
         empresa_cidade: ids.companyCity,
         empresa_uf: ids.companyState,
         empresa_endereco: ids.companyAddress || null,
+        empresa_segmento: ids.companySegment,
         empresa_custom_fields: ids.companyCustomFields || [],
         // Deal metadata
         piperun_pipeline_id: ids.pipelineId || null,
