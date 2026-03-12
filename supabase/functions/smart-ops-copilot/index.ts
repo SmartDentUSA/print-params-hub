@@ -666,7 +666,8 @@ async function executeQueryTable(args: any) {
     "system_a_catalog", "catalog_documents", "brands", "models", "resins",
     "agent_interactions", "agent_knowledge_gaps", "cs_automation_rules",
     "team_members", "ai_token_usage", "external_links", "leads", "content_requests",
-    "lead_state_events", "company_kb_texts", "intelligence_score_config"
+    "lead_state_events", "company_kb_texts", "intelligence_score_config",
+    "system_health_logs", "message_logs"
   ];
   if (!allowedTables.includes(args.table)) return { error: `Tabela "${args.table}" não permitida. Tabelas disponíveis: ${allowedTables.join(", ")}` };
 
