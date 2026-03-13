@@ -37,6 +37,11 @@ function normalizePhone(raw: string | null | undefined): string | null {
 
 /* ─── CSV parser (semicolon, handles quoted fields) ─── */
 function parseCSVLine(line: string): string[] {
+  // Fast path for most rows (no quoted fields)
+  if (!line.includes('"')) {
+    return line.split(";").map((field) => field.trim());
+  }
+
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -76,15 +81,30 @@ function buildColumnMap(headerFields: string[]): Record<string, number> {
     const raw = headerFields[i].replace(/^"|"$/g, "").trim();
     map[raw] = i;
     const norm = normalizeColName(raw);
-    if (norm && !map[norm]) map[norm] = i;
+    if (norm && !(norm in map)) map[norm] = i;
   }
   return map;
 }
 
+// Cache resolved column indexes per column map to avoid repeated normalize/lookups per row
+const columnIndexCache = new WeakMap<Record<string, number>, Map<string, number>>();
+
 function col(row: string[], colMap: Record<string, number>, name: string): string {
-  let idx = colMap[name];
-  if (idx === undefined) idx = colMap[normalizeColName(name)];
-  if (idx === undefined || idx >= row.length) return "";
+  let cache = columnIndexCache.get(colMap);
+  if (!cache) {
+    cache = new Map<string, number>();
+    columnIndexCache.set(colMap, cache);
+  }
+
+  let idx = cache.get(name);
+  if (idx === undefined) {
+    const direct = colMap[name];
+    const normalized = direct === undefined ? colMap[normalizeColName(name)] : direct;
+    idx = normalized === undefined ? -1 : normalized;
+    cache.set(name, idx);
+  }
+
+  if (idx < 0 || idx >= row.length) return "";
   return row[idx]?.replace(/^"|"$/g, "").trim() || "";
 }
 
