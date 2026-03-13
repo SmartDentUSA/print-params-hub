@@ -388,7 +388,68 @@ async function processCSVInBackground(csvText: string) {
 
     console.log(`[import-bg] ${personMap.size} unique persons/groups`);
 
-    // STEP 3: Match and enrich in batches
+    // STEP 3a: Collect unique identifiers from personMap
+    const allEmails: string[] = [];
+    const allPhones: string[] = [];
+    const allPessoaIds: number[] = [];
+    const allDealIds: string[] = [];
+
+    for (const person of personMap.values()) {
+      if (person.email && !person.email.includes("@import.local")) allEmails.push(person.email);
+      if (person.phone) allPhones.push(person.phone);
+      if (person.pessoa_id) allPessoaIds.push(parseInt(person.pessoa_id));
+      for (const deal of person.deals) {
+        if (deal.deal_id) allDealIds.push(deal.deal_id);
+      }
+    }
+
+    console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids, ${allDealIds.length} deal_ids`);
+
+    // STEP 3b: Bulk queries with chunking (max 500 per .in())
+    type LeadRow = { id: string; email: string | null; telefone_normalized: string | null; pessoa_piperun_id: number | null; piperun_id: string | null; piperun_deals_history: any };
+    const CHUNK = 500;
+    const allLeads = new Map<string, LeadRow>(); // id → lead
+
+    async function bulkFetch(column: string, values: (string | number)[]) {
+      if (!values.length) return;
+      const unique = [...new Set(values)];
+      for (let i = 0; i < unique.length; i += CHUNK) {
+        const chunk = unique.slice(i, i + CHUNK);
+        const { data, error } = await supabase
+          .from("lia_attendances")
+          .select("id, email, telefone_normalized, pessoa_piperun_id, piperun_id, piperun_deals_history")
+          .in(column, chunk);
+        if (error) {
+          console.error(`[import-bg] Bulk fetch ${column} error: ${error.message}`);
+          continue;
+        }
+        if (data) for (const row of data) allLeads.set(row.id, row as LeadRow);
+      }
+    }
+
+    await Promise.all([
+      bulkFetch("email", allEmails),
+      bulkFetch("telefone_normalized", allPhones),
+      bulkFetch("pessoa_piperun_id", allPessoaIds),
+      bulkFetch("piperun_id", allDealIds),
+    ]);
+
+    console.log(`[import-bg] Bulk loaded ${allLeads.size} unique leads`);
+
+    // STEP 3c: Build in-memory lookup maps
+    const emailMap = new Map<string, LeadRow>();
+    const phoneMap = new Map<string, LeadRow>();
+    const pessoaIdMap = new Map<number, LeadRow>();
+    const dealIdMap = new Map<string, LeadRow>();
+
+    for (const lead of allLeads.values()) {
+      if (lead.email) emailMap.set(lead.email.toLowerCase(), lead);
+      if (lead.telefone_normalized) phoneMap.set(lead.telefone_normalized, lead);
+      if (lead.pessoa_piperun_id) pessoaIdMap.set(lead.pessoa_piperun_id, lead);
+      if (lead.piperun_id) dealIdMap.set(String(lead.piperun_id), lead);
+    }
+
+    // STEP 3d: Match in memory + build updates
     let matched = 0;
     let enriched = 0;
     let skippedCount = 0;
@@ -396,47 +457,22 @@ async function processCSVInBackground(csvText: string) {
 
     for (const [groupKey, person] of personMap) {
       try {
-        let existingLead: { id: string; piperun_deals_history: any } | null = null;
+        let existingLead: LeadRow | undefined;
 
-        // CASCADE: email → phone → pessoa_piperun_id → piperun_id
+        // CASCADE: email → phone → pessoa_id → deal_id (all in-memory)
         if (!existingLead && person.email && !person.email.includes("@import.local")) {
-          const { data } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .eq("email", person.email)
-            .limit(1)
-            .maybeSingle();
-          if (data) existingLead = data;
+          existingLead = emailMap.get(person.email);
         }
-
         if (!existingLead && person.phone) {
-          const { data } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .eq("telefone_normalized", person.phone)
-            .limit(1)
-            .maybeSingle();
-          if (data) existingLead = data;
+          existingLead = phoneMap.get(person.phone);
         }
-
         if (!existingLead && person.pessoa_id) {
-          const { data } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .eq("pessoa_piperun_id", parseInt(person.pessoa_id))
-            .limit(1)
-            .maybeSingle();
-          if (data) existingLead = data;
+          existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
         }
-
         if (!existingLead) {
           for (const deal of person.deals) {
-            const { data } = await supabase
-              .from("lia_attendances")
-              .select("id, piperun_deals_history")
-              .eq("piperun_id", deal.deal_id)
-              .maybeSingle();
-            if (data) { existingLead = data; break; }
+            existingLead = dealIdMap.get(deal.deal_id);
+            if (existingLead) break;
           }
         }
 
