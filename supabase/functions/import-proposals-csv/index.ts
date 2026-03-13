@@ -426,7 +426,7 @@ async function processCSVInBackground(csvText: string) {
 
     // STEP 2: Group deals by person
     interface PersonGroup {
-      email: string;
+      emails: string[];
       phone: string | null;
       pessoa_id: string;
       deals: DealData[];
@@ -435,12 +435,16 @@ async function processCSVInBackground(csvText: string) {
     const personMap = new Map<string, PersonGroup>();
 
     for (const deal of dealMap.values()) {
-      const email = deal.pessoa_email?.toLowerCase().trim() || "";
+      const emails = extractEmails(deal.pessoa_email);
+      const primaryEmail = emails[0] || "";
       const phone = normalizePhone(deal.pessoa_telefone);
-      const groupKey = email || (deal.pessoa_id ? `pessoa_${deal.pessoa_id}` : `deal_${deal.deal_id}`);
+      const groupKey = primaryEmail || (deal.pessoa_id ? `pessoa_${deal.pessoa_id}` : `deal_${deal.deal_id}`);
 
       if (!personMap.has(groupKey)) {
-        personMap.set(groupKey, { email, phone, pessoa_id: deal.pessoa_id, deals: [] });
+        personMap.set(groupKey, { emails: [...emails], phone, pessoa_id: deal.pessoa_id, deals: [] });
+      } else if (emails.length) {
+        const group = personMap.get(groupKey)!;
+        group.emails = Array.from(new Set([...group.emails, ...emails]));
       }
       personMap.get(groupKey)!.deals.push(deal);
     }
