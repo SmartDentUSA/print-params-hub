@@ -554,33 +554,7 @@ async function processCSVInBackground(csvText: string) {
 
     const pendingByLeadId = new Map<string, PendingLeadUpdate>();
 
-    for (const person of personMap.values()) {
-      let existingLead: LeadRow | undefined;
-
-      // CASCADE: email → phone → pessoa_id → deal_id (all in-memory)
-      if (!existingLead && person.email && !person.email.includes("@import.local")) {
-        existingLead = emailMap.get(person.email);
-      }
-      if (!existingLead && person.phone) {
-        existingLead = phoneMap.get(person.phone);
-      }
-      if (!existingLead && person.pessoa_id) {
-        existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
-      }
-      if (!existingLead) {
-        for (const deal of person.deals) {
-          existingLead = dealIdMap.get(deal.deal_id);
-          if (existingLead) break;
-        }
-      }
-
-      if (!existingLead) {
-        skippedCount++;
-        continue;
-      }
-
-      matched++;
-
+    const addPending = (existingLead: LeadRow, person: PersonGroup) => {
       const pending = pendingByLeadId.get(existingLead.id);
       if (pending) {
         pending.deals.push(...person.deals);
@@ -593,10 +567,74 @@ async function processCSVInBackground(csvText: string) {
           phone: person.phone,
         });
       }
+    };
+
+    const unresolvedPersons: PersonGroup[] = [];
+
+    for (const person of personMap.values()) {
+      let existingLead: LeadRow | undefined;
+
+      // Passo 1: email → phone → pessoa_id
+      if (!existingLead && person.emails.length) {
+        for (const email of person.emails) {
+          const found = emailMap.get(email);
+          if (found) {
+            existingLead = found;
+            break;
+          }
+        }
+      }
+      if (!existingLead && person.phone) {
+        existingLead = phoneMap.get(person.phone);
+      }
+      if (!existingLead && person.pessoa_id) {
+        existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
+      }
+
+      if (!existingLead) {
+        unresolvedPersons.push(person);
+        continue;
+      }
+
+      matched++;
+      addPending(existingLead, person);
+    }
+
+    // Passo 2: apenas não-resolvidos consultam piperun_id (deal hash)
+    if (unresolvedPersons.length > 0) {
+      const unresolvedDealIds = new Set<string>();
+      for (const person of unresolvedPersons) {
+        for (const deal of person.deals) {
+          if (deal.deal_id) unresolvedDealIds.add(deal.deal_id);
+        }
+      }
+
+      const unresolvedDealList = Array.from(unresolvedDealIds);
+      await bulkFetch("piperun_id", unresolvedDealList);
+
+      for (const lead of allLeads.values()) {
+        if (lead.piperun_id) dealIdMap.set(String(lead.piperun_id), lead);
+      }
+
+      for (const person of unresolvedPersons) {
+        let existingLead: LeadRow | undefined;
+        for (const deal of person.deals) {
+          existingLead = dealIdMap.get(deal.deal_id);
+          if (existingLead) break;
+        }
+
+        if (!existingLead) {
+          skippedCount++;
+          continue;
+        }
+
+        matched++;
+        addPending(existingLead, person);
+      }
     }
 
     console.log(
-      `[import-bg] Matched groups=${matched}, unique leads to update=${pendingByLeadId.size}, skipped=${skippedCount}`
+      `[import-bg] Matched groups=${matched}, unresolved=${unresolvedPersons.length}, unique leads to update=${pendingByLeadId.size}, skipped=${skippedCount}`
     );
 
     const updates: Record<string, any>[] = [];
