@@ -639,9 +639,35 @@ async function processCSVInBackground(csvText: string) {
 
     const updates: Record<string, any>[] = [];
 
+    const existingHistoryByLeadId = new Map<string, any[]>();
+    const pendingLeadIds = Array.from(pendingByLeadId.keys());
+    const HISTORY_CHUNK = 120;
+
+    for (let i = 0; i < pendingLeadIds.length; i += HISTORY_CHUNK) {
+      const idsChunk = pendingLeadIds.slice(i, i + HISTORY_CHUNK);
+      const { data, error } = await supabase
+        .from("lia_attendances")
+        .select("id, piperun_deals_history")
+        .in("id", idsChunk);
+
+      if (error) {
+        console.error(`[import-bg] History fetch chunk failed (${i}-${i + idsChunk.length - 1})`);
+        continue;
+      }
+
+      if (data) {
+        for (const row of data) {
+          existingHistoryByLeadId.set(
+            row.id,
+            Array.isArray(row.piperun_deals_history) ? [...row.piperun_deals_history] : []
+          );
+        }
+      }
+    }
+
     for (const pending of pendingByLeadId.values()) {
       try {
-        const currentHistory = Array.isArray(pending.lead.piperun_deals_history)
+        const currentHistory = existingHistoryByLeadId.get(pending.lead.id) || []
           ? [...pending.lead.piperun_deals_history]
           : [];
 
