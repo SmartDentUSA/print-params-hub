@@ -178,21 +178,26 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Accept CSV as text body or JSON with { csv: "..." }
+    // Accept CSV as:
+    // 1. Raw body (Content-Type: text/csv or application/octet-stream)
+    // 2. JSON with { csv: "...", url: "..." }
     // Handle Latin-1/Windows-1252 encoding from PipeRun export
     const contentType = req.headers.get("content-type") || "";
     let csvText: string;
     if (contentType.includes("application/json")) {
       const body = await req.json();
-      csvText = body.csv || "";
+      if (body.url) {
+        // Fetch CSV from URL (e.g. Supabase Storage or public URL)
+        const csvResp = await fetch(body.url);
+        const rawBytes = new Uint8Array(await csvResp.arrayBuffer());
+        csvText = new TextDecoder("latin1").decode(rawBytes);
+      } else {
+        csvText = body.csv || "";
+      }
     } else {
       // Try to decode as Latin-1 first (PipeRun exports use this encoding)
       const rawBytes = new Uint8Array(await req.arrayBuffer());
-      try {
-        csvText = new TextDecoder("latin1").decode(rawBytes);
-      } catch {
-        csvText = new TextDecoder("utf-8").decode(rawBytes);
-      }
+      csvText = new TextDecoder("latin1").decode(rawBytes);
     }
 
     if (!csvText || csvText.length < 100) {
