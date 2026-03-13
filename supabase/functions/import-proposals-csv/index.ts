@@ -162,13 +162,20 @@ Deno.serve(async (req) => {
     );
 
     // Accept CSV as text body or JSON with { csv: "..." }
+    // Handle Latin-1/Windows-1252 encoding from PipeRun export
     const contentType = req.headers.get("content-type") || "";
     let csvText: string;
     if (contentType.includes("application/json")) {
       const body = await req.json();
       csvText = body.csv || "";
     } else {
-      csvText = await req.text();
+      // Try to decode as Latin-1 first (PipeRun exports use this encoding)
+      const rawBytes = new Uint8Array(await req.arrayBuffer());
+      try {
+        csvText = new TextDecoder("latin1").decode(rawBytes);
+      } catch {
+        csvText = new TextDecoder("utf-8").decode(rawBytes);
+      }
     }
 
     if (!csvText || csvText.length < 100) {
