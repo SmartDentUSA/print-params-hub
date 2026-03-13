@@ -783,7 +783,11 @@ Deno.serve(async (req) => {
     console.log(`[import-proposals] Received CSV with ~${lineCount} rows. Starting background processing...`);
 
     // Start background processing (non-blocking)
-    EdgeRuntime.waitUntil(processCSVInBackground(csvText));
+    // Important: defer one tick so response can flush before heavy CPU starts
+    EdgeRuntime.waitUntil((async () => {
+      await Promise.resolve();
+      await processCSVInBackground(csvText);
+    })());
 
     // Return immediately
     return new Response(JSON.stringify({
