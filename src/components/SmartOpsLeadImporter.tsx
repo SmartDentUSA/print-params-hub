@@ -66,6 +66,15 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
     const file = e.target.files?.[0];
     if (!file || !parserType) return;
 
+    // Direct upload mode: store file and show preview info
+    if (isDirectUpload) {
+      setDirectFile(file);
+      const text = await file.text();
+      const lineCount = text.split("\n").filter(l => l.trim()).length - 1;
+      toast.success(`Arquivo carregado: ${lineCount} linhas para processar`);
+      return;
+    }
+
     try {
       const buffer = await file.arrayBuffer();
       let rows: Record<string, unknown>[];
