@@ -480,14 +480,13 @@ async function processCSVInBackground(csvText: string) {
       telefone_normalized: string | null;
       pessoa_piperun_id: number | null;
       piperun_id: string | null;
-      piperun_deals_history: any;
     };
 
     const CHUNK_BY_COLUMN: Record<string, number> = {
-      email: 500,
-      telefone_normalized: 500,
-      pessoa_piperun_id: 500,
-      piperun_id: 100, // IDs hash deixam a URL do .in() muito grande
+      email: 80,
+      telefone_normalized: 250,
+      pessoa_piperun_id: 250,
+      piperun_id: 50,
     };
 
     const allLeads = new Map<string, LeadRow>(); // id → lead
@@ -496,17 +495,20 @@ async function processCSVInBackground(csvText: string) {
       if (!values.length) return;
 
       const unique = [...new Set(values)];
-      const chunkSize = CHUNK_BY_COLUMN[column] ?? 500;
+      const chunkSize = CHUNK_BY_COLUMN[column] ?? 100;
+      const totalChunks = Math.ceil(unique.length / chunkSize);
 
       for (let i = 0; i < unique.length; i += chunkSize) {
         const chunk = unique.slice(i, i + chunkSize);
+        const chunkNo = Math.floor(i / chunkSize) + 1;
+
         const { data, error } = await supabase
           .from("lia_attendances")
-          .select("id, email, telefone_normalized, pessoa_piperun_id, piperun_id, piperun_deals_history")
+          .select("id, email, telefone_normalized, pessoa_piperun_id, piperun_id")
           .in(column, chunk);
 
         if (error) {
-          console.error(`[import-bg] Bulk fetch ${column} error: ${error.message}`);
+          console.error(`[import-bg] Bulk fetch ${column} chunk ${chunkNo}/${totalChunks} failed`);
           continue;
         }
 
@@ -518,12 +520,10 @@ async function processCSVInBackground(csvText: string) {
       }
     }
 
-    await Promise.all([
-      bulkFetch("email", allEmails),
-      bulkFetch("telefone_normalized", allPhones),
-      bulkFetch("pessoa_piperun_id", allPessoaIds),
-      bulkFetch("piperun_id", allDealIds),
-    ]);
+    // Run sequentially to reduce memory pressure and huge concurrent URL payloads
+    await bulkFetch("email", allEmails);
+    await bulkFetch("telefone_normalized", allPhones);
+    await bulkFetch("pessoa_piperun_id", allPessoaIds);
 
     console.log(`[import-bg] Bulk loaded ${allLeads.size} unique leads`);
 
@@ -537,7 +537,6 @@ async function processCSVInBackground(csvText: string) {
       if (lead.email) emailMap.set(lead.email.toLowerCase(), lead);
       if (lead.telefone_normalized) phoneMap.set(lead.telefone_normalized, lead);
       if (lead.pessoa_piperun_id) pessoaIdMap.set(lead.pessoa_piperun_id, lead);
-      if (lead.piperun_id) dealIdMap.set(String(lead.piperun_id), lead);
     }
 
     // STEP 3d: Match in memory + aggregate by lead (reduce writes)
