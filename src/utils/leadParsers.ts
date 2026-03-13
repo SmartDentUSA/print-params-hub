@@ -653,6 +653,7 @@ export const PARSER_OPTIONS = [
   { key: "facebook_kommo", label: "Facebook Cadastros (Kommo)", override: false },
   { key: "hadron_vendas", label: "Vendas Hadron (ERP)", override: true },
   { key: "omie_vendas", label: "Vendas Omie (ERP 2025)", override: true },
+  { key: "piperun_propostas", label: "📋 PipeRun Propostas (CSV direto)", override: false, directUpload: true },
 ];
 
 /* ─── AUTO_DETECT_PATTERNS — exported for manual mapping UI ─── */

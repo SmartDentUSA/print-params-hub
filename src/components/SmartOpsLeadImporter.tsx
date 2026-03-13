@@ -45,6 +45,9 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
 
   const isAutoDetect = parserType === "auto_detect";
+  const isDirectUpload = parserType === "piperun_propostas";
+  const [directFile, setDirectFile] = useState<File | null>(null);
+  const [directResult, setDirectResult] = useState<any>(null);
 
   const reset = () => {
     setPreview(null);
@@ -62,6 +65,15 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !parserType) return;
+
+    // Direct upload mode: store file and show preview info
+    if (isDirectUpload) {
+      setDirectFile(file);
+      const text = await file.text();
+      const lineCount = text.split("\n").filter(l => l.trim()).length - 1;
+      toast.success(`Arquivo carregado: ${lineCount} linhas para processar`);
+      return;
+    }
 
     try {
       const buffer = await file.arrayBuffer();
@@ -193,6 +205,35 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
     setImporting(false);
     toast.success(`Importação concluída: ${totalInserted} inseridos, ${totalUpdated} atualizados`);
     onComplete?.();
+  };
+
+  const handleDirectUpload = async () => {
+    if (!directFile) return;
+    setImporting(true);
+    setDirectResult(null);
+    try {
+      const buffer = await directFile.arrayBuffer();
+      const response = await fetch(
+        `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/import-proposals-csv`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: buffer,
+        }
+      );
+      const data = await response.json();
+      setDirectResult(data);
+      if (data.success) {
+        toast.success(`Propostas importadas: ${data.enriched} enriquecidos, ${data.created} criados de ${data.total_deals} deals`);
+      } else {
+        toast.error(data.error || "Erro na importação");
+      }
+      onComplete?.();
+    } catch (err) {
+      toast.error(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setImporting(false);
+    }
   };
 
   const downloadErrorCSV = () => {
@@ -404,6 +445,60 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
             </div>
           );
           })()}
+
+          {/* Direct Upload (PipeRun Propostas) */}
+          {isDirectUpload && directFile && !directResult && (
+            <div className="space-y-3">
+              <Alert>
+                <FileSpreadsheet className="w-4 h-4" />
+                <AlertDescription>
+                  Arquivo <strong>{directFile.name}</strong> pronto. Este CSV será enviado diretamente à Edge Function que faz parse, match por piperun_id/email/telefone, e enriquece o histórico de deals.
+                </AlertDescription>
+              </Alert>
+              <div className="flex gap-2">
+                <Button onClick={handleDirectUpload} disabled={importing}>
+                  <Upload className="w-4 h-4 mr-1" />
+                  Importar Propostas
+                </Button>
+                <Button variant="outline" onClick={reset}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Direct Upload Result */}
+          {directResult && (
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <span className="font-semibold">Importação de Propostas concluída</span>
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-sm">
+                <div className="p-2 rounded bg-muted text-center">
+                  <div className="text-lg font-bold">{directResult.total_deals || 0}</div>
+                  <div className="text-xs text-muted-foreground">Deals no CSV</div>
+                </div>
+                <div className="p-2 rounded bg-muted text-center">
+                  <div className="text-lg font-bold">{directResult.matched || 0}</div>
+                  <div className="text-xs text-muted-foreground">Encontrados</div>
+                </div>
+                <div className="p-2 rounded bg-muted text-center">
+                  <div className="text-lg font-bold text-primary">{directResult.enriched || 0}</div>
+                  <div className="text-xs text-muted-foreground">Enriquecidos</div>
+                </div>
+                <div className="p-2 rounded bg-muted text-center">
+                  <div className="text-lg font-bold">{directResult.created || 0}</div>
+                  <div className="text-xs text-muted-foreground">Criados</div>
+                </div>
+              </div>
+              {directResult.errors_count > 0 && (
+                <div className="p-2 rounded border text-sm text-destructive">
+                  <AlertTriangle className="w-4 h-4 inline mr-1" />
+                  {directResult.errors_count} erro(s)
+                </div>
+              )}
+              <Button variant="outline" size="sm" onClick={reset}>Fechar</Button>
+            </div>
+          )}
 
           {/* Progress */}
           {importing && (
