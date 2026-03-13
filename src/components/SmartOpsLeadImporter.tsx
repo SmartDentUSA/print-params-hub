@@ -45,6 +45,9 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
 
   const isAutoDetect = parserType === "auto_detect";
+  const isDirectUpload = parserType === "piperun_propostas";
+  const [directFile, setDirectFile] = useState<File | null>(null);
+  const [directResult, setDirectResult] = useState<any>(null);
 
   const reset = () => {
     setPreview(null);
