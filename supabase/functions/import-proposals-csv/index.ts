@@ -355,8 +355,10 @@ async function processCSVInBackground(csvText: string) {
 
     console.log(`[import-bg] Parsing ${lines.length - 1} rows, ${headerFields.length} columns`);
 
-    // STEP 1: Group rows by deal_id
+    // STEP 1: Group rows by deal_id (O(1) indices to avoid repeated linear scans)
     const dealMap = new Map<string, DealData>();
+    const proposalIndexByDeal = new Map<string, Map<string, ProposalData>>();
+    const itemIndexByProposal = new Map<string, Set<string>>();
 
     for (let i = 1; i < lines.length; i++) {
       const row = parseCSVLine(lines[i]);
@@ -367,18 +369,37 @@ async function processCSVInBackground(csvText: string) {
 
       if (!dealMap.has(dealId)) {
         dealMap.set(dealId, deal);
+        proposalIndexByDeal.set(dealId, new Map<string, ProposalData>());
       }
 
       const existingDeal = dealMap.get(dealId)!;
+      const proposalMap = proposalIndexByDeal.get(dealId)!;
 
-      if (proposal && !existingDeal.proposals.some((p) => p.proposal_id === proposal.proposal_id)) {
-        existingDeal.proposals.push(proposal);
+      let targetProposal: ProposalData | undefined;
+      if (proposal) {
+        targetProposal = proposalMap.get(proposal.proposal_id);
+        if (!targetProposal) {
+          existingDeal.proposals.push(proposal);
+          proposalMap.set(proposal.proposal_id, proposal);
+          targetProposal = proposal;
+        }
       }
 
       if (item && proposalId) {
-        const targetProposal = existingDeal.proposals.find((p) => p.proposal_id === proposalId);
-        if (targetProposal && !targetProposal.items.some((it) => it.item_id === item.item_id)) {
-          targetProposal.items.push(item);
+        if (!targetProposal) {
+          targetProposal = proposalMap.get(proposalId);
+        }
+        if (targetProposal) {
+          const proposalKey = `${dealId}::${proposalId}`;
+          let seenItems = itemIndexByProposal.get(proposalKey);
+          if (!seenItems) {
+            seenItems = new Set<string>();
+            itemIndexByProposal.set(proposalKey, seenItems);
+          }
+          if (!seenItems.has(item.item_id)) {
+            seenItems.add(item.item_id);
+            targetProposal.items.push(item);
+          }
         }
       }
     }
