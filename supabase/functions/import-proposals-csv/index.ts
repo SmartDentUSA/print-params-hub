@@ -242,7 +242,7 @@ function parseDealFromRow(row: string[], colMap: Record<string, number>): {
     valor_ps_opp: parseBRL(col(row, colMap, "Valor de P&S (Oportunidade)")),
     valor_mrr_opp: parseBRL(col(row, colMap, "Valor de MRR (Oportunidade)")),
     tags: col(row, colMap, "Tags (Oportunidade)"),
-    motivo_perda: col(row, colMap, "(MP) Motivo de perda (Oportunidade)")),
+    motivo_perda: col(row, colMap, "(MP) Motivo de perda (Oportunidade)"),
     comentario_perda: col(row, colMap, "(MP) Comentário (Oportunidade)"),
     proposals: [],
     pessoa_id: col(row, colMap, "ID (Pessoa)"),
