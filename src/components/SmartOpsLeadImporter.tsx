@@ -207,6 +207,35 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
     onComplete?.();
   };
 
+  const handleDirectUpload = async () => {
+    if (!directFile) return;
+    setImporting(true);
+    setDirectResult(null);
+    try {
+      const buffer = await directFile.arrayBuffer();
+      const response = await fetch(
+        `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/import-proposals-csv`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/octet-stream" },
+          body: buffer,
+        }
+      );
+      const data = await response.json();
+      setDirectResult(data);
+      if (data.success) {
+        toast.success(`Propostas importadas: ${data.enriched} enriquecidos, ${data.created} criados de ${data.total_deals} deals`);
+      } else {
+        toast.error(data.error || "Erro na importação");
+      }
+      onComplete?.();
+    } catch (err) {
+      toast.error(`Erro: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const downloadErrorCSV = () => {
     if (allErrors.length === 0) return;
     const csv = ["linha,email,erro", ...allErrors.map((e) => `${e.row},"${e.email}","${e.error}"`)].join("\n");
