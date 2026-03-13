@@ -1,0 +1,1 @@
+DELETE FROM lia_attendances WHERE source = 'piperun_proposals_csv';

@@ -9,7 +9,6 @@ const corsHeaders = {
 /* ─── Parse BRL currency string to number ─── */
 function parseBRL(raw: string | undefined): number {
   if (!raw) return 0;
-  // "R$ 1.859,00" → 1859.00
   const cleaned = raw.replace(/R\$\s*/g, "").replace(/\./g, "").replace(",", ".").trim();
   const val = parseFloat(cleaned);
   return isNaN(val) ? 0 : val;
@@ -43,7 +42,6 @@ function parseCSVLine(line: string): string[] {
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;
-
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
@@ -68,20 +66,19 @@ function parseCSVLine(line: string): string[] {
 function normalizeColName(name: string): string {
   return name
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // strip diacritics
-    .replace(/[^\x20-\x7E]/g, "") // strip non-ASCII
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "")
     .replace(/\s+/g, " ")
     .toLowerCase()
     .trim();
 }
 
-/* ─── Column name → index mapping (with normalized keys) ─── */
+/* ─── Column name → index mapping ─── */
 function buildColumnMap(headerFields: string[]): Record<string, number> {
   const map: Record<string, number> = {};
   for (let i = 0; i < headerFields.length; i++) {
     const raw = headerFields[i].replace(/^"|"$/g, "").trim();
     map[raw] = i;
-    // Also store normalized version
     const norm = normalizeColName(raw);
     if (norm && !map[norm]) map[norm] = i;
   }
@@ -90,10 +87,7 @@ function buildColumnMap(headerFields: string[]): Record<string, number> {
 
 function col(row: string[], colMap: Record<string, number>, name: string): string {
   let idx = colMap[name];
-  if (idx === undefined) {
-    // Try normalized version
-    idx = colMap[normalizeColName(name)];
-  }
+  if (idx === undefined) idx = colMap[normalizeColName(name)];
   if (idx === undefined || idx >= row.length) return "";
   return row[idx]?.replace(/^"|"$/g, "").trim() || "";
 }
@@ -144,7 +138,6 @@ interface DealData {
   motivo_perda: string;
   comentario_perda: string;
   proposals: ProposalData[];
-  // Person
   pessoa_id: string;
   pessoa_nome: string;
   pessoa_cpf: string;
@@ -152,19 +145,158 @@ interface DealData {
   pessoa_telefone: string;
   pessoa_cidade: string;
   pessoa_uf: string;
-  // Company
   empresa_id: string;
   empresa_nome: string;
   empresa_cnpj: string;
   empresa_cidade: string;
   empresa_uf: string;
   empresa_segmento: string;
-  // Custom fields
   especialidade: string;
   area_atuacao: string;
   produto_interesse: string;
   tem_impressora: string;
   tem_scanner: string;
+}
+
+/* ─── Build a deal snapshot for piperun_deals_history ─── */
+function buildDealSnapshot(deal: DealData) {
+  const totalProposalsValue = deal.proposals.reduce((s, p) => s + p.valor_ps, 0);
+  const totalFreight = deal.proposals.reduce((s, p) => s + p.valor_frete, 0);
+  const totalMRR = deal.proposals.reduce((s, p) => s + p.valor_mrr, 0);
+  const allItems = deal.proposals.flatMap((p) => p.items);
+  const sorted = [...allItems].sort((a, b) => b.total - a.total);
+  const mainProduct = sorted[0]?.nome || null;
+
+  return {
+    deal_id: deal.deal_id,
+    pipeline_name: deal.funil,
+    stage_name: deal.etapa,
+    status: deal.status || "Aberta",
+    situacao: deal.situacao,
+    value: totalProposalsValue || deal.valor_ps_opp || 0,
+    value_products: totalProposalsValue - totalFreight,
+    value_freight: totalFreight,
+    value_mrr: totalMRR || deal.valor_mrr_opp || 0,
+    product: mainProduct,
+    owner_name: deal.dono_nome,
+    owner_email: deal.dono_email,
+    origem: deal.origem,
+    tags: deal.tags,
+    motivo_perda: deal.motivo_perda,
+    comentario_perda: deal.comentario_perda,
+    created_at: deal.data_cadastro || null,
+    closed_at: deal.data_fechamento || null,
+    synced_at: new Date().toISOString(),
+    proposals: deal.proposals.map((p) => ({
+      id: p.proposal_id,
+      sigla: p.proposal_sigla,
+      status: p.status,
+      valor_ps: p.valor_ps,
+      valor_mrr: p.valor_mrr,
+      parcelas: p.parcelas,
+      tipo_frete: p.tipo_frete,
+      valor_frete: p.valor_frete,
+      vendedor: p.vendedor,
+      items: p.items.map((it) => ({
+        item_id: it.item_id,
+        nome: it.nome,
+        tipo: it.tipo,
+        qtd: it.qtd,
+        unit: it.unit,
+        total: it.total,
+        categoria: it.categoria,
+      })),
+    })),
+  };
+}
+
+/* ─── Parse a CSV row into a DealData entry ─── */
+function parseDealFromRow(row: string[], colMap: Record<string, number>): {
+  dealId: string;
+  proposalId: string;
+  deal: DealData;
+  item: ProposalItem | null;
+  proposal: ProposalData | null;
+} | null {
+  const dealId = col(row, colMap, "ID (Oportunidade)");
+  if (!dealId) return null;
+
+  const proposalId = col(row, colMap, "ID");
+  const itemId = col(row, colMap, "ID do item (Item)");
+  const itemName = col(row, colMap, "Nome do item (Item)");
+
+  const deal: DealData = {
+    deal_id: dealId,
+    deal_link: col(row, colMap, "Link (Oportunidade)"),
+    funil: col(row, colMap, "Funil (Oportunidade)"),
+    etapa: col(row, colMap, "Etapa (Oportunidade)"),
+    lead_timing: col(row, colMap, "Lead-Timing (Oportunidade)"),
+    dono_email: col(row, colMap, "Dono da oportunidade (Oportunidade)"),
+    dono_nome: col(row, colMap, "Nome do dono da oportunidade (Oportunidade)"),
+    origem: col(row, colMap, "Origem (Oportunidade)"),
+    data_cadastro: col(row, colMap, "Data de cadastro (Oportunidade)"),
+    data_fechamento: col(row, colMap, "Data de fechamento (Oportunidade)"),
+    titulo: col(row, colMap, "Titulo (Oportunidade)"),
+    status: col(row, colMap, "Status (Oportunidade)"),
+    situacao: col(row, colMap, "Situação (Oportunidade)"),
+    valor_ps_opp: parseBRL(col(row, colMap, "Valor de P&S (Oportunidade)")),
+    valor_mrr_opp: parseBRL(col(row, colMap, "Valor de MRR (Oportunidade)")),
+    tags: col(row, colMap, "Tags (Oportunidade)"),
+    motivo_perda: col(row, colMap, "(MP) Motivo de perda (Oportunidade)"),
+    comentario_perda: col(row, colMap, "(MP) Comentário (Oportunidade)"),
+    proposals: [],
+    pessoa_id: col(row, colMap, "ID (Pessoa)"),
+    pessoa_nome: col(row, colMap, "Nome completo (Pessoa)"),
+    pessoa_cpf: col(row, colMap, "CPF (Pessoa)"),
+    pessoa_email: col(row, colMap, "E-mail (Pessoa)"),
+    pessoa_telefone: col(row, colMap, "Telefone Principal (Pessoa)"),
+    pessoa_cidade: col(row, colMap, "Endereço - Cidade (Pessoa)"),
+    pessoa_uf: col(row, colMap, "Endereço - Estado (UF) (Pessoa)"),
+    empresa_id: col(row, colMap, "ID (Empresa)"),
+    empresa_nome: col(row, colMap, "Nome fantasia (Empresa)"),
+    empresa_cnpj: col(row, colMap, "CNPJ (Empresa)"),
+    empresa_cidade: col(row, colMap, "Endereço - Cidade (Empresa)"),
+    empresa_uf: col(row, colMap, "Endereço - Estado (UF) (Empresa)"),
+    empresa_segmento: col(row, colMap, "Segmento (Empresa)"),
+    especialidade: col(row, colMap, "Especialidade") || col(row, colMap, "Especialidade principal"),
+    area_atuacao: col(row, colMap, "Área de Atuação") || col(row, colMap, "ÁREA DE ATUAÇÃO") || col(row, colMap, "Área de atuação"),
+    produto_interesse: col(row, colMap, "Produto de interesse") || col(row, colMap, "Produto de interesse (auto)"),
+    tem_impressora: col(row, colMap, "Tem impressora"),
+    tem_scanner: col(row, colMap, "Tem scanner"),
+  };
+
+  let proposal: ProposalData | null = null;
+  if (proposalId) {
+    proposal = {
+      proposal_id: proposalId,
+      proposal_link: col(row, colMap, "Link"),
+      proposal_sigla: col(row, colMap, "Sigla"),
+      status: col(row, colMap, "Status"),
+      created_at: col(row, colMap, "Data de de criação"),
+      valor_ps: parseBRL(col(row, colMap, "Valor P&S")),
+      valor_mrr: parseBRL(col(row, colMap, "Valor MRR")),
+      parcelas: parseInt(col(row, colMap, "Forma de pgto P&S - Nro de parcelas")) || 0,
+      tipo_frete: col(row, colMap, "Tipo de frete"),
+      valor_frete: parseBRL(col(row, colMap, "Valor de frete")),
+      vendedor: col(row, colMap, "Vendedor da proposta"),
+      items: [],
+    };
+  }
+
+  let item: ProposalItem | null = null;
+  if (itemId && itemName) {
+    item = {
+      item_id: itemId,
+      nome: itemName,
+      tipo: col(row, colMap, "Tipo do item (Item)"),
+      qtd: parseQty(col(row, colMap, "Quantidade (Item)")),
+      unit: parseBRL(col(row, colMap, "Valor unitário (Item)")),
+      total: parseBRL(col(row, colMap, "Total de P&S (Item)")),
+      categoria: col(row, colMap, "Categoria (Item)"),
+    };
+  }
+
+  return { dealId, proposalId, deal, item, proposal };
 }
 
 Deno.serve(async (req) => {
@@ -178,16 +310,12 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Accept CSV as:
-    // 1. Raw body (Content-Type: text/csv or application/octet-stream)
-    // 2. JSON with { csv: "...", url: "..." }
-    // Handle Latin-1/Windows-1252 encoding from PipeRun export
+    // ─── Read CSV ───
     const contentType = req.headers.get("content-type") || "";
     let csvText: string;
     if (contentType.includes("application/json")) {
       const body = await req.json();
       if (body.url) {
-        // Fetch CSV from URL (e.g. Supabase Storage or public URL)
         const csvResp = await fetch(body.url);
         const rawBytes = new Uint8Array(await csvResp.arrayBuffer());
         csvText = new TextDecoder("latin1").decode(rawBytes);
@@ -195,7 +323,6 @@ Deno.serve(async (req) => {
         csvText = body.csv || "";
       }
     } else {
-      // Try to decode as Latin-1 first (PipeRun exports use this encoding)
       const rawBytes = new Uint8Array(await req.arrayBuffer());
       csvText = new TextDecoder("latin1").decode(rawBytes);
     }
@@ -207,7 +334,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse CSV
     const lines = csvText.split("\n").filter((l) => l.trim().length > 0);
     if (lines.length < 2) {
       return new Response(JSON.stringify({ error: "CSV must have header + data" }), {
@@ -218,311 +344,201 @@ Deno.serve(async (req) => {
 
     const headerFields = parseCSVLine(lines[0]);
     const colMap = buildColumnMap(headerFields);
-
     console.log(`[import-proposals] Parsed ${lines.length - 1} rows, ${headerFields.length} columns`);
 
-    // Group rows by deal (Oportunidade ID)
+    // ─── STEP 1: Group rows by deal_id (proposals + items) ───
     const dealMap = new Map<string, DealData>();
 
     for (let i = 1; i < lines.length; i++) {
       const row = parseCSVLine(lines[i]);
-      const dealId = col(row, colMap, "ID (Oportunidade)");
-      if (!dealId) continue;
+      const parsed = parseDealFromRow(row, colMap);
+      if (!parsed) continue;
 
-      const proposalId = col(row, colMap, "ID");
+      const { dealId, proposalId, deal, proposal, item } = parsed;
 
       if (!dealMap.has(dealId)) {
-        dealMap.set(dealId, {
-          deal_id: dealId,
-          deal_link: col(row, colMap, "Link (Oportunidade)"),
-          funil: col(row, colMap, "Funil (Oportunidade)"),
-          etapa: col(row, colMap, "Etapa (Oportunidade)"),
-          lead_timing: col(row, colMap, "Lead-Timing (Oportunidade)"),
-          dono_email: col(row, colMap, "Dono da oportunidade (Oportunidade)"),
-          dono_nome: col(row, colMap, "Nome do dono da oportunidade (Oportunidade)"),
-          origem: col(row, colMap, "Origem (Oportunidade)"),
-          data_cadastro: col(row, colMap, "Data de cadastro (Oportunidade)"),
-          data_fechamento: col(row, colMap, "Data de fechamento (Oportunidade)"),
-          titulo: col(row, colMap, "Titulo (Oportunidade)"),
-          status: col(row, colMap, "Status (Oportunidade)"),
-          situacao: col(row, colMap, "Situação (Oportunidade)"),
-          valor_ps_opp: parseBRL(col(row, colMap, "Valor de P&S (Oportunidade)")),
-          valor_mrr_opp: parseBRL(col(row, colMap, "Valor de MRR (Oportunidade)")),
-          tags: col(row, colMap, "Tags (Oportunidade)"),
-          motivo_perda: col(row, colMap, "(MP) Motivo de perda (Oportunidade)"),
-          comentario_perda: col(row, colMap, "(MP) Comentário (Oportunidade)"),
-          proposals: [],
-          pessoa_id: col(row, colMap, "ID (Pessoa)"),
-          pessoa_nome: col(row, colMap, "Nome completo (Pessoa)"),
-          pessoa_cpf: col(row, colMap, "CPF (Pessoa)"),
-          pessoa_email: col(row, colMap, "E-mail (Pessoa)"),
-          pessoa_telefone: col(row, colMap, "Telefone Principal (Pessoa)"),
-          pessoa_cidade: col(row, colMap, "Endereço - Cidade (Pessoa)"),
-          pessoa_uf: col(row, colMap, "Endereço - Estado (UF) (Pessoa)"),
-          empresa_id: col(row, colMap, "ID (Empresa)"),
-          empresa_nome: col(row, colMap, "Nome fantasia (Empresa)"),
-          empresa_cnpj: col(row, colMap, "CNPJ (Empresa)"),
-          empresa_cidade: col(row, colMap, "Endereço - Cidade (Empresa)"),
-          empresa_uf: col(row, colMap, "Endereço - Estado (UF) (Empresa)"),
-          empresa_segmento: col(row, colMap, "Segmento (Empresa)"),
-          especialidade: col(row, colMap, "Especialidade") || col(row, colMap, "Especialidade principal"),
-          area_atuacao: col(row, colMap, "Área de Atuação") || col(row, colMap, "ÁREA DE ATUAÇÃO") || col(row, colMap, "Área de atuação"),
-          produto_interesse: col(row, colMap, "Produto de interesse") || col(row, colMap, "Produto de interesse (auto)"),
-          tem_impressora: col(row, colMap, "Tem impressora"),
-          tem_scanner: col(row, colMap, "Tem scanner"),
-        });
+        dealMap.set(dealId, deal);
       }
 
-      const deal = dealMap.get(dealId)!;
+      const existingDeal = dealMap.get(dealId)!;
 
-      // Add proposal (dedup by proposal_id)
-      if (proposalId && !deal.proposals.some((p) => p.proposal_id === proposalId)) {
-        const proposal: ProposalData = {
-          proposal_id: proposalId,
-          proposal_link: col(row, colMap, "Link"),
-          proposal_sigla: col(row, colMap, "Sigla"),
-          status: col(row, colMap, "Status"),
-          created_at: col(row, colMap, "Data de de criação"),
-          valor_ps: parseBRL(col(row, colMap, "Valor P&S")),
-          valor_mrr: parseBRL(col(row, colMap, "Valor MRR")),
-          parcelas: parseInt(col(row, colMap, "Forma de pgto P&S - Nro de parcelas")) || 0,
-          tipo_frete: col(row, colMap, "Tipo de frete"),
-          valor_frete: parseBRL(col(row, colMap, "Valor de frete")),
-          vendedor: col(row, colMap, "Vendedor da proposta"),
-          items: [],
-        };
-        deal.proposals.push(proposal);
+      // Add proposal (dedup)
+      if (proposal && !existingDeal.proposals.some((p) => p.proposal_id === proposal.proposal_id)) {
+        existingDeal.proposals.push(proposal);
       }
 
-      // Add item to proposal
-      const itemId = col(row, colMap, "ID do item (Item)");
-      const itemName = col(row, colMap, "Nome do item (Item)");
-      if (itemId && itemName && proposalId) {
-        const proposal = deal.proposals.find((p) => p.proposal_id === proposalId);
-        if (proposal && !proposal.items.some((it) => it.item_id === itemId)) {
-          proposal.items.push({
-            item_id: itemId,
-            nome: itemName,
-            tipo: col(row, colMap, "Tipo do item (Item)"),
-            qtd: parseQty(col(row, colMap, "Quantidade (Item)")),
-            unit: parseBRL(col(row, colMap, "Valor unitário (Item)")),
-            total: parseBRL(col(row, colMap, "Total de P&S (Item)")),
-            categoria: col(row, colMap, "Categoria (Item)"),
-          });
+      // Add item to proposal (dedup)
+      if (item && proposalId) {
+        const targetProposal = existingDeal.proposals.find((p) => p.proposal_id === proposalId);
+        if (targetProposal && !targetProposal.items.some((it) => it.item_id === item.item_id)) {
+          targetProposal.items.push(item);
         }
       }
     }
 
-    console.log(`[import-proposals] ${dealMap.size} unique deals found`);
+    console.log(`[import-proposals] ${dealMap.size} unique deals parsed`);
 
-    // Process each deal: match to lia_attendances and enrich
+    // ─── STEP 2: Group deals by person (email → multiple deals) ───
+    // Key = pessoa_email (lowercase). Each person may have N deals.
+    interface PersonGroup {
+      email: string;
+      phone: string | null;
+      pessoa_id: string;
+      deals: DealData[];
+    }
+
+    const personMap = new Map<string, PersonGroup>();
+
+    for (const deal of dealMap.values()) {
+      const email = deal.pessoa_email?.toLowerCase().trim() || "";
+      const phone = normalizePhone(deal.pessoa_telefone);
+      // Group key: prefer email, fallback to pessoa_id, fallback to deal_id
+      const groupKey = email || `pessoa_${deal.pessoa_id}` || `deal_${deal.deal_id}`;
+
+      if (!personMap.has(groupKey)) {
+        personMap.set(groupKey, {
+          email,
+          phone,
+          pessoa_id: deal.pessoa_id,
+          deals: [],
+        });
+      }
+      personMap.get(groupKey)!.deals.push(deal);
+    }
+
+    console.log(`[import-proposals] ${personMap.size} unique persons/groups`);
+
+    // ─── STEP 3: Match each person and enrich (NEVER create) ───
     let matched = 0;
-    let created = 0;
     let enriched = 0;
-    let notFound = 0;
-    const errors: { deal_id: string; error: string }[] = [];
+    const skipped: { group_key: string; email: string; phone: string | null; pessoa_id: string; deal_ids: string[]; reason: string }[] = [];
+    const errors: { group_key: string; error: string }[] = [];
 
-    for (const [dealId, deal] of dealMap) {
+    for (const [groupKey, person] of personMap) {
       try {
-        // Calculate total value from proposals
-        const totalProposalsValue = deal.proposals.reduce((sum, p) => sum + p.valor_ps, 0);
-        const totalFreight = deal.proposals.reduce((sum, p) => sum + p.valor_frete, 0);
-        const totalMRR = deal.proposals.reduce((sum, p) => sum + p.valor_mrr, 0);
-
-        // Determine main product from items
-        const allItems = deal.proposals.flatMap((p) => p.items);
-        let mainProduct: string | null = null;
-        if (allItems.length > 0) {
-          // Product with highest total value
-          const sorted = [...allItems].sort((a, b) => b.total - a.total);
-          mainProduct = sorted[0]?.nome || null;
-        }
-
-        // Build deal snapshot for piperun_deals_history
-        const dealSnapshot = {
-          deal_id: dealId,
-          pipeline_name: deal.funil,
-          stage_name: deal.etapa,
-          status: deal.status || "Aberta",
-          value: totalProposalsValue || deal.valor_ps_opp || 0,
-          value_products: totalProposalsValue - totalFreight,
-          value_freight: totalFreight,
-          value_mrr: totalMRR || deal.valor_mrr_opp || 0,
-          product: mainProduct,
-          owner_name: deal.dono_nome,
-          created_at: deal.data_cadastro || null,
-          closed_at: deal.data_fechamento || null,
-          synced_at: new Date().toISOString(),
-          proposals: deal.proposals.map((p) => ({
-            id: p.proposal_id,
-            sigla: p.proposal_sigla,
-            valor_ps: p.valor_ps,
-            valor_mrr: p.valor_mrr,
-            parcelas: p.parcelas,
-            tipo_frete: p.tipo_frete,
-            valor_frete: p.valor_frete,
-            items: p.items.map((it) => ({
-              nome: it.nome,
-              qtd: it.qtd,
-              unit: it.unit,
-              total: it.total,
-            })),
-          })),
-        };
-
-        // ─── Match cascade: piperun_id → pessoa_piperun_id → email → phone ───
         let existingLead: { id: string; piperun_deals_history: any } | null = null;
 
-        // 1) By piperun_id (deal ID)
-        const { data: byDeal } = await supabase
-          .from("lia_attendances")
-          .select("id, piperun_deals_history")
-          .eq("piperun_id", dealId)
-          .maybeSingle();
-        if (byDeal) existingLead = byDeal;
+        // ─── CASCADE: email → phone → pessoa_piperun_id → piperun_id ───
 
-        // 2) By pessoa_piperun_id
-        if (!existingLead && deal.pessoa_id) {
-          const { data: byPerson } = await supabase
+        // 1) By email (PRIORITY 1)
+        if (!existingLead && person.email && !person.email.includes("@import.local")) {
+          const { data } = await supabase
             .from("lia_attendances")
             .select("id, piperun_deals_history")
-            .eq("pessoa_piperun_id", parseInt(deal.pessoa_id))
+            .eq("email", person.email)
             .limit(1)
             .maybeSingle();
-          if (byPerson) existingLead = byPerson;
+          if (data) existingLead = data;
         }
 
-        // 3) By email
-        const email = deal.pessoa_email?.toLowerCase().trim();
-        if (!existingLead && email) {
-          const { data: byEmail } = await supabase
+        // 2) By phone
+        if (!existingLead && person.phone) {
+          const { data } = await supabase
             .from("lia_attendances")
             .select("id, piperun_deals_history")
-            .eq("email", email)
+            .eq("telefone_normalized", person.phone)
             .limit(1)
             .maybeSingle();
-          if (byEmail) existingLead = byEmail;
+          if (data) existingLead = data;
         }
 
-        // 4) By phone
-        const phone = normalizePhone(deal.pessoa_telefone);
-        if (!existingLead && phone) {
-          const { data: byPhone } = await supabase
+        // 3) By pessoa_piperun_id
+        if (!existingLead && person.pessoa_id) {
+          const { data } = await supabase
             .from("lia_attendances")
             .select("id, piperun_deals_history")
-            .eq("telefone_normalized", phone)
+            .eq("pessoa_piperun_id", parseInt(person.pessoa_id))
             .limit(1)
             .maybeSingle();
-          if (byPhone) existingLead = byPhone;
+          if (data) existingLead = data;
         }
 
-        if (existingLead) {
-          matched++;
+        // 4) By piperun_id (deal ID — last resort, tries each deal)
+        if (!existingLead) {
+          for (const deal of person.deals) {
+            const { data } = await supabase
+              .from("lia_attendances")
+              .select("id, piperun_deals_history")
+              .eq("piperun_id", deal.deal_id)
+              .maybeSingle();
+            if (data) { existingLead = data; break; }
+          }
+        }
 
-          // Merge deal into history (dedup by deal_id)
-          const currentHistory = Array.isArray(existingLead.piperun_deals_history)
-            ? existingLead.piperun_deals_history
-            : [];
+        // ─── No match → skip (NEVER create) ───
+        if (!existingLead) {
+          skipped.push({
+            group_key: groupKey,
+            email: person.email,
+            phone: person.phone,
+            pessoa_id: person.pessoa_id,
+            deal_ids: person.deals.map((d) => d.deal_id),
+            reason: "no_match_found",
+          });
+          continue;
+        }
+
+        matched++;
+
+        // ─── Merge ALL deals into piperun_deals_history (dedup by deal_id) ───
+        const currentHistory = Array.isArray(existingLead.piperun_deals_history)
+          ? [...existingLead.piperun_deals_history]
+          : [];
+
+        for (const deal of person.deals) {
+          const snapshot = buildDealSnapshot(deal);
           const existingIdx = currentHistory.findIndex(
-            (d: any) => String(d.deal_id) === String(dealId)
+            (d: any) => String(d.deal_id) === String(deal.deal_id)
           );
           if (existingIdx >= 0) {
-            currentHistory[existingIdx] = dealSnapshot;
+            currentHistory[existingIdx] = snapshot;
           } else {
-            currentHistory.push(dealSnapshot);
+            currentHistory.push(snapshot);
           }
+        }
 
-          // Build enrichment payload
-          const updatePayload: Record<string, any> = {
-            piperun_deals_history: currentHistory,
-            updated_at: new Date().toISOString(),
-          };
+        // Use first deal for enrichment fields (most recent data)
+        const refDeal = person.deals[0];
 
-          // Enrich identity fields (COALESCE — only set if currently null)
-          if (deal.pessoa_id) updatePayload.pessoa_piperun_id = parseInt(deal.pessoa_id);
-          if (deal.empresa_id) updatePayload.empresa_piperun_id = parseInt(deal.empresa_id);
-          if (deal.empresa_nome) updatePayload.empresa_nome = deal.empresa_nome;
-          if (deal.empresa_cnpj) updatePayload.empresa_cnpj = deal.empresa_cnpj;
-          if (deal.empresa_cidade) updatePayload.empresa_cidade = deal.empresa_cidade;
-          if (deal.empresa_uf) updatePayload.empresa_uf = deal.empresa_uf;
-          if (deal.empresa_segmento) updatePayload.empresa_segmento = deal.empresa_segmento;
-          if (deal.pessoa_cidade) updatePayload.cidade = deal.pessoa_cidade;
-          if (deal.pessoa_uf) updatePayload.uf = deal.pessoa_uf;
-          if (deal.especialidade) updatePayload.especialidade = deal.especialidade;
-          if (deal.area_atuacao) updatePayload.area_atuacao = deal.area_atuacao;
-          if (deal.produto_interesse) updatePayload.produto_interesse = deal.produto_interesse;
-          if (deal.motivo_perda) updatePayload.motivo_perda = deal.motivo_perda;
-          if (deal.comentario_perda) updatePayload.comentario_perda = deal.comentario_perda;
-          if (phone) updatePayload.telefone_normalized = phone;
+        const updatePayload: Record<string, any> = {
+          piperun_deals_history: currentHistory,
+          updated_at: new Date().toISOString(),
+        };
 
-          // Proposals aggregate
-          updatePayload.proposals_total_value = currentHistory.reduce(
-            (s: number, d: any) => s + (d.value || 0), 0
-          );
+        // Enrich identity fields
+        if (refDeal.pessoa_id) updatePayload.pessoa_piperun_id = parseInt(refDeal.pessoa_id);
+        if (refDeal.empresa_id) updatePayload.empresa_piperun_id = parseInt(refDeal.empresa_id);
+        if (refDeal.empresa_nome) updatePayload.empresa_nome = refDeal.empresa_nome;
+        if (refDeal.empresa_cnpj) updatePayload.empresa_cnpj = refDeal.empresa_cnpj;
+        if (refDeal.empresa_cidade) updatePayload.empresa_cidade = refDeal.empresa_cidade;
+        if (refDeal.empresa_uf) updatePayload.empresa_uf = refDeal.empresa_uf;
+        if (refDeal.empresa_segmento) updatePayload.empresa_segmento = refDeal.empresa_segmento;
+        if (refDeal.pessoa_cidade) updatePayload.cidade = refDeal.pessoa_cidade;
+        if (refDeal.pessoa_uf) updatePayload.uf = refDeal.pessoa_uf;
+        if (refDeal.especialidade) updatePayload.especialidade = refDeal.especialidade;
+        if (refDeal.area_atuacao) updatePayload.area_atuacao = refDeal.area_atuacao;
+        if (refDeal.produto_interesse) updatePayload.produto_interesse = refDeal.produto_interesse;
+        if (refDeal.motivo_perda) updatePayload.motivo_perda = refDeal.motivo_perda;
+        if (refDeal.comentario_perda) updatePayload.comentario_perda = refDeal.comentario_perda;
+        if (person.phone) updatePayload.telefone_normalized = person.phone;
 
-          const { error: updateErr } = await supabase
-            .from("lia_attendances")
-            .update(updatePayload)
-            .eq("id", existingLead.id);
+        // Aggregate proposals_total_value from ALL deals in history
+        updatePayload.proposals_total_value = currentHistory.reduce(
+          (s: number, d: any) => s + (d.value || 0), 0
+        );
 
-          if (updateErr) {
-            errors.push({ deal_id: dealId, error: updateErr.message });
-          } else {
-            enriched++;
-          }
+        const { error: updateErr } = await supabase
+          .from("lia_attendances")
+          .update(updatePayload)
+          .eq("id", existingLead.id);
+
+        if (updateErr) {
+          errors.push({ group_key: groupKey, error: updateErr.message });
         } else {
-          // Create new lead from proposal data
-          const nome = deal.pessoa_nome || deal.titulo || `Deal #${dealId}`;
-          const insertPayload: Record<string, any> = {
-            nome,
-            email: email || `piperun_deal_${dealId}@import.local`,
-            telefone_normalized: phone,
-            piperun_id: dealId,
-            source: "piperun_proposals_csv",
-            piperun_deals_history: [dealSnapshot],
-            pessoa_piperun_id: deal.pessoa_id ? parseInt(deal.pessoa_id) : null,
-            empresa_piperun_id: deal.empresa_id ? parseInt(deal.empresa_id) : null,
-            empresa_nome: deal.empresa_nome || null,
-            empresa_cnpj: deal.empresa_cnpj || null,
-            empresa_cidade: deal.empresa_cidade || null,
-            empresa_uf: deal.empresa_uf || null,
-            empresa_segmento: deal.empresa_segmento || null,
-            cidade: deal.pessoa_cidade || null,
-            uf: deal.pessoa_uf || null,
-            especialidade: deal.especialidade || null,
-            area_atuacao: deal.area_atuacao || null,
-            produto_interesse: deal.produto_interesse || null,
-            proprietario_lead_crm: deal.dono_email || null,
-            proposals_total_value: totalProposalsValue,
-          };
-
-          const { error: insertErr } = await supabase
-            .from("lia_attendances")
-            .insert(insertPayload);
-
-          if (insertErr) {
-            if (insertErr.code === "23505") {
-              // Duplicate — try update by email
-              const { error: updateErr } = await supabase
-                .from("lia_attendances")
-                .update({
-                  piperun_deals_history: [dealSnapshot],
-                  piperun_id: dealId,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("email", insertPayload.email);
-              if (!updateErr) { matched++; enriched++; }
-              else errors.push({ deal_id: dealId, error: updateErr.message });
-            } else {
-              errors.push({ deal_id: dealId, error: insertErr.message });
-            }
-          } else {
-            created++;
-          }
-          notFound++;
+          enriched++;
         }
       } catch (e) {
-        errors.push({ deal_id: dealId, error: String(e) });
+        errors.push({ group_key: groupKey, error: String(e) });
       }
     }
 
@@ -530,10 +546,11 @@ Deno.serve(async (req) => {
       success: true,
       total_csv_rows: lines.length - 1,
       total_deals: dealMap.size,
+      total_persons: personMap.size,
       matched,
       enriched,
-      created,
-      not_found: notFound - created,
+      skipped_count: skipped.length,
+      skipped: skipped.slice(0, 50),
       errors_count: errors.length,
       errors: errors.slice(0, 20),
     };
