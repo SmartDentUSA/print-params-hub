@@ -64,19 +64,36 @@ function parseCSVLine(line: string): string[] {
   return fields;
 }
 
-/* ─── Column name → index mapping ─── */
+/* ─── Normalize column name for fuzzy matching ─── */
+function normalizeColName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip diacritics
+    .replace(/[^\x20-\x7E]/g, "") // strip non-ASCII
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+}
+
+/* ─── Column name → index mapping (with normalized keys) ─── */
 function buildColumnMap(headerFields: string[]): Record<string, number> {
   const map: Record<string, number> = {};
   for (let i = 0; i < headerFields.length; i++) {
-    // Clean up the header: remove quotes, trim
-    const name = headerFields[i].replace(/^"|"$/g, "").trim();
-    map[name] = i;
+    const raw = headerFields[i].replace(/^"|"$/g, "").trim();
+    map[raw] = i;
+    // Also store normalized version
+    const norm = normalizeColName(raw);
+    if (norm && !map[norm]) map[norm] = i;
   }
   return map;
 }
 
 function col(row: string[], colMap: Record<string, number>, name: string): string {
-  const idx = colMap[name];
+  let idx = colMap[name];
+  if (idx === undefined) {
+    // Try normalized version
+    idx = colMap[normalizeColName(name)];
+  }
   if (idx === undefined || idx >= row.length) return "";
   return row[idx]?.replace(/^"|"$/g, "").trim() || "";
 }
