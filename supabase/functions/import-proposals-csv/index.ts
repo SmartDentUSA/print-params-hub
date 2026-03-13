@@ -216,11 +216,10 @@ function buildDealSnapshot(deal: DealData) {
 /* ─── Find deal ID column — tries multiple variants ─── */
 function findDealId(row: string[], colMap: Record<string, number>): string {
   return colAny(row, colMap,
+    "Hash (Oportunidade)",
     "ID (Oportunidade)",
     "Id (Oportunidade)",
     "id (oportunidade)",
-    "ID(Oportunidade)",
-    "Oportunidade ID",
   );
 }
 
