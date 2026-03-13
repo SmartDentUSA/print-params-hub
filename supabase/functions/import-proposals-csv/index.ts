@@ -37,6 +37,11 @@ function normalizePhone(raw: string | null | undefined): string | null {
 
 /* ─── CSV parser (semicolon, handles quoted fields) ─── */
 function parseCSVLine(line: string): string[] {
+  // Fast path for most rows (no quoted fields)
+  if (!line.includes('"')) {
+    return line.split(";").map((field) => field.trim());
+  }
+
   const fields: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -76,15 +81,30 @@ function buildColumnMap(headerFields: string[]): Record<string, number> {
     const raw = headerFields[i].replace(/^"|"$/g, "").trim();
     map[raw] = i;
     const norm = normalizeColName(raw);
-    if (norm && !map[norm]) map[norm] = i;
+    if (norm && !(norm in map)) map[norm] = i;
   }
   return map;
 }
 
+// Cache resolved column indexes per column map to avoid repeated normalize/lookups per row
+const columnIndexCache = new WeakMap<Record<string, number>, Map<string, number>>();
+
 function col(row: string[], colMap: Record<string, number>, name: string): string {
-  let idx = colMap[name];
-  if (idx === undefined) idx = colMap[normalizeColName(name)];
-  if (idx === undefined || idx >= row.length) return "";
+  let cache = columnIndexCache.get(colMap);
+  if (!cache) {
+    cache = new Map<string, number>();
+    columnIndexCache.set(colMap, cache);
+  }
+
+  let idx = cache.get(name);
+  if (idx === undefined) {
+    const direct = colMap[name];
+    const normalized = direct === undefined ? colMap[normalizeColName(name)] : direct;
+    idx = normalized === undefined ? -1 : normalized;
+    cache.set(name, idx);
+  }
+
+  if (idx < 0 || idx >= row.length) return "";
   return row[idx]?.replace(/^"|"$/g, "").trim() || "";
 }
 
@@ -335,8 +355,10 @@ async function processCSVInBackground(csvText: string) {
 
     console.log(`[import-bg] Parsing ${lines.length - 1} rows, ${headerFields.length} columns`);
 
-    // STEP 1: Group rows by deal_id
+    // STEP 1: Group rows by deal_id (O(1) indices to avoid repeated linear scans)
     const dealMap = new Map<string, DealData>();
+    const proposalIndexByDeal = new Map<string, Map<string, ProposalData>>();
+    const itemIndexByProposal = new Map<string, Set<string>>();
 
     for (let i = 1; i < lines.length; i++) {
       const row = parseCSVLine(lines[i]);
@@ -347,18 +369,37 @@ async function processCSVInBackground(csvText: string) {
 
       if (!dealMap.has(dealId)) {
         dealMap.set(dealId, deal);
+        proposalIndexByDeal.set(dealId, new Map<string, ProposalData>());
       }
 
       const existingDeal = dealMap.get(dealId)!;
+      const proposalMap = proposalIndexByDeal.get(dealId)!;
 
-      if (proposal && !existingDeal.proposals.some((p) => p.proposal_id === proposal.proposal_id)) {
-        existingDeal.proposals.push(proposal);
+      let targetProposal: ProposalData | undefined;
+      if (proposal) {
+        targetProposal = proposalMap.get(proposal.proposal_id);
+        if (!targetProposal) {
+          existingDeal.proposals.push(proposal);
+          proposalMap.set(proposal.proposal_id, proposal);
+          targetProposal = proposal;
+        }
       }
 
       if (item && proposalId) {
-        const targetProposal = existingDeal.proposals.find((p) => p.proposal_id === proposalId);
-        if (targetProposal && !targetProposal.items.some((it) => it.item_id === item.item_id)) {
-          targetProposal.items.push(item);
+        if (!targetProposal) {
+          targetProposal = proposalMap.get(proposalId);
+        }
+        if (targetProposal) {
+          const proposalKey = `${dealId}::${proposalId}`;
+          let seenItems = itemIndexByProposal.get(proposalKey);
+          if (!seenItems) {
+            seenItems = new Set<string>();
+            itemIndexByProposal.set(proposalKey, seenItems);
+          }
+          if (!seenItems.has(item.item_id)) {
+            seenItems.add(item.item_id);
+            targetProposal.items.push(item);
+          }
         }
       }
     }
@@ -388,20 +429,28 @@ async function processCSVInBackground(csvText: string) {
 
     console.log(`[import-bg] ${personMap.size} unique persons/groups`);
 
-    // STEP 3a: Collect unique identifiers from personMap
-    const allEmails: string[] = [];
-    const allPhones: string[] = [];
-    const allPessoaIds: number[] = [];
-    const allDealIds: string[] = [];
+    // STEP 3a: Collect unique identifiers from personMap (Sets avoid duplicate work)
+    const emailSet = new Set<string>();
+    const phoneSet = new Set<string>();
+    const pessoaIdSet = new Set<number>();
+    const dealIdSet = new Set<string>();
 
     for (const person of personMap.values()) {
-      if (person.email && !person.email.includes("@import.local")) allEmails.push(person.email);
-      if (person.phone) allPhones.push(person.phone);
-      if (person.pessoa_id) allPessoaIds.push(parseInt(person.pessoa_id));
+      if (person.email && !person.email.includes("@import.local")) emailSet.add(person.email);
+      if (person.phone) phoneSet.add(person.phone);
+      if (person.pessoa_id) {
+        const parsed = parseInt(person.pessoa_id);
+        if (!isNaN(parsed)) pessoaIdSet.add(parsed);
+      }
       for (const deal of person.deals) {
-        if (deal.deal_id) allDealIds.push(deal.deal_id);
+        if (deal.deal_id) dealIdSet.add(deal.deal_id);
       }
     }
+
+    const allEmails = Array.from(emailSet);
+    const allPhones = Array.from(phoneSet);
+    const allPessoaIds = Array.from(pessoaIdSet);
+    const allDealIds = Array.from(dealIdSet);
 
     console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids, ${allDealIds.length} deal_ids`);
 
