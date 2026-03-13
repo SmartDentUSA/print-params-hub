@@ -512,6 +512,54 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          cidade: string | null
+          cnpj: string | null
+          created_at: string | null
+          facebook: string | null
+          id: string
+          linkedin: string | null
+          nome: string | null
+          piperun_company_id: number | null
+          porte: string | null
+          segmento: string | null
+          uf: string | null
+          updated_at: string | null
+          website: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          facebook?: string | null
+          id?: string
+          linkedin?: string | null
+          nome?: string | null
+          piperun_company_id?: number | null
+          porte?: string | null
+          segmento?: string | null
+          uf?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          cnpj?: string | null
+          created_at?: string | null
+          facebook?: string | null
+          id?: string
+          linkedin?: string | null
+          nome?: string | null
+          piperun_company_id?: number | null
+          porte?: string | null
+          segmento?: string | null
+          uf?: string | null
+          updated_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       company_kb_texts: {
         Row: {
           active: boolean | null
@@ -657,6 +705,106 @@ export type Database = {
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_items: {
+        Row: {
+          deal_date: string | null
+          deal_id: string
+          freight_type: string | null
+          freight_value: number | null
+          id: string
+          installments: number | null
+          lead_id: string | null
+          payment_method: string | null
+          product_code: string | null
+          product_name: string | null
+          proposal_id: string
+          quantity: number | null
+          synced_at: string | null
+          total_value: number | null
+          unit_value: number | null
+          vendor_name: string | null
+        }
+        Insert: {
+          deal_date?: string | null
+          deal_id: string
+          freight_type?: string | null
+          freight_value?: number | null
+          id?: string
+          installments?: number | null
+          lead_id?: string | null
+          payment_method?: string | null
+          product_code?: string | null
+          product_name?: string | null
+          proposal_id: string
+          quantity?: number | null
+          synced_at?: string | null
+          total_value?: number | null
+          unit_value?: number | null
+          vendor_name?: string | null
+        }
+        Update: {
+          deal_date?: string | null
+          deal_id?: string
+          freight_type?: string | null
+          freight_value?: number | null
+          id?: string
+          installments?: number | null
+          lead_id?: string | null
+          payment_method?: string | null
+          product_code?: string | null
+          product_name?: string | null
+          proposal_id?: string
+          quantity?: number | null
+          synced_at?: string | null
+          total_value?: number | null
+          unit_value?: number | null
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
           },
         ]
@@ -1443,6 +1591,10 @@ export type Database = {
       }
       lia_attendances: {
         Row: {
+          academy_curso_concluido: string[] | null
+          academy_progresso_pct: number | null
+          academy_ultimo_modulo_acessado: string | null
+          anchor_product: string | null
           area_atuacao: string | null
           astron_courses_access: Json | null
           astron_courses_completed: number | null
@@ -1467,6 +1619,9 @@ export type Database = {
           ativo_scan: boolean | null
           ativo_smart_slice: boolean | null
           automation_cooldown_until: string | null
+          avg_ticket: number | null
+          buyer_type: string | null
+          churn_risk_score: number | null
           cidade: string | null
           codigo_contrato: string | null
           cognitive_analysis: Json | null
@@ -1477,6 +1632,7 @@ export type Database = {
           cognitive_updated_at: string | null
           comentario_perda: string | null
           como_digitaliza: string | null
+          company_id: string | null
           confidence_score_analysis: number | null
           created_at: string
           crm_lock_source: string | null
@@ -1519,6 +1675,8 @@ export type Database = {
           equip_cad_serial: string | null
           equip_impressora: string | null
           equip_impressora_ativacao: string | null
+          equip_impressora_ativacao_estimada: string | null
+          equip_impressora_idade_meses: number | null
           equip_impressora_serial: string | null
           equip_notebook: string | null
           equip_notebook_ativacao: string | null
@@ -1528,13 +1686,28 @@ export type Database = {
           equip_pos_impressao_serial: string | null
           equip_scanner: string | null
           equip_scanner_ativacao: string | null
+          equip_scanner_ativacao_estimada: string | null
+          equip_scanner_idade_meses: number | null
           equip_scanner_serial: string | null
+          equip_upgrade_produto: string | null
+          equip_upgrade_reasoning: string | null
+          equip_upgrade_signal: boolean | null
+          equip_upgrade_urgency: string | null
           especialidade: string | null
           form_name: string | null
           funil_entrada_crm: string | null
           historico_resumos: Json | null
+          hits_cad: number | null
+          hits_impressao3d: number | null
+          hits_insumos_cursos: number | null
+          hits_pos_impressao: number | null
+          hits_scanner: number | null
           id: string
           id_cliente_smart: string | null
+          imersao_concluida: boolean | null
+          imersao_data: string | null
+          imersao_equipamentos_treinados: string[] | null
+          imersao_turma_id: string | null
           impressora_modelo: string | null
           informacao_desejada: string | null
           insumos_adquiridos: string | null
@@ -1547,6 +1720,20 @@ export type Database = {
           itens_proposta_crm: string | null
           itens_proposta_parsed: Json | null
           last_automated_action_at: string | null
+          last_deal_date: string | null
+          last_deal_value: number | null
+          last_form_cad: string | null
+          last_form_date_cad: string | null
+          last_form_date_impressao: string | null
+          last_form_date_insumos: string | null
+          last_form_date_pos_impressao: string | null
+          last_form_date_scanner: string | null
+          last_form_impressao: string | null
+          last_form_insumos: string | null
+          last_form_pos_impressao: string | null
+          last_form_scanner: string | null
+          lead_card_published_at: string | null
+          lead_card_url: string | null
           lead_stage_detected: string | null
           lead_status: string
           lead_timing_dias: number | null
@@ -1574,11 +1761,24 @@ export type Database = {
           lojaintegrada_ultimo_pedido_valor: number | null
           lojaintegrada_updated_at: string | null
           lojaintegrada_utm_campaign: string | null
+          ltv_projected_12m: number | null
+          ltv_projected_24m: number | null
+          ltv_total: number | null
           motivo_perda: string | null
+          next_purchase_probability: number | null
+          next_purchase_product: string | null
+          next_purchase_value: number | null
+          next_purchase_window_end: string | null
+          next_purchase_window_start: string | null
           nome: string
+          nps_recomendaria: number | null
+          nps_respondido_em: string | null
+          nps_satisfacao: number | null
+          nps_temas_cursos: string[] | null
           objection_risk: string | null
           origem_campanha: string | null
           pais_origem: string | null
+          person_id: string | null
           pessoa_cargo: string | null
           pessoa_cpf: string | null
           pessoa_endereco: Json | null
@@ -1620,7 +1820,16 @@ export type Database = {
           piperun_tags_raw: Json | null
           piperun_title: string | null
           piperun_value_mrr: number | null
+          platform: string | null
+          platform_ad_id: string | null
+          platform_adgroup_id: string | null
+          platform_campaign_id: string | null
+          platform_cpl: number | null
+          platform_form_id: string | null
+          platform_lead_id: string | null
+          platform_placement: string | null
           prediction_accuracy: number | null
+          predictions_updated_at: string | null
           primary_motivation: string | null
           principal_aplicacao: string | null
           proactive_count: number | null
@@ -1635,38 +1844,61 @@ export type Database = {
           psychological_profile: string | null
           raw_payload: Json | null
           recommended_approach: string | null
+          resina_consumo_mensal_estimado: number | null
           resina_interesse: string | null
           resumo_historico_ia: string | null
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
           score: number | null
+          sdr_cad_funcionalidades: string | null
+          sdr_cad_licenca: string | null
+          sdr_cad_treinamento: string | null
           sdr_caracterizacao_interesse: string | null
+          sdr_caracterizacao_produto_atual: string | null
+          sdr_cura_modelo: string | null
+          sdr_cursos_area: string | null
           sdr_cursos_interesse: string | null
+          sdr_cursos_modalidade: string | null
           sdr_dentistica_interesse: string | null
           sdr_impressora_interesse: string | null
           sdr_insumos_lab_interesse: string | null
+          sdr_insumos_tipo: string | null
           sdr_marca_impressora_param: string | null
           sdr_modelo_impressora_param: string | null
           sdr_pos_impressao_interesse: string | null
+          sdr_resina_atual: string | null
           sdr_resina_param: string | null
           sdr_scanner_interesse: string | null
+          sdr_scanner_modelo: string | null
+          sdr_smartgum_interesse: boolean | null
+          sdr_smartmake_interesse: boolean | null
           sdr_software_cad_interesse: string | null
           sdr_solucoes_interesse: string | null
           sdr_suporte_descricao: string | null
           sdr_suporte_equipamento: string | null
           sdr_suporte_tipo: string | null
+          sdr_usa_resina_smartdent: boolean | null
           sellflux_custom_fields: Json | null
           sellflux_synced_at: string | null
           software_cad: string | null
           source: string
           status_atual_lead_crm: string | null
+          status_cad: string | null
+          status_impressora: string | null
+          status_insumos: string | null
           status_oportunidade: string | null
+          status_pos_impressao: string | null
+          status_scanner: string | null
+          suporte_educacional_tickets_total: number | null
+          suporte_impressora_tickets_6m: number | null
+          suporte_tecnico_tickets_total: number | null
           tags_crm: string[] | null
           telefone_normalized: string | null
           telefone_raw: string | null
           tem_impressora: string | null
           tem_scanner: string | null
           temperatura_lead: string | null
+          total_deals: number | null
           total_messages: number | null
           total_sessions: number | null
           uf: string | null
@@ -1680,8 +1912,14 @@ export type Database = {
           utm_term: string | null
           valor_oportunidade: number | null
           volume_mensal_pecas: string | null
+          wa_group_origem: string | null
+          workflow_score: number | null
         }
         Insert: {
+          academy_curso_concluido?: string[] | null
+          academy_progresso_pct?: number | null
+          academy_ultimo_modulo_acessado?: string | null
+          anchor_product?: string | null
           area_atuacao?: string | null
           astron_courses_access?: Json | null
           astron_courses_completed?: number | null
@@ -1706,6 +1944,9 @@ export type Database = {
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
           automation_cooldown_until?: string | null
+          avg_ticket?: number | null
+          buyer_type?: string | null
+          churn_risk_score?: number | null
           cidade?: string | null
           codigo_contrato?: string | null
           cognitive_analysis?: Json | null
@@ -1716,6 +1957,7 @@ export type Database = {
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
+          company_id?: string | null
           confidence_score_analysis?: number | null
           created_at?: string
           crm_lock_source?: string | null
@@ -1758,6 +2000,8 @@ export type Database = {
           equip_cad_serial?: string | null
           equip_impressora?: string | null
           equip_impressora_ativacao?: string | null
+          equip_impressora_ativacao_estimada?: string | null
+          equip_impressora_idade_meses?: number | null
           equip_impressora_serial?: string | null
           equip_notebook?: string | null
           equip_notebook_ativacao?: string | null
@@ -1767,13 +2011,28 @@ export type Database = {
           equip_pos_impressao_serial?: string | null
           equip_scanner?: string | null
           equip_scanner_ativacao?: string | null
+          equip_scanner_ativacao_estimada?: string | null
+          equip_scanner_idade_meses?: number | null
           equip_scanner_serial?: string | null
+          equip_upgrade_produto?: string | null
+          equip_upgrade_reasoning?: string | null
+          equip_upgrade_signal?: boolean | null
+          equip_upgrade_urgency?: string | null
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
           historico_resumos?: Json | null
+          hits_cad?: number | null
+          hits_impressao3d?: number | null
+          hits_insumos_cursos?: number | null
+          hits_pos_impressao?: number | null
+          hits_scanner?: number | null
           id?: string
           id_cliente_smart?: string | null
+          imersao_concluida?: boolean | null
+          imersao_data?: string | null
+          imersao_equipamentos_treinados?: string[] | null
+          imersao_turma_id?: string | null
           impressora_modelo?: string | null
           informacao_desejada?: string | null
           insumos_adquiridos?: string | null
@@ -1786,6 +2045,20 @@ export type Database = {
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           last_automated_action_at?: string | null
+          last_deal_date?: string | null
+          last_deal_value?: number | null
+          last_form_cad?: string | null
+          last_form_date_cad?: string | null
+          last_form_date_impressao?: string | null
+          last_form_date_insumos?: string | null
+          last_form_date_pos_impressao?: string | null
+          last_form_date_scanner?: string | null
+          last_form_impressao?: string | null
+          last_form_insumos?: string | null
+          last_form_pos_impressao?: string | null
+          last_form_scanner?: string | null
+          lead_card_published_at?: string | null
+          lead_card_url?: string | null
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
@@ -1813,11 +2086,24 @@ export type Database = {
           lojaintegrada_ultimo_pedido_valor?: number | null
           lojaintegrada_updated_at?: string | null
           lojaintegrada_utm_campaign?: string | null
+          ltv_projected_12m?: number | null
+          ltv_projected_24m?: number | null
+          ltv_total?: number | null
           motivo_perda?: string | null
+          next_purchase_probability?: number | null
+          next_purchase_product?: string | null
+          next_purchase_value?: number | null
+          next_purchase_window_end?: string | null
+          next_purchase_window_start?: string | null
           nome: string
+          nps_recomendaria?: number | null
+          nps_respondido_em?: string | null
+          nps_satisfacao?: number | null
+          nps_temas_cursos?: string[] | null
           objection_risk?: string | null
           origem_campanha?: string | null
           pais_origem?: string | null
+          person_id?: string | null
           pessoa_cargo?: string | null
           pessoa_cpf?: string | null
           pessoa_endereco?: Json | null
@@ -1859,7 +2145,16 @@ export type Database = {
           piperun_tags_raw?: Json | null
           piperun_title?: string | null
           piperun_value_mrr?: number | null
+          platform?: string | null
+          platform_ad_id?: string | null
+          platform_adgroup_id?: string | null
+          platform_campaign_id?: string | null
+          platform_cpl?: number | null
+          platform_form_id?: string | null
+          platform_lead_id?: string | null
+          platform_placement?: string | null
           prediction_accuracy?: number | null
+          predictions_updated_at?: string | null
           primary_motivation?: string | null
           principal_aplicacao?: string | null
           proactive_count?: number | null
@@ -1874,38 +2169,61 @@ export type Database = {
           psychological_profile?: string | null
           raw_payload?: Json | null
           recommended_approach?: string | null
+          resina_consumo_mensal_estimado?: number | null
           resina_interesse?: string | null
           resumo_historico_ia?: string | null
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          sdr_cad_funcionalidades?: string | null
+          sdr_cad_licenca?: string | null
+          sdr_cad_treinamento?: string | null
           sdr_caracterizacao_interesse?: string | null
+          sdr_caracterizacao_produto_atual?: string | null
+          sdr_cura_modelo?: string | null
+          sdr_cursos_area?: string | null
           sdr_cursos_interesse?: string | null
+          sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
           sdr_impressora_interesse?: string | null
           sdr_insumos_lab_interesse?: string | null
+          sdr_insumos_tipo?: string | null
           sdr_marca_impressora_param?: string | null
           sdr_modelo_impressora_param?: string | null
           sdr_pos_impressao_interesse?: string | null
+          sdr_resina_atual?: string | null
           sdr_resina_param?: string | null
           sdr_scanner_interesse?: string | null
+          sdr_scanner_modelo?: string | null
+          sdr_smartgum_interesse?: boolean | null
+          sdr_smartmake_interesse?: boolean | null
           sdr_software_cad_interesse?: string | null
           sdr_solucoes_interesse?: string | null
           sdr_suporte_descricao?: string | null
           sdr_suporte_equipamento?: string | null
           sdr_suporte_tipo?: string | null
+          sdr_usa_resina_smartdent?: boolean | null
           sellflux_custom_fields?: Json | null
           sellflux_synced_at?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
+          status_cad?: string | null
+          status_impressora?: string | null
+          status_insumos?: string | null
           status_oportunidade?: string | null
+          status_pos_impressao?: string | null
+          status_scanner?: string | null
+          suporte_educacional_tickets_total?: number | null
+          suporte_impressora_tickets_6m?: number | null
+          suporte_tecnico_tickets_total?: number | null
           tags_crm?: string[] | null
           telefone_normalized?: string | null
           telefone_raw?: string | null
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          total_deals?: number | null
           total_messages?: number | null
           total_sessions?: number | null
           uf?: string | null
@@ -1919,8 +2237,14 @@ export type Database = {
           utm_term?: string | null
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
+          wa_group_origem?: string | null
+          workflow_score?: number | null
         }
         Update: {
+          academy_curso_concluido?: string[] | null
+          academy_progresso_pct?: number | null
+          academy_ultimo_modulo_acessado?: string | null
+          anchor_product?: string | null
           area_atuacao?: string | null
           astron_courses_access?: Json | null
           astron_courses_completed?: number | null
@@ -1945,6 +2269,9 @@ export type Database = {
           ativo_scan?: boolean | null
           ativo_smart_slice?: boolean | null
           automation_cooldown_until?: string | null
+          avg_ticket?: number | null
+          buyer_type?: string | null
+          churn_risk_score?: number | null
           cidade?: string | null
           codigo_contrato?: string | null
           cognitive_analysis?: Json | null
@@ -1955,6 +2282,7 @@ export type Database = {
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
+          company_id?: string | null
           confidence_score_analysis?: number | null
           created_at?: string
           crm_lock_source?: string | null
@@ -1997,6 +2325,8 @@ export type Database = {
           equip_cad_serial?: string | null
           equip_impressora?: string | null
           equip_impressora_ativacao?: string | null
+          equip_impressora_ativacao_estimada?: string | null
+          equip_impressora_idade_meses?: number | null
           equip_impressora_serial?: string | null
           equip_notebook?: string | null
           equip_notebook_ativacao?: string | null
@@ -2006,13 +2336,28 @@ export type Database = {
           equip_pos_impressao_serial?: string | null
           equip_scanner?: string | null
           equip_scanner_ativacao?: string | null
+          equip_scanner_ativacao_estimada?: string | null
+          equip_scanner_idade_meses?: number | null
           equip_scanner_serial?: string | null
+          equip_upgrade_produto?: string | null
+          equip_upgrade_reasoning?: string | null
+          equip_upgrade_signal?: boolean | null
+          equip_upgrade_urgency?: string | null
           especialidade?: string | null
           form_name?: string | null
           funil_entrada_crm?: string | null
           historico_resumos?: Json | null
+          hits_cad?: number | null
+          hits_impressao3d?: number | null
+          hits_insumos_cursos?: number | null
+          hits_pos_impressao?: number | null
+          hits_scanner?: number | null
           id?: string
           id_cliente_smart?: string | null
+          imersao_concluida?: boolean | null
+          imersao_data?: string | null
+          imersao_equipamentos_treinados?: string[] | null
+          imersao_turma_id?: string | null
           impressora_modelo?: string | null
           informacao_desejada?: string | null
           insumos_adquiridos?: string | null
@@ -2025,6 +2370,20 @@ export type Database = {
           itens_proposta_crm?: string | null
           itens_proposta_parsed?: Json | null
           last_automated_action_at?: string | null
+          last_deal_date?: string | null
+          last_deal_value?: number | null
+          last_form_cad?: string | null
+          last_form_date_cad?: string | null
+          last_form_date_impressao?: string | null
+          last_form_date_insumos?: string | null
+          last_form_date_pos_impressao?: string | null
+          last_form_date_scanner?: string | null
+          last_form_impressao?: string | null
+          last_form_insumos?: string | null
+          last_form_pos_impressao?: string | null
+          last_form_scanner?: string | null
+          lead_card_published_at?: string | null
+          lead_card_url?: string | null
           lead_stage_detected?: string | null
           lead_status?: string
           lead_timing_dias?: number | null
@@ -2052,11 +2411,24 @@ export type Database = {
           lojaintegrada_ultimo_pedido_valor?: number | null
           lojaintegrada_updated_at?: string | null
           lojaintegrada_utm_campaign?: string | null
+          ltv_projected_12m?: number | null
+          ltv_projected_24m?: number | null
+          ltv_total?: number | null
           motivo_perda?: string | null
+          next_purchase_probability?: number | null
+          next_purchase_product?: string | null
+          next_purchase_value?: number | null
+          next_purchase_window_end?: string | null
+          next_purchase_window_start?: string | null
           nome?: string
+          nps_recomendaria?: number | null
+          nps_respondido_em?: string | null
+          nps_satisfacao?: number | null
+          nps_temas_cursos?: string[] | null
           objection_risk?: string | null
           origem_campanha?: string | null
           pais_origem?: string | null
+          person_id?: string | null
           pessoa_cargo?: string | null
           pessoa_cpf?: string | null
           pessoa_endereco?: Json | null
@@ -2098,7 +2470,16 @@ export type Database = {
           piperun_tags_raw?: Json | null
           piperun_title?: string | null
           piperun_value_mrr?: number | null
+          platform?: string | null
+          platform_ad_id?: string | null
+          platform_adgroup_id?: string | null
+          platform_campaign_id?: string | null
+          platform_cpl?: number | null
+          platform_form_id?: string | null
+          platform_lead_id?: string | null
+          platform_placement?: string | null
           prediction_accuracy?: number | null
+          predictions_updated_at?: string | null
           primary_motivation?: string | null
           principal_aplicacao?: string | null
           proactive_count?: number | null
@@ -2113,38 +2494,61 @@ export type Database = {
           psychological_profile?: string | null
           raw_payload?: Json | null
           recommended_approach?: string | null
+          resina_consumo_mensal_estimado?: number | null
           resina_interesse?: string | null
           resumo_historico_ia?: string | null
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          sdr_cad_funcionalidades?: string | null
+          sdr_cad_licenca?: string | null
+          sdr_cad_treinamento?: string | null
           sdr_caracterizacao_interesse?: string | null
+          sdr_caracterizacao_produto_atual?: string | null
+          sdr_cura_modelo?: string | null
+          sdr_cursos_area?: string | null
           sdr_cursos_interesse?: string | null
+          sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
           sdr_impressora_interesse?: string | null
           sdr_insumos_lab_interesse?: string | null
+          sdr_insumos_tipo?: string | null
           sdr_marca_impressora_param?: string | null
           sdr_modelo_impressora_param?: string | null
           sdr_pos_impressao_interesse?: string | null
+          sdr_resina_atual?: string | null
           sdr_resina_param?: string | null
           sdr_scanner_interesse?: string | null
+          sdr_scanner_modelo?: string | null
+          sdr_smartgum_interesse?: boolean | null
+          sdr_smartmake_interesse?: boolean | null
           sdr_software_cad_interesse?: string | null
           sdr_solucoes_interesse?: string | null
           sdr_suporte_descricao?: string | null
           sdr_suporte_equipamento?: string | null
           sdr_suporte_tipo?: string | null
+          sdr_usa_resina_smartdent?: boolean | null
           sellflux_custom_fields?: Json | null
           sellflux_synced_at?: string | null
           software_cad?: string | null
           source?: string
           status_atual_lead_crm?: string | null
+          status_cad?: string | null
+          status_impressora?: string | null
+          status_insumos?: string | null
           status_oportunidade?: string | null
+          status_pos_impressao?: string | null
+          status_scanner?: string | null
+          suporte_educacional_tickets_total?: number | null
+          suporte_impressora_tickets_6m?: number | null
+          suporte_tecnico_tickets_total?: number | null
           tags_crm?: string[] | null
           telefone_normalized?: string | null
           telefone_raw?: string | null
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          total_deals?: number | null
           total_messages?: number | null
           total_sessions?: number | null
           uf?: string | null
@@ -2158,8 +2562,25 @@ export type Database = {
           utm_term?: string | null
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
+          wa_group_origem?: string | null
+          workflow_score?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lia_attendances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       message_logs: {
         Row: {
@@ -2407,6 +2828,92 @@ export type Database = {
           xy_size_compensation?: number | null
         }
         Relationships: []
+      }
+      people: {
+        Row: {
+          cargo: string | null
+          cpf: string | null
+          created_at: string | null
+          email: string | null
+          genero: string | null
+          id: string
+          nascimento: string | null
+          nome: string | null
+          piperun_person_id: number | null
+          primary_company_id: string | null
+          telefone_normalized: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          genero?: string | null
+          id?: string
+          nascimento?: string | null
+          nome?: string | null
+          piperun_person_id?: number | null
+          primary_company_id?: string | null
+          telefone_normalized?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string | null
+          email?: string | null
+          genero?: string | null
+          id?: string
+          nascimento?: string | null
+          nome?: string | null
+          piperun_person_id?: number | null
+          primary_company_id?: string | null
+          telefone_normalized?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_primary_company_id_fkey"
+            columns: ["primary_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_company_relationship: {
+        Row: {
+          company_id: string
+          person_id: string
+          role: string | null
+        }
+        Insert: {
+          company_id: string
+          person_id: string
+          role?: string | null
+        }
+        Update: {
+          company_id?: string
+          person_id?: string
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_company_relationship_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_company_relationship_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       piperun_pessoas_staging: {
         Row: {
@@ -3737,6 +4244,91 @@ export type Database = {
         }
         Relationships: []
       }
+      upsell_predictions: {
+        Row: {
+          generated_at: string | null
+          id: string
+          lead_id: string | null
+          model_version: string | null
+          predicted_qty: number | null
+          predicted_value: number | null
+          probability: number | null
+          product_name: string | null
+          reasoning: string | null
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          generated_at?: string | null
+          id?: string
+          lead_id?: string | null
+          model_version?: string | null
+          predicted_qty?: number | null
+          predicted_value?: number | null
+          probability?: number | null
+          product_name?: string | null
+          reasoning?: string | null
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          generated_at?: string | null
+          id?: string
+          lead_id?: string | null
+          model_version?: string | null
+          predicted_qty?: number | null
+          predicted_value?: number | null
+          probability?: number | null
+          product_name?: string | null
+          reasoning?: string | null
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -4037,6 +4629,10 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_calc_workflow_score: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       get_brand_distribution: {
         Args: never
         Returns: {
@@ -4106,6 +4702,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      unaccent: { Args: { "": string }; Returns: string }
       update_extra_data_reviews: {
         Args: {
           p_google_place_id: string
