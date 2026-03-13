@@ -405,25 +405,48 @@ async function processCSVInBackground(csvText: string) {
 
     console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids, ${allDealIds.length} deal_ids`);
 
-    // STEP 3b: Bulk queries with chunking (max 500 per .in())
-    type LeadRow = { id: string; email: string | null; telefone_normalized: string | null; pessoa_piperun_id: number | null; piperun_id: string | null; piperun_deals_history: any };
-    const CHUNK = 500;
+    // STEP 3b: Bulk queries with per-column chunking
+    type LeadRow = {
+      id: string;
+      email: string | null;
+      telefone_normalized: string | null;
+      pessoa_piperun_id: number | null;
+      piperun_id: string | null;
+      piperun_deals_history: any;
+    };
+
+    const CHUNK_BY_COLUMN: Record<string, number> = {
+      email: 500,
+      telefone_normalized: 500,
+      pessoa_piperun_id: 500,
+      piperun_id: 100, // IDs hash deixam a URL do .in() muito grande
+    };
+
     const allLeads = new Map<string, LeadRow>(); // id → lead
 
     async function bulkFetch(column: string, values: (string | number)[]) {
       if (!values.length) return;
+
       const unique = [...new Set(values)];
-      for (let i = 0; i < unique.length; i += CHUNK) {
-        const chunk = unique.slice(i, i + CHUNK);
+      const chunkSize = CHUNK_BY_COLUMN[column] ?? 500;
+
+      for (let i = 0; i < unique.length; i += chunkSize) {
+        const chunk = unique.slice(i, i + chunkSize);
         const { data, error } = await supabase
           .from("lia_attendances")
           .select("id, email, telefone_normalized, pessoa_piperun_id, piperun_id, piperun_deals_history")
           .in(column, chunk);
+
         if (error) {
           console.error(`[import-bg] Bulk fetch ${column} error: ${error.message}`);
           continue;
         }
-        if (data) for (const row of data) allLeads.set(row.id, row as LeadRow);
+
+        if (data) {
+          for (const row of data) {
+            allLeads.set(row.id, row as LeadRow);
+          }
+        }
       }
     }
 
@@ -449,59 +472,98 @@ async function processCSVInBackground(csvText: string) {
       if (lead.piperun_id) dealIdMap.set(String(lead.piperun_id), lead);
     }
 
-    // STEP 3d: Match in memory + build updates
+    // STEP 3d: Match in memory + aggregate by lead (reduce writes)
     let matched = 0;
     let enriched = 0;
     let skippedCount = 0;
     let errorCount = 0;
 
-    for (const [groupKey, person] of personMap) {
-      try {
-        let existingLead: LeadRow | undefined;
+    interface PendingLeadUpdate {
+      lead: LeadRow;
+      deals: DealData[];
+      refDeal: DealData;
+      phone: string | null;
+    }
 
-        // CASCADE: email → phone → pessoa_id → deal_id (all in-memory)
-        if (!existingLead && person.email && !person.email.includes("@import.local")) {
-          existingLead = emailMap.get(person.email);
+    const pendingByLeadId = new Map<string, PendingLeadUpdate>();
+
+    for (const person of personMap.values()) {
+      let existingLead: LeadRow | undefined;
+
+      // CASCADE: email → phone → pessoa_id → deal_id (all in-memory)
+      if (!existingLead && person.email && !person.email.includes("@import.local")) {
+        existingLead = emailMap.get(person.email);
+      }
+      if (!existingLead && person.phone) {
+        existingLead = phoneMap.get(person.phone);
+      }
+      if (!existingLead && person.pessoa_id) {
+        existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
+      }
+      if (!existingLead) {
+        for (const deal of person.deals) {
+          existingLead = dealIdMap.get(deal.deal_id);
+          if (existingLead) break;
         }
-        if (!existingLead && person.phone) {
-          existingLead = phoneMap.get(person.phone);
-        }
-        if (!existingLead && person.pessoa_id) {
-          existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
-        }
-        if (!existingLead) {
-          for (const deal of person.deals) {
-            existingLead = dealIdMap.get(deal.deal_id);
-            if (existingLead) break;
+      }
+
+      if (!existingLead) {
+        skippedCount++;
+        continue;
+      }
+
+      matched++;
+
+      const pending = pendingByLeadId.get(existingLead.id);
+      if (pending) {
+        pending.deals.push(...person.deals);
+        if (!pending.phone && person.phone) pending.phone = person.phone;
+      } else {
+        pendingByLeadId.set(existingLead.id, {
+          lead: existingLead,
+          deals: [...person.deals],
+          refDeal: person.deals[0],
+          phone: person.phone,
+        });
+      }
+    }
+
+    console.log(
+      `[import-bg] Matched groups=${matched}, unique leads to update=${pendingByLeadId.size}, skipped=${skippedCount}`
+    );
+
+    const updates: Record<string, any>[] = [];
+
+    for (const pending of pendingByLeadId.values()) {
+      try {
+        const currentHistory = Array.isArray(pending.lead.piperun_deals_history)
+          ? [...pending.lead.piperun_deals_history]
+          : [];
+
+        const historyIndex = new Map<string, number>();
+        for (let i = 0; i < currentHistory.length; i++) {
+          const dealId = currentHistory[i]?.deal_id;
+          if (dealId !== undefined && dealId !== null) {
+            historyIndex.set(String(dealId), i);
           }
         }
 
-        if (!existingLead) {
-          skippedCount++;
-          continue;
-        }
-
-        matched++;
-
-        // Merge deals into piperun_deals_history
-        const currentHistory = Array.isArray(existingLead.piperun_deals_history)
-          ? [...existingLead.piperun_deals_history]
-          : [];
-
-        for (const deal of person.deals) {
+        for (const deal of pending.deals) {
           const snapshot = buildDealSnapshot(deal);
-          const existingIdx = currentHistory.findIndex(
-            (d: any) => String(d.deal_id) === String(deal.deal_id)
-          );
-          if (existingIdx >= 0) {
+          const key = String(deal.deal_id);
+          const existingIdx = historyIndex.get(key);
+
+          if (existingIdx !== undefined) {
             currentHistory[existingIdx] = snapshot;
           } else {
+            historyIndex.set(key, currentHistory.length);
             currentHistory.push(snapshot);
           }
         }
 
-        const refDeal = person.deals[0];
+        const refDeal = pending.refDeal || pending.deals[0];
         const updatePayload: Record<string, any> = {
+          id: pending.lead.id,
           piperun_deals_history: currentHistory,
           updated_at: new Date().toISOString(),
         };
@@ -520,26 +582,34 @@ async function processCSVInBackground(csvText: string) {
         if (refDeal.produto_interesse) updatePayload.produto_interesse = refDeal.produto_interesse;
         if (refDeal.motivo_perda) updatePayload.motivo_perda = refDeal.motivo_perda;
         if (refDeal.comentario_perda) updatePayload.comentario_perda = refDeal.comentario_perda;
-        if (person.phone) updatePayload.telefone_normalized = person.phone;
+        if (pending.phone) updatePayload.telefone_normalized = pending.phone;
 
         updatePayload.proposals_total_value = currentHistory.reduce(
-          (s: number, d: any) => s + (d.value || 0), 0
+          (s: number, d: any) => s + (d.value || 0),
+          0
         );
 
-        const { error: updateErr } = await supabase
-          .from("lia_attendances")
-          .update(updatePayload)
-          .eq("id", existingLead.id);
-
-        if (updateErr) {
-          errorCount++;
-          console.error(`[import-bg] Update error for ${groupKey}: ${updateErr.message}`);
-        } else {
-          enriched++;
-        }
+        updates.push(updatePayload);
       } catch (e) {
         errorCount++;
-        console.error(`[import-bg] Error for ${groupKey}: ${e}`);
+        console.error(`[import-bg] Build update error for lead ${pending.lead.id}: ${e}`);
+      }
+    }
+
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < updates.length; i += BATCH_SIZE) {
+      const batch = updates.slice(i, i + BATCH_SIZE);
+      const { error: batchErr } = await supabase
+        .from("lia_attendances")
+        .upsert(batch, { onConflict: "id" });
+
+      if (batchErr) {
+        errorCount += batch.length;
+        console.error(
+          `[import-bg] Batch upsert error (${i}-${i + batch.length - 1}): ${batchErr.message}`
+        );
+      } else {
+        enriched += batch.length;
       }
     }
 
