@@ -455,26 +455,23 @@ async function processCSVInBackground(csvText: string) {
     const emailSet = new Set<string>();
     const phoneSet = new Set<string>();
     const pessoaIdSet = new Set<number>();
-    const dealIdSet = new Set<string>();
 
     for (const person of personMap.values()) {
-      if (person.email && !person.email.includes("@import.local")) emailSet.add(person.email);
+      for (const email of person.emails) {
+        if (email && !email.includes("@import.local")) emailSet.add(email);
+      }
       if (person.phone) phoneSet.add(person.phone);
       if (person.pessoa_id) {
         const parsed = parseInt(person.pessoa_id);
         if (!isNaN(parsed)) pessoaIdSet.add(parsed);
-      }
-      for (const deal of person.deals) {
-        if (deal.deal_id) dealIdSet.add(deal.deal_id);
       }
     }
 
     const allEmails = Array.from(emailSet);
     const allPhones = Array.from(phoneSet);
     const allPessoaIds = Array.from(pessoaIdSet);
-    const allDealIds = Array.from(dealIdSet);
 
-    console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids, ${allDealIds.length} deal_ids`);
+    console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids`);
 
     // STEP 3b: Bulk queries with per-column chunking
     type LeadRow = {
