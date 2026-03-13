@@ -429,20 +429,28 @@ async function processCSVInBackground(csvText: string) {
 
     console.log(`[import-bg] ${personMap.size} unique persons/groups`);
 
-    // STEP 3a: Collect unique identifiers from personMap
-    const allEmails: string[] = [];
-    const allPhones: string[] = [];
-    const allPessoaIds: number[] = [];
-    const allDealIds: string[] = [];
+    // STEP 3a: Collect unique identifiers from personMap (Sets avoid duplicate work)
+    const emailSet = new Set<string>();
+    const phoneSet = new Set<string>();
+    const pessoaIdSet = new Set<number>();
+    const dealIdSet = new Set<string>();
 
     for (const person of personMap.values()) {
-      if (person.email && !person.email.includes("@import.local")) allEmails.push(person.email);
-      if (person.phone) allPhones.push(person.phone);
-      if (person.pessoa_id) allPessoaIds.push(parseInt(person.pessoa_id));
+      if (person.email && !person.email.includes("@import.local")) emailSet.add(person.email);
+      if (person.phone) phoneSet.add(person.phone);
+      if (person.pessoa_id) {
+        const parsed = parseInt(person.pessoa_id);
+        if (!isNaN(parsed)) pessoaIdSet.add(parsed);
+      }
       for (const deal of person.deals) {
-        if (deal.deal_id) allDealIds.push(deal.deal_id);
+        if (deal.deal_id) dealIdSet.add(deal.deal_id);
       }
     }
+
+    const allEmails = Array.from(emailSet);
+    const allPhones = Array.from(phoneSet);
+    const allPessoaIds = Array.from(pessoaIdSet);
+    const allDealIds = Array.from(dealIdSet);
 
     console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids, ${allDealIds.length} deal_ids`);
 
