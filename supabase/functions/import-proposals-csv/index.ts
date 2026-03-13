@@ -35,6 +35,24 @@ function normalizePhone(raw: string | null | undefined): string | null {
   return `+55${digits}`;
 }
 
+/* ─── Email helpers ─── */
+function extractEmails(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const cleaned = String(raw)
+    .replace(/^"|"$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return [];
+
+  const tokens = cleaned
+    .split(/[;,\s]+/g)
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t && t.includes("@") && !t.includes("(") && !t.includes(")"));
+
+  return Array.from(new Set(tokens));
+}
+
 /* ─── CSV parser (semicolon, handles quoted fields) ─── */
 function parseCSVLine(line: string): string[] {
   // Fast path for most rows (no quoted fields)
@@ -408,7 +426,7 @@ async function processCSVInBackground(csvText: string) {
 
     // STEP 2: Group deals by person
     interface PersonGroup {
-      email: string;
+      emails: string[];
       phone: string | null;
       pessoa_id: string;
       deals: DealData[];
@@ -417,12 +435,16 @@ async function processCSVInBackground(csvText: string) {
     const personMap = new Map<string, PersonGroup>();
 
     for (const deal of dealMap.values()) {
-      const email = deal.pessoa_email?.toLowerCase().trim() || "";
+      const emails = extractEmails(deal.pessoa_email);
+      const primaryEmail = emails[0] || "";
       const phone = normalizePhone(deal.pessoa_telefone);
-      const groupKey = email || (deal.pessoa_id ? `pessoa_${deal.pessoa_id}` : `deal_${deal.deal_id}`);
+      const groupKey = primaryEmail || (deal.pessoa_id ? `pessoa_${deal.pessoa_id}` : `deal_${deal.deal_id}`);
 
       if (!personMap.has(groupKey)) {
-        personMap.set(groupKey, { email, phone, pessoa_id: deal.pessoa_id, deals: [] });
+        personMap.set(groupKey, { emails: [...emails], phone, pessoa_id: deal.pessoa_id, deals: [] });
+      } else if (emails.length) {
+        const group = personMap.get(groupKey)!;
+        group.emails = Array.from(new Set([...group.emails, ...emails]));
       }
       personMap.get(groupKey)!.deals.push(deal);
     }
@@ -433,26 +455,23 @@ async function processCSVInBackground(csvText: string) {
     const emailSet = new Set<string>();
     const phoneSet = new Set<string>();
     const pessoaIdSet = new Set<number>();
-    const dealIdSet = new Set<string>();
 
     for (const person of personMap.values()) {
-      if (person.email && !person.email.includes("@import.local")) emailSet.add(person.email);
+      for (const email of person.emails) {
+        if (email && !email.includes("@import.local")) emailSet.add(email);
+      }
       if (person.phone) phoneSet.add(person.phone);
       if (person.pessoa_id) {
         const parsed = parseInt(person.pessoa_id);
         if (!isNaN(parsed)) pessoaIdSet.add(parsed);
-      }
-      for (const deal of person.deals) {
-        if (deal.deal_id) dealIdSet.add(deal.deal_id);
       }
     }
 
     const allEmails = Array.from(emailSet);
     const allPhones = Array.from(phoneSet);
     const allPessoaIds = Array.from(pessoaIdSet);
-    const allDealIds = Array.from(dealIdSet);
 
-    console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids, ${allDealIds.length} deal_ids`);
+    console.log(`[import-bg] Identifiers: ${allEmails.length} emails, ${allPhones.length} phones, ${allPessoaIds.length} pessoa_ids`);
 
     // STEP 3b: Bulk queries with per-column chunking
     type LeadRow = {
@@ -461,14 +480,13 @@ async function processCSVInBackground(csvText: string) {
       telefone_normalized: string | null;
       pessoa_piperun_id: number | null;
       piperun_id: string | null;
-      piperun_deals_history: any;
     };
 
     const CHUNK_BY_COLUMN: Record<string, number> = {
-      email: 500,
-      telefone_normalized: 500,
-      pessoa_piperun_id: 500,
-      piperun_id: 100, // IDs hash deixam a URL do .in() muito grande
+      email: 80,
+      telefone_normalized: 250,
+      pessoa_piperun_id: 250,
+      piperun_id: 50,
     };
 
     const allLeads = new Map<string, LeadRow>(); // id → lead
@@ -477,17 +495,20 @@ async function processCSVInBackground(csvText: string) {
       if (!values.length) return;
 
       const unique = [...new Set(values)];
-      const chunkSize = CHUNK_BY_COLUMN[column] ?? 500;
+      const chunkSize = CHUNK_BY_COLUMN[column] ?? 100;
+      const totalChunks = Math.ceil(unique.length / chunkSize);
 
       for (let i = 0; i < unique.length; i += chunkSize) {
         const chunk = unique.slice(i, i + chunkSize);
+        const chunkNo = Math.floor(i / chunkSize) + 1;
+
         const { data, error } = await supabase
           .from("lia_attendances")
-          .select("id, email, telefone_normalized, pessoa_piperun_id, piperun_id, piperun_deals_history")
+          .select("id, email, telefone_normalized, pessoa_piperun_id, piperun_id")
           .in(column, chunk);
 
         if (error) {
-          console.error(`[import-bg] Bulk fetch ${column} error: ${error.message}`);
+          console.error(`[import-bg] Bulk fetch ${column} chunk ${chunkNo}/${totalChunks} failed`);
           continue;
         }
 
@@ -499,12 +520,10 @@ async function processCSVInBackground(csvText: string) {
       }
     }
 
-    await Promise.all([
-      bulkFetch("email", allEmails),
-      bulkFetch("telefone_normalized", allPhones),
-      bulkFetch("pessoa_piperun_id", allPessoaIds),
-      bulkFetch("piperun_id", allDealIds),
-    ]);
+    // Run sequentially to reduce memory pressure and huge concurrent URL payloads
+    await bulkFetch("email", allEmails);
+    await bulkFetch("telefone_normalized", allPhones);
+    await bulkFetch("pessoa_piperun_id", allPessoaIds);
 
     console.log(`[import-bg] Bulk loaded ${allLeads.size} unique leads`);
 
@@ -518,7 +537,6 @@ async function processCSVInBackground(csvText: string) {
       if (lead.email) emailMap.set(lead.email.toLowerCase(), lead);
       if (lead.telefone_normalized) phoneMap.set(lead.telefone_normalized, lead);
       if (lead.pessoa_piperun_id) pessoaIdMap.set(lead.pessoa_piperun_id, lead);
-      if (lead.piperun_id) dealIdMap.set(String(lead.piperun_id), lead);
     }
 
     // STEP 3d: Match in memory + aggregate by lead (reduce writes)
@@ -536,33 +554,7 @@ async function processCSVInBackground(csvText: string) {
 
     const pendingByLeadId = new Map<string, PendingLeadUpdate>();
 
-    for (const person of personMap.values()) {
-      let existingLead: LeadRow | undefined;
-
-      // CASCADE: email → phone → pessoa_id → deal_id (all in-memory)
-      if (!existingLead && person.email && !person.email.includes("@import.local")) {
-        existingLead = emailMap.get(person.email);
-      }
-      if (!existingLead && person.phone) {
-        existingLead = phoneMap.get(person.phone);
-      }
-      if (!existingLead && person.pessoa_id) {
-        existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
-      }
-      if (!existingLead) {
-        for (const deal of person.deals) {
-          existingLead = dealIdMap.get(deal.deal_id);
-          if (existingLead) break;
-        }
-      }
-
-      if (!existingLead) {
-        skippedCount++;
-        continue;
-      }
-
-      matched++;
-
+    const addPending = (existingLead: LeadRow, person: PersonGroup) => {
       const pending = pendingByLeadId.get(existingLead.id);
       if (pending) {
         pending.deals.push(...person.deals);
@@ -575,19 +567,107 @@ async function processCSVInBackground(csvText: string) {
           phone: person.phone,
         });
       }
+    };
+
+    const unresolvedPersons: PersonGroup[] = [];
+
+    for (const person of personMap.values()) {
+      let existingLead: LeadRow | undefined;
+
+      // Passo 1: email → phone → pessoa_id
+      if (!existingLead && person.emails.length) {
+        for (const email of person.emails) {
+          const found = emailMap.get(email);
+          if (found) {
+            existingLead = found;
+            break;
+          }
+        }
+      }
+      if (!existingLead && person.phone) {
+        existingLead = phoneMap.get(person.phone);
+      }
+      if (!existingLead && person.pessoa_id) {
+        existingLead = pessoaIdMap.get(parseInt(person.pessoa_id));
+      }
+
+      if (!existingLead) {
+        unresolvedPersons.push(person);
+        continue;
+      }
+
+      matched++;
+      addPending(existingLead, person);
+    }
+
+    // Passo 2: apenas não-resolvidos consultam piperun_id (deal hash)
+    if (unresolvedPersons.length > 0) {
+      const unresolvedDealIds = new Set<string>();
+      for (const person of unresolvedPersons) {
+        for (const deal of person.deals) {
+          if (deal.deal_id) unresolvedDealIds.add(deal.deal_id);
+        }
+      }
+
+      const unresolvedDealList = Array.from(unresolvedDealIds);
+      await bulkFetch("piperun_id", unresolvedDealList);
+
+      for (const lead of allLeads.values()) {
+        if (lead.piperun_id) dealIdMap.set(String(lead.piperun_id), lead);
+      }
+
+      for (const person of unresolvedPersons) {
+        let existingLead: LeadRow | undefined;
+        for (const deal of person.deals) {
+          existingLead = dealIdMap.get(deal.deal_id);
+          if (existingLead) break;
+        }
+
+        if (!existingLead) {
+          skippedCount++;
+          continue;
+        }
+
+        matched++;
+        addPending(existingLead, person);
+      }
     }
 
     console.log(
-      `[import-bg] Matched groups=${matched}, unique leads to update=${pendingByLeadId.size}, skipped=${skippedCount}`
+      `[import-bg] Matched groups=${matched}, unresolved=${unresolvedPersons.length}, unique leads to update=${pendingByLeadId.size}, skipped=${skippedCount}`
     );
 
     const updates: Record<string, any>[] = [];
 
+    const existingHistoryByLeadId = new Map<string, any[]>();
+    const pendingLeadIds = Array.from(pendingByLeadId.keys());
+    const HISTORY_CHUNK = 120;
+
+    for (let i = 0; i < pendingLeadIds.length; i += HISTORY_CHUNK) {
+      const idsChunk = pendingLeadIds.slice(i, i + HISTORY_CHUNK);
+      const { data, error } = await supabase
+        .from("lia_attendances")
+        .select("id, piperun_deals_history")
+        .in("id", idsChunk);
+
+      if (error) {
+        console.error(`[import-bg] History fetch chunk failed (${i}-${i + idsChunk.length - 1})`);
+        continue;
+      }
+
+      if (data) {
+        for (const row of data) {
+          existingHistoryByLeadId.set(
+            row.id,
+            Array.isArray(row.piperun_deals_history) ? [...row.piperun_deals_history] : []
+          );
+        }
+      }
+    }
+
     for (const pending of pendingByLeadId.values()) {
       try {
-        const currentHistory = Array.isArray(pending.lead.piperun_deals_history)
-          ? [...pending.lead.piperun_deals_history]
-          : [];
+        const currentHistory = [...(existingHistoryByLeadId.get(pending.lead.id) || [])];
 
         const historyIndex = new Map<string, number>();
         for (let i = 0; i < currentHistory.length; i++) {
@@ -703,7 +783,11 @@ Deno.serve(async (req) => {
     console.log(`[import-proposals] Received CSV with ~${lineCount} rows. Starting background processing...`);
 
     // Start background processing (non-blocking)
-    EdgeRuntime.waitUntil(processCSVInBackground(csvText));
+    // Important: defer one tick so response can flush before heavy CPU starts
+    EdgeRuntime.waitUntil((async () => {
+      await Promise.resolve();
+      await processCSVInBackground(csvText);
+    })());
 
     // Return immediately
     return new Response(JSON.stringify({
