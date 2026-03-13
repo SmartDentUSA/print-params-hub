@@ -667,9 +667,7 @@ async function processCSVInBackground(csvText: string) {
 
     for (const pending of pendingByLeadId.values()) {
       try {
-        const currentHistory = existingHistoryByLeadId.get(pending.lead.id) || []
-          ? [...pending.lead.piperun_deals_history]
-          : [];
+        const currentHistory = [...(existingHistoryByLeadId.get(pending.lead.id) || [])];
 
         const historyIndex = new Map<string, number>();
         for (let i = 0; i < currentHistory.length; i++) {
