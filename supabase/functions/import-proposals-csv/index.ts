@@ -216,11 +216,10 @@ function buildDealSnapshot(deal: DealData) {
 /* ─── Find deal ID column — tries multiple variants ─── */
 function findDealId(row: string[], colMap: Record<string, number>): string {
   return colAny(row, colMap,
+    "Hash (Oportunidade)",
     "ID (Oportunidade)",
     "Id (Oportunidade)",
     "id (oportunidade)",
-    "ID(Oportunidade)",
-    "Oportunidade ID",
   );
 }
 
@@ -328,14 +327,11 @@ async function processCSVInBackground(csvText: string) {
     const sampleCols = headerFields.slice(0, 30).map((h, i) => `${i}: "${h.replace(/^"|"$/g, "").trim()}"`);
     console.log(`[import-bg] Header sample: ${sampleCols.join(" | ")}`);
 
-    // Check if key column exists
-    const dealIdCol = colMap["ID (Oportunidade)"] ?? colMap[normalizeColName("ID (Oportunidade)")];
-    console.log(`[import-bg] "ID (Oportunidade)" column index: ${dealIdCol}`);
-    if (dealIdCol === undefined) {
-      // Try to find it by partial match
-      const candidates = Object.keys(colMap).filter(k => k.toLowerCase().includes("oportunidade") && k.toLowerCase().includes("id"));
-      console.log(`[import-bg] Candidate deal ID columns: ${JSON.stringify(candidates)}`);
-    }
+    // Debug: log all (Oportunidade) columns
+    const oppCols = Object.keys(colMap).filter(k => k.includes("(Oportunidade)") || k.includes("(oportunidade)"));
+    console.log(`[import-bg] Oportunidade columns: ${JSON.stringify(oppCols.slice(0, 20))}`);
+    const hashCol = colMap["Hash (Oportunidade)"] ?? colMap[normalizeColName("Hash (Oportunidade)")];
+    console.log(`[import-bg] "Hash (Oportunidade)" column index: ${hashCol}`);
 
     console.log(`[import-bg] Parsing ${lines.length - 1} rows, ${headerFields.length} columns`);
 
