@@ -35,6 +35,24 @@ function normalizePhone(raw: string | null | undefined): string | null {
   return `+55${digits}`;
 }
 
+/* ─── Email helpers ─── */
+function extractEmails(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const cleaned = String(raw)
+    .replace(/^"|"$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return [];
+
+  const tokens = cleaned
+    .split(/[;,\s]+/g)
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t && t.includes("@") && !t.includes("(") && !t.includes(")"));
+
+  return Array.from(new Set(tokens));
+}
+
 /* ─── CSV parser (semicolon, handles quoted fields) ─── */
 function parseCSVLine(line: string): string[] {
   // Fast path for most rows (no quoted fields)
