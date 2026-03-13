@@ -14,7 +14,6 @@ function parseBRL(raw: string | undefined): number {
   return isNaN(val) ? 0 : val;
 }
 
-/* ─── Parse quantity (Brazilian decimal) ─── */
 function parseQty(raw: string | undefined): number {
   if (!raw) return 0;
   const cleaned = raw.replace(",", ".").trim();
@@ -22,7 +21,6 @@ function parseQty(raw: string | undefined): number {
   return isNaN(val) ? 0 : val;
 }
 
-/* ─── Phone normalizer ─── */
 function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   let digits = String(raw).replace(/\D/g, "");
@@ -62,7 +60,6 @@ function parseCSVLine(line: string): string[] {
   return fields;
 }
 
-/* ─── Normalize column name for fuzzy matching ─── */
 function normalizeColName(name: string): string {
   return name
     .normalize("NFD")
@@ -73,7 +70,6 @@ function normalizeColName(name: string): string {
     .trim();
 }
 
-/* ─── Column name → index mapping ─── */
 function buildColumnMap(headerFields: string[]): Record<string, number> {
   const map: Record<string, number> = {};
   for (let i = 0; i < headerFields.length; i++) {
@@ -92,7 +88,15 @@ function col(row: string[], colMap: Record<string, number>, name: string): strin
   return row[idx]?.replace(/^"|"$/g, "").trim() || "";
 }
 
-/* ─── Interfaces ─── */
+/* ─── Try multiple column name variants ─── */
+function colAny(row: string[], colMap: Record<string, number>, ...names: string[]): string {
+  for (const name of names) {
+    const v = col(row, colMap, name);
+    if (v) return v;
+  }
+  return "";
+}
+
 interface ProposalItem {
   item_id: string;
   nome: string;
@@ -158,7 +162,6 @@ interface DealData {
   tem_scanner: string;
 }
 
-/* ─── Build a deal snapshot for piperun_deals_history ─── */
 function buildDealSnapshot(deal: DealData) {
   const totalProposalsValue = deal.proposals.reduce((s, p) => s + p.valor_ps, 0);
   const totalFreight = deal.proposals.reduce((s, p) => s + p.valor_frete, 0);
@@ -210,7 +213,17 @@ function buildDealSnapshot(deal: DealData) {
   };
 }
 
-/* ─── Parse a CSV row into a DealData entry ─── */
+/* ─── Find deal ID column — tries multiple variants ─── */
+function findDealId(row: string[], colMap: Record<string, number>): string {
+  return colAny(row, colMap,
+    "ID (Oportunidade)",
+    "Id (Oportunidade)",
+    "id (oportunidade)",
+    "ID(Oportunidade)",
+    "Oportunidade ID",
+  );
+}
+
 function parseDealFromRow(row: string[], colMap: Record<string, number>): {
   dealId: string;
   proposalId: string;
@@ -218,67 +231,67 @@ function parseDealFromRow(row: string[], colMap: Record<string, number>): {
   item: ProposalItem | null;
   proposal: ProposalData | null;
 } | null {
-  const dealId = col(row, colMap, "ID (Oportunidade)");
+  const dealId = findDealId(row, colMap);
   if (!dealId) return null;
 
-  const proposalId = col(row, colMap, "ID");
-  const itemId = col(row, colMap, "ID do item (Item)");
-  const itemName = col(row, colMap, "Nome do item (Item)");
+  const proposalId = colAny(row, colMap, "ID", "Id", "ID (Proposta)", "Id (Proposta)");
+  const itemId = colAny(row, colMap, "ID do item (Item)", "Id do item (Item)", "ID do Item (Item)");
+  const itemName = colAny(row, colMap, "Nome do item (Item)", "Nome do Item (Item)");
 
   const deal: DealData = {
     deal_id: dealId,
-    deal_link: col(row, colMap, "Link (Oportunidade)"),
-    funil: col(row, colMap, "Funil (Oportunidade)"),
-    etapa: col(row, colMap, "Etapa (Oportunidade)"),
-    lead_timing: col(row, colMap, "Lead-Timing (Oportunidade)"),
-    dono_email: col(row, colMap, "Dono da oportunidade (Oportunidade)"),
-    dono_nome: col(row, colMap, "Nome do dono da oportunidade (Oportunidade)"),
-    origem: col(row, colMap, "Origem (Oportunidade)"),
-    data_cadastro: col(row, colMap, "Data de cadastro (Oportunidade)"),
-    data_fechamento: col(row, colMap, "Data de fechamento (Oportunidade)"),
-    titulo: col(row, colMap, "Titulo (Oportunidade)"),
-    status: col(row, colMap, "Status (Oportunidade)"),
-    situacao: col(row, colMap, "Situação (Oportunidade)"),
-    valor_ps_opp: parseBRL(col(row, colMap, "Valor de P&S (Oportunidade)")),
-    valor_mrr_opp: parseBRL(col(row, colMap, "Valor de MRR (Oportunidade)")),
-    tags: col(row, colMap, "Tags (Oportunidade)"),
-    motivo_perda: col(row, colMap, "(MP) Motivo de perda (Oportunidade)"),
-    comentario_perda: col(row, colMap, "(MP) Comentário (Oportunidade)"),
+    deal_link: colAny(row, colMap, "Link (Oportunidade)"),
+    funil: colAny(row, colMap, "Funil (Oportunidade)"),
+    etapa: colAny(row, colMap, "Etapa (Oportunidade)"),
+    lead_timing: colAny(row, colMap, "Lead-Timing (Oportunidade)"),
+    dono_email: colAny(row, colMap, "Dono da oportunidade (Oportunidade)"),
+    dono_nome: colAny(row, colMap, "Nome do dono da oportunidade (Oportunidade)"),
+    origem: colAny(row, colMap, "Origem (Oportunidade)"),
+    data_cadastro: colAny(row, colMap, "Data de cadastro (Oportunidade)"),
+    data_fechamento: colAny(row, colMap, "Data de fechamento (Oportunidade)"),
+    titulo: colAny(row, colMap, "Titulo (Oportunidade)", "Título (Oportunidade)"),
+    status: colAny(row, colMap, "Status (Oportunidade)"),
+    situacao: colAny(row, colMap, "Situação (Oportunidade)", "Situacao (Oportunidade)"),
+    valor_ps_opp: parseBRL(colAny(row, colMap, "Valor de P&S (Oportunidade)")),
+    valor_mrr_opp: parseBRL(colAny(row, colMap, "Valor de MRR (Oportunidade)")),
+    tags: colAny(row, colMap, "Tags (Oportunidade)"),
+    motivo_perda: colAny(row, colMap, "(MP) Motivo de perda (Oportunidade)"),
+    comentario_perda: colAny(row, colMap, "(MP) Comentário (Oportunidade)", "(MP) Comentario (Oportunidade)"),
     proposals: [],
-    pessoa_id: col(row, colMap, "ID (Pessoa)"),
-    pessoa_nome: col(row, colMap, "Nome completo (Pessoa)"),
-    pessoa_cpf: col(row, colMap, "CPF (Pessoa)"),
-    pessoa_email: col(row, colMap, "E-mail (Pessoa)"),
-    pessoa_telefone: col(row, colMap, "Telefone Principal (Pessoa)"),
-    pessoa_cidade: col(row, colMap, "Endereço - Cidade (Pessoa)"),
-    pessoa_uf: col(row, colMap, "Endereço - Estado (UF) (Pessoa)"),
-    empresa_id: col(row, colMap, "ID (Empresa)"),
-    empresa_nome: col(row, colMap, "Nome fantasia (Empresa)"),
-    empresa_cnpj: col(row, colMap, "CNPJ (Empresa)"),
-    empresa_cidade: col(row, colMap, "Endereço - Cidade (Empresa)"),
-    empresa_uf: col(row, colMap, "Endereço - Estado (UF) (Empresa)"),
-    empresa_segmento: col(row, colMap, "Segmento (Empresa)"),
-    especialidade: col(row, colMap, "Especialidade") || col(row, colMap, "Especialidade principal"),
-    area_atuacao: col(row, colMap, "Área de Atuação") || col(row, colMap, "ÁREA DE ATUAÇÃO") || col(row, colMap, "Área de atuação"),
-    produto_interesse: col(row, colMap, "Produto de interesse") || col(row, colMap, "Produto de interesse (auto)"),
-    tem_impressora: col(row, colMap, "Tem impressora"),
-    tem_scanner: col(row, colMap, "Tem scanner"),
+    pessoa_id: colAny(row, colMap, "ID (Pessoa)", "Id (Pessoa)"),
+    pessoa_nome: colAny(row, colMap, "Nome completo (Pessoa)"),
+    pessoa_cpf: colAny(row, colMap, "CPF (Pessoa)"),
+    pessoa_email: colAny(row, colMap, "E-mail (Pessoa)", "Email (Pessoa)"),
+    pessoa_telefone: colAny(row, colMap, "Telefone Principal (Pessoa)", "Telefone principal (Pessoa)"),
+    pessoa_cidade: colAny(row, colMap, "Endereço - Cidade (Pessoa)", "Endereco - Cidade (Pessoa)"),
+    pessoa_uf: colAny(row, colMap, "Endereço - Estado (UF) (Pessoa)", "Endereco - Estado (UF) (Pessoa)"),
+    empresa_id: colAny(row, colMap, "ID (Empresa)", "Id (Empresa)"),
+    empresa_nome: colAny(row, colMap, "Nome fantasia (Empresa)"),
+    empresa_cnpj: colAny(row, colMap, "CNPJ (Empresa)"),
+    empresa_cidade: colAny(row, colMap, "Endereço - Cidade (Empresa)", "Endereco - Cidade (Empresa)"),
+    empresa_uf: colAny(row, colMap, "Endereço - Estado (UF) (Empresa)", "Endereco - Estado (UF) (Empresa)"),
+    empresa_segmento: colAny(row, colMap, "Segmento (Empresa)"),
+    especialidade: colAny(row, colMap, "Especialidade", "Especialidade principal"),
+    area_atuacao: colAny(row, colMap, "Área de Atuação", "ÁREA DE ATUAÇÃO", "Área de atuação", "Area de Atuacao"),
+    produto_interesse: colAny(row, colMap, "Produto de interesse", "Produto de interesse (auto)"),
+    tem_impressora: colAny(row, colMap, "Tem impressora"),
+    tem_scanner: colAny(row, colMap, "Tem scanner"),
   };
 
   let proposal: ProposalData | null = null;
   if (proposalId) {
     proposal = {
       proposal_id: proposalId,
-      proposal_link: col(row, colMap, "Link"),
-      proposal_sigla: col(row, colMap, "Sigla"),
-      status: col(row, colMap, "Status"),
-      created_at: col(row, colMap, "Data de de criação"),
-      valor_ps: parseBRL(col(row, colMap, "Valor P&S")),
-      valor_mrr: parseBRL(col(row, colMap, "Valor MRR")),
-      parcelas: parseInt(col(row, colMap, "Forma de pgto P&S - Nro de parcelas")) || 0,
-      tipo_frete: col(row, colMap, "Tipo de frete"),
-      valor_frete: parseBRL(col(row, colMap, "Valor de frete")),
-      vendedor: col(row, colMap, "Vendedor da proposta"),
+      proposal_link: colAny(row, colMap, "Link"),
+      proposal_sigla: colAny(row, colMap, "Sigla"),
+      status: colAny(row, colMap, "Status"),
+      created_at: colAny(row, colMap, "Data de de criação", "Data de criação", "Data de criacao"),
+      valor_ps: parseBRL(colAny(row, colMap, "Valor P&S")),
+      valor_mrr: parseBRL(colAny(row, colMap, "Valor MRR")),
+      parcelas: parseInt(colAny(row, colMap, "Forma de pgto P&S - Nro de parcelas")) || 0,
+      tipo_frete: colAny(row, colMap, "Tipo de frete"),
+      valor_frete: parseBRL(colAny(row, colMap, "Valor de frete")),
+      vendedor: colAny(row, colMap, "Vendedor da proposta"),
       items: [],
     };
   }
@@ -288,29 +301,230 @@ function parseDealFromRow(row: string[], colMap: Record<string, number>): {
     item = {
       item_id: itemId,
       nome: itemName,
-      tipo: col(row, colMap, "Tipo do item (Item)"),
-      qtd: parseQty(col(row, colMap, "Quantidade (Item)")),
-      unit: parseBRL(col(row, colMap, "Valor unitário (Item)")),
-      total: parseBRL(col(row, colMap, "Total de P&S (Item)")),
-      categoria: col(row, colMap, "Categoria (Item)"),
+      tipo: colAny(row, colMap, "Tipo do item (Item)"),
+      qtd: parseQty(colAny(row, colMap, "Quantidade (Item)")),
+      unit: parseBRL(colAny(row, colMap, "Valor unitário (Item)", "Valor unitario (Item)")),
+      total: parseBRL(colAny(row, colMap, "Total de P&S (Item)")),
+      categoria: colAny(row, colMap, "Categoria (Item)"),
     };
   }
 
   return { dealId, proposalId, deal, item, proposal };
 }
 
+/* ─── Background processing function ─── */
+async function processCSVInBackground(csvText: string) {
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+  );
+
+  try {
+    const lines = csvText.split("\n").filter((l) => l.trim().length > 0);
+    const headerFields = parseCSVLine(lines[0]);
+    const colMap = buildColumnMap(headerFields);
+
+    // Debug: log first 20 column names to identify mismatches
+    const sampleCols = headerFields.slice(0, 30).map((h, i) => `${i}: "${h.replace(/^"|"$/g, "").trim()}"`);
+    console.log(`[import-bg] Header sample: ${sampleCols.join(" | ")}`);
+
+    // Check if key column exists
+    const dealIdCol = colMap["ID (Oportunidade)"] ?? colMap[normalizeColName("ID (Oportunidade)")];
+    console.log(`[import-bg] "ID (Oportunidade)" column index: ${dealIdCol}`);
+    if (dealIdCol === undefined) {
+      // Try to find it by partial match
+      const candidates = Object.keys(colMap).filter(k => k.toLowerCase().includes("oportunidade") && k.toLowerCase().includes("id"));
+      console.log(`[import-bg] Candidate deal ID columns: ${JSON.stringify(candidates)}`);
+    }
+
+    console.log(`[import-bg] Parsing ${lines.length - 1} rows, ${headerFields.length} columns`);
+
+    // STEP 1: Group rows by deal_id
+    const dealMap = new Map<string, DealData>();
+
+    for (let i = 1; i < lines.length; i++) {
+      const row = parseCSVLine(lines[i]);
+      const parsed = parseDealFromRow(row, colMap);
+      if (!parsed) continue;
+
+      const { dealId, proposalId, deal, proposal, item } = parsed;
+
+      if (!dealMap.has(dealId)) {
+        dealMap.set(dealId, deal);
+      }
+
+      const existingDeal = dealMap.get(dealId)!;
+
+      if (proposal && !existingDeal.proposals.some((p) => p.proposal_id === proposal.proposal_id)) {
+        existingDeal.proposals.push(proposal);
+      }
+
+      if (item && proposalId) {
+        const targetProposal = existingDeal.proposals.find((p) => p.proposal_id === proposalId);
+        if (targetProposal && !targetProposal.items.some((it) => it.item_id === item.item_id)) {
+          targetProposal.items.push(item);
+        }
+      }
+    }
+
+    console.log(`[import-bg] ${dealMap.size} unique deals parsed`);
+
+    // STEP 2: Group deals by person
+    interface PersonGroup {
+      email: string;
+      phone: string | null;
+      pessoa_id: string;
+      deals: DealData[];
+    }
+
+    const personMap = new Map<string, PersonGroup>();
+
+    for (const deal of dealMap.values()) {
+      const email = deal.pessoa_email?.toLowerCase().trim() || "";
+      const phone = normalizePhone(deal.pessoa_telefone);
+      const groupKey = email || (deal.pessoa_id ? `pessoa_${deal.pessoa_id}` : `deal_${deal.deal_id}`);
+
+      if (!personMap.has(groupKey)) {
+        personMap.set(groupKey, { email, phone, pessoa_id: deal.pessoa_id, deals: [] });
+      }
+      personMap.get(groupKey)!.deals.push(deal);
+    }
+
+    console.log(`[import-bg] ${personMap.size} unique persons/groups`);
+
+    // STEP 3: Match and enrich in batches
+    let matched = 0;
+    let enriched = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    for (const [groupKey, person] of personMap) {
+      try {
+        let existingLead: { id: string; piperun_deals_history: any } | null = null;
+
+        // CASCADE: email → phone → pessoa_piperun_id → piperun_id
+        if (!existingLead && person.email && !person.email.includes("@import.local")) {
+          const { data } = await supabase
+            .from("lia_attendances")
+            .select("id, piperun_deals_history")
+            .eq("email", person.email)
+            .limit(1)
+            .maybeSingle();
+          if (data) existingLead = data;
+        }
+
+        if (!existingLead && person.phone) {
+          const { data } = await supabase
+            .from("lia_attendances")
+            .select("id, piperun_deals_history")
+            .eq("telefone_normalized", person.phone)
+            .limit(1)
+            .maybeSingle();
+          if (data) existingLead = data;
+        }
+
+        if (!existingLead && person.pessoa_id) {
+          const { data } = await supabase
+            .from("lia_attendances")
+            .select("id, piperun_deals_history")
+            .eq("pessoa_piperun_id", parseInt(person.pessoa_id))
+            .limit(1)
+            .maybeSingle();
+          if (data) existingLead = data;
+        }
+
+        if (!existingLead) {
+          for (const deal of person.deals) {
+            const { data } = await supabase
+              .from("lia_attendances")
+              .select("id, piperun_deals_history")
+              .eq("piperun_id", deal.deal_id)
+              .maybeSingle();
+            if (data) { existingLead = data; break; }
+          }
+        }
+
+        if (!existingLead) {
+          skippedCount++;
+          continue;
+        }
+
+        matched++;
+
+        // Merge deals into piperun_deals_history
+        const currentHistory = Array.isArray(existingLead.piperun_deals_history)
+          ? [...existingLead.piperun_deals_history]
+          : [];
+
+        for (const deal of person.deals) {
+          const snapshot = buildDealSnapshot(deal);
+          const existingIdx = currentHistory.findIndex(
+            (d: any) => String(d.deal_id) === String(deal.deal_id)
+          );
+          if (existingIdx >= 0) {
+            currentHistory[existingIdx] = snapshot;
+          } else {
+            currentHistory.push(snapshot);
+          }
+        }
+
+        const refDeal = person.deals[0];
+        const updatePayload: Record<string, any> = {
+          piperun_deals_history: currentHistory,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (refDeal.pessoa_id) updatePayload.pessoa_piperun_id = parseInt(refDeal.pessoa_id);
+        if (refDeal.empresa_id) updatePayload.empresa_piperun_id = parseInt(refDeal.empresa_id);
+        if (refDeal.empresa_nome) updatePayload.empresa_nome = refDeal.empresa_nome;
+        if (refDeal.empresa_cnpj) updatePayload.empresa_cnpj = refDeal.empresa_cnpj;
+        if (refDeal.empresa_cidade) updatePayload.empresa_cidade = refDeal.empresa_cidade;
+        if (refDeal.empresa_uf) updatePayload.empresa_uf = refDeal.empresa_uf;
+        if (refDeal.empresa_segmento) updatePayload.empresa_segmento = refDeal.empresa_segmento;
+        if (refDeal.pessoa_cidade) updatePayload.cidade = refDeal.pessoa_cidade;
+        if (refDeal.pessoa_uf) updatePayload.uf = refDeal.pessoa_uf;
+        if (refDeal.especialidade) updatePayload.especialidade = refDeal.especialidade;
+        if (refDeal.area_atuacao) updatePayload.area_atuacao = refDeal.area_atuacao;
+        if (refDeal.produto_interesse) updatePayload.produto_interesse = refDeal.produto_interesse;
+        if (refDeal.motivo_perda) updatePayload.motivo_perda = refDeal.motivo_perda;
+        if (refDeal.comentario_perda) updatePayload.comentario_perda = refDeal.comentario_perda;
+        if (person.phone) updatePayload.telefone_normalized = person.phone;
+
+        updatePayload.proposals_total_value = currentHistory.reduce(
+          (s: number, d: any) => s + (d.value || 0), 0
+        );
+
+        const { error: updateErr } = await supabase
+          .from("lia_attendances")
+          .update(updatePayload)
+          .eq("id", existingLead.id);
+
+        if (updateErr) {
+          errorCount++;
+          console.error(`[import-bg] Update error for ${groupKey}: ${updateErr.message}`);
+        } else {
+          enriched++;
+        }
+      } catch (e) {
+        errorCount++;
+        console.error(`[import-bg] Error for ${groupKey}: ${e}`);
+      }
+    }
+
+    console.log(`[import-bg] DONE: matched=${matched} enriched=${enriched} skipped=${skippedCount} errors=${errorCount}`);
+  } catch (err) {
+    console.error("[import-bg] Fatal:", err);
+  }
+}
+
+/* ─── Main handler — returns immediately, processes in background ─── */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    // ─── Read CSV ───
+    // Read CSV
     const contentType = req.headers.get("content-type") || "";
     let csvText: string;
     if (contentType.includes("application/json")) {
@@ -334,230 +548,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    const lines = csvText.split("\n").filter((l) => l.trim().length > 0);
-    if (lines.length < 2) {
-      return new Response(JSON.stringify({ error: "CSV must have header + data" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const lineCount = csvText.split("\n").filter((l) => l.trim().length > 0).length - 1;
+    console.log(`[import-proposals] Received CSV with ~${lineCount} rows. Starting background processing...`);
 
-    const headerFields = parseCSVLine(lines[0]);
-    const colMap = buildColumnMap(headerFields);
-    console.log(`[import-proposals] Parsed ${lines.length - 1} rows, ${headerFields.length} columns`);
+    // Start background processing (non-blocking)
+    EdgeRuntime.waitUntil(processCSVInBackground(csvText));
 
-    // ─── STEP 1: Group rows by deal_id (proposals + items) ───
-    const dealMap = new Map<string, DealData>();
-
-    for (let i = 1; i < lines.length; i++) {
-      const row = parseCSVLine(lines[i]);
-      const parsed = parseDealFromRow(row, colMap);
-      if (!parsed) continue;
-
-      const { dealId, proposalId, deal, proposal, item } = parsed;
-
-      if (!dealMap.has(dealId)) {
-        dealMap.set(dealId, deal);
-      }
-
-      const existingDeal = dealMap.get(dealId)!;
-
-      // Add proposal (dedup)
-      if (proposal && !existingDeal.proposals.some((p) => p.proposal_id === proposal.proposal_id)) {
-        existingDeal.proposals.push(proposal);
-      }
-
-      // Add item to proposal (dedup)
-      if (item && proposalId) {
-        const targetProposal = existingDeal.proposals.find((p) => p.proposal_id === proposalId);
-        if (targetProposal && !targetProposal.items.some((it) => it.item_id === item.item_id)) {
-          targetProposal.items.push(item);
-        }
-      }
-    }
-
-    console.log(`[import-proposals] ${dealMap.size} unique deals parsed`);
-
-    // ─── STEP 2: Group deals by person (email → multiple deals) ───
-    // Key = pessoa_email (lowercase). Each person may have N deals.
-    interface PersonGroup {
-      email: string;
-      phone: string | null;
-      pessoa_id: string;
-      deals: DealData[];
-    }
-
-    const personMap = new Map<string, PersonGroup>();
-
-    for (const deal of dealMap.values()) {
-      const email = deal.pessoa_email?.toLowerCase().trim() || "";
-      const phone = normalizePhone(deal.pessoa_telefone);
-      // Group key: prefer email, fallback to pessoa_id, fallback to deal_id
-      const groupKey = email || `pessoa_${deal.pessoa_id}` || `deal_${deal.deal_id}`;
-
-      if (!personMap.has(groupKey)) {
-        personMap.set(groupKey, {
-          email,
-          phone,
-          pessoa_id: deal.pessoa_id,
-          deals: [],
-        });
-      }
-      personMap.get(groupKey)!.deals.push(deal);
-    }
-
-    console.log(`[import-proposals] ${personMap.size} unique persons/groups`);
-
-    // ─── STEP 3: Match each person and enrich (NEVER create) ───
-    let matched = 0;
-    let enriched = 0;
-    const skipped: { group_key: string; email: string; phone: string | null; pessoa_id: string; deal_ids: string[]; reason: string }[] = [];
-    const errors: { group_key: string; error: string }[] = [];
-
-    for (const [groupKey, person] of personMap) {
-      try {
-        let existingLead: { id: string; piperun_deals_history: any } | null = null;
-
-        // ─── CASCADE: email → phone → pessoa_piperun_id → piperun_id ───
-
-        // 1) By email (PRIORITY 1)
-        if (!existingLead && person.email && !person.email.includes("@import.local")) {
-          const { data } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .eq("email", person.email)
-            .limit(1)
-            .maybeSingle();
-          if (data) existingLead = data;
-        }
-
-        // 2) By phone
-        if (!existingLead && person.phone) {
-          const { data } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .eq("telefone_normalized", person.phone)
-            .limit(1)
-            .maybeSingle();
-          if (data) existingLead = data;
-        }
-
-        // 3) By pessoa_piperun_id
-        if (!existingLead && person.pessoa_id) {
-          const { data } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .eq("pessoa_piperun_id", parseInt(person.pessoa_id))
-            .limit(1)
-            .maybeSingle();
-          if (data) existingLead = data;
-        }
-
-        // 4) By piperun_id (deal ID — last resort, tries each deal)
-        if (!existingLead) {
-          for (const deal of person.deals) {
-            const { data } = await supabase
-              .from("lia_attendances")
-              .select("id, piperun_deals_history")
-              .eq("piperun_id", deal.deal_id)
-              .maybeSingle();
-            if (data) { existingLead = data; break; }
-          }
-        }
-
-        // ─── No match → skip (NEVER create) ───
-        if (!existingLead) {
-          skipped.push({
-            group_key: groupKey,
-            email: person.email,
-            phone: person.phone,
-            pessoa_id: person.pessoa_id,
-            deal_ids: person.deals.map((d) => d.deal_id),
-            reason: "no_match_found",
-          });
-          continue;
-        }
-
-        matched++;
-
-        // ─── Merge ALL deals into piperun_deals_history (dedup by deal_id) ───
-        const currentHistory = Array.isArray(existingLead.piperun_deals_history)
-          ? [...existingLead.piperun_deals_history]
-          : [];
-
-        for (const deal of person.deals) {
-          const snapshot = buildDealSnapshot(deal);
-          const existingIdx = currentHistory.findIndex(
-            (d: any) => String(d.deal_id) === String(deal.deal_id)
-          );
-          if (existingIdx >= 0) {
-            currentHistory[existingIdx] = snapshot;
-          } else {
-            currentHistory.push(snapshot);
-          }
-        }
-
-        // Use first deal for enrichment fields (most recent data)
-        const refDeal = person.deals[0];
-
-        const updatePayload: Record<string, any> = {
-          piperun_deals_history: currentHistory,
-          updated_at: new Date().toISOString(),
-        };
-
-        // Enrich identity fields
-        if (refDeal.pessoa_id) updatePayload.pessoa_piperun_id = parseInt(refDeal.pessoa_id);
-        if (refDeal.empresa_id) updatePayload.empresa_piperun_id = parseInt(refDeal.empresa_id);
-        if (refDeal.empresa_nome) updatePayload.empresa_nome = refDeal.empresa_nome;
-        if (refDeal.empresa_cnpj) updatePayload.empresa_cnpj = refDeal.empresa_cnpj;
-        if (refDeal.empresa_cidade) updatePayload.empresa_cidade = refDeal.empresa_cidade;
-        if (refDeal.empresa_uf) updatePayload.empresa_uf = refDeal.empresa_uf;
-        if (refDeal.empresa_segmento) updatePayload.empresa_segmento = refDeal.empresa_segmento;
-        if (refDeal.pessoa_cidade) updatePayload.cidade = refDeal.pessoa_cidade;
-        if (refDeal.pessoa_uf) updatePayload.uf = refDeal.pessoa_uf;
-        if (refDeal.especialidade) updatePayload.especialidade = refDeal.especialidade;
-        if (refDeal.area_atuacao) updatePayload.area_atuacao = refDeal.area_atuacao;
-        if (refDeal.produto_interesse) updatePayload.produto_interesse = refDeal.produto_interesse;
-        if (refDeal.motivo_perda) updatePayload.motivo_perda = refDeal.motivo_perda;
-        if (refDeal.comentario_perda) updatePayload.comentario_perda = refDeal.comentario_perda;
-        if (person.phone) updatePayload.telefone_normalized = person.phone;
-
-        // Aggregate proposals_total_value from ALL deals in history
-        updatePayload.proposals_total_value = currentHistory.reduce(
-          (s: number, d: any) => s + (d.value || 0), 0
-        );
-
-        const { error: updateErr } = await supabase
-          .from("lia_attendances")
-          .update(updatePayload)
-          .eq("id", existingLead.id);
-
-        if (updateErr) {
-          errors.push({ group_key: groupKey, error: updateErr.message });
-        } else {
-          enriched++;
-        }
-      } catch (e) {
-        errors.push({ group_key: groupKey, error: String(e) });
-      }
-    }
-
-    const result = {
+    // Return immediately
+    return new Response(JSON.stringify({
       success: true,
-      total_csv_rows: lines.length - 1,
-      total_deals: dealMap.size,
-      total_persons: personMap.size,
-      matched,
-      enriched,
-      skipped_count: skipped.length,
-      skipped: skipped.slice(0, 50),
-      errors_count: errors.length,
-      errors: errors.slice(0, 20),
-    };
-
-    console.log(`[import-proposals] Result:`, JSON.stringify(result));
-
-    return new Response(JSON.stringify(result), {
+      message: `Importação iniciada em background com ~${lineCount} linhas. Acompanhe os logs da Edge Function.`,
+      total_csv_rows: lineCount,
+      status: "processing",
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
