@@ -35,9 +35,33 @@ const DIALOG_BREAK_PATTERNS = [
   /\b(tchau|bye|até logo|até mais|adeus)\b/i,
 ];
 
-function isOffTopicFromDialog(message: string): boolean {
+export function isOffTopicFromDialog(message: string): boolean {
   return DIALOG_BREAK_PATTERNS.some((p) => p.test(message.trim()));
 }
+
+// ── Parameter detection keywords ──
+export const PARAM_KEYWORDS = [
+  /parâmetro|parametro|parameter|parametrizar/i,
+  /configuração|configuracao|setting/i,
+  /\bexposição\b|exposicao|exposure/i,
+  /layer height|espessura de camada/i,
+  /como imprimir|how to print|cómo imprimir/i,
+  /tempo de cura|cure time|tiempo de exposición/i,
+  /configurar|configurações|configuracoes/i,
+  /quais (os )?param|qual (o )?param/i,
+  /(preciso|quero|busco|quais|como|qual|configurar|usar|parametrizar).{0,40}\bimpressora\b/i,
+  /\bimpressora\b.{0,40}(resina|parâmetro|configurar|parametrizar)/i,
+  /(comprei|tenho|uso|adquiri).{0,30}(resina|impressora)/i,
+  /(resina).{0,30}(impressora|imprimir|impressão)/i,
+  /calibrar|calibração|calibragem/i,
+  /(impressões?|prints?).{0,40}(falh|problem|erro|ruim|mal|nao sai|não sai|nao fica|não fica)/i,
+  /(falhas?|problemas?|erros?).{0,30}(impressão|imprimindo)/i,
+  /minhas? impressões?/i,
+  /(nao estou|não estou|tô tendo|estou tendo|tive).{0,30}(imprimindo|impressão)/i,
+];
+
+export const isPrinterParamQuestion = (msg: string) =>
+  PARAM_KEYWORDS.some((p) => p.test(msg));
 
 // ── DB helpers ──
 export async function fetchActiveBrands(supabase: SupabaseClient): Promise<Array<{ id: string; slug: string; name: string }>> {
