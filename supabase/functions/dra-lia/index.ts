@@ -1391,62 +1391,7 @@ async function extractImplicitLeadData(
   console.log(`[extractImplicit] Updated ${Object.keys(safeUpdates).join(", ")} for ${email}`);
 }
 
-// ── LEAD MATURITY CLASSIFICATION ────────────────────────────────────────
-async function classifyLeadMaturity(
-  supabaseClient: ReturnType<typeof createClient>,
-  email: string
-): Promise<{ maturity: "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE" | null; cognitiveData: Record<string, unknown> | null }> {
-  const { data } = await supabaseClient
-    .from("lia_attendances")
-    .select("ultima_etapa_comercial, status_atual_lead_crm, funil_entrada_crm, status_oportunidade, lead_stage_detected, urgency_level, psychological_profile, primary_motivation, objection_risk, recommended_approach, cognitive_analysis")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (!data) return { maturity: null, cognitiveData: null };
-
-  // Cognitive override: if cognitive analysis exists, use it as primary source
-  const cognitiveData = data.cognitive_analysis ? {
-    lead_stage_detected: data.lead_stage_detected,
-    urgency_level: data.urgency_level,
-    psychological_profile: data.psychological_profile,
-    primary_motivation: data.primary_motivation,
-    objection_risk: data.objection_risk,
-    recommended_approach: data.recommended_approach,
-  } : null;
-
-  // Map cognitive stage to maturity level
-  if (data.lead_stage_detected) {
-  const stageMap: Record<string, "MQL" | "PQL" | "SAL" | "SQL" | "CLIENTE"> = {
-      "MQL_pesquisador": "MQL",
-      "PQL_recompra": "PQL",
-      "SAL_comparador": "SAL",
-      "SQL_decisor": "SQL",
-      "CLIENTE_ativo": "CLIENTE",
-    };
-    if (stageMap[data.lead_stage_detected]) {
-      return { maturity: stageMap[data.lead_stage_detected], cognitiveData };
-    }
-  }
-
-  // Fallback: CRM-based classification
-  const etapa = (data.ultima_etapa_comercial || "").toLowerCase();
-  const funil = (data.funil_entrada_crm || "").toLowerCase();
-  const status = (data.status_oportunidade || "").toLowerCase();
-
-  if (status === "ganha") return { maturity: "CLIENTE", cognitiveData };
-
-  if (funil.includes("estagnado") || funil.includes("stagnant")) {
-    if (/contato feito|sem contato|sem resposta/.test(etapa)) return { maturity: "MQL", cognitiveData };
-    if (/em contato|apresenta[çc][ãa]o agendada/.test(etapa)) return { maturity: "SAL", cognitiveData };
-    if (/proposta enviada|negocia[çc][ãa]o|fechamento/.test(etapa)) return { maturity: "SQL", cognitiveData };
-  }
-
-  if (/proposta|negocia|fechamento/.test(etapa)) return { maturity: "SQL", cognitiveData };
-  if (/em contato|apresenta/.test(etapa)) return { maturity: "SAL", cognitiveData };
-  if (/contato feito|sem contato|novo/.test(etapa)) return { maturity: "MQL", cognitiveData };
-
-  return { maturity: null, cognitiveData };
-}
+// ── LEAD MATURITY CLASSIFICATION — imported from ../shared/lia-sdr.ts ──
 
 // ── searchContentDirect: Busca direta + cache inteligente (agent_internal_lookups) ──
 const CONTENT_REQUEST_REGEX = /v[ií]deo|video|tutorial|assistir|watch|mostrar|documento|apostila|manual|artigo|publica[çc][ãa]o|material|conte[úu]do|explica[çc][ãa]o|tem algo sobre/i;
