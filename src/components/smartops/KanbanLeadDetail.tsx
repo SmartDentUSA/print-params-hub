@@ -278,6 +278,95 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
         </SheetHeader>
 
         <div className="mt-4 space-y-2">
+          {/* ===== RESUMO FINANCEIRO (hero card) ===== */}
+          {(n(lead, "ltv_total") != null && n(lead, "ltv_total")! > 0) || (n(lead, "proposals_total_value") != null && n(lead, "proposals_total_value")! > 0) || (n(lead, "intelligence_score_total") != null && n(lead, "intelligence_score_total")! > 0) ? (
+            <>
+              <div className="rounded-lg border bg-gradient-to-r from-primary/5 to-primary/10 p-3 space-y-2">
+                <h4 className="text-xs font-semibold uppercase text-muted-foreground">💎 Resumo Financeiro</h4>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-md bg-background p-2">
+                    <div className="text-lg font-bold text-primary">{n(lead, "ltv_total") ? formatCurrency(n(lead, "ltv_total")!) : "—"}</div>
+                    <div className="text-[10px] text-muted-foreground">LTV Total</div>
+                  </div>
+                  <div className="rounded-md bg-background p-2">
+                    <div className="text-lg font-bold">{n(lead, "total_deals") || 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Deals</div>
+                  </div>
+                  <div className="rounded-md bg-background p-2">
+                    <div className="text-lg font-bold">{n(lead, "intelligence_score_total") || lead.score || 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Score</div>
+                  </div>
+                </div>
+                {s(lead, "anchor_product") && (
+                  <div className="text-xs text-muted-foreground">🏷️ Produto âncora: <span className="font-medium text-foreground">{s(lead, "anchor_product")}</span></div>
+                )}
+                {n(lead, "proposals_total_value") != null && n(lead, "proposals_total_value")! > 0 && n(lead, "proposals_total_value") !== n(lead, "ltv_total") && (
+                  <div className="text-xs text-muted-foreground">📊 Propostas: <span className="font-medium text-foreground">{formatCurrency(n(lead, "proposals_total_value")!)}</span></div>
+                )}
+              </div>
+              <Separator />
+            </>
+          ) : null}
+
+          {/* ===== DEALS HISTORY (piperun_deals_history) ===== */}
+          {lead.piperun_deals_history && Array.isArray(lead.piperun_deals_history) && (lead.piperun_deals_history as Record<string, unknown>[]).length > 0 && (
+            <>
+              <Section title={`Histórico de Deals (${(lead.piperun_deals_history as Record<string, unknown>[]).length})`} emoji="📈" defaultOpen>
+                <div className="space-y-2">
+                  {(lead.piperun_deals_history as Record<string, unknown>[]).map((deal, i) => (
+                    <div key={i} className="rounded-md border p-2 text-xs space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">{String(deal.product || deal.title || `Deal #${i + 1}`)}</span>
+                        {deal.value != null && <span className="font-bold text-primary">{formatCurrency(Number(deal.value))}</span>}
+                      </div>
+                      <div className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+                        {deal.date && <span>📅 {fmtDate(String(deal.date))}</span>}
+                        {deal.owner_name && <span>👤 {String(deal.owner_name)}</span>}
+                        {deal.status && <Badge variant="outline" className="text-[9px] px-1 py-0">{String(deal.status)}</Badge>}
+                      </div>
+                      {deal.items && Array.isArray(deal.items) && (deal.items as Record<string, unknown>[]).length > 0 && (
+                        <div className="pl-2 border-l-2 border-primary/20 space-y-0.5 mt-1">
+                          {(deal.items as Record<string, unknown>[]).map((item, j) => (
+                            <div key={j} className="flex justify-between text-[10px]">
+                              <span>{String(item.name || item.product_name || '—')}</span>
+                              <span className="text-muted-foreground">x{Number(item.qty || item.quantity || 1)} · {item.total != null ? formatCurrency(Number(item.total)) : '—'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {deal.freight_type && (
+                        <div className="text-[10px] text-muted-foreground">🚚 {String(deal.freight_type)} {deal.value_freight != null ? `· ${formatCurrency(Number(deal.value_freight))}` : ''}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+              <Separator />
+            </>
+          )}
+
+          {/* ===== INTELLIGENCE SCORE ===== */}
+          {lead.intelligence_score && typeof lead.intelligence_score === 'object' && (
+            <>
+              <Section title="Intelligence Score" emoji="🎯">
+                {(() => {
+                  const is = lead.intelligence_score as Record<string, unknown>;
+                  return (
+                    <div className="space-y-1">
+                      <DetailRow label="Total" value={n(lead, "intelligence_score_total")?.toString()} emoji="📊" />
+                      {is.sales_heat != null && <DetailRow label="Sales Heat" value={`${Number(is.sales_heat).toFixed(1)}`} emoji="🔥" />}
+                      {is.technical_maturity != null && <DetailRow label="Tech Maturity" value={`${Number(is.technical_maturity).toFixed(1)}`} emoji="⚙️" />}
+                      {is.behavioral_engagement != null && <DetailRow label="Engagement" value={`${Number(is.behavioral_engagement).toFixed(1)}`} emoji="💬" />}
+                      {is.purchase_power != null && <DetailRow label="Purchase Power" value={`${Number(is.purchase_power).toFixed(1)}`} emoji="💰" />}
+                      {is.updated_at && <DetailRow label="Calculado em" value={fmtDateTime(String(is.updated_at))} />}
+                    </div>
+                  );
+                })()}
+              </Section>
+              <Separator />
+            </>
+          )}
+
           {/* ===== CONTATO (always open) ===== */}
           <Section title="Contato" emoji="📇" defaultOpen>
             <DetailRow label="Email" value={lead.email} emoji="📧" />
