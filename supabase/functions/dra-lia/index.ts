@@ -1606,20 +1606,7 @@ function streamTextResponse(text: string, corsHeaders: Record<string, string>, i
   return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
 }
 
-// Multilingual fallback messages — proactive handoff tone
-const FALLBACK_MESSAGES: Record<string, string> = {
-  "pt-BR": `Já entendi sua dúvida! 😊 Estou acionando um especialista do nosso time que vai te chamar no **WhatsApp** e explicar cada detalhe.
-
-Possui alguma outra dúvida que queria tirar?`,
-
-  "en-US": `Got it! 😊 I'm reaching out to a specialist from our team who will contact you on **WhatsApp** to explain everything in detail.
-
-Any other questions I can help with?`,
-
-  "es-ES": `¡Entendido! 😊 Estoy contactando a un especialista de nuestro equipo que te llamará por **WhatsApp** para explicarte cada detalle.
-
-¿Tienes alguna otra duda?`,
-};
+// ── FALLBACK_MESSAGES — imported from ../shared/lia-escalation.ts ──
 
 // Notify the seller about an unanswered question so they can follow up with the lead
 async function notifySellerHandoff(
