@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux } from "../_shared/sellflux-field-map.ts";
 import { logAIUsage } from "../_shared/log-ai-usage.ts";
+import { buildCommercialInstruction, determineLeadArchetype, ARCHETYPE_STRATEGIES, classifyLeadMaturity } from "../_shared/lia-sdr.ts";
+import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, FALLBACK_MESSAGES, type EscalationType } from "../_shared/lia-escalation.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
