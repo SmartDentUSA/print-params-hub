@@ -378,6 +378,40 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── Timeline: log lead ingestion event ───
+    const sourceLabel = source === "meta_lead_ads" ? "Entrada via Meta Ads"
+      : source === "sellflux_webhook" || (payload.utm_source || "").includes("sellflux") ? "Entrada via SellFlux"
+      : source === "formulario" || formName ? `Formulário: ${formName || source}`
+      : source === "loja_integrada" ? "Entrada via E-commerce"
+      : `Entrada: ${source}`;
+
+    const timelineEventType = source === "meta_lead_ads" ? "meta_ads_lead_entry"
+      : (payload.utm_source || "").includes("sellflux") ? "sellflux_lead_entry"
+      : formName ? "form_submission"
+      : "lead_ingested";
+
+    await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: timelineEventType,
+      entity_type: source === "meta_lead_ads" ? "meta_ads" : source === "loja_integrada" ? "ecommerce" : "form",
+      entity_id: payload.meta_leadgen_id || formName || source,
+      entity_name: sourceLabel,
+      event_data: {
+        label: sourceLabel,
+        form_name: formName,
+        source,
+        utm_source: payload.utm_source || null,
+        utm_campaign: payload.utm_campaign || null,
+        utm_medium: payload.utm_medium || null,
+        is_existing: !!existingLead,
+        fields_updated: fieldsUpdated.slice(0, 20),
+        produto_interesse: produtoInteresse || null,
+        pql_detected: detectedStage === "PQL_recompra",
+      },
+      source_channel: source,
+      event_timestamp: new Date().toISOString(),
+    });
+
     return new Response(JSON.stringify({
       success: true,
       lead_id: leadId,

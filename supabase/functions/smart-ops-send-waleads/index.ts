@@ -70,6 +70,24 @@ Deno.serve(async (req) => {
         error_details: result.success ? null : result.response,
       });
 
+      // Timeline: log SellFlux campaign send
+      if (lead_id && result.success) {
+        await supabase.from("lead_activity_log").insert({
+          lead_id,
+          event_type: "sellflux_campaign_sent",
+          entity_type: "sellflux",
+          entity_id: sellflux_template_id,
+          entity_name: `Campanha SellFlux: ${sellflux_template_id}`,
+          event_data: {
+            label: "Envio de campanha SellFlux",
+            template_id: sellflux_template_id,
+            test_mode,
+          },
+          source_channel: "sellflux",
+          event_timestamp: new Date().toISOString(),
+        });
+      }
+
       return new Response(JSON.stringify({
         success: result.success,
         provider: "sellflux",
