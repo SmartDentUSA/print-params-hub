@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const META_TOKEN = Deno.env.get("META_LEAD_ADS_TOKEN");
+    const META_TOKEN = Deno.env.get("META_ADS_INSIGHTS_TOKEN") || Deno.env.get("META_LEAD_ADS_TOKEN");
     if (!META_TOKEN) {
       return new Response(JSON.stringify({ error: "META_LEAD_ADS_TOKEN not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
