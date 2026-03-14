@@ -301,6 +301,7 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       setSellerMsgs([]);
       setLiaInteractions([]);
       setWhatsappMsgs([]);
+      setTimelineEvents([]);
       return;
     }
     setLoadingMsgs(true);
@@ -326,14 +327,44 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
       .order("created_at", { ascending: false })
       .limit(100);
 
-    Promise.all([p1, p2, p3]).then(([r1, r2, r3]) => {
+    const p4 = supabase
+      .from("lead_activity_log")
+      .select("id, event_type, event_timestamp, entity_type, entity_id, entity_name, event_data, source_channel, value_numeric")
+      .eq("lead_id", lead.id)
+      .order("event_timestamp", { ascending: false })
+      .limit(200);
+
+    Promise.all([p1, p2, p3, p4]).then(([r1, r2, r3, r4]) => {
       const logs = (r1.data || []) as MsgLog[];
       setSystemMsgs(logs.filter((l) => SYSTEM_TO_SELLER_TYPES.includes(l.tipo || "")));
       setSellerMsgs(logs.filter((l) => SELLER_TO_LEAD_TYPES.includes(l.tipo || "")));
       setLiaInteractions((r2.data || []) as AgentInteraction[]);
       setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
+      setTimelineEvents((r4.data || []) as TimelineEvent[]);
       setLoadingMsgs(false);
     });
+
+    // ─── Realtime subscription for new timeline events ───
+    const channel = supabase
+      .channel(`timeline-${lead.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "lead_activity_log",
+          filter: `lead_id=eq.${lead.id}`,
+        },
+        (payload) => {
+          const newEvent = payload.new as TimelineEvent;
+          setTimelineEvents((prev) => [newEvent, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [lead?.id, open]);
 
   if (!lead) return null;
