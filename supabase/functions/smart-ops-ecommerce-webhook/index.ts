@@ -426,18 +426,42 @@ Deno.serve(async (req) => {
 
     console.log(`[ecommerce-webhook] Parsed: event=${eventType} situacao=${situacaoId} resourceUri=${resourceUri}`);
 
-    // If we only got a resource_uri (minimal webhook), fetch full order from LI API
-    if (resourceUri && !order.cliente && !order.customer && LI_API_KEY) {
-      console.log("[ecommerce-webhook] Fetching full order from LI API...");
-      const fullOrder = await fetchOrderFromLI(resourceUri, LI_API_KEY, LI_APP_KEY || null);
+    // If we only got a resource_uri or minimal payload (no items), fetch full order from LI API
+    const hasItems = Array.isArray(order.itens) && order.itens.length > 0 || Array.isArray(order.items) && order.items.length > 0;
+    const needsFullFetch = !hasItems && LI_API_KEY;
+    const orderResourceUri = resourceUri || order.resource_uri as string | undefined;
+
+    if (needsFullFetch && orderResourceUri) {
+      console.log("[ecommerce-webhook] Order missing items, fetching full order from LI API...");
+      const fullOrder = await fetchOrderFromLI(orderResourceUri, LI_API_KEY, LI_APP_KEY || null);
       if (fullOrder) {
-        order = fullOrder;
+        // Merge full order data but keep existing cliente if already resolved
+        const existingCliente = order.cliente;
+        order = { ...order, ...fullOrder };
+        if (existingCliente && !fullOrder.cliente) order.cliente = existingCliente;
         // Re-check situação from full order
         if (fullOrder.situacao && typeof fullOrder.situacao === "object") {
           const resolved = resolveEventFromSituacao(fullOrder.situacao as Record<string, unknown>);
           eventType = resolved.eventType;
           situacaoId = resolved.situacaoId;
         }
+        console.log(`[ecommerce-webhook] Full order fetched: itens=${(fullOrder.itens || []).length} items`);
+      }
+    } else if (needsFullFetch && !orderResourceUri && order.numero) {
+      // Build resource URI from order number
+      const builtUri = `/api/v1/pedido/${order.numero}/`;
+      console.log(`[ecommerce-webhook] Building resource URI from numero: ${builtUri}`);
+      const fullOrder = await fetchOrderFromLI(builtUri, LI_API_KEY, LI_APP_KEY || null);
+      if (fullOrder) {
+        const existingCliente = order.cliente;
+        order = { ...order, ...fullOrder };
+        if (existingCliente && !fullOrder.cliente) order.cliente = existingCliente;
+        if (fullOrder.situacao && typeof fullOrder.situacao === "object") {
+          const resolved = resolveEventFromSituacao(fullOrder.situacao as Record<string, unknown>);
+          eventType = resolved.eventType;
+          situacaoId = resolved.situacaoId;
+        }
+        console.log(`[ecommerce-webhook] Full order fetched via numero: itens=${(fullOrder.itens || []).length} items`);
       }
     }
 
