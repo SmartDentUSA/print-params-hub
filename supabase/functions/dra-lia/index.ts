@@ -3794,6 +3794,56 @@ REGRAS:
               profileFields.push(`Login Astron: ${attendance.astron_login_url}`);
             }
           }
+          // Financial & deal history context
+          if (attendance?.ltv_total && Number(attendance.ltv_total) > 0) profileFields.push(`💰 LTV: R$ ${Number(attendance.ltv_total).toLocaleString("pt-BR")}`);
+          if (attendance?.total_deals && Number(attendance.total_deals) > 0) profileFields.push(`📊 Deals: ${attendance.total_deals}`);
+          if (attendance?.anchor_product) profileFields.push(`🏷️ Produto âncora: ${attendance.anchor_product}`);
+          if (attendance?.intelligence_score && Number(attendance.intelligence_score) > 0) profileFields.push(`🧠 Intelligence Score: ${attendance.intelligence_score}`);
+          if (attendance?.proposals_total_value && Number(attendance.proposals_total_value) > 0) profileFields.push(`📋 Propostas: R$ ${Number(attendance.proposals_total_value).toLocaleString("pt-BR")}`);
+          if (attendance?.lead_status) profileFields.push(`📌 Status: ${attendance.lead_status}`);
+          // Deal history summary
+          const dealsHistory = attendance?.piperun_deals_history as Array<Record<string, unknown>> | null;
+          if (dealsHistory && dealsHistory.length > 0) {
+            const recentDeals = dealsHistory.slice(0, 3).map((d: Record<string, unknown>) => `${d.product || "Deal"} R$${d.value || 0} (${d.status || "?"})`).join("; ");
+            profileFields.push(`🤝 Últimos deals: ${recentDeals}`);
+          }
+          // E-commerce history summary
+          const ecomHistory = attendance?.lojaintegrada_historico_pedidos as Array<Record<string, unknown>> | null;
+          if (ecomHistory && ecomHistory.length > 0) {
+            profileFields.push(`🛒 Pedidos e-commerce: ${ecomHistory.length}`);
+            const lastOrder = ecomHistory[0];
+            if (lastOrder) profileFields.push(`Último pedido: R$${lastOrder.valor || lastOrder.total || "?"} (${lastOrder.status || "?"})`);
+          }
+          // Tags CRM
+          const crmTags = attendance?.tags_crm as string[] | null;
+          if (crmTags && crmTags.length > 0) {
+            const relevantTags = crmTags.filter(t => !t.startsWith("LIA_") && !t.startsWith("A_")).slice(0, 5);
+            if (relevantTags.length > 0) profileFields.push(`🏷️ Tags: ${relevantTags.join(", ")}`);
+          }
+
+          // ── Fetch recent timeline events from lead_activity_log ──
+          let timelineContext = "";
+          if (attendance?.id) {
+            try {
+              const { data: timelineEvents } = await supabase
+                .from("lead_activity_log")
+                .select("event_type, event_data, source_channel, event_timestamp, value_numeric")
+                .eq("lead_id", attendance.id)
+                .order("event_timestamp", { ascending: false })
+                .limit(10);
+              if (timelineEvents && timelineEvents.length > 0) {
+                timelineContext = "\n📅 TIMELINE RECENTE:\n" + timelineEvents.map((ev: Record<string, unknown>) => {
+                  const ts = ev.event_timestamp ? new Date(ev.event_timestamp as string).toLocaleDateString("pt-BR") : "";
+                  const val = ev.value_numeric ? ` R$${Number(ev.value_numeric).toLocaleString("pt-BR")}` : "";
+                  const data = ev.event_data as Record<string, unknown> | null;
+                  const detail = data?.status || data?.etapa || "";
+                  return `[${ts}] ${ev.event_type}${val}${detail ? ` (${detail})` : ""} via ${ev.source_channel || "sistema"}`;
+                }).join("\n");
+              }
+            } catch (tlErr) {
+              console.warn("[lead-collection] Timeline fetch error (non-blocking):", tlErr);
+            }
+          }
 
           // Determine lead archetype for strategy
           const leadArchetype = determineLeadArchetype(attendance);
