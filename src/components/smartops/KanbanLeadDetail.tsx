@@ -201,11 +201,98 @@ interface WhatsAppMsg {
   media_type: string | null;
 }
 
+interface TimelineEvent {
+  id: string;
+  event_type: string;
+  event_timestamp: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  entity_name: string | null;
+  event_data: Record<string, unknown>;
+  source_channel: string | null;
+  value_numeric: number | null;
+}
+
+const TIMELINE_EMOJI: Record<string, string> = {
+  crm_deal_created: "🆕",
+  crm_deal_updated: "🔄",
+  crm_deal_won: "✅",
+  crm_deal_lost: "❌",
+  ecommerce_order_created: "🛒",
+  ecommerce_order_paid: "💳",
+  ecommerce_order_cancelled: "🚫",
+  ecommerce_order_invoiced: "📦",
+  ecommerce_order_delivered: "🚚",
+  ecommerce_boleto_generated: "🏦",
+  ecommerce_boleto_expired: "⏰",
+  lia_conversation: "💬",
+  whatsapp_inbound: "📱",
+  whatsapp_outbound: "📤",
+  form_submission: "📝",
+  sellflux_sync: "🔗",
+  astron_enrollment: "🎓",
+  cognitive_analysis: "🧠",
+};
+
+const TIMELINE_LABEL: Record<string, string> = {
+  crm_deal_created: "Deal criado no CRM",
+  crm_deal_updated: "Deal atualizado",
+  crm_deal_won: "Deal ganho 🎉",
+  crm_deal_lost: "Deal perdido",
+  ecommerce_order_created: "Pedido criado",
+  ecommerce_order_paid: "Pagamento aprovado",
+  ecommerce_order_cancelled: "Pedido cancelado",
+  ecommerce_order_invoiced: "Pedido enviado",
+  ecommerce_order_delivered: "Pedido entregue",
+  ecommerce_boleto_generated: "Boleto gerado",
+  ecommerce_boleto_expired: "Boleto vencido",
+};
+
+function TimelineItem({ event }: { event: TimelineEvent }) {
+  const emoji = TIMELINE_EMOJI[event.event_type] || "📌";
+  const label = TIMELINE_LABEL[event.event_type] || event.event_type.replace(/_/g, " ");
+  const data = event.event_data || {};
+  const isNew = Date.now() - new Date(event.event_timestamp).getTime() < 60_000;
+
+  return (
+    <div className={`relative pl-6 pb-3 border-l-2 ${isNew ? "border-primary animate-pulse" : "border-muted-foreground/20"}`}>
+      <div className={`absolute -left-2.5 top-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${isNew ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+        {emoji}
+      </div>
+      <div className="text-[10px] text-muted-foreground">
+        {new Date(event.event_timestamp).toLocaleString("pt-BR")}
+        {event.source_channel && (
+          <Badge variant="outline" className="ml-1 text-[8px] px-1 py-0">{event.source_channel}</Badge>
+        )}
+      </div>
+      <div className="text-xs font-medium">{label}</div>
+      {event.entity_name && (
+        <div className="text-[10px] text-muted-foreground truncate">{event.entity_name}</div>
+      )}
+      {event.value_numeric != null && event.value_numeric > 0 && (
+        <Badge variant="secondary" className="text-[9px] px-1 py-0 mt-0.5">
+          {formatCurrency(event.value_numeric)}
+        </Badge>
+      )}
+      {data.stage && (
+        <div className="text-[10px] text-muted-foreground">Etapa: {String(data.stage)}</div>
+      )}
+      {data.owner && (
+        <div className="text-[10px] text-muted-foreground">👤 {String(data.owner)}</div>
+      )}
+      {data.produtos && Array.isArray(data.produtos) && data.produtos.length > 0 && (
+        <div className="text-[10px] text-muted-foreground">🏷️ {(data.produtos as string[]).join(", ")}</div>
+      )}
+    </div>
+  );
+}
+
 export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps) {
   const [systemMsgs, setSystemMsgs] = useState<MsgLog[]>([]);
   const [sellerMsgs, setSellerMsgs] = useState<MsgLog[]>([]);
   const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
 
   useEffect(() => {
