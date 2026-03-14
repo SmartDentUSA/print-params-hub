@@ -150,6 +150,38 @@ Deno.serve(async (req) => {
           const ingestResult = await ingestRes.json();
           console.log("[meta-webhook] ingest-lead result:", JSON.stringify(ingestResult));
 
+          // --- Insert lead_form_submissions if keywords detected ---
+          if (metaFormDetected && ingestResult.lead_id) {
+            const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+            const equipKeywords = ['impressora', 'scanner', 'cadcam', 'wash', 'cure'];
+            const equipMentioned = metaUniqueMatches.filter(m => equipKeywords.some(e => m.includes(e)));
+            const productMentioned = metaUniqueMatches.filter(m => !equipKeywords.some(e => m.includes(e)));
+
+            await supabase.from('lead_form_submissions').insert({
+              lead_id: ingestResult.lead_id,
+              form_type: 'meta_lead_ads',
+              form_id: formId || null,
+              form_data: fieldData,
+              message: leadData.form_name || null,
+              equipment_mentioned: equipMentioned.length > 0 ? equipMentioned.join(', ') : null,
+              product_mentioned: productMentioned.length > 0 ? productMentioned.join(', ') : null,
+              submitted_at: new Date().toISOString(),
+              status: 'new',
+            });
+
+            await supabase.from('lead_activity_log').insert({
+              lead_id: ingestResult.lead_id,
+              event_type: 'form_submission_detected',
+              entity_type: 'form',
+              entity_name: `Meta Lead Ad: ${leadData.form_name || formId || 'unknown'}`,
+              event_data: { source: 'meta', keywords: metaUniqueMatches, form_id: formId },
+              source_channel: 'meta',
+              event_timestamp: new Date().toISOString(),
+            });
+
+            console.log('[meta-webhook] Form submission detected, keywords:', metaUniqueMatches);
+          }
+
           results.push({
             leadgen_id: leadgenId,
             status: ingestResult.success ? "ok" : "ingest_error",
