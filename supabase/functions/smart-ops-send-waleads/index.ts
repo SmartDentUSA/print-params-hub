@@ -177,6 +177,29 @@ Deno.serve(async (req) => {
         direction: "outbound",
         lead_id: lead_id || null,
       });
+
+      // Timeline: log WhatsApp campaign send
+      if (lead_id) {
+        await supabase.from("lead_activity_log").insert({
+          lead_id,
+          event_type: sellflux_template_id ? "sellflux_campaign_sent" : "whatsapp_message_sent",
+          entity_type: "whatsapp",
+          entity_id: member.id,
+          entity_name: sellflux_template_id
+            ? `Campanha SellFlux: ${sellflux_template_id}`
+            : `WhatsApp via ${member.nome_completo}`,
+          event_data: {
+            label: sellflux_template_id ? "Envio de campanha SellFlux" : "Mensagem WhatsApp enviada",
+            provider: sellflux_template_id ? "sellflux" : "waleads",
+            tipo,
+            seller: member.nome_completo,
+            message_preview: (finalMessage || finalCaption || "").slice(0, 100),
+            template_id: sellflux_template_id || null,
+          },
+          source_channel: sellflux_template_id ? "sellflux" : "waleads",
+          event_timestamp: new Date().toISOString(),
+        });
+      }
     }
 
     return new Response(JSON.stringify({
