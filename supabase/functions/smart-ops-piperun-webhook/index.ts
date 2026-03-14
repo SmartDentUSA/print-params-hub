@@ -912,6 +912,31 @@ Deno.serve(async (req) => {
       error_details: errorDetails,
     });
 
+    // ─── Record timeline event in lead_activity_log (append-only) ───
+    const timelineEventType = isWon ? "crm_deal_won" : isLost ? "crm_deal_lost" : isNewLead ? "crm_deal_created" : "crm_deal_updated";
+    await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: timelineEventType,
+      entity_type: "deal",
+      entity_id: dealId ? String(dealId) : null,
+      entity_name: ids.pipelineName || ids.stageName || null,
+      event_data: {
+        deal_id: dealId,
+        pipeline: ids.pipelineName,
+        stage: ids.stageName,
+        owner: ids.ownerName,
+        value: deal.value != null ? Number(deal.value) : null,
+        status: currentDealStatus,
+        tags_added: journeyTagsAdded,
+        is_new: isNewLead,
+        fonte: "piperun",
+      },
+      source_channel: "crm",
+      value_numeric: deal.value != null ? Number(deal.value) : null,
+    }).then(({ error }) => {
+      if (error) console.warn("[piperun-webhook] timeline insert error:", error.message);
+    });
+
     // ─── Post-update Consolidation Verification (inline, no AI cost) ───
     try {
       const { data: check } = await supabase

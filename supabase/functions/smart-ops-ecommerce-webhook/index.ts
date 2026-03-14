@@ -339,8 +339,8 @@ function enrichWithOrderHistory(
   const dataPrimeiraCompra = dates[0] || null;
   const dataUltimaCompra = dates[dates.length - 1] || null;
 
-  // Build summary of last 10 orders (all orders, not just paid)
-  const historicoPedidos = orders.slice(0, 10).map((o) => {
+  // Build full order list (append-only, dedup by numero)
+  const allOrderSnapshots = orders.map((o) => {
     const codigo = resolveSituacaoCodigo(o.situacao);
     return {
       numero: o.numero || o.id,
@@ -353,7 +353,8 @@ function enrichWithOrderHistory(
   const extraUpdateData: Record<string, unknown> = {
     lojaintegrada_ltv: ltv || null,
     lojaintegrada_total_pedidos_pagos: totalPedidosPagos || null,
-    lojaintegrada_historico_pedidos: historicoPedidos,
+    // Append-only: will be merged with existing history in upsert logic
+    lojaintegrada_historico_pedidos: allOrderSnapshots,
   };
   if (dataPrimeiraCompra) extraUpdateData.lojaintegrada_primeira_compra = dataPrimeiraCompra;
 
@@ -581,7 +582,7 @@ Deno.serve(async (req) => {
     // ─── Upsert lead in lia_attendances ───
     const { data: existingLead } = await supabase
       .from("lia_attendances")
-      .select("id, tags_crm, lead_status, telefone_normalized, pessoa_cpf")
+      .select("id, tags_crm, lead_status, telefone_normalized, pessoa_cpf, lojaintegrada_historico_pedidos")
       .eq("email", email)
       .single();
 
@@ -589,6 +590,28 @@ Deno.serve(async (req) => {
 
     if (existingLead) {
       const newTags = mergeTagsCrm(existingLead.tags_crm, tagsToAdd);
+
+      // ─── Merge historico_pedidos incrementally (append + dedup by numero) ───
+      if (enrichmentData.lojaintegrada_historico_pedidos && Array.isArray(enrichmentData.lojaintegrada_historico_pedidos)) {
+        const existingHistory = Array.isArray(existingLead.lojaintegrada_historico_pedidos) 
+          ? existingLead.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>
+          : [];
+        const newHistory = enrichmentData.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>;
+        const seen = new Set(existingHistory.map((h) => String(h.numero)));
+        const merged = [...existingHistory];
+        for (const h of newHistory) {
+          if (!seen.has(String(h.numero))) {
+            merged.push(h);
+            seen.add(String(h.numero));
+          } else {
+            // Update existing entry with latest status
+            const idx = merged.findIndex((m) => String(m.numero) === String(h.numero));
+            if (idx !== -1) merged[idx] = h;
+          }
+        }
+        enrichmentData.lojaintegrada_historico_pedidos = merged;
+      }
+
       const updateData: Record<string, unknown> = { tags_crm: newTags, ...enrichmentData };
 
       if (eventType === "order_paid") {
@@ -716,6 +739,27 @@ Deno.serve(async (req) => {
       tipo: `ecommerce_${eventType}`,
       mensagem_preview: `[E-commerce] ${eventType}: ${nome} (${email}) pedido=${numeroPedido || "?"}`.slice(0, 200),
       status: "recebido",
+    });
+
+    // ─── Record timeline event in lead_activity_log (append-only) ───
+    await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: `ecommerce_${eventType}`,
+      entity_type: "order",
+      entity_id: numeroPedido ? String(numeroPedido) : null,
+      entity_name: productNames.length > 0 ? productNames.join(", ").slice(0, 200) : null,
+      event_data: {
+        pedido: numeroPedido,
+        valor: valorTotal,
+        status: liPedidoStatus,
+        produtos: productNames,
+        tags_added: tagsToAdd,
+        fonte: "loja_integrada",
+      },
+      source_channel: "ecommerce",
+      value_numeric: valorTotal,
+    }).then(({ error }) => {
+      if (error) console.warn("[ecommerce-webhook] timeline insert error:", error.message);
     });
 
     return new Response(
