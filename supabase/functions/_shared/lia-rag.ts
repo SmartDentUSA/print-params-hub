@@ -1,0 +1,445 @@
+/**
+ * LIA RAG Pipeline — search functions for knowledge base, catalog, protocols,
+ * parameters, articles, authors, company KB, and content direct search.
+ */
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { STOPWORDS_PT } from "./lia-guards.ts";
+
+type SupabaseClient = ReturnType<typeof createClient>;
+
+// ── Topic context re-ranking weights ──
+export const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
+  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.9, video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4, faq_autoheal: 0.8 },
+  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.3, video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6, faq_autoheal: 1.1 },
+  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 1.2, video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0, faq_autoheal: 1.0 },
+  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3, video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5, faq_autoheal: 1.2 },
+};
+
+export function applyTopicWeights<T extends { source_type: string; similarity: number }>(
+  results: T[],
+  topicContext: string | undefined | null
+): T[] {
+  if (!topicContext || !TOPIC_WEIGHTS[topicContext]) return results;
+  const weights = TOPIC_WEIGHTS[topicContext];
+  return results
+    .map(r => ({ ...r, similarity: Math.min(r.similarity * (weights[r.source_type] ?? 1.0), 1.0) }))
+    .sort((a, b) => b.similarity - a.similarity);
+}
+
+// ── ILIKE search on knowledge_contents ──
+export async function searchByILIKE(supabase: SupabaseClient, query: string, siteBaseUrl: string) {
+  const words = query.toLowerCase().replace(/[?!.,;:]/g, '').split(/\s+/).filter((w) => w.length >= 3 && !STOPWORDS_PT.includes(w)).slice(0, 6);
+  if (!words.length) return [];
+  const orFilter = words.map((w) => `title.ilike.%${w}%,excerpt.ilike.%${w}%,ai_context.ilike.%${w}%`).join(',');
+  const { data } = await supabase.from('knowledge_contents').select('id, title, slug, excerpt, ai_context, category_id, knowledge_categories:knowledge_categories(letter)').eq('active', true).or(orFilter).limit(20);
+  const sorted = (data || []).sort((a: { title: string }, b: { title: string }) => {
+    const scoreA = words.filter(w => a.title.toLowerCase().includes(w)).length;
+    const scoreB = words.filter(w => b.title.toLowerCase().includes(w)).length;
+    return scoreB - scoreA;
+  });
+  return sorted.slice(0, 5).map((a: { id: string; title: string; slug: string; excerpt: string; ai_context: string | null; knowledge_categories: { letter: string } | null }) => {
+    const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+    const matchedWords = words.filter(w => a.title.toLowerCase().includes(w)).length;
+    const similarityScore = words.length > 0 ? (matchedWords / words.length) * 0.4 + 0.1 : 0.15;
+    return {
+      id: a.id, source_type: 'article',
+      chunk_text: `${a.title} | ${a.excerpt}${a.ai_context ? ' | ' + a.ai_context : ''}`,
+      metadata: { title: a.title, slug: a.slug, category_letter: letter, url_publica: letter ? `${siteBaseUrl}/base-conhecimento/${letter}/${a.slug}` : null },
+      similarity: similarityScore,
+    };
+  });
+}
+
+// ── Company KB text search ──
+export async function searchCompanyKB(supabase: SupabaseClient, query: string, history: Array<{ role: string; content: string }>) {
+  const combinedText = `${history.slice(-4).map(h => h.content).join(' ')} ${query}`;
+  const words = combinedText.toLowerCase().replace(/[?!.,;:™]/g, '').split(/\s+/).filter(w => w.length >= 3 && !STOPWORDS_PT.includes(w)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 6);
+  if (!words.length) return [];
+  const orFilter = words.map(w => `title.ilike.%${w}%,content.ilike.%${w}%`).join(',');
+  const { data } = await supabase.from('company_kb_texts').select('id, title, content, category, source_label').eq('active', true).or(orFilter).limit(3);
+  if (!data?.length) return [];
+  return data.map((d: { id: string; title: string; content: string; category: string; source_label: string | null }) => ({
+    id: d.id, source_type: 'company_kb',
+    chunk_text: `${d.title} | ${d.content.slice(0, 800)}`,
+    metadata: { title: d.title, source_label: d.source_label },
+    similarity: (() => {
+      const titleWords = d.title.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+      const queryWords = query.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+      const matchCount = titleWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+      return matchCount > 0 ? Math.min(matchCount / Math.max(titleWords.length, 1) * 0.4 + 0.3, 0.75) : 0.30;
+    })(),
+  }));
+}
+
+// ── Content Direct Search (with cache) ──
+export const CONTENT_REQUEST_REGEX = /v[ií]deo|video|tutorial|assistir|watch|mostrar|documento|apostila|manual|artigo|publica[çc][ãa]o|material|conte[úu]do|explica[çc][ãa]o|tem algo sobre/i;
+
+export async function searchContentDirect(
+  supabaseClient: SupabaseClient,
+  userMessage: string,
+  siteBaseUrl: string,
+  sessionId?: string,
+  leadId?: string | null
+) {
+  const results: Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }> = [];
+  const queryNormalized = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").trim().split(/\s+/).filter(w => w.length > 2 && !STOPWORDS_PT.includes(w)).slice(0, 8).join(" ");
+  if (!queryNormalized || queryNormalized.length < 3) return results;
+
+  // Cache check
+  try {
+    const { data: cached } = await supabaseClient.from("agent_internal_lookups").select("id, results_json, results_count, hit_count, last_hit_at").eq("query_normalized", queryNormalized).gte("last_hit_at", new Date(Date.now() - 30 * 86400000).toISOString()).maybeSingle();
+    if (cached && cached.results_count > 0) {
+      supabaseClient.rpc("increment_lookup_hit", { lookup_id: cached.id }).then(() => {});
+      return (cached.results_json as typeof results) || [];
+    }
+  } catch { /* continue */ }
+
+  const searchTerms = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5);
+  const searchPattern = `%${searchTerms.join("%")}%`;
+
+  // Videos (FTS)
+  try {
+    const tsQuery = searchTerms.join(" & ");
+    if (tsQuery) {
+      const { data: videos } = await supabaseClient.from("knowledge_videos").select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags").textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" }).limit(5);
+      if (videos) for (const v of videos) {
+        const videoUrl = v.content_id ? `${siteBaseUrl}/base-de-conhecimento/${v.content_id}` : v.url || v.embed_url;
+        results.push({ source_type: "video", similarity: 0.75, chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`, metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url_interna: videoUrl, embed_url: v.embed_url, panda_tags: v.panda_tags } });
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Articles (ILIKE)
+  try {
+    const { data: articles } = await supabaseClient.from("knowledge_contents").select("id, title, excerpt, slug, category_id").eq("active", true).or(`title.ilike.${searchPattern},excerpt.ilike.${searchPattern}`).limit(5);
+    if (articles) for (const a of articles) {
+      results.push({ source_type: "article", similarity: 0.70, chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`, metadata: { title: a.title, slug: a.slug, url_publica: `${siteBaseUrl}/base-de-conhecimento/${a.slug}` } });
+    }
+  } catch { /* ignore */ }
+
+  // Documents (ILIKE)
+  try {
+    const { data: docs } = await supabaseClient.from("catalog_documents").select("id, document_name, document_description, file_url, document_category").eq("active", true).or(`document_name.ilike.${searchPattern},document_description.ilike.${searchPattern}`).limit(5);
+    if (docs) for (const d of docs) {
+      results.push({ source_type: "article", similarity: 0.65, chunk_text: `[DOCUMENTO] ${d.document_name}${d.document_description ? ` — ${d.document_description.slice(0, 200)}` : ""}`, metadata: { title: d.document_name, category: d.document_category, url_publica: d.file_url } });
+    }
+  } catch { /* ignore */ }
+
+  // Resins (ILIKE)
+  try {
+    const { data: resins } = await supabaseClient.from("resins").select("id, name, slug, clinical_indication, biocompatibility_class").ilike("name", searchPattern).limit(3);
+    if (resins) for (const r of resins) {
+      results.push({ source_type: "resin", similarity: 0.70, chunk_text: `Resina ${r.name} — Indicação: ${r.clinical_indication || "uso geral"}. Biocompatibilidade: ${r.biocompatibility_class || "N/A"}`, metadata: { title: r.name, slug: r.slug, url_publica: `${siteBaseUrl}/resinas/${r.slug}` } });
+    }
+  } catch { /* ignore */ }
+
+  // Cache upsert
+  const resultTypes = [...new Set(results.map(r => r.source_type))];
+  supabaseClient.from("agent_internal_lookups").upsert({ query_normalized: queryNormalized, query_original: userMessage, source_function: "dra-lia", results_json: results, results_count: results.length, result_types: resultTypes, hit_count: 1, last_hit_at: new Date().toISOString(), session_id: sessionId || null, lead_id: leadId || null }, { onConflict: "query_normalized" }).then(() => {});
+  return results;
+}
+
+// ── Catalog Products Search ──
+const PRODUCT_INTEREST_KEYWORDS = [
+  /impressora|printer|impresora/i, /scanner|escaner/i, /equipamento|equipment|equipo/i,
+  /op[çc][õo]es|opcoes|options|opciones/i, /quais (vocês )?t[eê]m|o que (vocês )?t[eê]m/i,
+  /quero (comprar|ver|conhecer|saber)/i, /cat[áa]logo|catalog/i,
+  /combo|kit|solu[çc][ãa]o|chairside|chair side/i, /p[óo]s.?impress[ãa]o|post.?print|lavadora|cura uv/i,
+];
+
+export async function searchCatalogProducts(supabase: SupabaseClient, message: string, history: Array<{ role: string; content: string }>, siteBaseUrl: string) {
+  const combinedText = `${history.slice(-6).map(h => h.content).join(' ')} ${message}`.toLowerCase();
+  if (!PRODUCT_INTEREST_KEYWORDS.some(p => p.test(combinedText))) return [];
+
+  const categories: string[] = [];
+  if (/impressora|printer|impresora|imprimir|imprim/i.test(combinedText)) categories.push('IMPRESSÃO 3D');
+  if (/scanner|escaner|escanear|escaneamento|intraoral/i.test(combinedText)) categories.push('SCANNERS 3D');
+  if (/p[óo]s.?impress|lavadora|cura uv|limpeza|post.?print/i.test(combinedText)) categories.push('PÓS-IMPRESSÃO');
+  if (/combo|kit|solu[çc]|chairside|chair side|fluxo completo/i.test(combinedText)) categories.push('SOLUÇÔES');
+
+  let query = supabase.from('system_a_catalog').select('id, name, description, product_category, product_subcategory, cta_1_url, cta_1_label, slug, price, promo_price, extra_data').eq('active', true).eq('approved', true);
+  if (categories.length > 0) query = query.in('product_category', categories);
+  const { data, error } = await query.limit(20);
+  if (error || !data?.length) return [];
+
+  const scored = data.map((p: { id: string; name: string; description: string | null; product_category: string | null; product_subcategory: string | null; cta_1_url: string | null; slug: string | null; price: number | null; promo_price: number | null; extra_data: Record<string, unknown> | null }) => {
+    const nameWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+    const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
+    const nameMatchCount = nameWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+    const similarity = nameWords.length > 0 ? (nameMatchCount / nameWords.length) * 0.6 + 0.3 : 0.3;
+
+    const extra = (p.extra_data || {}) as Record<string, unknown>;
+    const clinicalBrain = extra.clinical_brain as Record<string, unknown> | undefined;
+    const technicalSpecs = extra.technical_specs as Record<string, unknown> | undefined;
+    const salesPitch = (extra.sales_pitch as string) || '';
+
+    let chunkText = `PRODUTO DO CATÁLOGO: ${p.name}${p.product_category ? ` | Categoria: ${p.product_category}` : ''}${p.product_subcategory ? ` | Sub: ${p.product_subcategory}` : ''}${p.description ? ` | ${p.description.slice(0, 300)}` : ''}${p.price ? ` | Preço: R$ ${p.price}` : ''}${p.promo_price ? ` | Promo: R$ ${p.promo_price}` : ''}${salesPitch ? ` | ARGUMENTO COMERCIAL: ${salesPitch.slice(0, 400)}` : ''}`;
+    if (clinicalBrain) {
+      const mandatory = (clinicalBrain.mandatory_products as string[]) || [];
+      const prohibited = (clinicalBrain.prohibited_products as string[]) || [];
+      const rules = (clinicalBrain.anti_hallucination_rules as string[]) || [];
+      if (mandatory.length) chunkText += ` | OBRIGATÓRIO CITAR: ${mandatory.join(', ')}`;
+      if (prohibited.length) chunkText += ` | PROIBIDO CITAR: ${prohibited.join(', ')}`;
+      if (rules.length) chunkText += ` | REGRAS: ${rules.join('; ')}`;
+    }
+    if (technicalSpecs) chunkText += ` | SPECS: ${JSON.stringify(technicalSpecs).slice(0, 400)}`;
+
+    return { id: p.id, source_type: 'catalog_product', chunk_text: chunkText, metadata: { title: p.name, slug: p.slug, url_publica: p.slug ? `${siteBaseUrl}/produtos/${p.slug}` : null, cta_1_url: p.cta_1_url }, similarity, nameMatchCount };
+  });
+
+  scored.sort((a: { nameMatchCount: number; similarity: number }, b: { nameMatchCount: number; similarity: number }) => b.nameMatchCount - a.nameMatchCount || b.similarity - a.similarity);
+  return scored.slice(0, 5).map(({ nameMatchCount: _, ...rest }: { nameMatchCount: number; [key: string]: unknown }) => rest);
+}
+
+// ── Processing Instructions Search ──
+export async function searchProcessingInstructions(supabase: SupabaseClient, message: string, history: Array<{ role: string; content: string }>, siteBaseUrl: string) {
+  const { data: resins, error } = await supabase.from("resins").select("id, name, manufacturer, slug, processing_instructions, cta_1_url, cta_1_label").eq("active", true).not("processing_instructions", "is", null);
+  if (error || !resins?.length) return [];
+
+  const combinedText = `${history.slice(-8).map(h => h.content).join(' ')} ${message}`.toLowerCase();
+  const words = combinedText.split(/\s+/).filter(w => w.length > 3);
+
+  const scored = resins.map((r: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null }) => {
+    const text = `${r.name} ${r.manufacturer}`.toLowerCase();
+    const score = words.filter(w => text.includes(w)).length;
+    return { resin: r, score };
+  }).sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+
+  const matched = scored.filter((x: { score: number }) => x.score > 0);
+  if (matched.length === 0) return [];
+
+  return matched.slice(0, 3).map(({ resin: r }: { resin: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null } }) => ({
+    id: r.id, source_type: "processing_protocol",
+    chunk_text: `${r.name} (${r.manufacturer}) — Instruções de Pré e Pós Processamento:\n${r.processing_instructions}`,
+    metadata: { title: `Protocolo de Processamento: ${r.name}`, resin_name: r.name, cta_1_url: r.cta_1_url, url_publica: r.slug ? `${siteBaseUrl}/resina/${r.slug}` : null },
+    similarity: (() => {
+      const resinWords = `${r.name} ${r.manufacturer}`.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+      const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length > 3);
+      const matchedCount = resinWords.filter((w: string) => queryWords.some((q: string) => q.includes(w) || w.includes(q))).length;
+      return matchedCount > 0 ? Math.min(matchedCount / Math.max(resinWords.length, 1) * 0.5 + 0.5, 0.95) : 0.40;
+    })(),
+  }));
+}
+
+// ── Parameter Sets Search ──
+export async function searchParameterSets(supabase: SupabaseClient, message: string, history: Array<{ role: string; content: string }>, siteBaseUrl: string) {
+  const combinedText = `${history.slice(-8).map(h => h.content).join(" ")} ${message}`.toLowerCase();
+  const { data: brands } = await supabase.from("brands").select("id, slug, name").eq("active", true);
+  if (!brands?.length) return [];
+
+  const mentionedBrands = (brands as Array<{ id: string; slug: string; name: string }>).filter(b => combinedText.includes(b.name.toLowerCase()) || combinedText.includes(b.slug.replace(/-/g, " ")));
+  if (!mentionedBrands.length) return [];
+
+  const paramResults: Array<{ id: string; source_type: string; chunk_text: string; metadata: Record<string, unknown>; similarity: number }> = [];
+
+  for (const brand of mentionedBrands.slice(0, 2)) {
+    const { data: models } = await supabase.from("models").select("slug, name").eq("brand_id", brand.id).eq("active", true);
+    if (!models?.length) continue;
+    const mentionedModels = (models as Array<{ slug: string; name: string }>).filter(m => {
+      const nameWords = m.name.toLowerCase().split(/\s+/).filter(w => w.length >= 2);
+      const matches = nameWords.filter(w => combinedText.includes(w)).length;
+      return matches >= 1 && matches >= Math.ceil(nameWords.length * 0.5);
+    });
+
+    for (const model of mentionedModels.slice(0, 2)) {
+      const { data: params } = await supabase.from("parameter_sets").select("id, resin_name, layer_height, cure_time, light_intensity, bottom_layers, bottom_cure_time, lift_speed, lift_distance, retract_speed, notes").eq("brand_slug", brand.slug).eq("model_slug", model.slug).eq("active", true).limit(15);
+      if (!params?.length) continue;
+
+      type ParamRow = { id: string; resin_name: string; layer_height: number; cure_time: number; light_intensity: number; bottom_layers: number | null; bottom_cure_time: number | null; lift_speed: number | null; lift_distance: number | null; retract_speed: number | null; notes: string | null };
+      const typedParams = params as ParamRow[];
+      const resinMatched = typedParams.find(p => p.resin_name.toLowerCase().split(/\s+/).filter(w => w.length >= 4).some(w => combinedText.includes(w)));
+      const targetParams = resinMatched ? typedParams.filter(p => resinMatched.resin_name.toLowerCase().split(/\s+/).filter(w => w.length >= 4).some(w => p.resin_name.toLowerCase().includes(w))) : typedParams.slice(0, 5);
+
+      for (const p of targetParams.slice(0, 5)) {
+        const lines = [
+          `Parâmetros de impressão confirmados: ${brand.name} ${model.name} + ${p.resin_name}`,
+          `• Altura de camada: ${p.layer_height}mm`, `• Tempo de cura: ${p.cure_time}s`, `• Intensidade de luz: ${p.light_intensity}%`,
+          p.bottom_layers != null ? `• Camadas iniciais: ${p.bottom_layers} x ${p.bottom_cure_time}s` : "",
+          p.lift_speed != null ? `• Lift speed: ${p.lift_speed}mm/min | Lift distance: ${p.lift_distance}mm` : "",
+          p.retract_speed != null ? `• Retract speed: ${p.retract_speed}mm/min` : "",
+          p.notes ? `• Observações: ${p.notes}` : "",
+        ].filter(Boolean).join("\n");
+
+        paramResults.push({
+          id: p.id, source_type: "parameter_set", chunk_text: lines,
+          metadata: { title: `${brand.name} ${model.name} + ${p.resin_name}`, url_publica: `${siteBaseUrl}/${brand.slug}/${model.slug}` },
+          similarity: (() => {
+            const resinWords = p.resin_name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+            const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
+            const matchCount = resinWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
+            const baseScore = resinMatched ? 0.55 : 0.35;
+            return matchCount > 0 ? Math.min(baseScore + (matchCount / Math.max(resinWords.length, 1)) * 0.35, 0.90) : baseScore;
+          })(),
+        });
+      }
+    }
+  }
+  return paramResults;
+}
+
+// ── Meta-article / Author Search ──
+export async function searchArticlesAndAuthors(supabase: SupabaseClient, message: string, siteBaseUrl: string) {
+  const results: Array<{ id: string; source_type: string; chunk_text: string; metadata: Record<string, unknown>; similarity: number }> = [];
+  const { data: articles } = await supabase.from('knowledge_contents').select('id, title, slug, excerpt, category_id, author_id, knowledge_categories:knowledge_categories(letter, name)').eq('active', true).order('created_at', { ascending: false }).limit(15);
+
+  if (articles?.length) {
+    const queryWords = message.toLowerCase().replace(/[?!.,;:]/g, '').split(/\s+/).filter(w => w.length >= 3 && !STOPWORDS_PT.includes(w));
+    for (const a of articles as Array<{ id: string; title: string; slug: string; excerpt: string; author_id: string | null; knowledge_categories: { letter: string; name: string } | null }>) {
+      const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+      const categoryName = a.knowledge_categories?.name || '';
+      const matchCount = queryWords.filter(w => a.title.toLowerCase().includes(w)).length;
+      const similarity = queryWords.length > 0 && matchCount > 0 ? Math.min(0.5 + (matchCount / queryWords.length) * 0.4, 0.9) : 0.45;
+      results.push({ id: a.id, source_type: 'article', chunk_text: `PUBLICAÇÃO: ${a.title} | Categoria: ${categoryName} | Resumo: ${a.excerpt}`, metadata: { title: a.title, slug: a.slug, category_letter: letter, url_publica: letter ? `${siteBaseUrl}/base-conhecimento/${letter}/${a.slug}` : null }, similarity });
+    }
+    results.sort((a, b) => b.similarity - a.similarity);
+    results.splice(8);
+  }
+
+  if (/\b(kol|kols|autor|autora|autores|especialista|colunista|quem escreve|quem escreveu)\b/i.test(message)) {
+    const { data: authors } = await supabase.from('authors').select('id, name, specialty, mini_bio, photo_url, website_url, instagram_url, youtube_url, lattes_url').eq('active', true).order('order_index');
+    if (authors?.length) {
+      for (const author of authors as Array<{ id: string; name: string; specialty: string | null; mini_bio: string | null; photo_url: string | null; website_url: string | null; instagram_url: string | null; youtube_url: string | null; lattes_url: string | null }>) {
+        const socialLinks = [author.website_url ? `Site: ${author.website_url}` : '', author.instagram_url ? `Instagram: ${author.instagram_url}` : '', author.youtube_url ? `YouTube: ${author.youtube_url}` : '', author.lattes_url ? `Lattes: ${author.lattes_url}` : ''].filter(Boolean).join(' | ');
+        results.push({ id: author.id, source_type: 'author', chunk_text: `AUTOR/KOL: ${author.name} | Especialidade: ${author.specialty || 'N/A'} | Bio: ${author.mini_bio || 'N/A'}${socialLinks ? ` | ${socialLinks}` : ''}`, metadata: { title: author.name, photo_url: author.photo_url }, similarity: 0.80 });
+      }
+    }
+  }
+  return results;
+}
+
+// ── Main Knowledge Search (vector + FTS + ILIKE) ──
+export async function searchKnowledge(
+  supabase: SupabaseClient,
+  query: string,
+  lang: string,
+  topicContext: string | undefined,
+  history: Array<{ role: string; content: string }> | undefined,
+  siteBaseUrl: string,
+  generateEmbeddingFn: (text: string) => Promise<number[] | null>
+) {
+  let augmentedQuery = query;
+  if (history && history.length > 0) {
+    const recentText = history.slice(-4).map(h => h.content).join(' ');
+    const productMentions = recentText.match(/\b(NanoClean[^\s.!?\n]{0,20}|Edge Mini[^\s.!?\n]{0,15}|Vitality[^\s.!?\n]{0,15}|ShapeWare[^\s.!?\n]{0,15}|Rayshape[^\s.!?\n]{0,15}|Scanner BLZ[^\s.!?\n]{0,15}|Asiga[^\s.!?\n]{0,15}|Chair Side[^\s.!?\n]{0,15}|MiiCraft[^\s.!?\n]{0,15}|Medit[^\s.!?\n]{0,15})/gi);
+    if (productMentions && productMentions.length > 0) {
+      const uniqueProducts = [...new Set(productMentions.map(p => p.trim().slice(0, 30)))];
+      augmentedQuery = `${uniqueProducts.join(' ')} ${query}`;
+    }
+  }
+
+  // Vector search
+  const embedding = await generateEmbeddingFn(augmentedQuery);
+  if (embedding) {
+    const { data, error } = await supabase.rpc("match_agent_embeddings", { query_embedding: embedding, match_threshold: 0.65, match_count: 10 });
+    if (!error && data && data.length > 0) {
+      const reranked = applyTopicWeights(data, topicContext);
+      return { results: reranked, method: "vector", topSimilarity: reranked[0]?.similarity || 0 };
+    }
+  }
+
+  // FTS fallback
+  const langCode = lang.split("-")[0];
+  const { data: articles, error: artError } = await supabase.rpc("search_knowledge_base", { search_query: query, language_code: langCode });
+  const ftsResults = (!artError && articles && articles.length > 0)
+    ? articles.slice(0, 8).map((a: { content_id: string; content_type: string; title: string; excerpt: string; slug: string; category_letter: string; relevance: number }) => ({
+        id: a.content_id, source_type: a.content_type, chunk_text: `${a.title} | ${a.excerpt}`,
+        metadata: { title: a.title, slug: a.slug, category_letter: a.category_letter, url_publica: `${siteBaseUrl}/base-conhecimento/${a.category_letter}/${a.slug}` },
+        similarity: a.relevance,
+      }))
+    : [];
+
+  const ftsIsWeak = ftsResults.length === 0 || (ftsResults.length <= 2 && (ftsResults[0]?.similarity ?? 0) < 0.25);
+  if (ftsIsWeak) {
+    const ilikeResults = await searchByILIKE(supabase, query, siteBaseUrl);
+    if (ilikeResults.length > 0) {
+      const merged = [...ilikeResults, ...ftsResults.filter(f => f.similarity >= 0.15)];
+      const reranked = applyTopicWeights(merged, topicContext);
+      return { results: reranked, method: "ilike", topSimilarity: reranked[0]?.similarity || 0.3 };
+    }
+  }
+
+  if (ftsResults.length > 0) {
+    const reranked = applyTopicWeights(ftsResults, topicContext);
+    return { results: reranked, method: "fulltext", topSimilarity: reranked[0]?.similarity || 0 };
+  }
+
+  // Keyword fallback on videos
+  const recentContext = (history || []).slice(-6).map(h => h.content).join(' ');
+  const fullText = `${recentContext} ${query}`;
+  const keywords = fullText.split(/\s+/).filter(w => w.length > 3 && !STOPWORDS_PT.includes(w.toLowerCase())).map(w => w.toLowerCase()).filter((v, i, a) => a.indexOf(v) === i).slice(0, 8);
+
+  if (keywords.length > 0) {
+    const { data: videos } = await supabase.from("knowledge_videos").select("id, title, description, embed_url, thumbnail_url, content_id, pandavideo_id, url").or(keywords.map(k => `title.ilike.%${k}%`).join(",")).limit(5);
+    if (videos && videos.length > 0) {
+      const contentIds = videos.filter((v: { content_id: string | null }) => v.content_id).map((v: { content_id: string }) => v.content_id);
+      let contentMap: Record<string, { slug: string; category_letter: string }> = {};
+      if (contentIds.length > 0) {
+        const { data: contents } = await supabase.from("knowledge_contents").select("id, slug, category_id, knowledge_categories:knowledge_categories(letter)").in("id", contentIds);
+        if (contents) for (const c of contents as Array<{ id: string; slug: string; knowledge_categories: { letter: string } | null }>) {
+          const letter = c.knowledge_categories?.letter?.toLowerCase() || "";
+          if (letter) contentMap[c.id] = { slug: c.slug, category_letter: letter };
+        }
+      }
+      const results = videos.map((v: { id: string; title: string; description: string | null; embed_url: string | null; thumbnail_url: string | null; content_id: string | null; url: string | null }) => {
+        const mapped = v.content_id ? contentMap[v.content_id] : null;
+        const internalUrl = mapped ? `${siteBaseUrl}/base-conhecimento/${mapped.category_letter}/${mapped.slug}` : null;
+        return {
+          id: v.id, source_type: "video", chunk_text: `${v.title} ${v.description || ""}`,
+          metadata: { title: v.title, embed_url: v.embed_url, thumbnail_url: v.thumbnail_url, video_id: v.id, url_interna: internalUrl, has_internal_page: !!internalUrl, youtube_url: v.url || null },
+          similarity: (() => {
+            const titleWords = v.title.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
+            const matchCount = keywords.filter(k => titleWords.some((tw: string) => tw.includes(k) || k.includes(tw))).length;
+            return matchCount > 0 ? Math.min(0.30 + (matchCount / Math.max(keywords.length, 1)) * 0.35, 0.70) : 0.25;
+          })(),
+        };
+      });
+      const reranked = applyTopicWeights(results, topicContext);
+      return { results: reranked, method: "keyword", topSimilarity: 0.5 };
+    }
+  }
+
+  return { results: [], method: "none", topSimilarity: 0 };
+}
+
+// ── Build Structured Context ──
+export function buildStructuredContext(
+  results: Array<{ source_type: string; chunk_text: string; metadata: Record<string, unknown> }>,
+  isCommercialRoute: boolean
+): string {
+  const formatItem = (m: { source_type: string; chunk_text: string; metadata: Record<string, unknown> }) => {
+    const meta = m.metadata as Record<string, unknown>;
+    let part = `[${m.source_type.toUpperCase()}] ${m.chunk_text}`;
+    if (meta.url_publica) part += ` | URL: ${meta.url_publica}`;
+    if (meta.url_interna) part += ` | VIDEO_INTERNO: ${meta.url_interna}`;
+    else if (meta.youtube_url) part += ` | VIDEO_YOUTUBE: ${meta.youtube_url}`;
+    else if (meta.embed_url) part += ` | VIDEO_SEM_PAGINA: sem página interna disponível`;
+    if (meta.thumbnail_url) part += ` | THUMBNAIL: ${meta.thumbnail_url}`;
+    if (meta.cta_1_url) part += ` | COMPRA: ${meta.cta_1_url}`;
+    return part;
+  };
+
+  if (!isCommercialRoute) return results.map(formatItem).join("\n\n---\n\n");
+
+  const groups: Record<string, string[]> = { products: [], expertise: [], articles: [], authors: [], videos: [], params: [] };
+  for (const m of results) {
+    const formatted = formatItem(m);
+    switch (m.source_type) {
+      case 'catalog_product': case 'resin': groups.products.push(formatted); break;
+      case 'company_kb': groups.expertise.push(formatted); break;
+      case 'author': groups.authors.push(formatted); break;
+      case 'video': groups.videos.push(formatted); break;
+      case 'parameter_set': case 'processing_protocol': groups.params.push(formatted); break;
+      default: groups.articles.push(formatted);
+    }
+  }
+
+  const sections: string[] = [];
+  if (groups.products.length > 0) sections.push(`## PRODUTOS RECOMENDADOS\n${groups.products.join("\n\n")}`);
+  if (groups.expertise.length > 0) sections.push(`## ARGUMENTOS DE VENDA E EXPERTISE\n${groups.expertise.join("\n\n")}`);
+  if (groups.articles.length > 0) sections.push(`## ARTIGOS E PUBLICAÇÕES\n${groups.articles.join("\n\n")}`);
+  if (groups.authors.length > 0) sections.push(`## KOLs E AUTORES\n${groups.authors.join("\n\n")}`);
+  if (groups.videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS\n${groups.videos.join("\n\n")}`);
+  if (groups.params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS\n${groups.params.join("\n\n")}`);
+
+  return sections.length === 0 ? "" : sections.join("\n\n---\n\n");
+}
