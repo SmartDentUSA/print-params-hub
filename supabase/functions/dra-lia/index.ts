@@ -2612,21 +2612,7 @@ REGRAS:
       }
     }
 
-    // 0a-1. General Knowledge Guard — block off-topic queries before RAG
-    const GENERAL_KNOWLEDGE_PATTERNS = [
-      /qual a capital d[aeo]/i,
-      /quem (descobriu|inventou|criou|foi|é|eh) /i,
-      /quem foi [A-Z][a-z]+ [A-Z]/i,
-      /por que (você|vc|voce) se chama/i,
-      /(historia|história) d[aeo] /i,
-      /em que ano /i,
-      /onde fica[s]? /i,
-      /quem [eé] [A-Z][a-z]+/i,
-      /o que significa [a-z]+ (?!resina|impressora|scanner|cad|cam)/i,
-      /qual o sentido d[aeo]/i,
-      /presidente d[aeo]/i,
-      /quantos (estados|paises|continentes)/i,
-    ];
+    // 0a-1. General Knowledge Guard — patterns imported from ../shared/lia-guards.ts
 
     if (GENERAL_KNOWLEDGE_PATTERNS.some(p => p.test(message.trim()))) {
       const GK_RESPONSES: Record<string, string> = {
