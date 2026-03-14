@@ -3860,7 +3860,7 @@ REGRAS:
           const missingSpecialty = !attendance?.especialidade;
           const missingPhone = !attendance?.telefone_normalized;
 
-          // Update session with lead info + profile + recent history + archetype
+          // Update session with lead info + profile + recent history + archetype + timeline
           await supabase.from("agent_sessions").upsert({
             session_id,
             lead_id: leadId,
@@ -3870,7 +3870,7 @@ REGRAS:
               lead_id: leadId,
               spin_stage: "etapa_1",
               returning_lead_summary: returningLeadSummary,
-              lead_profile: profileFields.join(" | "),
+              lead_profile: profileFields.join(" | ") + timelineContext,
               lead_archetype: leadArchetype,
               recent_history: recentHistoryCompact,
               ...(stageTrajectory ? { stage_trajectory: stageTrajectory } : {}),
@@ -3884,6 +3884,24 @@ REGRAS:
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
           currentLeadId = leadId;
+
+          // ── Record session_start event in lead_activity_log (fire-and-forget) ──
+          if (attendance?.id) {
+            supabase.from("lead_activity_log").insert({
+              lead_id: attendance.id,
+              event_type: "lia_session_start",
+              source_channel: "dra-lia",
+              event_data: {
+                session_id,
+                returning: true,
+                archetype: leadArchetype,
+                profile_fields_count: profileFields.length,
+                has_timeline: timelineContext.length > 0,
+              },
+            }).then(({ error }) => {
+              if (error) console.warn("[lead-activity-log] session_start insert error:", error.message);
+            });
+          }
 
           // If missing phone, greet and ask for phone
           if (missingPhone) {
