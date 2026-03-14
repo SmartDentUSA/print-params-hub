@@ -306,6 +306,49 @@ Deno.serve(async (req) => {
         });
 
         console.log(`[astron-postback] Timeline event logged: ${mapped.type} for lead ${timelineLeadId}`);
+
+        // ── Populate lead_course_progress for course events ──
+        if (courseEntry && courseEntry.course_id && timelineLeadId) {
+          const courseId = String(courseEntry.course_id);
+          const progressPct = Number(courseEntry.percentage ?? 0);
+          const lessonsCompleted = Number(courseEntry.completed_classes ?? 0);
+          const lessonsTotal = Number(courseEntry.total_classes ?? 0);
+          const isCompleted = progressPct >= 100;
+          const nowTs = new Date().toISOString();
+
+          const { data: existingCourse } = await supabase
+            .from("lead_course_progress")
+            .select("id")
+            .eq("lead_id", timelineLeadId)
+            .eq("course_id", courseId)
+            .maybeSingle();
+
+          if (existingCourse) {
+            await supabase.from("lead_course_progress").update({
+              progress_pct: progressPct,
+              lessons_completed: lessonsCompleted,
+              lessons_total: lessonsTotal,
+              last_accessed_at: nowTs,
+              completed_at: isCompleted ? nowTs : null,
+              status: isCompleted ? "completed" : "in_progress",
+              updated_at: nowTs,
+            }).eq("id", existingCourse.id);
+          } else {
+            await supabase.from("lead_course_progress").insert({
+              lead_id: timelineLeadId,
+              course_id: courseId,
+              course_name: String(courseEntry.course_name || "Curso Astron"),
+              started_at: nowTs,
+              last_accessed_at: nowTs,
+              progress_pct: progressPct,
+              lessons_completed: lessonsCompleted,
+              lessons_total: lessonsTotal,
+              completed_at: isCompleted ? nowTs : null,
+              status: isCompleted ? "completed" : "in_progress",
+            });
+          }
+          console.log(`[astron-postback] lead_course_progress upserted: course=${courseId} progress=${progressPct}% for lead ${timelineLeadId}`);
+        }
       }
     }
 

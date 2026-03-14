@@ -762,6 +762,101 @@ Deno.serve(async (req) => {
       if (error) console.warn("[ecommerce-webhook] timeline insert error:", error.message);
     });
 
+    // ─── Populate lead_product_history for each item ───
+    if (items.length > 0) {
+      const isPaid = ["order_paid", "order_invoiced", "order_delivered"].includes(eventType);
+      const isCarted = eventType === "order_created";
+      const now = new Date().toISOString();
+
+      for (const item of items) {
+        const productId = String(item.id || item.sku || item.nome || "unknown");
+        const productName = String(item.nome || item.name || "Produto");
+        const qty = Number(item.quantidade || item.quantity || 1);
+        const unitPrice = Number(item.preco_venda || item.preco_custo || item.price || 0);
+        const totalPrice = unitPrice * qty;
+
+        // Check if entry already exists for this lead+product
+        const { data: existingPH } = await supabase
+          .from("lead_product_history")
+          .select("id, purchase_count, total_purchased_qty, total_purchased_value, cart_count")
+          .eq("lead_id", leadId)
+          .eq("product_id", productId)
+          .maybeSingle();
+
+        if (existingPH) {
+          const updatePH: Record<string, unknown> = {
+            last_interaction_type: isPaid ? "purchase" : (isCarted ? "cart" : eventType),
+            last_interaction_at: now,
+            updated_at: now,
+          };
+          if (isPaid) {
+            updatePH.purchased_at = now;
+            updatePH.purchase_count = (existingPH.purchase_count || 0) + 1;
+            updatePH.total_purchased_qty = (existingPH.total_purchased_qty || 0) + qty;
+            updatePH.total_purchased_value = (existingPH.total_purchased_value || 0) + totalPrice;
+          }
+          if (isCarted) {
+            updatePH.added_to_cart_at = now;
+            updatePH.cart_count = (existingPH.cart_count || 0) + 1;
+          }
+          await supabase.from("lead_product_history").update(updatePH).eq("id", existingPH.id);
+        } else {
+          await supabase.from("lead_product_history").insert({
+            lead_id: leadId,
+            product_id: productId,
+            product_name: productName,
+            first_viewed_at: now,
+            last_viewed_at: now,
+            view_count: 1,
+            added_to_cart_at: isCarted ? now : null,
+            cart_count: isCarted ? 1 : 0,
+            purchased_at: isPaid ? now : null,
+            purchase_count: isPaid ? 1 : 0,
+            total_purchased_qty: isPaid ? qty : 0,
+            total_purchased_value: isPaid ? totalPrice : 0,
+            last_interaction_type: isPaid ? "purchase" : (isCarted ? "cart" : eventType),
+            last_interaction_at: now,
+          });
+        }
+      }
+      console.log(`[ecommerce-webhook] lead_product_history: ${items.length} items upserted for lead ${leadId}`);
+    }
+
+    // ─── Populate lead_cart_history for unpaid orders ───
+    const cartStatuses = ["order_created", "boleto_generated", "boleto_expired"];
+    if (cartStatuses.includes(eventType) && numeroPedido && items.length > 0) {
+      const cartItems = items.map((item) => ({
+        name: String(item.nome || item.name || ""),
+        qty: Number(item.quantidade || item.quantity || 1),
+        price: Number(item.preco_venda || item.price || 0),
+      }));
+
+      await supabase.from("lead_cart_history").upsert({
+        lead_id: leadId,
+        cart_id: String(numeroPedido),
+        items: cartItems,
+        total_value: valorTotal || 0,
+        created_at: new Date().toISOString(),
+        status: eventType === "boleto_expired" ? "abandoned" : "active",
+        abandoned_at: eventType === "boleto_expired" ? new Date().toISOString() : null,
+        abandoned_reason: eventType === "boleto_expired" ? "boleto_vencido" : null,
+      }, { onConflict: "cart_id" }).then(({ error: cartErr }) => {
+        if (cartErr) console.warn("[ecommerce-webhook] cart_history upsert error:", cartErr.message);
+        else console.log(`[ecommerce-webhook] lead_cart_history: pedido=${numeroPedido} status=${eventType}`);
+      });
+    }
+
+    // ─── Convert cart to "converted" when paid ───
+    if (["order_paid", "order_invoiced", "order_delivered"].includes(eventType) && numeroPedido) {
+      await supabase.from("lead_cart_history")
+        .update({ status: "converted", converted_at: new Date().toISOString() })
+        .eq("lead_id", leadId)
+        .eq("cart_id", String(numeroPedido))
+        .then(({ error: convErr }) => {
+          if (convErr) console.warn("[ecommerce-webhook] cart conversion update error:", convErr.message);
+        });
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
