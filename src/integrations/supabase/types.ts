@@ -711,57 +711,90 @@ export type Database = {
       }
       deal_items: {
         Row: {
+          cod_produto: string | null
+          data_proposta: string | null
           deal_date: string | null
-          deal_id: string
+          deal_id: string | null
           freight_type: string | null
           freight_value: number | null
           id: string
           installments: number | null
           lead_id: string | null
+          metodo_pagamento: string | null
+          nome_produto: string | null
+          num_parcelas: number | null
           payment_method: string | null
           product_code: string | null
           product_name: string | null
           proposal_id: string
+          proposta_raw: Json | null
+          quantidade: number | null
           quantity: number | null
           synced_at: string | null
+          tipo_frete: string | null
           total_value: number | null
           unit_value: number | null
+          valor_frete: number | null
+          valor_total: number | null
+          valor_unitario: number | null
           vendor_name: string | null
         }
         Insert: {
+          cod_produto?: string | null
+          data_proposta?: string | null
           deal_date?: string | null
-          deal_id: string
+          deal_id?: string | null
           freight_type?: string | null
           freight_value?: number | null
           id?: string
           installments?: number | null
           lead_id?: string | null
+          metodo_pagamento?: string | null
+          nome_produto?: string | null
+          num_parcelas?: number | null
           payment_method?: string | null
           product_code?: string | null
           product_name?: string | null
           proposal_id: string
+          proposta_raw?: Json | null
+          quantidade?: number | null
           quantity?: number | null
           synced_at?: string | null
+          tipo_frete?: string | null
           total_value?: number | null
           unit_value?: number | null
+          valor_frete?: number | null
+          valor_total?: number | null
+          valor_unitario?: number | null
           vendor_name?: string | null
         }
         Update: {
+          cod_produto?: string | null
+          data_proposta?: string | null
           deal_date?: string | null
-          deal_id?: string
+          deal_id?: string | null
           freight_type?: string | null
           freight_value?: number | null
           id?: string
           installments?: number | null
           lead_id?: string | null
+          metodo_pagamento?: string | null
+          nome_produto?: string | null
+          num_parcelas?: number | null
           payment_method?: string | null
           product_code?: string | null
           product_name?: string | null
           proposal_id?: string
+          proposta_raw?: Json | null
+          quantidade?: number | null
           quantity?: number | null
           synced_at?: string | null
+          tipo_frete?: string | null
           total_value?: number | null
           unit_value?: number | null
+          valor_frete?: number | null
+          valor_total?: number | null
+          valor_unitario?: number | null
           vendor_name?: string | null
         }
         Relationships: [
@@ -806,6 +839,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -1459,6 +1499,846 @@ export type Database = {
           },
         ]
       }
+      lead_activity_log: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          duration_seconds: number | null
+          entity_id: string | null
+          entity_name: string | null
+          entity_type: string | null
+          event_data: Json
+          event_timestamp: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          lead_id: string
+          person_id: string | null
+          source_channel: string | null
+          updated_at: string | null
+          user_agent: string | null
+          value_numeric: number | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          event_data?: Json
+          event_timestamp?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          lead_id: string
+          person_id?: string | null
+          source_channel?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          value_numeric?: number | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          duration_seconds?: number | null
+          entity_id?: string | null
+          entity_name?: string | null
+          entity_type?: string | null
+          event_data?: Json
+          event_timestamp?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          lead_id?: string
+          person_id?: string | null
+          source_channel?: string | null
+          updated_at?: string | null
+          user_agent?: string | null
+          value_numeric?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activity_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_cart_history: {
+        Row: {
+          abandoned_at: string | null
+          abandoned_reason: string | null
+          cart_id: string
+          converted_at: string | null
+          created_at: string
+          id: string
+          items: Json
+          last_updated_at: string | null
+          lead_id: string
+          person_id: string | null
+          recovered_at: string | null
+          recovery_email_sent_at: string | null
+          status: string | null
+          total_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          abandoned_at?: string | null
+          abandoned_reason?: string | null
+          cart_id: string
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          last_updated_at?: string | null
+          lead_id: string
+          person_id?: string | null
+          recovered_at?: string | null
+          recovery_email_sent_at?: string | null
+          status?: string | null
+          total_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          abandoned_at?: string | null
+          abandoned_reason?: string | null
+          cart_id?: string
+          converted_at?: string | null
+          created_at?: string
+          id?: string
+          items?: Json
+          last_updated_at?: string | null
+          lead_id?: string
+          person_id?: string | null
+          recovered_at?: string | null
+          recovery_email_sent_at?: string | null
+          status?: string | null
+          total_value?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_conversion_history: {
+        Row: {
+          company_id: string | null
+          conversion_date: string
+          conversion_type: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          lead_id: string
+          person_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          conversion_date: string
+          conversion_type?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          lead_id: string
+          person_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          conversion_date?: string
+          conversion_type?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          lead_id?: string
+          person_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_conversion_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_course_progress: {
+        Row: {
+          completed_at: string | null
+          course_category: string | null
+          course_id: string
+          course_name: string
+          created_at: string | null
+          id: string
+          last_accessed_at: string | null
+          lead_id: string
+          lessons_completed: number | null
+          lessons_total: number | null
+          person_id: string | null
+          progress_pct: number | null
+          related_products: Json | null
+          started_at: string | null
+          status: string | null
+          time_spent_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          course_category?: string | null
+          course_id: string
+          course_name: string
+          created_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          lead_id: string
+          lessons_completed?: number | null
+          lessons_total?: number | null
+          person_id?: string | null
+          progress_pct?: number | null
+          related_products?: Json | null
+          started_at?: string | null
+          status?: string | null
+          time_spent_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          course_category?: string | null
+          course_id?: string
+          course_name?: string
+          created_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          lead_id?: string
+          lessons_completed?: number | null
+          lessons_total?: number | null
+          person_id?: string | null
+          progress_pct?: number | null
+          related_products?: Json | null
+          started_at?: string | null
+          status?: string | null
+          time_spent_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_form_submissions: {
+        Row: {
+          assigned_to_sdr: string | null
+          company_mentioned: string | null
+          created_at: string | null
+          equipment_mentioned: string | null
+          form_data: Json
+          form_id: string | null
+          form_type: string
+          id: string
+          lead_id: string
+          message: string | null
+          person_id: string | null
+          phone: string | null
+          processed_at: string | null
+          product_mentioned: string | null
+          status: string | null
+          submitted_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to_sdr?: string | null
+          company_mentioned?: string | null
+          created_at?: string | null
+          equipment_mentioned?: string | null
+          form_data?: Json
+          form_id?: string | null
+          form_type: string
+          id?: string
+          lead_id: string
+          message?: string | null
+          person_id?: string | null
+          phone?: string | null
+          processed_at?: string | null
+          product_mentioned?: string | null
+          status?: string | null
+          submitted_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to_sdr?: string | null
+          company_mentioned?: string | null
+          created_at?: string | null
+          equipment_mentioned?: string | null
+          form_data?: Json
+          form_id?: string | null
+          form_type?: string
+          id?: string
+          lead_id?: string
+          message?: string | null
+          person_id?: string | null
+          phone?: string | null
+          processed_at?: string | null
+          product_mentioned?: string | null
+          status?: string | null
+          submitted_at?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_product_history: {
+        Row: {
+          added_to_cart_at: string | null
+          avg_days_between_purchases: number | null
+          cart_count: number | null
+          company_id: string | null
+          created_at: string | null
+          days_since_last_purchase: number | null
+          first_viewed_at: string | null
+          id: string
+          last_interaction_at: string | null
+          last_interaction_type: string | null
+          last_viewed_at: string | null
+          lead_id: string
+          person_id: string | null
+          product_category: string | null
+          product_id: string
+          product_name: string
+          purchase_count: number | null
+          purchased_at: string | null
+          total_purchased_qty: number | null
+          total_purchased_value: number | null
+          updated_at: string | null
+          view_count: number | null
+        }
+        Insert: {
+          added_to_cart_at?: string | null
+          avg_days_between_purchases?: number | null
+          cart_count?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          days_since_last_purchase?: number | null
+          first_viewed_at?: string | null
+          id?: string
+          last_interaction_at?: string | null
+          last_interaction_type?: string | null
+          last_viewed_at?: string | null
+          lead_id: string
+          person_id?: string | null
+          product_category?: string | null
+          product_id: string
+          product_name: string
+          purchase_count?: number | null
+          purchased_at?: string | null
+          total_purchased_qty?: number | null
+          total_purchased_value?: number | null
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          added_to_cart_at?: string | null
+          avg_days_between_purchases?: number | null
+          cart_count?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          days_since_last_purchase?: number | null
+          first_viewed_at?: string | null
+          id?: string
+          last_interaction_at?: string | null
+          last_interaction_type?: string | null
+          last_viewed_at?: string | null
+          lead_id?: string
+          person_id?: string | null
+          product_category?: string | null
+          product_id?: string
+          product_name?: string
+          purchase_count?: number | null
+          purchased_at?: string | null
+          total_purchased_qty?: number | null
+          total_purchased_value?: number | null
+          updated_at?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_product_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_sdr_interactions: {
+        Row: {
+          budget_mentioned: number | null
+          competitor_mentioned: string[] | null
+          contacted_at: string
+          created_at: string | null
+          deal_created: boolean | null
+          deal_id: string | null
+          equipment_mentioned: string[] | null
+          follow_up_date: string | null
+          follow_up_needed: boolean | null
+          follow_up_notes: string | null
+          id: string
+          interaction_type: string | null
+          lead_id: string
+          notes: string | null
+          outcome: string | null
+          person_id: string | null
+          product_interest: string[] | null
+          sdr_email: string | null
+          sdr_id: string | null
+          sdr_name: string | null
+          timeline_mentioned: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          budget_mentioned?: number | null
+          competitor_mentioned?: string[] | null
+          contacted_at?: string
+          created_at?: string | null
+          deal_created?: boolean | null
+          deal_id?: string | null
+          equipment_mentioned?: string[] | null
+          follow_up_date?: string | null
+          follow_up_needed?: boolean | null
+          follow_up_notes?: string | null
+          id?: string
+          interaction_type?: string | null
+          lead_id: string
+          notes?: string | null
+          outcome?: string | null
+          person_id?: string | null
+          product_interest?: string[] | null
+          sdr_email?: string | null
+          sdr_id?: string | null
+          sdr_name?: string | null
+          timeline_mentioned?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          budget_mentioned?: number | null
+          competitor_mentioned?: string[] | null
+          contacted_at?: string
+          created_at?: string | null
+          deal_created?: boolean | null
+          deal_id?: string | null
+          equipment_mentioned?: string[] | null
+          follow_up_date?: string | null
+          follow_up_needed?: boolean | null
+          follow_up_notes?: string | null
+          id?: string
+          interaction_type?: string | null
+          lead_id?: string
+          notes?: string | null
+          outcome?: string | null
+          person_id?: string | null
+          product_interest?: string[] | null
+          sdr_email?: string | null
+          sdr_id?: string | null
+          sdr_name?: string | null
+          timeline_mentioned?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_state_events: {
         Row: {
           changed_at: string
@@ -1541,6 +2421,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -1632,6 +2519,7 @@ export type Database = {
           cognitive_updated_at: string | null
           comentario_perda: string | null
           como_digitaliza: string | null
+          company_hash: string | null
           company_id: string | null
           confidence_score_analysis: number | null
           created_at: string
@@ -1732,6 +2620,8 @@ export type Database = {
           last_form_insumos: string | null
           last_form_pos_impressao: string | null
           last_form_scanner: string | null
+          last_sync_at: string | null
+          last_sync_source: string | null
           lead_card_published_at: string | null
           lead_card_url: string | null
           lead_stage_detected: string | null
@@ -1777,7 +2667,11 @@ export type Database = {
           nps_temas_cursos: string[] | null
           objection_risk: string | null
           origem_campanha: string | null
+          original_date: string | null
+          original_id: string | null
+          original_source: string | null
           pais_origem: string | null
+          person_hash: string | null
           person_id: string | null
           pessoa_cargo: string | null
           pessoa_cpf: string | null
@@ -1882,6 +2776,7 @@ export type Database = {
           sellflux_synced_at: string | null
           software_cad: string | null
           source: string
+          source_reference: string | null
           status_atual_lead_crm: string | null
           status_cad: string | null
           status_impressora: string | null
@@ -1957,6 +2852,7 @@ export type Database = {
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
+          company_hash?: string | null
           company_id?: string | null
           confidence_score_analysis?: number | null
           created_at?: string
@@ -2057,6 +2953,8 @@ export type Database = {
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
           last_form_scanner?: string | null
+          last_sync_at?: string | null
+          last_sync_source?: string | null
           lead_card_published_at?: string | null
           lead_card_url?: string | null
           lead_stage_detected?: string | null
@@ -2102,7 +3000,11 @@ export type Database = {
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
           origem_campanha?: string | null
+          original_date?: string | null
+          original_id?: string | null
+          original_source?: string | null
           pais_origem?: string | null
+          person_hash?: string | null
           person_id?: string | null
           pessoa_cargo?: string | null
           pessoa_cpf?: string | null
@@ -2207,6 +3109,7 @@ export type Database = {
           sellflux_synced_at?: string | null
           software_cad?: string | null
           source?: string
+          source_reference?: string | null
           status_atual_lead_crm?: string | null
           status_cad?: string | null
           status_impressora?: string | null
@@ -2282,6 +3185,7 @@ export type Database = {
           cognitive_updated_at?: string | null
           comentario_perda?: string | null
           como_digitaliza?: string | null
+          company_hash?: string | null
           company_id?: string | null
           confidence_score_analysis?: number | null
           created_at?: string
@@ -2382,6 +3286,8 @@ export type Database = {
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
           last_form_scanner?: string | null
+          last_sync_at?: string | null
+          last_sync_source?: string | null
           lead_card_published_at?: string | null
           lead_card_url?: string | null
           lead_stage_detected?: string | null
@@ -2427,7 +3333,11 @@ export type Database = {
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
           origem_campanha?: string | null
+          original_date?: string | null
+          original_id?: string | null
+          original_source?: string | null
           pais_origem?: string | null
+          person_hash?: string | null
           person_id?: string | null
           pessoa_cargo?: string | null
           pessoa_cpf?: string | null
@@ -2532,6 +3442,7 @@ export type Database = {
           sellflux_synced_at?: string | null
           software_cad?: string | null
           source?: string
+          source_reference?: string | null
           status_atual_lead_crm?: string | null
           status_cad?: string | null
           status_impressora?: string | null
@@ -2661,6 +3572,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "message_logs_team_member_id_fkey"
@@ -4215,6 +5133,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "technical_tickets_support_team_member_id_fkey"
             columns: ["support_team_member_id"]
             isOneToOne: false
@@ -4326,6 +5251,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -4448,178 +5380,252 @@ export type Database = {
             referencedRelation: "v_lead_ecommerce"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
     }
     Views: {
       lead_model_routing: {
         Row: {
+          confidence_score_analysis: number | null
+          created_at: string | null
+          email: string | null
           id: string | null
-          intelligence_score_total: number | null
-          max_tokens_cognitive: number | null
-          recommended_model: string | null
-          telefone_normalized: string | null
+          interest_timeline: string | null
+          lead_stage_detected: string | null
+          nome: string | null
+          piperun_stage_name: string | null
+          recommended_approach: string | null
+          urgency_level: string | null
         }
         Insert: {
+          confidence_score_analysis?: number | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
-          intelligence_score_total?: number | null
-          max_tokens_cognitive?: never
-          recommended_model?: never
-          telefone_normalized?: string | null
+          interest_timeline?: string | null
+          lead_stage_detected?: string | null
+          nome?: string | null
+          piperun_stage_name?: string | null
+          recommended_approach?: string | null
+          urgency_level?: string | null
         }
         Update: {
+          confidence_score_analysis?: number | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
-          intelligence_score_total?: number | null
-          max_tokens_cognitive?: never
-          recommended_model?: never
-          telefone_normalized?: string | null
+          interest_timeline?: string | null
+          lead_stage_detected?: string | null
+          nome?: string | null
+          piperun_stage_name?: string | null
+          recommended_approach?: string | null
+          urgency_level?: string | null
         }
         Relationships: []
       }
       v_lead_academy: {
         Row: {
-          astron_completion_rate: number | null
+          academy_curso_concluido: string[] | null
+          academy_progresso_pct: number | null
+          academy_ultimo_modulo_acessado: string | null
           astron_courses_completed: number | null
           astron_courses_total: number | null
           astron_last_login_at: string | null
-          astron_status: string | null
+          created_at: string | null
+          email: string | null
           id: string | null
-          telefone_normalized: string | null
+          nome: string | null
         }
         Insert: {
-          astron_completion_rate?: never
+          academy_curso_concluido?: string[] | null
+          academy_progresso_pct?: number | null
+          academy_ultimo_modulo_acessado?: string | null
           astron_courses_completed?: number | null
           astron_courses_total?: number | null
           astron_last_login_at?: string | null
-          astron_status?: string | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
-          telefone_normalized?: string | null
+          nome?: string | null
         }
         Update: {
-          astron_completion_rate?: never
+          academy_curso_concluido?: string[] | null
+          academy_progresso_pct?: number | null
+          academy_ultimo_modulo_acessado?: string | null
           astron_courses_completed?: number | null
           astron_courses_total?: number | null
           astron_last_login_at?: string | null
-          astron_status?: string | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
-          telefone_normalized?: string | null
+          nome?: string | null
         }
         Relationships: []
       }
       v_lead_cognitive: {
         Row: {
           cognitive_analysis: Json | null
-          cognitive_analyzed_at: string | null
-          cognitive_model_version: string | null
-          cognitive_prompt_hash: string | null
+          cognitive_updated_at: string | null
           confidence_score_analysis: number | null
+          created_at: string | null
+          email: string | null
           id: string | null
-          intelligence_score: Json | null
-          intelligence_score_total: number | null
           lead_stage_detected: string | null
-          telefone_normalized: string | null
+          nome: string | null
+          objection_risk: string | null
+          primary_motivation: string | null
+          psychological_profile: string | null
         }
         Insert: {
           cognitive_analysis?: Json | null
-          cognitive_analyzed_at?: string | null
-          cognitive_model_version?: string | null
-          cognitive_prompt_hash?: string | null
+          cognitive_updated_at?: string | null
           confidence_score_analysis?: number | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
-          intelligence_score?: Json | null
-          intelligence_score_total?: number | null
           lead_stage_detected?: string | null
-          telefone_normalized?: string | null
+          nome?: string | null
+          objection_risk?: string | null
+          primary_motivation?: string | null
+          psychological_profile?: string | null
         }
         Update: {
           cognitive_analysis?: Json | null
-          cognitive_analyzed_at?: string | null
-          cognitive_model_version?: string | null
-          cognitive_prompt_hash?: string | null
+          cognitive_updated_at?: string | null
           confidence_score_analysis?: number | null
+          created_at?: string | null
+          email?: string | null
           id?: string | null
-          intelligence_score?: Json | null
-          intelligence_score_total?: number | null
           lead_stage_detected?: string | null
-          telefone_normalized?: string | null
+          nome?: string | null
+          objection_risk?: string | null
+          primary_motivation?: string | null
+          psychological_profile?: string | null
         }
         Relationships: []
       }
       v_lead_commercial: {
         Row: {
+          created_at: string | null
           email: string | null
-          empresa_piperun_id: number | null
           id: string | null
-          intelligence_score_total: number | null
-          intelligence_score_updated_at: string | null
-          lead_stage_detected: string | null
+          ltv_total: number | null
           nome: string | null
-          pessoa_piperun_id: number | null
           piperun_id: string | null
-          proposals_count: number | null
+          piperun_last_contact_at: string | null
+          piperun_probability: number | null
+          piperun_stage_name: string | null
+          piperun_value_mrr: number | null
           proposals_total_value: number | null
-          proprietario_lead_crm: string | null
-          telefone_normalized: string | null
           updated_at: string | null
         }
         Insert: {
+          created_at?: string | null
           email?: string | null
-          empresa_piperun_id?: number | null
           id?: string | null
-          intelligence_score_total?: number | null
-          intelligence_score_updated_at?: string | null
-          lead_stage_detected?: string | null
+          ltv_total?: number | null
           nome?: string | null
-          pessoa_piperun_id?: number | null
           piperun_id?: string | null
-          proposals_count?: never
+          piperun_last_contact_at?: string | null
+          piperun_probability?: number | null
+          piperun_stage_name?: string | null
+          piperun_value_mrr?: number | null
           proposals_total_value?: number | null
-          proprietario_lead_crm?: string | null
-          telefone_normalized?: string | null
           updated_at?: string | null
         }
         Update: {
+          created_at?: string | null
           email?: string | null
-          empresa_piperun_id?: number | null
           id?: string | null
-          intelligence_score_total?: number | null
-          intelligence_score_updated_at?: string | null
-          lead_stage_detected?: string | null
+          ltv_total?: number | null
           nome?: string | null
-          pessoa_piperun_id?: number | null
           piperun_id?: string | null
-          proposals_count?: never
+          piperun_last_contact_at?: string | null
+          piperun_probability?: number | null
+          piperun_stage_name?: string | null
+          piperun_value_mrr?: number | null
           proposals_total_value?: number | null
-          proprietario_lead_crm?: string | null
-          telefone_normalized?: string | null
           updated_at?: string | null
         }
         Relationships: []
       }
       v_lead_ecommerce: {
         Row: {
+          created_at: string | null
+          email: string | null
           id: string | null
           lojaintegrada_cliente_id: number | null
+          lojaintegrada_ltv: number | null
+          lojaintegrada_primeira_compra: string | null
+          lojaintegrada_total_pedidos_pagos: number | null
           lojaintegrada_ultimo_pedido_data: string | null
-          lojaintegrada_ultimo_pedido_numero: number | null
           lojaintegrada_ultimo_pedido_valor: number | null
-          telefone_normalized: string | null
+          nome: string | null
         }
         Insert: {
+          created_at?: string | null
+          email?: string | null
           id?: string | null
           lojaintegrada_cliente_id?: number | null
+          lojaintegrada_ltv?: number | null
+          lojaintegrada_primeira_compra?: string | null
+          lojaintegrada_total_pedidos_pagos?: number | null
           lojaintegrada_ultimo_pedido_data?: string | null
-          lojaintegrada_ultimo_pedido_numero?: number | null
           lojaintegrada_ultimo_pedido_valor?: number | null
-          telefone_normalized?: string | null
+          nome?: string | null
         }
         Update: {
+          created_at?: string | null
+          email?: string | null
           id?: string | null
           lojaintegrada_cliente_id?: number | null
+          lojaintegrada_ltv?: number | null
+          lojaintegrada_primeira_compra?: string | null
+          lojaintegrada_total_pedidos_pagos?: number | null
           lojaintegrada_ultimo_pedido_data?: string | null
-          lojaintegrada_ultimo_pedido_numero?: number | null
           lojaintegrada_ultimo_pedido_valor?: number | null
-          telefone_normalized?: string | null
+          nome?: string | null
+        }
+        Relationships: []
+      }
+      v_lead_timeline: {
+        Row: {
+          details: string | null
+          event_category: string | null
+          event_name: string | null
+          event_timestamp: string | null
+          lead_id: string | null
+          source_channel: string | null
+        }
+        Relationships: []
+      }
+      v_leads_correto: {
+        Row: {
+          atualizado_em: string | null
+          cidade: string | null
+          data_original: string | null
+          email: string | null
+          empresa: string | null
+          etapa: string | null
+          lead_id: string | null
+          nome: string | null
+          num_compras: number | null
+          origem: string | null
+          produto_principal: string | null
+          proprietario: string | null
+          resumo_ia: string | null
+          score_rfm: number | null
+          segmento: string | null
+          status_real: string | null
+          uf: string | null
+          valor_total: number | null
         }
         Relationships: []
       }
@@ -4632,6 +5638,46 @@ export type Database = {
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
         Returns: undefined
+      }
+      fn_deduplicate_proposal_csv: {
+        Args: { p_csv_rows: Json }
+        Returns: {
+          cod_produto: string
+          itens_count: number
+          nome_produto: string
+          proposal_id: string
+          quantidade: number
+          tipo_frete: string
+          valor_frete: number
+          valor_total: number
+          valor_unitario: number
+        }[]
+      }
+      fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
+      fn_map_lead_source: {
+        Args: {
+          p_formulario_source?: string
+          p_loja_cliente_id?: string
+          p_platform_lead_id?: string
+          p_sellflux_custom_fields?: Json
+        }
+        Returns: {
+          original_id: string
+          source: string
+          source_reference: string
+        }[]
+      }
+      fn_record_lead_event: {
+        Args: {
+          p_entity_id?: string
+          p_entity_name?: string
+          p_entity_type?: string
+          p_event_data?: Json
+          p_event_type: string
+          p_lead_id: string
+          p_source_channel?: string
+        }
+        Returns: string
       }
       get_brand_distribution: {
         Args: never
