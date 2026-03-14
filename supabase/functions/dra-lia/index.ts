@@ -2001,6 +2001,22 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
           .limit(1);
 
         console.log(`[handoff] ${ok ? "✓" : "✗"} Notification sent to ${teamMember.nome_completo} for lead ${leadName}`);
+
+        // ── Record handoff event in timeline ──
+        supabase.from("lead_activity_log").insert({
+          lead_id: attendance.id,
+          event_type: "lia_handoff",
+          source_channel: "dra-lia",
+          event_data: {
+            question: question.slice(0, 300),
+            seller_name: teamMember.nome_completo,
+            classification: leadClassification,
+            topic: topicContext,
+            notification_sent: ok,
+          },
+        }).then(({ error: logErr }) => {
+          if (logErr) console.warn("[lead-activity-log] handoff insert error:", logErr.message);
+        });
       } catch (e) {
         console.warn(`[handoff] WaLeads send error:`, e);
       }
