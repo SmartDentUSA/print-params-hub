@@ -228,6 +228,49 @@ Deno.serve(async (req) => {
       });
     }
 
+    // --- Detect equipment/product mentions for lead_form_submissions ---
+    if (resolvedLeadId) {
+      const KEYWORDS_RE = /anycubic|phrozen|bite|glaze|nano|vitality|resina|impressora|scanner|cadcam|zirc[oô]nia|miicraft|primeprint|formlabs|asiga|creality|elegoo|wash|cure|exocad|medit|3shape/gi;
+      const searchText = [
+        payload.message, payload.produto_interesse, payload.impressora_modelo,
+        payload.resina_interesse, payload.especialidade, productName,
+        ...(rawTags || []),
+      ].filter(Boolean).join(' ');
+
+      const matches = searchText.match(KEYWORDS_RE);
+      if (matches && matches.length > 0) {
+        const uniqueMatches = [...new Set(matches.map((m: string) => m.toLowerCase()))];
+        const equipKeywords = ['impressora', 'scanner', 'cadcam', 'wash', 'cure'];
+        const equipMentioned = uniqueMatches.filter(m => equipKeywords.some(e => m.includes(e)));
+        const productMentioned = uniqueMatches.filter(m => !equipKeywords.some(e => m.includes(e)));
+
+        await supabase.from('lead_form_submissions').insert({
+          lead_id: resolvedLeadId,
+          form_type: 'sellflux',
+          form_id: (payload.form_id || payload.automation_name || null) as string,
+          form_data: payload,
+          message: (payload.message || null) as string,
+          equipment_mentioned: equipMentioned.length > 0 ? equipMentioned.join(', ') : null,
+          product_mentioned: productMentioned.length > 0 ? productMentioned.join(', ') : null,
+          submitted_at: new Date().toISOString(),
+          status: 'new',
+        });
+
+        // Log event in activity log
+        await supabase.from('lead_activity_log').insert({
+          lead_id: resolvedLeadId,
+          event_type: 'form_submission_detected',
+          entity_type: 'form',
+          entity_name: 'SellFlux form submission',
+          event_data: { source: 'sellflux', keywords: uniqueMatches },
+          source_channel: 'sellflux',
+          event_timestamp: new Date().toISOString(),
+        });
+
+        console.log('[sellflux-webhook] Form submission detected, keywords:', uniqueMatches);
+      }
+    }
+
     try {
       await supabase.from("system_health_logs").insert({
         function_name: "smart-ops-sellflux-webhook",

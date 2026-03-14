@@ -127,6 +127,13 @@ Deno.serve(async (req) => {
             state: fields.state || fields.estado || fields.uf || null,
           };
 
+          // --- Detect equipment/product mentions for lead_form_submissions ---
+          const KEYWORDS_RE = /anycubic|phrozen|bite|glaze|nano|vitality|resina|impressora|scanner|cadcam|zirc[oô]nia|miicraft|primeprint|formlabs|asiga|creality|elegoo|wash|cure|exocad|medit|3shape/gi;
+          const allFieldValues = Object.values(fields).join(' ');
+          const formMatches = allFieldValues.match(KEYWORDS_RE);
+          const metaFormDetected = formMatches && formMatches.length > 0;
+          const metaUniqueMatches = metaFormDetected ? [...new Set(formMatches.map((m: string) => m.toLowerCase()))] : [];
+
           // --- Call ingest-lead gateway ---
           const ingestRes = await fetch(
             `${SUPABASE_URL}/functions/v1/smart-ops-ingest-lead`,
