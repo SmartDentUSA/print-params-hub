@@ -19,29 +19,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 const GOOGLE_AI_KEY = Deno.env.get("GOOGLE_AI_KEY");
 
-// ── Topic context re-ranking weights ─────────────────────────────────────────
-// Applied post-search to reorder results toward the user's declared context.
-// source_types: parameter_set, resin, processing_protocol,
-//               article, video, catalog_product, company_kb
-const TOPIC_WEIGHTS: Record<string, Record<string, number>> = {
-  parameters: { parameter_set: 1.5, resin: 1.3, processing_protocol: 1.4, article: 0.9,  video: 0.7, catalog_product: 0.5, company_kb: 0.3, author: 0.4, faq_autoheal: 0.8 },
-  products:   { parameter_set: 0.4, resin: 1.4, processing_protocol: 1.2, article: 1.3,  video: 1.0, catalog_product: 1.4, company_kb: 0.5, author: 0.6, faq_autoheal: 1.1 },
-  commercial: { parameter_set: 0.2, resin: 0.8, processing_protocol: 0.3, article: 1.2,  video: 0.8, catalog_product: 1.8, company_kb: 1.5, author: 1.0, faq_autoheal: 1.0 },
-  support:    { parameter_set: 0.6, resin: 0.7, processing_protocol: 0.8, article: 1.3,  video: 1.2, catalog_product: 0.5, company_kb: 0.4, author: 0.5, faq_autoheal: 1.2 },
-};
-
-function applyTopicWeights<T extends { source_type: string; similarity: number }>(
-  results: T[],
-  topicContext: string | undefined | null
-): T[] {
-  if (!topicContext || !TOPIC_WEIGHTS[topicContext]) return results;
-  const weights = TOPIC_WEIGHTS[topicContext];
-  return results
-    .map(r => ({ ...r, similarity: Math.min(r.similarity * (weights[r.source_type] ?? 1.0), 1.0) }))
-    .sort((a, b) => b.similarity - a.similarity);
-}
-
-// ── SDR Consultivo — imported from ../shared/lia-sdr.ts ──
+// ── Topic weights & SDR — imported from ../shared/lia-rag.ts and ../shared/lia-sdr.ts ──
 
 const CHAT_API = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
