@@ -22,6 +22,7 @@ const ESCALATION_TRIGGERS = {
   cs_suporte: [
     /\b(defeito|garantia|assist[êe]ncia|reclama[çc]|insatisf|problema com.{0,20}(produto|equipamento|impressora|scanner))\b/i,
     /\b(troca[r]?|devolu[çc]|reembolso|pe[çc]a.{0,15}reposi[çc])\b/i,
+    // REMOVED: "treinamento" — users asking ABOUT training are not support cases
   ],
   especialista: [
     /\b(frustra|irritad|decepcion|insatisfeit|raiva|absurdo|p[ée]ssim|horrível|hor[íi]vel|nunca mais)\b/i,
@@ -30,18 +31,23 @@ const ESCALATION_TRIGGERS = {
 };
 
 export function detectEscalationIntent(message: string, history: Array<{ role: string; content: string }>): EscalationType {
+  // Guard: polite closing/thank-you messages should never trigger escalation
   const closingPattern = /^(obrigad[oa]s?|valeu|ok|beleza|entendi|perfeito|legal|blz|vlw|thanks?|thank you|gracias?|tudo bem|certo|massa|show|top|boa|bacana|ta bom|tá bom|combinado|pode ser|fechou|tranquilo)\b/i;
   if (closingPattern.test(message.trim())) return null;
 
+  // Check current message first
   for (const [type, patterns] of Object.entries(ESCALATION_TRIGGERS)) {
     if (patterns.some(p => p.test(message))) return type as EscalationType;
   }
 
+  // Check for specialist escalation: 3+ unanswered questions in session
   const userMessages = history.filter(h => h.role === "user");
   const assistantMessages = history.filter(h => h.role === "assistant");
   if (userMessages.length >= 3) {
     const lastAssistants = assistantMessages.slice(-3);
-    const fallbackCount = lastAssistants.filter(a => /não tenho essa informação|falar com especialista|falar com suporte|wa\.me/i.test(a.content)).length;
+    const fallbackCount = lastAssistants.filter(a =>
+      /não tenho essa informação|falar com especialista|falar com suporte|wa\.me/i.test(a.content)
+    ).length;
     if (fallbackCount >= 2) return "especialista";
   }
   return null;
@@ -74,6 +80,7 @@ export const FALLBACK_MESSAGES: Record<string, string> = {
 };
 
 // ── Notify Seller (escalation) ──
+// Reads SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from Deno.env
 export async function notifySellerEscalation(
   supabase: SupabaseClient,
   leadEmail: string,
@@ -81,56 +88,132 @@ export async function notifySellerEscalation(
   escalationType: EscalationType,
   resumo: string,
   message: string,
-  env: { SUPABASE_URL: string; SUPABASE_SERVICE_ROLE_KEY: string }
 ): Promise<void> {
   if (!escalationType) return;
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
   try {
+    // 1. Find the responsible seller from lia_attendances → proprietario_lead_crm → team_members
     const { data: attendance } = await supabase
       .from("lia_attendances")
       .select("proprietario_lead_crm, telefone_normalized, produto_interesse, temperatura_lead, score, id, piperun_id, piperun_link, especialidade, confidence_score_analysis, lead_stage_detected, urgency_level, interest_timeline, psychological_profile, primary_motivation, objection_risk, recommended_approach")
       .eq("email", leadEmail)
       .maybeSingle();
-    if (!attendance) { console.warn(`[escalation] No attendance for ${leadEmail}`); return; }
 
+    if (!attendance) { console.warn(`[escalation] No attendance found for ${leadEmail}`); return; }
+
+    // 2. Find team member by proprietario_lead_crm
     let teamMember: { id: string; nome_completo: string; whatsapp_number: string; waleads_api_key: string | null } | null = null;
     if (attendance.proprietario_lead_crm) {
       const { data: tm } = await supabase.from("team_members").select("id, nome_completo, whatsapp_number, waleads_api_key").eq("piperun_owner_id", attendance.proprietario_lead_crm).eq("ativo", true).maybeSingle();
       teamMember = tm;
     }
+    // Fallback: first active vendedor
     if (!teamMember) {
       const { data: tm } = await supabase.from("team_members").select("id, nome_completo, whatsapp_number, waleads_api_key").eq("ativo", true).eq("role", "vendedor").limit(1).maybeSingle();
       teamMember = tm;
     }
-    if (!teamMember) { console.warn(`[escalation] No team member found`); return; }
+    if (!teamMember) { console.warn(`[escalation] No team member found for escalation`); return; }
 
+    // 3. Build notification message
     const typeLabels: Record<string, string> = { vendedor: "🟢 OPORTUNIDADE COMERCIAL", cs_suporte: "🟡 SUPORTE TÉCNICO", especialista: "🔴 ESCALONAMENTO URGENTE" };
     const urgencyEmoji: Record<string, string> = { alta: "🔴", media: "🟡", baixa: "🟢" };
+
     let cognitiveBlock = "";
     if (attendance.confidence_score_analysis) {
-      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\nEstágio: ${attendance.lead_stage_detected || "N/I"}\nUrgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}\nTimeline: ${attendance.interest_timeline || "N/I"}\nPerfil: ${attendance.psychological_profile || "N/I"}\nMotivação: ${attendance.primary_motivation || "N/I"}\nRisco objeção: ${attendance.objection_risk || "N/I"}\nAbordagem: ${attendance.recommended_approach || "N/I"}`;
+      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\n\nEstágio: ${attendance.lead_stage_detected || "N/I"}\nUrgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}\nTimeline: ${attendance.interest_timeline || "N/I"}\nPerfil: ${attendance.psychological_profile || "N/I"}\nMotivação: ${attendance.primary_motivation || "N/I"}\nRisco objeção: ${attendance.objection_risk || "N/I"}\nAbordagem: ${attendance.recommended_approach || "N/I"}`;
     }
 
-    const notificationMsg = `${typeLabels[escalationType] || "📋 ESCALONAMENTO"}\n\n👤 Lead: ${leadName}\n📧 Email: ${leadEmail}\n${attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : ""}\n${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}\n${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}\n${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}\n${attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : ""}\n\n💬 Última msg: "${message.slice(0, 200)}"\n${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}\n\n⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}\n${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
+    const notificationMsg = `${typeLabels[escalationType] || "📋 ESCALONAMENTO"}
 
-    await supabase.from("message_logs").insert({ lead_id: attendance.id, team_member_id: teamMember.id, tipo: `escalation_${escalationType}`, mensagem_preview: notificationMsg.slice(0, 500), whatsapp_number: teamMember.whatsapp_number, status: "pendente" });
-    await supabase.from("lia_attendances").update({ ultima_etapa_comercial: `escalado_lia_${escalationType}`, updated_at: new Date().toISOString() }).eq("email", leadEmail);
+👤 Lead: ${leadName}
+📧 Email: ${leadEmail}
+${attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : ""}
+${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}
+${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}
+${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}
+${attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : ""}
+
+💬 Última msg: "${message.slice(0, 200)}"
+${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}
+
+⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}
+${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
+
+    // 4. Log in message_logs
+    await supabase.from("message_logs").insert({
+      lead_id: attendance.id,
+      team_member_id: teamMember.id,
+      tipo: `escalation_${escalationType}`,
+      mensagem_preview: notificationMsg.slice(0, 500),
+      whatsapp_number: teamMember.whatsapp_number,
+      status: "pendente",
+    });
+
+    // 5. Update lia_attendances with escalation status
+    await supabase.from("lia_attendances")
+      .update({
+        ultima_etapa_comercial: `escalado_lia_${escalationType}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("email", leadEmail);
 
     console.log(`[escalation] ${escalationType} escalation logged for ${leadEmail} → ${teamMember.nome_completo}`);
 
-    if (teamMember.waleads_api_key && teamMember.whatsapp_number) {
+    // 6. Send via WaLeads if API key available
+    if (teamMember.waleads_api_key) {
       try {
-        const sendResp = await fetch(`${env.SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
+        const sellerPhone = teamMember.whatsapp_number;
+        if (!sellerPhone) {
+          console.warn(`[escalation] Seller ${teamMember.nome_completo} has no whatsapp_number — skipping WaLeads send`);
+          return;
+        }
+        const sendResp = await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-send-waleads`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}` },
-          body: JSON.stringify({ team_member_id: teamMember.id, phone: teamMember.whatsapp_number, tipo: "text", message: notificationMsg, lead_id: attendance.id }),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            team_member_id: teamMember.id,
+            phone: sellerPhone,
+            tipo: "text",
+            message: notificationMsg,
+            lead_id: attendance.id,
+          }),
           signal: AbortSignal.timeout(5000),
         });
-        let sendResult: { success?: boolean } = {};
-        try { sendResult = await sendResp.json(); } catch { /* ignore */ }
-        const ok = sendResp.ok && sendResult.success !== false;
-        await supabase.from("message_logs").update({ status: ok ? "enviado" : "erro" }).eq("lead_id", attendance.id).eq("tipo", `escalation_${escalationType}`).order("created_at", { ascending: false }).limit(1);
-        console.log(`[escalation] ${ok ? "✓" : "✗"} Notification sent to ${teamMember.nome_completo}`);
-      } catch (e) { console.warn(`[escalation] WaLeads send error:`, e); }
+
+        // Parse response body to check actual success
+        let sendResult: { success?: boolean; response?: string; provider?: string } = {};
+        try { sendResult = await sendResp.json(); } catch { /* ignore parse errors */ }
+
+        const actuallySucceeded = sendResp.ok && sendResult.success !== false;
+
+        if (actuallySucceeded) {
+          await supabase.from("message_logs")
+            .update({ status: "enviado", data_envio: new Date().toISOString() })
+            .eq("lead_id", attendance.id)
+            .eq("tipo", `escalation_${escalationType}`)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          console.log(`[escalation] WaLeads notification sent to ${teamMember.nome_completo} via ${sendResult.provider || "unknown"}`);
+        } else {
+          await supabase.from("message_logs")
+            .update({ status: "erro", error_details: (sendResult.response || `HTTP ${sendResp.status}`).slice(0, 500) })
+            .eq("lead_id", attendance.id)
+            .eq("tipo", `escalation_${escalationType}`)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          console.warn(`[escalation] WaLeads send failed: HTTP ${sendResp.status} success=${sendResult.success} response=${sendResult.response?.slice(0, 200)}`);
+        }
+      } catch (e) {
+        console.warn(`[escalation] WaLeads send error:`, e);
+      }
     }
-  } catch (e) { console.error(`[escalation] Error:`, e); }
+  } catch (e) {
+    console.error(`[escalation] Error:`, e);
+  }
 }
