@@ -719,6 +719,27 @@ Deno.serve(async (req) => {
       status: "recebido",
     });
 
+    // ─── Record timeline event in lead_activity_log (append-only) ───
+    await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: `ecommerce_${eventType}`,
+      entity_type: "order",
+      entity_id: numeroPedido ? String(numeroPedido) : null,
+      entity_name: productNames.length > 0 ? productNames.join(", ").slice(0, 200) : null,
+      event_data: {
+        pedido: numeroPedido,
+        valor: valorTotal,
+        status: liPedidoStatus,
+        produtos: productNames,
+        tags_added: tagsToAdd,
+        fonte: "loja_integrada",
+      },
+      source_channel: "ecommerce",
+      value_numeric: valorTotal,
+    }).then(({ error }) => {
+      if (error) console.warn("[ecommerce-webhook] timeline insert error:", error.message);
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
