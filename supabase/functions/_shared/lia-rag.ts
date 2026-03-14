@@ -58,6 +58,7 @@ export async function searchCompanyKB(supabase: SupabaseClient, query: string, h
   const orFilter = words.map(w => `title.ilike.%${w}%,content.ilike.%${w}%`).join(',');
   const { data } = await supabase.from('company_kb_texts').select('id, title, content, category, source_label').eq('active', true).or(orFilter).limit(3);
   if (!data?.length) return [];
+  console.log(`[searchCompanyKB] Found ${data.length} results from company_kb_texts`);
   return data.map((d: { id: string; title: string; content: string; category: string; source_label: string | null }) => ({
     id: d.id, source_type: 'company_kb',
     chunk_text: `${d.title} | ${d.content.slice(0, 800)}`,
@@ -71,7 +72,7 @@ export async function searchCompanyKB(supabase: SupabaseClient, query: string, h
   }));
 }
 
-// ── Content Direct Search (with cache) ──
+// ── Content Direct Search (with exact + FTS cache) ──
 export const CONTENT_REQUEST_REGEX = /v[ií]deo|video|tutorial|assistir|watch|mostrar|documento|apostila|manual|artigo|publica[çc][ãa]o|material|conte[úu]do|explica[çc][ãa]o|tem algo sobre/i;
 
 export async function searchContentDirect(
@@ -80,20 +81,62 @@ export async function searchContentDirect(
   siteBaseUrl: string,
   sessionId?: string,
   leadId?: string | null
-) {
+): Promise<Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>> {
+  const queryNormalized = userMessage.toLowerCase()
+    .replace(/[áàâã]/g, "a").replace(/[éèê]/g, "e").replace(/[íìî]/g, "i")
+    .replace(/[óòôõ]/g, "o").replace(/[úùû]/g, "u").replace(/[ç]/g, "c")
+    .replace(/[^\w\s]/g, "").trim();
+
   const results: Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }> = [];
-  const queryNormalized = userMessage.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").trim().split(/\s+/).filter(w => w.length > 2 && !STOPWORDS_PT.includes(w)).slice(0, 8).join(" ");
-  if (!queryNormalized || queryNormalized.length < 3) return results;
 
-  // Cache check
+  // ETAPA 1: Cache check — exact first (UNIQUE index), FTS fallback
   try {
-    const { data: cached } = await supabaseClient.from("agent_internal_lookups").select("id, results_json, results_count, hit_count, last_hit_at").eq("query_normalized", queryNormalized).gte("last_hit_at", new Date(Date.now() - 30 * 86400000).toISOString()).maybeSingle();
-    if (cached && cached.results_count > 0) {
-      supabaseClient.rpc("increment_lookup_hit", { lookup_id: cached.id }).then(() => {});
-      return (cached.results_json as typeof results) || [];
-    }
-  } catch { /* continue */ }
+    const { data: exactHit } = await supabaseClient
+      .from("agent_internal_lookups")
+      .select("id, results_json, results_count, hit_count, last_hit_at")
+      .eq("query_normalized", queryNormalized)
+      .single();
 
+    if (exactHit) {
+      const hoursSinceHit = (Date.now() - new Date(exactHit.last_hit_at).getTime()) / 3600000;
+      const isCacheValid = exactHit.results_count > 0
+        ? hoursSinceHit < (24 * 30)
+        : hoursSinceHit < 24;
+
+      if (isCacheValid) {
+        console.log(`[searchContentDirect] Cache EXACT HIT: ${exactHit.results_count} results (age: ${Math.round(hoursSinceHit)}h)`);
+        supabaseClient.rpc("increment_lookup_hit", { lookup_id: exactHit.id }).then(() => {});
+        return (exactHit.results_json as typeof results) || [];
+      }
+    }
+
+    const tsQuery = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5).join(" & ");
+    if (tsQuery) {
+      const { data: cached } = await supabaseClient
+        .from("agent_internal_lookups")
+        .select("id, results_json, results_count, hit_count, last_hit_at")
+        .textSearch("query_normalized", tsQuery, { type: "plain", config: "simple" })
+        .gte("last_hit_at", new Date(Date.now() - 30 * 86400000).toISOString())
+        .order("hit_count", { ascending: false })
+        .limit(3);
+
+      if (cached && cached.length > 0) {
+        const best = cached.find(c => c.results_count > 0) || cached[0];
+        const hoursSinceHit = (Date.now() - new Date(best.last_hit_at).getTime()) / 3600000;
+        const isCacheValid = best.results_count > 0 ? hoursSinceHit < (24 * 30) : hoursSinceHit < 24;
+
+        if (isCacheValid) {
+          console.log(`[searchContentDirect] Cache FTS HIT: ${cached.length} entries, returning ${best.results_count} results`);
+          supabaseClient.rpc("increment_lookup_hit", { lookup_id: best.id }).then(() => {});
+          return (best.results_json as typeof results) || [];
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[searchContentDirect] Cache check failed:", e);
+  }
+
+  // ETAPA 2: Direct table search
   const searchTerms = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5);
   const searchPattern = `%${searchTerms.join("%")}%`;
 
@@ -101,48 +144,69 @@ export async function searchContentDirect(
   try {
     const tsQuery = searchTerms.join(" & ");
     if (tsQuery) {
-      const { data: videos } = await supabaseClient.from("knowledge_videos").select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags").textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" }).limit(5);
-      if (videos) for (const v of videos) {
-        const videoUrl = v.content_id ? `${siteBaseUrl}/base-de-conhecimento/${v.content_id}` : v.url || v.embed_url;
-        results.push({ source_type: "video", similarity: 0.75, chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`, metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url_interna: videoUrl, embed_url: v.embed_url, panda_tags: v.panda_tags } });
+      const { data: videos } = await supabaseClient
+        .from("knowledge_videos")
+        .select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags")
+        .textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" })
+        .limit(5);
+      if (videos) {
+        for (const v of videos) {
+          const videoUrl = v.content_id ? `${siteBaseUrl}/base-de-conhecimento/${v.content_id}` : v.url || v.embed_url;
+          results.push({ source_type: "video", similarity: 0.75, chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`, metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url_interna: videoUrl, embed_url: v.embed_url, panda_tags: v.panda_tags } });
+        }
       }
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.warn("[searchContentDirect] Videos search failed:", e); }
 
   // Articles (ILIKE)
   try {
     const { data: articles } = await supabaseClient.from("knowledge_contents").select("id, title, excerpt, slug, category_id").eq("active", true).or(`title.ilike.${searchPattern},excerpt.ilike.${searchPattern}`).limit(5);
-    if (articles) for (const a of articles) {
-      results.push({ source_type: "article", similarity: 0.70, chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`, metadata: { title: a.title, slug: a.slug, url_publica: `${siteBaseUrl}/base-de-conhecimento/${a.slug}` } });
+    if (articles) {
+      for (const a of articles) {
+        results.push({ source_type: "article", similarity: 0.70, chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`, metadata: { title: a.title, slug: a.slug, url_publica: `${siteBaseUrl}/base-de-conhecimento/${a.slug}` } });
+      }
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.warn("[searchContentDirect] Articles search failed:", e); }
 
   // Documents (ILIKE)
   try {
     const { data: docs } = await supabaseClient.from("catalog_documents").select("id, document_name, document_description, file_url, document_category").eq("active", true).or(`document_name.ilike.${searchPattern},document_description.ilike.${searchPattern}`).limit(5);
-    if (docs) for (const d of docs) {
-      results.push({ source_type: "article", similarity: 0.65, chunk_text: `[DOCUMENTO] ${d.document_name}${d.document_description ? ` — ${d.document_description.slice(0, 200)}` : ""}`, metadata: { title: d.document_name, category: d.document_category, url_publica: d.file_url } });
+    if (docs) {
+      for (const d of docs) {
+        results.push({ source_type: "article", similarity: 0.65, chunk_text: `[DOCUMENTO] ${d.document_name}${d.document_description ? ` — ${d.document_description.slice(0, 200)}` : ""}`, metadata: { title: d.document_name, category: d.document_category, url_publica: d.file_url } });
+      }
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.warn("[searchContentDirect] Documents search failed:", e); }
 
   // Resins (ILIKE)
   try {
     const { data: resins } = await supabaseClient.from("resins").select("id, name, slug, clinical_indication, biocompatibility_class").ilike("name", searchPattern).limit(3);
-    if (resins) for (const r of resins) {
-      results.push({ source_type: "resin", similarity: 0.70, chunk_text: `Resina ${r.name} — Indicação: ${r.clinical_indication || "uso geral"}. Biocompatibilidade: ${r.biocompatibility_class || "N/A"}`, metadata: { title: r.name, slug: r.slug, url_publica: `${siteBaseUrl}/resinas/${r.slug}` } });
+    if (resins) {
+      for (const r of resins) {
+        results.push({ source_type: "resin", similarity: 0.70, chunk_text: `Resina ${r.name} — Indicação: ${r.clinical_indication || "uso geral"}. Biocompatibilidade: ${r.biocompatibility_class || "N/A"}`, metadata: { title: r.name, slug: r.slug, url_publica: `${siteBaseUrl}/resinas/${r.slug}` } });
+      }
     }
-  } catch { /* ignore */ }
+  } catch (e) { console.warn("[searchContentDirect] Resins search failed:", e); }
 
-  // Cache upsert
+  // Cache upsert (fire-and-forget)
   const resultTypes = [...new Set(results.map(r => r.source_type))];
-  supabaseClient.from("agent_internal_lookups").upsert({ query_normalized: queryNormalized, query_original: userMessage, source_function: "dra-lia", results_json: results, results_count: results.length, result_types: resultTypes, hit_count: 1, last_hit_at: new Date().toISOString(), session_id: sessionId || null, lead_id: leadId || null }, { onConflict: "query_normalized" }).then(() => {});
+  supabaseClient.from("agent_internal_lookups").upsert({
+    query_normalized: queryNormalized, query_original: userMessage, source_function: "dra-lia",
+    results_json: results, results_count: results.length, result_types: resultTypes,
+    hit_count: 1, last_hit_at: new Date().toISOString(), session_id: sessionId || null, lead_id: leadId || null,
+  }, { onConflict: "query_normalized" }).then(({ error }) => {
+    if (error) console.warn("[searchContentDirect] Cache upsert failed:", error.message);
+    else console.log(`[searchContentDirect] Cached ${results.length} results for "${queryNormalized.slice(0, 50)}..."`);
+  });
+
+  console.log(`[searchContentDirect] Direct search found ${results.length} results (${resultTypes.join(", ")})`);
   return results;
 }
 
 // ── Catalog Products Search ──
 const PRODUCT_INTEREST_KEYWORDS = [
   /impressora|printer|impresora/i, /scanner|escaner/i, /equipamento|equipment|equipo/i,
-  /op[çc][õo]es|opcoes|options|opciones/i, /quais (vocês )?t[eê]m|o que (vocês )?t[eê]m/i,
+  /op[çc][õo]es|opcoes|options|opciones/i, /quais (vocês )?t[eê]m|o que (vocês )?t[eê]m|what do you have|qué tienen/i,
   /quero (comprar|ver|conhecer|saber)/i, /cat[áa]logo|catalog/i,
   /combo|kit|solu[çc][ãa]o|chairside|chair side/i, /p[óo]s.?impress[ãa]o|post.?print|lavadora|cura uv/i,
 ];
@@ -162,7 +226,7 @@ export async function searchCatalogProducts(supabase: SupabaseClient, message: s
   const { data, error } = await query.limit(20);
   if (error || !data?.length) return [];
 
-  const scored = data.map((p: { id: string; name: string; description: string | null; product_category: string | null; product_subcategory: string | null; cta_1_url: string | null; slug: string | null; price: number | null; promo_price: number | null; extra_data: Record<string, unknown> | null }) => {
+  const scored = data.map((p: { id: string; name: string; description: string | null; product_category: string | null; product_subcategory: string | null; cta_1_url: string | null; cta_1_label: string | null; slug: string | null; price: number | null; promo_price: number | null; extra_data: Record<string, unknown> | null }) => {
     const nameWords = p.name.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
     const queryWords = combinedText.split(/\s+/).filter((w: string) => w.length >= 3);
     const nameMatchCount = nameWords.filter((w: string) => queryWords.some((q: string) => w.includes(q) || q.includes(w))).length;
@@ -199,7 +263,7 @@ export async function searchProcessingInstructions(supabase: SupabaseClient, mes
   const combinedText = `${history.slice(-8).map(h => h.content).join(' ')} ${message}`.toLowerCase();
   const words = combinedText.split(/\s+/).filter(w => w.length > 3);
 
-  const scored = resins.map((r: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null }) => {
+  const scored = resins.map((r: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null; cta_1_label: string | null }) => {
     const text = `${r.name} ${r.manufacturer}`.toLowerCase();
     const score = words.filter(w => text.includes(w)).length;
     return { resin: r, score };
@@ -208,7 +272,7 @@ export async function searchProcessingInstructions(supabase: SupabaseClient, mes
   const matched = scored.filter((x: { score: number }) => x.score > 0);
   if (matched.length === 0) return [];
 
-  return matched.slice(0, 3).map(({ resin: r }: { resin: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null } }) => ({
+  return matched.slice(0, 3).map(({ resin: r }: { resin: { id: string; name: string; manufacturer: string; slug: string | null; processing_instructions: string; cta_1_url: string | null; cta_1_label: string | null } }) => ({
     id: r.id, source_type: "processing_protocol",
     chunk_text: `${r.name} (${r.manufacturer}) — Instruções de Pré e Pós Processamento:\n${r.processing_instructions}`,
     metadata: { title: `Protocolo de Processamento: ${r.name}`, resin_name: r.name, cta_1_url: r.cta_1_url, url_publica: r.slug ? `${siteBaseUrl}/resina/${r.slug}` : null },
@@ -300,7 +364,7 @@ export async function searchArticlesAndAuthors(supabase: SupabaseClient, message
     if (authors?.length) {
       for (const author of authors as Array<{ id: string; name: string; specialty: string | null; mini_bio: string | null; photo_url: string | null; website_url: string | null; instagram_url: string | null; youtube_url: string | null; lattes_url: string | null }>) {
         const socialLinks = [author.website_url ? `Site: ${author.website_url}` : '', author.instagram_url ? `Instagram: ${author.instagram_url}` : '', author.youtube_url ? `YouTube: ${author.youtube_url}` : '', author.lattes_url ? `Lattes: ${author.lattes_url}` : ''].filter(Boolean).join(' | ');
-        results.push({ id: author.id, source_type: 'author', chunk_text: `AUTOR/KOL: ${author.name} | Especialidade: ${author.specialty || 'N/A'} | Bio: ${author.mini_bio || 'N/A'}${socialLinks ? ` | ${socialLinks}` : ''}`, metadata: { title: author.name, photo_url: author.photo_url }, similarity: 0.80 });
+        results.push({ id: author.id, source_type: 'author', chunk_text: `KOL/AUTOR: ${author.name}${author.specialty ? ` — ${author.specialty}` : ''}${author.mini_bio ? ` | ${author.mini_bio}` : ''}${socialLinks ? ` | ${socialLinks}` : ''}`, metadata: { title: author.name, specialty: author.specialty, photo_url: author.photo_url }, similarity: 0.85 });
       }
     }
   }
@@ -324,6 +388,7 @@ export async function searchKnowledge(
     if (productMentions && productMentions.length > 0) {
       const uniqueProducts = [...new Set(productMentions.map(p => p.trim().slice(0, 30)))];
       augmentedQuery = `${uniqueProducts.join(' ')} ${query}`;
+      console.log(`[searchKnowledge] Query augmented with history products: "${augmentedQuery}"`);
     }
   }
 
@@ -420,26 +485,35 @@ export function buildStructuredContext(
 
   if (!isCommercialRoute) return results.map(formatItem).join("\n\n---\n\n");
 
-  const groups: Record<string, string[]> = { products: [], expertise: [], articles: [], authors: [], videos: [], params: [] };
+  // Commercial route: group by semantic function
+  const products: string[] = [];
+  const expertise: string[] = [];
+  const articles: string[] = [];
+  const authors: string[] = [];
+  const videos: string[] = [];
+  const params: string[] = [];
+
   for (const m of results) {
     const formatted = formatItem(m);
     switch (m.source_type) {
-      case 'catalog_product': case 'resin': groups.products.push(formatted); break;
-      case 'company_kb': groups.expertise.push(formatted); break;
-      case 'author': groups.authors.push(formatted); break;
-      case 'video': groups.videos.push(formatted); break;
-      case 'parameter_set': case 'processing_protocol': groups.params.push(formatted); break;
-      default: groups.articles.push(formatted);
+      case 'catalog_product': case 'resin': products.push(formatted); break;
+      case 'company_kb': expertise.push(formatted); break;
+      case 'article': articles.push(formatted); break;
+      case 'author': authors.push(formatted); break;
+      case 'video': videos.push(formatted); break;
+      case 'parameter_set': case 'processing_protocol': params.push(formatted); break;
+      default: articles.push(formatted);
     }
   }
 
   const sections: string[] = [];
-  if (groups.products.length > 0) sections.push(`## PRODUTOS RECOMENDADOS\n${groups.products.join("\n\n")}`);
-  if (groups.expertise.length > 0) sections.push(`## ARGUMENTOS DE VENDA E EXPERTISE\n${groups.expertise.join("\n\n")}`);
-  if (groups.articles.length > 0) sections.push(`## ARTIGOS E PUBLICAÇÕES\n${groups.articles.join("\n\n")}`);
-  if (groups.authors.length > 0) sections.push(`## KOLs E AUTORES\n${groups.authors.join("\n\n")}`);
-  if (groups.videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS\n${groups.videos.join("\n\n")}`);
-  if (groups.params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS\n${groups.params.join("\n\n")}`);
+  if (products.length > 0) sections.push(`## PRODUTOS RECOMENDADOS (use para sugestões e apresentação)\n${products.join("\n\n")}`);
+  if (expertise.length > 0) sections.push(`## ARGUMENTOS DE VENDA E EXPERTISE (use para persuasão e objeções)\n${expertise.join("\n\n")}`);
+  if (articles.length > 0) sections.push(`## ARTIGOS E PUBLICAÇÕES (cite quando relevante ou solicitado)\n${articles.join("\n\n")}`);
+  if (authors.length > 0) sections.push(`## KOLs E AUTORES (apresente quando perguntado sobre autores/especialistas)\n${authors.join("\n\n")}`);
+  if (videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS (mencione APENAS se solicitado)\n${videos.join("\n\n")}`);
+  if (params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS (cite apenas se perguntado)\n${params.join("\n\n")}`);
 
-  return sections.length === 0 ? "" : sections.join("\n\n---\n\n");
+  if (sections.length === 0) return "";
+  return sections.join("\n\n---\n\n");
 }

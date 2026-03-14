@@ -4,7 +4,6 @@
  * Extracted from dra-lia/index.ts for modularity and testability.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { logAIUsage } from "./log-ai-usage.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
