@@ -379,7 +379,7 @@ function enrichWithOrderHistory(
     }
   }
 
-  return { ltv, totalPedidosPagos, dataPrimeiraCompra, dataUltimaCompra, historicoPedidos, extraUpdateData };
+  return { ltv, totalPedidosPagos, dataPrimeiraCompra, dataUltimaCompra, historicoPedidos: allOrderSnapshots, extraUpdateData };
 }
 
 Deno.serve(async (req) => {
