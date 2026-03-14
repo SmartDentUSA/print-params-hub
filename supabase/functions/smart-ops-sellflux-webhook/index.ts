@@ -244,17 +244,18 @@ Deno.serve(async (req) => {
         const equipMentioned = uniqueMatches.filter(m => equipKeywords.some(e => m.includes(e)));
         const productMentioned = uniqueMatches.filter(m => !equipKeywords.some(e => m.includes(e)));
 
-        await supabase.from('lead_form_submissions').insert({
+        const formId = (payload.form_id || payload.automation_name || null) as string;
+        await supabase.from('lead_form_submissions').upsert({
           lead_id: resolvedLeadId,
           form_type: 'sellflux',
-          form_id: (payload.form_id || payload.automation_name || null) as string,
+          form_id: formId,
           form_data: payload,
           message: (payload.message || null) as string,
           equipment_mentioned: equipMentioned.length > 0 ? equipMentioned.join(', ') : null,
           product_mentioned: productMentioned.length > 0 ? productMentioned.join(', ') : null,
           submitted_at: new Date().toISOString(),
           status: 'new',
-        });
+        }, { onConflict: 'lead_id,form_type,form_id', ignoreDuplicates: true });
 
         // Log event in activity log
         await supabase.from('lead_activity_log').insert({
