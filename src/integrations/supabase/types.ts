@@ -3493,6 +3493,36 @@ export type Database = {
           },
         ]
       }
+      lia_attendances_backup_20260314: {
+        Row: {
+          id: string | null
+          ltv_total: number | null
+          proposals_total_value: number | null
+          proprietario_lead_crm: string | null
+          score: number | null
+          status_atual_lead_crm: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          ltv_total?: number | null
+          proposals_total_value?: number | null
+          proprietario_lead_crm?: string | null
+          score?: number | null
+          status_atual_lead_crm?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          ltv_total?: number | null
+          proposals_total_value?: number | null
+          proprietario_lead_crm?: string | null
+          score?: number | null
+          status_atual_lead_crm?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       message_logs: {
         Row: {
           created_at: string
