@@ -4,6 +4,7 @@ import { sendLeadToSellFlux } from "../_shared/sellflux-field-map.ts";
 import { logAIUsage } from "../_shared/log-ai-usage.ts";
 import { buildCommercialInstruction, determineLeadArchetype, ARCHETYPE_STRATEGIES, classifyLeadMaturity } from "../_shared/lia-sdr.ts";
 import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, FALLBACK_MESSAGES, type EscalationType } from "../_shared/lia-escalation.ts";
+import { detectPrinterDialogState, isPrinterParamQuestion, isOffTopicFromDialog, fetchActiveBrands, fetchBrandModels, fetchAvailableResins, findBrandInMessage, findModelInList, findResinInList, ASK_BRAND, ASK_MODEL, ASK_RESIN, RESIN_FOUND, RESIN_NOT_FOUND, BRAND_NOT_FOUND, MODEL_NOT_FOUND, type DialogState } from "../_shared/lia-printer-dialog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
