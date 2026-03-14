@@ -992,6 +992,22 @@ ${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
         }).then(({ error: logErr }) => {
           if (logErr) console.warn("[lead-activity-log] handoff insert error:", logErr.message);
         });
+
+        // ── Record SDR interaction in lead_sdr_interactions ──
+        supabase.from("lead_sdr_interactions").insert({
+          lead_id: attendance.id,
+          sdr_name: teamMember.nome_completo,
+          sdr_email: teamMember.email || null,
+          interaction_type: "handoff_lia",
+          notes: `LIA não soube responder: "${question.slice(0, 300)}". Tema: ${topicContext || "geral"}. Classificação: ${leadClassification}.`,
+          outcome: "pending",
+          product_interest: produtoCtx ? [produtoCtx] : null,
+          follow_up_needed: true,
+          contacted_at: new Date().toISOString(),
+        }).then(({ error: sdrErr }) => {
+          if (sdrErr) console.warn("[handoff] lead_sdr_interactions insert error:", sdrErr.message);
+          else console.log(`[handoff] lead_sdr_interactions recorded for lead ${attendance.id}`);
+        });
       } catch (e) {
         console.warn(`[handoff] WaLeads send error:`, e);
       }
