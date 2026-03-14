@@ -196,6 +196,38 @@ Deno.serve(async (req) => {
 
     // --- Log to system_health_logs ---
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+
+    // Parse ingest response to get lead_id for timeline
+    let ingestResult: Record<string, unknown> = {};
+    try { ingestResult = JSON.parse(ingestBody); } catch {}
+    const resolvedLeadId = ingestResult.lead_id as string | undefined;
+
+    // Timeline: log SellFlux entry with detected source context
+    if (resolvedLeadId) {
+      const hasEcommerce = detected.source === "loja_integrada";
+      await supabase.from("lead_activity_log").insert({
+        lead_id: resolvedLeadId,
+        event_type: hasEcommerce ? "ecommerce_sellflux_entry" : "sellflux_webhook_entry",
+        entity_type: "sellflux",
+        entity_id: payload.automation_name || payload.form_name || detected.source,
+        entity_name: hasEcommerce
+          ? `E-commerce via SellFlux: ${productName || "pedido"}`
+          : `SellFlux: ${payload.automation_name || payload.form_name || "webhook"}`,
+        event_data: {
+          label: hasEcommerce ? "Entrada e-commerce via SellFlux" : "Entrada via automação SellFlux",
+          detected_source: detected.source,
+          tags: standardizedTags.slice(0, 10),
+          product_name: productName || null,
+          transaction_value: transactionValue || null,
+          tracking_status: trackingStatus || null,
+          automation_name: payload.automation_name || null,
+          form_name: payload.form_name || null,
+        },
+        source_channel: "sellflux",
+        event_timestamp: new Date().toISOString(),
+      });
+    }
+
     try {
       await supabase.from("system_health_logs").insert({
         function_name: "smart-ops-sellflux-webhook",
