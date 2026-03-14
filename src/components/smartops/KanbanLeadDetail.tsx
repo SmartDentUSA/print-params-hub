@@ -426,6 +426,22 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
             </>
           ) : null}
 
+          {/* ===== TIMELINE ATIVA (real-time) ===== */}
+          <Section title={`Timeline (${timelineEvents.length})`} emoji="⏱️" defaultOpen>
+            {loadingMsgs && timelineEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Carregando timeline...</p>
+            ) : timelineEvents.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic">Nenhum evento registrado ainda. Eventos de CRM, E-commerce, LIA e WhatsApp aparecerão aqui em tempo real.</p>
+            ) : (
+              <div className="max-h-[350px] overflow-y-auto pr-1">
+                {timelineEvents.map((event) => (
+                  <TimelineItem key={event.id} event={event} />
+                ))}
+              </div>
+            )}
+          </Section>
+          <Separator />
+
           {/* ===== DEALS HISTORY (piperun_deals_history) ===== */}
           {lead.piperun_deals_history && Array.isArray(lead.piperun_deals_history) && (lead.piperun_deals_history as Record<string, unknown>[]).length > 0 && (
             <>
