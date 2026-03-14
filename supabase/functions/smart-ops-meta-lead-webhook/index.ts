@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
             const equipMentioned = metaUniqueMatches.filter(m => equipKeywords.some(e => m.includes(e)));
             const productMentioned = metaUniqueMatches.filter(m => !equipKeywords.some(e => m.includes(e)));
 
-            await supabase.from('lead_form_submissions').insert({
+            await supabase.from('lead_form_submissions').upsert({
               lead_id: ingestResult.lead_id,
               form_type: 'meta_lead_ads',
               form_id: formId || null,
@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
               product_mentioned: productMentioned.length > 0 ? productMentioned.join(', ') : null,
               submitted_at: new Date().toISOString(),
               status: 'new',
-            });
+            }, { onConflict: 'lead_id,form_type,form_id', ignoreDuplicates: true });
 
             await supabase.from('lead_activity_log').insert({
               lead_id: ingestResult.lead_id,
