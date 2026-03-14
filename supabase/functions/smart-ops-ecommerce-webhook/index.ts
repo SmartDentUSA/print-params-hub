@@ -582,7 +582,7 @@ Deno.serve(async (req) => {
     // ─── Upsert lead in lia_attendances ───
     const { data: existingLead } = await supabase
       .from("lia_attendances")
-      .select("id, tags_crm, lead_status, telefone_normalized, pessoa_cpf")
+      .select("id, tags_crm, lead_status, telefone_normalized, pessoa_cpf, lojaintegrada_historico_pedidos")
       .eq("email", email)
       .single();
 
@@ -590,6 +590,28 @@ Deno.serve(async (req) => {
 
     if (existingLead) {
       const newTags = mergeTagsCrm(existingLead.tags_crm, tagsToAdd);
+
+      // ─── Merge historico_pedidos incrementally (append + dedup by numero) ───
+      if (enrichmentData.lojaintegrada_historico_pedidos && Array.isArray(enrichmentData.lojaintegrada_historico_pedidos)) {
+        const existingHistory = Array.isArray(existingLead.lojaintegrada_historico_pedidos) 
+          ? existingLead.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>
+          : [];
+        const newHistory = enrichmentData.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>;
+        const seen = new Set(existingHistory.map((h) => String(h.numero)));
+        const merged = [...existingHistory];
+        for (const h of newHistory) {
+          if (!seen.has(String(h.numero))) {
+            merged.push(h);
+            seen.add(String(h.numero));
+          } else {
+            // Update existing entry with latest status
+            const idx = merged.findIndex((m) => String(m.numero) === String(h.numero));
+            if (idx !== -1) merged[idx] = h;
+          }
+        }
+        enrichmentData.lojaintegrada_historico_pedidos = merged;
+      }
+
       const updateData: Record<string, unknown> = { tags_crm: newTags, ...enrichmentData };
 
       if (eventType === "order_paid") {
