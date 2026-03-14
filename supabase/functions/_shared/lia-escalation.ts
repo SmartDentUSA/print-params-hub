@@ -1,9 +1,9 @@
 /**
  * LIA Escalation — intent detection, seller notification, and handoff engine.
  * Handles vendedor/cs_suporte/especialista routing and WaLeads notifications.
+ * Extracted from dra-lia/index.ts for modularity and testability.
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendLeadToSellFlux } from "./sellflux-field-map.ts";
 import { logAIUsage } from "./log-ai-usage.ts";
 
 type SupabaseClient = ReturnType<typeof createClient>;
@@ -107,13 +107,15 @@ export async function notifySellerEscalation(
     const urgencyEmoji: Record<string, string> = { alta: "🔴", media: "🟡", baixa: "🟢" };
     let cognitiveBlock = "";
     if (attendance.confidence_score_analysis) {
-      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\nEstágio: ${attendance.lead_stage_detected || "N/I"}\nUrgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}\nPerfil: ${attendance.psychological_profile || "N/I"}\nMotivação: ${attendance.primary_motivation || "N/I"}\nRisco objeção: ${attendance.objection_risk || "N/I"}\nAbordagem: ${attendance.recommended_approach || "N/I"}`;
+      cognitiveBlock = `\n📊 Análise Cognitiva - Confiança: ${attendance.confidence_score_analysis}%\nEstágio: ${attendance.lead_stage_detected || "N/I"}\nUrgência: ${urgencyEmoji[attendance.urgency_level as string] || "⚪"} ${attendance.urgency_level || "N/I"}\nTimeline: ${attendance.interest_timeline || "N/I"}\nPerfil: ${attendance.psychological_profile || "N/I"}\nMotivação: ${attendance.primary_motivation || "N/I"}\nRisco objeção: ${attendance.objection_risk || "N/I"}\nAbordagem: ${attendance.recommended_approach || "N/I"}`;
     }
 
     const notificationMsg = `${typeLabels[escalationType] || "📋 ESCALONAMENTO"}\n\n👤 Lead: ${leadName}\n📧 Email: ${leadEmail}\n${attendance.telefone_normalized ? `📱 Tel: ${attendance.telefone_normalized}` : ""}\n${attendance.especialidade ? `🦷 Especialidade: ${attendance.especialidade}` : ""}\n${attendance.produto_interesse ? `🎯 Interesse: ${attendance.produto_interesse}` : ""}\n${attendance.piperun_id ? `🎯 ID_PipeRun: ${attendance.piperun_id}` : ""}\n${attendance.piperun_link ? `🔗 PipeRun: ${attendance.piperun_link}` : ""}\n\n💬 Última msg: "${message.slice(0, 200)}"\n${resumo ? `📝 Resumo LIA: ${resumo.slice(0, 200)}` : ""}\n\n⚡ Ação recomendada: ${escalationType === "vendedor" ? "Contactar lead para negociação" : escalationType === "cs_suporte" ? "Agendar suporte técnico" : "Intervenção imediata - lead frustrado"}\n${cognitiveBlock}`.replace(/\n{3,}/g, "\n\n");
 
     await supabase.from("message_logs").insert({ lead_id: attendance.id, team_member_id: teamMember.id, tipo: `escalation_${escalationType}`, mensagem_preview: notificationMsg.slice(0, 500), whatsapp_number: teamMember.whatsapp_number, status: "pendente" });
     await supabase.from("lia_attendances").update({ ultima_etapa_comercial: `escalado_lia_${escalationType}`, updated_at: new Date().toISOString() }).eq("email", leadEmail);
+
+    console.log(`[escalation] ${escalationType} escalation logged for ${leadEmail} → ${teamMember.nome_completo}`);
 
     if (teamMember.waleads_api_key && teamMember.whatsapp_number) {
       try {
