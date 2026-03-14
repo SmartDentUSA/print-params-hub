@@ -3072,11 +3072,11 @@ REGRAS:
     const shouldSearchCatalog = isCommercial || historyMentionsProduct;
 
     const [knowledgeResult, protocolResults, paramResults, catalogResults, metaArticleResults, companyContext] = await Promise.all([
-      searchKnowledge(supabase, message, lang, topic_context, history),
-      isProtocol ? searchProcessingInstructions(supabase, message, history) : Promise.resolve([]),
-      skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history),
-      shouldSearchCatalog ? searchCatalogProducts(supabase, message, history) : Promise.resolve([]),
-      isMetaArticle ? searchArticlesAndAuthors(supabase, message) : Promise.resolve([]),
+      searchKnowledge(supabase, message, lang, topic_context, history, SITE_BASE_URL, generateEmbedding),
+      isProtocol ? searchProcessingInstructions(supabase, message, history, SITE_BASE_URL) : Promise.resolve([]),
+      skipParams ? Promise.resolve([]) : searchParameterSets(supabase, message, history, SITE_BASE_URL),
+      shouldSearchCatalog ? searchCatalogProducts(supabase, message, history, SITE_BASE_URL) : Promise.resolve([]),
+      isMetaArticle ? searchArticlesAndAuthors(supabase, message, SITE_BASE_URL) : Promise.resolve([]),
       companyContextPromise,
     ]);
 
