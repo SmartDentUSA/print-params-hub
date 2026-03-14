@@ -264,6 +264,25 @@ Deno.serve(async (req) => {
       })
       .eq("id", lead_id);
 
+    // 9. Log to lead_activity_log timeline
+    await supabase.from("lead_activity_log").insert({
+      lead_id,
+      event_type: "support_ticket_created",
+      entity_type: "technical_ticket",
+      entity_id: ticket.id,
+      entity_name: `Chamado ${ticketFullId}`,
+      event_data: {
+        label: "Chamado de suporte técnico aberto",
+        ticket_full_id: ticketFullId,
+        equipment: equipment || null,
+        client_summary: (client_summary || "").slice(0, 300),
+        ai_summary: (aiSummary || "").slice(0, 300),
+        notification_status: notificationStatus,
+      },
+      source_channel: "dra_lia",
+      event_timestamp: new Date().toISOString(),
+    });
+
     return new Response(JSON.stringify({
       success: true,
       ticket_id: ticket.id,
