@@ -339,8 +339,8 @@ function enrichWithOrderHistory(
   const dataPrimeiraCompra = dates[0] || null;
   const dataUltimaCompra = dates[dates.length - 1] || null;
 
-  // Build summary of last 10 orders (all orders, not just paid)
-  const historicoPedidos = orders.slice(0, 10).map((o) => {
+  // Build full order list (append-only, dedup by numero)
+  const allOrderSnapshots = orders.map((o) => {
     const codigo = resolveSituacaoCodigo(o.situacao);
     return {
       numero: o.numero || o.id,
@@ -353,7 +353,8 @@ function enrichWithOrderHistory(
   const extraUpdateData: Record<string, unknown> = {
     lojaintegrada_ltv: ltv || null,
     lojaintegrada_total_pedidos_pagos: totalPedidosPagos || null,
-    lojaintegrada_historico_pedidos: historicoPedidos,
+    // Append-only: will be merged with existing history in upsert logic
+    lojaintegrada_historico_pedidos: allOrderSnapshots,
   };
   if (dataPrimeiraCompra) extraUpdateData.lojaintegrada_primeira_compra = dataPrimeiraCompra;
 
