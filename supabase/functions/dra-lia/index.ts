@@ -3124,7 +3124,7 @@ REGRAS:
     const hasMediaInResults = allResults.some((r: { source_type: string }) => ["video", "article"].includes(r.source_type));
     if (userRequestedContent && (!hasMediaInResults || topSimilarity < 0.5)) {
       try {
-        const directResults = await searchContentDirect(supabase, message, session_id, currentLeadId);
+        const directResults = await searchContentDirect(supabase, message, SITE_BASE_URL, session_id, currentLeadId);
         if (directResults.length > 0) {
           allResults.push(...directResults);
           console.log(`[RAG] searchContentDirect added ${directResults.length} results`);
