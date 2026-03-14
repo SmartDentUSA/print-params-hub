@@ -244,6 +244,71 @@ Deno.serve(async (req) => {
 
     console.log(`[astron-postback] ${action} | ${eventType} | ${email}`);
 
+    // ── Timeline: log Astron event into lead_activity_log ──
+    const leadId = existing?.id;
+    if (leadId || action === "created") {
+      // For newly created leads, fetch the id
+      let timelineLeadId = leadId;
+      if (!timelineLeadId) {
+        const { data: newLead } = await supabase
+          .from("lia_attendances")
+          .select("id")
+          .eq("email", email)
+          .limit(1)
+          .maybeSingle();
+        timelineLeadId = newLead?.id;
+      }
+
+      if (timelineLeadId) {
+        const eventMap: Record<string, { type: string; label: string }> = {
+          useradd:                     { type: "astron_user_created",    label: "Aluno cadastrado na Astron" },
+          usercourseprogresschange:    { type: "astron_course_progress", label: "Progresso em curso Astron" },
+          newcomment:                  { type: "astron_comment",         label: "Comentou na plataforma Astron" },
+          newsupportticket:            { type: "astron_support_ticket",  label: "Abriu ticket de suporte Astron" },
+          userlogin:                   { type: "astron_login",           label: "Login na Astron" },
+          usercoursestart:             { type: "astron_course_start",    label: "Iniciou curso na Astron" },
+          usercoursecomplete:          { type: "astron_course_complete", label: "Completou curso na Astron" },
+          userlessonwatch:             { type: "astron_lesson_watch",    label: "Assistiu aula na Astron" },
+        };
+
+        const mapped = eventMap[eventType] || { type: `astron_${eventType}`, label: `Evento Astron: ${eventType}` };
+
+        const eventData: Record<string, unknown> = {
+          label: mapped.label,
+          astron_event: eventType,
+          astron_user_id: body.user_id || body.id || null,
+        };
+
+        // Course-specific metadata
+        if (courseEntry && courseEntry.course_id) {
+          eventData.course_id = courseEntry.course_id;
+          eventData.course_name = courseEntry.course_name;
+          eventData.percentage = courseEntry.percentage;
+          eventData.completed_classes = courseEntry.completed_classes;
+          eventData.total_classes = courseEntry.total_classes;
+        }
+        if (body.course_id) eventData.course_id = body.course_id;
+        if (body.course_name) eventData.course_name = body.course_name;
+        if (body.lesson_name || body.class_name) eventData.lesson_name = body.lesson_name || body.class_name;
+        if (body.comment_text || body.comment) eventData.comment_text = body.comment_text || body.comment;
+        if (body.ticket_subject || body.subject) eventData.ticket_subject = body.ticket_subject || body.subject;
+        if (body.plans_active) eventData.plans_active = body.plans_active;
+
+        await supabase.from("lead_activity_log").insert({
+          lead_id: timelineLeadId,
+          event_type: mapped.type,
+          entity_type: "astron",
+          entity_id: String(body.course_id || body.user_id || eventType),
+          entity_name: body.course_name || body.lesson_name || mapped.label,
+          event_data: eventData,
+          source_channel: "astron_postback",
+          event_timestamp: new Date().toISOString(),
+        });
+
+        console.log(`[astron-postback] Timeline event logged: ${mapped.type} for lead ${timelineLeadId}`);
+      }
+    }
+
     return new Response(
       JSON.stringify({ received: true, event: eventType, email, action }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
