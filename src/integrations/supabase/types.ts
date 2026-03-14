@@ -5460,6 +5460,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_behavioral_health: {
+        Row: {
+          registros: number | null
+          tabela: string | null
+          ultimo: string | null
+        }
+        Relationships: []
+      }
       v_lead_academy: {
         Row: {
           academy_curso_concluido: string[] | null
