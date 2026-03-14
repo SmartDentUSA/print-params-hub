@@ -2649,13 +2649,7 @@ REGRAS:
       return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    // 0a-2. Price Intent Guard — redirect to seller immediately
-    const PRICE_INTENT_PATTERNS = [
-      /quanto custa/i, /qual o (valor|preco|preço)/i,
-      /me passa[r]? (o )?(valor|preco|preço)/i,
-      /how much/i, /cuánto cuesta/i,
-      /tabela de preco/i, /price list/i,
-    ];
+    // 0a-2. Price Intent Guard — patterns imported from ../shared/lia-guards.ts
 
     if (PRICE_INTENT_PATTERNS.some(p => p.test(message.trim()))) {
       const PRICE_RESPONSES: Record<string, string> = {
