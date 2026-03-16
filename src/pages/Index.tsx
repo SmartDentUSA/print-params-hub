@@ -1,35 +1,61 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DataImport } from "@/components/DataImport";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Database } from "lucide-react";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ConnectionError } from "@/components/ConnectionError";
 import UserViewSupabase from "./UserViewSupabase";
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000;
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 const Index = () => {
   const { getUniqueBrands, loading } = useData();
   const { t } = useLanguage();
   const [hasData, setHasData] = useState(false);
   const [checkingData, setCheckingData] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
-  useEffect(() => {
-    const checkData = async () => {
+  const checkData = useCallback(async () => {
+    setCheckingData(true);
+    setConnectionError(false);
+    setRetrying(true);
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        setCheckingData(true);
         const brands = await getUniqueBrands();
         setHasData(brands.length > 0);
-      } catch (error) {
-        setHasData(false);
-      } finally {
         setCheckingData(false);
+        setRetrying(false);
+        return;
+      } catch {
+        if (attempt < MAX_RETRIES - 1) {
+          await sleep(RETRY_DELAY);
+        }
       }
-    };
-    checkData();
+    }
+
+    // All retries failed
+    setConnectionError(true);
+    setCheckingData(false);
+    setRetrying(false);
   }, [getUniqueBrands]);
+
+  useEffect(() => {
+    checkData();
+  }, [checkData]);
 
   const handleDataLoaded = () => {
     setHasData(true);
   };
+
+  if (connectionError) {
+    return <ConnectionError onRetry={checkData} retrying={retrying} />;
+  }
 
   if (checkingData || loading) {
     return (

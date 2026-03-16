@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from '@supabase/supabase-js';
 import { Link } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
+import { ConnectionError } from "@/components/ConnectionError";
 import { AuthPage } from "@/components/AuthPage";
 import { DataImport } from "@/components/DataImport";
 import { AdminStats } from "@/components/AdminStats";
