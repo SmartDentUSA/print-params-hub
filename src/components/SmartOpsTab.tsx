@@ -93,9 +93,6 @@ export function SmartOpsTab() {
           <SmartOpsBowtie key={`bowtie-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="kanban">
-          <SmartOpsAudienceBuilder key={`audience-${refreshKey}`} />
-        </TabsContent>
-        <TabsContent value="leads">
           <SmartOpsLeadsList key={`leads-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="equipe">
