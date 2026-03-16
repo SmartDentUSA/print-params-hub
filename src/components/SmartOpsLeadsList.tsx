@@ -95,17 +95,11 @@ const INTEREST_OPTIONS = [
   { key: "sdr_solucoes_interesse", label: "🔧 Soluções" },
 ] as const;
 
-const ITEM_PROPOSTA_OPTIONS = [
-  { key: "all", label: "Todos Itens" },
-  { key: "Scanner", label: "Scanner" },
-  { key: "Impressora", label: "Impressora" },
-  { key: "CAD", label: "Software CAD" },
-  { key: "Notebook", label: "Notebook" },
-  { key: "Resina", label: "Resina" },
-  { key: "Insumo", label: "Insumos" },
-  { key: "Pós", label: "Pós-impressão" },
-  { key: "Cura", label: "Cura" },
-  { key: "Curso", label: "Cursos" },
+const DEAL_STATUS_OPTIONS = [
+  { key: "all", label: "Todos Status Deal" },
+  { key: "won", label: "✅ Ganha" },
+  { key: "lost", label: "❌ Perdida" },
+  { key: "open", label: "🔵 Aberta" },
 ];
 
 interface AdvancedFilters {
