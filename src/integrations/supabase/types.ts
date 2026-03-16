@@ -5692,6 +5692,13 @@ export type Database = {
         }[]
       }
       fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
+      fn_list_proposal_products: {
+        Args: never
+        Returns: {
+          occurrences: number
+          product_name: string
+        }[]
+      }
       fn_map_lead_source: {
         Args: {
           p_formulario_source?: string
@@ -5716,6 +5723,12 @@ export type Database = {
           p_source_channel?: string
         }
         Returns: string
+      }
+      fn_search_leads_by_proposal_product: {
+        Args: { deal_status?: string; product_search: string }
+        Returns: {
+          lead_id: string
+        }[]
       }
       get_brand_distribution: {
         Args: never

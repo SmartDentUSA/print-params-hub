@@ -294,10 +294,75 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
   // Timeline display limit
   const [timelineLimit, setTimelineLimit] = useState(100);
 
+  // Merge state
+  const [mergeInfo, setMergeInfo] = useState<{ count: number; sources: string[] } | null>(null);
+  const [mergeRunning, setMergeRunning] = useState(false);
+
   // Reset on lead change
   useEffect(() => {
     setCognitiveResult(""); setUpsellResult(""); setActionsResult("");
     setChatMessages([]); setChatInput(""); setTimelineLimit(100);
+    setMergeInfo(null);
+  }, [lead?.id]);
+
+  // Auto-trigger AI tabs when activated
+  useEffect(() => {
+    if (activeTab === "cognitive" && !cognitiveResult && !cognitiveLoading) {
+      callCopilotForTab("cognitive");
+    }
+    if (activeTab === "upsell" && !upsellResult && !upsellLoading) {
+      callCopilotForTab("upsell");
+    }
+    if (activeTab === "actions" && !actionsResult && !actionsLoading) {
+      callCopilotForTab("actions");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Auto-detect and merge duplicates
+  useEffect(() => {
+    if (!lead?.id || mergeRunning) return;
+    const detectAndMerge = async () => {
+      try {
+        // Find duplicates by empresa_piperun_id, pessoa_piperun_id, or email domain
+        const conditions: string[] = [];
+        if (lead.empresa_piperun_id) conditions.push(`empresa_piperun_id.eq.${lead.empresa_piperun_id}`);
+        if (lead.pessoa_piperun_id) conditions.push(`pessoa_piperun_id.eq.${lead.pessoa_piperun_id}`);
+        const emailDomain = lead.email?.split("@")[1];
+        if (emailDomain && !emailDomain.includes("placeholder") && !["gmail.com", "hotmail.com", "outlook.com", "yahoo.com"].includes(emailDomain)) {
+          conditions.push(`email.ilike.%@${emailDomain}`);
+        }
+        if (conditions.length === 0) return;
+
+        const { data: dupes } = await supabase
+          .from("lia_attendances")
+          .select("id, nome, email, ltv_total, total_deals, piperun_id, created_at")
+          .or(conditions.join(","))
+          .neq("id", lead.id)
+          .limit(20);
+
+        if (!dupes || dupes.length === 0) return;
+
+        // Auto-merge: call edge function
+        setMergeRunning(true);
+        const { data: mergeResult, error } = await supabase.functions.invoke("smart-ops-merge-leads", {
+          body: { primary_id: lead.id, secondary_ids: dupes.map(d => d.id) },
+        });
+
+        if (!error) {
+          setMergeInfo({
+            count: dupes.length + 1,
+            sources: dupes.map(d => d.nome || d.email || "—"),
+          });
+        }
+      } catch {
+        // Silent fail for merge
+      } finally {
+        setMergeRunning(false);
+      }
+    };
+    detectAndMerge();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead?.id]);
 
   // Load all related data
@@ -509,8 +574,16 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
         <div className="intel-hero">
           <div className={`intel-avatar intel-avatar-lg ${avClass(bt)}`}>{initials(lead.nome)}</div>
           <div>
-            <div className={`intel-buyer-badge ${bt === "company" ? "intel-bb-c" : bt === "person" ? "intel-bb-p" : "intel-bb-u"}`}>
-              {bt === "company" ? "🏢 B2B — EMPRESA" : bt === "person" ? "👤 B2C — PESSOA" : "❓ DESCONHECIDO"}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className={`intel-buyer-badge ${bt === "company" ? "intel-bb-c" : bt === "person" ? "intel-bb-p" : "intel-bb-u"}`}>
+                {bt === "company" ? "🏢 B2B — EMPRESA" : bt === "person" ? "👤 B2C — PESSOA" : "❓ DESCONHECIDO"}
+              </div>
+              {mergeInfo && (
+                <span className="intel-lr-tag intel-tag-scanner" title={`Dados consolidados de: ${mergeInfo.sources.join(", ")}`} style={{ cursor: "help" }}>
+                  🔗 Consolidado ({mergeInfo.count} fontes)
+                </span>
+              )}
+              {mergeRunning && <span style={{ fontSize: 10, color: "var(--id-muted)" }}>🔄 Consolidando...</span>}
             </div>
             <div className="intel-lead-name-h">{lead.nome}</div>
             <div className="intel-meta-row">
@@ -721,8 +794,7 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                       <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{cognitiveResult}</ReactMarkdown></div>
                     ) : (
                       <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Clique em "Reanalisar" para gerar análise cognitiva ao vivo com IA</p>
-                        {/* Show existing cognitive data if available */}
+                        <p style={{ fontSize: 12 }}>Análise será gerada automaticamente...</p>
                         {s(lead, "resumo_historico_ia") && (
                           <div style={{ textAlign: "left", marginTop: 16 }}>
                             <div className="intel-ai-md prose prose-sm">
@@ -779,7 +851,7 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                       <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{upsellResult}</ReactMarkdown></div>
                     ) : (
                       <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Clique em "Gerar Previsão" para analisar oportunidades de upsell e previsão de recompra</p>
+                        <p style={{ fontSize: 12 }}>Análise será gerada automaticamente...</p>
                       </div>
                     )}
                   </div>
@@ -958,7 +1030,7 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                       <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{actionsResult}</ReactMarkdown></div>
                     ) : (
                       <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Clique em "Gerar Ações" para criar uma lista priorizada de ações com scripts de abordagem</p>
+                        <p style={{ fontSize: 12 }}>Ações serão geradas automaticamente...</p>
                       </div>
                     )}
                   </div>

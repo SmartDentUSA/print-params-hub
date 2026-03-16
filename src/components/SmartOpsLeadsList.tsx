@@ -95,17 +95,11 @@ const INTEREST_OPTIONS = [
   { key: "sdr_solucoes_interesse", label: "🔧 Soluções" },
 ] as const;
 
-const ITEM_PROPOSTA_OPTIONS = [
-  { key: "all", label: "Todos Itens" },
-  { key: "Scanner", label: "Scanner" },
-  { key: "Impressora", label: "Impressora" },
-  { key: "CAD", label: "Software CAD" },
-  { key: "Notebook", label: "Notebook" },
-  { key: "Resina", label: "Resina" },
-  { key: "Insumo", label: "Insumos" },
-  { key: "Pós", label: "Pós-impressão" },
-  { key: "Cura", label: "Cura" },
-  { key: "Curso", label: "Cursos" },
+const DEAL_STATUS_OPTIONS = [
+  { key: "all", label: "Todos Status Deal" },
+  { key: "won", label: "✅ Ganha" },
+  { key: "lost", label: "❌ Perdida" },
+  { key: "open", label: "🔵 Aberta" },
 ];
 
 interface AdvancedFilters {
@@ -122,6 +116,7 @@ interface AdvancedFilters {
   activeProduct: string;
   interestProduct: string;
   itemProposta: string;
+  dealStatusFilter: string;
   statusCRM: string;
   valorMin: string;
   valorMax: string;
@@ -132,7 +127,7 @@ const EMPTY_ADV_FILTERS: AdvancedFilters = {
   pipeline: "all", status: "all", temperatura: "all", urgency: "all",
   source: "all", produto: "all", uf: "all", proprietario: "all",
   oportunidade: "all", stage: "all", activeProduct: "all", interestProduct: "all",
-  itemProposta: "all", statusCRM: "all", valorMin: "", valorMax: "", stagnant: false,
+  itemProposta: "", dealStatusFilter: "all", statusCRM: "all", valorMin: "", valorMax: "", stagnant: false,
 };
 
 // ─── Types ───
@@ -413,6 +408,8 @@ export function SmartOpsLeadsList() {
   const [allOwners, setAllOwners] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [allStatusCRM, setAllStatusCRM] = useState<string[]>([]);
+  const [jsonbProductIds, setJsonbProductIds] = useState<string[] | null>(null);
+  const [debouncedItemProposta, setDebouncedItemProposta] = useState("");
 
   const setAdv = useCallback(<K extends keyof AdvancedFilters>(key: K, value: AdvancedFilters[K]) => {
     setAdvFilters((prev) => ({ ...prev, [key]: value }));
@@ -423,6 +420,32 @@ export function SmartOpsLeadsList() {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Debounce item proposta search and call RPC
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedItemProposta(advFilters.itemProposta), 600);
+    return () => clearTimeout(t);
+  }, [advFilters.itemProposta]);
+
+  useEffect(() => {
+    if (!debouncedItemProposta || debouncedItemProposta.length < 2) {
+      setJsonbProductIds(null);
+      return;
+    }
+    const searchProducts = async () => {
+      const dealStatus = advFilters.dealStatusFilter !== "all" ? advFilters.dealStatusFilter : null;
+      const { data, error } = await supabase.rpc("fn_search_leads_by_proposal_product", {
+        product_search: debouncedItemProposta,
+        deal_status: dealStatus,
+      });
+      if (!error && data) {
+        setJsonbProductIds((data as { lead_id: string }[]).map(d => d.lead_id));
+      } else {
+        setJsonbProductIds([]);
+      }
+    };
+    searchProducts();
+  }, [debouncedItemProposta, advFilters.dealStatusFilter]);
 
   // Load dynamic filter options once
   useEffect(() => {
@@ -496,7 +519,14 @@ export function SmartOpsLeadsList() {
     if (advFilters.valorMin) query = query.gte("valor_oportunidade", Number(advFilters.valorMin));
     if (advFilters.valorMax) query = query.lte("valor_oportunidade", Number(advFilters.valorMax));
     if (advFilters.activeProduct !== "all") query = query.eq(`ativo_${advFilters.activeProduct}`, true);
-    if (advFilters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${advFilters.itemProposta}%`);
+    // itemProposta is now handled via RPC below
+    if (advFilters.itemProposta && !jsonbProductIds) {
+      // Fallback: if RPC hasn't run yet, use simple ILIKE
+      query = query.ilike("itens_proposta_crm", `%${advFilters.itemProposta}%`);
+    }
+    if (jsonbProductIds && jsonbProductIds.length > 0) {
+      query = query.in("id", jsonbProductIds);
+    }
     if (advFilters.interestProduct !== "all") query = query.not(advFilters.interestProduct, "is", null);
     if (advFilters.statusCRM !== "all") query = query.eq("status_atual_lead_crm", advFilters.statusCRM);
 
@@ -511,7 +541,7 @@ export function SmartOpsLeadsList() {
     setLeads((data as LeadFull[]) || []);
     setTotalCount(count ?? 0);
     setLoading(false);
-  }, [page, debouncedSearch, buyerFilter, advFilters, thirtyDaysAgo]);
+  }, [page, debouncedSearch, buyerFilter, advFilters, thirtyDaysAgo, jsonbProductIds]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter, advFilters]);
@@ -680,9 +710,17 @@ export function SmartOpsLeadsList() {
                 <select className="intel-select" value={advFilters.interestProduct} onChange={(e) => setAdv("interestProduct", e.target.value)}>
                   {INTEREST_OPTIONS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
                 </select>
-                {/* Item Proposta */}
-                <select className="intel-select" value={advFilters.itemProposta} onChange={(e) => setAdv("itemProposta", e.target.value)}>
-                  {ITEM_PROPOSTA_OPTIONS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                {/* Item Proposta - JSONB deep search */}
+                <input
+                  className="intel-search-input"
+                  style={{ fontSize: 11 }}
+                  placeholder="🔍 Produto na proposta (ex: Medit i600)"
+                  value={advFilters.itemProposta}
+                  onChange={(e) => setAdv("itemProposta", e.target.value)}
+                />
+                {/* Deal Status Filter */}
+                <select className="intel-select" value={advFilters.dealStatusFilter} onChange={(e) => setAdv("dealStatusFilter", e.target.value)}>
+                  {DEAL_STATUS_OPTIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
                 </select>
                 {/* Status CRM */}
                 <select className="intel-select" value={advFilters.statusCRM} onChange={(e) => setAdv("statusCRM", e.target.value)}>
