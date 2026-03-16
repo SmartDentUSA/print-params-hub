@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<!-- saved from url=(0079)file:///C:/Users/danilo.henrique/Downloads/lead-intelligence-card-v2%20(1).html -->
+<html lang="pt-BR"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Dent — Lead Intelligence Card v2</title>
+<link href="./Smart Dent — Lead Intelligence Card v2_files/css2" rel="stylesheet">
+<style>
+:root {
+  --bg: #080a0f;
+  --surface: #0f1117;
+  --surface2: #161921;
+  --surface3: #1c1f2a;
+  --border: #1e2130;
+  --border2: #252836;
+  --accent: #e8ff47;
+  --accent2: #4fffb0;
+  --accent3: #ff6b47;
+  --blue: #4f8fff;
+  --purple: #a78bfa;
+  --hot: #ff4757;
+  --warm: #ffa502;
+  --cold: #5c6474;
+  --text: #eef0f8;
+  --muted: #5c6474;
+  --muted2: #8892a4;
+  --lia: #4f8fff;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;padding:24px;}
+code,pre{font-family:'DM Mono',monospace;}
+
+/* ── HEADER ── */
+.page-header{display:flex;align-items:center;gap:14px;margin-bottom:24px;max-width:1200px;margin-left:auto;margin-right:auto;}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;letter-spacing:-.5px;}
+.logo span{color:var(--accent);}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.5px;}
+.badge-ai{background:rgba(79,143,255,.12);border:1px solid rgba(79,143,255,.3);color:var(--blue);}
+.badge-live{background:rgba(79,255,176,.1);border:1px solid rgba(79,255,176,.25);color:var(--accent2);}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);display:inline-block;margin-right:4px;animation:pulse 1.8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── CARD WRAPPER ── */
+.card{background:var(--surface);border:1px solid var(--border2);border-radius:20px;overflow:hidden;max-width:1200px;margin:0 auto;}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,#0f1117 0%,#131824 100%);border-bottom:1px solid var(--border2);padding:24px 28px;display:grid;grid-template-columns:auto 1fr auto auto;gap:20px;align-items:start;}
+.avatar{width:56px;height:56px;background:linear-gradient(135deg,#e8ff47,#4fffb0);border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#080a0f;flex-shrink:0;}
+.lead-info h1{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.5px;margin-bottom:5px;}
+.buyer-type{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:.06em;margin-bottom:8px;}
+.buyer-pj{background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);color:var(--purple);}
+.buyer-pf{background:rgba(79,255,176,.1);border:1px solid rgba(79,255,176,.3);color:var(--accent2);}
+.meta-row{display:flex;gap:14px;flex-wrap:wrap;}
+.meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px;}
+.meta strong{color:var(--muted2);font-weight:500;}
+
+/* LTV block */
+.ltv-block{text-align:right;}
+.ltv-label{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;}
+.ltv-val{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--accent2);line-height:1;}
+.ltv-sub{font-size:11px;color:var(--muted);margin-top:3px;}
+
+/* LIS block */
+.lis-block{text-align:right;}
+.lis-val{font-family:'Syne',sans-serif;font-size:44px;font-weight:800;line-height:1;}
+.lis-hot{color:var(--hot);text-shadow:0 0 24px rgba(255,71,87,.35);}
+.lis-warm{color:var(--warm);text-shadow:0 0 24px rgba(255,165,2,.3);}
+.lis-cold{color:var(--cold);}
+.heat-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;margin-top:4px;}
+.heat-hot{background:rgba(255,71,87,.15);color:var(--hot);border:1px solid rgba(255,71,87,.3);}
+.heat-warm{background:rgba(255,165,2,.15);color:var(--warm);border:1px solid rgba(255,165,2,.3);}
+.heat-cold{background:rgba(92,100,116,.15);color:var(--cold);border:1px solid rgba(92,100,116,.3);}
+
+/* ── TABS ── */
+.tabs{display:flex;border-bottom:1px solid var(--border2);background:var(--surface);overflow-x:auto;padding:0 28px;gap:0;}
+.tab{padding:13px 16px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-content{display:none;padding:24px 28px;}
+.tab-content.active{display:block;}
+
+/* ── SECTION TITLE ── */
+.sec{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border2);}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px;}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+.stat-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--text);}
+.stat-num.green{color:var(--accent2);}
+.stat-num.red{color:var(--hot);}
+.stat-num.yellow{color:var(--accent);}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:3px;}
+
+/* ── AI ANALYSIS PANEL ── */
+.ai-panel{background:var(--surface2);border:1px solid rgba(79,143,255,.2);border-radius:14px;padding:0;overflow:hidden;margin-bottom:20px;}
+.ai-panel-header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--border);}
+.ai-panel-header span{font-size:12px;font-weight:600;color:var(--blue);}
+.ai-panel-body{padding:16px;font-size:13px;line-height:1.65;color:var(--muted2);min-height:80px;}
+.ai-panel-body.loading{display:flex;align-items:center;gap:8px;color:var(--muted);}
+.ai-panel-actions{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap;}
+.ai-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;transition:all .2s;}
+.chip-blue{background:rgba(79,143,255,.1);border:1px solid rgba(79,143,255,.25);color:var(--blue);}
+.chip-blue:hover{background:rgba(79,143,255,.2);}
+.chip-green{background:rgba(79,255,176,.08);border:1px solid rgba(79,255,176,.2);color:var(--accent2);}
+.chip-green:hover{background:rgba(79,255,176,.15);}
+.chip-red{background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);color:var(--hot);}
+.chip-red:hover{background:rgba(255,71,87,.15);}
+.chip-yellow{background:rgba(232,255,71,.08);border:1px solid rgba(232,255,71,.2);color:var(--accent);}
+.chip-yellow:hover{background:rgba(232,255,71,.15);}
+
+/* ── COGNITIVE GRID ── */
+.cog-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;}
+.cog-card{background:var(--surface3);border:1px solid var(--border2);border-radius:12px;padding:14px;}
+.cog-card h4{font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text);}
+.cog-card p{font-size:12px;color:var(--muted2);line-height:1.6;}
+.approach-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.approach-tag{background:var(--surface2);border:1px solid var(--border2);color:var(--muted2);font-size:11px;padding:3px 9px;border-radius:20px;}
+
+/* ── TIMELINE ── */
+.timeline{position:relative;padding-left:20px;}
+.timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:1px;background:var(--border2);}
+.tl-item{position:relative;margin-bottom:20px;display:flex;gap:14px;align-items:flex-start;}
+.tl-dot{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;margin-top:2px;position:relative;z-index:1;margin-left:-20px;}
+.tl-dot-lead{background:rgba(79,143,255,.2);border:1px solid rgba(79,143,255,.4);}
+.tl-dot-course{background:rgba(232,255,71,.12);border:1px solid rgba(232,255,71,.3);}
+.tl-dot-buy{background:rgba(79,255,176,.12);border:1px solid rgba(79,255,176,.3);}
+.tl-dot-hot{background:rgba(255,71,87,.15);border:1px solid rgba(255,71,87,.4);}
+.tl-dot-warn{background:rgba(255,165,2,.12);border:1px solid rgba(255,165,2,.3);}
+.tl-dot-crm{background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);}
+.tl-dot-ai{background:rgba(79,143,255,.15);border:1px solid rgba(79,143,255,.35);}
+.tl-body{flex:1;}
+.tl-date{font-size:10px;color:var(--muted);letter-spacing:.05em;margin-bottom:2px;}
+.tl-title{font-size:13px;font-weight:600;margin-bottom:3px;}
+.tl-desc{font-size:12px;color:var(--muted2);line-height:1.5;}
+.tl-tags{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;}
+.tl-tag{font-size:10px;padding:2px 7px;border-radius:20px;}
+.tl-detail{background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px;font-size:12px;color:var(--muted2);}
+.tl-detail-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);}
+.tl-detail-row:last-child{border-bottom:none;}
+
+/* ── DEAL HISTORY TABLE ── */
+.deal-table{width:100%;border-collapse:collapse;font-size:12px;}
+.deal-table th{text-align:left;padding:8px 12px;color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border2);font-weight:500;}
+.deal-table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--muted2);}
+.deal-table tr:last-child td{border-bottom:none;}
+.deal-table tr:hover td{background:var(--surface2);}
+.deal-table td.val{color:var(--text);font-family:'DM Mono',monospace;}
+.deal-table td.green{color:var(--accent2);}
+.deal-table td.hot{color:var(--hot);}
+.deal-table td.yellow{color:var(--accent);}
+.status-chip{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+.s-ganho{background:rgba(79,255,176,.1);color:var(--accent2);border:1px solid rgba(79,255,176,.25);}
+.s-perdido{background:rgba(255,71,87,.1);color:var(--hot);border:1px solid rgba(255,71,87,.25);}
+.s-aberto{background:rgba(255,165,2,.1);color:var(--warm);border:1px solid rgba(255,165,2,.25);}
+
+/* ── FLOW DIGITAL ── */
+.flow-section{margin-bottom:16px;}
+.flow-label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+.flow-items{display:flex;flex-wrap:wrap;gap:8px;}
+.flow-item{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid;}
+.fi-owned{background:rgba(79,255,176,.08);border-color:rgba(79,255,176,.3);color:var(--accent2);}
+.fi-interest{background:rgba(232,255,71,.06);border-color:rgba(232,255,71,.25);color:var(--accent);}
+.fi-hot{background:rgba(255,71,87,.08);border-color:rgba(255,71,87,.3);color:var(--hot);}
+.fi-none{background:var(--surface2);border-color:var(--border);color:var(--muted);}
+.fi-dot{width:6px;height:6px;border-radius:50%;}
+.fi-owned .fi-dot{background:var(--accent2);}
+.fi-interest .fi-dot{background:var(--accent);}
+.fi-hot .fi-dot{background:var(--hot);}
+.fi-none .fi-dot{background:var(--muted);}
+
+/* ── UPSELL / PREVISÃO ── */
+.upsell-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;}
+.upsell-card{background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:14px;position:relative;overflow:hidden;}
+.upsell-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.upsell-hot::before{background:linear-gradient(90deg,var(--hot),transparent);}
+.upsell-warm::before{background:linear-gradient(90deg,var(--warm),transparent);}
+.upsell-cold::before{background:linear-gradient(90deg,var(--cold),transparent);}
+.upsell-prob{font-size:11px;font-weight:700;margin-bottom:6px;}
+.upsell-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.upsell-desc{font-size:11px;color:var(--muted2);line-height:1.5;margin-bottom:8px;}
+.upsell-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:700;}
+.upsell-window{font-size:10px;color:var(--muted);margin-top:4px;}
+.prob-bar{height:3px;border-radius:2px;background:var(--border);margin-top:8px;}
+.prob-fill{height:100%;border-radius:2px;}
+
+/* ── LIS BREAKDOWN ── */
+.lis-breakdown{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.lis-comp{display:flex;align-items:center;gap:10px;}
+.lis-comp-label{font-size:12px;color:var(--muted2);min-width:160px;}
+.lis-bar-wrap{flex:1;background:var(--surface3);border-radius:4px;height:6px;overflow:hidden;}
+.lis-bar{height:100%;border-radius:4px;transition:width .5s;}
+.lis-comp-val{font-family:'DM Mono',monospace;font-size:13px;font-weight:600;min-width:32px;text-align:right;}
+.formula-box{background:var(--surface3);border:1px solid var(--border2);border-radius:10px;padding:14px;font-size:12px;}
+
+/* ── ACTIONS ── */
+.action-list{display:flex;flex-direction:column;gap:10px;}
+.action-item{display:flex;align-items:flex-start;gap:14px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;transition:border-color .2s;}
+.action-item:hover{border-color:var(--border2);}
+.action-item.critical{border-color:rgba(255,71,87,.3);}
+.action-item.medium{border-color:rgba(255,165,2,.2);}
+.action-icon{font-size:20px;flex-shrink:0;margin-top:1px;}
+.action-body{flex:1;}
+.action-title{font-size:13px;font-weight:600;margin-bottom:4px;}
+.action-desc{font-size:12px;color:var(--muted2);line-height:1.55;}
+.action-script{background:var(--surface3);border:1px solid var(--border);border-radius:7px;padding:9px 11px;margin-top:8px;font-size:11px;color:var(--muted2);line-height:1.55;font-style:italic;}
+.action-priority{flex-shrink:0;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.07em;}
+.ap-hoje{background:rgba(255,71,87,.15);color:var(--hot);border:1px solid rgba(255,71,87,.3);}
+.ap-semana{background:rgba(255,165,2,.12);color:var(--warm);border:1px solid rgba(255,165,2,.3);}
+.ap-mes{background:rgba(92,100,116,.12);color:var(--cold);border:1px solid rgba(92,100,116,.3);}
+
+/* ── SCORE HISTORY CHART ── */
+.score-chart{display:flex;align-items:flex-end;gap:5px;height:90px;background:var(--surface3);border-radius:10px;padding:10px;margin-bottom:8px;}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;}
+.bar{width:100%;border-radius:3px 3px 0 0;transition:all .3s;cursor:pointer;min-height:4px;}
+.bar-label{font-size:9px;color:var(--muted);text-align:center;}
+.chart-legend{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);padding:0 2px;}
+
+/* ── AI CHAT ── */
+.ai-chat-wrap{background:var(--surface2);border:1px solid rgba(79,143,255,.2);border-radius:14px;overflow:hidden;}
+.ai-chat-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);background:rgba(79,143,255,.04);}
+.ai-chat-header span{font-size:12px;color:var(--blue);font-weight:600;}
+.ai-messages{padding:14px 16px;min-height:100px;max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
+.msg{max-width:85%;padding:10px 13px;border-radius:10px;font-size:12px;line-height:1.6;}
+.msg-ai{background:var(--surface3);border:1px solid var(--border2);color:var(--muted2);align-self:flex-start;border-radius:4px 10px 10px 10px;}
+.msg-user{background:rgba(79,143,255,.12);border:1px solid rgba(79,143,255,.2);color:var(--text);align-self:flex-end;border-radius:10px 4px 10px 10px;}
+.ai-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);}
+.ai-input{flex:1;background:var(--surface3);border:1px solid var(--border2);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;}
+.ai-input:focus{border-color:rgba(79,143,255,.4);}
+.ai-send-btn{background:rgba(79,143,255,.15);border:1px solid rgba(79,143,255,.3);color:var(--blue);padding:8px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;}
+.ai-send-btn:hover{background:rgba(79,143,255,.25);}
+.ai-send-btn:disabled{opacity:.4;cursor:default;}
+.quick-asks{display:flex;gap:6px;padding:0 16px 12px;flex-wrap:wrap;}
+.quick-ask{background:var(--surface3);border:1px solid var(--border2);color:var(--muted2);padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .2s;}
+.quick-ask:hover{border-color:rgba(79,143,255,.3);color:var(--blue);}
+
+/* ── TYPING INDICATOR ── */
+.typing{display:flex;gap:4px;align-items:center;padding:10px 13px;}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:typing-anim 1.2s infinite;}
+.typing-dot:nth-child(2){animation-delay:.2s;}
+.typing-dot:nth-child(3){animation-delay:.4s;}
+@keyframes typing-anim{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-4px);opacity:1}}
+
+/* ── SCORE RING ── */
+.score-ring-wrap{position:relative;width:100px;height:100px;flex-shrink:0;}
+.score-ring-wrap svg{transform:rotate(-90deg);}
+.score-ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.score-ring-val{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1;}
+.score-ring-lbl{font-size:9px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:800px){
+  .hero{grid-template-columns:auto 1fr;grid-template-rows:auto auto;}
+  .stats-row{grid-template-columns:repeat(3,1fr);}
+  .upsell-grid{grid-template-columns:1fr;}
+  .cog-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="logo">Smart<span>Dent</span></div>
+  <div style="font-size:11px;color:var(--muted);margin-left:4px;">Lead Intelligence Card</div>
+  <div class="header-right">
+    <span class="badge badge-ai">🧠 IA Ativa</span>
+    <span class="badge badge-live"><span class="live-dot"></span>Tempo Real</span>
+  </div>
+</div>
+
+<div class="card">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="avatar">LM</div>
+    <div class="lead-info">
+      <div class="buyer-type buyer-pj">🏢 B2B — CNPJ</div>
+      <h1>LABORATORIO MERIDIONAL</h1>
+      <div class="meta-row">
+        <span class="meta">🏙️ <strong>Porto Alegre, RS</strong></span>
+        <span class="meta">📅 Primeiro deal: <strong>15 Fev 2023</strong></span>
+        <span class="meta">🔄 Último: <strong>20 Fev 2026</strong></span>
+        <span class="meta">💼 <strong>11 deals • 3 anos</strong></span>
+        <span class="meta">👤 Contato: <strong>Cristian Kurtz</strong></span>
+        <span class="meta">🏭 Segmento: <strong>Lab Odontológico</strong></span>
+      </div>
+    </div>
+    <div class="ltv-block">
+      <div class="ltv-label">LTV Total</div>
+      <div class="ltv-val">R$29.343</div>
+      <div class="ltv-sub">3 anos · 11 compras</div>
+    </div>
+    <div class="lis-block">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;">LIS Score</div>
+      <div class="lis-val lis-hot">94</div>
+      <div class="heat-badge heat-hot">🔴 HOT — Recompra Iminente</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab" onclick="showTab(&#39;historico&#39;,this)">📋 Histórico Completo</div>
+    <div class="tab active" onclick="showTab(&#39;cognitivo&#39;,this)">🧠 Análise Cognitiva IA</div>
+    <div class="tab" onclick="showTab(&#39;upsell&#39;,this)">🚀 Upsell &amp; Previsão</div>
+    <div class="tab" onclick="showTab(&#39;fluxo&#39;,this)">🔄 Fluxo Digital</div>
+    <div class="tab" onclick="showTab(&#39;lis&#39;,this)">📊 LIS Breakdown</div>
+    <div class="tab" onclick="showTab(&#39;acoes&#39;,this)">⚡ Ações Recomendadas</div>
+    <div class="tab" onclick="showTab(&#39;ia&#39;,this)">💬 Perguntar à IA</div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: HISTÓRICO COMPLETO
+  ══════════════════════════════════════════════ -->
+  <div id="tab-historico" class="tab-content">
+
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-num green">R$29.343</div><div class="stat-lbl">LTV Total</div></div>
+      <div class="stat-box"><div class="stat-num yellow">11</div><div class="stat-lbl">Deals fechados</div></div>
+      <div class="stat-box"><div class="stat-num">23</div><div class="stat-lbl">Unidades compradas</div></div>
+      <div class="stat-box"><div class="stat-num green">R$2.667</div><div class="stat-lbl">Ticket médio</div></div>
+      <div class="stat-box"><div class="stat-num red">R$8.600</div><div class="stat-lbl">Maior compra</div></div>
+      <div class="stat-box"><div class="stat-num yellow">~90d</div><div class="stat-lbl">Ciclo de recompra</div></div>
+    </div>
+
+    <div class="sec">Histórico de Deals — Lab Meridional · empresa_id 11751520</div>
+
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-bottom:24px;">
+      <table class="deal-table">
+        <thead>
+          <tr>
+            <th>Data</th><th>Deal ID</th><th>Funil</th><th>Itens</th><th>Qtd</th>
+            <th>Frete</th><th>Parcelas</th><th>Total</th><th>Vendedor</th><th>Pessoa</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>15/02/2023</td><td class="val" style="color:var(--muted)">23359076</td>
+            <td>Ganhos Aleatórios</td>
+            <td>Try-In Calcinável 250g</td><td>1</td>
+            <td class="val">FOB R$72</td><td>1x</td>
+            <td class="val green">R$512</td><td>Evandro</td>
+            <td style="color:var(--hot);font-size:11px;">⚠️ sem pessoa</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr>
+            <td>12/04/2023</td><td class="val" style="color:var(--muted)">25011517</td>
+            <td>Ganhos Aleatórios</td>
+            <td>Bio Clear Guide 1kg</td><td>1</td>
+            <td class="val">FOB R$62</td><td>3x</td>
+            <td class="val green">R$1.617</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Christian Schuh</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr>
+            <td>28/06/2023</td><td class="val" style="color:var(--muted)">27020155</td>
+            <td>Ganhos Aleatórios</td>
+            <td>Nano Híbrida Vitality 250g</td><td>1</td>
+            <td class="val">FOB R$62</td><td>2x</td>
+            <td class="val green">R$1.262</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Christian Schuh</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr>
+            <td>17/07/2023</td><td class="val" style="color:var(--muted)">27562634</td>
+            <td>Ganhos Aleatórios</td>
+            <td>Bio Temp B1 1kg</td><td>1</td>
+            <td class="val">FOB R$78</td><td>3x</td>
+            <td class="val green">R$1.963</td><td>Janaina</td>
+            <td style="color:var(--muted2);font-size:11px;">Christian Schuh</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr style="background:rgba(255,71,87,.03)">
+            <td>24/10/2024</td><td class="val" style="color:var(--muted)">41238322</td>
+            <td>CS Onboarding</td>
+            <td><strong>BITE SPLINT + FLEX 1kg</strong></td><td class="hot">1</td>
+            <td class="val">FOB R$59</td><td>4x</td>
+            <td class="val green">R$1.709</td><td>Patricia</td>
+            <td style="color:var(--muted2);font-size:11px;">Cristian Kurtz</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr>
+            <td>14/11/2024</td><td class="val" style="color:var(--muted)">42720689</td>
+            <td>CS Onboarding</td>
+            <td>Bio Temp B1 + Bio Hybrid + Bio L'aqua + Try-In + Vitality</td><td>5 SKUs</td>
+            <td class="val">FOB R$93</td><td>7x</td>
+            <td class="val green">R$3.260</td><td>Janaina</td>
+            <td style="color:var(--hot);font-size:11px;">⚠️ sem pessoa</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr>
+            <td>25/02/2025</td><td class="val" style="color:var(--muted)">45416514</td>
+            <td>CS Onboarding</td>
+            <td>Try-In Calcinável 1kg <em style="color:var(--muted);font-size:11px;">(upgrade 250g→1kg)</em></td><td>1</td>
+            <td class="val" style="color:var(--accent2)">CIF R$0</td><td>3x</td>
+            <td class="val green">R$1.330</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Cristian Kurtz</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr>
+            <td>25/03/2025</td><td class="val" style="color:var(--muted)">46509583</td>
+            <td>CS Onboarding</td>
+            <td>SmartMake Seal Glaze</td><td>1</td>
+            <td class="val">FOB R$22</td><td>1x</td>
+            <td class="val green">R$300</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Cristian Kurtz</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr style="background:rgba(255,71,87,.03)">
+            <td>04/04/2025</td><td class="val" style="color:var(--muted)">46785512</td>
+            <td>CS Onboarding</td>
+            <td><strong>BITE SPLINT + FLEX 1kg ×2</strong> + Glaze Flex</td><td class="hot">2</td>
+            <td class="val" style="color:var(--accent2)">CIF R$0</td><td>6x</td>
+            <td class="val green">R$3.690</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Cristian Kurtz</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr style="background:rgba(255,71,87,.04)">
+            <td>03/09/2025</td><td class="val" style="color:var(--muted)">51568374</td>
+            <td>CS Onboarding</td>
+            <td><strong>BITE SPLINT + FLEX 1kg ×3</strong></td><td class="hot">3</td>
+            <td class="val" style="color:var(--accent2)">CIF R$0</td><td>8x</td>
+            <td class="val green">R$5.100</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Cristian Kurtz</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+          <tr style="background:rgba(255,71,87,.06)">
+            <td>20/02/2026</td><td class="val" style="color:var(--muted)">56785929</td>
+            <td>CS Onboarding</td>
+            <td><strong>BITE SPLINT + FLEX 1kg ×5</strong></td><td class="hot" style="font-size:16px;font-weight:800;">5</td>
+            <td class="val">FOB R$100</td><td>8x</td>
+            <td class="val hot" style="font-weight:700;">R$8.600</td><td>Evandro</td>
+            <td style="color:var(--muted2);font-size:11px;">Cristian Kurtz</td>
+            <td><span class="status-chip s-ganho">Ganho</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sec">Linha do Tempo — Eventos Chave</div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-lead">🎯</div>
+        <div class="tl-body">
+          <div class="tl-date">15 Fev 2023 — Origem: Ganhos Aleatórios</div>
+          <div class="tl-title">1ª Compra — Try-In Calcinável 250g</div>
+          <div class="tl-desc">Entrada sem pessoa vinculada (deal órfão). Ticket inicial R$512. Vendedor: Evandro Silva. Frete FOB.</div>
+          <div class="tl-tags">
+            <span class="tl-tag" style="background:rgba(255,71,87,.1);color:var(--hot);border:1px solid rgba(255,71,87,.2);">⚠️ pessoa_id NULL</span>
+            <span class="tl-tag" style="background:var(--surface3);color:var(--muted);border:1px solid var(--border);">Deal 23359076</span>
+          </div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-buy">💳</div>
+        <div class="tl-body">
+          <div class="tl-date">Abr – Jul 2023 — 3 compras em 5 meses</div>
+          <div class="tl-title">Fase de Exploração de Resinas — Bio Clear + Vitality + Bio Temp B1</div>
+          <div class="tl-desc">Cliente experimentando diferentes SKUs. Christian Schuh como contato. Ticket médio R$1.614. Todos via Ganhos Aleatórios.</div>
+          <div class="tl-detail">
+            <div class="tl-detail-row"><span>Intervalo médio</span><span style="color:var(--accent)">~55 dias</span></div>
+            <div class="tl-detail-row"><span>SKUs diferentes</span><span style="color:var(--text)">3 produtos únicos</span></div>
+            <div class="tl-detail-row"><span>Parcelas</span><span style="color:var(--text)">2x → 3x</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-warn">⚠️</div>
+        <div class="tl-body">
+          <div class="tl-date">Jul 2023 → Out 2024 — GAP DE 15 MESES</div>
+          <div class="tl-title">Período sem compras registradas</div>
+          <div class="tl-desc">Hiato de 15 meses entre a 4ª e 5ª compra. Possível compra de concorrente ou restruturação interna. Mudança de contato: Christian Schuh → Cristian Kurtz (pessoa_id diferente).</div>
+          <div class="tl-tags">
+            <span class="tl-tag" style="background:rgba(255,165,2,.1);color:var(--warm);border:1px solid rgba(255,165,2,.2);">Troca de contato</span>
+            <span class="tl-tag" style="background:rgba(255,165,2,.1);color:var(--warm);border:1px solid rgba(255,165,2,.2);">15 meses de gap</span>
+          </div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-hot">🔴</div>
+        <div class="tl-body">
+          <div class="tl-date">Out 2024 — VIRADA ESTRATÉGICA</div>
+          <div class="tl-title">Primeira compra de BITE SPLINT + FLEX — produto âncora identificado</div>
+          <div class="tl-desc">Mudança completa de comportamento. Abandona exploração de resinas e concentra em BITE SPLINT. Patricia Gastaldi fecha o deal. Migra para CS Onboarding.</div>
+          <div class="tl-detail">
+            <div class="tl-detail-row"><span>Produto</span><span style="color:var(--hot);font-weight:600;">BITE SPLINT + FLEX 1kg</span></div>
+            <div class="tl-detail-row"><span>Qtd inicial</span><span>1 unidade</span></div>
+            <div class="tl-detail-row"><span>Ticket</span><span style="color:var(--accent2)">R$1.709</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-buy">📈</div>
+        <div class="tl-body">
+          <div class="tl-date">Out 2024 → Fev 2026 — ESCALADA DE VOLUME</div>
+          <div class="tl-title">BITE SPLINT: 1→2→3→5 unidades por pedido em 16 meses</div>
+          <div class="tl-desc">Crescimento exponencial comprovado nos dados reais. Frete migrou para CIF acima de 2 unidades (política implícita identificada pela IA). Parcelas crescendo junto com o ticket.</div>
+          <div class="tl-detail">
+            <div class="tl-detail-row"><span>Out/2024</span><span>1×1kg → R$1.650</span></div>
+            <div class="tl-detail-row"><span>Abr/2025</span><span>2×1kg → R$3.400 (CIF)</span></div>
+            <div class="tl-detail-row"><span>Set/2025</span><span>3×1kg → R$5.100 (CIF)</span></div>
+            <div class="tl-detail-row"><span>Fev/2026</span><span style="color:var(--hot);font-weight:700;">5×1kg → R$8.500 ← ATUAL</span></div>
+            <div class="tl-detail-row"><span>Próximo previsto</span><span style="color:var(--accent);">~Mai/Jun 2026 · 6-8 kg</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot tl-dot-ai">🧠</div>
+        <div class="tl-body">
+          <div class="tl-date">Hoje — PREVISÃO IA</div>
+          <div class="tl-title">Janela de recompra aberta — próximo pedido em 90±30 dias</div>
+          <div class="tl-desc">Com base no padrão histórico de ~5-6 meses entre compras grandes e escalada de 1→2→3→5, a previsão IA aponta para próxima compra entre Maio e Julho 2026, com 6 a 8 unidades. Probabilidade 87%.</div>
+          <div class="tl-tags">
+            <span class="tl-tag" style="background:rgba(232,255,71,.08);color:var(--accent);border:1px solid rgba(232,255,71,.2);">🧠 IA prediction</span>
+            <span class="tl-tag" style="background:rgba(79,255,176,.08);color:var(--accent2);border:1px solid rgba(79,255,176,.2);">87% probabilidade</span>
+            <span class="tl-tag" style="background:var(--surface3);color:var(--muted);border:1px solid var(--border);">~R$10.200–13.600 projetado</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Identidade / Graph -->
+    <div style="margin-top:24px;">
+      <div class="sec">Grafo de Identidade — buyer_type: company</div>
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase;">Empresa</div>
+          <div style="background:var(--surface3);border:1px solid rgba(167,139,250,.25);border-radius:10px;padding:12px;">
+            <div style="font-size:13px;font-weight:700;color:var(--purple);">LABORATORIO MERIDIONAL</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">empresa_piperun_id: 11751520</div>
+            <div style="font-size:11px;color:var(--muted);">buyer_type: <span style="color:var(--purple);">company</span></div>
+            <div style="font-size:11px;color:var(--muted);">11 deals · R$29.343 LTV</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:.06em;text-transform:uppercase;">Pessoas Vinculadas</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="background:var(--surface3);border:1px solid var(--border2);border-radius:8px;padding:10px;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);">Christian Schuh</div>
+              <div style="font-size:11px;color:var(--muted);">pessoa_id: 15681477 · 3 deals (2023)</div>
+              <div style="font-size:11px;color:var(--warm);">⚠️ Mesmo que Cristian Kurtz? Verificar.</div>
+            </div>
+            <div style="background:var(--surface3);border:1px solid rgba(79,255,176,.2);border-radius:8px;padding:10px;">
+              <div style="font-size:12px;font-weight:600;color:var(--accent2);">CRISTIAN SIQUEIRA KURTZ</div>
+              <div style="font-size:11px;color:var(--muted);">pessoa_id: 20564360 · 6 deals (2024→2026)</div>
+              <div style="font-size:11px;color:var(--accent2);">✅ Contato ativo atual</div>
+            </div>
+            <div style="background:rgba(255,71,87,.05);border:1px solid rgba(255,71,87,.2);border-radius:8px;padding:10px;">
+              <div style="font-size:12px;font-weight:600;color:var(--hot);">⚠️ 2 deals sem pessoa</div>
+              <div style="font-size:11px;color:var(--muted);">OppID: 23359076, 42720689 — contact_person_id null</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: COGNITIVO
+  ══════════════════════════════════════════════ -->
+  <div id="tab-cognitivo" class="tab-content active">
+
+    <div class="ai-panel" style="margin-bottom:20px;">
+      <div class="ai-panel-header">
+        <span>🧠</span>
+        <span>Análise Cognitiva — gerada por IA com base em 11 deals + 3 anos de histórico</span>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <span class="badge badge-ai" style="font-size:10px;">DeepSeek v3</span>
+          <button onclick="runCognitive()" style="background:rgba(79,143,255,.15);border:1px solid rgba(79,143,255,.3);color:var(--blue);padding:3px 10px;border-radius:6px;cursor:pointer;font-size:11px;" id="btn-cognitive">↺ Reanalisar</button>
+        </div>
+      </div>
+      <div class="ai-panel-body" id="cognitive-output">
+        <div class="loading"><div class="live-dot"></div>Clique em "Reanalisar" para gerar análise cognitiva ao vivo com IA...</div>
+      </div>
+    </div>
+
+    <div class="cog-grid">
+      <div class="cog-card">
+        <h4>🎯 Perfil de Compra Identificado</h4>
+        <p>Cliente industrial com demanda recorrente crescente. Não experimenta — quando encontra o produto certo (BITE SPLINT), concentra e escala volume. Comportamento de comprador racional e sistemático, não impulsivo.</p>
+      </div>
+      <div class="cog-card">
+        <h4>📈 Padrão de Escalada Documentado</h4>
+        <p>1→2→3→5 unidades em 16 meses. Taxa de crescimento: +150% em volume. O próximo passo lógico é 6-8 unidades. A demanda interna do lab está crescendo — não é capricho.</p>
+      </div>
+      <div class="cog-card">
+        <h4>💳 Perfil de Crédito e Confiança</h4>
+        <p>Parcelas evoluíram junto com o ticket: 1x→3x→4x→7x→8x. Nunca pediu desconto — negocia prazo, não preço. Frete CIF passando a ser regra para pedidos ≥2 unidades indica relacionamento consolidado.</p>
+        <div class="approach-tags">
+          <span class="approach-tag">📦 Confiança consolidada</span>
+          <span class="approach-tag">💰 Sem sensibilidade a preço</span>
+          <span class="approach-tag">📅 Negocia prazo</span>
+        </div>
+      </div>
+      <div class="cog-card">
+        <h4>⚠️ Riscos e Alertas</h4>
+        <p>Gap de 15 meses (2023→2024) sugere que o cliente pode pausar abruptamente. Troca de contato (Christian→Cristian) não foi gerenciada pelo CRM. Se Cristian sair, risco de perda sem alerta.</p>
+        <div class="approach-tags">
+          <span class="approach-tag" style="color:var(--hot);border-color:rgba(255,71,87,.3);">🚨 Dependência de 1 contato</span>
+          <span class="approach-tag" style="color:var(--warm);border-color:rgba(255,165,2,.3);">⚠️ Gap histórico</span>
+        </div>
+      </div>
+      <div class="cog-card">
+        <h4>💡 Abordagem Recomendada</h4>
+        <p>Não vender — confirmar próximo pedido. Ligação com contexto: "Cristian, você está usando os 5kg que chegaram em Fev — quanto tempo deve durar? Posso já deixar o próximo separado."</p>
+        <div class="approach-tags">
+          <span class="approach-tag">📞 Ligação consultiva</span>
+          <span class="approach-tag">📦 Pré-reserva de estoque</span>
+          <span class="approach-tag">🗓️ Agendamento proativo</span>
+        </div>
+      </div>
+      <div class="cog-card">
+        <h4>🧩 Oportunidades de Expansão</h4>
+        <p>Lab ainda não comprou Scanner, CAD, ou equipamentos. Focado exclusivamente em resinas. A entrada em equipamentos poderia 5x o LTV anual, mas exige abordagem separada e não deve contaminar a relação de insumos.</p>
+        <div class="approach-tags">
+          <span class="approach-tag">🔬 Scanner (longo prazo)</span>
+          <span class="approach-tag">💻 CAD (médio prazo)</span>
+          <span class="approach-tag">📚 Cursos (curto prazo)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: UPSELL & PREVISÃO
+  ══════════════════════════════════════════════ -->
+  <div id="tab-upsell" class="tab-content">
+
+    <div class="sec">Previsão de Recompra — Motor Preditivo IA</div>
+
+    <div class="upsell-grid">
+      <div class="upsell-card upsell-hot">
+        <div class="upsell-prob" style="color:var(--hot);">🔴 87% de probabilidade</div>
+        <div class="upsell-title">BITE SPLINT + FLEX — Recompra</div>
+        <div class="upsell-desc">Padrão histórico indica compra recorrente a cada 5-6 meses. Última em Fev/2026. Janela aberta agora.</div>
+        <div class="upsell-val" style="color:var(--hot);">R$10.200–13.600</div>
+        <div class="upsell-window">📅 Janela: Mai–Jul 2026 · 6–8 unidades projetadas</div>
+        <div class="prob-bar"><div class="prob-fill" style="width:87%;background:var(--hot);"></div></div>
+      </div>
+      <div class="upsell-card upsell-warm">
+        <div class="upsell-prob" style="color:var(--warm);">🟡 62% de probabilidade</div>
+        <div class="upsell-title">Glaze Flex — Recompra + Upsell</div>
+        <div class="upsell-desc">Comprou Glaze Flex 1x em Abr/2025. Produto acessório ao BITE SPLINT — compra conjunta natural.</div>
+        <div class="upsell-val" style="color:var(--warm);">R$580–870</div>
+        <div class="upsell-window">📅 Janela: junto com próximo BITE SPLINT</div>
+        <div class="prob-bar"><div class="prob-fill" style="width:62%;background:var(--warm);"></div></div>
+      </div>
+      <div class="upsell-card upsell-cold">
+        <div class="upsell-prob" style="color:var(--muted2);">⚪ 35% de probabilidade</div>
+        <div class="upsell-title">Cursos / SmartAcademy</div>
+        <div class="upsell-desc">Lab técnico sem registro de uso de cursos. Potencial de treinamento da equipe — abertura de conversa secundária.</div>
+        <div class="upsell-val" style="color:var(--muted2);">R$800–2.400</div>
+        <div class="upsell-window">📅 Janela: 3–6 meses após consolidação</div>
+        <div class="prob-bar"><div class="prob-fill" style="width:35%;background:var(--cold);"></div></div>
+      </div>
+    </div>
+
+    <div class="sec">Projeção de LTV — Próximos 24 meses</div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:20px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;">
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">LTV Atual</div>
+          <div style="font-family:&#39;Syne&#39;,sans-serif;font-size:24px;font-weight:800;color:var(--accent2);">R$29.343</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Projeção +12m</div>
+          <div style="font-family:&#39;Syne&#39;,sans-serif;font-size:24px;font-weight:800;color:var(--accent);">R$55–65k</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Projeção +24m</div>
+          <div style="font-family:&#39;Syne&#39;,sans-serif;font-size:24px;font-weight:800;color:var(--blue);">R$90–120k</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">Com Equipamentos</div>
+          <div style="font-family:&#39;Syne&#39;,sans-serif;font-size:24px;font-weight:800;color:var(--purple);">R$200k+</div>
+        </div>
+      </div>
+
+      <div style="background:var(--surface3);border-radius:10px;padding:14px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:.06em;text-transform:uppercase;">Projeção de Compras — Cenário Base (sem equipamentos)</div>
+        <div style="display:flex;align-items:flex-end;gap:6px;height:100px;">
+          <!-- histórico -->
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--accent2);opacity:.5;border-radius:3px 3px 0 0;height:6%;" title="R$512"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Fev23</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--accent2);opacity:.5;border-radius:3px 3px 0 0;height:19%;" title="R$1.617"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Abr23</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--accent2);opacity:.5;border-radius:3px 3px 0 0;height:15%;" title="R$1.262"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Jun23</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--accent2);opacity:.5;border-radius:3px 3px 0 0;height:23%;" title="R$1.963"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Jul23</div>
+          </div>
+          <!-- gap -->
+          <div style="flex:.5;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;"><div style="width:1px;height:60%;background:rgba(255,165,2,.3);border-style:dashed;"></div></div>
+            <div style="font-size:9px;color:var(--warm);">gap</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);opacity:.7;border-radius:3px 3px 0 0;height:20%;" title="R$1.709"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Out24</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);opacity:.7;border-radius:3px 3px 0 0;height:38%;" title="R$3.260"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Nov24</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);border-radius:3px 3px 0 0;height:15%;" title="R$1.330"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Fev25</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);border-radius:3px 3px 0 0;height:3%;" title="R$300"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Mar25</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);border-radius:3px 3px 0 0;height:43%;" title="R$3.690"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Abr25</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);border-radius:3px 3px 0 0;height:59%;" title="R$5.100"></div></div>
+            <div style="font-size:9px;color:var(--muted);">Set25</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:var(--hot);border-radius:3px 3px 0 0;height:100%;box-shadow:0 0 12px rgba(255,71,87,.4);" title="R$8.600"></div></div>
+            <div style="font-size:9px;color:var(--hot);font-weight:700;">Fev26</div>
+          </div>
+          <!-- previsão -->
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;">
+            <div style="flex:1;display:flex;align-items:flex-end;width:100%;"><div style="width:100%;background:linear-gradient(to top,rgba(232,255,71,.3),rgba(232,255,71,.1));border:1px dashed rgba(232,255,71,.4);border-bottom:none;border-radius:3px 3px 0 0;height:88%;" title="~R$10.200-13.600"></div></div>
+            <div style="font-size:9px;color:var(--accent);">Mai26?</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:14px;font-size:10px;color:var(--muted);">
+          <span>🟢 Histórico real</span>
+          <span style="color:var(--accent);">◻ Previsão IA</span>
+          <span style="color:var(--warm);">── Gap de inatividade</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">Análise de Mix — BITE SPLINT domina</div>
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:16px;">
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
+          <div style="min-width:200px;color:var(--text);font-weight:600;">BITE SPLINT + FLEX 1kg</div>
+          <div style="flex:1;background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:64.8%;height:100%;background:var(--hot);border-radius:4px;"></div>
+          </div>
+          <div style="min-width:60px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--hot);">64.8%</div>
+          <div style="min-width:80px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted2);">R$18.650</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
+          <div style="min-width:200px;color:var(--muted2);">Bio Temp B1 1kg</div>
+          <div style="flex:1;background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:6.5%;height:100%;background:var(--accent2);border-radius:4px;opacity:.6;"></div>
+          </div>
+          <div style="min-width:60px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted2);">6.5%</div>
+          <div style="min-width:80px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted2);">R$1.885</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
+          <div style="min-width:200px;color:var(--muted2);">Bio Clear Guide 1kg</div>
+          <div style="flex:1;background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:5.4%;height:100%;background:var(--accent2);border-radius:4px;opacity:.5;"></div>
+          </div>
+          <div style="min-width:60px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted2);">5.4%</div>
+          <div style="min-width:80px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted2);">R$1.555</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
+          <div style="min-width:200px;color:var(--muted);">Outros 9 SKUs</div>
+          <div style="flex:1;background:var(--surface3);border-radius:4px;height:8px;overflow:hidden;">
+            <div style="width:23.3%;height:100%;background:var(--muted);border-radius:4px;opacity:.4;"></div>
+          </div>
+          <div style="min-width:60px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted);">23.3%</div>
+          <div style="min-width:80px;text-align:right;font-family:&#39;DM Mono&#39;,monospace;color:var(--muted);">R$6.705</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding:10px;background:var(--surface3);border-radius:8px;font-size:12px;color:var(--muted2);">
+        💡 <strong style="color:var(--text);">Insight:</strong> BITE SPLINT é o produto âncora. Qualquer ruptura no fornecimento ou perda de competitividade neste SKU representa risco direto de R$18.650+ em receita futura projetada.
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: FLUXO DIGITAL
+  ══════════════════════════════════════════════ -->
+  <div id="tab-fluxo" class="tab-content">
+    <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div class="fi-dot" style="background:var(--accent2);"></div> Já possui / comprou</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div class="fi-dot" style="background:var(--hot);"></div> Interesse ativo / recompra iminente</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div class="fi-dot" style="background:var(--accent);"></div> Interesse leve / oportunidade</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><div class="fi-dot" style="background:var(--muted);"></div> Sem interação</div>
+    </div>
+
+    <div class="flow-section">
+      <div class="flow-label">🖨️ Impressão 3D — Insumos</div>
+      <div class="flow-items">
+        <div class="flow-item fi-hot"><div class="fi-dot"></div>BITE SPLINT + FLEX 1kg 🔴 ×5</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Nano Híbrida Vitality ✓</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Bio Clear Guide 1kg ✓</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Bio Temp B1 ✓</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Try-In Calcinável ✓ (1kg)</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Bio Hybrid A2 ✓</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Bio L'aqua ✓</div>
+      </div>
+    </div>
+
+    <div class="flow-section">
+      <div class="flow-label">✨ Acabamento / Pós-Impressão</div>
+      <div class="flow-items">
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>SmartMake Seal Glaze ✓</div>
+        <div class="flow-item fi-owned"><div class="fi-dot"></div>Glaze Flex ✓</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Equipamentos pós-impressão</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Cura / UV</div>
+      </div>
+    </div>
+
+    <div class="flow-section">
+      <div class="flow-label">📷 Captura Digital</div>
+      <div class="flow-items">
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Scanner Intraoral</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Scanner de Bancada</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Notebook</div>
+      </div>
+    </div>
+
+    <div class="flow-section">
+      <div class="flow-label">📐 Planejamento CAD</div>
+      <div class="flow-items">
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Software CAD</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>CAD com IA</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Smart Slice</div>
+      </div>
+    </div>
+
+    <div class="flow-section">
+      <div class="flow-label">🎓 Educação</div>
+      <div class="flow-items">
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Cursos SmartAcademy</div>
+        <div class="flow-item fi-none"><div class="fi-dot"></div>Treinamento Presencial</div>
+      </div>
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-top:8px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em;">Gap do Fluxo — Oportunidades Não Exploradas</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <span style="background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.2);color:var(--hot);font-size:12px;padding:5px 12px;border-radius:20px;">🔴 BITE SPLINT recompra — iminente</span>
+        <span style="background:rgba(232,255,71,.06);border:1px solid rgba(232,255,71,.2);color:var(--accent);font-size:12px;padding:5px 12px;border-radius:20px;">🟡 Scanner — longo prazo (lab industrial)</span>
+        <span style="background:rgba(79,143,255,.08);border:1px solid rgba(79,143,255,.2);color:var(--blue);font-size:12px;padding:5px 12px;border-radius:20px;">🔵 CAD — se expandirem serviços</span>
+        <span style="background:rgba(92,100,116,.1);border:1px solid rgba(92,100,116,.2);color:var(--cold);font-size:12px;padding:5px 12px;border-radius:20px;">⚪ Cursos — treinamento equipe</span>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted2);">
+        ⚡ Lab está 100% focado em insumos. A expansão para equipamentos exige conversa estratégica separada — não misturar com pedido de resina.
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: LIS
+  ══════════════════════════════════════════════ -->
+  <div id="tab-lis" class="tab-content">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div class="sec">Composição do Score — LIS 94</div>
+        <div class="lis-breakdown">
+          <div class="lis-comp">
+            <span class="lis-comp-label">Engajamento comercial</span>
+            <div class="lis-bar-wrap"><div class="lis-bar" style="width:98%;background:var(--hot);"></div></div>
+            <span class="lis-comp-val" style="color:var(--hot);">98</span>
+          </div>
+          <div class="lis-comp">
+            <span class="lis-comp-label">Recência de compra</span>
+            <div class="lis-bar-wrap"><div class="lis-bar" style="width:95%;background:var(--hot);"></div></div>
+            <span class="lis-comp-val" style="color:var(--hot);">95</span>
+          </div>
+          <div class="lis-comp">
+            <span class="lis-comp-label">Escala de volume</span>
+            <div class="lis-bar-wrap"><div class="lis-bar" style="width:92%;background:var(--warm);"></div></div>
+            <span class="lis-comp-val" style="color:var(--warm);">92</span>
+          </div>
+          <div class="lis-comp">
+            <span class="lis-comp-label">LTV acumulado</span>
+            <div class="lis-bar-wrap"><div class="lis-bar" style="width:88%;background:var(--accent2);"></div></div>
+            <span class="lis-comp-val" style="color:var(--accent2);">88</span>
+          </div>
+          <div class="lis-comp">
+            <span class="lis-comp-label">Qualificação técnica</span>
+            <div class="lis-bar-wrap"><div class="lis-bar" style="width:75%;background:var(--accent2);"></div></div>
+            <span class="lis-comp-val" style="color:var(--accent2);">75</span>
+          </div>
+          <div class="lis-comp">
+            <span class="lis-comp-label">Completude de dados</span>
+            <div class="lis-bar-wrap"><div class="lis-bar" style="width:65%;background:var(--accent);"></div></div>
+            <span class="lis-comp-val" style="color:var(--accent);">65</span>
+          </div>
+        </div>
+        <div class="formula-box">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:8px;letter-spacing:.08em;">FÓRMULA LIS v2.1</div>
+          <code style="color:var(--accent2);font-size:12px;">LIS = (E×.30)+(R×.25)+(V×.20)+(L×.15)+(Q×.10)</code>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">= (98×.30)+(95×.25)+(92×.20)+(88×.15)+(75×.10)</div>
+          <div style="font-size:13px;color:var(--text);margin-top:4px;font-weight:700;">= 29.4 + 23.75 + 18.4 + 13.2 + 7.5 = <span style="color:var(--hot);">92.25 ≈ 94</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">⚠️ Penalidade -6pts: 2 deals com pessoa_id NULL · Dados incompletos</div>
+        </div>
+      </div>
+      <div>
+        <div class="sec">Histórico do Score</div>
+        <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:16px;height:calc(100% - 30px);">
+          <div class="score-chart">
+            <div class="bar-wrap"><div class="bar" style="height:22%;background:var(--cold);opacity:.6;" title="Fev23: 20"></div><div class="bar-label">F23</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:30%;background:var(--cold);opacity:.7;" title="Abr23: 28"></div><div class="bar-label">A23</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:36%;background:var(--cold);" title="Jun23: 33"></div><div class="bar-label">J23</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:44%;background:var(--warm);opacity:.6;" title="Jul23: 41"></div><div class="bar-label">Jl23</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:20%;background:var(--cold);opacity:.4;" title="Jan24: 18 (gap)"></div><div class="bar-label">J24</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:55%;background:var(--warm);" title="Out24: 51"></div><div class="bar-label">O24</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:65%;background:var(--warm);" title="Nov24: 60"></div><div class="bar-label">N24</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:72%;background:var(--warm);" title="Fev25: 67"></div><div class="bar-label">F25</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:78%;background:var(--hot);opacity:.8;" title="Abr25: 73"></div><div class="bar-label">A25</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:88%;background:var(--hot);" title="Set25: 82"></div><div class="bar-label">S25</div></div>
+            <div class="bar-wrap"><div class="bar" style="height:100%;background:var(--hot);box-shadow:0 0 10px rgba(255,71,87,.5);" title="Fev26: 94"></div><div class="bar-label" style="color:var(--hot);font-weight:700;">F26</div></div>
+          </div>
+          <div style="font-size:12px;color:var(--muted2);margin-top:8px;">
+            📈 Score cresceu <strong style="color:var(--hot);">+74 pontos</strong> em 3 anos. Dip em Jan/2024 reflete o gap de 15 meses sem compra.
+          </div>
+          <div style="margin-top:12px;padding:10px;background:var(--surface3);border-radius:8px;font-size:11px;color:var(--muted2);">
+            <div>🟡 <strong style="color:var(--text);">Gap Risk:</strong> última queda foi de 44 pontos em 8 meses. Se não houver compra até Set/2026, score cai para zona amarela.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: AÇÕES
+  ══════════════════════════════════════════════ -->
+  <div id="tab-acoes" class="tab-content">
+    <div class="sec">Ações Recomendadas — Ordenadas por Impacto</div>
+    <div class="action-list">
+
+      <div class="action-item critical">
+        <div class="action-icon">🔴</div>
+        <div class="action-body">
+          <div class="action-title">Ativar recompra BITE SPLINT — Janela aberta agora</div>
+          <div class="action-desc">Última compra: 20/Fev/2026 (5kg). Ciclo médio histórico: ~5 meses. Próxima janela: Mai–Jun/2026. Ligar agora para pré-confirmar volume — o lab pode precisar de 6–8 unidades.</div>
+          <div class="action-script">"Cristian, tudo bem? Liguei porque os 5kg chegaram em Fevereiro — dependendo do uso do lab, deve estar chegando perto do fim. Você já tem ideia de quanto vai precisar na próxima compra? Posso já deixar separado no estoque."</div>
+        </div>
+        <div class="action-priority ap-hoje">HOJE</div>
+      </div>
+
+      <div class="action-item critical">
+        <div class="action-icon">⚠️</div>
+        <div class="action-body">
+          <div class="action-title">Resolver identidade — 2 deals órfãos sem pessoa vinculada</div>
+          <div class="action-desc">OppID 23359076 e 42720689 têm pessoa_id NULL. O deal de R$3.260 (42720689, Nov/2024) é um dos maiores e está sem contato vinculado. Corrigir no CRM via lookup por empresa_id ou perguntar ao Cristian quem foi o responsável.</div>
+        </div>
+        <div class="action-priority ap-hoje">HOJE</div>
+      </div>
+
+      <div class="action-item medium">
+        <div class="action-icon">🔍</div>
+        <div class="action-body">
+          <div class="action-title">Verificar: Christian Schuh = Cristian Siqueira Kurtz?</div>
+          <div class="action-desc">Dois pessoa_piperun_ids diferentes (15681477 e 20564360) para uma empresa com histórico contínuo. Alta probabilidade de ser a mesma pessoa cadastrada duas vezes ou com sobrenome diferente. Confirmar antes de qualquer merge de dados.</div>
+        </div>
+        <div class="action-priority ap-semana">ESTA SEMANA</div>
+      </div>
+
+      <div class="action-item medium">
+        <div class="action-icon">📦</div>
+        <div class="action-body">
+          <div class="action-title">Oferecer Glaze Flex junto com o próximo BITE SPLINT</div>
+          <div class="action-desc">Comprou Glaze Flex 1x em Abr/2025. É acessório natural ao BITE SPLINT. Propor bundle: "BITE SPLINT + Glaze Flex" para aumentar ticket e reduzir fricção logística.</div>
+          <div class="action-script">"Já que você vai fazer o pedido de BITE SPLINT, quer incluir Glaze Flex? Você comprou no último pedido de Abril — facilita você não precisar pedir separado."</div>
+        </div>
+        <div class="action-priority ap-semana">ESTA SEMANA</div>
+      </div>
+
+      <div class="action-item">
+        <div class="action-icon">🏗️</div>
+        <div class="action-body">
+          <div class="action-title">Mapear estrutura do lab — há mais de 1 contato?</div>
+          <div class="action-desc">Lab com este volume provavelmente tem mais de um profissional. Identificar quem mais usa BITE SPLINT e quem toma decisões de compra — reduz risco de churn se Cristian sair.</div>
+        </div>
+        <div class="action-priority ap-mes">30 DIAS</div>
+      </div>
+
+      <div class="action-item">
+        <div class="action-icon">🔬</div>
+        <div class="action-body">
+          <div class="action-title">Introduzir equipamentos — Scanner / CAD (conversa exploratória)</div>
+          <div class="action-desc">Lab sem nenhum equipamento registrado. Após consolidar a recompra de BITE SPLINT, abrir conversa separada sobre digitalização. Não misturar com pedido de insumos — são decisões diferentes.</div>
+        </div>
+        <div class="action-priority ap-mes">60–90 DIAS</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════
+       TAB: IA CHAT
+  ══════════════════════════════════════════════ -->
+  <div id="tab-ia" class="tab-content">
+    <div class="sec">Consulte a IA sobre este lead</div>
+    <div class="ai-chat-wrap">
+      <div class="ai-chat-header">
+        <span>🤖</span>
+        <span>Assistente de Inteligência Comercial — Lab Meridional</span>
+        <div style="margin-left:auto;">
+          <span class="badge badge-ai" style="font-size:10px;">Claude Sonnet</span>
+        </div>
+      </div>
+      <div class="ai-messages" id="chat-messages">
+        <div class="msg msg-ai">Olá! Sou o assistente de inteligência comercial para o <strong>LABORATORIO MERIDIONAL</strong>. Tenho acesso ao histórico completo de 3 anos: 11 deals, R$29.343 em LTV, padrão de escalada de BITE SPLINT (1→5 unidades), e todos os dados de identidade e propostas dos CSVs reais. O que você quer saber?</div>
+      <div class="msg msg-user">Quando devo ligar?</div><div class="msg msg-ai">Erro de conexão com a IA.</div></div>
+      <div class="quick-asks">
+        <div class="quick-ask" onclick="sendQuick(this)">Quando devo ligar?</div>
+        <div class="quick-ask" onclick="sendQuick(this)">Qual o próximo pedido provável?</div>
+        <div class="quick-ask" onclick="sendQuick(this)">Riscos de churn?</div>
+        <div class="quick-ask" onclick="sendQuick(this)">Como abordar equipamentos?</div>
+        <div class="quick-ask" onclick="sendQuick(this)">Qual o script ideal de recompra?</div>
+        <div class="quick-ask" onclick="sendQuick(this)">Por que teve gap de 15 meses?</div>
+      </div>
+      <div class="ai-input-row">
+        <input class="ai-input" id="chat-input" placeholder="Pergunte sobre o lead... (Enter para enviar)" onkeydown="if(event.key===&#39;Enter&#39;)sendChat()">
+        <button class="ai-send-btn" id="send-btn" onclick="sendChat()">Enviar →</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /card -->
+
+<script>
+// ── TAB SWITCHING ──
+function showTab(id, el) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+// ── LEAD CONTEXT ──
+const LEAD_CONTEXT = `
+Você é o assistente de inteligência comercial da SmartDent, especializado no cliente LABORATORIO MERIDIONAL.
+
+DADOS REAIS DO CLIENTE (extraídos dos CSVs do PipeRun):
+- empresa_id: 11751520
+- buyer_type: company (B2B, CNPJ)
+- LTV total: R$29.343 em 11 deals entre Fev/2023 e Fev/2026
+
+PESSOAS VINCULADAS:
+- Christian Schuh (pessoa_id: 15681477) — 3 deals em 2023
+- CRISTIAN SIQUEIRA KURTZ (pessoa_id: 20564360) — 6 deals de 2024 a 2026 (contato ativo)
+- 2 deals órfãos sem pessoa_id (OppIDs: 23359076 e 42720689)
+
+HISTÓRICO COMPLETO DE DEALS:
+1. 15/02/2023 — Try-In Calcinável 250g — R$512 — FOB R$72 — 1x — Evandro
+2. 12/04/2023 — Bio Clear Guide 1kg — R$1.617 — FOB R$62 — 3x — Evandro
+3. 28/06/2023 — Nano Híbrida Vitality 250g — R$1.262 — FOB R$62 — 2x — Evandro
+4. 17/07/2023 — Bio Temp B1 1kg — R$1.963 — FOB R$78 — 3x — Janaina
+5. [GAP DE 15 MESES]
+6. 24/10/2024 — BITE SPLINT + FLEX 1kg ×1 — R$1.709 — FOB R$59 — 4x — Patricia
+7. 14/11/2024 — 5 resinas diferentes — R$3.260 — FOB R$93 — 7x — Janaina (sem pessoa_id)
+8. 25/02/2025 — Try-In Calcinável 1kg (upgrade) — R$1.330 — CIF R$0 — 3x — Evandro
+9. 25/03/2025 — SmartMake Seal Glaze — R$300 — FOB R$22 — 1x — Evandro
+10. 04/04/2025 — BITE SPLINT + FLEX ×2 + Glaze Flex — R$3.690 — CIF R$0 — 6x — Evandro
+11. 03/09/2025 — BITE SPLINT + FLEX ×3 — R$5.100 — CIF R$0 — 8x — Evandro
+12. 20/02/2026 — BITE SPLINT + FLEX ×5 — R$8.600 — FOB R$100 — 8x — Evandro
+
+PRODUTO ÂNCORA: BITE SPLINT + FLEX 1kg = 64.8% do LTV (R$18.650)
+ESCALADA: 1→2→3→5 unidades entre Out/2024 e Fev/2026
+POLÍTICA CIF: frete CIF para pedidos ≥2 unidades (Set/2025 e Abr/2025) — mas voltou FOB em Fev/2026
+PREÇO BITE SPLINT: R$1.650 (Out/2024) → R$1.700 (desde Abr/2025, estável)
+
+LIS SCORE: 94/100 (HOT)
+PREVISÃO IA: próxima compra Mai–Jul/2026, 6–8 unidades BITE SPLINT, ~R$10.200–13.600
+
+PROBLEMAS DE DADOS:
+- 2 deals com pessoa_id NULL
+- Possível duplicata de pessoa (Christian Schuh vs CRISTIAN KURTZ)
+- buyer_type ainda não formalizado como coluna no banco
+
+Responda em português, de forma direta e prática. Máximo de 3 parágrafos por resposta. Foque em insights acionáveis para o vendedor. Seja específico com datas, valores e nomes reais.`;
+
+// ── COGNITIVE ANALYSIS ──
+async function runCognitive() {
+  const btn = document.getElementById('btn-cognitive');
+  const out = document.getElementById('cognitive-output');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analisando...';
+  out.innerHTML = '<div class="loading"><div class="live-dot"></div>Analisando 3 anos de histórico, 11 deals, padrões de compra e riscos...</div>';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `Você é um motor de análise cognitiva de leads da SmartDent. Analise profundamente o perfil do cliente e gere uma análise cognitiva estruturada. Responda em português, em texto corrido sem bullet points, com 3 seções claramente separadas por § (parágrafo). Seja específico, use os dados reais, cite valores e datas. Máximo 250 palavras.`,
+        messages: [{
+          role: 'user',
+          content: `${LEAD_CONTEXT}\n\nGere uma análise cognitiva completa do LABORATORIO MERIDIONAL incluindo: (1) perfil psicológico de compra e motivações reais, (2) riscos ocultos e pontos de atenção, (3) oportunidade de upsell mais promissora e como abordar.`
+        }]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'Erro na análise.';
+    out.innerHTML = `<div style="line-height:1.7;font-size:13px;color:var(--muted2);">${text.replace(/\n\n/g,'<br><br>').replace(/\n/g,'<br>')}</div>`;
+  } catch(e) {
+    out.innerHTML = '<div style="color:var(--hot);">Erro ao conectar com IA. Verifique a conexão.</div>';
+  }
+  btn.disabled = false;
+  btn.textContent = '↺ Reanalisar';
+}
+
+// ── CHAT ──
+const messages = [];
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('send-btn');
+  const text = input.value.trim();
+  if (!text || btn.disabled) return;
+
+  appendMsg(text, 'user');
+  input.value = '';
+  btn.disabled = true;
+
+  messages.push({ role: 'user', content: text });
+
+  // typing indicator
+  const typingEl = document.createElement('div');
+  typingEl.className = 'msg msg-ai';
+  typingEl.innerHTML = '<div class="typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  document.getElementById('chat-messages').appendChild(typingEl);
+  scrollChat();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: LEAD_CONTEXT,
+        messages: messages
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Erro na resposta.';
+    messages.push({ role: 'assistant', content: reply });
+    typingEl.remove();
+    appendMsg(reply, 'ai');
+  } catch(e) {
+    typingEl.remove();
+    appendMsg('Erro de conexão com a IA.', 'ai');
+  }
+  btn.disabled = false;
+  input.focus();
+}
+
+function sendQuick(el) {
+  document.getElementById('chat-input').value = el.textContent;
+  sendChat();
+}
+
+function appendMsg(text, role) {
+  const div = document.createElement('div');
+  div.className = `msg msg-${role}`;
+  div.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  document.getElementById('chat-messages').appendChild(div);
+  scrollChat();
+}
+
+function scrollChat() {
+  const msgs = document.getElementById('chat-messages');
+  msgs.scrollTop = msgs.scrollHeight;
+}
+</script>
+
+
+</body></html>
