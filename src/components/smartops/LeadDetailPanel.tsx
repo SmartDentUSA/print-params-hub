@@ -294,10 +294,75 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
   // Timeline display limit
   const [timelineLimit, setTimelineLimit] = useState(100);
 
+  // Merge state
+  const [mergeInfo, setMergeInfo] = useState<{ count: number; sources: string[] } | null>(null);
+  const [mergeRunning, setMergeRunning] = useState(false);
+
   // Reset on lead change
   useEffect(() => {
     setCognitiveResult(""); setUpsellResult(""); setActionsResult("");
     setChatMessages([]); setChatInput(""); setTimelineLimit(100);
+    setMergeInfo(null);
+  }, [lead?.id]);
+
+  // Auto-trigger AI tabs when activated
+  useEffect(() => {
+    if (activeTab === "cognitive" && !cognitiveResult && !cognitiveLoading) {
+      callCopilotForTab("cognitive");
+    }
+    if (activeTab === "upsell" && !upsellResult && !upsellLoading) {
+      callCopilotForTab("upsell");
+    }
+    if (activeTab === "actions" && !actionsResult && !actionsLoading) {
+      callCopilotForTab("actions");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  // Auto-detect and merge duplicates
+  useEffect(() => {
+    if (!lead?.id || mergeRunning) return;
+    const detectAndMerge = async () => {
+      try {
+        // Find duplicates by empresa_piperun_id, pessoa_piperun_id, or email domain
+        const conditions: string[] = [];
+        if (lead.empresa_piperun_id) conditions.push(`empresa_piperun_id.eq.${lead.empresa_piperun_id}`);
+        if (lead.pessoa_piperun_id) conditions.push(`pessoa_piperun_id.eq.${lead.pessoa_piperun_id}`);
+        const emailDomain = lead.email?.split("@")[1];
+        if (emailDomain && !emailDomain.includes("placeholder") && !["gmail.com", "hotmail.com", "outlook.com", "yahoo.com"].includes(emailDomain)) {
+          conditions.push(`email.ilike.%@${emailDomain}`);
+        }
+        if (conditions.length === 0) return;
+
+        const { data: dupes } = await supabase
+          .from("lia_attendances")
+          .select("id, nome, email, ltv_total, total_deals, piperun_id, created_at")
+          .or(conditions.join(","))
+          .neq("id", lead.id)
+          .limit(20);
+
+        if (!dupes || dupes.length === 0) return;
+
+        // Auto-merge: call edge function
+        setMergeRunning(true);
+        const { data: mergeResult, error } = await supabase.functions.invoke("smart-ops-merge-leads", {
+          body: { primary_id: lead.id, secondary_ids: dupes.map(d => d.id) },
+        });
+
+        if (!error) {
+          setMergeInfo({
+            count: dupes.length + 1,
+            sources: dupes.map(d => d.nome || d.email || "—"),
+          });
+        }
+      } catch {
+        // Silent fail for merge
+      } finally {
+        setMergeRunning(false);
+      }
+    };
+    detectAndMerge();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead?.id]);
 
   // Load all related data
