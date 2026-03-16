@@ -6,12 +6,11 @@ import { RefreshCw, Zap, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SmartOpsBowtie } from "./SmartOpsBowtie";
-import { SmartOpsAudienceBuilder } from "./SmartOpsAudienceBuilder";
+import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsTeam } from "./SmartOpsTeam";
 import { SmartOpsCSRules } from "./SmartOpsCSRules";
 import { SmartOpsLogs } from "./SmartOpsLogs";
 import { SmartOpsSystemHealth } from "./SmartOpsSystemHealth";
-import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
@@ -74,7 +73,7 @@ export function SmartOpsTab() {
         <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1" style={{ display: 'flex' }}>
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
           <TabsTrigger value="kanban">Público / Lista</TabsTrigger>
-          <TabsTrigger value="leads">Leads</TabsTrigger>
+          
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           <TabsTrigger value="reguas">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
@@ -94,9 +93,6 @@ export function SmartOpsTab() {
           <SmartOpsBowtie key={`bowtie-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="kanban">
-          <SmartOpsAudienceBuilder key={`audience-${refreshKey}`} />
-        </TabsContent>
-        <TabsContent value="leads">
           <SmartOpsLeadsList key={`leads-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="equipe">

@@ -15,6 +15,123 @@ const BUYER_FILTERS = [
   { key: "scanner", label: "🔬 Scanner SD" },
 ] as const;
 
+const PIPELINE_GROUPS: Record<string, { label: string; emoji: string; statuses: string[] }> = {
+  vendas: {
+    label: "Vendas", emoji: "🎯",
+    statuses: ["novo", "sem_contato", "contato_feito", "em_contato", "apresentacao", "proposta_enviada", "negociacao", "fechamento"],
+  },
+  estagnados: {
+    label: "Estagnados", emoji: "🔄",
+    statuses: ["est_etapa1", "est_etapa2", "est_etapa3", "est_etapa4", "est_apresentacao", "est_proposta", "estagnado_final"],
+  },
+  cs: {
+    label: "CS", emoji: "🎓",
+    statuses: ["cs_auxiliar_email", "cs_em_espera", "cs_sem_data_agendar", "cs_nao_quer_imersao", "cs_treinamento_agendado", "cs_treinamento_realizado", "cs_enviar_imp3d", "cs_equipamentos_entregues", "cs_retirar_scan", "cs_acompanhamento_15d", "cs_acomp_30d_comercial", "cs_acompanhamento_atencao", "cs_finalizado", "cs_nao_use_dkmngr", "cs_nao_use_omie_fix"],
+  },
+  insumos: {
+    label: "Insumos", emoji: "🧪",
+    statuses: ["insumos_sem_contato", "insumos_contato_feito", "insumos_amostra_enviada", "insumos_retorno_amostra", "insumos_fechamento"],
+  },
+  ecommerce: {
+    label: "E-commerce", emoji: "🛒",
+    statuses: ["ecom_visitantes", "ecom_navegacao", "ecom_checkout", "ecom_abandono", "ecom_transacao", "ecom_pedido", "ecom_pos_venda", "ecom_ativacao"],
+  },
+  ebook: { label: "Ebook", emoji: "📚", statuses: ["ebook"] },
+};
+
+const ALL_STATUSES = Object.values(PIPELINE_GROUPS).flatMap((g) => g.statuses);
+
+const STATUS_LABEL: Record<string, string> = {};
+Object.values(PIPELINE_GROUPS).forEach((g) => {
+  g.statuses.forEach((s) => {
+    STATUS_LABEL[s] = s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  });
+});
+
+const TEMP_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "quente", label: "🔥 Quente" },
+  { key: "morno", label: "🌤 Morno" },
+  { key: "frio", label: "❄️ Frio" },
+];
+
+const URGENCY_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "alta", label: "🔴 Alta" },
+  { key: "media", label: "🟡 Média" },
+  { key: "baixa", label: "🟢 Baixa" },
+];
+
+const OPORT_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "aberta", label: "Aberta" },
+  { key: "ganha", label: "Ganha" },
+  { key: "perdida", label: "Perdida" },
+];
+
+const STAGE_OPTIONS = [
+  { key: "all", label: "Todos" },
+  { key: "MQL_pesquisador", label: "🔍 MQL" },
+  { key: "SAL_comparador", label: "🔄 SAL" },
+  { key: "SQL_decisor", label: "✅ SQL" },
+  { key: "CLIENTE_ativo", label: "👑 Cliente" },
+];
+
+const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
+
+const INTEREST_OPTIONS = [
+  { key: "all", label: "Todos Interesses" },
+  { key: "sdr_scanner_interesse", label: "📷 Scanner" },
+  { key: "sdr_impressora_interesse", label: "🖨️ Impressora" },
+  { key: "sdr_software_cad_interesse", label: "💻 Software CAD" },
+  { key: "sdr_pos_impressao_interesse", label: "♨️ Pós-impressão" },
+  { key: "sdr_caracterizacao_interesse", label: "🔬 Caracterização" },
+  { key: "sdr_cursos_interesse", label: "🎓 Cursos" },
+  { key: "sdr_dentistica_interesse", label: "🦷 Dentística" },
+  { key: "sdr_insumos_lab_interesse", label: "🧪 Insumos Lab" },
+  { key: "sdr_solucoes_interesse", label: "🔧 Soluções" },
+] as const;
+
+const ITEM_PROPOSTA_OPTIONS = [
+  { key: "all", label: "Todos Itens" },
+  { key: "Scanner", label: "Scanner" },
+  { key: "Impressora", label: "Impressora" },
+  { key: "CAD", label: "Software CAD" },
+  { key: "Notebook", label: "Notebook" },
+  { key: "Resina", label: "Resina" },
+  { key: "Insumo", label: "Insumos" },
+  { key: "Pós", label: "Pós-impressão" },
+  { key: "Cura", label: "Cura" },
+  { key: "Curso", label: "Cursos" },
+];
+
+interface AdvancedFilters {
+  pipeline: string;
+  status: string;
+  temperatura: string;
+  urgency: string;
+  source: string;
+  produto: string;
+  uf: string;
+  proprietario: string;
+  oportunidade: string;
+  stage: string;
+  activeProduct: string;
+  interestProduct: string;
+  itemProposta: string;
+  statusCRM: string;
+  valorMin: string;
+  valorMax: string;
+  stagnant: boolean;
+}
+
+const EMPTY_ADV_FILTERS: AdvancedFilters = {
+  pipeline: "all", status: "all", temperatura: "all", urgency: "all",
+  source: "all", produto: "all", uf: "all", proprietario: "all",
+  oportunidade: "all", stage: "all", activeProduct: "all", interestProduct: "all",
+  itemProposta: "all", statusCRM: "all", valorMin: "", valorMax: "", stagnant: false,
+};
+
 // ─── Types ───
 interface LeadFull {
   [key: string]: unknown;
@@ -1036,9 +1153,22 @@ export function SmartOpsLeadsList() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [buyerFilter, setBuyerFilter] = useState("all");
+  const [advFilters, setAdvFilters] = useState<AdvancedFilters>(EMPTY_ADV_FILTERS);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedLead, setSelectedLead] = useState<LeadFull | null>(null);
+
+  // Dynamic filter options
+  const [allSources, setAllSources] = useState<string[]>([]);
+  const [allUFs, setAllUFs] = useState<string[]>([]);
+  const [allOwners, setAllOwners] = useState<string[]>([]);
+  const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [allStatusCRM, setAllStatusCRM] = useState<string[]>([]);
+
+  const setAdv = useCallback(<K extends keyof AdvancedFilters>(key: K, value: AdvancedFilters[K]) => {
+    setAdvFilters((prev) => ({ ...prev, [key]: value }));
+  }, []);
 
   // Debounce search
   useEffect(() => {
@@ -1046,20 +1176,84 @@ export function SmartOpsLeadsList() {
     return () => clearTimeout(t);
   }, [search]);
 
+  // Load dynamic filter options once
+  useEffect(() => {
+    Promise.all([
+      supabase.from("lia_attendances").select("source").limit(1000),
+      supabase.from("lia_attendances").select("uf").limit(1000),
+      supabase.from("lia_attendances").select("proprietario_lead_crm").limit(1000),
+      supabase.from("lia_attendances").select("produto_interesse").limit(1000),
+      supabase.from("lia_attendances").select("status_atual_lead_crm").limit(1000),
+    ]).then(([sources, ufs, owners, products, statusCRMs]) => {
+      const unique = (data: { [k: string]: string | null }[] | null, key: string) =>
+        [...new Set((data || []).map((d) => d[key]).filter(Boolean))].sort() as string[];
+      setAllSources(unique(sources.data as { source: string }[], "source"));
+      setAllUFs(unique(ufs.data as { uf: string }[], "uf"));
+      setAllOwners(unique(owners.data as { proprietario_lead_crm: string }[], "proprietario_lead_crm"));
+      setAllProducts(unique(products.data as { produto_interesse: string }[], "produto_interesse"));
+      setAllStatusCRM(unique(statusCRMs.data as { status_atual_lead_crm: string }[], "status_atual_lead_crm"));
+    });
+  }, []);
+
+  const thirtyDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString();
+  }, []);
+
+  const hasAdvFilters = useMemo(() => {
+    return Object.entries(advFilters).some(([k, v]) => {
+      const def = EMPTY_ADV_FILTERS[k as keyof AdvancedFilters];
+      return v !== def;
+    });
+  }, [advFilters]);
+
+  const activeFilterCount = useMemo(() => {
+    return Object.entries(advFilters).filter(([k, v]) => v !== EMPTY_ADV_FILTERS[k as keyof AdvancedFilters]).length;
+  }, [advFilters]);
+
+  const statusesForPipeline = useMemo(() => {
+    if (advFilters.pipeline === "all") return ALL_STATUSES;
+    return PIPELINE_GROUPS[advFilters.pipeline]?.statuses || ALL_STATUSES;
+  }, [advFilters.pipeline]);
+
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from("lia_attendances")
       .select("*", { count: "exact" })
-      .order("ltv_total", { ascending: false, nullsFirst: false });
+      .order("created_at", { ascending: false }) as any;
 
+    // Buyer type filter
     if (buyerFilter === "company") query = query.eq("buyer_type", "company");
     else if (buyerFilter === "person") query = query.eq("buyer_type", "person");
     else if (buyerFilter === "ltv") query = query.gt("ltv_total", 0);
     else if (buyerFilter === "scanner") query = query.eq("status_scanner", "tem_smartdent");
 
+    // Advanced filters
+    if (advFilters.pipeline !== "all") {
+      const group = PIPELINE_GROUPS[advFilters.pipeline];
+      if (group) query = query.in("lead_status", group.statuses);
+    }
+    if (advFilters.status !== "all") query = query.eq("lead_status", advFilters.status);
+    if (advFilters.temperatura !== "all") query = query.ilike("temperatura_lead", advFilters.temperatura);
+    if (advFilters.stage !== "all") query = query.eq("lead_stage_detected", advFilters.stage);
+    if (advFilters.urgency !== "all") query = query.eq("urgency_level", advFilters.urgency);
+    if (advFilters.source !== "all") query = query.eq("source", advFilters.source);
+    if (advFilters.produto !== "all") query = query.ilike("produto_interesse", `%${advFilters.produto}%`);
+    if (advFilters.uf !== "all") query = query.eq("uf", advFilters.uf);
+    if (advFilters.proprietario !== "all") query = query.eq("proprietario_lead_crm", advFilters.proprietario);
+    if (advFilters.oportunidade !== "all") query = query.eq("status_oportunidade", advFilters.oportunidade);
+    if (advFilters.stagnant) query = query.lte("updated_at", thirtyDaysAgo);
+    if (advFilters.valorMin) query = query.gte("valor_oportunidade", Number(advFilters.valorMin));
+    if (advFilters.valorMax) query = query.lte("valor_oportunidade", Number(advFilters.valorMax));
+    if (advFilters.activeProduct !== "all") query = query.eq(`ativo_${advFilters.activeProduct}`, true);
+    if (advFilters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${advFilters.itemProposta}%`);
+    if (advFilters.interestProduct !== "all") query = query.not(advFilters.interestProduct, "is", null);
+    if (advFilters.statusCRM !== "all") query = query.eq("status_atual_lead_crm", advFilters.statusCRM);
+
     if (debouncedSearch) {
-      query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
+      query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
     }
 
     const from = page * PAGE_SIZE;
@@ -1069,21 +1263,37 @@ export function SmartOpsLeadsList() {
     setLeads((data as LeadFull[]) || []);
     setTotalCount(count ?? 0);
     setLoading(false);
-  }, [page, debouncedSearch, buyerFilter]);
+  }, [page, debouncedSearch, buyerFilter, advFilters, thirtyDaysAgo]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
-  useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter]);
+  useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter, advFilters]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const exportCSV = () => {
-    const headers = ["nome", "email", "telefone_normalized", "buyer_type", "lead_status", "ltv_total", "total_deals", "workflow_score", "source", "created_at"];
-    const csv = [headers.join(","), ...leads.map((l) => headers.map((h) => `"${String((l as Record<string, unknown>)[h] ?? "")}"`).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const headers = [
+      "nome", "email", "telefone_normalized", "cidade", "uf", "lead_status", "temperatura_lead",
+      "lead_stage_detected", "urgency_level", "produto_interesse", "status_oportunidade",
+      "valor_oportunidade", "score", "intelligence_score_total", "proprietario_lead_crm",
+      "source", "funil_entrada_crm", "itens_proposta_crm", "tags_crm",
+      "ativo_scan", "ativo_print", "ativo_cad", "ativo_notebook", "ativo_insumos",
+      "sdr_scanner_interesse", "sdr_impressora_interesse", "sdr_software_cad_interesse",
+      "sdr_pos_impressao_interesse", "sdr_cursos_interesse", "sdr_dentistica_interesse",
+      "sdr_insumos_lab_interesse", "sdr_solucoes_interesse", "sdr_caracterizacao_interesse",
+      "rota_inicial_lia", "resumo_historico_ia", "created_at", "updated_at"
+    ];
+    const escape = (v: unknown) => {
+      if (v === null || v === undefined) return "";
+      const sv = Array.isArray(v) ? v.join("; ") : String(v);
+      return `"${sv.replace(/"/g, '""')}"`;
+    };
+    const csv = [headers.join(","), ...leads.map((l) => headers.map((h) => escape((l as Record<string, unknown>)[h])).join(","))].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `leads_intelligence_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
+    toast.success(`${leads.length} leads exportados`);
   };
 
   return (
@@ -1091,11 +1301,13 @@ export function SmartOpsLeadsList() {
       {/* Topbar */}
       <div className="intel-topbar">
         <div className="intel-logo">Smart<em>Dent</em></div>
-        <span style={{ fontSize: 11, color: "var(--id-muted)" }}>Leads</span>
+        <span style={{ fontSize: 11, color: "var(--id-muted)" }}>
+          Público / Lista ({totalCount.toLocaleString("pt-BR")} leads)
+        </span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <SmartOpsLeadImporter onComplete={fetchLeads} />
           <button className="intel-btn" onClick={exportCSV}>
-            <Download size={12} /> CSV
+            <Download size={12} /> CSV ({leads.length})
           </button>
           <span className="intel-pill intel-pill-blue">🧠 IA</span>
           <span className="intel-pill intel-pill-green">
@@ -1117,11 +1329,12 @@ export function SmartOpsLeadsList() {
               <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--id-muted)" }}>🔍</span>
               <input
                 className="intel-search-input"
-                placeholder="Buscar por nome, email, empresa…"
+                placeholder="Buscar por nome, email, telefone…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+            {/* Buyer type pills */}
             <div className="intel-filter-row">
               {BUYER_FILTERS.map((f) => (
                 <div
@@ -1133,6 +1346,132 @@ export function SmartOpsLeadsList() {
                 </div>
               ))}
             </div>
+
+            {/* Advanced filters toggle */}
+            <button
+              className="intel-btn"
+              style={{ width: "100%", justifyContent: "center", marginTop: 4, fontSize: 11 }}
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              🔧 Filtros Avançados {activeFilterCount > 0 && `(${activeFilterCount})`} {showAdvanced ? "▲" : "▼"}
+            </button>
+
+            {hasAdvFilters && (
+              <button
+                className="intel-btn"
+                style={{ width: "100%", justifyContent: "center", marginTop: 2, fontSize: 10, color: "var(--id-hot)" }}
+                onClick={() => setAdvFilters(EMPTY_ADV_FILTERS)}
+              >
+                ✕ Limpar filtros
+              </button>
+            )}
+
+            {/* Advanced filters panel */}
+            {showAdvanced && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6, maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+                {/* Pipeline */}
+                <select
+                  className="intel-select"
+                  value={advFilters.pipeline}
+                  onChange={(e) => { setAdv("pipeline", e.target.value); setAdv("status", "all"); }}
+                >
+                  <option value="all">Todos Pipelines</option>
+                  {Object.entries(PIPELINE_GROUPS).map(([k, g]) => (
+                    <option key={k} value={k}>{g.emoji} {g.label}</option>
+                  ))}
+                </select>
+                {/* Status */}
+                <select className="intel-select" value={advFilters.status} onChange={(e) => setAdv("status", e.target.value)}>
+                  <option value="all">Todos Status</option>
+                  {statusesForPipeline.map((s) => (
+                    <option key={s} value={s}>{STATUS_LABEL[s] || s}</option>
+                  ))}
+                </select>
+                {/* Temperatura */}
+                <select className="intel-select" value={advFilters.temperatura} onChange={(e) => setAdv("temperatura", e.target.value)}>
+                  {TEMP_OPTIONS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                </select>
+                {/* Urgência */}
+                <select className="intel-select" value={advFilters.urgency} onChange={(e) => setAdv("urgency", e.target.value)}>
+                  {URGENCY_OPTIONS.map((u) => <option key={u.key} value={u.key}>{u.label}</option>)}
+                </select>
+                {/* Estágio Cognitivo */}
+                <select className="intel-select" value={advFilters.stage} onChange={(e) => setAdv("stage", e.target.value)}>
+                  {STAGE_OPTIONS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                </select>
+                {/* Origem */}
+                <select className="intel-select" value={advFilters.source} onChange={(e) => setAdv("source", e.target.value)}>
+                  <option value="all">Todas Origens</option>
+                  {allSources.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {/* Produto */}
+                <select className="intel-select" value={advFilters.produto} onChange={(e) => setAdv("produto", e.target.value)}>
+                  <option value="all">Todos Produtos</option>
+                  {allProducts.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+                {/* UF */}
+                <select className="intel-select" value={advFilters.uf} onChange={(e) => setAdv("uf", e.target.value)}>
+                  <option value="all">Todos UFs</option>
+                  {allUFs.map((u) => <option key={u} value={u}>{u}</option>)}
+                </select>
+                {/* Proprietário */}
+                <select className="intel-select" value={advFilters.proprietario} onChange={(e) => setAdv("proprietario", e.target.value)}>
+                  <option value="all">Todos Proprietários</option>
+                  {allOwners.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+                {/* Oportunidade */}
+                <select className="intel-select" value={advFilters.oportunidade} onChange={(e) => setAdv("oportunidade", e.target.value)}>
+                  {OPORT_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                </select>
+                {/* Produto Ativo */}
+                <select className="intel-select" value={advFilters.activeProduct} onChange={(e) => setAdv("activeProduct", e.target.value)}>
+                  <option value="all">Prod. Ativo</option>
+                  {PRODUCT_FLAGS.map((p) => <option key={p} value={p}>{p.replace("_", " ").toUpperCase()}</option>)}
+                </select>
+                {/* Interesse */}
+                <select className="intel-select" value={advFilters.interestProduct} onChange={(e) => setAdv("interestProduct", e.target.value)}>
+                  {INTEREST_OPTIONS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                </select>
+                {/* Item Proposta */}
+                <select className="intel-select" value={advFilters.itemProposta} onChange={(e) => setAdv("itemProposta", e.target.value)}>
+                  {ITEM_PROPOSTA_OPTIONS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                </select>
+                {/* Status CRM */}
+                <select className="intel-select" value={advFilters.statusCRM} onChange={(e) => setAdv("statusCRM", e.target.value)}>
+                  <option value="all">Todos Status CRM</option>
+                  {allStatusCRM.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {/* Valor min/max */}
+                <div style={{ display: "flex", gap: 4 }}>
+                  <input
+                    className="intel-search-input"
+                    style={{ flex: 1, fontSize: 11 }}
+                    type="number"
+                    placeholder="Valor mín."
+                    value={advFilters.valorMin}
+                    onChange={(e) => setAdv("valorMin", e.target.value)}
+                  />
+                  <input
+                    className="intel-search-input"
+                    style={{ flex: 1, fontSize: 11 }}
+                    type="number"
+                    placeholder="Valor máx."
+                    value={advFilters.valorMax}
+                    onChange={(e) => setAdv("valorMax", e.target.value)}
+                  />
+                </div>
+                {/* Estagnados */}
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--id-muted2)", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={advFilters.stagnant}
+                    onChange={(e) => setAdv("stagnant", e.target.checked)}
+                    style={{ accentColor: "var(--id-acc)" }}
+                  />
+                  Estagnados (&gt;30d)
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="intel-leads-list">
