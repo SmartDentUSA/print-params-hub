@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import "@/styles/intelligence-dark.css";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
