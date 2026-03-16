@@ -495,10 +495,99 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
   // Deals history from JSONB
   const dealsHistory = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history as Record<string, unknown>[] : [];
 
+  // Build lead context string for AI calls
+  const buildLeadContext = useCallback(() => {
+    const fields = [
+      `Nome: ${lead.nome}`, `Email: ${lead.email}`, `Telefone: ${lead.telefone_normalized || "—"}`,
+      `Buyer Type: ${lead.buyer_type || "—"}`, `Área: ${lead.area_atuacao || "—"}`, `Empresa: ${lead.empresa_nome || "—"}`,
+      `Status: ${lead.lead_status}`, `LTV: ${brl(lead.ltv_total)}`, `Deals: ${lead.total_deals || 0}`,
+      `LIS Score: ${lis}`, `Workflow: ${wfScore}/10`,
+      `Scanner: ${lead.equip_scanner || "—"} (${lead.status_scanner || "—"})`,
+      `Impressora: ${lead.impressora_modelo || "—"} (${lead.status_impressora || "—"})`,
+      `CAD: ${lead.status_cad || "—"}`,
+      `Pipeline: ${lead.piperun_pipeline_name || "—"} / ${lead.piperun_stage_name || "—"}`,
+      `Source: ${lead.source || "—"}`,
+      s(lead, "urgency_level") ? `Urgência: ${s(lead, "urgency_level")}` : null,
+      s(lead, "interest_timeline") ? `Timeline: ${s(lead, "interest_timeline")}` : null,
+      s(lead, "psychological_profile") ? `Perfil: ${s(lead, "psychological_profile")}` : null,
+      s(lead, "primary_motivation") ? `Motivação: ${s(lead, "primary_motivation")}` : null,
+      s(lead, "recommended_approach") ? `Abordagem: ${s(lead, "recommended_approach")}` : null,
+      s(lead, "resumo_historico_ia") ? `Resumo IA: ${s(lead, "resumo_historico_ia")}` : null,
+      s(lead, "produto_interesse") ? `Produto Interesse: ${s(lead, "produto_interesse")}` : null,
+      dealsHistory.length > 0 ? `Deals History: ${dealsHistory.map(d => `${d.product || d.title} R$${d.value}`).join(", ")}` : null,
+    ].filter(Boolean).join("\n");
+    return fields;
+  }, [lead, lis, wfScore, dealsHistory]);
+
+  const callCopilotIA = useCallback(async (action: string) => {
+    setAiLoading(true);
+    setAiAction(action);
+    setAiResult("");
+
+    const prompts: Record<string, string> = {
+      analise: `Faça uma análise cognitiva completa deste lead. Identifique padrões comportamentais, nível de maturidade técnica, propensão de compra e recomendações estratégicas. Seja direto e use dados concretos.`,
+      script: `Crie um script de WhatsApp personalizado para abordar este lead. Considere o perfil psicológico, produtos de interesse, histórico de compras e nível de urgência. O script deve ter: abertura, proposta de valor, call-to-action. Use linguagem natural e persuasiva.`,
+      reativacao: `Desenvolva uma estratégia de reativação para este lead. Analise: tempo de inatividade, último ponto de contato, produtos de interesse, e workflow gaps. Proponha 3 ações concretas ordenadas por prioridade com timeline sugerida.`,
+    };
+
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-copilot", {
+        body: {
+          message: `${prompts[action]}\n\n--- DADOS DO LEAD ---\n${buildLeadContext()}`,
+          context: { source: "ia_tab", lead_id: lead.id, action },
+        },
+      });
+      if (error) throw error;
+      setAiResult(data?.response || data?.message || "Sem resposta da IA.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      setAiResult(`❌ Erro: ${msg}`);
+      toast.error("Falha na análise IA");
+    } finally {
+      setAiLoading(false);
+    }
+  }, [buildLeadContext, lead.id]);
+
+  const sendChatMessage = useCallback(async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    setChatInput("");
+    const userMsg = { role: "user" as const, content: msg };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatLoading(true);
+
+    try {
+      const allMsgs = [...chatMessages, userMsg];
+      const systemCtx = `Você é a LIA (Lead Intelligence Assistant), assistente especializada em análise de leads para a SmartDent. Responda com base nos dados do lead abaixo. Seja direta, use dados concretos, e formate com markdown.\n\n--- DADOS DO LEAD ---\n${buildLeadContext()}`;
+
+      const { data, error } = await supabase.functions.invoke("smart-ops-copilot", {
+        body: {
+          message: msg,
+          context: {
+            source: "chat_tab",
+            lead_id: lead.id,
+            system_override: systemCtx,
+            history: allMsgs.slice(-10),
+          },
+        },
+      });
+      if (error) throw error;
+      setChatMessages(prev => [...prev, { role: "assistant", content: data?.response || data?.message || "Sem resposta." }]);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Erro desconhecido";
+      setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Erro: ${errMsg}` }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }, [chatInput, chatLoading, chatMessages, buildLeadContext, lead.id]);
+
   const tabs = [
     { key: "identity", label: "🔗 Identidade" },
     { key: "score", label: "📊 LIS Score" },
     { key: "equipment", label: "⚙️ Equipamentos" },
+    { key: "ia", label: "🧠 IA" },
+    { key: "chat", label: "💬 Chat" },
     { key: "timeline", label: `⏱️ Timeline (${timelineEvents.length})` },
     { key: "conversations", label: `💬 Conversas` },
     { key: "behavioral", label: "🧠 Behavioral" },
