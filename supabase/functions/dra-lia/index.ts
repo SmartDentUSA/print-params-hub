@@ -2901,8 +2901,19 @@ REGRAS:
 
     // 0b-entry. Support question detection — start support ticket flow instead of static redirect
     // Also force support flow when topic_context === "support" (card "Preciso de uma mãozinha")
-    if (isSupportQuestion(message) || (topic_context === "support" && !supportFlowStage)) {
-      console.log(`[support_flow] Triggered — isSupportQuestion=${isSupportQuestion(message)}, topic_context=${topic_context}`);
+    const ticketJustCompleted = (sessionEntities as Record<string, unknown>)?.support_ticket_completed === true;
+    const isSupportMsg = isSupportQuestion(message);
+    
+    // If ticket was just completed but user sends a NEW real support request, allow re-entry
+    if (ticketJustCompleted && isSupportMsg) {
+      // Reset flag to allow new ticket creation
+      await supabase.from("agent_sessions").upsert({
+        session_id, extracted_entities: { ...(sessionEntities as Record<string, unknown>), support_ticket_completed: undefined }, last_activity_at: new Date().toISOString(),
+      }, { onConflict: "session_id" });
+    }
+    
+    if (!ticketJustCompleted && (isSupportMsg || (topic_context === "support" && !supportFlowStage))) {
+      console.log(`[support_flow] Triggered — isSupportQuestion=${isSupportMsg}, topic_context=${topic_context}`);
       // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
       let liaIdForSupport: string | null = null;

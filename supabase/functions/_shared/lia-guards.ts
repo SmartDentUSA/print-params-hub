@@ -42,7 +42,13 @@ export const SUPPORT_FALLBACK: Record<string, string> = {
   "es-ES": `Para problemas técnicos con equipos, nuestro equipo de soporte puede ayudarte directamente 😊\n\n💬 **WhatsApp:** [Contactar soporte](https://wa.me/551634194735?text=Hola%2C+necesito+soporte+t%C3%A9cnico)\n✉️ **E-mail:** comercial@smartdent.com.br\n🕐 **Horario:** Lunes a Viernes, 8h a 18h`,
 };
 
-export const isSupportQuestion = (msg: string) => SUPPORT_KEYWORDS.some((p) => p.test(msg));
+// Informational queries about existing tickets — should NOT trigger support creation flow
+const SUPPORT_INFO_QUERY = /\b(quantos?|quais?|ver|listar|consultar|hist[oó]rico|status|meus?)\b.{0,20}\b(chamado|ticket|ocorr[eê]ncia)/i;
+
+export const isSupportQuestion = (msg: string) => {
+  if (SUPPORT_INFO_QUERY.test(msg)) return false;
+  return SUPPORT_KEYWORDS.some((p) => p.test(msg));
+};
 
 // ── Protocol detection ──
 const PROTOCOL_KEYWORDS = [
