@@ -682,9 +682,17 @@ export function SmartOpsLeadsList() {
                 <select className="intel-select" value={advFilters.interestProduct} onChange={(e) => setAdv("interestProduct", e.target.value)}>
                   {INTEREST_OPTIONS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
                 </select>
-                {/* Item Proposta */}
-                <select className="intel-select" value={advFilters.itemProposta} onChange={(e) => setAdv("itemProposta", e.target.value)}>
-                  {ITEM_PROPOSTA_OPTIONS.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+                {/* Item Proposta - JSONB deep search */}
+                <input
+                  className="intel-search-input"
+                  style={{ fontSize: 11 }}
+                  placeholder="🔍 Produto na proposta (ex: Medit i600)"
+                  value={advFilters.itemProposta}
+                  onChange={(e) => setAdv("itemProposta", e.target.value)}
+                />
+                {/* Deal Status Filter */}
+                <select className="intel-select" value={advFilters.dealStatusFilter} onChange={(e) => setAdv("dealStatusFilter", e.target.value)}>
+                  {DEAL_STATUS_OPTIONS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
                 </select>
                 {/* Status CRM */}
                 <select className="intel-select" value={advFilters.statusCRM} onChange={(e) => setAdv("statusCRM", e.target.value)}>
