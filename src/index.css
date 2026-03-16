@@ -11,6 +11,7 @@
 @import './styles/blog-content.css';
 
 /* Knowledge Base styles (VeredictBox, FAQ, etc.) */
+@import './styles/intelligence-dark.css';
 @import './styles/knowledge-base.css';
 
 /* 3D Printing Parameters App Design System - Technical & Professional */
