@@ -857,6 +857,123 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
               </div>
             )}
 
+            {/* TAB: IA */}
+            {activeTab === "ia" && (
+              <div>
+                <div className="intel-sec">🧠 Análise IA — análise ao vivo</div>
+                <div className="intel-ai-panel">
+                  <div className="intel-ai-header">
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-purple)" }}>🧠 Copilot IA</span>
+                    <span style={{ fontSize: 10, color: "var(--id-muted)" }}>Análise contextual do lead</span>
+                  </div>
+                  <div className="intel-ai-chips">
+                    {[
+                      { key: "analise", label: "🧠 Análise Cognitiva", desc: "Perfil comportamental e propensão" },
+                      { key: "script", label: "🎯 Script WhatsApp", desc: "Abordagem personalizada" },
+                      { key: "reativacao", label: "🔄 Reativação", desc: "Estratégia de reengajamento" },
+                    ].map((chip) => (
+                      <button
+                        key={chip.key}
+                        className={`intel-ai-chip ${aiAction === chip.key ? "active" : ""}`}
+                        onClick={() => callCopilotIA(chip.key)}
+                        disabled={aiLoading}
+                      >
+                        <span>{chip.label}</span>
+                        <span style={{ fontSize: 9, color: "var(--id-muted)", display: "block" }}>{chip.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="intel-ai-result">
+                    {aiLoading ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--id-blue)" }}>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span style={{ fontSize: 12 }}>Analisando lead...</span>
+                      </div>
+                    ) : aiResult ? (
+                      <div className="intel-ai-md prose prose-sm">
+                        <ReactMarkdown>{aiResult}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 12, color: "var(--id-muted)", fontStyle: "italic", textAlign: "center", padding: 20 }}>
+                        Selecione uma ação acima para gerar análise IA do lead
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: CHAT */}
+            {activeTab === "chat" && (
+              <div>
+                <div className="intel-sec">💬 Chat LIA — conversa contextual</div>
+                <div className="intel-chat-wrap">
+                  <div className="intel-chat-messages">
+                    {chatMessages.length === 0 && (
+                      <div style={{ textAlign: "center", padding: "30px 20px" }}>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>🤖</div>
+                        <p style={{ fontSize: 12, color: "var(--id-muted)", lineHeight: 1.7 }}>
+                          Converse com a LIA sobre este lead.<br />
+                          Pergunte sobre perfil, histórico, estratégias ou qualquer dado.
+                        </p>
+                        <div className="intel-chat-quick-asks">
+                          {[
+                            "Qual o perfil deste lead?",
+                            "Quais produtos recomendar?",
+                            "Histórico de compras",
+                            "Risco de churn?",
+                          ].map((q) => (
+                            <button
+                              key={q}
+                              className="intel-chat-qa"
+                              onClick={() => { setChatInput(q); }}
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`intel-msg ${msg.role === "user" ? "intel-msg-user" : "intel-msg-ai"}`}>
+                        {msg.role === "assistant" ? (
+                          <div className="intel-ai-md prose prose-sm">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className="intel-msg intel-msg-ai" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Loader2 size={14} className="animate-spin" style={{ color: "var(--id-blue)" }} />
+                        <span style={{ fontSize: 11, color: "var(--id-muted)" }}>LIA pensando...</span>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className="intel-chat-input-wrap">
+                    <input
+                      className="intel-chat-input"
+                      placeholder="Pergunte sobre este lead..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
+                      disabled={chatLoading}
+                    />
+                    <button
+                      className="intel-chat-send"
+                      onClick={sendChatMessage}
+                      disabled={chatLoading || !chatInput.trim()}
+                    >
+                      <Send size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* TAB: TIMELINE */}
             {activeTab === "timeline" && (
               <div>
