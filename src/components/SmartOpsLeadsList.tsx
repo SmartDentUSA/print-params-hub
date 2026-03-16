@@ -126,7 +126,7 @@ const EMPTY_ADV_FILTERS: AdvancedFilters = {
   pipeline: "all", status: "all", temperatura: "all", urgency: "all",
   source: "all", produto: "all", uf: "all", proprietario: "all",
   oportunidade: "all", stage: "all", activeProduct: "all", interestProduct: "all",
-  itemProposta: "all", statusCRM: "all", valorMin: "", valorMax: "", stagnant: false,
+  itemProposta: "", dealStatusFilter: "all", statusCRM: "all", valorMin: "", valorMax: "", stagnant: false,
 };
 
 // ─── Types ───
