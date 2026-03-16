@@ -358,7 +358,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
     let totalUnits = 0, biggestDeal = 0, totalValue = 0;
     dealsHistory.forEach(d => {
       const v = Number(d.value || d.value_total || 0);
-      const qty = Number(d.quantity || d.items?.length || 1);
+      const qty = Number(d.quantity || (Array.isArray(d.items) ? (d.items as unknown[]).length : 1));
       totalValue += v;
       totalUnits += qty;
       if (v > biggestDeal) biggestDeal = v;
