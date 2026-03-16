@@ -1480,7 +1480,7 @@ export function SmartOpsLeadsList() {
     if (advFilters.statusCRM !== "all") query = query.eq("status_atual_lead_crm", advFilters.statusCRM);
 
     if (debouncedSearch) {
-      query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%`);
+      query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%,telefone_normalized.ilike.%${debouncedSearch}%,empresa_nome.ilike.%${debouncedSearch}%`);
     }
 
     const from = page * PAGE_SIZE;
