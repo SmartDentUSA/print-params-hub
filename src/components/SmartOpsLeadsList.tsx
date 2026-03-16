@@ -306,7 +306,7 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
         .select("id, product_name, total_purchased_value, purchased_at, purchase_count")
         .eq("lead_id", lead.id).order("purchased_at", { ascending: false }).limit(50),
       supabase.from("lead_course_progress")
-        .select("id, course_name, status, progress_percent, enrolled_at")
+        .select("id, course_name, status, enrolled_at")
         .eq("lead_id", lead.id).order("enrolled_at", { ascending: false }).limit(50),
       supabase.from("lead_form_submissions")
         .select("id, form_name, submitted_at, equipment_mentioned, product_mentioned")
