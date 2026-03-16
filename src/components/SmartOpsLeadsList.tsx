@@ -116,7 +116,7 @@ interface AdvancedFilters {
   activeProduct: string;
   interestProduct: string;
   itemProposta: string;
-  statusCRM: string;
+  dealStatusFilter: string;
   valorMin: string;
   valorMax: string;
   stagnant: boolean;
