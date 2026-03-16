@@ -794,8 +794,7 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                       <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{cognitiveResult}</ReactMarkdown></div>
                     ) : (
                       <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Clique em "Reanalisar" para gerar análise cognitiva ao vivo com IA</p>
-                        {/* Show existing cognitive data if available */}
+                        <p style={{ fontSize: 12 }}>Análise será gerada automaticamente...</p>
                         {s(lead, "resumo_historico_ia") && (
                           <div style={{ textAlign: "left", marginTop: 16 }}>
                             <div className="intel-ai-md prose prose-sm">
