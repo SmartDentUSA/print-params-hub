@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartDent — Leads</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070a0e;--s1:#0d1117;--s2:#111620;--s3:#161c28;--s4:#1c2235;
+  --b1:#1e2535;--b2:#252d42;--b3:#2e3854;
+  --acc:#e8ff47;--teal:#4fffb0;--blue:#4f8fff;--purple:#a78bfa;
+  --hot:#ff4757;--warm:#ffa502;--cold:#4a5568;
+  --ink:#eef1fb;--muted:#5c6880;--muted2:#8896ae;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:'DM Sans',sans-serif;min-height:100vh;}
+code,.mono{font-family:'DM Mono',monospace;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+
+/* ── LAYOUT ── */
+#app{display:grid;grid-template-columns:1fr;min-height:100vh;}
+#app.split{grid-template-columns:460px 1fr;}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--s1);border-bottom:1px solid var(--b2);padding:14px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100;}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;letter-spacing:-.5px;}
+.logo em{color:var(--acc);font-style:normal;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.04em;}
+.pill-blue{background:rgba(79,143,255,.1);border:1px solid rgba(79,143,255,.25);color:var(--blue);}
+.pill-green{background:rgba(79,255,176,.08);border:1px solid rgba(79,255,176,.2);color:var(--teal);}
+.dot-live{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:pulse 1.8s infinite;display:inline-block;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── SIDEBAR (lista) ── */
+#sidebar{background:var(--s1);border-right:1px solid var(--b2);display:flex;flex-direction:column;height:100vh;position:sticky;top:0;overflow:hidden;}
+.sidebar-head{padding:16px;border-bottom:1px solid var(--b2);}
+.sidebar-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.sidebar-title .count{font-size:11px;color:var(--muted);font-family:'DM Sans',sans-serif;font-weight:400;}
+.search-wrap{position:relative;margin-bottom:10px;}
+.search-input{width:100%;background:var(--s2);border:1px solid var(--b2);border-radius:8px;padding:7px 12px 7px 32px;color:var(--ink);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:rgba(79,143,255,.38);}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;color:var(--muted);}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;}
+.filt{background:var(--s2);border:1px solid var(--b2);color:var(--muted2);padding:3px 9px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .18s;}
+.filt:hover{border-color:rgba(79,143,255,.3);color:var(--blue);}
+.filt.on{background:rgba(79,143,255,.12);border-color:rgba(79,143,255,.35);color:var(--blue);}
+
+.leads-list{flex:1;overflow-y:auto;padding:8px;}
+
+/* ── LEAD ROW ── */
+.lead-row{background:var(--s2);border:1px solid var(--b1);border-radius:12px;padding:12px;margin-bottom:7px;cursor:pointer;transition:all .18s;position:relative;}
+.lead-row:hover{border-color:var(--b3);background:var(--s3);}
+.lead-row.active{border-color:rgba(79,143,255,.45);background:rgba(79,143,255,.06);}
+.lr-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.lr-avatar{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;color:#080a0f;flex-shrink:0;}
+.av-c{background:linear-gradient(135deg,#e8ff47,#4fffb0);}
+.av-p{background:linear-gradient(135deg,#a78bfa,#4f8fff);}
+.av-u{background:linear-gradient(135deg,#5c6880,#3a4255);color:var(--muted2);}
+.lr-info{flex:1;min-width:0;}
+.lr-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.lr-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lr-ltv{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--teal);text-align:right;white-space:nowrap;}
+.lr-ltv.zero{color:var(--muted);}
+.lr-mid{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
+.lr-tag{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:600;border:1px solid;}
+.tag-pj{background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.25);color:var(--purple);}
+.tag-pf{background:rgba(79,255,176,.08);border-color:rgba(79,255,176,.2);color:var(--teal);}
+.tag-unk{background:var(--s3);border-color:var(--b2);color:var(--muted);}
+.tag-scanner{background:rgba(79,143,255,.08);border-color:rgba(79,143,255,.2);color:var(--blue);}
+.tag-imp{background:rgba(232,255,71,.06);border-color:rgba(232,255,71,.18);color:var(--acc);}
+.tag-cad{background:rgba(79,255,176,.06);border-color:rgba(79,255,176,.18);color:var(--teal);}
+.lr-bottom{display:flex;align-items:center;justify-content:space-between;}
+.lr-stage{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.lis-micro{font-family:'DM Mono',monospace;font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px;}
+.lis-hot-m{background:rgba(255,71,87,.14);color:var(--hot);}
+.lis-warm-m{background:rgba(255,165,2,.12);color:var(--warm);}
+.lis-cold-m{background:var(--s3);color:var(--muted);}
+.wf-micro{font-size:10px;color:var(--muted);margin-left:6px;}
+
+/* ── DETAIL PANEL ── */
+#detail{overflow-y:auto;height:100vh;background:var(--bg);}
+.detail-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--muted);gap:12px;}
+.detail-empty .big{font-size:48px;}
+.detail-empty p{font-size:13px;text-align:center;max-width:220px;line-height:1.6;}
+
+/* ── CARD INTERNO ── */
+.card-inner{max-width:900px;margin:0 auto;padding:24px 24px 40px;}
+
+/* ── HERO ── */
+.hero{background:linear-gradient(135deg,var(--s1),var(--s2));border:1px solid var(--b2);border-radius:16px;padding:20px 24px;display:grid;grid-template-columns:44px 1fr auto auto auto;gap:16px;align-items:start;margin-bottom:16px;}
+.avatar{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#080a0f;flex-shrink:0;}
+.lead-name-h{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;letter-spacing:-.4px;margin-bottom:5px;}
+.buyer-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;letter-spacing:.07em;margin-bottom:7px;}
+.bb-c{background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.28);color:var(--purple);}
+.bb-p{background:rgba(79,255,176,.1);border:1px solid rgba(79,255,176,.25);color:var(--teal);}
+.bb-u{background:rgba(92,100,116,.1);border:1px solid rgba(92,100,116,.25);color:var(--cold);}
+.meta-row{display:flex;gap:12px;flex-wrap:wrap;}
+.meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:3px;}
+.meta strong{color:var(--muted2);font-weight:500;}
+.blk-label{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px;}
+.ltv-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--teal);line-height:1;}
+.ltv-sub{font-size:10px;color:var(--muted);margin-top:2px;}
+.lis-val-h{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;line-height:1;}
+.lis-hot-h{color:var(--hot);}
+.lis-warm-h{color:var(--warm);}
+.lis-cold-h{color:var(--cold);}
+.heat-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;margin-top:4px;}
+.hb-hot{background:rgba(255,71,87,.14);color:var(--hot);border:1px solid rgba(255,71,87,.3);}
+.hb-warm{background:rgba(255,165,2,.12);color:var(--warm);border:1px solid rgba(255,165,2,.3);}
+.hb-cold{background:rgba(92,100,116,.12);color:var(--cold);border:1px solid rgba(92,100,116,.3);}
+.wf-block{text-align:right;}
+.wf-val-h{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--acc);line-height:1;}
+.wf-bar-h{display:flex;gap:2px;margin-top:5px;justify-content:flex-end;}
+.wf-seg{width:10px;height:4px;border-radius:2px;background:var(--b2);}
+.wf-seg.on{background:var(--acc);}
+
+/* ── TABS ── */
+.tabs{display:flex;border-bottom:1px solid var(--b2);background:var(--s1);border-radius:14px 14px 0 0;overflow-x:auto;margin-bottom:0;}
+.tab{padding:11px 15px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all .2s;}
+.tab:hover{color:var(--ink);}
+.tab.active{color:var(--acc);border-bottom-color:var(--acc);}
+.tab-body{background:var(--s1);border:1px solid var(--b2);border-top:none;border-radius:0 0 14px 14px;padding:20px;}
+
+/* ── SEC LABEL ── */
+.sec{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--b1);}
+
+/* ── STATS ROW ── */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+.stat-box{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:10px;text-align:center;}
+.stat-num{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;}
+.stat-num.g{color:var(--teal);}
+.stat-num.r{color:var(--hot);}
+.stat-num.y{color:var(--acc);}
+.stat-num.b{color:var(--blue);}
+.stat-lbl{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── IDENTITY GRAPH ── */
+.ig-section{background:var(--s2);border:1px solid var(--b2);border-radius:14px;padding:16px;margin-bottom:16px;position:relative;overflow:hidden;}
+.ig-section::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--purple),var(--blue),transparent);}
+.ig-grid{display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr;align-items:start;gap:0;margin-top:14px;}
+.ig-node{background:var(--s3);border:1px solid var(--b2);border-radius:10px;padding:12px;}
+.ig-node-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.ig-node-name{font-size:12px;font-weight:600;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ig-hash{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);background:var(--s4);border:1px solid var(--b1);border-radius:4px;padding:2px 6px;margin-top:4px;display:inline-block;cursor:pointer;transition:all .18s;}
+.ig-hash:hover{color:var(--blue);border-color:rgba(79,143,255,.3);}
+.ig-hash.ok{color:var(--teal);border-color:rgba(79,255,176,.2);}
+.ig-hash.miss{color:var(--hot);border-color:rgba(255,71,87,.2);}
+.ig-conn{display:flex;flex-direction:column;align-items:center;justify-content:center;padding-top:28px;}
+.ig-arrow-line{width:100%;height:1px;background:var(--b3);position:relative;}
+.ig-arrow-line::after{content:'▶';position:absolute;right:-2px;top:-6px;font-size:9px;color:var(--b3);}
+.ig-rel-badge{font-size:9px;padding:1px 5px;border-radius:8px;font-weight:600;margin-bottom:4px;white-space:nowrap;}
+.rel-ok{background:rgba(79,255,176,.08);color:var(--teal);border:1px solid rgba(79,255,176,.2);}
+.rel-miss{background:rgba(255,71,87,.08);color:var(--hot);border:1px solid rgba(255,71,87,.2);}
+
+/* ── KEY MAP TABLE ── */
+.key-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:12px;}
+.key-table th{text-align:left;padding:6px 10px;color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--b2);font-weight:500;}
+.key-table td{padding:8px 10px;border-bottom:1px solid var(--b1);color:var(--muted2);}
+.key-table tr:last-child td{border-bottom:none;}
+.key-table tr:hover td{background:var(--s2);}
+.s-chip{padding:2px 7px;border-radius:20px;font-size:10px;font-weight:600;}
+.sc-ok{background:rgba(79,255,176,.1);color:var(--teal);border:1px solid rgba(79,255,176,.2);}
+.sc-miss{background:rgba(255,71,87,.1);color:var(--hot);border:1px solid rgba(255,71,87,.2);}
+.sc-open{background:rgba(255,165,2,.1);color:var(--warm);border:1px solid rgba(255,165,2,.2);}
+
+/* ── LIS BREAKDOWN ── */
+.lis-bd{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.lis-comp{display:flex;align-items:center;gap:8px;}
+.lis-comp-label{font-size:11px;color:var(--muted2);min-width:165px;}
+.lis-bar-wrap{flex:1;background:var(--s3);border-radius:3px;height:4px;overflow:hidden;}
+.lis-bar-fill{height:100%;border-radius:3px;}
+.lis-comp-val{font-family:'DM Mono',monospace;font-size:12px;font-weight:600;min-width:28px;text-align:right;}
+
+/* ── AI PANEL ── */
+.ai-panel{background:var(--s2);border:1px solid rgba(79,143,255,.2);border-radius:12px;overflow:hidden;margin-bottom:16px;}
+.ai-ph{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--b1);}
+.ai-ph span{font-size:11px;font-weight:600;color:var(--blue);}
+.ai-pb{padding:14px;font-size:12px;line-height:1.7;color:var(--muted2);min-height:60px;}
+.ai-acts{display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--b1);flex-wrap:wrap;}
+.ai-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;transition:all .18s;}
+.chip-b{background:rgba(79,143,255,.1);border:1px solid rgba(79,143,255,.2);color:var(--blue);}
+.chip-b:hover{background:rgba(79,143,255,.17);}
+.chip-g{background:rgba(79,255,176,.07);border:1px solid rgba(79,255,176,.18);color:var(--teal);}
+.chip-g:hover{background:rgba(79,255,176,.13);}
+.chip-y{background:rgba(232,255,71,.06);border:1px solid rgba(232,255,71,.17);color:var(--acc);}
+.chip-y:hover{background:rgba(232,255,71,.11);}
+
+/* ── FLOW ── */
+.flow-section{margin-bottom:14px;}
+.flow-label{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px;}
+.flow-items{display:flex;flex-wrap:wrap;gap:6px;}
+.fi{display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:500;border:1px solid;}
+.fi-owned{background:rgba(79,255,176,.06);border-color:rgba(79,255,176,.25);color:var(--teal);}
+.fi-interest{background:rgba(232,255,71,.05);border-color:rgba(232,255,71,.2);color:var(--acc);}
+.fi-none{background:var(--s2);border-color:var(--b1);color:var(--muted);}
+.fi-dot{width:5px;height:5px;border-radius:50%;}
+.fi-owned .fi-dot{background:var(--teal);}
+.fi-interest .fi-dot{background:var(--acc);}
+.fi-none .fi-dot{background:var(--muted);}
+
+/* ── AI CHAT ── */
+.chat-wrap{background:var(--s2);border:1px solid rgba(79,143,255,.18);border-radius:12px;overflow:hidden;}
+.chat-hdr{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--b1);}
+.chat-hdr span{font-size:11px;color:var(--blue);font-weight:600;}
+.chat-msgs{padding:12px 14px;min-height:80px;max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.msg{max-width:88%;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.65;}
+.msg-ai{background:var(--s3);border:1px solid var(--b2);color:var(--muted2);align-self:flex-start;border-radius:4px 10px 10px 10px;}
+.msg-user{background:rgba(79,143,255,.1);border:1px solid rgba(79,143,255,.18);color:var(--ink);align-self:flex-end;border-radius:10px 4px 10px 10px;}
+.quick-asks{display:flex;gap:5px;padding:0 14px 8px;flex-wrap:wrap;}
+.qa{background:var(--s3);border:1px solid var(--b1);color:var(--muted2);padding:3px 9px;border-radius:20px;font-size:11px;cursor:pointer;transition:all .18s;}
+.qa:hover{border-color:rgba(79,143,255,.3);color:var(--blue);}
+.chat-input-row{display:flex;gap:7px;padding:9px 14px;border-top:1px solid var(--b1);}
+.chat-input{flex:1;background:var(--s3);border:1px solid var(--b1);border-radius:7px;padding:7px 11px;color:var(--ink);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;}
+.chat-input:focus{border-color:rgba(79,143,255,.35);}
+.chat-send{background:rgba(79,143,255,.14);border:1px solid rgba(79,143,255,.28);color:var(--blue);padding:7px 13px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;transition:all .18s;}
+.chat-send:hover{background:rgba(79,143,255,.22);}
+.chat-send:disabled{opacity:.4;cursor:default;}
+.ty{display:flex;gap:4px;align-items:center;padding:9px 12px;}
+.ty-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:ty 1.2s infinite;}
+.ty-dot:nth-child(2){animation-delay:.2s;}
+.ty-dot:nth-child(3){animation-delay:.4s;}
+@keyframes ty{0%,100%{transform:translateY(0);opacity:.4}50%{transform:translateY(-3px);opacity:1}}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--teal);color:#080a0f;padding:7px 14px;border-radius:7px;font-size:11px;font-weight:600;display:none;z-index:999;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  #app.split{grid-template-columns:1fr;}
+  #sidebar{position:fixed;left:0;top:0;width:100%;z-index:200;height:50vh;}
+  #detail{margin-top:50vh;}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- SIDEBAR: Lista de Leads -->
+<div id="sidebar">
+  <div class="topbar" style="position:relative;top:auto;border-bottom:1px solid var(--b2);">
+    <div class="logo">Smart<em>Dent</em></div>
+    <span style="font-size:11px;color:var(--muted);">Leads</span>
+    <div class="topbar-right">
+      <span class="pill pill-blue">🧠 IA</span>
+      <span class="pill pill-green"><span class="dot-live"></span>Live</span>
+    </div>
+  </div>
+
+  <div class="sidebar-head">
+    <div class="sidebar-title">
+      Lista de Leads
+      <span class="count" id="leadCount">0 leads</span>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" placeholder="Buscar por nome, email, empresa…" oninput="filterLeads()">
+    </div>
+    <div class="filter-row">
+      <div class="filt on" id="f-all" onclick="setFilter('all')">Todos</div>
+      <div class="filt" id="f-company" onclick="setFilter('company')">🏢 Empresa</div>
+      <div class="filt" id="f-person" onclick="setFilter('person')">👤 Pessoa</div>
+      <div class="filt" id="f-ltv" onclick="setFilter('ltv')">💰 Com LTV</div>
+      <div class="filt" id="f-scanner" onclick="setFilter('scanner')">🔬 Scanner SD</div>
+    </div>
+  </div>
+
+  <div class="leads-list" id="leadsList"></div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail">
+  <div class="detail-empty" id="emptyState">
+    <div class="big">📊</div>
+    <p>Selecione um lead na lista para ver o Intelligence Card completo</p>
+  </div>
+  <div id="cardContent" style="display:none;">
+    <div class="card-inner" id="cardInner"></div>
+  </div>
+</div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+const LEADS = [{"id":"0248a7d0-7d46-421a-8063-d331c9eaaf4d","nome":"UFG — Programa Pós-Graduação Odonto","email":"(email placeholder)","telefone_normalized":null,"area_atuacao":null,"buyer_type":"unknown","lead_status":"est_etapa3","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":null,"equip_scanner":"Medit i700 W","status_scanner":"tem_smartdent","impressora_modelo":"Elegoo Mars","status_impressora":"tem_com_resina_sd","status_cad":"tem_exocad","workflow_score":8,"ltv_total":184490,"total_deals":2,"intelligence_score":{"score_total":28,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":null,"company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"42401583"},{"id":"31d42f20-2983-454e-8721-935fa73ec0f3","nome":"Nasser Abdallah Zorkot","email":"zorkotnasser@hotmail.com","telefone_normalized":"+5535988616101","area_atuacao":"Clínica / Consultório","buyer_type":"person","lead_status":"est_etapa2","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":22915849,"equip_scanner":"Medit i700 W","status_scanner":"tem_smartdent","impressora_modelo":null,"status_impressora":null,"status_cad":null,"workflow_score":2,"ltv_total":109076,"total_deals":1,"intelligence_score":{"score_total":28,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"2c8e2884-4462-4e44-855a-060bda0f8c73","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"26715469"},{"id":"b7548a9f-bce2-47f2-88b8-1cfecd072873","nome":"Fabrício Collares","email":"fabriciodonto@gmail.com","telefone_normalized":"+5551993617955","area_atuacao":"Professor","buyer_type":"person","lead_status":"est_etapa3","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":12931188,"equip_scanner":null,"status_scanner":null,"impressora_modelo":null,"status_impressora":null,"status_cad":null,"workflow_score":0,"ltv_total":109000,"total_deals":1,"intelligence_score":{"score_total":28,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"7ee76357-b399-4d45-a718-be8372b2a2c1","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"35070513"},{"id":"3164fa95-09cd-472d-baab-217be10980f8","nome":"Yuri","email":"iuri_es@yahoo.com","telefone_normalized":null,"area_atuacao":null,"buyer_type":"person","lead_status":"est_etapa3","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":29719452,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":null,"status_impressora":"tem_concorrente","status_cad":null,"workflow_score":3,"ltv_total":107500,"total_deals":1,"intelligence_score":{"score_total":28,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"f348c9fc-204b-4102-adad-d6908aa49501","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"36884019"},{"id":"d4538129-47f6-4910-b395-c15e036d7250","nome":"Dr. Emerson Bovo","email":"emerson_bovo@hotmail.com","telefone_normalized":"+5511972220802","area_atuacao":"Clínica / Consultório","buyer_type":"person","lead_status":"est_etapa2","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":25343127,"equip_scanner":"Medit i700 W","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":96800,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"85191057-e2bb-4575-a619-97354b63bf0f","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"30022492"},{"id":"d8685322-ded0-4049-9041-f283d2f86a66","nome":"Ricardo Manzano","email":"ricardorivelinom@gmail.com","telefone_normalized":"+554599771515","area_atuacao":"Clínica / Consultório","buyer_type":"company","lead_status":"est_etapa2","source":"piperun","empresa_nome":"Ricardo Manzano","empresa_piperun_id":15110628,"pessoa_piperun_id":28447799,"equip_scanner":"Medit i700 W","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":90000,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"027e2166-a476-4c63-a9e8-38f0e7440464","company_id":"15ce1f4b-2323-4206-994d-0eaeb157f3a0","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"34873595"},{"id":"58300c33-955c-4f27-9807-b3f0db9b9782","nome":"Mirela Carlucci","email":"mirelacarlucci@hotmail.com","telefone_normalized":"+5551999438979","area_atuacao":null,"buyer_type":"company","lead_status":"est_etapa3","source":"piperun","empresa_nome":"Mirela Carlucci","empresa_piperun_id":15767596,"pessoa_piperun_id":15636622,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":89590,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"d66faf3e-4e0f-48cf-b08d-acbb0e9bda32","company_id":"000c3420-8544-4506-baf8-1a46d70751ea","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"37281032"},{"id":"84b6a454-567e-4f24-b4cc-29e5a6b2c311","nome":"Dr. Áureo de Andrade — Recife","email":"aureofh@gmail.com","telefone_normalized":"+558198983691","area_atuacao":"Clínica / Consultório","buyer_type":"company","lead_status":"est_etapa3","source":"piperun","empresa_nome":"Dr° Áureo de Andrade | Ortognática","empresa_piperun_id":15766953,"pessoa_piperun_id":29989368,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":89500,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"0c77a94d-bf67-4b13-9c1d-1e049d1a5005","company_id":"cb67852d-13bb-4d08-86ba-795b197d17a3","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"37279390"},{"id":"4019b936-dfc4-4c5d-8b69-b3ec512fae21","nome":"Marcelo N. Braga","email":"m.nunesbragaodontologia@gmail.com","telefone_normalized":"+5535997452507","area_atuacao":"Clínica / Consultório","buyer_type":"person","lead_status":"est_etapa2","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":24955538,"equip_scanner":"Medit i700 W","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":87700,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"018092b3-2a03-4b35-96a5-52057dc3b2c5","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"29470819"},{"id":"92c1849a-68ed-46a2-962b-d3612ba06d79","nome":"Rodrigo Sérgio Vieira Pereira","email":"rodrigosergio8067@gmail.com","telefone_normalized":"+5534988280030","area_atuacao":null,"buyer_type":"company","lead_status":"est_etapa2","source":"piperun","empresa_nome":"Rodrigo Sérgio Vieira Pereira","empresa_piperun_id":12947509,"pessoa_piperun_id":17102767,"equip_scanner":null,"status_scanner":"tem_smartdent","impressora_modelo":null,"status_impressora":"tem_concorrente","status_cad":"tem_exocad","workflow_score":5,"ltv_total":84900,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":49},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"81679f9d-6d59-4e59-a057-91604f293163","company_id":"70c96e6c-767f-4f34-af69-997dd4505432","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"18498799"},{"id":"cca63e5d-dd71-46ff-ae5f-f8134ba073b1","nome":"Dra. Bárbara Romano","email":"barbara.m.romano@hotmail.com","telefone_normalized":"+5511971484319","area_atuacao":"Clínica / Consultório","buyer_type":"company","lead_status":"est_etapa2","source":"piperun","empresa_nome":"Dra. Bárbara Romano","empresa_piperun_id":14232945,"pessoa_piperun_id":26108853,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":77630,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":49},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"8e8eb665-112d-44a2-a783-47a30afd1d4a","company_id":"a30ae107-b07a-4f83-aace-cb82d2f38ed2","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"31290088"},{"id":"e5aedc6e-0d96-44e9-94af-0b8812a72332","nome":"Ramon Galvão Medeiros","email":"ramgm14@gmail.com","telefone_normalized":"+5588994680902","area_atuacao":"Clínica / Consultório","buyer_type":"company","lead_status":"est_etapa3","source":"piperun","empresa_nome":"Ramon Galvão Medeiros","empresa_piperun_id":15911463,"pessoa_piperun_id":24568846,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Elegoo Mars","status_impressora":"tem_com_resina_sd","status_cad":"tem_exocad","workflow_score":8,"ltv_total":78100,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":49},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"b16dd9a1-7631-4d48-86bd-8e7a844ce79b","company_id":"0e5f9aee-eef7-4982-a62a-045c6b2196c7","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"38829917"},{"id":"d9e37ae3-4d83-46d1-9eab-515c5f9e3ade","nome":"Carla Lucia David Peña","email":"cldp58@gmail.com","telefone_normalized":"+5553991971536","area_atuacao":"Laboratório de Prótese","buyer_type":"company","lead_status":"est_etapa2","source":"piperun","empresa_nome":"Universidade Federal de Pelotas","empresa_piperun_id":13937849,"pessoa_piperun_id":25327520,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":75398,"total_deals":2,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":49},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"12465df7-8970-46b0-81d8-c79cfb1fac02","company_id":"80ec3936-8d4a-4d91-8c76-519b784e6fd9","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"30003278"},{"id":"058a0ab7-e7b7-4a6d-b4fa-6a51ea6b6f14","nome":"Tereza Mathias","email":"aloisiojrr@gmail.com","telefone_normalized":"+5565996900270","area_atuacao":"Clínica / Consultório","buyer_type":"company","lead_status":"est_etapa2","source":"piperun","empresa_nome":"LABORATORIO BIOMED","empresa_piperun_id":14735149,"pessoa_piperun_id":28469108,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":"tem_exocad","workflow_score":8,"ltv_total":73300,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":49},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"6ec4ebd8-29c9-4728-a02b-80585e74dd8c","company_id":"1f3f7341-494b-4a27-872a-d2cc4d86b679","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"33196361"},{"id":"ab90b642-d5b7-4428-be5f-e35258111699","nome":"Fernando Fister Nunes","email":"fernandofister@yahoo.com.br","telefone_normalized":"+5515981815000","area_atuacao":null,"buyer_type":"person","lead_status":"est_etapa1","source":"piperun_webhook","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":40511819,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":null,"status_impressora":"tem_com_resina_sd","status_cad":"tem_exocad","workflow_score":6,"ltv_total":79900,"total_deals":1,"intelligence_score":null,"person_id":"804bcc28-7921-4761-9503-13764291ca57","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 00 - Novos","piperun_id":"51198037"},{"id":"01e2e6dc-2c8d-4878-9461-c57f77e55af9","nome":"Walber Pereira","email":"multimaqsjp@gmail.com","telefone_normalized":"+5599984192728","area_atuacao":"Laboratório de Prótese","buyer_type":"person","lead_status":"est_etapa2","source":"piperun","empresa_nome":null,"empresa_piperun_id":null,"pessoa_piperun_id":25078446,"equip_scanner":"Medit i700 W","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":94900,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":50},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"06381c6a-4b17-4ef3-b265-9db38cc239ef","company_id":null,"piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 02 - Reativação","piperun_id":"29665570"},{"id":"2265e093-8ec8-4ccf-a18d-c18419a87b7f","nome":"Alexandre","email":"alexandre.virgulino@hotmail.com","telefone_normalized":null,"area_atuacao":null,"buyer_type":"company","lead_status":"est_etapa3","source":"piperun","empresa_nome":"Alexandre","empresa_piperun_id":13322305,"pessoa_piperun_id":29682652,"equip_scanner":"Medit i600","status_scanner":"tem_smartdent","impressora_modelo":"Creality Halot One","status_impressora":"tem_com_resina_sd","status_cad":null,"workflow_score":7,"ltv_total":79990,"total_deals":1,"intelligence_score":{"score_total":27,"axes":{"sales_heat":{"value":22},"purchase_power":{"value":49},"technical_maturity":{"value":50},"behavioral_engagement":{"value":0}}},"person_id":"345e4165-7797-45fe-b3e6-3d6d18461a25","company_id":"aff14ce7-1a08-47ba-a521-63eda0b57e24","piperun_pipeline_name":"Funil Estagnados","piperun_stage_name":"Etapa 03 - Reativação","piperun_id":"36801153"}];
+
+let activeFilter = 'all';
+let activeLead = null;
+let chatHistory = [];
+
+function initials(nome) {
+  const p = (nome||'?').trim().split(/\s+/);
+  return (p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();
+}
+function brl(v) {
+  if(!v) return '—';
+  return 'R$'+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});
+}
+function shortHash(uuid) {
+  if(!uuid) return '—';
+  return uuid.substring(0,8)+'…';
+}
+function lisColor(s) {
+  if(s>=70) return 'hot'; if(s>=40) return 'warm'; return 'cold';
+}
+function lisLabel(s) {
+  if(s>=70) return '🔥 QUENTE'; if(s>=40) return '🌤️ MORNO'; return '❄️ FRIO';
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  document.querySelectorAll('.filt').forEach(el=>el.classList.remove('on'));
+  document.getElementById('f-'+f).classList.add('on');
+  renderList();
+}
+
+function filterLeads() { renderList(); }
+
+function getFiltered() {
+  const q = (document.getElementById('searchInput').value||'').toLowerCase();
+  return LEADS.filter(l => {
+    const name = (l.nome||'').toLowerCase();
+    const email = (l.email||'').toLowerCase();
+    const empresa = (l.empresa_nome||'').toLowerCase();
+    const matchQ = !q || name.includes(q) || email.includes(q) || empresa.includes(q);
+    let matchF = true;
+    if(activeFilter==='company') matchF = l.buyer_type==='company';
+    if(activeFilter==='person') matchF = l.buyer_type==='person';
+    if(activeFilter==='ltv') matchF = l.ltv_total > 0;
+    if(activeFilter==='scanner') matchF = l.status_scanner==='tem_smartdent';
+    return matchQ && matchF;
+  });
+}
+
+function renderList() {
+  const leads = getFiltered();
+  document.getElementById('leadCount').textContent = leads.length+' leads';
+  const el = document.getElementById('leadsList');
+  el.innerHTML = leads.map(l => {
+    const lis = l.intelligence_score?.score_total || 0;
+    const lc = lisColor(lis);
+    const avClass = l.buyer_type==='company'?'av-c':l.buyer_type==='person'?'av-p':'av-u';
+    const btLabel = l.buyer_type==='company'?'🏢 Empresa':l.buyer_type==='person'?'👤 Pessoa':'❓ Desconhecido';
+    const btClass = l.buyer_type==='company'?'tag-pj':l.buyer_type==='person'?'tag-pf':'tag-unk';
+    let tags = `<div class="lr-tag ${btClass}">${btLabel}</div>`;
+    if(l.status_scanner==='tem_smartdent') tags += `<div class="lr-tag tag-scanner">🔬 ${l.equip_scanner||'Scanner SD'}</div>`;
+    if(l.impressora_modelo) tags += `<div class="lr-tag tag-imp">🖨️ ${l.impressora_modelo.split(' ').slice(0,2).join(' ')}</div>`;
+    if(l.status_cad==='tem_exocad') tags += `<div class="lr-tag tag-cad">💻 Exocad</div>`;
+    return `<div class="lead-row${activeLead?.id===l.id?' active':''}" onclick="openLead('${l.id}')">
+      <div class="lr-top">
+        <div class="lr-avatar ${avClass}">${initials(l.nome)}</div>
+        <div class="lr-info">
+          <div class="lr-name">${l.nome}</div>
+          <div class="lr-email">${l.email&&!l.email.includes('placeholder')?l.email:(l.empresa_nome||l.area_atuacao||'—')}</div>
+        </div>
+        <div>
+          <div class="lr-ltv${!l.ltv_total?' zero':''}">${brl(l.ltv_total)}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:right;">${l.total_deals||0} deal${l.total_deals!==1?'s':''}</div>
+        </div>
+      </div>
+      <div class="lr-mid">${tags}</div>
+      <div class="lr-bottom">
+        <div class="lr-stage">${l.piperun_stage_name||l.lead_status||'—'}</div>
+        <span class="lis-micro lis-${lc}-m">LIS ${lis}</span>
+        <span class="wf-micro">WF ${l.workflow_score}/10</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openLead(id) {
+  activeLead = LEADS.find(l=>l.id===id);
+  if(!activeLead) return;
+  document.getElementById('app').classList.add('split');
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('cardContent').style.display='block';
+  renderCard(activeLead);
+  renderList();
+  chatHistory = [];
+}
+
+function renderCard(l) {
+  const lis = l.intelligence_score?.score_total || 0;
+  const lc = lisColor(lis);
+  const axes = l.intelligence_score?.axes || {};
+  const avClass = l.buyer_type==='company'?'av-c':l.buyer_type==='person'?'av-p':'av-u';
+  const bbClass = l.buyer_type==='company'?'bb-c':l.buyer_type==='person'?'bb-p':'bb-u';
+  const bbLabel = l.buyer_type==='company'?'🏢 B2B — EMPRESA':l.buyer_type==='person'?'👤 B2C — PESSOA':'❓ DESCONHECIDO';
+  const hbClass = lc==='hot'?'hb-hot':lc==='warm'?'hb-warm':'hb-cold';
+  const lisClass = lc==='hot'?'lis-hot-h':lc==='warm'?'lis-warm-h':'lis-cold-h';
+
+  // WF bars
+  let wfBars = '';
+  for(let i=0;i<10;i++) wfBars += `<div class="wf-seg${i<(l.workflow_score||0)?' on':''}"></div>`;
+
+  // identity graph nodes
+  const personLinked = !!l.person_id;
+  const companyLinked = !!l.company_id;
+
+  // Key map rows
+  const keys = [
+    {e:'Lead Hub', f:'id (uuid PK)', v:shortHash(l.id), full:l.id, status:'ok'},
+    {e:'Pessoa FK', f:'person_id (uuid)', v:personLinked?shortHash(l.person_id):'—', full:l.person_id, status:personLinked?'ok':'miss'},
+    {e:'Empresa FK', f:'company_id (uuid)', v:companyLinked?shortHash(l.company_id):'—', full:l.company_id, status:companyLinked?'ok':'miss'},
+    {e:'CRM Pessoa', f:'pessoa_piperun_id', v:l.pessoa_piperun_id||'—', status:l.pessoa_piperun_id?'ok':'miss'},
+    {e:'CRM Empresa', f:'empresa_piperun_id', v:l.empresa_piperun_id||'—', status:l.empresa_piperun_id?'ok':'miss'},
+    {e:'Deal Ativo', f:'piperun_id (OppID)', v:l.piperun_id||'—', status:l.piperun_id?'open':'miss'},
+    {e:'Email (dedup)', f:'email UNIQUE', v:l.email&&!l.email.includes('placeholder')?l.email:'placeholder', status:l.email&&!l.email.includes('placeholder')?'ok':'miss'},
+    {e:'Telefone', f:'telefone_normalized', v:l.telefone_normalized||'—', status:l.telefone_normalized?'ok':'miss'},
+    {e:'LeadCard URL', f:'lead_card_url', v:'— pendente', status:'miss'},
+  ];
+
+  const sciPanel = `<div class="ai-panel" id="ai-panel-${l.id}">
+    <div class="ai-ph"><span>🤖</span><span>Claude Sonnet 4 — análise ao vivo</span></div>
+    <div class="ai-pb" id="ai-body-${l.id}"><span style="color:var(--muted);font-style:italic;">Clique para gerar análise deste lead.</span></div>
+    <div class="ai-acts">
+      <button class="ai-chip chip-b" onclick="genAnalysis()">🧠 Análise</button>
+      <button class="ai-chip chip-g" onclick="genScript()">🎯 Script</button>
+      <button class="ai-chip chip-y" onclick="genReactivation()">🔄 Reativação</button>
+    </div>
+  </div>`;
+
+  const card = `
+  <!-- HERO -->
+  <div class="hero">
+    <div class="avatar ${avClass}">${initials(l.nome)}</div>
+    <div>
+      <div class="buyer-badge ${bbClass}">${bbLabel}</div>
+      <div class="lead-name-h">${l.nome}</div>
+      <div class="meta-row">
+        ${l.area_atuacao?`<span class="meta">🏥 <strong>${l.area_atuacao}</strong></span>`:''}
+        ${l.empresa_nome?`<span class="meta">🏢 <strong>${l.empresa_nome}</strong></span>`:''}
+        ${l.telefone_normalized?`<span class="meta">📞 <strong>${l.telefone_normalized}</strong></span>`:''}
+        ${l.piperun_stage_name?`<span class="meta">📊 <strong>${l.piperun_stage_name}</strong></span>`:''}
+        <span class="meta">📡 <strong>${l.source||'—'}</strong></span>
+      </div>
+    </div>
+    <div class="wf-block">
+      <div class="blk-label">Workflow</div>
+      <div class="wf-val-h">${l.workflow_score||0}<span style="font-size:13px;color:var(--muted)">/10</span></div>
+      <div class="wf-bar-h">${wfBars}</div>
+    </div>
+    <div>
+      <div class="blk-label">LTV Total</div>
+      <div class="ltv-val">${brl(l.ltv_total)}</div>
+      <div class="ltv-sub">${l.total_deals||0} deal${(l.total_deals||0)!==1?'s':''}</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="blk-label">LIS Score</div>
+      <div class="lis-val-h ${lisClass}">${lis}</div>
+      <div class="heat-badge ${hbClass}">${lisLabel(lis)}</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div style="background:var(--s1);border:1px solid var(--b2);border-radius:14px;overflow:hidden;">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab(event,'tab-id-${l.id}','tabs-${l.id}')">🔗 Identidade</div>
+      <div class="tab" onclick="switchTab(event,'tab-score-${l.id}','tabs-${l.id}')">📊 LIS Score</div>
+      <div class="tab" onclick="switchTab(event,'tab-eq-${l.id}','tabs-${l.id}')">⚙️ Equipamentos</div>
+      <div class="tab" onclick="switchTab(event,'tab-ia-${l.id}','tabs-${l.id}')">🧠 IA</div>
+      <div class="tab" onclick="switchTab(event,'tab-chat-${l.id}','tabs-${l.id}')">💬 Chat</div>
+    </div>
+    <div class="tab-body" id="tabs-${l.id}">
+
+      <!-- TAB: IDENTIDADE -->
+      <div id="tab-id-${l.id}" class="tc active">
+        <div class="sec">Identity Graph — vínculos pessoa · empresa</div>
+        <div class="ig-section">
+          <div style="font-size:11px;color:var(--muted2);margin-bottom:14px;">Rastreabilidade completa: lia_attendances → people → companies → PipeRun CRM</div>
+          <div class="ig-grid">
+            <div class="ig-node" style="border-color:rgba(79,143,255,.3);">
+              <div class="ig-node-label">📊 lia_attendances</div>
+              <div class="ig-node-name">${l.nome}</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;">id (uuid PK)</div>
+              <div class="ig-hash ok" onclick="copyH('${l.id}')">${shortHash(l.id)}</div>
+              ${l.pessoa_piperun_id?`<div style="font-size:10px;color:var(--muted);margin-top:4px;">pessoa_piperun_id</div><div class="ig-hash ok">${l.pessoa_piperun_id}</div>`:''}
+              ${l.empresa_piperun_id?`<div style="font-size:10px;color:var(--muted);margin-top:4px;">empresa_piperun_id</div><div class="ig-hash ok">${l.empresa_piperun_id}</div>`:''}
+            </div>
+            <div class="ig-conn">
+              <div class="ig-rel-badge ${personLinked?'rel-ok':'rel-miss'}">${personLinked?'person_id →':'sem FK →'}</div>
+              <div class="ig-arrow-line"></div>
+            </div>
+            <div class="ig-node" style="border-color:${personLinked?'rgba(79,255,176,.25)':'rgba(255,71,87,.25)'};">
+              <div class="ig-node-label">👤 people</div>
+              <div class="ig-node-name">${l.nome}</div>
+              ${personLinked?`
+                <div style="font-size:10px;color:var(--muted);margin-top:4px;">person.id</div>
+                <div class="ig-hash ok" onclick="copyH('${l.person_id}')">${shortHash(l.person_id)}</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:4px;">piperun_person_id</div>
+                <div class="ig-hash ok">${l.pessoa_piperun_id||'—'}</div>
+              `:`<div class="ig-hash miss" style="margin-top:8px;">Não vinculado</div>`}
+            </div>
+            <div class="ig-conn">
+              <div class="ig-rel-badge ${companyLinked?'rel-ok':'rel-miss'}">${companyLinked?'company_id →':'sem FK →'}</div>
+              <div class="ig-arrow-line"></div>
+            </div>
+            <div class="ig-node" style="border-color:${companyLinked?'rgba(232,255,71,.22)':'rgba(255,71,87,.25)'};">
+              <div class="ig-node-label">🏢 companies</div>
+              <div class="ig-node-name">${l.empresa_nome||'—'}</div>
+              ${companyLinked?`
+                <div style="font-size:10px;color:var(--muted);margin-top:4px;">company.id</div>
+                <div class="ig-hash ok" onclick="copyH('${l.company_id}')">${shortHash(l.company_id)}</div>
+                <div style="font-size:10px;color:var(--muted);margin-top:4px;">piperun_company_id</div>
+                <div class="ig-hash ok">${l.empresa_piperun_id||'—'}</div>
+              `:`<div class="ig-hash miss" style="margin-top:8px;">Não vinculado</div>`}
+            </div>
+          </div>
+        </div>
+        <div class="sec">Mapa de Chaves</div>
+        <table class="key-table">
+          <thead><tr><th>Entidade</th><th>Campo</th><th>Hash / Valor</th><th>Status</th></tr></thead>
+          <tbody>
+            ${keys.map(k=>`<tr>
+              <td style="color:var(--muted2)">${k.e}</td>
+              <td class="mono" style="color:var(--blue);font-size:10px;">${k.f}</td>
+              <td><span class="ig-hash ${k.status==='ok'?'ok':k.status==='open'?'':k.status==='miss'?'miss':''}" 
+                ${k.full?`onclick="copyH('${k.full}')" title="${k.full}"`:''} style="cursor:${k.full?'pointer':'default'}">${k.v}</span></td>
+              <td><span class="s-chip ${k.status==='ok'?'sc-ok':k.status==='open'?'sc-open':'sc-miss'}">${k.status==='ok'?'✓ Ativo':k.status==='open'?'⏳ Aberto':'⚠ Pendente'}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- TAB: LIS SCORE -->
+      <div id="tab-score-${l.id}" class="tc" style="display:none;">
+        <div class="sec">LIS Score — breakdown por eixo</div>
+        <div class="stats-row">
+          <div class="stat-box"><div class="stat-num ${lc==='hot'?'r':lc==='warm'?'y':''}">${lis}</div><div class="stat-lbl">LIS Score</div></div>
+          <div class="stat-box"><div class="stat-num y">${l.workflow_score||0}/10</div><div class="stat-lbl">Workflow</div></div>
+          <div class="stat-box"><div class="stat-num g">${brl(l.ltv_total)}</div><div class="stat-lbl">LTV</div></div>
+          <div class="stat-box"><div class="stat-num b">${l.total_deals||0}</div><div class="stat-lbl">Deals</div></div>
+          <div class="stat-box"><div class="stat-num">${l.piperun_id||'—'}</div><div class="stat-lbl">OppID</div></div>
+        </div>
+        <div class="lis-bd">
+          ${Object.entries({'🔥 Sales Heat (35%)':'sales_heat','💰 Purchase Power (20%)':'purchase_power','⚙️ Technical Maturity (20%)':'technical_maturity','📊 Behavioral Engagement (25%)':'behavioral_engagement'}).map(([label,key])=>{
+            const v = axes[key]?.value||0;
+            const color = v>=50?'var(--teal)':v>=30?'var(--acc)':'var(--muted)';
+            return `<div class="lis-comp">
+              <div class="lis-comp-label">${label}</div>
+              <div class="lis-bar-wrap"><div class="lis-bar-fill" style="width:${v}%;background:${color};"></div></div>
+              <div class="lis-comp-val" style="color:${color};">${v}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="background:var(--s3);border:1px solid var(--b1);border-radius:10px;padding:12px;font-size:11px;color:var(--muted2);line-height:1.7;">
+          <strong style="color:var(--acc);">Fórmula:</strong> 
+          (${axes.sales_heat?.value||0}×0.35) + (${axes.purchase_power?.value||0}×0.20) + (${axes.technical_maturity?.value||0}×0.20) + (${axes.behavioral_engagement?.value||0}×0.25) = 
+          <strong style="color:var(--teal);">${lis}</strong>
+          ${lis<40?'<br><span style="color:var(--hot);">⚠ Engajamento comportamental baixo — lead sem interações recentes</span>':''}
+        </div>
+      </div>
+
+      <!-- TAB: EQUIPAMENTOS -->
+      <div id="tab-eq-${l.id}" class="tc" style="display:none;">
+        <div class="sec">Fluxo chairside — mapa de equipamentos</div>
+        <div class="flow-section">
+          <div class="flow-label">🔬 Scanner Intraoral</div>
+          <div class="flow-items">
+            ${l.equip_scanner&&l.status_scanner==='tem_smartdent'
+              ?`<div class="fi fi-owned"><div class="fi-dot"></div>${l.equip_scanner} — SmartDent ✓</div>`
+              :l.equip_scanner
+              ?`<div class="fi fi-none"><div class="fi-dot"></div>${l.equip_scanner} — concorrente</div>`
+              :l.status_scanner==='tem_smartdent'
+              ?`<div class="fi fi-owned"><div class="fi-dot"></div>Scanner SmartDent ✓</div>`
+              :`<div class="fi fi-none"><div class="fi-dot"></div>Não mapeado</div>`}
+          </div>
+        </div>
+        <div class="flow-section">
+          <div class="flow-label">🖨️ Impressora 3D</div>
+          <div class="flow-items">
+            ${l.impressora_modelo&&l.status_impressora==='tem_com_resina_sd'
+              ?`<div class="fi fi-owned"><div class="fi-dot"></div>${l.impressora_modelo} — com resina SD ✓</div>`
+              :l.impressora_modelo
+              ?`<div class="fi fi-none"><div class="fi-dot"></div>${l.impressora_modelo} — sem resina SD</div>`
+              :l.status_impressora
+              ?`<div class="fi fi-none"><div class="fi-dot"></div>${l.status_impressora}</div>`
+              :`<div class="fi fi-none"><div class="fi-dot"></div>Não mapeado</div>`}
+          </div>
+        </div>
+        <div class="flow-section">
+          <div class="flow-label">💻 Software CAD</div>
+          <div class="flow-items">
+            ${l.status_cad==='tem_exocad'
+              ?`<div class="fi fi-owned"><div class="fi-dot"></div>Exocad ✓</div>`
+              :l.status_cad==='interesse'
+              ?`<div class="fi fi-interest"><div class="fi-dot"></div>Exocad — interesse confirmado</div>`
+              :`<div class="fi fi-none"><div class="fi-dot"></div>CAD não mapeado</div>`}
+          </div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:12px;margin-top:8px;">
+          <div style="font-size:11px;font-weight:600;color:var(--acc);margin-bottom:6px;">Análise de Lacunas</div>
+          <div style="font-size:11px;color:var(--muted2);line-height:1.7;">
+            Workflow score <strong style="color:var(--acc);">${l.workflow_score||0}/10</strong>.
+            ${!l.status_cad?`<span style="color:var(--hot);"> CAD não mapeado — lacuna principal.</span>`:''}
+            ${!l.impressora_modelo&&!l.status_impressora?`<span style="color:var(--warm);"> Impressora não identificada.</span>`:''}
+            ${l.workflow_score>=7?`<span style="color:var(--teal);"> Setup técnico avançado — foco em consumíveis e expansão.</span>`:''}
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: IA -->
+      <div id="tab-ia-${l.id}" class="tc" style="display:none;">
+        <div class="sec">Análise cognitiva — Claude Sonnet 4</div>
+        ${sciPanel}
+      </div>
+
+      <!-- TAB: CHAT -->
+      <div id="tab-chat-${l.id}" class="tc" style="display:none;">
+        <div class="chat-wrap">
+          <div class="chat-hdr"><span>🤖</span><span>LIA — Chat com contexto completo do lead</span></div>
+          <div class="chat-msgs" id="chatMsgs-${l.id}">
+            <div class="msg msg-ai">Olá! Tenho acesso ao perfil completo de <strong>${l.nome}</strong> — LIS ${lis}, WF ${l.workflow_score}/10, LTV ${brl(l.ltv_total)}. O que você precisa saber?</div>
+          </div>
+          <div class="quick-asks">
+            <div class="qa" onclick="quickAsk('${l.id}','Qual a melhor abordagem?')">💡 Melhor abordagem</div>
+            <div class="qa" onclick="quickAsk('${l.id}','Por que o LIS está baixo?')">📉 Por que LIS baixo?</div>
+            <div class="qa" onclick="quickAsk('${l.id}','Quais os hashes de vínculo?')">🔗 Ver hashes</div>
+          </div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chatInput-${l.id}" placeholder="Pergunte sobre ${l.nome}…" onkeydown="chatEnter(event,'${l.id}')">
+            <button class="chat-send" id="chatSend-${l.id}" onclick="sendChat('${l.id}')">Enviar</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>`;
+
+  document.getElementById('cardInner').innerHTML = card;
+}
+
+function switchTab(e, tabId, containerId) {
+  const cont = document.getElementById(containerId);
+  cont.querySelectorAll('.tc').forEach(t=>t.style.display='none');
+  document.getElementById(tabId).style.display='block';
+  const tabsEl = cont.previousElementSibling;
+  tabsEl.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+}
+
+function copyH(hash) {
+  if(!hash||hash==='—') return;
+  navigator.clipboard.writeText(hash).catch(()=>{});
+  const t=document.getElementById('toast');
+  t.textContent='✓ Hash copiado!';
+  t.style.display='block';
+  setTimeout(()=>t.style.display='none',1600);
+}
+
+function buildContext(l) {
+  return `LEAD: ${l.nome} | EMPRESA: ${l.empresa_nome||'PF'} | BUYER: ${l.buyer_type}
+EMAIL: ${l.email&&!l.email.includes('placeholder')?l.email:'—'} | TEL: ${l.telefone_normalized||'—'}
+ÁREA: ${l.area_atuacao||'—'} | SOURCE: ${l.source||'—'}
+IDENTITY: lead.id=${l.id} | person_id=${l.person_id||'NÃO VINCULADO'} | company_id=${l.company_id||'NÃO VINCULADO'}
+PIPERUN: pessoa_id=${l.pessoa_piperun_id||'—'} | empresa_id=${l.empresa_piperun_id||'—'} | OppID=${l.piperun_id||'—'}
+SCANNER: ${l.equip_scanner||l.status_scanner||'—'} | IMPRESSORA: ${l.impressora_modelo||l.status_impressora||'—'} | CAD: ${l.status_cad||'—'}
+LIS: ${l.intelligence_score?.score_total||0} | WF: ${l.workflow_score||0}/10 | LTV: R$${l.ltv_total||0} | DEALS: ${l.total_deals||0}
+PIPELINE: ${l.piperun_stage_name||'—'}`;
+}
+
+async function callClaude(system, messages) {
+  const r = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,system,messages})
+  });
+  const d=await r.json();
+  return d.content?.[0]?.text||'Erro.';
+}
+
+const SYS = () => `Você é a LIA — Lead Intelligence Assistant da SmartDent. Analise leads odontológicos de forma objetiva e direta. Português brasileiro. Seja conciso e acionável. Use os dados abaixo:\n\n${buildContext(activeLead)}`;
+
+async function genAnalysis() {
+  const el=document.getElementById(`ai-body-${activeLead.id}`);
+  el.innerHTML='<div class="ty"><div class="ty-dot"></div><div class="ty-dot"></div><div class="ty-dot"></div></div>';
+  const r=await callClaude(SYS(),[{role:'user',content:'Faça uma análise cognitiva completa: perfil de compra, riscos, momento atual e ações prioritárias. Seja objetivo em 3 parágrafos.'}]);
+  el.innerHTML=r.replace(/\n/g,'<br>');
+}
+async function genScript() {
+  const el=document.getElementById(`ai-body-${activeLead.id}`);
+  el.innerHTML='<div class="ty"><div class="ty-dot"></div><div class="ty-dot"></div><div class="ty-dot"></div></div>';
+  const r=await callClaude(SYS(),[{role:'user',content:'Crie um script WhatsApp objetivo para abordar/reativar este lead. Mencione o equipamento específico que ele tem.'}]);
+  el.innerHTML=r.replace(/\n/g,'<br>');
+}
+async function genReactivation() {
+  const el=document.getElementById(`ai-body-${activeLead.id}`);
+  el.innerHTML='<div class="ty"><div class="ty-dot"></div><div class="ty-dot"></div><div class="ty-dot"></div></div>';
+  const r=await callClaude(SYS(),[{role:'user',content:'Monte uma estratégia de reativação em 3 passos práticos com canal, argumento e prazo para cada etapa.'}]);
+  el.innerHTML=r.replace(/\n/g,'<br>');
+}
+
+async function sendChat(lid) {
+  const inp=document.getElementById(`chatInput-${lid}`);
+  const btn=document.getElementById(`chatSend-${lid}`);
+  const msgs=document.getElementById(`chatMsgs-${lid}`);
+  const q=inp.value.trim();
+  if(!q) return;
+  inp.value='';
+  btn.disabled=true;
+  const um=document.createElement('div');
+  um.className='msg msg-user';um.textContent=q;msgs.appendChild(um);
+  chatHistory.push({role:'user',content:q});
+  const tm=document.createElement('div');
+  tm.className='msg msg-ai';
+  tm.innerHTML='<div class="ty"><div class="ty-dot"></div><div class="ty-dot"></div><div class="ty-dot"></div></div>';
+  msgs.appendChild(tm);msgs.scrollTop=99999;
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:700,
+        system:`Você é a LIA da SmartDent. Contexto do lead:\n\n${buildContext(activeLead)}`,
+        messages:chatHistory})
+    });
+    const d=await r.json();
+    const ans=d.content?.[0]?.text||'Erro.';
+    chatHistory.push({role:'assistant',content:ans});
+    tm.innerHTML=ans.replace(/\n/g,'<br>');
+  }catch{tm.innerHTML='Erro ao conectar.';}
+  btn.disabled=false;msgs.scrollTop=99999;
+}
+
+function quickAsk(lid, q) {
+  document.getElementById(`chatInput-${lid}`).value=q;
+  sendChat(lid);
+}
+function chatEnter(e,lid){if(e.key==='Enter'){e.preventDefault();sendChat(lid);}}
+
+// Init
+renderList();
+</script>
+</body>
+</html>
