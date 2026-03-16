@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ lead_id: lead.id }),
+          body: JSON.stringify({ leadId: lead.id }),
         });
 
         if (res.ok) {
