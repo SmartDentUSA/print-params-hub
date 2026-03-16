@@ -73,7 +73,7 @@ export function SmartOpsTab() {
         <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1" style={{ display: 'flex' }}>
           <TabsTrigger value="bowtie">Bowtie</TabsTrigger>
           <TabsTrigger value="kanban">Público / Lista</TabsTrigger>
-          <TabsTrigger value="leads">Leads</TabsTrigger>
+          
           <TabsTrigger value="equipe">Equipe</TabsTrigger>
           <TabsTrigger value="reguas">Automações</TabsTrigger>
           <TabsTrigger value="logs">Logs</TabsTrigger>
