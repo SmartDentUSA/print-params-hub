@@ -403,6 +403,25 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
   const [stateEvents, setStateEvents] = useState<StateEvent[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // IA Tab state
+  const [aiResult, setAiResult] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAction, setAiAction] = useState<string | null>(null);
+
+  // Chat Tab state
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Reset IA/Chat when lead changes
+  useEffect(() => {
+    setAiResult("");
+    setAiAction(null);
+    setChatMessages([]);
+    setChatInput("");
+  }, [lead?.id]);
+
   // Load all related data on lead change
   useEffect(() => {
     if (!lead?.id) return;
