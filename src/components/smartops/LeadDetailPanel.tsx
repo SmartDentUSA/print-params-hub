@@ -574,8 +574,16 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
         <div className="intel-hero">
           <div className={`intel-avatar intel-avatar-lg ${avClass(bt)}`}>{initials(lead.nome)}</div>
           <div>
-            <div className={`intel-buyer-badge ${bt === "company" ? "intel-bb-c" : bt === "person" ? "intel-bb-p" : "intel-bb-u"}`}>
-              {bt === "company" ? "🏢 B2B — EMPRESA" : bt === "person" ? "👤 B2C — PESSOA" : "❓ DESCONHECIDO"}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div className={`intel-buyer-badge ${bt === "company" ? "intel-bb-c" : bt === "person" ? "intel-bb-p" : "intel-bb-u"}`}>
+                {bt === "company" ? "🏢 B2B — EMPRESA" : bt === "person" ? "👤 B2C — PESSOA" : "❓ DESCONHECIDO"}
+              </div>
+              {mergeInfo && (
+                <span className="intel-lr-tag intel-tag-scanner" title={`Dados consolidados de: ${mergeInfo.sources.join(", ")}`} style={{ cursor: "help" }}>
+                  🔗 Consolidado ({mergeInfo.count} fontes)
+                </span>
+              )}
+              {mergeRunning && <span style={{ fontSize: 10, color: "var(--id-muted)" }}>🔄 Consolidando...</span>}
             </div>
             <div className="intel-lead-name-h">{lead.nome}</div>
             <div className="intel-meta-row">
