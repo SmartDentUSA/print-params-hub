@@ -1030,7 +1030,7 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                       <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{actionsResult}</ReactMarkdown></div>
                     ) : (
                       <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Clique em "Gerar Ações" para criar uma lista priorizada de ações com scripts de abordagem</p>
+                        <p style={{ fontSize: 12 }}>Ações serão geradas automaticamente...</p>
                       </div>
                     )}
                   </div>
