@@ -541,7 +541,7 @@ export function SmartOpsLeadsList() {
     setLeads((data as LeadFull[]) || []);
     setTotalCount(count ?? 0);
     setLoading(false);
-  }, [page, debouncedSearch, buyerFilter, advFilters, thirtyDaysAgo]);
+  }, [page, debouncedSearch, buyerFilter, advFilters, thirtyDaysAgo, jsonbProductIds]);
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
   useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter, advFilters]);
