@@ -491,7 +491,14 @@ export function SmartOpsLeadsList() {
     if (advFilters.valorMin) query = query.gte("valor_oportunidade", Number(advFilters.valorMin));
     if (advFilters.valorMax) query = query.lte("valor_oportunidade", Number(advFilters.valorMax));
     if (advFilters.activeProduct !== "all") query = query.eq(`ativo_${advFilters.activeProduct}`, true);
-    if (advFilters.itemProposta !== "all") query = query.ilike("itens_proposta_crm", `%${advFilters.itemProposta}%`);
+    // itemProposta is now handled via RPC below
+    if (advFilters.itemProposta && !jsonbProductIds) {
+      // Fallback: if RPC hasn't run yet, use simple ILIKE
+      query = query.ilike("itens_proposta_crm", `%${advFilters.itemProposta}%`);
+    }
+    if (jsonbProductIds && jsonbProductIds.length > 0) {
+      query = query.in("id", jsonbProductIds);
+    }
     if (advFilters.interestProduct !== "all") query = query.not(advFilters.interestProduct, "is", null);
     if (advFilters.statusCRM !== "all") query = query.eq("status_atual_lead_crm", advFilters.statusCRM);
 
