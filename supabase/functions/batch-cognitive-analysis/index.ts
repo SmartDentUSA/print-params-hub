@@ -21,15 +21,36 @@ Deno.serve(async (req) => {
     // Find leads eligible for cognitive analysis:
     // - Has 5+ messages (enough data for analysis)
     // - Never analyzed OR analyzed before last session
-    const { data: eligibleLeads, error: queryError } = await supabase
+    // Step 1: Get leads never analyzed
+    const { data: neverAnalyzed, error: err1 } = await supabase
       .from("lia_attendances")
       .select("id, nome, total_messages, cognitive_analyzed_at, ultima_sessao_at")
       .gte("total_messages", 5)
-      .or("cognitive_analyzed_at.is.null,cognitive_analyzed_at.lt.ultima_sessao_at")
+      .is("cognitive_analyzed_at", null)
       .order("intelligence_score_total", { ascending: false, nullsFirst: false })
       .order("total_messages", { ascending: false })
-      .order("updated_at", { ascending: false })
       .limit(batchSize);
+
+    // Step 2: Get leads analyzed before last session (use RPC-free approach)
+    const remaining = batchSize - (neverAnalyzed?.length || 0);
+    let staleLeads: typeof neverAnalyzed = [];
+    if (remaining > 0) {
+      const { data: candidates } = await supabase
+        .from("lia_attendances")
+        .select("id, nome, total_messages, cognitive_analyzed_at, ultima_sessao_at")
+        .gte("total_messages", 5)
+        .not("cognitive_analyzed_at", "is", null)
+        .not("ultima_sessao_at", "is", null)
+        .order("total_messages", { ascending: false })
+        .limit(remaining * 3); // fetch extra to filter client-side
+
+      staleLeads = (candidates || []).filter(
+        (l) => l.ultima_sessao_at && l.cognitive_analyzed_at && l.ultima_sessao_at > l.cognitive_analyzed_at
+      ).slice(0, remaining);
+    }
+
+    const eligibleLeads = [...(neverAnalyzed || []), ...staleLeads];
+    const queryError = err1;
 
     if (queryError) {
       console.error("[batch-cognitive] Query error:", queryError.message);
@@ -61,7 +82,7 @@ Deno.serve(async (req) => {
             "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ lead_id: lead.id }),
+          body: JSON.stringify({ leadId: lead.id }),
         });
 
         if (res.ok) {
