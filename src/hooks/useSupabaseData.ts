@@ -348,7 +348,7 @@ export const useSupabaseData = () => {
       }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao buscar marcas');
-      return [];
+      throw err;
     }
   };
 

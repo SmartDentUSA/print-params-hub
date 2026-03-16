@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { User } from '@supabase/supabase-js';
 import { Link } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
+import { ConnectionError } from "@/components/ConnectionError";
 import { AuthPage } from "@/components/AuthPage";
 import { DataImport } from "@/components/DataImport";
 import { AdminStats } from "@/components/AdminStats";
@@ -33,23 +34,25 @@ export default function AdminViewSecure() {
   const [isAuthor, setIsAuthor] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     // Check authentication and admin status
     const checkAuthAndRole = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 8000)
+        );
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         if (session?.user) {
           setUser(session.user);
-          
-          // Get user role from user_roles table
           const { data: roleData } = await supabase
             .from('user_roles')
             .select('role')
             .eq('user_id', session.user.id)
             .single();
-          
           if (roleData) {
             setUserRole(roleData.role);
             setIsAdmin(roleData.role === 'admin');
@@ -57,7 +60,7 @@ export default function AdminViewSecure() {
           }
         }
       } catch (error) {
-        // Silent error handling for security
+        setConnectionError(true);
       } finally {
         setLoading(false);
       }
@@ -123,6 +126,10 @@ export default function AdminViewSecure() {
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (connectionError) {
+    return <ConnectionError onRetry={() => window.location.reload()} />;
   }
 
   // Show authentication page if not logged in
