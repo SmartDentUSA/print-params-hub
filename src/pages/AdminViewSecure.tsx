@@ -128,6 +128,10 @@ export default function AdminViewSecure() {
     );
   }
 
+  if (connectionError) {
+    return <ConnectionError onRetry={() => window.location.reload()} />;
+  }
+
   // Show authentication page if not logged in
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
