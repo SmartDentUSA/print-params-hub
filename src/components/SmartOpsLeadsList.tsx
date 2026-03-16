@@ -1,952 +1,1044 @@
-import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, Brain, Route, Tag, Zap, Target, Pencil, Save, X } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 import { toast } from "sonner";
 
-const STATUS_OPTIONS = [
-  { key: "all", label: "Todos" },
-  { key: "novo", label: "Novo" },
-  { key: "sem_contato", label: "Sem Contato" },
-  { key: "contato_feito", label: "Contato Feito" },
-  { key: "em_contato", label: "Em Contato" },
-  { key: "apresentacao", label: "Apresentação" },
-  { key: "proposta_enviada", label: "Proposta Enviada" },
-  { key: "negociacao", label: "Negociação" },
-  { key: "fechamento", label: "Fechamento" },
-];
-
-const TEMP_OPTIONS = [
-  { key: "all", label: "Todas" },
-  { key: "quente", label: "🔥 Quente" },
-  { key: "morno", label: "🌤 Morno" },
-  { key: "frio", label: "❄️ Frio" },
-];
-
-const STAGE_OPTIONS = [
-  { key: "all", label: "Todos Estágios" },
-  { key: "MQL_pesquisador", label: "🔍 MQL" },
-  { key: "SAL_comparador", label: "🔄 SAL" },
-  { key: "SQL_decisor", label: "✅ SQL" },
-  { key: "CLIENTE_ativo", label: "👑 Cliente" },
-];
-
+// ─── Constants ───
 const PAGE_SIZE = 200;
 
-const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
+const BUYER_FILTERS = [
+  { key: "all", label: "Todos" },
+  { key: "company", label: "🏢 Empresa" },
+  { key: "person", label: "👤 Pessoa" },
+  { key: "ltv", label: "💰 Com LTV" },
+  { key: "scanner", label: "🔬 Scanner SD" },
+] as const;
 
+// ─── Types ───
 interface LeadFull {
   [key: string]: unknown;
   id: string;
   nome: string;
   email: string;
-  telefone_raw: string | null;
   telefone_normalized: string | null;
-  source: string;
-  form_name: string | null;
+  buyer_type: string | null;
   lead_status: string;
-  score: number | null;
-  created_at: string;
-  updated_at: string;
-  data_primeiro_contato: string | null;
-  area_atuacao: string | null;
-  especialidade: string | null;
-  como_digitaliza: string | null;
-  tem_impressora: string | null;
+  ltv_total: number | null;
+  total_deals: number | null;
+  workflow_score: number | null;
+  intelligence_score: Record<string, unknown> | null;
+  intelligence_score_total: number | null;
+  equip_scanner: string | null;
+  equip_impressora: string | null;
+  equip_cad: string | null;
+  status_scanner: string | null;
+  status_impressora: string | null;
+  status_cad: string | null;
   impressora_modelo: string | null;
-  resina_interesse: string | null;
-  produto_interesse: string | null;
-  origem_campanha: string | null;
-  utm_source: string | null;
-  utm_medium: string | null;
-  utm_campaign: string | null;
-  utm_term: string | null;
-  proprietario_lead_crm: string | null;
-  status_atual_lead_crm: string | null;
-  funil_entrada_crm: string | null;
+  area_atuacao: string | null;
+  empresa_nome: string | null;
+  pessoa_piperun_id: number | null;
+  empresa_piperun_id: number | null;
+  person_id: string | null;
+  company_id: string | null;
   piperun_id: string | null;
-  id_cliente_smart: string | null;
-  rota_inicial_lia: string | null;
-  resumo_historico_ia: string | null;
-  reuniao_agendada: boolean | null;
-  data_contrato: string | null;
-  cs_treinamento: string | null;
-  ativo_scan: boolean | null;
-  ativo_notebook: boolean | null;
-  ativo_cad: boolean | null;
-  ativo_cad_ia: boolean | null;
-  ativo_smart_slice: boolean | null;
-  ativo_print: boolean | null;
-  ativo_cura: boolean | null;
-  ativo_insumos: boolean | null;
-  status_oportunidade: string | null;
-  valor_oportunidade: number | null;
-  tags_crm: string[] | null;
-  temperatura_lead: string | null;
-  motivo_perda: string | null;
-  comentario_perda: string | null;
-  cidade: string | null;
-  uf: string | null;
-  tem_scanner: string | null;
-  data_fechamento_crm: string | null;
-  lead_timing_dias: number | null;
-  itens_proposta_crm: string | null;
-  piperun_link: string | null;
-  ultima_etapa_comercial: string | null;
-  software_cad: string | null;
-  volume_mensal_pecas: string | null;
-  principal_aplicacao: string | null;
-  pais_origem: string | null;
-  ip_origem: string | null;
-  proactive_sent_at: string | null;
-  proactive_count: number | null;
-  // Cognitive fields
-  cognitive_analysis: Record<string, unknown> | null;
-  cognitive_updated_at: string | null;
-  lead_stage_detected: string | null;
-  interest_timeline: string | null;
-  urgency_level: string | null;
-  psychological_profile: string | null;
-  primary_motivation: string | null;
-  objection_risk: string | null;
-  recommended_approach: string | null;
-  confidence_score_analysis: number | null;
-  prediction_accuracy: number | null;
+  piperun_pipeline_name: string | null;
+  piperun_stage_name: string | null;
+  source: string | null;
+  created_at: string;
 }
 
-// ─── TAG Color System ───
-const TAG_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  J: { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-300" },
-  EC: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-300" },
-  Q: { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-300" },
-  C: { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-300" },
-  CS: { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-300" },
-  LIA: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-300" },
-  A: { bg: "bg-red-50", text: "text-red-700", border: "border-red-300" },
-};
-
-function getTagColor(tag: string) {
-  if (tag.startsWith("J0")) return TAG_COLORS.J;
-  if (tag.startsWith("EC_")) return TAG_COLORS.EC;
-  if (tag.startsWith("Q_")) return TAG_COLORS.Q;
-  if (tag.startsWith("CS_")) return TAG_COLORS.CS;
-  if (tag.startsWith("C_")) return TAG_COLORS.C;
-  if (tag.startsWith("LIA_")) return TAG_COLORS.LIA;
-  if (tag.startsWith("A_")) return TAG_COLORS.A;
-  return { bg: "bg-muted/50", text: "text-muted-foreground", border: "border-muted" };
+interface TimelineEvent {
+  id: string;
+  event_type: string;
+  event_timestamp: string;
+  entity_type: string | null;
+  entity_name: string | null;
+  event_data: Record<string, unknown>;
+  source_channel: string | null;
+  value_numeric: number | null;
 }
 
-function getTagCategory(tag: string): string {
-  if (tag.startsWith("J0")) return "Jornada";
-  if (tag.startsWith("EC_")) return "E-commerce";
-  if (tag.startsWith("Q_")) return "Qualificação";
-  if (tag.startsWith("CS_")) return "CS/Onboarding";
-  if (tag.startsWith("C_")) return "Comercial";
-  if (tag.startsWith("LIA_")) return "LIA";
-  if (tag.startsWith("A_")) return "Alerta";
-  return "Outros";
+interface AgentInteraction {
+  id: string;
+  created_at: string;
+  user_message: string;
+  agent_response: string | null;
+  feedback: string | null;
 }
 
-// Journey step visualization
-const JOURNEY_STEPS = [
-  { tag: "J01_CONSCIENCIA", label: "Consciência", emoji: "👀" },
-  { tag: "J02_CONSIDERACAO", label: "Consideração", emoji: "🤔" },
-  { tag: "J03_NEGOCIACAO", label: "Negociação", emoji: "🤝" },
-  { tag: "J04_COMPRA", label: "Compra", emoji: "💰" },
-  { tag: "J05_RETENCAO", label: "Retenção", emoji: "🔄" },
-  { tag: "J06_APOIO", label: "Apoio", emoji: "⭐" },
-];
-
-function JourneyVisualizer({ tags }: { tags: string[] | null }) {
-  if (!tags?.length) return null;
-  const activeJourney = JOURNEY_STEPS.findIndex((s) => tags.includes(s.tag));
-  if (activeJourney === -1) return null;
-
-  return (
-    <div className="flex items-center gap-1 py-2">
-      {JOURNEY_STEPS.map((step, i) => {
-        const isActive = tags.includes(step.tag);
-        const isPast = i < activeJourney;
-        return (
-          <div key={step.tag} className="flex items-center">
-            {i > 0 && <div className={`w-4 h-0.5 ${isPast || isActive ? "bg-primary" : "bg-muted"}`} />}
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-medium border-2 ${
-                    isActive ? "bg-primary text-primary-foreground border-primary" :
-                    isPast ? "bg-primary/20 text-primary border-primary/40" :
-                    "bg-muted text-muted-foreground border-muted"
-                  }`}>
-                    {step.emoji}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent><p className="text-xs">{step.label}</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        );
-      })}
-    </div>
-  );
+interface WhatsAppMsg {
+  id: string;
+  created_at: string;
+  message_text: string | null;
+  direction: string;
+  intent_detected: string | null;
+  media_url: string | null;
+  media_type: string | null;
 }
 
-function TagsBadges({ tags }: { tags: string[] | null }) {
-  if (!tags?.length) return <span className="text-muted-foreground text-[10px]">—</span>;
-
-  // Group by category
-  const grouped: Record<string, string[]> = {};
-  for (const tag of tags) {
-    const cat = getTagCategory(tag);
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(tag);
-  }
-
-  return (
-    <div className="space-y-2">
-      {Object.entries(grouped).map(([category, catTags]) => (
-        <div key={category}>
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{category}</div>
-          <div className="flex gap-1 flex-wrap">
-            {catTags.map((tag) => {
-              const color = getTagColor(tag);
-              return (
-                <Badge key={tag} variant="outline" className={`text-[9px] px-1.5 py-0 ${color.bg} ${color.text} ${color.border}`}>
-                  {tag}
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+interface MsgLog {
+  id: string;
+  tipo: string | null;
+  mensagem_preview: string | null;
+  status: string;
+  data_envio: string | null;
 }
 
-function TagsSummaryBadges({ tags }: { tags: string[] | null }) {
-  if (!tags?.length) return null;
-  const shown = tags.slice(0, 3);
-  return (
-    <div className="flex gap-0.5 flex-wrap">
-      {shown.map((tag) => {
-        const color = getTagColor(tag);
-        return (
-          <Badge key={tag} variant="outline" className={`text-[8px] px-1 py-0 ${color.bg} ${color.text} ${color.border}`}>
-            {tag.replace(/_/g, " ").slice(0, 12)}
-          </Badge>
-        );
-      })}
-      {tags.length > 3 && (
-        <Badge variant="outline" className="text-[8px] px-1 py-0">+{tags.length - 3}</Badge>
-      )}
-    </div>
-  );
+interface ProductHistory {
+  id: string;
+  product_name: string | null;
+  total_purchased_value: number | null;
+  purchased_at: string | null;
+  purchase_count: number | null;
 }
 
-function ActiveIcons({ lead }: { lead: LeadFull }) {
-  const active = PRODUCT_FLAGS.filter((p) => lead[`ativo_${p}`] === true);
-  if (active.length === 0) return <span className="text-muted-foreground text-[10px]">—</span>;
-  return (
-    <div className="flex gap-0.5 flex-wrap">
-      {active.slice(0, 3).map((p) => (
-        <Badge key={p} variant="outline" className="text-[9px] px-1 py-0 bg-green-50 text-green-700 border-green-300">
-          {p.replace("_", " ").toUpperCase()}
-        </Badge>
-      ))}
-      {active.length > 3 && (
-        <Badge variant="outline" className="text-[9px] px-1 py-0">+{active.length - 3}</Badge>
-      )}
-    </div>
-  );
+interface CourseProgress {
+  id: string;
+  course_name: string | null;
+  status: string | null;
+  progress_percent: number | null;
+  enrolled_at: string | null;
 }
 
-function TempBadge({ temp }: { temp: string | null }) {
-  if (!temp) return <span className="text-muted-foreground text-[10px]">—</span>;
-  const t = temp.toLowerCase();
-  if (t === "quente") return <Badge className="bg-destructive text-destructive-foreground text-[10px] px-1.5">🔥</Badge>;
-  if (t === "morno") return <Badge className="bg-accent text-accent-foreground text-[10px] px-1.5">🌤</Badge>;
-  return <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5">❄️</Badge>;
+interface FormSubmission {
+  id: string;
+  form_name: string | null;
+  submitted_at: string | null;
+  equipment_mentioned: string | null;
+  product_mentioned: string | null;
 }
 
-function StageBadge({ stage }: { stage: string | null }) {
-  if (!stage) return null;
-  const config: Record<string, { label: string; className: string }> = {
-    MQL_pesquisador: { label: "MQL", className: "bg-muted text-muted-foreground border-muted" },
-    SAL_comparador: { label: "SAL", className: "bg-primary/10 text-primary border-primary/30" },
-    SQL_decisor: { label: "SQL", className: "bg-green-50 text-green-700 border-green-300" },
-    CLIENTE_ativo: { label: "CLIENTE", className: "bg-purple-50 text-purple-700 border-purple-300" },
-  };
-  const c = config[stage] || { label: stage, className: "bg-muted text-muted-foreground" };
-  return <Badge variant="outline" className={`text-[9px] px-1.5 ${c.className}`}>{c.label}</Badge>;
+interface CartHistory {
+  id: string;
+  total_value: number | null;
+  status: string | null;
+  created_at: string | null;
+  items_count: number | null;
 }
 
-function UrgencyIcon({ urgency }: { urgency: string | null }) {
-  if (!urgency) return null;
-  if (urgency === "alta") return <span title="Urgência alta" className="text-destructive">🔴</span>;
-  if (urgency === "media") return <span title="Urgência média" className="text-accent-foreground">🟡</span>;
-  return <span title="Urgência baixa" className="text-primary">🟢</span>;
+interface SdrInteraction {
+  id: string;
+  contacted_at: string | null;
+  notes: string | null;
+  channel: string | null;
+  outcome: string | null;
 }
 
-function formatDate(d: string | null) {
+interface StateEvent {
+  id: string;
+  from_stage: string | null;
+  to_stage: string | null;
+  changed_at: string | null;
+  is_regression: boolean | null;
+  trigger_source: string | null;
+}
+
+// ─── Helpers ───
+function initials(nome: string): string {
+  const p = (nome || "?").trim().split(/\s+/);
+  return (p[0][0] + (p[1] ? p[1][0] : "")).toUpperCase();
+}
+
+function brl(v: number | null | undefined): string {
+  if (!v) return "—";
+  return "R$" + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function shortHash(uuid: string | null): string {
+  if (!uuid) return "—";
+  return uuid.substring(0, 8) + "…";
+}
+
+function lisColor(s: number): "hot" | "warm" | "cold" {
+  if (s >= 70) return "hot";
+  if (s >= 40) return "warm";
+  return "cold";
+}
+
+function lisLabel(s: number): string {
+  if (s >= 70) return "🔥 QUENTE";
+  if (s >= 40) return "🌤️ MORNO";
+  return "❄️ FRIO";
+}
+
+function fmtDate(d: string | null): string {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("pt-BR");
+  try {
+    const date = new Date(d);
+    return date.toLocaleDateString("pt-BR");
+  } catch { return d; }
 }
 
-function getLeadCardDate(lead: Record<string, unknown>) {
-  const piperunCreatedAt = lead.piperun_created_at;
-  if (typeof piperunCreatedAt === "string" && piperunCreatedAt) return piperunCreatedAt;
-
-  const firstContact = lead.data_primeiro_contato;
-  if (typeof firstContact === "string" && firstContact) return firstContact;
-
-  const systemEntry = lead.entrada_sistema;
-  if (typeof systemEntry === "string" && systemEntry) return systemEntry;
-
-  return typeof lead.created_at === "string" ? lead.created_at : null;
-}
-
-function formatDateTime(d: string | null) {
+function fmtDateTime(d: string | null): string {
   if (!d) return "—";
-  const dt = new Date(d);
-  return `${dt.toLocaleDateString("pt-BR")} ${dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  try {
+    const date = new Date(d);
+    return `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  } catch { return d; }
 }
 
-function formatValue(v: unknown): string {
-  if (v === null || v === undefined) return "—";
-  if (typeof v === "boolean") return v ? "Sim" : "Não";
-  if (typeof v === "object") return JSON.stringify(v);
+function formatCurrency(val: number): string {
+  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+}
+
+function copyHash(hash: string | null) {
+  if (!hash) return;
+  navigator.clipboard.writeText(hash).catch(() => {});
+  toast.success("Hash copiado!");
+}
+
+function avClass(bt: string | null): string {
+  if (bt === "company") return "av-c";
+  if (bt === "person") return "av-p";
+  return "av-u";
+}
+
+function s(lead: Record<string, unknown>, key: string): string | null {
+  const v = lead[key];
+  if (v === null || v === undefined || v === "") return null;
   return String(v);
 }
 
-// ─── Proposal Items Parser ───
-function parseItensProposta(raw: string | null) {
-  if (!raw) return null;
-  // Extract proposal number: (XXXX) PRO XXXXX or just PRO XXXXX
-  const propostaMatch = raw.match(/(?:\((\d+)\)\s*)?(PRO\s*\d+)/);
-  const proposalNumber = propostaMatch
-    ? (propostaMatch[1] ? `(${propostaMatch[1]}) ${propostaMatch[2]}` : propostaMatch[2])
-    : null;
-
-  // Split items by ", PRO" or ", ("
-  const parts = raw.split(/,\s*(?=PRO\s|(?:\(\d+\)\s*PRO\s))/).map((s) => s.trim()).filter(Boolean);
-
-  const items: { qty: number; name: string; productCode?: string }[] = [];
-  for (const part of parts) {
-    const m = part.match(/(?:\((\d+)\)\s*)?PRO\s*\d+\s*\[(\d+(?:\.\d+)?)\]\s*(.+)/);
-    if (m) {
-      items.push({
-        productCode: m[1] || undefined,
-        qty: Math.round(parseFloat(m[2])),
-        name: m[3].trim(),
-      });
-    }
-  }
-
-  return { proposalNumber, items };
+function n(lead: Record<string, unknown>, key: string): number | null {
+  const v = lead[key];
+  if (v === null || v === undefined) return null;
+  return Number(v);
 }
 
-function ProposalItemsDisplay({ raw }: { raw: string | null }) {
-  const parsed = parseItensProposta(raw);
-  if (!parsed || parsed.items.length === 0) return null;
-
-  return (
-    <div className="space-y-2">
-      {parsed.proposalNumber && (
-        <div className="p-2 rounded bg-muted/30 border">
-          <div className="text-[10px] text-muted-foreground font-mono">N. Proposta</div>
-          <div className="text-sm font-semibold">{parsed.proposalNumber}</div>
-        </div>
-      )}
-      <div className="p-2 rounded bg-muted/30 border">
-        <div className="text-[10px] text-muted-foreground font-mono mb-1">Itens da Proposta</div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="h-7 px-2 text-[10px] w-14">Quant.</TableHead>
-              <TableHead className="h-7 px-2 text-[10px]">Item</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {parsed.items.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="p-2 text-xs text-center">{item.qty}</TableCell>
-                <TableCell className="p-2 text-xs">{item.name}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
-}
-
-function TruncatedText({ text, maxLen = 40 }: { text: string | null; maxLen?: number }) {
-  if (!text) return <span className="text-muted-foreground">—</span>;
-  if (text.length <= maxLen) return <span className="text-xs">{text}</span>;
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="text-xs cursor-help">{text.slice(0, maxLen)}…</span>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-sm"><p className="text-sm">{text}</p></TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-}
-
-const ROUTE_LABELS: Record<string, string> = {
-  parameters: "Parâmetros",
-  products: "Produtos",
-  commercial: "Comercial",
-  support: "Suporte",
+// ─── TIMELINE ───
+const TIMELINE_EMOJI: Record<string, string> = {
+  crm_deal_created: "🆕", crm_deal_updated: "🔄", crm_deal_won: "✅", crm_deal_lost: "❌",
+  ecommerce_order_created: "🛒", ecommerce_order_paid: "💳", ecommerce_order_cancelled: "🚫",
+  ecommerce_order_invoiced: "📦", ecommerce_order_delivered: "🚚", ecommerce_boleto_generated: "🏦",
+  lia_conversation: "💬", whatsapp_inbound: "📱", whatsapp_outbound: "📤", form_submission: "📝",
+  sellflux_sync: "🔗", astron_enrollment: "🎓", cognitive_analysis: "🧠",
 };
 
-/* ─── Detail Modal Sections ─── */
-function EditableDetailSection({ title, fields, editing, editValues, onFieldChange }: {
-  title: string;
-  fields: { label: string; value: unknown; fieldKey?: string; type?: "text" | "number" | "boolean" | "select"; options?: string[] }[];
-  editing: boolean;
-  editValues: Record<string, unknown>;
-  onFieldChange: (key: string, value: unknown) => void;
-}) {
+const TIMELINE_LABEL: Record<string, string> = {
+  crm_deal_created: "Deal criado", crm_deal_updated: "Deal atualizado", crm_deal_won: "Deal ganho 🎉",
+  crm_deal_lost: "Deal perdido", ecommerce_order_created: "Pedido criado", ecommerce_order_paid: "Pagamento aprovado",
+  ecommerce_order_cancelled: "Pedido cancelado", ecommerce_order_invoiced: "Pedido enviado",
+  ecommerce_order_delivered: "Pedido entregue",
+};
+
+// ─── LEAD ROW COMPONENT ───
+function LeadRow({ lead, active, onClick }: { lead: LeadFull; active: boolean; onClick: () => void }) {
+  const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
+  const lc = lisColor(lis);
+  const bt = lead.buyer_type;
+
   return (
-    <div>
-      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{title}</h4>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {fields.map((f) => {
-          const currentValue = f.fieldKey && f.fieldKey in editValues ? editValues[f.fieldKey] : f.value;
-          const isEmpty = currentValue === null || currentValue === undefined || currentValue === "";
-          return (
-            <div key={f.label} className={`p-2 rounded border ${isEmpty ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
-              <div className="text-[10px] text-muted-foreground font-mono">{f.label}</div>
-              {editing && f.fieldKey ? (
-                f.type === "boolean" ? (
-                  <Checkbox
-                    checked={!!currentValue}
-                    onCheckedChange={(c) => onFieldChange(f.fieldKey!, !!c)}
-                  />
-                ) : f.type === "select" && f.options ? (
-                  <Select value={String(currentValue || "")} onValueChange={(v) => onFieldChange(f.fieldKey!, v)}>
-                    <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {f.options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                ) : f.type === "number" ? (
-                  <Input type="number" className="h-7 text-xs" value={currentValue != null ? String(currentValue) : ""} onChange={(e) => onFieldChange(f.fieldKey!, e.target.value ? Number(e.target.value) : null)} />
-                ) : (
-                  <Input className="h-7 text-xs" value={currentValue != null ? String(currentValue) : ""} onChange={(e) => onFieldChange(f.fieldKey!, e.target.value || null)} />
-                )
-              ) : (
-                <div className="text-sm break-all">{formatValue(currentValue)}</div>
-              )}
-            </div>
-          );
-        })}
+    <div className={`intel-lead-row ${active ? "active" : ""}`} onClick={onClick}>
+      <div className="intel-lr-top">
+        <div className={`intel-avatar ${avClass(bt)}`}>{initials(lead.nome)}</div>
+        <div className="intel-lr-info">
+          <div className="intel-lr-name">{lead.nome}</div>
+          <div className="intel-lr-email">
+            {lead.email && !lead.email.includes("placeholder") ? lead.email : (lead.empresa_nome || lead.area_atuacao || "—")}
+          </div>
+        </div>
+        <div>
+          <div className={`intel-lr-ltv ${!lead.ltv_total ? "zero" : ""}`}>{brl(lead.ltv_total)}</div>
+          <div style={{ fontSize: 10, color: "var(--id-muted)", textAlign: "right" }}>
+            {lead.total_deals || 0} deal{(lead.total_deals || 0) !== 1 ? "s" : ""}
+          </div>
+        </div>
+      </div>
+      <div className="intel-lr-mid">
+        <span className={`intel-lr-tag ${bt === "company" ? "intel-tag-pj" : bt === "person" ? "intel-tag-pf" : "intel-tag-unk"}`}>
+          {bt === "company" ? "🏢 Empresa" : bt === "person" ? "👤 Pessoa" : "❓"}
+        </span>
+        {lead.status_scanner === "tem_smartdent" && (
+          <span className="intel-lr-tag intel-tag-scanner">🔬 {lead.equip_scanner || "Scanner SD"}</span>
+        )}
+        {lead.impressora_modelo && (
+          <span className="intel-lr-tag intel-tag-imp">🖨️ {lead.impressora_modelo.split(" ").slice(0, 2).join(" ")}</span>
+        )}
+        {lead.status_cad === "tem_exocad" && (
+          <span className="intel-lr-tag intel-tag-cad">💻 Exocad</span>
+        )}
+      </div>
+      <div className="intel-lr-bottom">
+        <div className="intel-lr-stage">{lead.piperun_stage_name || lead.lead_status || "—"}</div>
+        <span className={`intel-lis-micro intel-lis-${lc}`}>LIS {lis}</span>
+        <span className="intel-wf-micro">WF {lead.workflow_score || 0}/10</span>
       </div>
     </div>
   );
 }
 
-function DetailSection({ title, fields }: { title: string; fields: { label: string; value: unknown }[] }) {
-  const nonEmpty = fields.filter((f) => f.value !== null && f.value !== undefined && f.value !== "");
-  if (nonEmpty.length === 0) return null;
-  return (
-    <EditableDetailSection title={title} fields={nonEmpty} editing={false} editValues={{}} onFieldChange={() => {}} />
-  );
-}
+// ─── DETAIL PANEL ───
+function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void }) {
+  const [activeTab, setActiveTab] = useState("identity");
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
+  const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
+  const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
+  const [messageLogs, setMessageLogs] = useState<MsgLog[]>([]);
+  const [productHistory, setProductHistory] = useState<ProductHistory[]>([]);
+  const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
+  const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>([]);
+  const [cartHistory, setCartHistory] = useState<CartHistory[]>([]);
+  const [sdrInteractions, setSdrInteractions] = useState<SdrInteraction[]>([]);
+  const [stateEvents, setStateEvents] = useState<StateEvent[]>([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-function FieldGrid({ lead, fields, startIndex = 0 }: { lead: LeadFull; fields: string[]; startIndex?: number }) {
+  // Load all related data on lead change
+  useEffect(() => {
+    if (!lead?.id) return;
+    setLoadingDetail(true);
+
+    const promises = [
+      supabase.from("lead_activity_log")
+        .select("id, event_type, event_timestamp, entity_type, entity_name, event_data, source_channel, value_numeric")
+        .eq("lead_id", lead.id).order("event_timestamp", { ascending: false }).limit(200),
+      supabase.from("agent_interactions")
+        .select("id, created_at, user_message, agent_response, feedback")
+        .eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(100),
+      supabase.from("whatsapp_inbox")
+        .select("id, created_at, message_text, direction, intent_detected, media_url, media_type")
+        .eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(100),
+      supabase.from("message_logs")
+        .select("id, tipo, mensagem_preview, status, data_envio")
+        .eq("lead_id", lead.id).order("data_envio", { ascending: false }).limit(50),
+      supabase.from("lead_product_history")
+        .select("id, product_name, total_purchased_value, purchased_at, purchase_count")
+        .eq("lead_id", lead.id).order("purchased_at", { ascending: false }).limit(50),
+      supabase.from("lead_course_progress")
+        .select("id, course_name, status, progress_percent, enrolled_at")
+        .eq("lead_id", lead.id).order("enrolled_at", { ascending: false }).limit(50),
+      supabase.from("lead_form_submissions")
+        .select("id, form_name, submitted_at, equipment_mentioned, product_mentioned")
+        .eq("lead_id", lead.id).order("submitted_at", { ascending: false }).limit(50),
+      supabase.from("lead_cart_history")
+        .select("id, total_value, status, created_at, items_count")
+        .eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("lead_sdr_interactions")
+        .select("id, contacted_at, notes, channel, outcome")
+        .eq("lead_id", lead.id).order("contacted_at", { ascending: false }).limit(50),
+      supabase.from("lead_state_events")
+        .select("id, from_stage, to_stage, changed_at, is_regression, trigger_source")
+        .eq("lead_id", lead.id).order("changed_at", { ascending: false }).limit(50),
+    ];
+
+    Promise.all(promises).then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10]) => {
+      setTimelineEvents((r1.data || []) as TimelineEvent[]);
+      setLiaInteractions((r2.data || []) as AgentInteraction[]);
+      setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
+      setMessageLogs((r4.data || []) as MsgLog[]);
+      setProductHistory((r5.data || []) as ProductHistory[]);
+      setCourseProgress((r6.data || []) as CourseProgress[]);
+      setFormSubmissions((r7.data || []) as FormSubmission[]);
+      setCartHistory((r8.data || []) as CartHistory[]);
+      setSdrInteractions((r9.data || []) as SdrInteraction[]);
+      setStateEvents((r10.data || []) as StateEvent[]);
+      setLoadingDetail(false);
+    });
+
+    // Realtime for timeline
+    const channel = supabase
+      .channel(`timeline-${lead.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_activity_log", filter: `lead_id=eq.${lead.id}` },
+        (payload) => setTimelineEvents((prev) => [payload.new as TimelineEvent, ...prev])
+      ).subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [lead?.id]);
+
+  const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
+  const lc = lisColor(lis);
+  const axes = ((lead.intelligence_score as Record<string, unknown>)?.axes || {}) as Record<string, { value: number }>;
+  const bt = lead.buyer_type;
+  const wfScore = lead.workflow_score || 0;
+  const personLinked = !!lead.person_id;
+  const companyLinked = !!lead.company_id;
+
+  // Deals history from JSONB
+  const dealsHistory = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history as Record<string, unknown>[] : [];
+
+  const tabs = [
+    { key: "identity", label: "🔗 Identidade" },
+    { key: "score", label: "📊 LIS Score" },
+    { key: "equipment", label: "⚙️ Equipamentos" },
+    { key: "timeline", label: `⏱️ Timeline (${timelineEvents.length})` },
+    { key: "conversations", label: `💬 Conversas` },
+    { key: "behavioral", label: "🧠 Behavioral" },
+    { key: "overview", label: "📋 Visão Geral" },
+  ];
+
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-      {fields.map((f, i) => {
-        const val = (lead as Record<string, unknown>)[f];
-        const isEmpty = val === null || val === undefined || val === "";
-        const num = startIndex + i + 1;
-        return (
-          <div key={f} className={`p-2 rounded border ${isEmpty ? "bg-muted/10 border-dashed" : "bg-muted/30"}`}>
-            <div className="text-[10px] font-mono text-muted-foreground">
-              <span className="text-primary/60 font-bold">#{num}</span> · {f}
+    <div className="intel-detail">
+      <div className="intel-card-inner">
+        {/* Close button for mobile */}
+        <button className="intel-btn mb-3 lg:hidden" onClick={onClose}>
+          <X size={14} /> Voltar à lista
+        </button>
+
+        {/* HERO CARD */}
+        <div className="intel-hero">
+          <div className={`intel-avatar intel-avatar-lg ${avClass(bt)}`}>{initials(lead.nome)}</div>
+          <div>
+            <div className={`intel-buyer-badge ${bt === "company" ? "intel-bb-c" : bt === "person" ? "intel-bb-p" : "intel-bb-u"}`}>
+              {bt === "company" ? "🏢 B2B — EMPRESA" : bt === "person" ? "👤 B2C — PESSOA" : "❓ DESCONHECIDO"}
             </div>
-            <div className={`text-sm break-all ${isEmpty ? "text-muted-foreground italic" : ""}`}>
-              {isEmpty ? "—"
-                : typeof val === "boolean" ? (val ? "✓" : "✗")
-                : Array.isArray(val) ? (val as string[]).join(", ")
-                : typeof val === "object" ? JSON.stringify(val).slice(0, 120) + "…"
-                : String(val)}
+            <div className="intel-lead-name-h">{lead.nome}</div>
+            <div className="intel-meta-row">
+              {lead.area_atuacao && <span className="intel-meta">🏥 <strong>{lead.area_atuacao}</strong></span>}
+              {lead.empresa_nome && <span className="intel-meta">🏢 <strong>{lead.empresa_nome}</strong></span>}
+              {lead.telefone_normalized && <span className="intel-meta">📞 <strong>{lead.telefone_normalized}</strong></span>}
+              {lead.piperun_stage_name && <span className="intel-meta">📊 <strong>{lead.piperun_stage_name}</strong></span>}
+              <span className="intel-meta">📡 <strong>{lead.source || "—"}</strong></span>
             </div>
           </div>
-        );
-      })}
+          <div className="intel-wf-block">
+            <div className="intel-blk-label">Workflow</div>
+            <div className="intel-wf-val-h">{wfScore}<span style={{ fontSize: 13, color: "var(--id-muted)" }}>/10</span></div>
+            <div className="intel-wf-bar-h">
+              {Array.from({ length: 10 }, (_, i) => (
+                <div key={i} className={`intel-wf-seg ${i < wfScore ? "on" : ""}`} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="intel-blk-label">LTV Total</div>
+            <div className="intel-ltv-val">{brl(lead.ltv_total)}</div>
+            <div className="intel-ltv-sub">{lead.total_deals || 0} deal{(lead.total_deals || 0) !== 1 ? "s" : ""}</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div className="intel-blk-label">LIS Score</div>
+            <div className={`intel-lis-val-h intel-lis-${lc}-h`}>{lis}</div>
+            <div className={`intel-heat-badge intel-hb-${lc}`}>{lisLabel(lis)}</div>
+          </div>
+        </div>
+
+        {/* TABS */}
+        <div style={{ background: "var(--id-s1)", border: "1px solid var(--id-b2)", borderRadius: 14, overflow: "hidden" }}>
+          <div className="intel-tabs">
+            {tabs.map((tab) => (
+              <div key={tab.key} className={`intel-tab ${activeTab === tab.key ? "active" : ""}`} onClick={() => setActiveTab(tab.key)}>
+                {tab.label}
+              </div>
+            ))}
+          </div>
+          <div className="intel-tab-body">
+            {/* TAB: IDENTITY */}
+            {activeTab === "identity" && (
+              <div>
+                <div className="intel-sec">Identity Graph — vínculos pessoa · empresa</div>
+                <div className="intel-ig-section">
+                  <div style={{ fontSize: 11, color: "var(--id-muted2)", marginBottom: 14 }}>
+                    Rastreabilidade completa: lia_attendances → people → companies → PipeRun CRM
+                  </div>
+                  <div className="intel-ig-grid">
+                    <div className="intel-ig-node" style={{ borderColor: "rgba(79,143,255,.3)" }}>
+                      <div className="intel-ig-node-label">📊 lia_attendances</div>
+                      <div className="intel-ig-node-name">{lead.nome}</div>
+                      <div style={{ fontSize: 10, color: "var(--id-muted)", marginTop: 4 }}>id (uuid PK)</div>
+                      <div className="intel-ig-hash ok" onClick={() => copyHash(lead.id)}>{shortHash(lead.id)}</div>
+                      {lead.pessoa_piperun_id && (
+                        <>
+                          <div style={{ fontSize: 10, color: "var(--id-muted)", marginTop: 4 }}>pessoa_piperun_id</div>
+                          <div className="intel-ig-hash ok">{lead.pessoa_piperun_id}</div>
+                        </>
+                      )}
+                    </div>
+                    <div className="intel-ig-conn">
+                      <div className={`intel-ig-rel-badge ${personLinked ? "intel-rel-ok" : "intel-rel-miss"}`}>
+                        {personLinked ? "person_id →" : "sem FK →"}
+                      </div>
+                      <div className="intel-ig-arrow-line" />
+                    </div>
+                    <div className="intel-ig-node" style={{ borderColor: personLinked ? "rgba(79,255,176,.25)" : "rgba(255,71,87,.25)" }}>
+                      <div className="intel-ig-node-label">👤 people</div>
+                      <div className="intel-ig-node-name">{lead.nome}</div>
+                      {personLinked ? (
+                        <>
+                          <div style={{ fontSize: 10, color: "var(--id-muted)", marginTop: 4 }}>person.id</div>
+                          <div className="intel-ig-hash ok" onClick={() => copyHash(lead.person_id)}>{shortHash(lead.person_id)}</div>
+                        </>
+                      ) : (
+                        <div className="intel-ig-hash miss" style={{ marginTop: 8 }}>Não vinculado</div>
+                      )}
+                    </div>
+                    <div className="intel-ig-conn">
+                      <div className={`intel-ig-rel-badge ${companyLinked ? "intel-rel-ok" : "intel-rel-miss"}`}>
+                        {companyLinked ? "company_id →" : "sem FK →"}
+                      </div>
+                      <div className="intel-ig-arrow-line" />
+                    </div>
+                    <div className="intel-ig-node" style={{ borderColor: companyLinked ? "rgba(232,255,71,.22)" : "rgba(255,71,87,.25)" }}>
+                      <div className="intel-ig-node-label">🏢 companies</div>
+                      <div className="intel-ig-node-name">{lead.empresa_nome || "—"}</div>
+                      {companyLinked ? (
+                        <>
+                          <div style={{ fontSize: 10, color: "var(--id-muted)", marginTop: 4 }}>company.id</div>
+                          <div className="intel-ig-hash ok" onClick={() => copyHash(lead.company_id)}>{shortHash(lead.company_id)}</div>
+                        </>
+                      ) : (
+                        <div className="intel-ig-hash miss" style={{ marginTop: 8 }}>Não vinculado</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="intel-sec">Mapa de Chaves</div>
+                <table className="intel-key-table">
+                  <thead><tr><th>Entidade</th><th>Campo</th><th>Hash / Valor</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {[
+                      { e: "Lead Hub", f: "id (uuid PK)", v: shortHash(lead.id), full: lead.id, st: "ok" },
+                      { e: "Pessoa FK", f: "person_id", v: personLinked ? shortHash(lead.person_id) : "—", full: lead.person_id, st: personLinked ? "ok" : "miss" },
+                      { e: "Empresa FK", f: "company_id", v: companyLinked ? shortHash(lead.company_id) : "—", full: lead.company_id, st: companyLinked ? "ok" : "miss" },
+                      { e: "CRM Pessoa", f: "pessoa_piperun_id", v: lead.pessoa_piperun_id || "—", full: null, st: lead.pessoa_piperun_id ? "ok" : "miss" },
+                      { e: "CRM Empresa", f: "empresa_piperun_id", v: lead.empresa_piperun_id || "—", full: null, st: lead.empresa_piperun_id ? "ok" : "miss" },
+                      { e: "Deal Ativo", f: "piperun_id", v: lead.piperun_id || "—", full: null, st: lead.piperun_id ? "open" : "miss" },
+                      { e: "Email", f: "email", v: lead.email && !lead.email.includes("placeholder") ? lead.email : "placeholder", full: null, st: lead.email && !lead.email.includes("placeholder") ? "ok" : "miss" },
+                      { e: "Telefone", f: "telefone_normalized", v: lead.telefone_normalized || "—", full: null, st: lead.telefone_normalized ? "ok" : "miss" },
+                    ].map((row, i) => (
+                      <tr key={i}>
+                        <td style={{ color: "var(--id-muted2)" }}>{row.e}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", color: "var(--id-blue)", fontSize: 10 }}>{row.f}</td>
+                        <td>
+                          <span
+                            className={`intel-ig-hash ${row.st === "ok" ? "ok" : row.st === "miss" ? "miss" : ""}`}
+                            onClick={() => row.full && copyHash(row.full)}
+                            style={{ cursor: row.full ? "pointer" : "default" }}
+                          >{String(row.v)}</span>
+                        </td>
+                        <td>
+                          <span className={`intel-s-chip ${row.st === "ok" ? "intel-sc-ok" : row.st === "open" ? "intel-sc-open" : "intel-sc-miss"}`}>
+                            {row.st === "ok" ? "✓ Ativo" : row.st === "open" ? "⏳ Aberto" : "⚠ Pendente"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* TAB: LIS SCORE */}
+            {activeTab === "score" && (
+              <div>
+                <div className="intel-sec">LIS Score — breakdown por eixo</div>
+                <div className="intel-stats-row">
+                  <div className="intel-stat-box">
+                    <div className={`intel-stat-num ${lc === "hot" ? "r" : lc === "warm" ? "y" : ""}`}>{lis}</div>
+                    <div className="intel-stat-lbl">LIS Score</div>
+                  </div>
+                  <div className="intel-stat-box">
+                    <div className="intel-stat-num y">{wfScore}/10</div>
+                    <div className="intel-stat-lbl">Workflow</div>
+                  </div>
+                  <div className="intel-stat-box">
+                    <div className="intel-stat-num g">{brl(lead.ltv_total)}</div>
+                    <div className="intel-stat-lbl">LTV</div>
+                  </div>
+                  <div className="intel-stat-box">
+                    <div className="intel-stat-num b">{lead.total_deals || 0}</div>
+                    <div className="intel-stat-lbl">Deals</div>
+                  </div>
+                  <div className="intel-stat-box">
+                    <div className="intel-stat-num">{lead.piperun_id || "—"}</div>
+                    <div className="intel-stat-lbl">OppID</div>
+                  </div>
+                </div>
+                <div className="intel-lis-bd">
+                  {[
+                    { label: "🔥 Sales Heat (35%)", key: "sales_heat" },
+                    { label: "💰 Purchase Power (20%)", key: "purchase_power" },
+                    { label: "⚙️ Technical Maturity (20%)", key: "technical_maturity" },
+                    { label: "📊 Behavioral Engagement (25%)", key: "behavioral_engagement" },
+                  ].map(({ label, key }) => {
+                    const v = axes[key]?.value || 0;
+                    const color = v >= 50 ? "var(--id-teal)" : v >= 30 ? "var(--id-acc)" : "var(--id-muted)";
+                    return (
+                      <div key={key} className="intel-lis-comp">
+                        <div className="intel-lis-comp-label">{label}</div>
+                        <div className="intel-lis-bar-wrap">
+                          <div className="intel-lis-bar-fill" style={{ width: `${v}%`, background: color }} />
+                        </div>
+                        <div className="intel-lis-comp-val" style={{ color }}>{v}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="intel-formula-box">
+                  <strong style={{ color: "var(--id-acc)" }}>Fórmula:</strong>{" "}
+                  ({axes.sales_heat?.value || 0}×0.35) + ({axes.purchase_power?.value || 0}×0.20) + ({axes.technical_maturity?.value || 0}×0.20) + ({axes.behavioral_engagement?.value || 0}×0.25) ={" "}
+                  <strong style={{ color: "var(--id-teal)" }}>{lis}</strong>
+                  {lis < 40 && (
+                    <><br /><span style={{ color: "var(--id-hot)" }}>⚠ Engajamento comportamental baixo — lead sem interações recentes</span></>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: EQUIPMENT */}
+            {activeTab === "equipment" && (
+              <div>
+                <div className="intel-sec">Fluxo chairside — mapa de equipamentos</div>
+                <div className="intel-flow-section">
+                  <div className="intel-flow-label">🔬 Scanner Intraoral</div>
+                  <div className="intel-flow-items">
+                    {lead.equip_scanner && lead.status_scanner === "tem_smartdent" ? (
+                      <div className="intel-fi intel-fi-owned"><div className="intel-fi-dot" />{lead.equip_scanner} — SmartDent ✓</div>
+                    ) : lead.equip_scanner ? (
+                      <div className="intel-fi intel-fi-none"><div className="intel-fi-dot" />{lead.equip_scanner} — concorrente</div>
+                    ) : lead.status_scanner === "tem_smartdent" ? (
+                      <div className="intel-fi intel-fi-owned"><div className="intel-fi-dot" />Scanner SmartDent ✓</div>
+                    ) : (
+                      <div className="intel-fi intel-fi-none"><div className="intel-fi-dot" />Não mapeado</div>
+                    )}
+                  </div>
+                </div>
+                <div className="intel-flow-section">
+                  <div className="intel-flow-label">🖨️ Impressora 3D</div>
+                  <div className="intel-flow-items">
+                    {lead.impressora_modelo && lead.status_impressora === "tem_com_resina_sd" ? (
+                      <div className="intel-fi intel-fi-owned"><div className="intel-fi-dot" />{lead.impressora_modelo} — com resina SD ✓</div>
+                    ) : lead.impressora_modelo ? (
+                      <div className="intel-fi intel-fi-none"><div className="intel-fi-dot" />{lead.impressora_modelo} — sem resina SD</div>
+                    ) : lead.status_impressora ? (
+                      <div className="intel-fi intel-fi-none"><div className="intel-fi-dot" />{lead.status_impressora}</div>
+                    ) : (
+                      <div className="intel-fi intel-fi-none"><div className="intel-fi-dot" />Não mapeado</div>
+                    )}
+                  </div>
+                </div>
+                <div className="intel-flow-section">
+                  <div className="intel-flow-label">💻 Software CAD</div>
+                  <div className="intel-flow-items">
+                    {lead.status_cad === "tem_exocad" ? (
+                      <div className="intel-fi intel-fi-owned"><div className="intel-fi-dot" />Exocad ✓</div>
+                    ) : lead.status_cad === "interesse" ? (
+                      <div className="intel-fi intel-fi-interest"><div className="intel-fi-dot" />Exocad — interesse</div>
+                    ) : (
+                      <div className="intel-fi intel-fi-none"><div className="intel-fi-dot" />CAD não mapeado</div>
+                    )}
+                  </div>
+                </div>
+                <div className="intel-gap-box">
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--id-acc)", marginBottom: 6 }}>Análise de Lacunas</div>
+                  <div style={{ fontSize: 11, color: "var(--id-muted2)", lineHeight: 1.7 }}>
+                    Workflow score <strong style={{ color: "var(--id-acc)" }}>{wfScore}/10</strong>.
+                    {!lead.status_cad && <span style={{ color: "var(--id-hot)" }}> CAD não mapeado — lacuna principal.</span>}
+                    {!lead.impressora_modelo && !lead.status_impressora && <span style={{ color: "var(--id-warm)" }}> Impressora não identificada.</span>}
+                    {wfScore >= 7 && <span style={{ color: "var(--id-teal)" }}> Setup técnico avançado — foco em consumíveis e expansão.</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: TIMELINE */}
+            {activeTab === "timeline" && (
+              <div>
+                <div className="intel-sec">Timeline — eventos em tempo real</div>
+                {loadingDetail && timelineEvents.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "var(--id-muted)" }}>Carregando timeline...</p>
+                ) : timelineEvents.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhum evento registrado.</p>
+                ) : (
+                  <div style={{ maxHeight: 500, overflowY: "auto" }}>
+                    {timelineEvents.map((event) => {
+                      const emoji = TIMELINE_EMOJI[event.event_type] || "📌";
+                      const label = TIMELINE_LABEL[event.event_type] || event.event_type.replace(/_/g, " ");
+                      const isNew = Date.now() - new Date(event.event_timestamp).getTime() < 60_000;
+                      return (
+                        <div key={event.id} className={`intel-timeline-item ${isNew ? "is-new" : ""}`}>
+                          <div className="intel-timeline-dot">{emoji}</div>
+                          <div className="intel-timeline-date">{fmtDateTime(event.event_timestamp)}</div>
+                          <div className="intel-timeline-label">{label}</div>
+                          {event.entity_name && <div style={{ fontSize: 10, color: "var(--id-muted)" }}>{event.entity_name}</div>}
+                          {event.value_numeric != null && event.value_numeric > 0 && (
+                            <div style={{ fontSize: 10, color: "var(--id-teal)", fontWeight: 600 }}>{formatCurrency(event.value_numeric)}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Deals History */}
+                {dealsHistory.length > 0 && (
+                  <>
+                    <div className="intel-sec" style={{ marginTop: 16 }}>Histórico de Deals ({dealsHistory.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {dealsHistory.map((deal, i) => (
+                        <div key={i} className="intel-section-panel">
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontWeight: 600, fontSize: 12 }}>{String(deal.product || deal.title || `Deal #${i + 1}`)}</span>
+                            {deal.value != null && <span style={{ fontWeight: 700, color: "var(--id-teal)", fontSize: 12 }}>{formatCurrency(Number(deal.value))}</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 10, color: "var(--id-muted)" }}>
+                            {deal.date && <span>📅 {fmtDate(String(deal.date))}</span>}
+                            {deal.owner_name && <span>👤 {String(deal.owner_name)}</span>}
+                            {deal.status && <span className="intel-s-chip intel-sc-open">{String(deal.status)}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* TAB: CONVERSATIONS */}
+            {activeTab === "conversations" && (
+              <div>
+                {/* LIA Conversations */}
+                <div className="intel-sec">💬 Conversas LIA ({liaInteractions.length})</div>
+                {liaInteractions.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhuma conversa com a LIA</p>
+                ) : (
+                  <div style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                    {liaInteractions.map((item) => (
+                      <div key={item.id}>
+                        <div style={{ fontSize: 10, color: "var(--id-muted)", marginBottom: 2 }}>
+                          {fmtDateTime(item.created_at)}
+                          {item.feedback && item.feedback !== "none" && <span className="ml-1">{item.feedback === "positive" ? " 👍" : " 👎"}</span>}
+                        </div>
+                        <div className="intel-msg intel-msg-user" style={{ marginBottom: 4 }}>{item.user_message}</div>
+                        {item.agent_response && (
+                          <div className="intel-msg intel-msg-ai">
+                            {item.agent_response.length > 400 ? item.agent_response.slice(0, 400) + "…" : item.agent_response}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* WhatsApp */}
+                <div className="intel-sec">📱 WhatsApp Inbox ({whatsappMsgs.length})</div>
+                {whatsappMsgs.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhuma mensagem WhatsApp</p>
+                ) : (
+                  <div style={{ maxHeight: 300, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                    {whatsappMsgs.map((msg) => (
+                      <div key={msg.id} className={`intel-msg ${msg.direction === "inbound" ? "intel-msg-user" : "intel-msg-ai"}`}>
+                        <div style={{ fontSize: 10, color: "var(--id-muted)", marginBottom: 2 }}>
+                          {fmtDateTime(msg.created_at)} · {msg.direction === "inbound" ? "⬅️ entrada" : "➡️ saída"}
+                          {msg.intent_detected && <span style={{ marginLeft: 4 }}>🎯 {msg.intent_detected}</span>}
+                        </div>
+                        {msg.media_url && (
+                          <a href={msg.media_url} target="_blank" rel="noreferrer" style={{ color: "var(--id-blue)", fontSize: 10 }}>📎 {msg.media_type || "arquivo"}</a>
+                        )}
+                        <p style={{ whiteSpace: "pre-wrap", margin: 0 }}>{msg.message_text || "[sem texto]"}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Message Logs */}
+                <div className="intel-sec">📨 Mensagens Sistema ({messageLogs.length})</div>
+                {messageLogs.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhuma mensagem</p>
+                ) : (
+                  <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                    {messageLogs.map((msg) => (
+                      <div key={msg.id} className="intel-section-panel" style={{ padding: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--id-muted)" }}>
+                          <span>{fmtDateTime(msg.data_envio)}</span>
+                          <span>{msg.tipo || ""} · {msg.status}</span>
+                        </div>
+                        <p style={{ fontSize: 11, color: "var(--id-muted2)", margin: "2px 0 0" }}>
+                          {msg.mensagem_preview ? (msg.mensagem_preview.length > 200 ? msg.mensagem_preview.slice(0, 200) + "…" : msg.mensagem_preview) : "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: BEHAVIORAL */}
+            {activeTab === "behavioral" && (
+              <div>
+                {/* Product History */}
+                <div className="intel-sec">🛒 Histórico de Compras ({productHistory.length})</div>
+                {productHistory.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhum produto comprado</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                    {productHistory.map((ph) => (
+                      <div key={ph.id} className="intel-section-panel" style={{ padding: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-ink)" }}>{ph.product_name || "—"}</span>
+                          {ph.total_purchased_value != null && <span style={{ color: "var(--id-teal)", fontWeight: 700 }}>{formatCurrency(ph.total_purchased_value)}</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--id-muted)" }}>
+                          {ph.purchased_at && <span>📅 {fmtDate(ph.purchased_at)}</span>}
+                          {ph.purchase_count != null && <span> · {ph.purchase_count}x compras</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cart History */}
+                <div className="intel-sec">🛒 Carrinhos Abandonados ({cartHistory.filter(c => c.status === "abandoned").length})</div>
+                {cartHistory.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhum carrinho</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                    {cartHistory.map((ch) => (
+                      <div key={ch.id} className="intel-section-panel" style={{ padding: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 11, color: "var(--id-muted2)" }}>{ch.items_count || 0} itens</span>
+                          {ch.total_value != null && <span style={{ color: ch.status === "abandoned" ? "var(--id-hot)" : "var(--id-teal)", fontWeight: 600 }}>{formatCurrency(ch.total_value)}</span>}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--id-muted)" }}>
+                          {fmtDate(ch.created_at)} · <span className={`intel-s-chip ${ch.status === "abandoned" ? "intel-sc-miss" : "intel-sc-ok"}`}>{ch.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Form Submissions */}
+                <div className="intel-sec">📝 Formulários ({formSubmissions.length})</div>
+                {formSubmissions.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhum formulário</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 16 }}>
+                    {formSubmissions.map((fs) => (
+                      <div key={fs.id} className="intel-detail-row">
+                        <span className="intel-detail-row-label">📝 {fs.form_name || "Formulário"}</span>
+                        <span className="intel-detail-row-value">
+                          {fmtDate(fs.submitted_at)}
+                          {fs.equipment_mentioned && <span> · 🔧 {fs.equipment_mentioned}</span>}
+                          {fs.product_mentioned && <span> · 🏷️ {fs.product_mentioned}</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Course Progress */}
+                <div className="intel-sec">🎓 Progresso Cursos ({courseProgress.length})</div>
+                {courseProgress.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhum curso</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+                    {courseProgress.map((cp) => (
+                      <div key={cp.id} className="intel-section-panel" style={{ padding: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-ink)" }}>{cp.course_name || "—"}</span>
+                          <span className={`intel-s-chip ${cp.status === "completed" ? "intel-sc-ok" : "intel-sc-open"}`}>{cp.status || "—"}</span>
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--id-muted)" }}>
+                          {cp.progress_percent != null && <span>Progresso: {cp.progress_percent}%</span>}
+                          {cp.enrolled_at && <span> · Inscrito em {fmtDate(cp.enrolled_at)}</span>}
+                        </div>
+                        {cp.progress_percent != null && (
+                          <div className="intel-lis-bar-wrap" style={{ marginTop: 4 }}>
+                            <div className="intel-lis-bar-fill" style={{ width: `${cp.progress_percent}%`, background: cp.status === "completed" ? "var(--id-teal)" : "var(--id-blue)" }} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* SDR Interactions */}
+                <div className="intel-sec">📞 Interações SDR ({sdrInteractions.length})</div>
+                {sdrInteractions.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhuma interação SDR</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 16 }}>
+                    {sdrInteractions.map((si) => (
+                      <div key={si.id} className="intel-section-panel" style={{ padding: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--id-muted)" }}>
+                          <span>{fmtDateTime(si.contacted_at)}</span>
+                          <span>{si.channel || ""} · {si.outcome || ""}</span>
+                        </div>
+                        {si.notes && <p style={{ fontSize: 11, color: "var(--id-muted2)", marginTop: 4 }}>{si.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* State Events */}
+                <div className="intel-sec">🔄 Transições de Estágio ({stateEvents.length})</div>
+                {stateEvents.length === 0 ? (
+                  <p style={{ fontSize: 11, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhuma transição</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {stateEvents.map((se) => (
+                      <div key={se.id} className="intel-detail-row">
+                        <span className="intel-detail-row-label">
+                          {se.is_regression ? "⚠️" : "➡️"} {se.from_stage || "—"} → {se.to_stage || "—"}
+                        </span>
+                        <span className="intel-detail-row-value">
+                          {fmtDateTime(se.changed_at)}
+                          {se.trigger_source && <span> · {se.trigger_source}</span>}
+                          {se.is_regression && <span style={{ color: "var(--id-hot)" }}> REGRESSÃO</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: OVERVIEW (all CDP fields) */}
+            {activeTab === "overview" && (
+              <div>
+                {/* Cognitive Analysis */}
+                <div className="intel-sec">🧠 Análise Cognitiva</div>
+                <div className="intel-section-panel">
+                  {[
+                    { label: "Estágio Cognitivo", key: "lead_stage_detected" },
+                    { label: "Urgência", key: "urgency_level" },
+                    { label: "Perfil Psicológico", key: "psychological_profile" },
+                    { label: "Motivação Principal", key: "primary_motivation" },
+                    { label: "Risco de Objeção", key: "objection_risk" },
+                    { label: "Abordagem Recomendada", key: "recommended_approach" },
+                    { label: "Timeline Interesse", key: "interest_timeline" },
+                    { label: "Confiança", key: "confidence_score_analysis" },
+                  ].map(({ label, key }) => {
+                    const val = s(lead, key);
+                    if (!val) return null;
+                    return (
+                      <div key={key} className="intel-detail-row">
+                        <span className="intel-detail-row-label">{label}</span>
+                        <span className="intel-detail-row-value">{val}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Resumo IA */}
+                {s(lead, "resumo_historico_ia") && (
+                  <div className="intel-section-panel" style={{ borderColor: "rgba(79,143,255,.2)", marginTop: 12 }}>
+                    <div className="intel-section-panel-header">🧠 Resumo IA do Histórico</div>
+                    <p style={{ fontSize: 12, color: "var(--id-muted2)", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                      {s(lead, "resumo_historico_ia")}
+                    </p>
+                  </div>
+                )}
+
+                {/* Contato */}
+                <div className="intel-sec" style={{ marginTop: 16 }}>📇 Contato</div>
+                <div className="intel-section-panel">
+                  {[
+                    { label: "Email", val: lead.email },
+                    { label: "Telefone", val: lead.telefone_normalized },
+                    { label: "Cidade/UF", val: [s(lead, "cidade"), s(lead, "uf")].filter(Boolean).join(" / ") || null },
+                    { label: "1º Contato", val: fmtDateTime(s(lead, "data_primeiro_contato")) !== "—" ? fmtDateTime(s(lead, "data_primeiro_contato")) : null },
+                    { label: "Especialidade", val: s(lead, "especialidade") },
+                    { label: "Área Atuação", val: lead.area_atuacao },
+                  ].map(({ label, val }) => val && (
+                    <div key={label} className="intel-detail-row">
+                      <span className="intel-detail-row-label">{label}</span>
+                      <span className="intel-detail-row-value">{val}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Comercial */}
+                <div className="intel-sec" style={{ marginTop: 16 }}>💼 Comercial</div>
+                <div className="intel-section-panel">
+                  {[
+                    { label: "Status", val: lead.lead_status },
+                    { label: "Produto Interesse", val: s(lead, "produto_interesse") },
+                    { label: "Valor Oportunidade", val: n(lead, "valor_oportunidade") ? formatCurrency(n(lead, "valor_oportunidade")!) : null },
+                    { label: "Proprietário CRM", val: s(lead, "proprietario_lead_crm") },
+                    { label: "Funil CRM", val: s(lead, "funil_entrada_crm") },
+                    { label: "Última Etapa", val: s(lead, "ultima_etapa_comercial") },
+                    { label: "PipeRun Link", val: s(lead, "piperun_link") },
+                    { label: "Motivo Perda", val: s(lead, "motivo_perda") },
+                  ].map(({ label, val }) => val && (
+                    <div key={label} className="intel-detail-row">
+                      <span className="intel-detail-row-label">{label}</span>
+                      <span className="intel-detail-row-value">
+                        {label === "PipeRun Link" ? (
+                          <a href={val} target="_blank" rel="noreferrer" style={{ color: "var(--id-blue)" }}>Abrir PipeRun →</a>
+                        ) : val}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Loja Integrada */}
+                {n(lead, "lojaintegrada_ultimo_pedido_valor") != null && (
+                  <>
+                    <div className="intel-sec" style={{ marginTop: 16 }}>🛒 Loja Integrada</div>
+                    <div className="intel-section-panel">
+                      {[
+                        { label: "Último Pedido", val: s(lead, "lojaintegrada_ultimo_pedido_numero") },
+                        { label: "Valor", val: n(lead, "lojaintegrada_ultimo_pedido_valor") ? formatCurrency(n(lead, "lojaintegrada_ultimo_pedido_valor")!) : null },
+                        { label: "Status", val: s(lead, "lojaintegrada_ultimo_pedido_status") },
+                        { label: "Data", val: fmtDate(s(lead, "lojaintegrada_ultimo_pedido_data")) !== "—" ? fmtDate(s(lead, "lojaintegrada_ultimo_pedido_data")) : null },
+                        { label: "LTV E-commerce", val: n(lead, "lojaintegrada_ltv") ? formatCurrency(n(lead, "lojaintegrada_ltv")!) : null },
+                        { label: "Total Pedidos Pagos", val: s(lead, "lojaintegrada_total_pedidos_pagos") },
+                      ].map(({ label, val }) => val && (
+                        <div key={label} className="intel-detail-row">
+                          <span className="intel-detail-row-label">{label}</span>
+                          <span className="intel-detail-row-value">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Astron */}
+                {s(lead, "astron_status") && (
+                  <>
+                    <div className="intel-sec" style={{ marginTop: 16 }}>🎓 Astron Academy</div>
+                    <div className="intel-section-panel">
+                      {[
+                        { label: "Status", val: s(lead, "astron_status") },
+                        { label: "Cursos Total", val: s(lead, "astron_courses_total") },
+                        { label: "Cursos Completos", val: s(lead, "astron_courses_completed") },
+                        { label: "Último Login", val: fmtDateTime(s(lead, "astron_last_login_at")) !== "—" ? fmtDateTime(s(lead, "astron_last_login_at")) : null },
+                      ].map(({ label, val }) => val && (
+                        <div key={label} className="intel-detail-row">
+                          <span className="intel-detail-row-label">{label}</span>
+                          <span className="intel-detail-row-value">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* RAW JSON blocks */}
+                <div className="intel-sec" style={{ marginTop: 16 }}>🗄️ Dados Brutos</div>
+                {[
+                  { label: "intelligence_score", data: lead.intelligence_score },
+                  { label: "cognitive_analysis", data: lead.cognitive_analysis as unknown },
+                  { label: "piperun_deals_history", data: lead.piperun_deals_history as unknown },
+                ].map(({ label, data }) => {
+                  if (!data || (typeof data === "object" && Object.keys(data as object).length === 0)) return null;
+                  return (
+                    <details key={label} style={{ marginBottom: 8 }}>
+                      <summary style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "var(--id-muted)", cursor: "pointer" }}>{label}</summary>
+                      <pre style={{ fontSize: 10, background: "var(--id-s2)", padding: 8, borderRadius: 8, marginTop: 4, overflow: "auto", maxHeight: 200, whiteSpace: "pre-wrap", wordBreak: "break-all", color: "var(--id-muted2)" }}>
+                        {JSON.stringify(data, null, 2)}
+                      </pre>
+                    </details>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function JsonBlock({ label, data }: { label: string; data: unknown }) {
-  if (!data || (typeof data === "object" && Object.keys(data as object).length === 0) || (Array.isArray(data) && data.length === 0)) return null;
-  return (
-    <details className="mt-2">
-      <summary className="text-xs font-mono text-muted-foreground cursor-pointer hover:text-foreground">{label}</summary>
-      <pre className="text-[10px] bg-muted/50 p-2 rounded mt-1 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
-        {JSON.stringify(data, null, 2)}
-      </pre>
-    </details>
-  );
-}
-
-const STATUS_EDIT_OPTIONS = ["novo", "sem_contato", "contato_feito", "em_contato", "apresentacao", "proposta_enviada", "negociacao", "fechamento", "ganho", "perdido"];
-const TEMP_EDIT_OPTIONS = ["quente", "morno", "frio"];
-const OPORTUNIDADE_OPTIONS = ["aberta", "ganha", "perdida"];
-const TREINAMENTO_OPTIONS = ["pendente", "agendado", "concluido"];
-
-function LeadDetailDialog({ lead, onClose, onSaved }: {
-  lead: LeadFull | null;
-  onClose: () => void;
-  onSaved: (updated: LeadFull) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [editValues, setEditValues] = useState<Record<string, unknown>>({});
-  const [saving, setSaving] = useState(false);
-
-  const handleFieldChange = (key: string, value: unknown) => {
-    setEditValues((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = async () => {
-    if (!lead) return;
-    setSaving(true);
-    try {
-      const updates: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(editValues)) {
-        updates[key] = value;
-      }
-      const { error } = await supabase
-        .from("lia_attendances")
-        .update(updates)
-        .eq("id", lead.id);
-      if (error) throw error;
-      toast.success("Lead atualizado com sucesso");
-      onSaved({ ...lead, ...updates } as LeadFull);
-      setEditing(false);
-      setEditValues({});
-    } catch (err) {
-      toast.error(`Erro ao salvar: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () => {
-    setEditing(false);
-    setEditValues({});
-  };
-
-  if (!lead) return null;
-
-  return (
-    <Dialog open={!!lead} onOpenChange={(open) => { if (!open) { handleCancel(); onClose(); } }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-          <DialogHeader className="px-6 pt-6 pb-2">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2 flex-wrap">
-                {lead.nome}
-                <Badge variant="outline">{lead.lead_status}</Badge>
-                <TempBadge temp={lead.temperatura_lead} />
-                <StageBadge stage={lead.lead_stage_detected} />
-                <UrgencyIcon urgency={lead.urgency_level} />
-              </DialogTitle>
-              <div className="flex gap-2">
-                {editing ? (
-                  <>
-                    <Button size="sm" variant="outline" onClick={handleCancel} disabled={saving}>
-                      <X className="w-4 h-4 mr-1" /> Cancelar
-                    </Button>
-                    <Button size="sm" onClick={handleSave} disabled={saving}>
-                      <Save className="w-4 h-4 mr-1" /> {saving ? "Salvando..." : "Salvar"}
-                    </Button>
-                  </>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-                    <Pencil className="w-4 h-4 mr-1" /> Editar
-                  </Button>
-                )}
-              </div>
-            </div>
-          </DialogHeader>
-
-          {editing ? (
-            <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
-              <div className="space-y-4">
-                {/* AI Summary editable */}
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Brain className="w-4 h-4 text-primary" />
-                    <span className="text-xs font-semibold text-primary">Resumo IA do Histórico</span>
-                  </div>
-                  <Input className="text-sm" value={editValues.resumo_historico_ia != null ? String(editValues.resumo_historico_ia) : (lead.resumo_historico_ia || "")} onChange={(e) => handleFieldChange("resumo_historico_ia", e.target.value || null)} />
-                </div>
-
-                <EditableDetailSection title="Dados Pessoais" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "Nome", value: lead.nome, fieldKey: "nome" },
-                  { label: "Email", value: lead.email, fieldKey: "email" },
-                  { label: "Telefone Raw", value: lead.telefone_raw, fieldKey: "telefone_raw" },
-                  { label: "Telefone Normalizado", value: lead.telefone_normalized, fieldKey: "telefone_normalized" },
-                  { label: "Cidade", value: lead.cidade, fieldKey: "cidade" },
-                  { label: "UF", value: lead.uf, fieldKey: "uf" },
-                  { label: "País", value: lead.pais_origem, fieldKey: "pais_origem" },
-                  { label: "Área de atuação", value: lead.area_atuacao, fieldKey: "area_atuacao" },
-                  { label: "Especialidade", value: lead.especialidade, fieldKey: "especialidade" },
-                  { label: "Aplicação principal", value: lead.principal_aplicacao, fieldKey: "principal_aplicacao" },
-                ]} />
-
-                <EditableDetailSection title="Comercial" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "Status Lead", value: lead.lead_status, fieldKey: "lead_status", type: "select", options: STATUS_EDIT_OPTIONS },
-                  { label: "Temperatura", value: lead.temperatura_lead, fieldKey: "temperatura_lead", type: "select", options: TEMP_EDIT_OPTIONS },
-                  { label: "Produto de Interesse", value: lead.produto_interesse, fieldKey: "produto_interesse" },
-                  { label: "Resina de Interesse", value: lead.resina_interesse, fieldKey: "resina_interesse" },
-                  { label: "Score", value: lead.score, fieldKey: "score", type: "number" },
-                  { label: "Valor Oportunidade", value: lead.valor_oportunidade, fieldKey: "valor_oportunidade", type: "number" },
-                  { label: "Status Oportunidade", value: lead.status_oportunidade, fieldKey: "status_oportunidade", type: "select", options: OPORTUNIDADE_OPTIONS },
-                  { label: "Última Etapa Comercial", value: lead.ultima_etapa_comercial, fieldKey: "ultima_etapa_comercial" },
-                  { label: "Motivo Perda", value: lead.motivo_perda, fieldKey: "motivo_perda" },
-                  { label: "Comentário Perda", value: lead.comentario_perda, fieldKey: "comentario_perda" },
-                  { label: "Reunião Agendada", value: lead.reuniao_agendada, fieldKey: "reuniao_agendada", type: "boolean" },
-                ]} />
-
-                <EditableDetailSection title="CRM / PipeRun" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "PipeRun ID", value: lead.piperun_id, fieldKey: "piperun_id" },
-                  { label: "PipeRun Link", value: lead.piperun_link, fieldKey: "piperun_link" },
-                  { label: "Proprietário", value: lead.proprietario_lead_crm, fieldKey: "proprietario_lead_crm" },
-                  { label: "Status CRM", value: lead.status_atual_lead_crm, fieldKey: "status_atual_lead_crm" },
-                  { label: "Funil", value: lead.funil_entrada_crm, fieldKey: "funil_entrada_crm" },
-                  { label: "Itens Proposta", value: lead.itens_proposta_crm, fieldKey: "itens_proposta_crm" },
-                  { label: "Data Fechamento CRM", value: lead.data_fechamento_crm, fieldKey: "data_fechamento_crm" },
-                ]} />
-
-                <EditableDetailSection title="Equipamentos / Técnico" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "Tem impressora", value: lead.tem_impressora, fieldKey: "tem_impressora" },
-                  { label: "Modelo impressora", value: lead.impressora_modelo, fieldKey: "impressora_modelo" },
-                  { label: "Software CAD", value: lead.software_cad, fieldKey: "software_cad" },
-                  { label: "Como digitaliza", value: lead.como_digitaliza, fieldKey: "como_digitaliza" },
-                  { label: "Tem scanner", value: lead.tem_scanner, fieldKey: "tem_scanner" },
-                  { label: "Volume mensal peças", value: lead.volume_mensal_pecas, fieldKey: "volume_mensal_pecas" },
-                ]} />
-
-                <EditableDetailSection title="Soluções de Interesse (SDR)" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "Scanner", value: (lead as Record<string, unknown>).sdr_scanner_interesse, fieldKey: "sdr_scanner_interesse" },
-                  { label: "Impressora", value: (lead as Record<string, unknown>).sdr_impressora_interesse, fieldKey: "sdr_impressora_interesse" },
-                  { label: "Software CAD", value: (lead as Record<string, unknown>).sdr_software_cad_interesse, fieldKey: "sdr_software_cad_interesse" },
-                  { label: "Caracterização", value: (lead as Record<string, unknown>).sdr_caracterizacao_interesse, fieldKey: "sdr_caracterizacao_interesse" },
-                  { label: "Cursos", value: (lead as Record<string, unknown>).sdr_cursos_interesse, fieldKey: "sdr_cursos_interesse" },
-                  { label: "Dentística", value: (lead as Record<string, unknown>).sdr_dentistica_interesse, fieldKey: "sdr_dentistica_interesse" },
-                  { label: "Insumos Lab", value: (lead as Record<string, unknown>).sdr_insumos_lab_interesse, fieldKey: "sdr_insumos_lab_interesse" },
-                  { label: "Pós-impressão", value: (lead as Record<string, unknown>).sdr_pos_impressao_interesse, fieldKey: "sdr_pos_impressao_interesse" },
-                  { label: "Soluções", value: (lead as Record<string, unknown>).sdr_solucoes_interesse, fieldKey: "sdr_solucoes_interesse" },
-                  { label: "Marca param.", value: (lead as Record<string, unknown>).sdr_marca_impressora_param, fieldKey: "sdr_marca_impressora_param" },
-                  { label: "Modelo param.", value: (lead as Record<string, unknown>).sdr_modelo_impressora_param, fieldKey: "sdr_modelo_impressora_param" },
-                  { label: "Resina param.", value: (lead as Record<string, unknown>).sdr_resina_param, fieldKey: "sdr_resina_param" },
-                  { label: "Suporte Equipamento", value: (lead as Record<string, unknown>).sdr_suporte_equipamento, fieldKey: "sdr_suporte_equipamento" },
-                  { label: "Tipo Suporte", value: (lead as Record<string, unknown>).sdr_suporte_tipo, fieldKey: "sdr_suporte_tipo" },
-                  { label: "Descrição Suporte", value: (lead as Record<string, unknown>).sdr_suporte_descricao, fieldKey: "sdr_suporte_descricao" },
-                ]} />
-
-                <EditableDetailSection title="Campanha / UTM" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "Source", value: lead.source, fieldKey: "source" },
-                  { label: "Form Name", value: lead.form_name, fieldKey: "form_name" },
-                  { label: "Origem Campanha", value: lead.origem_campanha, fieldKey: "origem_campanha" },
-                  { label: "utm_source", value: lead.utm_source, fieldKey: "utm_source" },
-                  { label: "utm_medium", value: lead.utm_medium, fieldKey: "utm_medium" },
-                  { label: "utm_campaign", value: lead.utm_campaign, fieldKey: "utm_campaign" },
-                  { label: "utm_term", value: lead.utm_term, fieldKey: "utm_term" },
-                  { label: "IP Origem", value: lead.ip_origem, fieldKey: "ip_origem" },
-                ]} />
-
-                <EditableDetailSection title="IA / LIA" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  { label: "Rota Inicial LIA", value: lead.rota_inicial_lia, fieldKey: "rota_inicial_lia" },
-                  { label: "ID Cliente Smart", value: lead.id_cliente_smart, fieldKey: "id_cliente_smart" },
-                  { label: "CS Treinamento", value: lead.cs_treinamento, fieldKey: "cs_treinamento", type: "select", options: TREINAMENTO_OPTIONS },
-                ]} />
-
-                <EditableDetailSection title="Ativos (Produtos)" editing={true} editValues={editValues} onFieldChange={handleFieldChange} fields={[
-                  ...PRODUCT_FLAGS.map((p) => ({
-                    label: `Ativo ${p.replace("_", " ").toUpperCase()}`,
-                    value: lead[`ativo_${p}`],
-                    fieldKey: `ativo_${p}`,
-                    type: "boolean" as const,
-                  })),
-                ]} />
-              </div>
-            </ScrollArea>
-          ) : (
-            <ScrollArea className="max-h-[calc(90vh-80px)] px-6 pb-6">
-              <Accordion type="multiple" defaultValue={["ident","funil"]} className="w-full">
-                {/* 1 — Identificação */}
-                <AccordionItem value="ident">
-                  <AccordionTrigger className="text-sm font-semibold">📇 Identificação</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={0} fields={[
-                      "nome","email","telefone_normalized","telefone_raw","cidade","uf","pais_origem",
-                      "area_atuacao","especialidade","como_digitaliza","tem_impressora","impressora_modelo",
-                      "tem_scanner","software_cad","volume_mensal_pecas","principal_aplicacao",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 2 — Funil & Status */}
-                <AccordionItem value="funil">
-                  <AccordionTrigger className="text-sm font-semibold">🎯 Funil & Status</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={16} fields={[
-                      "lead_status","status_oportunidade","temperatura_lead","lead_stage_detected",
-                      "urgency_level","status_atual_lead_crm","funil_entrada_crm","ultima_etapa_comercial",
-                      "proprietario_lead_crm","produto_interesse","produto_interesse_auto","resina_interesse",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 3 — Oportunidade CRM / PipeRun */}
-                <AccordionItem value="crm">
-                  <AccordionTrigger className="text-sm font-semibold">💼 Oportunidade CRM</AccordionTrigger>
-                  <AccordionContent>
-                    {lead.piperun_link && (
-                      <a href={String(lead.piperun_link)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline mb-2 inline-block">
-                        Abrir no PipeRun →
-                      </a>
-                    )}
-                    <FieldGrid lead={lead} startIndex={28} fields={[
-                      "piperun_id","piperun_title","piperun_hash","piperun_pipeline_name","piperun_stage_name",
-                      "piperun_origin_name","piperun_description","piperun_observation","piperun_probability",
-                      "piperun_lead_time","piperun_value_mrr","piperun_status","piperun_frozen","piperun_frozen_at",
-                      "piperun_created_at","piperun_closed_at","piperun_probably_closed_at",
-                      "piperun_last_contact_at","piperun_stage_changed_at","piperun_pipeline_id",
-                      "piperun_stage_id","piperun_origin_id","piperun_owner_id",
-                      "valor_oportunidade","data_fechamento_crm","lead_timing_dias",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 4 — Pessoa & Empresa */}
-                <AccordionItem value="pessoa">
-                  <AccordionTrigger className="text-sm font-semibold">🏢 Pessoa & Empresa</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={54} fields={[
-                      "pessoa_cpf","pessoa_cargo","pessoa_genero","pessoa_nascimento",
-                      "pessoa_linkedin","pessoa_facebook","pessoa_observation","pessoa_piperun_id",
-                      "empresa_cnpj","empresa_razao_social","empresa_nome","empresa_ie",
-                      "empresa_porte","empresa_segmento","empresa_situacao","empresa_website","empresa_cnae",
-                      "empresa_piperun_id",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 5 — Produtos Ativos */}
-                <AccordionItem value="ativos">
-                  <AccordionTrigger className="text-sm font-semibold">✅ Produtos Ativos & Equipamentos</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="flex gap-1.5 flex-wrap mb-3">
-                      {PRODUCT_FLAGS.map((p) => (
-                        <Badge key={p} variant="outline"
-                          className={`text-[10px] ${lead[`ativo_${p}`] ? "bg-green-50 text-green-700 border-green-300" : "bg-muted/30 text-muted-foreground"}`}>
-                          {p.replace("_", " ").toUpperCase()}: {lead[`ativo_${p}`] ? "✓" : "—"}
-                        </Badge>
-                      ))}
-                    </div>
-                    <FieldGrid lead={lead} startIndex={72} fields={[
-                      "equip_scanner","equip_scanner_serial","equip_scanner_ativacao",
-                      "equip_impressora","equip_impressora_serial","equip_impressora_ativacao",
-                      "equip_cad","equip_cad_serial","equip_cad_ativacao",
-                      "equip_pos_impressao","equip_pos_impressao_serial","equip_pos_impressao_ativacao",
-                      "equip_notebook","equip_notebook_serial","equip_notebook_ativacao",
-                      "insumos_adquiridos",
-                      "data_ultima_compra_scan","data_ultima_compra_notebook","data_ultima_compra_cad",
-                      "data_ultima_compra_cad_ia","data_ultima_compra_smart_slice","data_ultima_compra_print",
-                      "data_ultima_compra_cura","data_ultima_compra_insumos",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 6 — Produtos de Interesse (SDR) */}
-                <AccordionItem value="interesse">
-                  <AccordionTrigger className="text-sm font-semibold">🎯 Produtos de Interesse (SDR)</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={96} fields={[
-                      "sdr_scanner_interesse","sdr_impressora_interesse","sdr_software_cad_interesse",
-                      "sdr_pos_impressao_interesse","sdr_caracterizacao_interesse","sdr_cursos_interesse",
-                      "sdr_dentistica_interesse","sdr_insumos_lab_interesse","sdr_solucoes_interesse",
-                      "sdr_marca_impressora_param","sdr_modelo_impressora_param","sdr_resina_param",
-                      "informacao_desejada",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 7 — Proposta */}
-                <AccordionItem value="proposta">
-                  <AccordionTrigger className="text-sm font-semibold">📋 Proposta</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={109} fields={[
-                      "itens_proposta_crm","proposals_total_value","proposals_total_mrr","proposals_last_status",
-                    ]} />
-                    <JsonBlock label="itens_proposta_parsed" data={(lead as Record<string, unknown>).itens_proposta_parsed} />
-                    <JsonBlock label="proposals_data" data={(lead as Record<string, unknown>).proposals_data} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 8 — Inteligência & Cognitivo */}
-                <AccordionItem value="intel">
-                  <AccordionTrigger className="text-sm font-semibold">🧠 Inteligência & Cognitivo</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={113} fields={[
-                      "intelligence_score_total","confidence_score_analysis","prediction_accuracy",
-                      "lead_stage_detected","psychological_profile","primary_motivation",
-                      "objection_risk","recommended_approach","interest_timeline","urgency_level",
-                      "cognitive_analyzed_at","cognitive_model_version",
-                    ]} />
-                    <JsonBlock label="intelligence_score" data={(lead as Record<string, unknown>).intelligence_score} />
-                    <JsonBlock label="cognitive_analysis" data={lead.cognitive_analysis} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 9 — Histórico LIA */}
-                <AccordionItem value="lia">
-                  <AccordionTrigger className="text-sm font-semibold">💬 Histórico LIA</AccordionTrigger>
-                  <AccordionContent>
-                    {lead.resumo_historico_ia && (
-                      <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mb-3">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Brain className="w-4 h-4 text-primary" />
-                          <span className="text-xs font-semibold text-primary">Resumo IA</span>
-                        </div>
-                        <p className="text-sm whitespace-pre-wrap">{lead.resumo_historico_ia}</p>
-                      </div>
-                    )}
-                    <FieldGrid lead={lead} startIndex={125} fields={[
-                      "total_sessions","total_messages","ultima_sessao_at","rota_inicial_lia",
-                      "proactive_count","proactive_sent_at","score",
-                    ]} />
-                    <JsonBlock label="historico_resumos" data={(lead as Record<string, unknown>).historico_resumos} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 10 — Astron */}
-                <AccordionItem value="astron">
-                  <AccordionTrigger className="text-sm font-semibold">🎓 Astron</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={132} fields={[
-                      "astron_status","astron_user_id","astron_nome","astron_email","astron_phone",
-                      "astron_plans_active","astron_courses_total","astron_courses_completed",
-                      "astron_last_login_at","astron_created_at","astron_synced_at","astron_login_url",
-                    ]} />
-                    <JsonBlock label="astron_plans_data" data={(lead as Record<string, unknown>).astron_plans_data} />
-                    <JsonBlock label="astron_courses_access" data={(lead as Record<string, unknown>).astron_courses_access} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 11 — Loja Integrada */}
-                <AccordionItem value="loja">
-                  <AccordionTrigger className="text-sm font-semibold">🛒 Loja Integrada</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={144} fields={[
-                      "lojaintegrada_cliente_id","lojaintegrada_ltv","lojaintegrada_total_pedidos_pagos",
-                      "lojaintegrada_primeira_compra","lojaintegrada_ultimo_pedido_numero",
-                      "lojaintegrada_ultimo_pedido_data","lojaintegrada_ultimo_pedido_valor",
-                      "lojaintegrada_ultimo_pedido_status","lojaintegrada_forma_pagamento",
-                      "lojaintegrada_forma_envio","lojaintegrada_cupom_desconto","lojaintegrada_utm_campaign",
-                      "lojaintegrada_sexo","lojaintegrada_data_nascimento","lojaintegrada_cliente_obs",
-                      "lojaintegrada_endereco","lojaintegrada_numero","lojaintegrada_complemento",
-                      "lojaintegrada_bairro","lojaintegrada_cep","lojaintegrada_referencia",
-                      "lojaintegrada_updated_at",
-                    ]} />
-                    <JsonBlock label="lojaintegrada_itens_json" data={(lead as Record<string, unknown>).lojaintegrada_itens_json} />
-                    <JsonBlock label="lojaintegrada_historico_pedidos" data={(lead as Record<string, unknown>).lojaintegrada_historico_pedidos} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 12 — UTM & Origem */}
-                <AccordionItem value="utm">
-                  <AccordionTrigger className="text-sm font-semibold">📡 UTM & Origem</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={166} fields={[
-                      "source","form_name","origem_campanha","utm_source","utm_medium","utm_campaign","utm_term","ip_origem",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 13 — CS & Suporte */}
-                <AccordionItem value="cs">
-                  <AccordionTrigger className="text-sm font-semibold">🎧 CS & Suporte</AccordionTrigger>
-                  <AccordionContent>
-                    <FieldGrid lead={lead} startIndex={174} fields={[
-                      "cs_treinamento","data_treinamento","data_contrato","codigo_contrato",
-                      "sdr_suporte_equipamento","sdr_suporte_tipo","sdr_suporte_descricao",
-                      "reuniao_agendada","data_primeiro_contato",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 14 — Tags & Metadados */}
-                <AccordionItem value="meta">
-                  <AccordionTrigger className="text-sm font-semibold">🏷️ Tags & Metadados</AccordionTrigger>
-                  <AccordionContent>
-                    {lead.tags_crm && lead.tags_crm.length > 0 && (
-                      <div className="flex gap-1 flex-wrap mb-3">
-                        {lead.tags_crm.map((tag: string) => (
-                          <Badge key={tag} variant="outline" className="text-[9px]">{tag}</Badge>
-                        ))}
-                      </div>
-                    )}
-                    <FieldGrid lead={lead} startIndex={183} fields={[
-                      "motivo_perda","comentario_perda","id_cliente_smart","entrada_sistema",
-                      "created_at","updated_at","last_automated_action_at","automation_cooldown_until",
-                      "crm_lock_until","crm_lock_source",
-                      "sellflux_synced_at","intelligence_score_updated_at","intelligence_score_backfilled_at",
-                    ]} />
-                  </AccordionContent>
-                </AccordionItem>
-
-                {/* 15 — Raw Data */}
-                <AccordionItem value="raw">
-                  <AccordionTrigger className="text-sm font-semibold">🗄️ Raw Data (JSON)</AccordionTrigger>
-                  <AccordionContent>
-                    <JsonBlock label="raw_payload" data={(lead as Record<string, unknown>).raw_payload} />
-                    <JsonBlock label="piperun_custom_fields" data={(lead as Record<string, unknown>).piperun_custom_fields} />
-                    <JsonBlock label="empresa_custom_fields" data={(lead as Record<string, unknown>).empresa_custom_fields} />
-                    <JsonBlock label="sellflux_custom_fields" data={(lead as Record<string, unknown>).sellflux_custom_fields} />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </ScrollArea>
-          )}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
+// ─── MAIN COMPONENT ───
 export function SmartOpsLeadsList() {
   const [leads, setLeads] = useState<LeadFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [tempFilter, setTempFilter] = useState("all");
-  const [stageFilter, setStageFilter] = useState("all");
-  const [stagnantOnly, setStagnantOnly] = useState(false);
+  const [buyerFilter, setBuyerFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedLead, setSelectedLead] = useState<LeadFull | null>(null);
-  const [allSources, setAllSources] = useState<string[]>([]);
 
   // Debounce search
   useEffect(() => {
@@ -954,220 +1046,140 @@ export function SmartOpsLeadsList() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Fetch sources once
-  useEffect(() => {
-    supabase.from("lia_attendances").select("source").then(({ data }) => {
-      if (data) {
-        const unique = [...new Set(data.map((d: { source: string }) => d.source).filter(Boolean))].sort() as string[];
-        setAllSources(unique);
-      }
-    });
-  }, []);
-
-  const thirtyDaysAgo = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d.toISOString();
-  }, []);
-
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
     setLoading(true);
-
-    // Build query with server-side filters
     let query = supabase
       .from("lia_attendances")
       .select("*", { count: "exact" })
-      .order("created_at", { ascending: false });
+      .order("ltv_total", { ascending: false, nullsFirst: false });
 
-    if (statusFilter !== "all") query = query.eq("lead_status", statusFilter);
-    if (sourceFilter !== "all") query = query.eq("source", sourceFilter);
-    if (tempFilter !== "all") query = query.ilike("temperatura_lead", tempFilter);
-    if (stageFilter !== "all") query = query.eq("lead_stage_detected", stageFilter);
-    if (stagnantOnly) query = query.lte("updated_at", thirtyDaysAgo);
+    if (buyerFilter === "company") query = query.eq("buyer_type", "company");
+    else if (buyerFilter === "person") query = query.eq("buyer_type", "person");
+    else if (buyerFilter === "ltv") query = query.gt("ltv_total", 0);
+    else if (buyerFilter === "scanner") query = query.eq("status_scanner", "tem_smartdent");
+
     if (debouncedSearch) {
       query = query.or(`nome.ilike.%${debouncedSearch}%,email.ilike.%${debouncedSearch}%`);
     }
 
     const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-    query = query.range(from, to);
+    query = query.range(from, from + PAGE_SIZE - 1);
 
     const { data, count } = await query;
     setLeads((data as LeadFull[]) || []);
     setTotalCount(count ?? 0);
     setLoading(false);
-  };
+  }, [page, debouncedSearch, buyerFilter]);
 
-  useEffect(() => { fetchLeads(); }, [page, debouncedSearch, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly]);
-
-  useEffect(() => { setPage(0); }, [debouncedSearch, statusFilter, sourceFilter, tempFilter, stageFilter, stagnantOnly]);
+  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  useEffect(() => { setPage(0); }, [debouncedSearch, buyerFilter]);
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-  const paged = leads;
 
   const exportCSV = () => {
-    const headers = ["nome", "email", "telefone_normalized", "produto_interesse", "lead_status", "temperatura_lead", "ultima_etapa_comercial", "score", "proprietario_lead_crm", "source", "rota_inicial_lia", "resumo_historico_ia", "created_at"];
-    const csv = [headers.join(","), ...leads.map((l) => headers.map((h) => `"${formatValue((l as Record<string, unknown>)[h])}"`).join(","))].join("\n");
+    const headers = ["nome", "email", "telefone_normalized", "buyer_type", "lead_status", "ltv_total", "total_deals", "workflow_score", "source", "created_at"];
+    const csv = [headers.join(","), ...leads.map((l) => headers.map((h) => `"${String((l as Record<string, unknown>)[h] ?? "")}"`).join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = `leads_smartops_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    a.href = url; a.download = `leads_intelligence_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando leads...</div>;
-
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-            <CardTitle className="text-lg">Lista de Leads ({totalCount.toLocaleString("pt-BR")})</CardTitle>
-            <div className="flex gap-2">
-              <SmartOpsLeadImporter onComplete={fetchLeads} />
-              <Button variant="outline" size="sm" onClick={exportCSV}>
-                <Download className="w-4 h-4 mr-1" /> CSV
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row gap-2 mt-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar nome ou email..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                {STATUS_OPTIONS.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={sourceFilter} onValueChange={setSourceFilter}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Source" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {allSources.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={tempFilter} onValueChange={setTempFilter}>
-              <SelectTrigger className="w-[140px]"><SelectValue placeholder="Temp." /></SelectTrigger>
-              <SelectContent>
-                {TEMP_OPTIONS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={stageFilter} onValueChange={setStageFilter}>
-              <SelectTrigger className="w-[160px]"><SelectValue placeholder="Estágio Cogn." /></SelectTrigger>
-              <SelectContent>
-                {STAGE_OPTIONS.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1.5">
-              <Checkbox id="stagnant" checked={stagnantOnly} onCheckedChange={(c) => setStagnantOnly(!!c)} />
-              <label htmlFor="stagnant" className="text-xs whitespace-nowrap cursor-pointer">Estagnados (&gt;30d)</label>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Cidade/UF</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>🌡️</TableHead>
-                  <TableHead>Etapa</TableHead>
-                  <TableHead>TAGs</TableHead>
-                  <TableHead>Resumo IA</TableHead>
-                  <TableHead>Oport.</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Proprietário</TableHead>
-                  <TableHead>Cognitivo</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Ativos</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paged.map((lead) => (
-                  <TableRow key={lead.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedLead(lead)}>
-                    <TableCell className="font-medium whitespace-nowrap">
-                      <div>{lead.nome}</div>
-                      <div className="text-[10px] text-muted-foreground">{lead.email}</div>
-                    </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">
-                      {lead.cidade && lead.uf ? `${lead.cidade}/${lead.uf}` : lead.uf || "—"}
-                    </TableCell>
-                    <TableCell className="text-xs">{lead.produto_interesse || "—"}</TableCell>
-                    <TableCell><Badge variant="outline" className="text-[10px]">{lead.lead_status}</Badge></TableCell>
-                    <TableCell><TempBadge temp={lead.temperatura_lead} /></TableCell>
-                    <TableCell className="text-xs max-w-[100px]">
-                      <TruncatedText text={lead.ultima_etapa_comercial} maxLen={20} />
-                    </TableCell>
-                    <TableCell className="max-w-[150px]">
-                      <TagsSummaryBadges tags={lead.tags_crm} />
-                    </TableCell>
-                    <TableCell className="max-w-[200px]">
-                      <TruncatedText text={lead.resumo_historico_ia} maxLen={35} />
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={lead.status_oportunidade === "ganha" ? "default" : lead.status_oportunidade === "perdida" ? "destructive" : "secondary"} className="text-[10px]">
-                        {lead.status_oportunidade || "—"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs text-right font-mono">
-                      {lead.valor_oportunidade ? `R$ ${Number(lead.valor_oportunidade).toLocaleString("pt-BR")}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-center">{lead.score ?? 0}</TableCell>
-                    <TableCell className="text-xs">{lead.proprietario_lead_crm || "—"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <StageBadge stage={lead.lead_stage_detected} />
-                        <UrgencyIcon urgency={lead.urgency_level} />
-                        {lead.recommended_approach && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild><Target className="w-3 h-3 text-muted-foreground cursor-help" /></TooltipTrigger>
-                              <TooltipContent className="max-w-xs"><p className="text-xs">{lead.recommended_approach}</p></TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(getLeadCardDate(lead as Record<string, unknown>))}</TableCell>
-                    <TableCell><ActiveIcons lead={lead} /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <span className="text-sm text-muted-foreground">Página {page + 1} de {totalPages}</span>
-              <div className="flex gap-1">
-                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="intel-dark">
+      {/* Topbar */}
+      <div className="intel-topbar">
+        <div className="intel-logo">Smart<em>Dent</em></div>
+        <span style={{ fontSize: 11, color: "var(--id-muted)" }}>Leads</span>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <SmartOpsLeadImporter onComplete={fetchLeads} />
+          <button className="intel-btn" onClick={exportCSV}>
+            <Download size={12} /> CSV
+          </button>
+          <span className="intel-pill intel-pill-blue">🧠 IA</span>
+          <span className="intel-pill intel-pill-green">
+            <span className="intel-dot-live" /> Live
+          </span>
+        </div>
+      </div>
 
-      {/* Editable Detail Dialog */}
-      <LeadDetailDialog
-        lead={selectedLead}
-        onClose={() => setSelectedLead(null)}
-        onSaved={(updated) => {
-          setLeads((prev) => prev.map((l) => l.id === updated.id ? { ...l, ...updated } : l));
-          setSelectedLead(null);
-        }}
-      />
+      {/* Split Layout */}
+      <div className={`intel-split ${selectedLead ? "has-detail" : ""}`}>
+        {/* SIDEBAR */}
+        <div className="intel-sidebar">
+          <div className="intel-sidebar-head">
+            <div className="intel-sidebar-title">
+              Lista de Leads
+              <span className="count">{totalCount.toLocaleString("pt-BR")} leads</span>
+            </div>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--id-muted)" }}>🔍</span>
+              <input
+                className="intel-search-input"
+                placeholder="Buscar por nome, email, empresa…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="intel-filter-row">
+              {BUYER_FILTERS.map((f) => (
+                <div
+                  key={f.key}
+                  className={`intel-filt ${buyerFilter === f.key ? "on" : ""}`}
+                  onClick={() => setBuyerFilter(f.key)}
+                >
+                  {f.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="intel-leads-list">
+            {loading ? (
+              <div style={{ padding: 20, textAlign: "center", color: "var(--id-muted)" }}>Carregando leads...</div>
+            ) : leads.length === 0 ? (
+              <div style={{ padding: 20, textAlign: "center", color: "var(--id-muted)" }}>Nenhum lead encontrado</div>
+            ) : (
+              <>
+                {leads.map((lead) => (
+                  <LeadRow
+                    key={lead.id}
+                    lead={lead}
+                    active={selectedLead?.id === lead.id}
+                    onClick={() => setSelectedLead(lead)}
+                  />
+                ))}
+                {totalPages > 1 && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 4px" }}>
+                    <span style={{ fontSize: 10, color: "var(--id-muted)" }}>Pag {page + 1}/{totalPages}</span>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button className="intel-btn" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                        <ChevronLeft size={12} />
+                      </button>
+                      <button className="intel-btn" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                        <ChevronRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* DETAIL PANEL */}
+        {selectedLead ? (
+          <DetailPanel lead={selectedLead} onClose={() => setSelectedLead(null)} />
+        ) : (
+          <div className="intel-detail">
+            <div className="intel-detail-empty">
+              <div className="big">📊</div>
+              <p>Selecione um lead na lista para ver o Intelligence Card completo</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
