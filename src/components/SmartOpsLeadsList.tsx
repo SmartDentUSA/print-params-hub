@@ -5,6 +5,7 @@ import { Search, Download, ChevronLeft, ChevronRight, X, Send, Loader2 } from "l
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import { LeadDetailPanel } from "./smartops/LeadDetailPanel";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
