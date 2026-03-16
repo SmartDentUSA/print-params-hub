@@ -11,7 +11,6 @@ import { SmartOpsTeam } from "./SmartOpsTeam";
 import { SmartOpsCSRules } from "./SmartOpsCSRules";
 import { SmartOpsLogs } from "./SmartOpsLogs";
 import { SmartOpsSystemHealth } from "./SmartOpsSystemHealth";
-import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
