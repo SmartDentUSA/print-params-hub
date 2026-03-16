@@ -595,7 +595,8 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                         </thead>
                         <tbody>
                           {dealsHistory.map((deal, i) => {
-                            const items = Array.isArray(deal.items) ? deal.items as Record<string, unknown>[] : [];
+                            const rawItems = deal.items;
+                            const items = Array.isArray(rawItems) ? rawItems as Record<string, unknown>[] : [];
                             const productName = items.length > 0
                               ? items.map(it => String(it.name || it.product_name || "")).filter(Boolean).join(", ")
                               : String(deal.product || deal.title || `Deal #${i + 1}`);
