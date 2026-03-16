@@ -408,6 +408,8 @@ export function SmartOpsLeadsList() {
   const [allOwners, setAllOwners] = useState<string[]>([]);
   const [allProducts, setAllProducts] = useState<string[]>([]);
   const [allStatusCRM, setAllStatusCRM] = useState<string[]>([]);
+  const [jsonbProductIds, setJsonbProductIds] = useState<string[] | null>(null);
+  const [debouncedItemProposta, setDebouncedItemProposta] = useState("");
 
   const setAdv = useCallback(<K extends keyof AdvancedFilters>(key: K, value: AdvancedFilters[K]) => {
     setAdvFilters((prev) => ({ ...prev, [key]: value }));
@@ -418,6 +420,32 @@ export function SmartOpsLeadsList() {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  // Debounce item proposta search and call RPC
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedItemProposta(advFilters.itemProposta), 600);
+    return () => clearTimeout(t);
+  }, [advFilters.itemProposta]);
+
+  useEffect(() => {
+    if (!debouncedItemProposta || debouncedItemProposta.length < 2) {
+      setJsonbProductIds(null);
+      return;
+    }
+    const searchProducts = async () => {
+      const dealStatus = advFilters.dealStatusFilter !== "all" ? advFilters.dealStatusFilter : null;
+      const { data, error } = await supabase.rpc("fn_search_leads_by_proposal_product", {
+        product_search: debouncedItemProposta,
+        deal_status: dealStatus,
+      });
+      if (!error && data) {
+        setJsonbProductIds((data as { lead_id: string }[]).map(d => d.lead_id));
+      } else {
+        setJsonbProductIds([]);
+      }
+    };
+    searchProducts();
+  }, [debouncedItemProposta, advFilters.dealStatusFilter]);
 
   // Load dynamic filter options once
   useEffect(() => {
