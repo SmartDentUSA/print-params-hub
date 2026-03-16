@@ -6,7 +6,7 @@ import { RefreshCw, Zap, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SmartOpsBowtie } from "./SmartOpsBowtie";
-import { SmartOpsAudienceBuilder } from "./SmartOpsAudienceBuilder";
+import { SmartOpsLeadsList } from "./SmartOpsLeadsList";
 import { SmartOpsTeam } from "./SmartOpsTeam";
 import { SmartOpsCSRules } from "./SmartOpsCSRules";
 import { SmartOpsLogs } from "./SmartOpsLogs";

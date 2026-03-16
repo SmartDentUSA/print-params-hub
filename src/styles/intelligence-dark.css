@@ -880,3 +880,24 @@
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ── Select dropdown (dark) ── */
+.intel-select {
+  width: 100%;
+  background: var(--id-s2);
+  border: 1px solid var(--id-b2);
+  border-radius: 8px;
+  color: var(--id-ink);
+  font-size: 11px;
+  padding: 6px 10px;
+  outline: none;
+  appearance: auto;
+  cursor: pointer;
+}
+.intel-select:focus {
+  border-color: rgba(79, 143, 255, 0.38);
+}
+.intel-select option {
+  background: var(--id-s1);
+  color: var(--id-ink);
+}
