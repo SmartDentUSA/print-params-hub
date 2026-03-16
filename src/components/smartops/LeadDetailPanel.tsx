@@ -610,8 +610,8 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                                   {productName}
                                 </td>
                                 <td>{qty}</td>
-                                <td>{deal.freight_type || deal.tipo_frete || "—"}</td>
-                                <td>{deal.payment_installments || deal.installments || "—"}x</td>
+                                <td>{String(deal.freight_type || deal.tipo_frete || "—")}</td>
+                                <td>{String(deal.payment_installments || deal.installments || "—")}x</td>
                                 <td style={{ color: "var(--id-teal)", fontWeight: 600 }}>
                                   {deal.value != null ? formatCurrency(Number(deal.value)) : deal.value_total != null ? formatCurrency(Number(deal.value_total)) : "—"}
                                 </td>
