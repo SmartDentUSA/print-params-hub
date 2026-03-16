@@ -15,6 +15,123 @@ const BUYER_FILTERS = [
   { key: "scanner", label: "🔬 Scanner SD" },
 ] as const;
 
+const PIPELINE_GROUPS: Record<string, { label: string; emoji: string; statuses: string[] }> = {
+  vendas: {
+    label: "Vendas", emoji: "🎯",
+    statuses: ["novo", "sem_contato", "contato_feito", "em_contato", "apresentacao", "proposta_enviada", "negociacao", "fechamento"],
+  },
+  estagnados: {
+    label: "Estagnados", emoji: "🔄",
+    statuses: ["est_etapa1", "est_etapa2", "est_etapa3", "est_etapa4", "est_apresentacao", "est_proposta", "estagnado_final"],
+  },
+  cs: {
+    label: "CS", emoji: "🎓",
+    statuses: ["cs_auxiliar_email", "cs_em_espera", "cs_sem_data_agendar", "cs_nao_quer_imersao", "cs_treinamento_agendado", "cs_treinamento_realizado", "cs_enviar_imp3d", "cs_equipamentos_entregues", "cs_retirar_scan", "cs_acompanhamento_15d", "cs_acomp_30d_comercial", "cs_acompanhamento_atencao", "cs_finalizado", "cs_nao_use_dkmngr", "cs_nao_use_omie_fix"],
+  },
+  insumos: {
+    label: "Insumos", emoji: "🧪",
+    statuses: ["insumos_sem_contato", "insumos_contato_feito", "insumos_amostra_enviada", "insumos_retorno_amostra", "insumos_fechamento"],
+  },
+  ecommerce: {
+    label: "E-commerce", emoji: "🛒",
+    statuses: ["ecom_visitantes", "ecom_navegacao", "ecom_checkout", "ecom_abandono", "ecom_transacao", "ecom_pedido", "ecom_pos_venda", "ecom_ativacao"],
+  },
+  ebook: { label: "Ebook", emoji: "📚", statuses: ["ebook"] },
+};
+
+const ALL_STATUSES = Object.values(PIPELINE_GROUPS).flatMap((g) => g.statuses);
+
+const STATUS_LABEL: Record<string, string> = {};
+Object.values(PIPELINE_GROUPS).forEach((g) => {
+  g.statuses.forEach((s) => {
+    STATUS_LABEL[s] = s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  });
+});
+
+const TEMP_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "quente", label: "🔥 Quente" },
+  { key: "morno", label: "🌤 Morno" },
+  { key: "frio", label: "❄️ Frio" },
+];
+
+const URGENCY_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "alta", label: "🔴 Alta" },
+  { key: "media", label: "🟡 Média" },
+  { key: "baixa", label: "🟢 Baixa" },
+];
+
+const OPORT_OPTIONS = [
+  { key: "all", label: "Todas" },
+  { key: "aberta", label: "Aberta" },
+  { key: "ganha", label: "Ganha" },
+  { key: "perdida", label: "Perdida" },
+];
+
+const STAGE_OPTIONS = [
+  { key: "all", label: "Todos" },
+  { key: "MQL_pesquisador", label: "🔍 MQL" },
+  { key: "SAL_comparador", label: "🔄 SAL" },
+  { key: "SQL_decisor", label: "✅ SQL" },
+  { key: "CLIENTE_ativo", label: "👑 Cliente" },
+];
+
+const PRODUCT_FLAGS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
+
+const INTEREST_OPTIONS = [
+  { key: "all", label: "Todos Interesses" },
+  { key: "sdr_scanner_interesse", label: "📷 Scanner" },
+  { key: "sdr_impressora_interesse", label: "🖨️ Impressora" },
+  { key: "sdr_software_cad_interesse", label: "💻 Software CAD" },
+  { key: "sdr_pos_impressao_interesse", label: "♨️ Pós-impressão" },
+  { key: "sdr_caracterizacao_interesse", label: "🔬 Caracterização" },
+  { key: "sdr_cursos_interesse", label: "🎓 Cursos" },
+  { key: "sdr_dentistica_interesse", label: "🦷 Dentística" },
+  { key: "sdr_insumos_lab_interesse", label: "🧪 Insumos Lab" },
+  { key: "sdr_solucoes_interesse", label: "🔧 Soluções" },
+] as const;
+
+const ITEM_PROPOSTA_OPTIONS = [
+  { key: "all", label: "Todos Itens" },
+  { key: "Scanner", label: "Scanner" },
+  { key: "Impressora", label: "Impressora" },
+  { key: "CAD", label: "Software CAD" },
+  { key: "Notebook", label: "Notebook" },
+  { key: "Resina", label: "Resina" },
+  { key: "Insumo", label: "Insumos" },
+  { key: "Pós", label: "Pós-impressão" },
+  { key: "Cura", label: "Cura" },
+  { key: "Curso", label: "Cursos" },
+];
+
+interface AdvancedFilters {
+  pipeline: string;
+  status: string;
+  temperatura: string;
+  urgency: string;
+  source: string;
+  produto: string;
+  uf: string;
+  proprietario: string;
+  oportunidade: string;
+  stage: string;
+  activeProduct: string;
+  interestProduct: string;
+  itemProposta: string;
+  statusCRM: string;
+  valorMin: string;
+  valorMax: string;
+  stagnant: boolean;
+}
+
+const EMPTY_ADV_FILTERS: AdvancedFilters = {
+  pipeline: "all", status: "all", temperatura: "all", urgency: "all",
+  source: "all", produto: "all", uf: "all", proprietario: "all",
+  oportunidade: "all", stage: "all", activeProduct: "all", interestProduct: "all",
+  itemProposta: "all", statusCRM: "all", valorMin: "", valorMax: "", stagnant: false,
+};
+
 // ─── Types ───
 interface LeadFull {
   [key: string]: unknown;
