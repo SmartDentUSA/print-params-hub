@@ -851,7 +851,7 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
                       <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{upsellResult}</ReactMarkdown></div>
                     ) : (
                       <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Clique em "Gerar Previsão" para analisar oportunidades de upsell e previsão de recompra</p>
+                        <p style={{ fontSize: 12 }}>Análise será gerada automaticamente...</p>
                       </div>
                     )}
                   </div>
