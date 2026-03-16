@@ -41,17 +41,18 @@ export default function AdminViewSecure() {
     // Check authentication and admin status
     const checkAuthAndRole = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 8000)
+        );
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]) as any;
         if (session?.user) {
           setUser(session.user);
-          
-          // Get user role from user_roles table
           const { data: roleData } = await supabase
             .from('user_roles')
             .select('role')
             .eq('user_id', session.user.id)
             .single();
-          
           if (roleData) {
             setUserRole(roleData.role);
             setIsAdmin(roleData.role === 'admin');
@@ -59,7 +60,7 @@ export default function AdminViewSecure() {
           }
         }
       } catch (error) {
-        // Silent error handling for security
+        setConnectionError(true);
       } finally {
         setLoading(false);
       }
