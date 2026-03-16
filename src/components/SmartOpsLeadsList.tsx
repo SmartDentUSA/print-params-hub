@@ -323,16 +323,16 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
     ];
 
     Promise.all(promises).then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10]) => {
-      setTimelineEvents((r1.data || []) as TimelineEvent[]);
-      setLiaInteractions((r2.data || []) as AgentInteraction[]);
-      setWhatsappMsgs((r3.data || []) as WhatsAppMsg[]);
-      setMessageLogs((r4.data || []) as MsgLog[]);
-      setProductHistory((r5.data || []) as ProductHistory[]);
-      setCourseProgress((r6.data || []) as CourseProgress[]);
-      setFormSubmissions((r7.data || []) as FormSubmission[]);
-      setCartHistory((r8.data || []) as CartHistory[]);
-      setSdrInteractions((r9.data || []) as SdrInteraction[]);
-      setStateEvents((r10.data || []) as StateEvent[]);
+      setTimelineEvents((r1.data || []) as unknown as TimelineEvent[]);
+      setLiaInteractions((r2.data || []) as unknown as AgentInteraction[]);
+      setWhatsappMsgs((r3.data || []) as unknown as WhatsAppMsg[]);
+      setMessageLogs((r4.data || []) as unknown as MsgLog[]);
+      setProductHistory((r5.data || []) as unknown as ProductHistory[]);
+      setCourseProgress((r6.data || []) as unknown as CourseProgress[]);
+      setFormSubmissions((r7.data || []) as unknown as FormSubmission[]);
+      setCartHistory((r8.data || []) as unknown as CartHistory[]);
+      setSdrInteractions((r9.data || []) as unknown as SdrInteraction[]);
+      setStateEvents((r10.data || []) as unknown as StateEvent[]);
       setLoadingDetail(false);
     });
 
