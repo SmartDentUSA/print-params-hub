@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import "@/styles/intelligence-dark.css";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, X, Send, Loader2 } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
