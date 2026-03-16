@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import "@/styles/intelligence-dark.css";
 import { supabase } from "@/integrations/supabase/client";
-import { Search, Download, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Download, ChevronLeft, ChevronRight, X, Send, Loader2 } from "lucide-react";
 import { SmartOpsLeadImporter } from "./SmartOpsLeadImporter";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
 
 // ─── Constants ───
 const PAGE_SIZE = 200;
@@ -402,6 +403,25 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
   const [stateEvents, setStateEvents] = useState<StateEvent[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
+  // IA Tab state
+  const [aiResult, setAiResult] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAction, setAiAction] = useState<string | null>(null);
+
+  // Chat Tab state
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Reset IA/Chat when lead changes
+  useEffect(() => {
+    setAiResult("");
+    setAiAction(null);
+    setChatMessages([]);
+    setChatInput("");
+  }, [lead?.id]);
+
   // Load all related data on lead change
   useEffect(() => {
     if (!lead?.id) return;
@@ -475,10 +495,99 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
   // Deals history from JSONB
   const dealsHistory = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history as Record<string, unknown>[] : [];
 
+  // Build lead context string for AI calls
+  const buildLeadContext = useCallback(() => {
+    const fields = [
+      `Nome: ${lead.nome}`, `Email: ${lead.email}`, `Telefone: ${lead.telefone_normalized || "—"}`,
+      `Buyer Type: ${lead.buyer_type || "—"}`, `Área: ${lead.area_atuacao || "—"}`, `Empresa: ${lead.empresa_nome || "—"}`,
+      `Status: ${lead.lead_status}`, `LTV: ${brl(lead.ltv_total)}`, `Deals: ${lead.total_deals || 0}`,
+      `LIS Score: ${lis}`, `Workflow: ${wfScore}/10`,
+      `Scanner: ${lead.equip_scanner || "—"} (${lead.status_scanner || "—"})`,
+      `Impressora: ${lead.impressora_modelo || "—"} (${lead.status_impressora || "—"})`,
+      `CAD: ${lead.status_cad || "—"}`,
+      `Pipeline: ${lead.piperun_pipeline_name || "—"} / ${lead.piperun_stage_name || "—"}`,
+      `Source: ${lead.source || "—"}`,
+      s(lead, "urgency_level") ? `Urgência: ${s(lead, "urgency_level")}` : null,
+      s(lead, "interest_timeline") ? `Timeline: ${s(lead, "interest_timeline")}` : null,
+      s(lead, "psychological_profile") ? `Perfil: ${s(lead, "psychological_profile")}` : null,
+      s(lead, "primary_motivation") ? `Motivação: ${s(lead, "primary_motivation")}` : null,
+      s(lead, "recommended_approach") ? `Abordagem: ${s(lead, "recommended_approach")}` : null,
+      s(lead, "resumo_historico_ia") ? `Resumo IA: ${s(lead, "resumo_historico_ia")}` : null,
+      s(lead, "produto_interesse") ? `Produto Interesse: ${s(lead, "produto_interesse")}` : null,
+      dealsHistory.length > 0 ? `Deals History: ${dealsHistory.map(d => `${d.product || d.title} R$${d.value}`).join(", ")}` : null,
+    ].filter(Boolean).join("\n");
+    return fields;
+  }, [lead, lis, wfScore, dealsHistory]);
+
+  const callCopilotIA = useCallback(async (action: string) => {
+    setAiLoading(true);
+    setAiAction(action);
+    setAiResult("");
+
+    const prompts: Record<string, string> = {
+      analise: `Faça uma análise cognitiva completa deste lead. Identifique padrões comportamentais, nível de maturidade técnica, propensão de compra e recomendações estratégicas. Seja direto e use dados concretos.`,
+      script: `Crie um script de WhatsApp personalizado para abordar este lead. Considere o perfil psicológico, produtos de interesse, histórico de compras e nível de urgência. O script deve ter: abertura, proposta de valor, call-to-action. Use linguagem natural e persuasiva.`,
+      reativacao: `Desenvolva uma estratégia de reativação para este lead. Analise: tempo de inatividade, último ponto de contato, produtos de interesse, e workflow gaps. Proponha 3 ações concretas ordenadas por prioridade com timeline sugerida.`,
+    };
+
+    try {
+      const { data, error } = await supabase.functions.invoke("smart-ops-copilot", {
+        body: {
+          message: `${prompts[action]}\n\n--- DADOS DO LEAD ---\n${buildLeadContext()}`,
+          context: { source: "ia_tab", lead_id: lead.id, action },
+        },
+      });
+      if (error) throw error;
+      setAiResult(data?.response || data?.message || "Sem resposta da IA.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      setAiResult(`❌ Erro: ${msg}`);
+      toast.error("Falha na análise IA");
+    } finally {
+      setAiLoading(false);
+    }
+  }, [buildLeadContext, lead.id]);
+
+  const sendChatMessage = useCallback(async () => {
+    const msg = chatInput.trim();
+    if (!msg || chatLoading) return;
+    setChatInput("");
+    const userMsg = { role: "user" as const, content: msg };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatLoading(true);
+
+    try {
+      const allMsgs = [...chatMessages, userMsg];
+      const systemCtx = `Você é a LIA (Lead Intelligence Assistant), assistente especializada em análise de leads para a SmartDent. Responda com base nos dados do lead abaixo. Seja direta, use dados concretos, e formate com markdown.\n\n--- DADOS DO LEAD ---\n${buildLeadContext()}`;
+
+      const { data, error } = await supabase.functions.invoke("smart-ops-copilot", {
+        body: {
+          message: msg,
+          context: {
+            source: "chat_tab",
+            lead_id: lead.id,
+            system_override: systemCtx,
+            history: allMsgs.slice(-10),
+          },
+        },
+      });
+      if (error) throw error;
+      setChatMessages(prev => [...prev, { role: "assistant", content: data?.response || data?.message || "Sem resposta." }]);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : "Erro desconhecido";
+      setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Erro: ${errMsg}` }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }, [chatInput, chatLoading, chatMessages, buildLeadContext, lead.id]);
+
   const tabs = [
     { key: "identity", label: "🔗 Identidade" },
     { key: "score", label: "📊 LIS Score" },
     { key: "equipment", label: "⚙️ Equipamentos" },
+    { key: "ia", label: "🧠 IA" },
+    { key: "chat", label: "💬 Chat" },
     { key: "timeline", label: `⏱️ Timeline (${timelineEvents.length})` },
     { key: "conversations", label: `💬 Conversas` },
     { key: "behavioral", label: "🧠 Behavioral" },
@@ -743,6 +852,123 @@ function DetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void })
                     {!lead.status_cad && <span style={{ color: "var(--id-hot)" }}> CAD não mapeado — lacuna principal.</span>}
                     {!lead.impressora_modelo && !lead.status_impressora && <span style={{ color: "var(--id-warm)" }}> Impressora não identificada.</span>}
                     {wfScore >= 7 && <span style={{ color: "var(--id-teal)" }}> Setup técnico avançado — foco em consumíveis e expansão.</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: IA */}
+            {activeTab === "ia" && (
+              <div>
+                <div className="intel-sec">🧠 Análise IA — análise ao vivo</div>
+                <div className="intel-ai-panel">
+                  <div className="intel-ai-header">
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-purple)" }}>🧠 Copilot IA</span>
+                    <span style={{ fontSize: 10, color: "var(--id-muted)" }}>Análise contextual do lead</span>
+                  </div>
+                  <div className="intel-ai-chips">
+                    {[
+                      { key: "analise", label: "🧠 Análise Cognitiva", desc: "Perfil comportamental e propensão" },
+                      { key: "script", label: "🎯 Script WhatsApp", desc: "Abordagem personalizada" },
+                      { key: "reativacao", label: "🔄 Reativação", desc: "Estratégia de reengajamento" },
+                    ].map((chip) => (
+                      <button
+                        key={chip.key}
+                        className={`intel-ai-chip ${aiAction === chip.key ? "active" : ""}`}
+                        onClick={() => callCopilotIA(chip.key)}
+                        disabled={aiLoading}
+                      >
+                        <span>{chip.label}</span>
+                        <span style={{ fontSize: 9, color: "var(--id-muted)", display: "block" }}>{chip.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="intel-ai-result">
+                    {aiLoading ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--id-blue)" }}>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span style={{ fontSize: 12 }}>Analisando lead...</span>
+                      </div>
+                    ) : aiResult ? (
+                      <div className="intel-ai-md prose prose-sm">
+                        <ReactMarkdown>{aiResult}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 12, color: "var(--id-muted)", fontStyle: "italic", textAlign: "center", padding: 20 }}>
+                        Selecione uma ação acima para gerar análise IA do lead
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: CHAT */}
+            {activeTab === "chat" && (
+              <div>
+                <div className="intel-sec">💬 Chat LIA — conversa contextual</div>
+                <div className="intel-chat-wrap">
+                  <div className="intel-chat-messages">
+                    {chatMessages.length === 0 && (
+                      <div style={{ textAlign: "center", padding: "30px 20px" }}>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>🤖</div>
+                        <p style={{ fontSize: 12, color: "var(--id-muted)", lineHeight: 1.7 }}>
+                          Converse com a LIA sobre este lead.<br />
+                          Pergunte sobre perfil, histórico, estratégias ou qualquer dado.
+                        </p>
+                        <div className="intel-chat-quick-asks">
+                          {[
+                            "Qual o perfil deste lead?",
+                            "Quais produtos recomendar?",
+                            "Histórico de compras",
+                            "Risco de churn?",
+                          ].map((q) => (
+                            <button
+                              key={q}
+                              className="intel-chat-qa"
+                              onClick={() => { setChatInput(q); }}
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`intel-msg ${msg.role === "user" ? "intel-msg-user" : "intel-msg-ai"}`}>
+                        {msg.role === "assistant" ? (
+                          <div className="intel-ai-md prose prose-sm">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className="intel-msg intel-msg-ai" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Loader2 size={14} className="animate-spin" style={{ color: "var(--id-blue)" }} />
+                        <span style={{ fontSize: 11, color: "var(--id-muted)" }}>LIA pensando...</span>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+                  <div className="intel-chat-input-wrap">
+                    <input
+                      className="intel-chat-input"
+                      placeholder="Pergunte sobre este lead..."
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
+                      disabled={chatLoading}
+                    />
+                    <button
+                      className="intel-chat-send"
+                      onClick={sendChatMessage}
+                      disabled={chatLoading || !chatInput.trim()}
+                    >
+                      <Send size={14} />
+                    </button>
                   </div>
                 </div>
               </div>
