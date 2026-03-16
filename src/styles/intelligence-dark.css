@@ -20,11 +20,27 @@
   --id-muted: #5c6880;
   --id-muted2: #8896ae;
 
-  background: var(--id-bg);
-  color: var(--id-ink);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  background: var(--id-bg) !important;
+  color: var(--id-ink) !important;
+  font-family: 'DM Sans', system-ui, sans-serif !important;
   border-radius: 12px;
   overflow: hidden;
+  isolation: isolate;
+  color-scheme: dark;
+}
+
+/* Force dark theme inheritance on all children */
+.intel-dark *,
+.intel-dark *::before,
+.intel-dark *::after {
+  box-sizing: border-box;
+}
+.intel-dark input,
+.intel-dark select,
+.intel-dark textarea,
+.intel-dark button {
+  color: inherit;
+  font-family: inherit;
 }
 
 .intel-dark ::-webkit-scrollbar { width: 4px; height: 4px; }
