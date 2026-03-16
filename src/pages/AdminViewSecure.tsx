@@ -34,6 +34,7 @@ export default function AdminViewSecure() {
   const [isAuthor, setIsAuthor] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
