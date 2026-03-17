@@ -211,52 +211,42 @@ const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_7_fresagem:      ['equipamentos', 'software', 'servico', 'acessorios', 'pecas_partes'],
 };
 
-function transformPortfolio(raw: any): any | null {
-  if (!raw || typeof raw !== 'object') return null;
-
-  // Check if any stage has actual data (not all sem_sinal)
-  const stageKeys = Object.keys(raw).filter(k => k.startsWith('etapa_'));
-  if (stageKeys.length === 0) return null;
-
+function transformPortfolio(raw: any): any {
   const result: Record<string, any> = {};
   let nAtivo = 0, nConc = 0, nSdr = 0;
 
-  for (const stageKey of stageKeys) {
-    const stageData = raw[stageKey];
-    if (!stageData || typeof stageData !== 'object') continue;
-
-    const subcats = STAGE_SUBCATEGORIES[stageKey] || [];
+  // Always build all 7 stages, even if raw is null/empty
+  for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
+    const stageData = raw && typeof raw === 'object' ? raw[stageKey] : null;
     const stageResult: Record<string, any> = {};
 
-    // Determine which layer this stage has and assign to first relevant subcategory
-    const ativoItems = Array.isArray(stageData.ativo_smartdent) ? stageData.ativo_smartdent : [];
-    const concItems = Array.isArray(stageData.mapeamento_concorrente) ? stageData.mapeamento_concorrente : [];
-    const sdrItems = Array.isArray(stageData.sdr_interesse) ? stageData.sdr_interesse : [];
+    if (stageData && typeof stageData === 'object') {
+      const ativoItems = Array.isArray(stageData.ativo_smartdent) ? stageData.ativo_smartdent : [];
+      const concItems = Array.isArray(stageData.mapeamento_concorrente) ? stageData.mapeamento_concorrente : [];
+      const sdrItems = Array.isArray(stageData.sdr_interesse) ? stageData.sdr_interesse : [];
 
-    // Assign ativo items to subcategories
-    ativoItems.forEach((item: string, idx: number) => {
-      const field = subcats[idx] || subcats[0] || 'default';
-      stageResult[field] = { label: item, layer: 'ativo', hits: 1 };
-      nAtivo++;
-    });
+      ativoItems.forEach((item: string, idx: number) => {
+        const field = subcats[idx] || subcats[0] || 'default';
+        stageResult[field] = { label: item, layer: 'ativo', hits: 1 };
+        nAtivo++;
+      });
 
-    // Assign concorrente items to next available subcategories
-    concItems.forEach((item: string, idx: number) => {
-      const usedFields = Object.keys(stageResult);
-      const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
-      stageResult[available] = { label: item, layer: 'conc', hits: 1 };
-      nConc++;
-    });
+      concItems.forEach((item: string) => {
+        const usedFields = Object.keys(stageResult);
+        const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
+        stageResult[available] = { label: item, layer: 'conc', hits: 1 };
+        nConc++;
+      });
 
-    // Assign SDR interest items
-    sdrItems.forEach((item: string, idx: number) => {
-      const usedFields = Object.keys(stageResult);
-      const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
-      stageResult[available] = { label: item, layer: 'sdr', hits: 1 };
-      nSdr++;
-    });
+      sdrItems.forEach((item: string) => {
+        const usedFields = Object.keys(stageResult);
+        const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
+        stageResult[available] = { label: item, layer: 'sdr', hits: 1 };
+        nSdr++;
+      });
+    }
 
-    // Fill remaining subcategories with empty
+    // Fill all subcategories (empty ones get 'vazio')
     for (const field of subcats) {
       if (!stageResult[field]) {
         stageResult[field] = { label: '—', layer: 'vazio' };
@@ -265,9 +255,6 @@ function transformPortfolio(raw: any): any | null {
 
     result[stageKey] = stageResult;
   }
-
-  // If everything is empty, return null
-  if (nAtivo === 0 && nConc === 0 && nSdr === 0) return null;
 
   result.summary = { n_ativo: nAtivo, n_conc: nConc, n_sdr: nSdr };
   return result;
