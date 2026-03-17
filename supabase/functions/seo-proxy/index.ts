@@ -702,8 +702,10 @@ function generate404(): string {
   <title>Página não encontrada | Smart Dent</title>
   <meta name="robots" content="noindex" />
   ${FAVICON_TAGS}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   <h1>404 - Página não encontrada</h1>
   <p>A página solicitada não existe.</p>
   <a href="/">Voltar para o início</a>
@@ -735,6 +737,26 @@ function normalizeSlug(text: string): string {
     .replace(/\s+/g, '-') // Espaços → hífens
     .replace(/-+/g, '-') // Remove hífens duplicados
     .replace(/^-|-$/g, ''); // Remove hífens nas pontas
+}
+
+// ===== GTM TRACKING PIXELS =====
+const GTM_CONTAINER_ID = 'GTM-NZ64Q899';
+
+function buildGTMHead(): string {
+  return `<!-- Google Tag Manager -->
+  <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','${GTM_CONTAINER_ID}');</script>
+  <!-- End Google Tag Manager -->`;
+}
+
+function buildGTMBody(): string {
+  return `<!-- Google Tag Manager (noscript) -->
+  <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${GTM_CONTAINER_ID}"
+  height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+  <!-- End Google Tag Manager (noscript) -->`;
 }
 
 // Universal HowTo Extractor para SEO-Proxy (bots)
@@ -848,8 +870,10 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   </script>
   ${buildEntityIndexJsonLd(entityText, knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -920,8 +944,10 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   </script>
   ${buildEntityIndexJsonLd(`Impressora 3D ${brand.name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -1011,8 +1037,10 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   })}
   </script>
   ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -1128,8 +1156,10 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   })}
   </script>
   ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`, knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -1271,8 +1301,10 @@ async function generateSystemACatalogHTML(
   </script>
   ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`, knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -1343,8 +1375,10 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   </script>
   ${buildEntityIndexJsonLd('impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA CAD/CAM scanner intraoral prótese dentária odontologia digital', knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -1414,8 +1448,10 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   })}
   </script>
   ${buildEntityIndexJsonLd(`${category.name} impressão 3D odontológica resina fotopolimerização odontologia digital`, knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
@@ -1762,8 +1798,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="citation_date" content="${content.created_at?.split('T')[0] || ''}" />
   <meta name="citation_publisher" content="Smart Dent" />
   <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <article role="main" id="main-content">
     <h1>${escapeHtml(content.title)}</h1>
