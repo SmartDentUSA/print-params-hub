@@ -202,6 +202,19 @@ Deno.serve(async (req) => {
     try { ingestResult = JSON.parse(ingestBody); } catch {}
     const resolvedLeadId = ingestResult.lead_id as string | undefined;
 
+    // --- STEP 5 FIX: Direct merge of tags_crm bypassing smartMerge ---
+    if (resolvedLeadId && standardizedTags.length > 0) {
+      try {
+        await supabase.rpc("merge_tags_crm", {
+          p_lead_id: resolvedLeadId,
+          p_new_tags: standardizedTags,
+        });
+        console.log("[sellflux-webhook] Tags merged directly:", standardizedTags.length, "tags for lead", resolvedLeadId);
+      } catch (tagErr) {
+        console.warn("[sellflux-webhook] Tag merge RPC failed:", tagErr);
+      }
+    }
+
     // Timeline: log SellFlux entry with detected source context
     if (resolvedLeadId) {
       const hasEcommerce = detected.source === "loja_integrada";

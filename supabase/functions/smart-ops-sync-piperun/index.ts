@@ -218,10 +218,10 @@ async function processDeal(
   };
 
   if (currentLead) {
-    // Smart merge: remove null/undefined values to avoid overwriting existing data
+    // Smart merge: remove null/undefined values but PRESERVE falsy values (0, false, "")
     const smartPayload: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(updatePayload)) {
-      if (value !== null && value !== undefined) {
+      if (value != null) {  // allows 0, false, "" — only filters null/undefined
         smartPayload[key] = value;
       }
     }

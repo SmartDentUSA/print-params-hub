@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendLeadToSellFlux, sendCampaignViaSellFlux } from "../_shared/sellflux-field-map.ts";
+import { mergeSmartLead, logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,44 +35,6 @@ function detectProductFromFormName(formName: string | null): string | null {
   if (upper.includes("IOCONNECT") || upper.includes("IO CONNECT")) return "IoConnect";
   if (upper.includes("EBOOK") || upper.includes("PLACA")) return "Ebook/Placa";
   return null;
-}
-
-/** Smart Merge: only fill null fields, never overwrite existing data */
-function smartMerge(
-  existing: Record<string, unknown>,
-  incoming: Record<string, unknown>,
-  protectedFields: string[]
-): { merged: Record<string, unknown>; fieldsUpdated: string[] } {
-  const merged: Record<string, unknown> = {};
-  const fieldsUpdated: string[] = [];
-
-  for (const [key, newValue] of Object.entries(incoming)) {
-    if (newValue === null || newValue === undefined) continue;
-
-    const existingValue = existing[key];
-    const isProtected = protectedFields.includes(key);
-
-    // Protected fields: NEVER overwrite if they have a value
-    if (isProtected && existingValue !== null && existingValue !== undefined && existingValue !== "") {
-      continue;
-    }
-
-    // Non-protected: only fill if currently null/empty
-    if (existingValue === null || existingValue === undefined || existingValue === "") {
-      merged[key] = newValue;
-      fieldsUpdated.push(key);
-    }
-  }
-
-  // UTMs always update (latest campaign wins)
-  for (const utmKey of ["utm_source", "utm_medium", "utm_campaign", "utm_term"]) {
-    if (incoming[utmKey]) {
-      merged[utmKey] = incoming[utmKey];
-      if (!fieldsUpdated.includes(utmKey)) fieldsUpdated.push(utmKey);
-    }
-  }
-
-  return { merged, fieldsUpdated };
 }
 
 Deno.serve(async (req) => {
@@ -219,9 +182,12 @@ Deno.serve(async (req) => {
       equip_notebook_serial: payload.equip_notebook_serial || null,
       insumos_adquiridos: payload.insumos_adquiridos || null,
       // Tags
+      tags_crm: payload.tags_crm || null,
       motivo_perda: payload.motivo_perda || null,
       comentario_perda: payload.comentario_perda || null,
       id_cliente_smart: payload.id_cliente_smart || null,
+      // SellFlux custom fields
+      sellflux_custom_fields: payload.sellflux_custom_fields || null,
       ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
@@ -229,15 +195,13 @@ Deno.serve(async (req) => {
     let fieldsUpdated: string[] = [];
 
     if (existingLead) {
-      // --- SMART MERGE: only fill null fields ---
-      const protectedFields = [
-        "nome", "email", "telefone_normalized", "piperun_id",
-        "proprietario_lead_crm", "status_oportunidade", "lead_stage_detected",
-        "entrada_sistema",
-      ];
-
-      const { merged, fieldsUpdated: updated } = smartMerge(existingLead, incomingData, protectedFields);
+      // --- SMART MERGE using shared lead-enrichment module ---
+      const { merged, fieldsUpdated: updated, fieldsSkipped } = mergeSmartLead(existingLead, incomingData, source);
       fieldsUpdated = updated;
+
+      if (fieldsSkipped.length > 0) {
+        console.log("[ingest-lead] Fields skipped (already filled):", fieldsSkipped.slice(0, 15));
+      }
 
       // Build form submission history entry
       const submissionEntry = {
@@ -254,11 +218,18 @@ Deno.serve(async (req) => {
 
       merged.raw_payload = {
         ...(existingLead.raw_payload || {}),
+        ...(merged.raw_payload || {}),
         form_submissions: [...existingHistory, submissionEntry],
         latest_payload: payload,
       };
 
       if (Object.keys(merged).length > 0) {
+        // Capture previous values for audit
+        const previousValues: Record<string, unknown> = {};
+        for (const key of fieldsUpdated) {
+          previousValues[key] = existingLead[key];
+        }
+
         const { error: updateError } = await supabase
           .from("lia_attendances")
           .update(merged)
@@ -271,6 +242,9 @@ Deno.serve(async (req) => {
             status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
+
+        // Fire-and-forget: audit log
+        logEnrichmentAudit(existingLead.id, source, fieldsUpdated, previousValues, merged).catch(() => {});
       }
 
       leadId = existingLead.id;
