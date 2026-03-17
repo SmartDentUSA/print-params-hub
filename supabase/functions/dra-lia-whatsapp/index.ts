@@ -390,7 +390,7 @@ Deno.serve(async (req) => {
           placeholder_phone: phoneDigits,
         },
         last_activity_at: new Date().toISOString(),
-      }, { onConflict: "session_id" }).catch(() => {});
+      }, { onConflict: "session_id" }).then(({ error: e }) => { if (e) console.warn("[wa] session upsert error:", e.message); });
     }
 
     // 3. Call dra-lia internally (SSE stream)
