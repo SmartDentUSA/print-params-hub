@@ -1299,8 +1299,10 @@ async function generateSystemACatalogHTML(
   </script>
   ${buildEntityIndexJsonLd(`${item.name} ${item.description || ''} odontologia digital impressão 3D`, knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
