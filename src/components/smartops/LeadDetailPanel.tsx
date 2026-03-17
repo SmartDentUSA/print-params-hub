@@ -299,16 +299,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
-    // E-commerce orders
-    ((ld.lojaintegrada_historico_pedidos as any[]) || []).forEach((p: any) => {
-      events.push({
-        date: p.data,
-        dotCls: "tl-dot-buy",
-        title: `Pedido e-commerce #${p.numero}`,
-        desc: `${formatBRLFull(p.valor)} · ${p.status}`,
-        detail: { Valor: formatBRLFull(p.valor), Status: p.status },
-      });
-    });
+    // (E-commerce orders removed — data was fake)
 
     // Academy
     if (ld.astron_courses_total > 0) {
