@@ -532,7 +532,7 @@ async function upsertLead(
       }
     } catch (liaErr) {
       console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
-      await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "lia_sync_failed", lead_email: normalizedEmail, details: { error: String(liaErr), context: "lia_attendances sync" } }).catch(() => {});
+      supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "lia_sync_failed", lead_email: normalizedEmail, details: { error: String(liaErr), context: "lia_attendances sync" } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
     }
 
     // ── Record lead creation/identification in timeline (fire-and-forget) ──
