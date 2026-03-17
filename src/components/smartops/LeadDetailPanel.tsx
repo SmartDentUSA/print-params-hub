@@ -70,6 +70,11 @@ const formatBRL = (val: any): string => {
   return `R$${n.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`;
 };
 
+const formatBRLFull = (val: any): string => {
+  const n = Number(val) || 0;
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+};
+
 const formatDate = (dt: string | null | undefined): string => {
   if (!dt) return "—";
   return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
