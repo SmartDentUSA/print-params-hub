@@ -514,51 +514,136 @@ export type Database = {
       }
       companies: {
         Row: {
+          annual_revenue: number | null
           cidade: string | null
+          cnae: string | null
           cnpj: string | null
           created_at: string | null
+          domain: string | null
+          employee_count: number | null
+          endereco: Json | null
           facebook: string | null
           id: string
+          ie: string | null
+          is_active: boolean | null
           linkedin: string | null
+          merged_into: string | null
           nome: string | null
           piperun_company_id: number | null
           porte: string | null
+          primary_person_id: string | null
+          razao_social: string | null
           segmento: string | null
+          situacao: string | null
+          tags: string[] | null
+          touch_model: string | null
+          type: string
           uf: string | null
           updated_at: string | null
           website: string | null
         }
         Insert: {
+          annual_revenue?: number | null
           cidade?: string | null
+          cnae?: string | null
           cnpj?: string | null
           created_at?: string | null
+          domain?: string | null
+          employee_count?: number | null
+          endereco?: Json | null
           facebook?: string | null
           id?: string
+          ie?: string | null
+          is_active?: boolean | null
           linkedin?: string | null
+          merged_into?: string | null
           nome?: string | null
           piperun_company_id?: number | null
           porte?: string | null
+          primary_person_id?: string | null
+          razao_social?: string | null
           segmento?: string | null
+          situacao?: string | null
+          tags?: string[] | null
+          touch_model?: string | null
+          type?: string
           uf?: string | null
           updated_at?: string | null
           website?: string | null
         }
         Update: {
+          annual_revenue?: number | null
           cidade?: string | null
+          cnae?: string | null
           cnpj?: string | null
           created_at?: string | null
+          domain?: string | null
+          employee_count?: number | null
+          endereco?: Json | null
           facebook?: string | null
           id?: string
+          ie?: string | null
+          is_active?: boolean | null
           linkedin?: string | null
+          merged_into?: string | null
           nome?: string | null
           piperun_company_id?: number | null
           porte?: string | null
+          primary_person_id?: string | null
+          razao_social?: string | null
           segmento?: string | null
+          situacao?: string | null
+          tags?: string[] | null
+          touch_model?: string | null
+          type?: string
           uf?: string | null
           updated_at?: string | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "companies_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "companies_primary_person_id_fkey"
+            columns: ["primary_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "companies_primary_person_id_fkey"
+            columns: ["primary_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "companies_primary_person_id_fkey"
+            columns: ["primary_person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
+        ]
       }
       company_kb_texts: {
         Row: {
@@ -847,6 +932,251 @@ export type Database = {
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      deals: {
+        Row: {
+          billing_entity: string | null
+          closed_at: string | null
+          company_id: string | null
+          created_at: string | null
+          currency: string | null
+          deal_hash: string | null
+          deal_source: string | null
+          freight_type: string | null
+          id: string
+          is_deleted: boolean | null
+          items_text: string | null
+          lead_id: string | null
+          loss_comment: string | null
+          loss_reason: string | null
+          origin_name: string | null
+          owner_id: number | null
+          owner_name: string | null
+          payment_installments: number | null
+          payment_method: string | null
+          person_id: string | null
+          pipeline_id: number | null
+          pipeline_name: string | null
+          piperun_created_at: string | null
+          piperun_deal_id: string | null
+          product: string | null
+          product_category: string | null
+          proposals: Json | null
+          stage_id: number | null
+          stage_name: string | null
+          status: string | null
+          updated_at: string | null
+          value: number | null
+          value_freight: number | null
+          value_products: number | null
+        }
+        Insert: {
+          billing_entity?: string | null
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          deal_hash?: string | null
+          deal_source?: string | null
+          freight_type?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          items_text?: string | null
+          lead_id?: string | null
+          loss_comment?: string | null
+          loss_reason?: string | null
+          origin_name?: string | null
+          owner_id?: number | null
+          owner_name?: string | null
+          payment_installments?: number | null
+          payment_method?: string | null
+          person_id?: string | null
+          pipeline_id?: number | null
+          pipeline_name?: string | null
+          piperun_created_at?: string | null
+          piperun_deal_id?: string | null
+          product?: string | null
+          product_category?: string | null
+          proposals?: Json | null
+          stage_id?: number | null
+          stage_name?: string | null
+          status?: string | null
+          updated_at?: string | null
+          value?: number | null
+          value_freight?: number | null
+          value_products?: number | null
+        }
+        Update: {
+          billing_entity?: string | null
+          closed_at?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          deal_hash?: string | null
+          deal_source?: string | null
+          freight_type?: string | null
+          id?: string
+          is_deleted?: boolean | null
+          items_text?: string | null
+          lead_id?: string | null
+          loss_comment?: string | null
+          loss_reason?: string | null
+          origin_name?: string | null
+          owner_id?: number | null
+          owner_name?: string | null
+          payment_installments?: number | null
+          payment_method?: string | null
+          person_id?: string | null
+          pipeline_id?: number | null
+          pipeline_name?: string | null
+          piperun_created_at?: string | null
+          piperun_deal_id?: string | null
+          product?: string | null
+          product_category?: string | null
+          proposals?: Json | null
+          stage_id?: number | null
+          stage_name?: string | null
+          status?: string | null
+          updated_at?: string | null
+          value?: number | null
+          value_freight?: number | null
+          value_products?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deals_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "deals_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
         ]
       }
       drive_kb_sync_log: {
@@ -974,6 +1304,67 @@ export type Database = {
         }
         Relationships: []
       }
+      identity_keys: {
+        Row: {
+          confidence: string
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+          person_id: string
+          source: string | null
+          type: string
+          updated_at: string | null
+          value: string
+          verified_at: string | null
+        }
+        Insert: {
+          confidence?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          person_id: string
+          source?: string | null
+          type: string
+          updated_at?: string | null
+          value: string
+          verified_at?: string | null
+        }
+        Update: {
+          confidence?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+          person_id?: string
+          source?: string | null
+          type?: string
+          updated_at?: string | null
+          value?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_keys_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "identity_keys_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "identity_keys_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
       image_embedding_cache: {
         Row: {
           created_at: string | null
@@ -1063,6 +1454,185 @@ export type Database = {
           weights?: Json
         }
         Relationships: []
+      }
+      interactions: {
+        Row: {
+          body: string | null
+          channel_ref: string | null
+          company_id: string | null
+          created_at: string | null
+          direction: string | null
+          external_id: string | null
+          handled_by: string | null
+          id: string
+          intent: string | null
+          lead_id: string | null
+          occurred_at: string
+          payload: Json | null
+          person_id: string | null
+          resolved: boolean | null
+          score: number | null
+          sentiment: string | null
+          source: string
+          subject: string | null
+          type: string
+        }
+        Insert: {
+          body?: string | null
+          channel_ref?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          direction?: string | null
+          external_id?: string | null
+          handled_by?: string | null
+          id?: string
+          intent?: string | null
+          lead_id?: string | null
+          occurred_at?: string
+          payload?: Json | null
+          person_id?: string | null
+          resolved?: boolean | null
+          score?: number | null
+          sentiment?: string | null
+          source: string
+          subject?: string | null
+          type: string
+        }
+        Update: {
+          body?: string | null
+          channel_ref?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          direction?: string | null
+          external_id?: string | null
+          handled_by?: string | null
+          id?: string
+          intent?: string | null
+          lead_id?: string | null
+          occurred_at?: string
+          payload?: Json | null
+          person_id?: string | null
+          resolved?: boolean | null
+          score?: number | null
+          sentiment?: string | null
+          source?: string
+          subject?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "interactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
+        ]
       }
       knowledge_categories: {
         Row: {
@@ -1566,6 +2136,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_activity_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "lead_activity_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -1615,11 +2199,46 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_activity_log_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -1726,11 +2345,46 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_cart_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -1775,6 +2429,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
           },
           {
             foreignKeyName: "lead_conversion_history_lead_id_fkey"
@@ -1826,11 +2494,46 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_conversion_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -1943,11 +2646,46 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_course_progress_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -2060,11 +2798,187 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_form_submissions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
+      lead_opportunities: {
+        Row: {
+          competitor_product: string | null
+          computed_at: string | null
+          converted_deal_id: string | null
+          id: string
+          lead_id: string
+          opportunity_type: string
+          priority: string | null
+          product_key: string | null
+          product_name: string | null
+          recommended_action: string | null
+          recommended_message: string | null
+          score: number
+          signal_detail: string | null
+          signal_source: string | null
+          status: string | null
+          updated_at: string | null
+          value_est_brl: number | null
+          workflow_stage: string
+        }
+        Insert: {
+          competitor_product?: string | null
+          computed_at?: string | null
+          converted_deal_id?: string | null
+          id?: string
+          lead_id: string
+          opportunity_type: string
+          priority?: string | null
+          product_key?: string | null
+          product_name?: string | null
+          recommended_action?: string | null
+          recommended_message?: string | null
+          score?: number
+          signal_detail?: string | null
+          signal_source?: string | null
+          status?: string | null
+          updated_at?: string | null
+          value_est_brl?: number | null
+          workflow_stage: string
+        }
+        Update: {
+          competitor_product?: string | null
+          computed_at?: string | null
+          converted_deal_id?: string | null
+          id?: string
+          lead_id?: string
+          opportunity_type?: string
+          priority?: string | null
+          product_key?: string | null
+          product_name?: string | null
+          recommended_action?: string | null
+          recommended_message?: string | null
+          score?: number
+          signal_detail?: string | null
+          signal_source?: string | null
+          status?: string | null
+          updated_at?: string | null
+          value_est_brl?: number | null
+          workflow_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_product_key_fkey"
+            columns: ["product_key"]
+            isOneToOne: false
+            referencedRelation: "product_taxonomy"
+            referencedColumns: ["product_key"]
           },
         ]
       }
@@ -2150,6 +3064,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lead_product_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "lead_product_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
@@ -2199,11 +3127,46 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_product_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -2331,11 +3294,46 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lead_sdr_interactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -2427,6 +3425,27 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -2561,6 +3580,10 @@ export type Database = {
           equip_cad: string | null
           equip_cad_ativacao: string | null
           equip_cad_serial: string | null
+          equip_fresadora: string | null
+          equip_fresadora_ativacao: string | null
+          equip_fresadora_idade_meses: number | null
+          equip_fresadora_serial: string | null
           equip_impressora: string | null
           equip_impressora_ativacao: string | null
           equip_impressora_ativacao_estimada: string | null
@@ -2586,6 +3609,34 @@ export type Database = {
           funil_entrada_crm: string | null
           historico_resumos: Json | null
           hits_cad: number | null
+          hits_e1_acessorios: number | null
+          hits_e1_notebook: number | null
+          hits_e1_pecas_partes: number | null
+          hits_e1_scanner_bancada: number | null
+          hits_e1_scanner_intraoral: number | null
+          hits_e2_creditos_ia: number | null
+          hits_e2_pecas_partes: number | null
+          hits_e2_servico: number | null
+          hits_e2_software: number | null
+          hits_e3_acessorios: number | null
+          hits_e3_impressora: number | null
+          hits_e3_pecas_partes: number | null
+          hits_e3_resina: number | null
+          hits_e3_software: number | null
+          hits_e4_equipamentos: number | null
+          hits_e4_limpeza_acabamento: number | null
+          hits_e5_caracterizacao: number | null
+          hits_e5_dentistica_orto: number | null
+          hits_e5_instalacao: number | null
+          hits_e6_online: number | null
+          hits_e6_presencial: number | null
+          hits_e7_acessorios: number | null
+          hits_e7_equipamentos: number | null
+          hits_e7_pecas_partes: number | null
+          hits_e7_servico: number | null
+          hits_e7_software: number | null
+          hits_finalizacao: number | null
+          hits_fresagem: number | null
           hits_impressao3d: number | null
           hits_insumos_cursos: number | null
           hits_pos_impressao: number | null
@@ -2612,10 +3663,14 @@ export type Database = {
           last_deal_value: number | null
           last_form_cad: string | null
           last_form_date_cad: string | null
+          last_form_date_finalizacao: string | null
+          last_form_date_fresagem: string | null
           last_form_date_impressao: string | null
           last_form_date_insumos: string | null
           last_form_date_pos_impressao: string | null
           last_form_date_scanner: string | null
+          last_form_finalizacao: string | null
+          last_form_fresagem: string | null
           last_form_impressao: string | null
           last_form_insumos: string | null
           last_form_pos_impressao: string | null
@@ -2654,18 +3709,30 @@ export type Database = {
           ltv_projected_12m: number | null
           ltv_projected_24m: number | null
           ltv_total: number | null
+          map_fresadora_date: string | null
+          map_fresadora_marca: string | null
+          map_fresadora_modelo: string | null
+          merge_history: Json | null
+          merged_at: string | null
+          merged_into: string | null
           motivo_perda: string | null
           next_purchase_probability: number | null
           next_purchase_product: string | null
           next_purchase_value: number | null
           next_purchase_window_end: string | null
           next_purchase_window_start: string | null
+          next_upsell_date_est: string | null
+          next_upsell_product: string | null
+          next_upsell_score: number | null
+          next_upsell_stage: string | null
           nome: string
           nps_recomendaria: number | null
           nps_respondido_em: string | null
           nps_satisfacao: number | null
           nps_temas_cursos: string[] | null
           objection_risk: string | null
+          opportunity_score: number | null
+          opportunity_signals: Json | null
           origem_campanha: string | null
           original_date: string | null
           original_id: string | null
@@ -2722,6 +3789,7 @@ export type Database = {
           platform_form_id: string | null
           platform_lead_id: string | null
           platform_placement: string | null
+          portfolio_updated_at: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
           primary_motivation: string | null
@@ -2738,6 +3806,9 @@ export type Database = {
           psychological_profile: string | null
           raw_payload: Json | null
           recommended_approach: string | null
+          recompra_alert: boolean | null
+          recompra_days_overdue: number | null
+          recompra_stage: string | null
           resina_consumo_mensal_estimado: number | null
           resina_interesse: string | null
           resumo_historico_ia: string | null
@@ -2754,6 +3825,9 @@ export type Database = {
           sdr_cursos_interesse: string | null
           sdr_cursos_modalidade: string | null
           sdr_dentistica_interesse: string | null
+          sdr_fresadora_marca: string | null
+          sdr_fresadora_modelo: string | null
+          sdr_fresagem_interesse: string | null
           sdr_impressora_interesse: string | null
           sdr_insumos_lab_interesse: string | null
           sdr_insumos_tipo: string | null
@@ -2793,6 +3867,13 @@ export type Database = {
           tem_impressora: string | null
           tem_scanner: string | null
           temperatura_lead: string | null
+          timeline_cad: Json | null
+          timeline_cursos: Json | null
+          timeline_finalizacao: Json | null
+          timeline_fresagem: Json | null
+          timeline_impressao: Json | null
+          timeline_pos_impressao: Json | null
+          timeline_scanner: Json | null
           total_deals: number | null
           total_messages: number | null
           total_sessions: number | null
@@ -2808,7 +3889,10 @@ export type Database = {
           valor_oportunidade: number | null
           volume_mensal_pecas: string | null
           wa_group_origem: string | null
+          workflow_portfolio: Json | null
           workflow_score: number | null
+          workflow_timeline: Json | null
+          workflow_timeline_updated_at: string | null
         }
         Insert: {
           academy_curso_concluido?: string[] | null
@@ -2894,6 +3978,10 @@ export type Database = {
           equip_cad?: string | null
           equip_cad_ativacao?: string | null
           equip_cad_serial?: string | null
+          equip_fresadora?: string | null
+          equip_fresadora_ativacao?: string | null
+          equip_fresadora_idade_meses?: number | null
+          equip_fresadora_serial?: string | null
           equip_impressora?: string | null
           equip_impressora_ativacao?: string | null
           equip_impressora_ativacao_estimada?: string | null
@@ -2919,6 +4007,34 @@ export type Database = {
           funil_entrada_crm?: string | null
           historico_resumos?: Json | null
           hits_cad?: number | null
+          hits_e1_acessorios?: number | null
+          hits_e1_notebook?: number | null
+          hits_e1_pecas_partes?: number | null
+          hits_e1_scanner_bancada?: number | null
+          hits_e1_scanner_intraoral?: number | null
+          hits_e2_creditos_ia?: number | null
+          hits_e2_pecas_partes?: number | null
+          hits_e2_servico?: number | null
+          hits_e2_software?: number | null
+          hits_e3_acessorios?: number | null
+          hits_e3_impressora?: number | null
+          hits_e3_pecas_partes?: number | null
+          hits_e3_resina?: number | null
+          hits_e3_software?: number | null
+          hits_e4_equipamentos?: number | null
+          hits_e4_limpeza_acabamento?: number | null
+          hits_e5_caracterizacao?: number | null
+          hits_e5_dentistica_orto?: number | null
+          hits_e5_instalacao?: number | null
+          hits_e6_online?: number | null
+          hits_e6_presencial?: number | null
+          hits_e7_acessorios?: number | null
+          hits_e7_equipamentos?: number | null
+          hits_e7_pecas_partes?: number | null
+          hits_e7_servico?: number | null
+          hits_e7_software?: number | null
+          hits_finalizacao?: number | null
+          hits_fresagem?: number | null
           hits_impressao3d?: number | null
           hits_insumos_cursos?: number | null
           hits_pos_impressao?: number | null
@@ -2945,10 +4061,14 @@ export type Database = {
           last_deal_value?: number | null
           last_form_cad?: string | null
           last_form_date_cad?: string | null
+          last_form_date_finalizacao?: string | null
+          last_form_date_fresagem?: string | null
           last_form_date_impressao?: string | null
           last_form_date_insumos?: string | null
           last_form_date_pos_impressao?: string | null
           last_form_date_scanner?: string | null
+          last_form_finalizacao?: string | null
+          last_form_fresagem?: string | null
           last_form_impressao?: string | null
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
@@ -2987,18 +4107,30 @@ export type Database = {
           ltv_projected_12m?: number | null
           ltv_projected_24m?: number | null
           ltv_total?: number | null
+          map_fresadora_date?: string | null
+          map_fresadora_marca?: string | null
+          map_fresadora_modelo?: string | null
+          merge_history?: Json | null
+          merged_at?: string | null
+          merged_into?: string | null
           motivo_perda?: string | null
           next_purchase_probability?: number | null
           next_purchase_product?: string | null
           next_purchase_value?: number | null
           next_purchase_window_end?: string | null
           next_purchase_window_start?: string | null
+          next_upsell_date_est?: string | null
+          next_upsell_product?: string | null
+          next_upsell_score?: number | null
+          next_upsell_stage?: string | null
           nome: string
           nps_recomendaria?: number | null
           nps_respondido_em?: string | null
           nps_satisfacao?: number | null
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
+          opportunity_score?: number | null
+          opportunity_signals?: Json | null
           origem_campanha?: string | null
           original_date?: string | null
           original_id?: string | null
@@ -3055,6 +4187,7 @@ export type Database = {
           platform_form_id?: string | null
           platform_lead_id?: string | null
           platform_placement?: string | null
+          portfolio_updated_at?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
           primary_motivation?: string | null
@@ -3071,6 +4204,9 @@ export type Database = {
           psychological_profile?: string | null
           raw_payload?: Json | null
           recommended_approach?: string | null
+          recompra_alert?: boolean | null
+          recompra_days_overdue?: number | null
+          recompra_stage?: string | null
           resina_consumo_mensal_estimado?: number | null
           resina_interesse?: string | null
           resumo_historico_ia?: string | null
@@ -3087,6 +4223,9 @@ export type Database = {
           sdr_cursos_interesse?: string | null
           sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
+          sdr_fresadora_marca?: string | null
+          sdr_fresadora_modelo?: string | null
+          sdr_fresagem_interesse?: string | null
           sdr_impressora_interesse?: string | null
           sdr_insumos_lab_interesse?: string | null
           sdr_insumos_tipo?: string | null
@@ -3126,6 +4265,13 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          timeline_cad?: Json | null
+          timeline_cursos?: Json | null
+          timeline_finalizacao?: Json | null
+          timeline_fresagem?: Json | null
+          timeline_impressao?: Json | null
+          timeline_pos_impressao?: Json | null
+          timeline_scanner?: Json | null
           total_deals?: number | null
           total_messages?: number | null
           total_sessions?: number | null
@@ -3141,7 +4287,10 @@ export type Database = {
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
           wa_group_origem?: string | null
+          workflow_portfolio?: Json | null
           workflow_score?: number | null
+          workflow_timeline?: Json | null
+          workflow_timeline_updated_at?: string | null
         }
         Update: {
           academy_curso_concluido?: string[] | null
@@ -3227,6 +4376,10 @@ export type Database = {
           equip_cad?: string | null
           equip_cad_ativacao?: string | null
           equip_cad_serial?: string | null
+          equip_fresadora?: string | null
+          equip_fresadora_ativacao?: string | null
+          equip_fresadora_idade_meses?: number | null
+          equip_fresadora_serial?: string | null
           equip_impressora?: string | null
           equip_impressora_ativacao?: string | null
           equip_impressora_ativacao_estimada?: string | null
@@ -3252,6 +4405,34 @@ export type Database = {
           funil_entrada_crm?: string | null
           historico_resumos?: Json | null
           hits_cad?: number | null
+          hits_e1_acessorios?: number | null
+          hits_e1_notebook?: number | null
+          hits_e1_pecas_partes?: number | null
+          hits_e1_scanner_bancada?: number | null
+          hits_e1_scanner_intraoral?: number | null
+          hits_e2_creditos_ia?: number | null
+          hits_e2_pecas_partes?: number | null
+          hits_e2_servico?: number | null
+          hits_e2_software?: number | null
+          hits_e3_acessorios?: number | null
+          hits_e3_impressora?: number | null
+          hits_e3_pecas_partes?: number | null
+          hits_e3_resina?: number | null
+          hits_e3_software?: number | null
+          hits_e4_equipamentos?: number | null
+          hits_e4_limpeza_acabamento?: number | null
+          hits_e5_caracterizacao?: number | null
+          hits_e5_dentistica_orto?: number | null
+          hits_e5_instalacao?: number | null
+          hits_e6_online?: number | null
+          hits_e6_presencial?: number | null
+          hits_e7_acessorios?: number | null
+          hits_e7_equipamentos?: number | null
+          hits_e7_pecas_partes?: number | null
+          hits_e7_servico?: number | null
+          hits_e7_software?: number | null
+          hits_finalizacao?: number | null
+          hits_fresagem?: number | null
           hits_impressao3d?: number | null
           hits_insumos_cursos?: number | null
           hits_pos_impressao?: number | null
@@ -3278,10 +4459,14 @@ export type Database = {
           last_deal_value?: number | null
           last_form_cad?: string | null
           last_form_date_cad?: string | null
+          last_form_date_finalizacao?: string | null
+          last_form_date_fresagem?: string | null
           last_form_date_impressao?: string | null
           last_form_date_insumos?: string | null
           last_form_date_pos_impressao?: string | null
           last_form_date_scanner?: string | null
+          last_form_finalizacao?: string | null
+          last_form_fresagem?: string | null
           last_form_impressao?: string | null
           last_form_insumos?: string | null
           last_form_pos_impressao?: string | null
@@ -3320,18 +4505,30 @@ export type Database = {
           ltv_projected_12m?: number | null
           ltv_projected_24m?: number | null
           ltv_total?: number | null
+          map_fresadora_date?: string | null
+          map_fresadora_marca?: string | null
+          map_fresadora_modelo?: string | null
+          merge_history?: Json | null
+          merged_at?: string | null
+          merged_into?: string | null
           motivo_perda?: string | null
           next_purchase_probability?: number | null
           next_purchase_product?: string | null
           next_purchase_value?: number | null
           next_purchase_window_end?: string | null
           next_purchase_window_start?: string | null
+          next_upsell_date_est?: string | null
+          next_upsell_product?: string | null
+          next_upsell_score?: number | null
+          next_upsell_stage?: string | null
           nome?: string
           nps_recomendaria?: number | null
           nps_respondido_em?: string | null
           nps_satisfacao?: number | null
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
+          opportunity_score?: number | null
+          opportunity_signals?: Json | null
           origem_campanha?: string | null
           original_date?: string | null
           original_id?: string | null
@@ -3388,6 +4585,7 @@ export type Database = {
           platform_form_id?: string | null
           platform_lead_id?: string | null
           platform_placement?: string | null
+          portfolio_updated_at?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
           primary_motivation?: string | null
@@ -3404,6 +4602,9 @@ export type Database = {
           psychological_profile?: string | null
           raw_payload?: Json | null
           recommended_approach?: string | null
+          recompra_alert?: boolean | null
+          recompra_days_overdue?: number | null
+          recompra_stage?: string | null
           resina_consumo_mensal_estimado?: number | null
           resina_interesse?: string | null
           resumo_historico_ia?: string | null
@@ -3420,6 +4621,9 @@ export type Database = {
           sdr_cursos_interesse?: string | null
           sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
+          sdr_fresadora_marca?: string | null
+          sdr_fresadora_modelo?: string | null
+          sdr_fresagem_interesse?: string | null
           sdr_impressora_interesse?: string | null
           sdr_insumos_lab_interesse?: string | null
           sdr_insumos_tipo?: string | null
@@ -3459,6 +4663,13 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           temperatura_lead?: string | null
+          timeline_cad?: Json | null
+          timeline_cursos?: Json | null
+          timeline_finalizacao?: Json | null
+          timeline_fresagem?: Json | null
+          timeline_impressao?: Json | null
+          timeline_pos_impressao?: Json | null
+          timeline_scanner?: Json | null
           total_deals?: number | null
           total_messages?: number | null
           total_sessions?: number | null
@@ -3474,7 +4685,10 @@ export type Database = {
           valor_oportunidade?: number | null
           volume_mensal_pecas?: string | null
           wa_group_origem?: string | null
+          workflow_portfolio?: Json | null
           workflow_score?: number | null
+          workflow_timeline?: Json | null
+          workflow_timeline_updated_at?: string | null
         }
         Relationships: [
           {
@@ -3485,11 +4699,109 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lia_attendances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "lia_attendances_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -3608,6 +4920,27 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
           {
@@ -3828,6 +5161,20 @@ export type Database = {
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "people_primary_company_id_fkey"
+            columns: ["primary_company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "people_primary_company_id_fkey"
+            columns: ["primary_company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
         ]
       }
       person_company_relationship: {
@@ -3855,13 +5202,74 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "person_company_relationship_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "person_company_relationship_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
             foreignKeyName: "person_company_relationship_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "person_company_relationship_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "person_company_relationship_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
         ]
+      }
+      phone_dedup_log: {
+        Row: {
+          canonical_id: string
+          confidence: string | null
+          created_at: string | null
+          id: string
+          merge_reason: string | null
+          merged_ids: string[]
+          status: string | null
+          telefone: string
+        }
+        Insert: {
+          canonical_id: string
+          confidence?: string | null
+          created_at?: string | null
+          id?: string
+          merge_reason?: string | null
+          merged_ids: string[]
+          status?: string | null
+          telefone: string
+        }
+        Update: {
+          canonical_id?: string
+          confidence?: string | null
+          created_at?: string | null
+          id?: string
+          merge_reason?: string | null
+          merged_ids?: string[]
+          status?: string | null
+          telefone?: string
+        }
+        Relationships: []
       }
       piperun_pessoas_staging: {
         Row: {
@@ -3998,6 +5406,51 @@ export type Database = {
           tem_impressora?: string | null
           tem_scanner?: string | null
           uf?: string | null
+        }
+        Relationships: []
+      }
+      product_taxonomy: {
+        Row: {
+          base_value_brl: number | null
+          brand: string | null
+          created_at: string | null
+          display_name: string
+          id: string
+          is_competitor: boolean | null
+          is_smartdent: boolean | null
+          match_patterns: string[] | null
+          opportunity_type: string | null
+          product_key: string
+          subcategory: string | null
+          workflow_stage: string
+        }
+        Insert: {
+          base_value_brl?: number | null
+          brand?: string | null
+          created_at?: string | null
+          display_name: string
+          id?: string
+          is_competitor?: boolean | null
+          is_smartdent?: boolean | null
+          match_patterns?: string[] | null
+          opportunity_type?: string | null
+          product_key: string
+          subcategory?: string | null
+          workflow_stage: string
+        }
+        Update: {
+          base_value_brl?: number | null
+          brand?: string | null
+          created_at?: string | null
+          display_name?: string
+          id?: string
+          is_competitor?: boolean | null
+          is_smartdent?: boolean | null
+          match_patterns?: string[] | null
+          opportunity_type?: string | null
+          product_key?: string
+          subcategory?: string | null
+          workflow_stage?: string
         }
         Relationships: []
       }
@@ -5170,6 +6623,27 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
             foreignKeyName: "technical_tickets_support_team_member_id_fkey"
             columns: ["support_team_member_id"]
             isOneToOne: false
@@ -5287,6 +6761,27 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
         ]
@@ -5417,10 +6912,64 @@ export type Database = {
             referencedRelation: "v_leads_correto"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
         ]
       }
     }
     Views: {
+      company_ltv: {
+        Row: {
+          company_id: string | null
+          deals_ganhos: number | null
+          deals_total: number | null
+          ltv: number | null
+          ticket_medio: number | null
+          ultimo_fechamento: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["company_id"]
+          },
+          {
+            foreignKeyName: "deals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["company_id"]
+          },
+        ]
+      }
       lead_model_routing: {
         Row: {
           confidence_score_analysis: number | null
@@ -5460,11 +7009,81 @@ export type Database = {
         }
         Relationships: []
       }
+      person_ltv: {
+        Row: {
+          deals_ganhos: number | null
+          deals_total: number | null
+          ltv: number | null
+          person_id: string | null
+          ticket_medio: number | null
+          ultimo_fechamento: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_customer_graph"
+            referencedColumns: ["person_id"]
+          },
+          {
+            foreignKeyName: "deals_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "v_person_company_graph"
+            referencedColumns: ["person_id"]
+          },
+        ]
+      }
       v_behavioral_health: {
         Row: {
           registros: number | null
           tabela: string | null
           ultimo: string | null
+        }
+        Relationships: []
+      }
+      v_customer_graph: {
+        Row: {
+          account_type: string | null
+          anchor_product: string | null
+          billing_document: string | null
+          cargo: string | null
+          cnpj: string | null
+          company_city: string | null
+          company_id: string | null
+          company_name: string | null
+          company_type: string | null
+          company_uf: string | null
+          created_at: string | null
+          equip_scanner: string | null
+          identity_keys: Json | null
+          impressora_modelo: string | null
+          intelligence_score: Json | null
+          last_interaction: string | null
+          lead_status: string | null
+          ltv_b2b: number | null
+          ltv_b2c: number | null
+          person_cpf: string | null
+          person_email: string | null
+          person_id: string | null
+          person_name: string | null
+          person_phone: string | null
+          razao_social: string | null
+          status_cad: string | null
+          temperatura_lead: string | null
+          total_deals: number | null
+          total_interactions: number | null
+          ultimo_produto: string | null
+          updated_at: string | null
+          workflow_score: number | null
         }
         Relationships: []
       }
@@ -5667,11 +7286,528 @@ export type Database = {
         }
         Relationships: []
       }
+      v_open_opportunities: {
+        Row: {
+          churn_risk_score: number | null
+          cidade: string | null
+          competitor_product: string | null
+          computed_at: string | null
+          email: string | null
+          lead_id: string | null
+          lis: number | null
+          ltv_total: number | null
+          nome: string | null
+          nps_satisfacao: number | null
+          opp_id: string | null
+          opportunity_type: string | null
+          piperun_stage_name: string | null
+          priority: string | null
+          product_name: string | null
+          recommended_action: string | null
+          recommended_message: string | null
+          score: number | null
+          signal_detail: string | null
+          signal_source: string | null
+          telefone_normalized: string | null
+          urgency_level: string | null
+          value_est_brl: number | null
+          vendedor: string | null
+          workflow_stage: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      v_opportunity_engine: {
+        Row: {
+          astron_courses_total: number | null
+          astron_status: string | null
+          cad_ativo: string | null
+          cad_concorrente: string | null
+          cad_gap: string | null
+          churn_risk_score: number | null
+          cidade: string | null
+          cursos_ativo: string | null
+          cursos_gap: string | null
+          email: string | null
+          final_ativo: string | null
+          final_gap: string | null
+          impressao_ativo: string | null
+          impressao_concorrente: string | null
+          impressao_gap: string | null
+          last_deal_date: string | null
+          lead_id: string | null
+          lead_status: string | null
+          lis: number | null
+          ltv_potencial: number | null
+          ltv_total: number | null
+          nome: string | null
+          nps_satisfacao: number | null
+          opportunity_score: number | null
+          perfil_cognitivo: string | null
+          pipeline_potential: number | null
+          piperun_pipeline_name: string | null
+          piperun_stage_name: string | null
+          portfolio_updated_at: string | null
+          pos_ativo: string | null
+          pos_gap: string | null
+          scanner_ativo: string | null
+          scanner_concorrente: string | null
+          scanner_gap: string | null
+          scanner_interesse: string | null
+          stages_com_gap: Json | null
+          tags: string | null
+          telefone_normalized: string | null
+          tem_concorrente: boolean | null
+          top_opportunity: string | null
+          top_stage: string | null
+          top_value: number | null
+          total_deals: number | null
+          total_opps: number | null
+          uf: string | null
+          urgency_level: string | null
+          vendedor: string | null
+        }
+        Insert: {
+          astron_courses_total?: number | null
+          astron_status?: string | null
+          cad_ativo?: never
+          cad_concorrente?: never
+          cad_gap?: never
+          churn_risk_score?: number | null
+          cidade?: string | null
+          cursos_ativo?: never
+          cursos_gap?: never
+          email?: string | null
+          final_ativo?: never
+          final_gap?: never
+          impressao_ativo?: never
+          impressao_concorrente?: never
+          impressao_gap?: never
+          last_deal_date?: string | null
+          lead_id?: string | null
+          lead_status?: string | null
+          lis?: number | null
+          ltv_potencial?: never
+          ltv_total?: number | null
+          nome?: string | null
+          nps_satisfacao?: number | null
+          opportunity_score?: number | null
+          perfil_cognitivo?: never
+          pipeline_potential?: never
+          piperun_pipeline_name?: string | null
+          piperun_stage_name?: string | null
+          portfolio_updated_at?: string | null
+          pos_ativo?: never
+          pos_gap?: never
+          scanner_ativo?: never
+          scanner_concorrente?: never
+          scanner_gap?: never
+          scanner_interesse?: never
+          stages_com_gap?: never
+          tags?: never
+          telefone_normalized?: string | null
+          tem_concorrente?: never
+          top_opportunity?: never
+          top_stage?: never
+          top_value?: never
+          total_deals?: number | null
+          total_opps?: never
+          uf?: string | null
+          urgency_level?: string | null
+          vendedor?: string | null
+        }
+        Update: {
+          astron_courses_total?: number | null
+          astron_status?: string | null
+          cad_ativo?: never
+          cad_concorrente?: never
+          cad_gap?: never
+          churn_risk_score?: number | null
+          cidade?: string | null
+          cursos_ativo?: never
+          cursos_gap?: never
+          email?: string | null
+          final_ativo?: never
+          final_gap?: never
+          impressao_ativo?: never
+          impressao_concorrente?: never
+          impressao_gap?: never
+          last_deal_date?: string | null
+          lead_id?: string | null
+          lead_status?: string | null
+          lis?: number | null
+          ltv_potencial?: never
+          ltv_total?: number | null
+          nome?: string | null
+          nps_satisfacao?: number | null
+          opportunity_score?: number | null
+          perfil_cognitivo?: never
+          pipeline_potential?: never
+          piperun_pipeline_name?: string | null
+          piperun_stage_name?: string | null
+          portfolio_updated_at?: string | null
+          pos_ativo?: never
+          pos_gap?: never
+          scanner_ativo?: never
+          scanner_concorrente?: never
+          scanner_gap?: never
+          scanner_interesse?: never
+          stages_com_gap?: never
+          tags?: never
+          telefone_normalized?: string | null
+          tem_concorrente?: never
+          top_opportunity?: never
+          top_stage?: never
+          top_value?: never
+          total_deals?: number | null
+          total_opps?: never
+          uf?: string | null
+          urgency_level?: string | null
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
+      v_person_company_graph: {
+        Row: {
+          company_id: string | null
+          company_name: string | null
+          company_type: string | null
+          deals_na_empresa: number | null
+          email: string | null
+          ltv_na_empresa: number | null
+          person_id: string | null
+          person_name: string | null
+          role: string | null
+        }
+        Relationships: []
+      }
+      v_phone_duplicates: {
+        Row: {
+          canonical_id: string | null
+          confidence: string | null
+          duplicados: string[] | null
+          emails: string[] | null
+          ltvs: number[] | null
+          max_ltv: number | null
+          nomes: string[] | null
+          telefone_normalized: string | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      v_timing_alerts: {
+        Row: {
+          email: string | null
+          etapas_com_concorrente: number | null
+          fresadora_concorrente: string | null
+          id: string | null
+          last_deal_date: string | null
+          ltv_total: number | null
+          next_upsell_score: number | null
+          nome: string | null
+          proximo_upsell: string | null
+          recompra_days_overdue: number | null
+          scanner_alerta: string | null
+          telefone_normalized: string | null
+          tipo_alerta: string | null
+          total_hits: number | null
+          vendedor: string | null
+        }
+        Insert: {
+          email?: string | null
+          etapas_com_concorrente?: never
+          fresadora_concorrente?: never
+          id?: string | null
+          last_deal_date?: string | null
+          ltv_total?: number | null
+          next_upsell_score?: number | null
+          nome?: string | null
+          proximo_upsell?: string | null
+          recompra_days_overdue?: number | null
+          scanner_alerta?: never
+          telefone_normalized?: string | null
+          tipo_alerta?: never
+          total_hits?: never
+          vendedor?: string | null
+        }
+        Update: {
+          email?: string | null
+          etapas_com_concorrente?: never
+          fresadora_concorrente?: never
+          id?: string | null
+          last_deal_date?: string | null
+          ltv_total?: number | null
+          next_upsell_score?: number | null
+          nome?: string | null
+          proximo_upsell?: string | null
+          recompra_days_overdue?: number | null
+          scanner_alerta?: never
+          telefone_normalized?: string | null
+          tipo_alerta?: never
+          total_hits?: never
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
+      v_workflow_timeline: {
+        Row: {
+          cidade: string | null
+          computed_at: string | null
+          dias_sem_compra: number | null
+          e1_alerta: string | null
+          e1_ativo: string | null
+          e1_concorrente: string | null
+          e1_dias: number | null
+          e1_gap: string | null
+          e1_hits: number | null
+          e1_ultima_interacao: string | null
+          e2_ativo: string | null
+          e2_concorrente: string | null
+          e2_dias: number | null
+          e2_gap: string | null
+          e2_hits: number | null
+          e2_ultima_interacao: string | null
+          e3_ativo: string | null
+          e3_concorrente: string | null
+          e3_dias: number | null
+          e3_gap: string | null
+          e3_hits: number | null
+          e3_recompra: boolean | null
+          e3_ultima_interacao: string | null
+          e4_cross_sell: boolean | null
+          e4_gap: string | null
+          e4_hits: number | null
+          e5_gap: string | null
+          e5_hits: number | null
+          e6_ativo: string | null
+          e6_cursos_ok: number | null
+          e6_engajamento: string | null
+          e6_gap: string | null
+          e7_concorrente: string | null
+          e7_gap: string | null
+          e7_hits: number | null
+          e7_marca_concorrente: string | null
+          e7_ultima_interacao: string | null
+          email: string | null
+          last_deal_date: string | null
+          lead_id: string | null
+          lead_status: string | null
+          lis: number | null
+          ltv_total: number | null
+          nome: string | null
+          opportunity_score: number | null
+          piperun_stage_name: string | null
+          proximo_upsell_etapa: string | null
+          proximo_upsell_score: number | null
+          recompra_alert: boolean | null
+          recompra_dias_atrasado: number | null
+          recompra_etapa: string | null
+          stages_ativo: number | null
+          stages_concorrente: number | null
+          stages_sdr: number | null
+          telefone_normalized: string | null
+          total_hits: number | null
+          vendedor: string | null
+        }
+        Insert: {
+          cidade?: string | null
+          computed_at?: string | null
+          dias_sem_compra?: never
+          e1_alerta?: never
+          e1_ativo?: never
+          e1_concorrente?: never
+          e1_dias?: never
+          e1_gap?: never
+          e1_hits?: never
+          e1_ultima_interacao?: never
+          e2_ativo?: never
+          e2_concorrente?: never
+          e2_dias?: never
+          e2_gap?: never
+          e2_hits?: never
+          e2_ultima_interacao?: never
+          e3_ativo?: never
+          e3_concorrente?: never
+          e3_dias?: never
+          e3_gap?: never
+          e3_hits?: never
+          e3_recompra?: never
+          e3_ultima_interacao?: never
+          e4_cross_sell?: never
+          e4_gap?: never
+          e4_hits?: never
+          e5_gap?: never
+          e5_hits?: never
+          e6_ativo?: never
+          e6_cursos_ok?: never
+          e6_engajamento?: never
+          e6_gap?: never
+          e7_concorrente?: never
+          e7_gap?: never
+          e7_hits?: never
+          e7_marca_concorrente?: never
+          e7_ultima_interacao?: never
+          email?: string | null
+          last_deal_date?: string | null
+          lead_id?: string | null
+          lead_status?: string | null
+          lis?: number | null
+          ltv_total?: number | null
+          nome?: string | null
+          opportunity_score?: number | null
+          piperun_stage_name?: string | null
+          proximo_upsell_etapa?: never
+          proximo_upsell_score?: never
+          recompra_alert?: never
+          recompra_dias_atrasado?: never
+          recompra_etapa?: never
+          stages_ativo?: never
+          stages_concorrente?: never
+          stages_sdr?: never
+          telefone_normalized?: string | null
+          total_hits?: never
+          vendedor?: string | null
+        }
+        Update: {
+          cidade?: string | null
+          computed_at?: string | null
+          dias_sem_compra?: never
+          e1_alerta?: never
+          e1_ativo?: never
+          e1_concorrente?: never
+          e1_dias?: never
+          e1_gap?: never
+          e1_hits?: never
+          e1_ultima_interacao?: never
+          e2_ativo?: never
+          e2_concorrente?: never
+          e2_dias?: never
+          e2_gap?: never
+          e2_hits?: never
+          e2_ultima_interacao?: never
+          e3_ativo?: never
+          e3_concorrente?: never
+          e3_dias?: never
+          e3_gap?: never
+          e3_hits?: never
+          e3_recompra?: never
+          e3_ultima_interacao?: never
+          e4_cross_sell?: never
+          e4_gap?: never
+          e4_hits?: never
+          e5_gap?: never
+          e5_hits?: never
+          e6_ativo?: never
+          e6_cursos_ok?: never
+          e6_engajamento?: never
+          e6_gap?: never
+          e7_concorrente?: never
+          e7_gap?: never
+          e7_hits?: never
+          e7_marca_concorrente?: never
+          e7_ultima_interacao?: never
+          email?: string | null
+          last_deal_date?: string | null
+          lead_id?: string | null
+          lead_status?: string | null
+          lis?: number | null
+          ltv_total?: number | null
+          nome?: string | null
+          opportunity_score?: number | null
+          piperun_stage_name?: string | null
+          proximo_upsell_etapa?: never
+          proximo_upsell_score?: never
+          recompra_alert?: never
+          recompra_dias_atrasado?: never
+          recompra_etapa?: never
+          stages_ativo?: never
+          stages_concorrente?: never
+          stages_sdr?: never
+          telefone_normalized?: string | null
+          total_hits?: never
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_lead_intelligence_score: {
         Args: { p_lead_id: string }
         Returns: undefined
+      }
+      compute_workflow_timeline: {
+        Args: { lead: Database["public"]["Tables"]["lia_attendances"]["Row"] }
+        Returns: Json
       }
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
@@ -5738,6 +7874,413 @@ export type Database = {
           percentage: number
         }[]
       }
+      get_leads_for_opportunity_engine: {
+        Args: { p_cols?: string; p_cutoff: string; p_limit?: number }
+        Returns: {
+          academy_curso_concluido: string[] | null
+          academy_progresso_pct: number | null
+          academy_ultimo_modulo_acessado: string | null
+          anchor_product: string | null
+          area_atuacao: string | null
+          astron_courses_access: Json | null
+          astron_courses_completed: number | null
+          astron_courses_total: number | null
+          astron_created_at: string | null
+          astron_email: string | null
+          astron_last_login_at: string | null
+          astron_login_url: string | null
+          astron_nome: string | null
+          astron_phone: string | null
+          astron_plans_active: string[] | null
+          astron_plans_data: Json | null
+          astron_status: string | null
+          astron_synced_at: string | null
+          astron_user_id: number | null
+          ativo_cad: boolean | null
+          ativo_cad_ia: boolean | null
+          ativo_cura: boolean | null
+          ativo_insumos: boolean | null
+          ativo_notebook: boolean | null
+          ativo_print: boolean | null
+          ativo_scan: boolean | null
+          ativo_smart_slice: boolean | null
+          automation_cooldown_until: string | null
+          avg_ticket: number | null
+          buyer_type: string | null
+          churn_risk_score: number | null
+          cidade: string | null
+          codigo_contrato: string | null
+          cognitive_analysis: Json | null
+          cognitive_analyzed_at: string | null
+          cognitive_context_hash: string | null
+          cognitive_model_version: string | null
+          cognitive_prompt_hash: string | null
+          cognitive_updated_at: string | null
+          comentario_perda: string | null
+          como_digitaliza: string | null
+          company_hash: string | null
+          company_id: string | null
+          confidence_score_analysis: number | null
+          created_at: string
+          crm_lock_source: string | null
+          crm_lock_until: string | null
+          cs_treinamento: string | null
+          data_contrato: string | null
+          data_fechamento_crm: string | null
+          data_primeiro_contato: string | null
+          data_treinamento: string | null
+          data_ultima_compra_cad: string | null
+          data_ultima_compra_cad_ia: string | null
+          data_ultima_compra_cura: string | null
+          data_ultima_compra_insumos: string | null
+          data_ultima_compra_notebook: string | null
+          data_ultima_compra_print: string | null
+          data_ultima_compra_scan: string | null
+          data_ultima_compra_smart_slice: string | null
+          email: string
+          empresa_cidade: string | null
+          empresa_cnae: string | null
+          empresa_cnpj: string | null
+          empresa_custom_fields: Json | null
+          empresa_endereco: Json | null
+          empresa_facebook: string | null
+          empresa_hash: string | null
+          empresa_ie: string | null
+          empresa_linkedin: string | null
+          empresa_nome: string | null
+          empresa_piperun_id: number | null
+          empresa_porte: string | null
+          empresa_razao_social: string | null
+          empresa_segmento: string | null
+          empresa_situacao: string | null
+          empresa_touch_model: string | null
+          empresa_uf: string | null
+          empresa_website: string | null
+          entrada_sistema: string
+          equip_cad: string | null
+          equip_cad_ativacao: string | null
+          equip_cad_serial: string | null
+          equip_fresadora: string | null
+          equip_fresadora_ativacao: string | null
+          equip_fresadora_idade_meses: number | null
+          equip_fresadora_serial: string | null
+          equip_impressora: string | null
+          equip_impressora_ativacao: string | null
+          equip_impressora_ativacao_estimada: string | null
+          equip_impressora_idade_meses: number | null
+          equip_impressora_serial: string | null
+          equip_notebook: string | null
+          equip_notebook_ativacao: string | null
+          equip_notebook_serial: string | null
+          equip_pos_impressao: string | null
+          equip_pos_impressao_ativacao: string | null
+          equip_pos_impressao_serial: string | null
+          equip_scanner: string | null
+          equip_scanner_ativacao: string | null
+          equip_scanner_ativacao_estimada: string | null
+          equip_scanner_idade_meses: number | null
+          equip_scanner_serial: string | null
+          equip_upgrade_produto: string | null
+          equip_upgrade_reasoning: string | null
+          equip_upgrade_signal: boolean | null
+          equip_upgrade_urgency: string | null
+          especialidade: string | null
+          form_name: string | null
+          funil_entrada_crm: string | null
+          historico_resumos: Json | null
+          hits_cad: number | null
+          hits_e1_acessorios: number | null
+          hits_e1_notebook: number | null
+          hits_e1_pecas_partes: number | null
+          hits_e1_scanner_bancada: number | null
+          hits_e1_scanner_intraoral: number | null
+          hits_e2_creditos_ia: number | null
+          hits_e2_pecas_partes: number | null
+          hits_e2_servico: number | null
+          hits_e2_software: number | null
+          hits_e3_acessorios: number | null
+          hits_e3_impressora: number | null
+          hits_e3_pecas_partes: number | null
+          hits_e3_resina: number | null
+          hits_e3_software: number | null
+          hits_e4_equipamentos: number | null
+          hits_e4_limpeza_acabamento: number | null
+          hits_e5_caracterizacao: number | null
+          hits_e5_dentistica_orto: number | null
+          hits_e5_instalacao: number | null
+          hits_e6_online: number | null
+          hits_e6_presencial: number | null
+          hits_e7_acessorios: number | null
+          hits_e7_equipamentos: number | null
+          hits_e7_pecas_partes: number | null
+          hits_e7_servico: number | null
+          hits_e7_software: number | null
+          hits_finalizacao: number | null
+          hits_fresagem: number | null
+          hits_impressao3d: number | null
+          hits_insumos_cursos: number | null
+          hits_pos_impressao: number | null
+          hits_scanner: number | null
+          id: string
+          id_cliente_smart: string | null
+          imersao_concluida: boolean | null
+          imersao_data: string | null
+          imersao_equipamentos_treinados: string[] | null
+          imersao_turma_id: string | null
+          impressora_modelo: string | null
+          informacao_desejada: string | null
+          insumos_adquiridos: string | null
+          intelligence_score: Json | null
+          intelligence_score_backfilled_at: string | null
+          intelligence_score_total: number | null
+          intelligence_score_updated_at: string | null
+          interest_timeline: string | null
+          ip_origem: string | null
+          itens_proposta_crm: string | null
+          itens_proposta_parsed: Json | null
+          last_automated_action_at: string | null
+          last_deal_date: string | null
+          last_deal_value: number | null
+          last_form_cad: string | null
+          last_form_date_cad: string | null
+          last_form_date_finalizacao: string | null
+          last_form_date_fresagem: string | null
+          last_form_date_impressao: string | null
+          last_form_date_insumos: string | null
+          last_form_date_pos_impressao: string | null
+          last_form_date_scanner: string | null
+          last_form_finalizacao: string | null
+          last_form_fresagem: string | null
+          last_form_impressao: string | null
+          last_form_insumos: string | null
+          last_form_pos_impressao: string | null
+          last_form_scanner: string | null
+          last_sync_at: string | null
+          last_sync_source: string | null
+          lead_card_published_at: string | null
+          lead_card_url: string | null
+          lead_stage_detected: string | null
+          lead_status: string
+          lead_timing_dias: number | null
+          lojaintegrada_bairro: string | null
+          lojaintegrada_cep: string | null
+          lojaintegrada_cliente_id: number | null
+          lojaintegrada_cliente_obs: string | null
+          lojaintegrada_complemento: string | null
+          lojaintegrada_cupom_desconto: string | null
+          lojaintegrada_data_nascimento: string | null
+          lojaintegrada_endereco: string | null
+          lojaintegrada_forma_envio: string | null
+          lojaintegrada_forma_pagamento: string | null
+          lojaintegrada_historico_pedidos: Json | null
+          lojaintegrada_itens_json: Json | null
+          lojaintegrada_ltv: number | null
+          lojaintegrada_numero: string | null
+          lojaintegrada_primeira_compra: string | null
+          lojaintegrada_referencia: string | null
+          lojaintegrada_sexo: string | null
+          lojaintegrada_total_pedidos_pagos: number | null
+          lojaintegrada_ultimo_pedido_data: string | null
+          lojaintegrada_ultimo_pedido_numero: number | null
+          lojaintegrada_ultimo_pedido_status: string | null
+          lojaintegrada_ultimo_pedido_valor: number | null
+          lojaintegrada_updated_at: string | null
+          lojaintegrada_utm_campaign: string | null
+          ltv_projected_12m: number | null
+          ltv_projected_24m: number | null
+          ltv_total: number | null
+          map_fresadora_date: string | null
+          map_fresadora_marca: string | null
+          map_fresadora_modelo: string | null
+          merge_history: Json | null
+          merged_at: string | null
+          merged_into: string | null
+          motivo_perda: string | null
+          next_purchase_probability: number | null
+          next_purchase_product: string | null
+          next_purchase_value: number | null
+          next_purchase_window_end: string | null
+          next_purchase_window_start: string | null
+          next_upsell_date_est: string | null
+          next_upsell_product: string | null
+          next_upsell_score: number | null
+          next_upsell_stage: string | null
+          nome: string
+          nps_recomendaria: number | null
+          nps_respondido_em: string | null
+          nps_satisfacao: number | null
+          nps_temas_cursos: string[] | null
+          objection_risk: string | null
+          opportunity_score: number | null
+          opportunity_signals: Json | null
+          origem_campanha: string | null
+          original_date: string | null
+          original_id: string | null
+          original_source: string | null
+          pais_origem: string | null
+          person_hash: string | null
+          person_id: string | null
+          pessoa_cargo: string | null
+          pessoa_cpf: string | null
+          pessoa_endereco: Json | null
+          pessoa_facebook: string | null
+          pessoa_genero: string | null
+          pessoa_hash: string | null
+          pessoa_linkedin: string | null
+          pessoa_nascimento: string | null
+          pessoa_observation: string | null
+          pessoa_piperun_id: number | null
+          pessoa_website: string | null
+          piperun_closed_at: string | null
+          piperun_created_at: string | null
+          piperun_custom_fields: Json | null
+          piperun_deals_history: Json | null
+          piperun_deleted: boolean | null
+          piperun_description: string | null
+          piperun_frozen: boolean | null
+          piperun_frozen_at: string | null
+          piperun_hash: string | null
+          piperun_id: string | null
+          piperun_involved_users: Json | null
+          piperun_last_contact_at: string | null
+          piperun_lead_time: number | null
+          piperun_link: string | null
+          piperun_observation: string | null
+          piperun_origin_id: number | null
+          piperun_origin_name: string | null
+          piperun_origin_sub_name: string | null
+          piperun_owner_id: number | null
+          piperun_pipeline_id: number | null
+          piperun_pipeline_name: string | null
+          piperun_probability: number | null
+          piperun_probably_closed_at: string | null
+          piperun_stage_changed_at: string | null
+          piperun_stage_id: number | null
+          piperun_stage_name: string | null
+          piperun_status: number | null
+          piperun_tags_raw: Json | null
+          piperun_title: string | null
+          piperun_value_mrr: number | null
+          platform: string | null
+          platform_ad_id: string | null
+          platform_adgroup_id: string | null
+          platform_campaign_id: string | null
+          platform_cpl: number | null
+          platform_form_id: string | null
+          platform_lead_id: string | null
+          platform_placement: string | null
+          portfolio_updated_at: string | null
+          prediction_accuracy: number | null
+          predictions_updated_at: string | null
+          primary_motivation: string | null
+          principal_aplicacao: string | null
+          proactive_count: number | null
+          proactive_sent_at: string | null
+          produto_interesse: string | null
+          produto_interesse_auto: string | null
+          proposals_data: Json | null
+          proposals_last_status: number | null
+          proposals_total_mrr: number | null
+          proposals_total_value: number | null
+          proprietario_lead_crm: string | null
+          psychological_profile: string | null
+          raw_payload: Json | null
+          recommended_approach: string | null
+          recompra_alert: boolean | null
+          recompra_days_overdue: number | null
+          recompra_stage: string | null
+          resina_consumo_mensal_estimado: number | null
+          resina_interesse: string | null
+          resumo_historico_ia: string | null
+          reuniao_agendada: boolean | null
+          rota_inicial_lia: string | null
+          score: number | null
+          sdr_cad_funcionalidades: string | null
+          sdr_cad_licenca: string | null
+          sdr_cad_treinamento: string | null
+          sdr_caracterizacao_interesse: string | null
+          sdr_caracterizacao_produto_atual: string | null
+          sdr_cura_modelo: string | null
+          sdr_cursos_area: string | null
+          sdr_cursos_interesse: string | null
+          sdr_cursos_modalidade: string | null
+          sdr_dentistica_interesse: string | null
+          sdr_fresadora_marca: string | null
+          sdr_fresadora_modelo: string | null
+          sdr_fresagem_interesse: string | null
+          sdr_impressora_interesse: string | null
+          sdr_insumos_lab_interesse: string | null
+          sdr_insumos_tipo: string | null
+          sdr_marca_impressora_param: string | null
+          sdr_modelo_impressora_param: string | null
+          sdr_pos_impressao_interesse: string | null
+          sdr_resina_atual: string | null
+          sdr_resina_param: string | null
+          sdr_scanner_interesse: string | null
+          sdr_scanner_modelo: string | null
+          sdr_smartgum_interesse: boolean | null
+          sdr_smartmake_interesse: boolean | null
+          sdr_software_cad_interesse: string | null
+          sdr_solucoes_interesse: string | null
+          sdr_suporte_descricao: string | null
+          sdr_suporte_equipamento: string | null
+          sdr_suporte_tipo: string | null
+          sdr_usa_resina_smartdent: boolean | null
+          sellflux_custom_fields: Json | null
+          sellflux_synced_at: string | null
+          software_cad: string | null
+          source: string
+          source_reference: string | null
+          status_atual_lead_crm: string | null
+          status_cad: string | null
+          status_impressora: string | null
+          status_insumos: string | null
+          status_oportunidade: string | null
+          status_pos_impressao: string | null
+          status_scanner: string | null
+          suporte_educacional_tickets_total: number | null
+          suporte_impressora_tickets_6m: number | null
+          suporte_tecnico_tickets_total: number | null
+          tags_crm: string[] | null
+          telefone_normalized: string | null
+          telefone_raw: string | null
+          tem_impressora: string | null
+          tem_scanner: string | null
+          temperatura_lead: string | null
+          timeline_cad: Json | null
+          timeline_cursos: Json | null
+          timeline_finalizacao: Json | null
+          timeline_fresagem: Json | null
+          timeline_impressao: Json | null
+          timeline_pos_impressao: Json | null
+          timeline_scanner: Json | null
+          total_deals: number | null
+          total_messages: number | null
+          total_sessions: number | null
+          uf: string | null
+          ultima_etapa_comercial: string | null
+          ultima_sessao_at: string | null
+          updated_at: string
+          urgency_level: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          valor_oportunidade: number | null
+          volume_mensal_pecas: string | null
+          wa_group_origem: string | null
+          workflow_portfolio: Json | null
+          workflow_score: number | null
+          workflow_timeline: Json | null
+          workflow_timeline_updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "lia_attendances"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_rag_stats: {
         Args: never
         Returns: {
@@ -5782,6 +8325,7 @@ export type Database = {
           source_type: string
         }[]
       }
+      normalize_name_for_compare: { Args: { n: string }; Returns: string }
       normalize_text: { Args: { text_input: string }; Returns: string }
       search_knowledge_base: {
         Args: { language_code?: string; search_query: string }

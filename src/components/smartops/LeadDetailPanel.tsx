@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Send, Loader2, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 
 // ─── Types ───
 interface LeadFull {
@@ -298,11 +299,17 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
   const [mergeInfo, setMergeInfo] = useState<{ count: number; sources: string[] } | null>(null);
   const [mergeRunning, setMergeRunning] = useState(false);
 
+  // Portfolio state
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioEmbedUrl, setPortfolioEmbedUrl] = useState<string | null>(null);
+  const portfolioCacheRef = useRef<Record<string, Portfolio>>({});
+
   // Reset on lead change
   useEffect(() => {
     setCognitiveResult(""); setUpsellResult(""); setActionsResult("");
     setChatMessages([]); setChatInput(""); setTimelineLimit(100);
-    setMergeInfo(null);
+    setMergeInfo(null); setPortfolio(null); setPortfolioEmbedUrl(null);
   }, [lead?.id]);
 
   // Auto-trigger AI tabs when activated
@@ -315,6 +322,36 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
     }
     if (activeTab === "actions" && !actionsResult && !actionsLoading) {
       callCopilotForTab("actions");
+    }
+    // Fetch portfolio when flow tab is activated
+    if (activeTab === "flow" && !portfolio && !portfolioLoading && lead?.id) {
+      const cached = portfolioCacheRef.current[lead.id];
+      if (cached) {
+        setPortfolio(cached);
+      } else {
+        setPortfolioLoading(true);
+        const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk";
+        fetch(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=detail&id=${lead.id}`, {
+          headers: { "Authorization": `Bearer ${ANON_KEY}`, "apikey": ANON_KEY },
+        })
+          .then(r => r.json())
+          .then(data => {
+            if (data?.portfolio) {
+              setPortfolio(data.portfolio);
+              portfolioCacheRef.current[lead.id] = data.portfolio;
+            }
+            if (data?.portfolio_embed_url) {
+              setPortfolioEmbedUrl(data.portfolio_embed_url);
+            }
+            if (!data?.portfolio) {
+              setPortfolioEmbedUrl(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=portfolio&id=${lead.id}&dark=true`);
+            }
+          })
+          .catch(() => {
+            setPortfolioEmbedUrl(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=portfolio&id=${lead.id}&dark=true`);
+          })
+          .finally(() => setPortfolioLoading(false));
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -859,41 +896,28 @@ Para cada ação: emoji, título, descrição curta, e se aplicável um script d
               </div>
             )}
 
-            {/* ═══ TAB 4: FLUXO DIGITAL ═══ */}
+            {/* ═══ TAB 4: FLUXO DIGITAL — WORKFLOW PORTFOLIO ═══ */}
             {activeTab === "flow" && (
               <div>
-                <div className="intel-sec">Fluxo Digital — mapa de equipamentos</div>
-                {/* Equipment flow */}
-                {[
-                  {
-                    label: "🔬 Scanner Intraoral",
-                    owned: lead.status_scanner === "tem_smartdent",
-                    name: lead.equip_scanner,
-                    detail: lead.status_scanner === "tem_smartdent" ? "SmartDent ✓" : lead.equip_scanner ? "concorrente" : lead.status_scanner || "Não mapeado",
-                  },
-                  {
-                    label: "🖨️ Impressora 3D",
-                    owned: lead.status_impressora === "tem_com_resina_sd",
-                    name: lead.impressora_modelo,
-                    detail: lead.status_impressora === "tem_com_resina_sd" ? "com resina SD ✓" : lead.impressora_modelo ? "sem resina SD" : lead.status_impressora || "Não mapeado",
-                  },
-                  {
-                    label: "💻 Software CAD",
-                    owned: lead.status_cad === "tem_exocad",
-                    name: lead.status_cad === "tem_exocad" ? "Exocad" : null,
-                    detail: lead.status_cad === "tem_exocad" ? "Exocad ✓" : lead.status_cad === "interesse" ? "interesse" : "não mapeado",
-                  },
-                ].map((eq, i) => (
-                  <div key={i} className="intel-flow-section">
-                    <div className="intel-flow-label">{eq.label}</div>
-                    <div className="intel-flow-items">
-                      <div className={`intel-fi ${eq.owned ? "intel-fi-owned" : eq.name ? "intel-fi-interest" : "intel-fi-none"}`}>
-                        <div className="intel-fi-dot" />
-                        {eq.name ? `${eq.name} — ${eq.detail}` : eq.detail}
-                      </div>
-                    </div>
+                {/* Workflow Portfolio Table */}
+                {portfolioLoading ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 20, color: "var(--id-teal)" }}>
+                    <Loader2 size={16} className="animate-spin" />
+                    <span style={{ fontSize: 12 }}>Carregando portfolio do workflow...</span>
                   </div>
-                ))}
+                ) : portfolio ? (
+                  <WorkflowPortfolio portfolio={portfolio} />
+                ) : portfolioEmbedUrl ? (
+                  <iframe
+                    src={portfolioEmbedUrl}
+                    style={{ width: "100%", height: 300, border: "none", borderRadius: 8, background: "#111" }}
+                    title="Workflow Portfolio"
+                  />
+                ) : (
+                  <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
+                    <p style={{ fontSize: 12 }}>Nenhum dado de portfolio disponível</p>
+                  </div>
+                )}
 
                 {/* Product history enrichment */}
                 {productHistory.length > 0 && (
