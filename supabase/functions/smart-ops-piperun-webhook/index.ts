@@ -10,6 +10,7 @@ import {
   getCustomFieldValue,
   parseProposalItems,
   cleanPersonName,
+  deepParseStringifiedFields,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
