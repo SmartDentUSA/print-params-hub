@@ -179,8 +179,8 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     })(),
   } : null;
 
-  // 7. Portfolio placeholder
-  const portfolio = null;
+  // 7. Portfolio from workflow_portfolio
+  const portfolio = transformPortfolio(lead.workflow_portfolio);
   const portfolio_embed_url = null;
 
   const response = {
@@ -197,4 +197,78 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
   return new Response(JSON.stringify(response), {
     status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+// ─── Subcategory mapping per stage ───
+// Maps DB stage keys to the subcategory fields expected by WorkflowPortfolio component
+const STAGE_SUBCATEGORIES: Record<string, string[]> = {
+  etapa_1_scanner:       ['scanner_intraoral', 'scanner_bancada', 'notebook', 'acessorios', 'pecas_partes'],
+  etapa_2_cad:           ['software', 'creditos_ia', 'servico'],
+  etapa_3_impressao:     ['resina', 'software_imp', 'impressora', 'acessorios', 'pecas_partes'],
+  etapa_4_pos_impressao: ['equipamentos', 'limpeza_acabamento'],
+  etapa_5_finalizacao:   ['caracterizacao', 'instalacao', 'dentistica_orto'],
+  etapa_6_cursos:        ['presencial', 'online'],
+  etapa_7_fresagem:      ['equipamentos', 'software', 'servico', 'acessorios', 'pecas_partes'],
+};
+
+function transformPortfolio(raw: any): any | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  // Check if any stage has actual data (not all sem_sinal)
+  const stageKeys = Object.keys(raw).filter(k => k.startsWith('etapa_'));
+  if (stageKeys.length === 0) return null;
+
+  const result: Record<string, any> = {};
+  let nAtivo = 0, nConc = 0, nSdr = 0;
+
+  for (const stageKey of stageKeys) {
+    const stageData = raw[stageKey];
+    if (!stageData || typeof stageData !== 'object') continue;
+
+    const subcats = STAGE_SUBCATEGORIES[stageKey] || [];
+    const stageResult: Record<string, any> = {};
+
+    // Determine which layer this stage has and assign to first relevant subcategory
+    const ativoItems = Array.isArray(stageData.ativo_smartdent) ? stageData.ativo_smartdent : [];
+    const concItems = Array.isArray(stageData.mapeamento_concorrente) ? stageData.mapeamento_concorrente : [];
+    const sdrItems = Array.isArray(stageData.sdr_interesse) ? stageData.sdr_interesse : [];
+
+    // Assign ativo items to subcategories
+    ativoItems.forEach((item: string, idx: number) => {
+      const field = subcats[idx] || subcats[0] || 'default';
+      stageResult[field] = { label: item, layer: 'ativo', hits: 1 };
+      nAtivo++;
+    });
+
+    // Assign concorrente items to next available subcategories
+    concItems.forEach((item: string, idx: number) => {
+      const usedFields = Object.keys(stageResult);
+      const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
+      stageResult[available] = { label: item, layer: 'conc', hits: 1 };
+      nConc++;
+    });
+
+    // Assign SDR interest items
+    sdrItems.forEach((item: string, idx: number) => {
+      const usedFields = Object.keys(stageResult);
+      const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
+      stageResult[available] = { label: item, layer: 'sdr', hits: 1 };
+      nSdr++;
+    });
+
+    // Fill remaining subcategories with empty
+    for (const field of subcats) {
+      if (!stageResult[field]) {
+        stageResult[field] = { label: '—', layer: 'vazio' };
+      }
+    }
+
+    result[stageKey] = stageResult;
+  }
+
+  // If everything is empty, return null
+  if (nAtivo === 0 && nConc === 0 && nSdr === 0) return null;
+
+  result.summary = { n_ativo: nAtivo, n_conc: nConc, n_sdr: nSdr };
+  return result;
 }
