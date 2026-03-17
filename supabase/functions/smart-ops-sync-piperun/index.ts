@@ -1,11 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   PIPELINES,
+  PIPELINE_NAMES,
   STAGE_TO_ETAPA,
+  DEAL_STATUS_MAP,
   mapDealToAttendance,
+  deepParseStringifiedFields,
   piperunGet,
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
+import { computeTagsFromStage, mergeTagsCrm, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +38,98 @@ const SYNC_PIPELINES = [
   PIPELINES.ECOMMERCE,
   PIPELINES.TULIP_TESTE,
 ];
+
+// ─── Deal Snapshot for history ───
+
+interface DealSnapshot {
+  deal_id: string;
+  deal_hash: string | null;
+  pipeline_id: number | undefined;
+  pipeline_name: string | null;
+  stage_name: string | null;
+  status: string;
+  value: number | null;
+  created_at: string | null;
+  closed_at: string | null;
+  product: string | null;
+}
+
+function upsertDealHistory(
+  currentHistory: unknown[] | null,
+  snapshot: DealSnapshot,
+): DealSnapshot[] {
+  const history = (Array.isArray(currentHistory) ? [...currentHistory] : []) as DealSnapshot[];
+  const idx = history.findIndex((d) => String(d.deal_id) === String(snapshot.deal_id));
+  if (idx >= 0) {
+    history[idx] = snapshot;
+  } else {
+    history.push(snapshot);
+  }
+  return history;
+}
+
+// ─── Identity Resolution (4-level cascade, matching webhook) ───
+
+interface LeadRecord {
+  id: string;
+  lead_status: string;
+  email: string | null;
+  tags_crm: string[] | null;
+  piperun_deals_history: unknown[] | null;
+  produto_interesse: string | null;
+}
+
+const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse";
+
+async function findLeadByCascade(
+  supabase: ReturnType<typeof createClient>,
+  dealId: string,
+  pessoaHash: string | null,
+  pessoaPiperunId: number | null,
+  email: string | null,
+): Promise<LeadRecord | null> {
+  // 1. By piperun_id
+  const { data: byDeal } = await supabase
+    .from("lia_attendances")
+    .select(SELECT_COLS)
+    .eq("piperun_id", dealId)
+    .maybeSingle();
+  if (byDeal) return byDeal as LeadRecord;
+
+  // 2. By pessoa_hash
+  if (pessoaHash) {
+    const { data: byHash } = await supabase
+      .from("lia_attendances")
+      .select(SELECT_COLS)
+      .eq("pessoa_hash", pessoaHash)
+      .maybeSingle();
+    if (byHash) return byHash as LeadRecord;
+  }
+
+  // 3. By pessoa_piperun_id
+  if (pessoaPiperunId) {
+    const { data: byPersonId } = await supabase
+      .from("lia_attendances")
+      .select(SELECT_COLS)
+      .eq("pessoa_piperun_id", pessoaPiperunId)
+      .maybeSingle();
+    if (byPersonId) return byPersonId as LeadRecord;
+  }
+
+  // 4. By email
+  if (email) {
+    const { data: byEmail } = await supabase
+      .from("lia_attendances")
+      .select(SELECT_COLS)
+      .eq("email", email.toLowerCase().trim())
+      .maybeSingle();
+    if (byEmail) return byEmail as LeadRecord;
+  }
+
+  return null;
+}
+
+// ─── Fetch deals from PipeRun API ───
 
 async function fetchDealsForPipeline(
   apiKey: string,
@@ -72,6 +168,128 @@ async function fetchDealsForPipeline(
 
   return allDeals;
 }
+
+// ─── Process a single deal (shared between single and full sync) ───
+
+async function processDeal(
+  supabase: ReturnType<typeof createClient>,
+  rawDeal: PipeRunDealData,
+  counters: { updated: number; created: number; skippedNoData: number; stagnantStarted: number; stagnantRescued: number },
+) {
+  // GAP 1 FIX: Deep parse stringified fields before mapping
+  const deal = deepParseStringifiedFields(rawDeal as unknown as Record<string, unknown>) as unknown as PipeRunDealData;
+
+  const dealId = String(deal.id);
+  const updatePayload = mapDealToAttendance(deal);
+
+  if (deal.stage_id) {
+    const mappedStatus = STAGE_TO_ETAPA[deal.stage_id];
+    if (mappedStatus) {
+      updatePayload.lead_status = mappedStatus;
+    }
+    updatePayload.updated_at = new Date().toISOString();
+  }
+
+  // Extract identity keys for cascade
+  const person = deal.person;
+  const pessoaHash = person?.hash ? String(person.hash) : null;
+  const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
+  const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
+
+  // GAP 2 FIX: 4-level identity cascade (matching webhook)
+  const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
+
+  // Build deal snapshot for history
+  const dealStatus = deal.status !== undefined
+    ? (DEAL_STATUS_MAP[deal.status] || "aberta")
+    : "aberta";
+
+  const dealSnapshot: DealSnapshot = {
+    deal_id: dealId,
+    deal_hash: deal.hash || null,
+    pipeline_id: deal.pipeline_id,
+    pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
+    stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
+    status: dealStatus,
+    value: deal.value != null ? Number(deal.value) || null : null,
+    created_at: deal.created_at || null,
+    closed_at: deal.closed_at || null,
+    product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
+  };
+
+  if (currentLead) {
+    // Smart merge: remove null/undefined values to avoid overwriting existing data
+    const smartPayload: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(updatePayload)) {
+      if (value !== null && value !== undefined) {
+        smartPayload[key] = value;
+      }
+    }
+
+    // Always update piperun_id to current deal
+    smartPayload.piperun_id = dealId;
+
+    // GAP 3 FIX: Upsert deal history
+    smartPayload.piperun_deals_history = upsertDealHistory(currentLead.piperun_deals_history, dealSnapshot);
+
+    // Stagnation logic
+    if (deal.stage_id) {
+      const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
+      const wasStagnant = isInStagnantStatus(currentLead.lead_status);
+
+      if (newIsStagnant && !wasStagnant && currentLead.lead_status !== "estagnado_final") {
+        smartPayload.ultima_etapa_comercial = currentLead.lead_status;
+        counters.stagnantStarted++;
+      } else if (!newIsStagnant && wasStagnant) {
+        counters.stagnantRescued++;
+        const mappedStatus = STAGE_TO_ETAPA[deal.stage_id] || "sem_contato";
+        const { tags: recoveredTags } = computeTagsFromStage(mappedStatus, currentLead.tags_crm);
+        smartPayload.tags_crm = mergeTagsCrm(recoveredTags, ["C_RECUPERADO"], ALL_STAGNATION_TAGS);
+      } else {
+        // GAP 4 FIX: Tags CRM journey computation
+        const mappedStatus = STAGE_TO_ETAPA[deal.stage_id] || "sem_contato";
+        const { tags: updatedTags } = computeTagsFromStage(mappedStatus, currentLead.tags_crm);
+        smartPayload.tags_crm = updatedTags;
+      }
+    }
+
+    const { error } = await supabase
+      .from("lia_attendances")
+      .update(smartPayload)
+      .eq("id", currentLead.id);
+
+    if (!error) counters.updated++;
+    else console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
+  } else {
+    // Not found — try to create
+    if (!email) {
+      counters.skippedNoData++;
+      return;
+    }
+
+    const nome = updatePayload.nome ? String(updatePayload.nome) : (deal as any).title || `Deal #${dealId}`;
+    const resolvedStatus = deal.stage_id ? (STAGE_TO_ETAPA[deal.stage_id] || "sem_contato") : "sem_contato";
+
+    const { tags: initialTags } = computeTagsFromStage(resolvedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
+
+    const insertPayload = {
+      ...updatePayload,
+      nome,
+      piperun_id: dealId,
+      source: "piperun",
+      lead_status: resolvedStatus,
+      piperun_created_at: deal.created_at || null,
+      piperun_deals_history: [dealSnapshot],
+      tags_crm: initialTags,
+    };
+
+    const { error } = await supabase.from("lia_attendances").insert(insertPayload);
+    if (!error) counters.created++;
+    else console.error(`[sync-piperun] Insert error deal ${dealId}:`, error.message);
+  }
+}
+
+// ─── Main Handler ───
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -173,112 +391,26 @@ Deno.serve(async (req) => {
     const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages);
     console.log(`[sync-piperun] Pipeline ${pipelineId}: ${allDeals.length} deals fetched`);
 
-    let updated = 0;
-    let created = 0;
-    let stagnantStarted = 0;
-    let stagnantRescued = 0;
-    let skippedNoData = 0;
-    let notFound = 0;
+    const counters = { updated: 0, created: 0, skippedNoData: 0, stagnantStarted: 0, stagnantRescued: 0 };
 
     for (const deal of allDeals) {
-      const dealId = String(deal.id);
-      const updatePayload = mapDealToAttendance(deal);
-
-      if (deal.stage_id) {
-        const mappedStatus = STAGE_TO_ETAPA[deal.stage_id];
-        if (mappedStatus) {
-          updatePayload.lead_status = mappedStatus;
-        }
-        updatePayload.updated_at = new Date().toISOString();
-      }
-
-      const { data: currentLead } = await supabase
-        .from("lia_attendances")
-        .select("id, lead_status, email")
-        .eq("piperun_id", dealId)
-        .single();
-
-      if (currentLead) {
-        // Smart merge: remove null/undefined values to avoid overwriting existing data
-        const smartPayload: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(updatePayload)) {
-          if (value !== null && value !== undefined) {
-            smartPayload[key] = value;
-          }
-        }
-
-        if (deal.stage_id) {
-          const newIsStagnant = isStagnantPipeline(deal.pipeline_id);
-          const wasStagnant = isInStagnantStatus(currentLead.lead_status);
-          if (newIsStagnant && !wasStagnant && currentLead.lead_status !== "estagnado_final") {
-            smartPayload.ultima_etapa_comercial = currentLead.lead_status;
-            stagnantStarted++;
-          } else if (!newIsStagnant && wasStagnant) {
-            stagnantRescued++;
-          }
-        }
-
-        const { error } = await supabase
-          .from("lia_attendances")
-          .update(smartPayload)
-          .eq("id", currentLead.id);
-
-        if (!error) updated++;
-      } else {
-        notFound++;
-        const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
-        const nome = updatePayload.nome ? String(updatePayload.nome) : (deal as any).title || null;
-
-        if (email) {
-          const { data: existingByEmail } = await supabase
-            .from("lia_attendances")
-            .select("id")
-            .eq("email", email)
-            .maybeSingle();
-
-          if (existingByEmail) {
-            const smartPayload: Record<string, unknown> = { piperun_id: dealId };
-            for (const [key, value] of Object.entries(updatePayload)) {
-              if (value !== null && value !== undefined) {
-                smartPayload[key] = value;
-              }
-            }
-            await supabase
-              .from("lia_attendances")
-              .update(smartPayload)
-              .eq("id", existingByEmail.id);
-            updated++;
-          } else {
-            const insertPayload = {
-              ...updatePayload,
-              nome: nome || `Deal #${dealId}`,
-              piperun_id: dealId,
-              source: "piperun",
-              lead_status: deal.stage_id ? (STAGE_TO_ETAPA[deal.stage_id] || "sem_contato") : "sem_contato",
-              piperun_created_at: deal.created_at || null,
-            };
-
-            const { error } = await supabase.from("lia_attendances").insert(insertPayload);
-            if (!error) created++;
-            else console.error(`[sync-piperun] Insert error for deal ${dealId}:`, error.message);
-          }
-        } else {
-          skippedNoData++;
-        }
+      try {
+        await processDeal(supabase, deal, counters);
+      } catch (e) {
+        console.error(`[sync-piperun] Deal error:`, e);
       }
     }
 
-    console.log(`[sync-piperun] Pipeline ${pipelineId}: updated=${updated}, created=${created}, notFound=${notFound}, skipped=${skippedNoData}`);
+    console.log(`[sync-piperun] Pipeline ${pipelineId}: updated=${counters.updated}, created=${counters.created}, skipped=${counters.skippedNoData}`);
     return new Response(JSON.stringify({
       success: true,
-      synced: updated,
-      created,
-      not_found_by_piperun_id: notFound,
-      skipped_no_email_nome: skippedNoData,
+      synced: counters.updated,
+      created: counters.created,
+      skipped_no_email: counters.skippedNoData,
       total_deals: allDeals.length,
       pipeline_id: pipelineId,
-      stagnant_started: stagnantStarted,
-      stagnant_rescued: stagnantRescued,
+      stagnant_started: counters.stagnantStarted,
+      stagnant_rescued: counters.stagnantRescued,
     }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
