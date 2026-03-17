@@ -1446,8 +1446,10 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   })}
   </script>
   ${buildEntityIndexJsonLd(`${category.name} impressão 3D odontológica resina fotopolimerização odontologia digital`, knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
