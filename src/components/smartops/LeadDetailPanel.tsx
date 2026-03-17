@@ -299,11 +299,17 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
   const [mergeInfo, setMergeInfo] = useState<{ count: number; sources: string[] } | null>(null);
   const [mergeRunning, setMergeRunning] = useState(false);
 
+  // Portfolio state
+  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioEmbedUrl, setPortfolioEmbedUrl] = useState<string | null>(null);
+  const portfolioCacheRef = useRef<Record<string, Portfolio>>({});
+
   // Reset on lead change
   useEffect(() => {
     setCognitiveResult(""); setUpsellResult(""); setActionsResult("");
     setChatMessages([]); setChatInput(""); setTimelineLimit(100);
-    setMergeInfo(null);
+    setMergeInfo(null); setPortfolio(null); setPortfolioEmbedUrl(null);
   }, [lead?.id]);
 
   // Auto-trigger AI tabs when activated
