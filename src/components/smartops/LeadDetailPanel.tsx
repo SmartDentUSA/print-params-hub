@@ -1,1129 +1,833 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { X, Send, Loader2, RefreshCw } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useState, useRef } from "react";
+import { X } from "lucide-react";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 
+// ─── Constants ───
+const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
+
 // ─── Types ───
-interface LeadFull {
-  [key: string]: unknown;
+interface SupportTicket {
   id: string;
-  nome: string;
-  email: string;
-  telefone_normalized: string | null;
-  buyer_type: string | null;
-  lead_status: string;
-  ltv_total: number | null;
-  total_deals: number | null;
-  workflow_score: number | null;
-  intelligence_score: Record<string, unknown> | null;
-  intelligence_score_total: number | null;
-  equip_scanner: string | null;
-  equip_impressora: string | null;
-  equip_cad: string | null;
-  status_scanner: string | null;
-  status_impressora: string | null;
-  status_cad: string | null;
-  impressora_modelo: string | null;
-  area_atuacao: string | null;
-  empresa_nome: string | null;
-  pessoa_piperun_id: number | null;
-  empresa_piperun_id: number | null;
-  person_id: string | null;
-  company_id: string | null;
-  piperun_id: string | null;
-  piperun_pipeline_name: string | null;
-  piperun_stage_name: string | null;
-  source: string | null;
+  ticket_full_id: string;
+  equipment: string | null;
+  client_summary: string | null;
+  ai_summary: string | null;
+  status: "open" | "resolved" | "pending";
   created_at: string;
+  resolved_at: string | null;
+  n_messages: number;
+  resolution_hours: number | null;
+  open_hours: number | null;
+  last_message: { sender: string; message: string; created_at: string } | null;
+  messages_preview: { sender: string; message: string; created_at: string }[];
 }
 
-interface TimelineEvent { id: string; event_type: string; event_timestamp: string; entity_type: string | null; entity_name: string | null; event_data: Record<string, unknown>; source_channel: string | null; value_numeric: number | null; }
-interface AgentInteraction { id: string; created_at: string; user_message: string; agent_response: string | null; feedback: string | null; }
-interface WhatsAppMsg { id: string; created_at: string; message_text: string | null; direction: string; intent_detected: string | null; media_url: string | null; media_type: string | null; }
-interface MsgLog { id: string; tipo: string | null; mensagem_preview: string | null; status: string; data_envio: string | null; }
-interface ProductHistory { id: string; product_name: string | null; total_purchased_value: number | null; purchased_at: string | null; purchase_count: number | null; }
-interface CourseProgress { id: string; course_name: string | null; status: string | null; progress_percent: number | null; enrolled_at: string | null; }
-interface FormSubmission { id: string; form_name: string | null; submitted_at: string | null; equipment_mentioned: string | null; product_mentioned: string | null; }
-interface CartHistory { id: string; total_value: number | null; status: string | null; created_at: string | null; items_count: number | null; }
-interface SdrInteraction { id: string; contacted_at: string | null; notes: string | null; channel: string | null; outcome: string | null; }
-interface StateEvent { id: string; from_stage: string | null; to_stage: string | null; changed_at: string | null; is_regression: boolean | null; trigger_source: string | null; }
-
-// Unified timeline item
-interface UnifiedEvent {
-  id: string;
-  timestamp: string;
-  type: string;
-  emoji: string;
-  dotColor: string;
-  title: string;
-  detail: string | null;
-  value: string | null;
-  isNew?: boolean;
+interface SupportSummary {
+  total: number;
+  open: number;
+  resolved: number;
+  avg_resolution_hours: number | null;
 }
+
+interface Opportunity {
+  opportunity_type: string;
+  product_name: string;
+  recommended_action: string;
+  recommended_message: string | null;
+  competitor_product: string | null;
+  priority: string;
+  score: number;
+  value_est_brl: number;
+}
+
+interface DetailResponse {
+  lead: Record<string, any>;
+  person: Record<string, any> | null;
+  company: Record<string, any> | null;
+  opportunities: Opportunity[];
+  portfolio: Portfolio | null;
+  portfolio_embed_url: string | null;
+  support_tickets: SupportTicket[];
+  support_summary: SupportSummary | null;
+}
+
+type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "historico", label: "📋 Histórico Completo" },
+  { key: "cognitivo", label: "🧠 Análise Cognitiva IA" },
+  { key: "upsell", label: "🚀 Upsell & Previsão" },
+  { key: "fluxo", label: "🔄 Fluxo Digital" },
+  { key: "lis", label: "📊 LIS Breakdown" },
+  { key: "acoes", label: "⚡ Ações Recomendadas" },
+];
 
 // ─── Helpers ───
-function initials(nome: string): string {
-  const p = (nome || "?").trim().split(/\s+/);
-  return (p[0][0] + (p[1] ? p[1][0] : "")).toUpperCase();
-}
-function brl(v: number | null | undefined): string {
-  if (!v) return "—";
-  return "R$" + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-}
-function shortHash(uuid: string | null): string {
-  if (!uuid) return "—";
-  return uuid.substring(0, 8) + "…";
-}
-function lisColor(s: number): "hot" | "warm" | "cold" {
-  if (s >= 70) return "hot";
-  if (s >= 40) return "warm";
-  return "cold";
-}
-function lisLabel(s: number): string {
-  if (s >= 70) return "🔥 QUENTE";
-  if (s >= 40) return "🌤️ MORNO";
-  return "❄️ FRIO";
-}
-function fmtDate(d: string | null): string {
-  if (!d) return "—";
-  try { return new Date(d).toLocaleDateString("pt-BR"); } catch { return d; }
-}
-function fmtDateTime(d: string | null): string {
-  if (!d) return "—";
-  try {
-    const date = new Date(d);
-    return `${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
-  } catch { return d; }
-}
-function formatCurrency(val: number): string {
-  return val.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
-function copyHash(hash: string | null) {
-  if (!hash) return;
-  navigator.clipboard.writeText(hash).catch(() => {});
-}
-function avClass(bt: string | null): string {
-  if (bt === "company") return "av-c";
-  if (bt === "person") return "av-p";
-  return "av-u";
-}
-function s(lead: Record<string, unknown>, key: string): string | null {
-  const v = lead[key];
-  if (v === null || v === undefined || v === "") return null;
-  return String(v);
-}
-function n(lead: Record<string, unknown>, key: string): number | null {
-  const v = lead[key];
-  if (v === null || v === undefined) return null;
-  return Number(v);
+const formatBRL = (val: any): string => {
+  const n = Number(val) || 0;
+  if (n >= 1_000_000) return `R$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `R$${(n / 1_000).toFixed(0)}k`;
+  return `R$${n.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}`;
+};
+
+const formatDate = (dt: string | null | undefined): string => {
+  if (!dt) return "—";
+  return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const avgTicket = (lead: any): number => {
+  if (!lead.ltv_total || !lead.total_deals) return 0;
+  return Number(lead.ltv_total) / lead.total_deals;
+};
+
+const ownerDisplay = (name: string | null): string => {
+  if (!name) return "—";
+  return /^\d+$/.test(name) ? "Vendedor" : name;
+};
+
+const initials = (nome: string): string => {
+  const parts = (nome || "").trim().split(" ").filter(Boolean);
+  if (parts.length === 0) return "??";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+// ─── Tag labels ───
+const TAG_LABELS: Record<string, string> = {
+  LIA_LEAD_ATIVADO: "Reativado via LIA",
+  A_HANDOFF_LIA: "Handoff para vendedor",
+  EC_INICIOU_CHECKOUT: "Iniciou checkout e-commerce",
+  EC_PROD_RESINA: "Interesse em resina (e-com)",
+  COMPROU_SCANNER: "Comprou scanner SmartDent",
+  C_PRIMEIRO_CONTATO: "Primeiro contato registrado",
+  C_RECUPERADO: "Lead recuperado",
+};
+const TAG_DESCS: Record<string, string> = {
+  LIA_LEAD_ATIVADO: "Lead reativado pelo chatbot LIA",
+  A_HANDOFF_LIA: "Transferido da LIA para vendedor humano",
+  EC_INICIOU_CHECKOUT: "Adicionou produto ao carrinho mas não finalizou",
+  EC_PROD_RESINA: "Interagiu com produto de resina na loja",
+};
+const RELEVANT_TAGS = ["LIA_LEAD_ATIVADO", "A_HANDOFF_LIA", "EC_INICIOU_CHECKOUT", "EC_PROD_RESINA", "COMPROU_SCANNER", "C_PRIMEIRO_CONTATO", "C_RECUPERADO"];
+
+// ─── Timeline event type ───
+interface TLEvent {
+  date: string;
+  dotCls: string;
+  title: string;
+  desc: string;
+  tags?: string[];
+  detail?: Record<string, string>;
 }
 
-// ─── Build unified timeline ───
-function buildUnifiedTimeline(
-  timelineEvents: TimelineEvent[],
-  liaInteractions: AgentInteraction[],
-  whatsappMsgs: WhatsAppMsg[],
-  messageLogs: MsgLog[],
-  productHistory: ProductHistory[],
-  courseProgress: CourseProgress[],
-  formSubmissions: FormSubmission[],
-  cartHistory: CartHistory[],
-  sdrInteractions: SdrInteraction[],
-  stateEvents: StateEvent[]
-): UnifiedEvent[] {
-  const items: UnifiedEvent[] = [];
-
-  // lead_activity_log
-  timelineEvents.forEach(e => {
-    const EMOJI: Record<string, string> = {
-      crm_deal_created: "🆕", crm_deal_updated: "🔄", crm_deal_won: "✅", crm_deal_lost: "❌",
-      ecommerce_order_created: "🛒", ecommerce_order_paid: "💳", ecommerce_order_cancelled: "🚫",
-      ecommerce_order_invoiced: "📦", ecommerce_order_delivered: "🚚",
-      lia_conversation: "💬", form_submission: "📝", sellflux_sync: "🔗", astron_enrollment: "🎓", cognitive_analysis: "🧠",
-    };
-    const LABEL: Record<string, string> = {
-      crm_deal_created: "Deal criado", crm_deal_updated: "Deal atualizado", crm_deal_won: "Deal ganho 🎉",
-      crm_deal_lost: "Deal perdido", ecommerce_order_created: "Pedido criado", ecommerce_order_paid: "Pagamento aprovado",
-      ecommerce_order_cancelled: "Pedido cancelado", ecommerce_order_invoiced: "Pedido enviado",
-      ecommerce_order_delivered: "Pedido entregue",
-    };
-    items.push({
-      id: `tl-${e.id}`, timestamp: e.event_timestamp, type: "activity",
-      emoji: EMOJI[e.event_type] || "📌", dotColor: "blue",
-      title: LABEL[e.event_type] || e.event_type.replace(/_/g, " "),
-      detail: e.entity_name || null,
-      value: e.value_numeric != null && e.value_numeric > 0 ? formatCurrency(e.value_numeric) : null,
-      isNew: Date.now() - new Date(e.event_timestamp).getTime() < 60_000,
-    });
+// ─── Cognitive analysis call ───
+async function runCognitiveAnalysis(leadId: string): Promise<string> {
+  const res = await fetch(`${API_BASE}/smart-ops-cognitive-analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lead_id: leadId }),
   });
-
-  // form_submissions
-  formSubmissions.forEach(fs => {
-    items.push({
-      id: `fs-${fs.id}`, timestamp: fs.submitted_at || "", type: "form",
-      emoji: "📝", dotColor: "blue",
-      title: `Formulário: ${fs.form_name || "Cadastro"}`,
-      detail: [fs.equipment_mentioned && `🔧 ${fs.equipment_mentioned}`, fs.product_mentioned && `🏷️ ${fs.product_mentioned}`].filter(Boolean).join(" · ") || null,
-      value: null,
-    });
-  });
-
-  // course_progress
-  courseProgress.forEach(cp => {
-    items.push({
-      id: `cp-${cp.id}`, timestamp: cp.enrolled_at || "", type: "course",
-      emoji: "🎓", dotColor: "yellow",
-      title: `Curso: ${cp.course_name || "—"}`,
-      detail: `${cp.status || "—"}${cp.progress_percent != null ? ` · ${cp.progress_percent}%` : ""}`,
-      value: null,
-    });
-  });
-
-  // product_history
-  productHistory.forEach(ph => {
-    items.push({
-      id: `ph-${ph.id}`, timestamp: ph.purchased_at || "", type: "purchase",
-      emoji: "🛒", dotColor: "green",
-      title: `Compra: ${ph.product_name || "—"}`,
-      detail: ph.purchase_count ? `${ph.purchase_count}x compras` : null,
-      value: ph.total_purchased_value ? formatCurrency(ph.total_purchased_value) : null,
-    });
-  });
-
-  // cart_history
-  cartHistory.forEach(ch => {
-    items.push({
-      id: `ch-${ch.id}`, timestamp: ch.created_at || "", type: "cart",
-      emoji: ch.status === "abandoned" ? "🛒❌" : "🛒", dotColor: ch.status === "abandoned" ? "warn" : "green",
-      title: `Carrinho ${ch.status === "abandoned" ? "abandonado" : ch.status || ""}`,
-      detail: `${ch.items_count || 0} itens`,
-      value: ch.total_value ? formatCurrency(ch.total_value) : null,
-    });
-  });
-
-  // sdr_interactions
-  sdrInteractions.forEach(si => {
-    items.push({
-      id: `si-${si.id}`, timestamp: si.contacted_at || "", type: "sdr",
-      emoji: "📞", dotColor: "purple",
-      title: `SDR: ${si.channel || "contato"} · ${si.outcome || ""}`,
-      detail: si.notes || null, value: null,
-    });
-  });
-
-  // state_events
-  stateEvents.forEach(se => {
-    items.push({
-      id: `se-${se.id}`, timestamp: se.changed_at || "", type: "stage",
-      emoji: se.is_regression ? "⚠️" : "🔄",
-      dotColor: se.is_regression ? "hot" : "cold",
-      title: `${se.from_stage || "—"} → ${se.to_stage || "—"}`,
-      detail: [se.trigger_source, se.is_regression ? "REGRESSÃO" : null].filter(Boolean).join(" · ") || null,
-      value: null,
-    });
-  });
-
-  // message_logs
-  messageLogs.forEach(ml => {
-    items.push({
-      id: `ml-${ml.id}`, timestamp: ml.data_envio || "", type: "message",
-      emoji: "📨", dotColor: "blue",
-      title: `${ml.tipo || "Mensagem"} · ${ml.status}`,
-      detail: ml.mensagem_preview ? (ml.mensagem_preview.length > 120 ? ml.mensagem_preview.slice(0, 120) + "…" : ml.mensagem_preview) : null,
-      value: null,
-    });
-  });
-
-  // agent_interactions (LIA)
-  liaInteractions.forEach(ai => {
-    items.push({
-      id: `ai-${ai.id}`, timestamp: ai.created_at, type: "lia",
-      emoji: "💬", dotColor: "blue",
-      title: `LIA: ${ai.user_message.length > 60 ? ai.user_message.slice(0, 60) + "…" : ai.user_message}`,
-      detail: ai.agent_response ? (ai.agent_response.length > 100 ? ai.agent_response.slice(0, 100) + "…" : ai.agent_response) : null,
-      value: null,
-    });
-  });
-
-  // whatsapp_inbox
-  whatsappMsgs.forEach(wa => {
-    items.push({
-      id: `wa-${wa.id}`, timestamp: wa.created_at, type: "whatsapp",
-      emoji: wa.direction === "inbound" ? "📱" : "📤",
-      dotColor: wa.direction === "inbound" ? "green" : "blue",
-      title: `WhatsApp ${wa.direction === "inbound" ? "⬅️" : "➡️"} ${wa.intent_detected ? `🎯 ${wa.intent_detected}` : ""}`,
-      detail: wa.message_text ? (wa.message_text.length > 120 ? wa.message_text.slice(0, 120) + "…" : wa.message_text) : "[sem texto]",
-      value: null,
-    });
-  });
-
-  // Sort desc by timestamp
-  items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  return items;
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Erro na análise");
+  return data.analysis;
 }
 
-// ─── DETAIL PANEL ───
-export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState("history");
-  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
-  const [liaInteractions, setLiaInteractions] = useState<AgentInteraction[]>([]);
-  const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
-  const [messageLogs, setMessageLogs] = useState<MsgLog[]>([]);
-  const [productHistory, setProductHistory] = useState<ProductHistory[]>([]);
-  const [courseProgress, setCourseProgress] = useState<CourseProgress[]>([]);
-  const [formSubmissions, setFormSubmissions] = useState<FormSubmission[]>([]);
-  const [cartHistory, setCartHistory] = useState<CartHistory[]>([]);
-  const [sdrInteractions, setSdrInteractions] = useState<SdrInteraction[]>([]);
-  const [stateEvents, setStateEvents] = useState<StateEvent[]>([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
-
-  // IA tabs state
-  const [cognitiveResult, setCognitiveResult] = useState("");
+// ─── COMPONENT ───
+export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: string; [key: string]: unknown }; onClose: () => void }) {
+  const [detail, setDetail] = useState<DetailResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabKey>("historico");
   const [cognitiveLoading, setCognitiveLoading] = useState(false);
-  const [upsellResult, setUpsellResult] = useState("");
-  const [upsellLoading, setUpsellLoading] = useState(false);
-  const [actionsResult, setActionsResult] = useState("");
-  const [actionsLoading, setActionsLoading] = useState(false);
+  const [cognitiveText, setCognitiveText] = useState<string | null>(null);
+  const cachedIdRef = useRef<string | null>(null);
 
-  // Chat state
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // Timeline display limit
-  const [timelineLimit, setTimelineLimit] = useState(100);
-
-  // Merge state
-  const [mergeInfo, setMergeInfo] = useState<{ count: number; sources: string[] } | null>(null);
-  const [mergeRunning, setMergeRunning] = useState(false);
-
-  // Portfolio state
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [portfolioLoading, setPortfolioLoading] = useState(false);
-  const [portfolioEmbedUrl, setPortfolioEmbedUrl] = useState<string | null>(null);
-  const portfolioCacheRef = useRef<Record<string, Portfolio>>({});
-
-  // Reset on lead change
+  // Fetch detail when lead changes
   useEffect(() => {
-    setCognitiveResult(""); setUpsellResult(""); setActionsResult("");
-    setChatMessages([]); setChatInput(""); setTimelineLimit(100);
-    setMergeInfo(null); setPortfolio(null); setPortfolioEmbedUrl(null);
-  }, [lead?.id]);
+    if (!lead?.id || lead.id === cachedIdRef.current) return;
+    setLoading(true);
+    setError(null);
+    setActiveTab("historico");
+    setCognitiveText(null);
 
-  // Auto-trigger AI tabs when activated
-  useEffect(() => {
-    if (activeTab === "cognitive" && !cognitiveResult && !cognitiveLoading) {
-      callCopilotForTab("cognitive");
-    }
-    if (activeTab === "upsell" && !upsellResult && !upsellLoading) {
-      callCopilotForTab("upsell");
-    }
-    if (activeTab === "actions" && !actionsResult && !actionsLoading) {
-      callCopilotForTab("actions");
-    }
-    // Fetch portfolio when flow tab is activated
-    if (activeTab === "flow" && !portfolio && !portfolioLoading && lead?.id) {
-      const cached = portfolioCacheRef.current[lead.id];
-      if (cached) {
-        setPortfolio(cached);
-      } else {
-        setPortfolioLoading(true);
-        const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk";
-        fetch(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=detail&id=${lead.id}`, {
-          headers: { "Authorization": `Bearer ${ANON_KEY}`, "apikey": ANON_KEY },
-        })
-          .then(r => r.json())
-          .then(data => {
-            if (data?.portfolio) {
-              setPortfolio(data.portfolio);
-              portfolioCacheRef.current[lead.id] = data.portfolio;
-            }
-            if (data?.portfolio_embed_url) {
-              setPortfolioEmbedUrl(data.portfolio_embed_url);
-            }
-            if (!data?.portfolio) {
-              setPortfolioEmbedUrl(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=portfolio&id=${lead.id}&dark=true`);
-            }
-          })
-          .catch(() => {
-            setPortfolioEmbedUrl(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=portfolio&id=${lead.id}&dark=true`);
-          })
-          .finally(() => setPortfolioLoading(false));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]);
-
-  // Auto-detect and merge duplicates
-  useEffect(() => {
-    if (!lead?.id || mergeRunning) return;
-    const detectAndMerge = async () => {
-      try {
-        // Find duplicates by empresa_piperun_id, pessoa_piperun_id, or email domain
-        const conditions: string[] = [];
-        if (lead.empresa_piperun_id) conditions.push(`empresa_piperun_id.eq.${lead.empresa_piperun_id}`);
-        if (lead.pessoa_piperun_id) conditions.push(`pessoa_piperun_id.eq.${lead.pessoa_piperun_id}`);
-        const emailDomain = lead.email?.split("@")[1];
-        if (emailDomain && !emailDomain.includes("placeholder") && !["gmail.com", "hotmail.com", "outlook.com", "yahoo.com"].includes(emailDomain)) {
-          conditions.push(`email.ilike.%@${emailDomain}`);
+    fetch(`${API_BASE}/smart-ops-leads-api?action=detail&id=${lead.id}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setDetail(data);
+        cachedIdRef.current = lead.id;
+        // Pre-fill cognitive text from saved data
+        if (data?.lead?.cognitive_analysis?.ai_narrative) {
+          setCognitiveText(data.lead.cognitive_analysis.ai_narrative);
         }
-        if (conditions.length === 0) return;
-
-        const { data: dupes } = await supabase
-          .from("lia_attendances")
-          .select("id, nome, email, ltv_total, total_deals, piperun_id, created_at")
-          .or(conditions.join(","))
-          .neq("id", lead.id)
-          .limit(20);
-
-        if (!dupes || dupes.length === 0) return;
-
-        // Auto-merge: call edge function
-        setMergeRunning(true);
-        const { data: mergeResult, error } = await supabase.functions.invoke("smart-ops-merge-leads", {
-          body: { primary_id: lead.id, secondary_ids: dupes.map(d => d.id) },
-        });
-
-        if (!error) {
-          setMergeInfo({
-            count: dupes.length + 1,
-            sources: dupes.map(d => d.nome || d.email || "—"),
-          });
-        }
-      } catch {
-        // Silent fail for merge
-      } finally {
-        setMergeRunning(false);
-      }
-    };
-    detectAndMerge();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      })
+      .catch(() => setError("Erro ao carregar dados do lead"))
+      .finally(() => setLoading(false));
   }, [lead?.id]);
 
-  // Load all related data
+  // Reset cache on lead change
   useEffect(() => {
-    if (!lead?.id) return;
-    setLoadingDetail(true);
-    const promises = [
-      supabase.from("lead_activity_log").select("id, event_type, event_timestamp, entity_type, entity_name, event_data, source_channel, value_numeric").eq("lead_id", lead.id).order("event_timestamp", { ascending: false }).limit(200),
-      supabase.from("agent_interactions").select("id, created_at, user_message, agent_response, feedback").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(100),
-      supabase.from("whatsapp_inbox").select("id, created_at, message_text, direction, intent_detected, media_url, media_type").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(100),
-      supabase.from("message_logs").select("id, tipo, mensagem_preview, status, data_envio").eq("lead_id", lead.id).order("data_envio", { ascending: false }).limit(50),
-      supabase.from("lead_product_history").select("id, product_name, total_purchased_value, purchased_at, purchase_count").eq("lead_id", lead.id).order("purchased_at", { ascending: false }).limit(50),
-      supabase.from("lead_course_progress").select("id, course_name, status, progress_percent, enrolled_at").eq("lead_id", lead.id).order("enrolled_at", { ascending: false }).limit(50),
-      supabase.from("lead_form_submissions").select("id, form_name, submitted_at, equipment_mentioned, product_mentioned").eq("lead_id", lead.id).order("submitted_at", { ascending: false }).limit(50),
-      supabase.from("lead_cart_history").select("id, total_value, status, created_at, items_count").eq("lead_id", lead.id).order("created_at", { ascending: false }).limit(50),
-      supabase.from("lead_sdr_interactions").select("id, contacted_at, notes, channel, outcome").eq("lead_id", lead.id).order("contacted_at", { ascending: false }).limit(50),
-      supabase.from("lead_state_events").select("id, from_stage, to_stage, changed_at, is_regression, trigger_source").eq("lead_id", lead.id).order("changed_at", { ascending: false }).limit(50),
-    ];
-    Promise.all(promises).then(([r1, r2, r3, r4, r5, r6, r7, r8, r9, r10]) => {
-      setTimelineEvents((r1.data || []) as unknown as TimelineEvent[]);
-      setLiaInteractions((r2.data || []) as unknown as AgentInteraction[]);
-      setWhatsappMsgs((r3.data || []) as unknown as WhatsAppMsg[]);
-      setMessageLogs((r4.data || []) as unknown as MsgLog[]);
-      setProductHistory((r5.data || []) as unknown as ProductHistory[]);
-      setCourseProgress((r6.data || []) as unknown as CourseProgress[]);
-      setFormSubmissions((r7.data || []) as unknown as FormSubmission[]);
-      setCartHistory((r8.data || []) as unknown as CartHistory[]);
-      setSdrInteractions((r9.data || []) as unknown as SdrInteraction[]);
-      setStateEvents((r10.data || []) as unknown as StateEvent[]);
-      setLoadingDetail(false);
-    });
-
-    const channel = supabase
-      .channel(`timeline-${lead.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_activity_log", filter: `lead_id=eq.${lead.id}` },
-        (payload) => setTimelineEvents(prev => [payload.new as TimelineEvent, ...prev])
-      ).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    if (lead?.id !== cachedIdRef.current) {
+      cachedIdRef.current = null;
+    }
   }, [lead?.id]);
 
-  const lis = (lead.intelligence_score as Record<string, unknown>)?.score_total as number || lead.intelligence_score_total || 0;
-  const lc = lisColor(lis);
-  const axes = ((lead.intelligence_score as Record<string, unknown>)?.axes || {}) as Record<string, { value: number }>;
-  const bt = lead.buyer_type;
-  const wfScore = lead.workflow_score || 0;
-  const personLinked = !!lead.person_id;
-  const companyLinked = !!lead.company_id;
-  const dealsHistory = Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history as Record<string, unknown>[] : [];
-
-  // Unified timeline
-  const unifiedTimeline = useMemo(() =>
-    buildUnifiedTimeline(timelineEvents, liaInteractions, whatsappMsgs, messageLogs, productHistory, courseProgress, formSubmissions, cartHistory, sdrInteractions, stateEvents),
-    [timelineEvents, liaInteractions, whatsappMsgs, messageLogs, productHistory, courseProgress, formSubmissions, cartHistory, sdrInteractions, stateEvents]
-  );
-
-  // Stats computation from deals history
-  const stats = useMemo(() => {
-    let totalUnits = 0, biggestDeal = 0, totalValue = 0;
-    dealsHistory.forEach(d => {
-      const v = Number(d.value || d.value_total || 0);
-      const qty = Number(d.quantity || (Array.isArray(d.items) ? (d.items as unknown[]).length : 1));
-      totalValue += v;
-      totalUnits += qty;
-      if (v > biggestDeal) biggestDeal = v;
-    });
-    const avgTicket = dealsHistory.length > 0 ? totalValue / dealsHistory.length : 0;
-    // Repurchase cycle: avg days between deals
-    const dates = dealsHistory.map(d => new Date(String(d.date || d.created_at || "")).getTime()).filter(t => t > 0).sort();
-    let avgCycle = 0;
-    if (dates.length > 1) {
-      let totalDays = 0;
-      for (let i = 1; i < dates.length; i++) totalDays += (dates[i] - dates[i - 1]) / 86400000;
-      avgCycle = Math.round(totalDays / (dates.length - 1));
-    }
-    return { totalUnits, biggestDeal, avgTicket, avgCycle };
-  }, [dealsHistory]);
-
-  // Build lead context string for AI calls
-  const buildLeadContext = useCallback(() => {
-    const fields = [
-      `Nome: ${lead.nome}`, `Email: ${lead.email}`, `Telefone: ${lead.telefone_normalized || "—"}`,
-      `Buyer Type: ${bt || "—"}`, `Área: ${lead.area_atuacao || "—"}`, `Empresa: ${lead.empresa_nome || "—"}`,
-      `Status: ${lead.lead_status}`, `LTV: ${brl(lead.ltv_total)}`, `Deals: ${lead.total_deals || 0}`,
-      `LIS Score: ${lis}`, `Workflow: ${wfScore}/10`,
-      `Scanner: ${lead.equip_scanner || "—"} (${lead.status_scanner || "—"})`,
-      `Impressora: ${lead.impressora_modelo || "—"} (${lead.status_impressora || "—"})`,
-      `CAD: ${lead.status_cad || "—"}`,
-      `Pipeline: ${lead.piperun_pipeline_name || "—"} / ${lead.piperun_stage_name || "—"}`,
-      s(lead, "urgency_level") ? `Urgência: ${s(lead, "urgency_level")}` : null,
-      s(lead, "psychological_profile") ? `Perfil: ${s(lead, "psychological_profile")}` : null,
-      s(lead, "recommended_approach") ? `Abordagem: ${s(lead, "recommended_approach")}` : null,
-      s(lead, "resumo_historico_ia") ? `Resumo IA: ${s(lead, "resumo_historico_ia")}` : null,
-      s(lead, "produto_interesse") ? `Produto Interesse: ${s(lead, "produto_interesse")}` : null,
-      dealsHistory.length > 0 ? `Deals History (JSON): ${JSON.stringify(dealsHistory.slice(0, 15))}` : null,
-      productHistory.length > 0 ? `Produtos Comprados: ${productHistory.map(p => `${p.product_name} (${p.purchase_count}x, ${brl(p.total_purchased_value)})`).join(", ")}` : null,
-      courseProgress.length > 0 ? `Cursos: ${courseProgress.map(c => `${c.course_name} ${c.status} ${c.progress_percent || 0}%`).join(", ")}` : null,
-      cartHistory.filter(c => c.status === "abandoned").length > 0 ? `Carrinhos Abandonados: ${cartHistory.filter(c => c.status === "abandoned").length}` : null,
-    ].filter(Boolean).join("\n");
-    return fields;
-  }, [lead, lis, wfScore, bt, dealsHistory, productHistory, courseProgress, cartHistory]);
-
-  const callCopilotForTab = useCallback(async (tab: "cognitive" | "upsell" | "actions") => {
-    const setLoading = tab === "cognitive" ? setCognitiveLoading : tab === "upsell" ? setUpsellLoading : setActionsLoading;
-    const setResult = tab === "cognitive" ? setCognitiveResult : tab === "upsell" ? setUpsellResult : setActionsResult;
-    setLoading(true); setResult("");
-
-    const prompts: Record<string, string> = {
-      cognitive: `Faça uma análise cognitiva completa deste lead para uso do vendedor. Estruture em EXATAMENTE 6 seções com headers markdown (##):
-## 🎯 Perfil de Compra Identificado
-## 📈 Padrão de Escalada Documentado
-## 💳 Perfil de Crédito e Confiança
-## ⚠️ Riscos e Alertas
-## 💡 Abordagem Recomendada
-## 🧩 Oportunidades de Expansão
-
-Use dados concretos, números e padrões observados. Inclua tags/badges relevantes ao final de cada seção. Seja direto e acionável.`,
-      upsell: `Analise este lead e gere previsões de recompra/upsell. Estruture em markdown:
-## 🔮 Previsão de Recompra — Motor Preditivo IA
-Para cada oportunidade identificada, crie um bloco com:
-- **Probabilidade** (🔴 >70%, 🟡 40-70%, ⚪ <40%)
-- **Produto** e descrição
-- **Valor estimado** (range)
-- **Janela temporal**
-- **Justificativa** baseada em dados
-
-Depois adicione:
-## 📊 Projeção LTV
-Tabela com: LTV Atual, +12m, +24m, Com Equipamentos
-
-## 🔍 Gap do Fluxo — Oportunidades Não Exploradas
-Tags com oportunidades não aproveitadas`,
-      actions: `Analise este lead e gere ações recomendadas priorizadas. Estruture em markdown:
-## ⚡ Ações Recomendadas — Priorizadas por IA
-### 🔴 HOJE
-Ação imediata mais importante com script de abordagem em citação
-
-### 🟡 ESTA SEMANA
-Ações de curto prazo
-
-### 🔵 30 DIAS
-Ações de médio prazo
-
-### ⚪ 60-90 DIAS
-Ações de longo prazo
-
-Para cada ação: emoji, título, descrição curta, e se aplicável um script de abordagem em blockquote. Baseie em dados reais do lead.`,
-    };
-
+  const handleReanalisar = async () => {
+    if (!detail?.lead?.id) return;
+    setCognitiveLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("smart-ops-copilot", {
-        body: {
-          message: `${prompts[tab]}\n\n--- DADOS COMPLETOS DO LEAD ---\n${buildLeadContext()}`,
-          context: { source: `${tab}_tab`, lead_id: lead.id, action: tab },
+      const text = await runCognitiveAnalysis(detail.lead.id);
+      setCognitiveText(text);
+    } catch {
+      setCognitiveText("Erro ao gerar análise. Tente novamente.");
+    } finally {
+      setCognitiveLoading(false);
+    }
+  };
+
+  // Loading / Error states
+  if (loading) {
+    return (
+      <div className="intel-detail" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="live-dot" style={{ width: 10, height: 10 }} />
+        <span style={{ marginLeft: 8, color: "var(--muted)", fontSize: 13 }}>Carregando...</span>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="intel-detail" style={{ display: "flex", alignItems: "center", justifyContent: "center", color: "var(--hot)", fontSize: 13 }}>
+        {error}
+      </div>
+    );
+  }
+  if (!detail) {
+    return (
+      <div className="intel-detail-empty">
+        <div className="big">📊</div>
+        <p>Selecione um lead para ver o Intelligence Card</p>
+      </div>
+    );
+  }
+
+  const ld = detail.lead;
+  const person = detail.person;
+  const opportunities = detail.opportunities || [];
+  const support_tickets = detail.support_tickets || [];
+  const support_summary = detail.support_summary;
+  const tags = (ld.tags_crm as string[]) || [];
+
+  // LIS
+  const lis = ld.intelligence_score_total || (ld.intelligence_score as any)?.score_total || 0;
+  const lisCls = lis >= 70 ? "lis-hot" : lis >= 40 ? "lis-warm" : "lis-cold";
+  const heatCls = lis >= 70 ? "heat-hot" : lis >= 40 ? "heat-warm" : "heat-cold";
+  const heatTxt = lis >= 70 ? "🔴 HOT" : lis >= 40 ? "🟡 MORNO" : "⚪ FRIO";
+
+  // Buyer type
+  const tipoCls = ld.buyer_type === "company" ? "buyer-pj" : "buyer-pf";
+  const tipoTxt = ld.buyer_type === "company" ? "🏢 B2B — CNPJ" : "👤 B2C";
+
+  // Meta row
+  const meta = [
+    ld.cidade && ld.uf && `🏙️ ${ld.cidade}, ${ld.uf}`,
+    ld.data_primeiro_contato && `📅 Primeiro: ${formatDate(ld.data_primeiro_contato)}`,
+    ld.updated_at && `🔄 Último: ${formatDate(ld.updated_at)}`,
+    ld.total_deals && `💼 ${ld.total_deals} deal${ld.total_deals !== 1 ? "s" : ""}`,
+    person?.nome && `👤 ${person.nome}`,
+    ld.area_atuacao,
+    ld.especialidade && `🦷 ${ld.especialidade}`,
+    ld.piperun_stage_name && `📍 ${ld.piperun_stage_name}`,
+  ].filter(Boolean) as string[];
+
+  // Axes
+  const axes = (ld.intelligence_score as any)?.axes || {};
+  const sh = Math.round(axes.sales_heat?.value || 0);
+  const be = Math.round(axes.behavioral_engagement?.value || 0);
+  const tm = Math.round(axes.technical_maturity?.value || 0);
+  const pp = Math.round(axes.purchase_power?.value || 0);
+
+  // Timeline
+  const buildTimeline = (): TLEvent[] => {
+    const events: TLEvent[] = [];
+
+    // Lead created
+    if (ld.data_primeiro_contato) {
+      events.push({
+        date: ld.data_primeiro_contato,
+        dotCls: "tl-dot-lead",
+        title: "Lead criado no sistema",
+        desc: `Origem: ${ld.source || "piperun"}${ld.utm_source ? " · " + ld.utm_source : ""}`,
+      });
+    }
+
+    // Deals
+    ((ld.piperun_deals_history as any[]) || []).forEach((d: any) => {
+      events.push({
+        date: d.created_at,
+        dotCls: d.status === "ganha" ? "tl-dot-buy" : d.status === "perdida" ? "tl-dot-hot" : "tl-dot-crm",
+        title: `Deal #${d.deal_id} — ${d.pipeline_name || ""}`,
+        desc: d.stage_name || "",
+        tags: [d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"],
+        detail: {
+          Valor: formatBRL(d.value),
+          Status: d.status,
+          Responsável: ownerDisplay(d.owner_name),
+          ...(d.closed_at ? { "Fechado em": formatDate(d.closed_at) } : {}),
         },
       });
-      if (error) throw error;
-      setResult(data?.response || data?.message || "Sem resposta da IA.");
-    } catch (err: unknown) {
-      setResult(`❌ Erro: ${err instanceof Error ? err.message : "Desconhecido"}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [buildLeadContext, lead.id]);
+    });
 
-  const sendChatMessage = useCallback(async () => {
-    const msg = chatInput.trim();
-    if (!msg || chatLoading) return;
-    setChatInput("");
-    const userMsg = { role: "user" as const, content: msg };
-    setChatMessages(prev => [...prev, userMsg]);
-    setChatLoading(true);
-    try {
-      const allMsgs = [...chatMessages, userMsg];
-      const systemCtx = `Você é a LIA (Lead Intelligence Assistant). Responda sobre o lead abaixo com dados concretos e markdown.\n\n--- DADOS ---\n${buildLeadContext()}`;
-      const { data, error } = await supabase.functions.invoke("smart-ops-copilot", {
-        body: { message: msg, context: { source: "chat_tab", lead_id: lead.id, system_override: systemCtx, history: allMsgs.slice(-10) } },
+    // E-commerce orders
+    ((ld.lojaintegrada_historico_pedidos as any[]) || []).forEach((p: any) => {
+      events.push({
+        date: p.data,
+        dotCls: "tl-dot-buy",
+        title: `Pedido e-commerce #${p.numero}`,
+        desc: `${formatBRL(p.valor)} · ${p.status}`,
+        detail: { Valor: formatBRL(p.valor), Status: p.status },
       });
-      if (error) throw error;
-      setChatMessages(prev => [...prev, { role: "assistant", content: data?.response || data?.message || "Sem resposta." }]);
-    } catch (err: unknown) {
-      setChatMessages(prev => [...prev, { role: "assistant", content: `❌ Erro: ${err instanceof Error ? err.message : "Desconhecido"}` }]);
-    } finally {
-      setChatLoading(false);
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    }
-  }, [chatInput, chatLoading, chatMessages, buildLeadContext, lead.id]);
+    });
 
-  const tabs = [
-    { key: "history", label: "📋 Histórico" },
-    { key: "cognitive", label: "🧠 Cognitiva" },
-    { key: "upsell", label: "🚀 Upsell" },
-    { key: "flow", label: "🔄 Fluxo" },
-    { key: "lis", label: "📊 LIS" },
-    { key: "actions", label: "⚡ Ações" },
-    { key: "chat", label: "💬 IA" },
+    // Academy
+    if (ld.astron_courses_total > 0) {
+      events.push({
+        date: ld.data_primeiro_contato || ld.created_at,
+        dotCls: "tl-dot-course",
+        title: `Academy — ${ld.astron_courses_completed}/${ld.astron_courses_total} cursos`,
+        desc: `Status: ${ld.astron_status}`,
+        tags: [ld.astron_courses_completed === ld.astron_courses_total ? "✓ Completo" : "Em progresso"],
+      });
+    }
+
+    // Support tickets
+    support_tickets.forEach((t) => {
+      events.push({
+        date: t.created_at,
+        dotCls: t.status === "resolved" ? "tl-dot-buy" : t.open_hours && t.open_hours > 72 ? "tl-dot-hot" : "tl-dot-support",
+        title: `🔧 Chamado #${t.ticket_full_id}${t.equipment ? " — " + t.equipment : ""}`,
+        desc: t.client_summary || t.ai_summary || "Chamado de suporte técnico",
+        tags: [
+          t.status === "resolved"
+            ? `✓ Resolvido em ${t.resolution_hours}h`
+            : t.open_hours && t.open_hours > 72
+              ? `⚠️ Aberto há ${Math.round(t.open_hours / 24)}d`
+              : `🟡 Aberto · ${t.n_messages} msgs`,
+        ],
+        detail: {
+          Ticket: t.ticket_full_id,
+          Equipamento: t.equipment || "—",
+          Status: t.status === "open" ? "🟡 Em aberto" : "✅ Resolvido",
+          Mensagens: String(t.n_messages),
+          ...(t.open_hours && !t.resolved_at ? { "Aberto há": `${t.open_hours}h` } : {}),
+          ...(t.resolved_at ? { "Resolvido em": formatDate(t.resolved_at) } : {}),
+        },
+      });
+    });
+
+    // CRM tags
+    tags.filter((tag) => RELEVANT_TAGS.includes(tag)).forEach((tag) => {
+      events.push({
+        date: ld.updated_at || ld.created_at,
+        dotCls: tag.startsWith("LIA") || tag.startsWith("A_H") ? "tl-dot-ai" : tag.startsWith("EC") ? "tl-dot-warn" : "tl-dot-crm",
+        title: TAG_LABELS[tag] || tag,
+        desc: TAG_DESCS[tag] || "",
+      });
+    });
+
+    return events.filter((e) => Boolean(e.date)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const timeline = buildTimeline();
+
+  // Stats
+  const stats = [
+    { num: formatBRL(ld.ltv_total), lbl: "LTV Total", cls: "green" },
+    { num: String(ld.total_deals || 0), lbl: "Deals fechados", cls: "yellow" },
+    { num: String(ld.lojaintegrada_total_pedidos_pagos || "—"), lbl: "Pedidos e-com", cls: "" },
+    { num: formatBRL(avgTicket(ld)), lbl: "Ticket médio", cls: "green" },
+    { num: ld.astron_courses_total > 0 ? `${ld.astron_courses_completed}/${ld.astron_courses_total}` : "—", lbl: "Cursos Academy", cls: "yellow" },
+    { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados suporte", cls: support_summary?.open ? "red" : "green" },
   ];
 
-  const dotColorMap: Record<string, string> = {
-    blue: "var(--id-blue)", green: "var(--id-teal)", yellow: "var(--id-acc)",
-    purple: "var(--id-purple)", hot: "var(--id-hot)", warn: "var(--id-warm)", cold: "var(--id-muted)",
-  };
+  // Cognitive cards
+  const cog = ld.cognitive_analysis as any;
+  const cogCards = [
+    { title: "🎯 Perfil Psicológico", content: cog?.psychological_profile || ld.psychological_profile, tags: [] as string[] },
+    { title: "💡 Motivação Principal", content: cog?.primary_motivation || ld.primary_motivation, tags: cog?.interest_timeline ? [`⚡ ${cog.interest_timeline}`] : [] },
+    { title: "⚠️ Objeções e Riscos", content: cog?.objection_risk || ld.objection_risk, tags: cog?.urgency_level ? [`🔥 Urgência ${cog.urgency_level}`] : [] },
+    { title: "🗺️ Trajetória do Lead", content: cog?.stage_trajectory, tags: cog?.lead_stage_detected ? [`📍 ${cog.lead_stage_detected}`] : [] },
+    {
+      title: "📞 Abordagem Recomendada",
+      content: cog?.recommended_approach || ld.recommended_approach,
+      tags: [support_tickets.length > 0 && `🔧 ${support_tickets.length} chamados ativos`, cog?.confidence_score_analysis && `📊 Confiança ${cog.confidence_score_analysis}%`].filter(Boolean) as string[],
+    },
+    { title: "🔄 Padrão Sazonal", content: cog?.seasonal_pattern, tags: [] as string[] },
+  ].filter((c) => c.content);
+
+  // Upsell cards
+  const sortedOpps = [...opportunities].sort((a, b) => {
+    const w: Record<string, number> = { critica: 3, alta: 2, media: 1, baixa: 0 };
+    return (w[b.priority] || 0) - (w[a.priority] || 0);
+  });
+  const CARD_TYPES = ["hot", "warm", "cold"] as const;
+  const upsellCards = Array.from({ length: 3 }, (_, i) => {
+    const opp = sortedOpps[i];
+    const type = CARD_TYPES[i];
+    if (!opp) return { isEmpty: true, type, title: "Motor processando...", desc: "Oportunidades calculadas a cada 30 min", value: "—", score: 0, window: "" };
+    return {
+      isEmpty: false, type,
+      title: `${opp.opportunity_type} · ${opp.product_name}`,
+      desc: `${opp.recommended_action}${opp.competitor_product ? " (vs " + opp.competitor_product + ")" : ""}`,
+      value: formatBRL(opp.value_est_brl),
+      score: Math.min(opp.score, 100),
+      window: opp.recommended_message || "",
+    };
+  });
+
+  // Actions
+  const actions = [
+    ...sortedOpps.map((opp) => ({
+      icon: opp.priority === "critica" ? "🔴" : opp.priority === "alta" ? "🟠" : "🔵",
+      title: `${opp.opportunity_type} · ${opp.product_name}`,
+      desc: `${opp.recommended_action}${opp.competitor_product ? " · vs " + opp.competitor_product : ""}`,
+      script: opp.recommended_message || null,
+      priority: opp.priority === "critica" ? "HOJE" : opp.priority === "alta" ? "ESTA SEMANA" : "30 DIAS",
+      priorityCls: opp.priority === "critica" ? "ap-hoje" : opp.priority === "alta" ? "ap-semana" : "ap-mes",
+      itemCls: opp.priority === "critica" ? "critical" : opp.priority === "alta" ? "medium" : "",
+    })),
+    ...(support_tickets.filter((t) => t.status === "open").length > 0
+      ? [{
+          icon: "🔧",
+          title: `Resolver ${support_tickets.filter((t) => t.status === "open").length} chamado${support_tickets.filter((t) => t.status === "open").length !== 1 ? "s" : ""} de suporte em aberto`,
+          desc: support_tickets.filter((t) => t.status === "open").map((t) => `#${t.ticket_full_id} — ${t.equipment || "sem equip."}`).join(" · "),
+          script: null, priority: "HOJE", priorityCls: "ap-hoje", itemCls: "critical",
+        }]
+      : []),
+    ...(ld.astron_courses_total > 0 && ld.astron_courses_completed < ld.astron_courses_total
+      ? [{ icon: "🎓", title: `Engajar com cursos incompletos — ${ld.astron_courses_completed}/${ld.astron_courses_total}`, desc: "Lead iniciou cursos na Academy mas não concluiu todos.", script: null, priority: "30 DIAS", priorityCls: "ap-mes", itemCls: "" }]
+      : []),
+    ...(ld.astron_courses_completed > 0 && ld.astron_courses_completed === ld.astron_courses_total && !ld.imersao_concluida
+      ? [{ icon: "🏆", title: "Convidar para Imersão Presencial", desc: `Concluiu ${ld.astron_courses_completed}/${ld.astron_courses_total} cursos online. Próximo passo natural é a imersão presencial.`, script: `"${ld.nome}, você concluiu todos os cursos da Academy! O próximo passo natural é a Imersão Presencial — posso te enviar os detalhes?"`, priority: "ESTA SEMANA", priorityCls: "ap-semana", itemCls: "medium" }]
+      : []),
+  ];
+
+  // Product mix
+  const productMap: Record<string, number> = {};
+  ((ld.piperun_deals_history as any[]) || []).forEach((d: any) => {
+    const p = (d.product || "Produto").replace(/^\d{1,2}\/\d{1,2}\/\d{4}.*Zapier.*$/, "Deal").slice(0, 30);
+    productMap[p] = (productMap[p] || 0) + (Number(d.value) || 0);
+  });
+  const totalProductVal = Object.values(productMap).reduce((s, v) => s + v, 0);
+  const top5Products = Object.entries(productMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, val]) => ({ name, val, pct: totalProductVal > 0 ? ((val / totalProductVal) * 100).toFixed(1) : "0" }));
+
+  // LIS ring
+  const radius = 40;
+  const circ = 2 * Math.PI * radius;
+  const offset = circ - (lis / 100) * circ;
+  const ringColor = lis >= 70 ? "var(--hot)" : lis >= 40 ? "var(--warm)" : "var(--cold)";
+
+  const breakdown = [
+    { label: "Sales Heat", val: sh, color: "var(--hot)" },
+    { label: "Behavioral Engagement", val: be, color: "var(--warm)" },
+    { label: "Technical Maturity", val: tm, color: "var(--accent2)" },
+    { label: "Purchase Power", val: pp, color: "var(--blue)" },
+  ];
+
+  const totalPipeline = opportunities.reduce((s, o) => s + (Number(o.value_est_brl) || 0), 0);
 
   return (
     <div className="intel-detail">
-      <div className="intel-card-inner">
-        <button className="intel-btn mb-3 lg:hidden" onClick={onClose}><X size={14} /> Voltar</button>
+      {/* Close button */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "flex-end", padding: "8px 12px", background: "var(--bg)" }}>
+        <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4 }}>
+          <X size={18} />
+        </button>
+      </div>
 
-        {/* HERO */}
-        <div className="intel-hero">
-          <div className={`intel-avatar intel-avatar-lg ${avClass(bt)}`}>{initials(lead.nome)}</div>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div className={`intel-buyer-badge ${bt === "company" ? "intel-bb-c" : bt === "person" ? "intel-bb-p" : "intel-bb-u"}`}>
-                {bt === "company" ? "🏢 B2B — EMPRESA" : bt === "person" ? "👤 B2C — PESSOA" : "❓ DESCONHECIDO"}
-              </div>
-              {mergeInfo && (
-                <span className="intel-lr-tag intel-tag-scanner" title={`Dados consolidados de: ${mergeInfo.sources.join(", ")}`} style={{ cursor: "help" }}>
-                  🔗 Consolidado ({mergeInfo.count} fontes)
-                </span>
-              )}
-              {mergeRunning && <span style={{ fontSize: 10, color: "var(--id-muted)" }}>🔄 Consolidando...</span>}
-            </div>
-            <div className="intel-lead-name-h">{lead.nome}</div>
-            <div className="intel-meta-row">
-              {lead.area_atuacao && <span className="intel-meta">🏥 <strong>{lead.area_atuacao}</strong></span>}
-              {lead.empresa_nome && <span className="intel-meta">🏢 <strong>{lead.empresa_nome}</strong></span>}
-              {lead.telefone_normalized && <span className="intel-meta">📞 <strong>{lead.telefone_normalized}</strong></span>}
-              {s(lead, "cidade") && <span className="intel-meta">🏙 <strong>{s(lead, "cidade")}{s(lead, "uf") ? `, ${s(lead, "uf")}` : ""}</strong></span>}
-              {lead.piperun_stage_name && <span className="intel-meta">📊 <strong>{lead.piperun_stage_name}</strong></span>}
-              <span className="intel-meta">📡 <strong>{lead.source || "—"}</strong></span>
-            </div>
+      {/* ═══ HERO ═══ */}
+      <div className="hero">
+        <div className="avatar">{initials(ld.nome)}</div>
+        <div>
+          <div className="lead-name">{ld.nome}</div>
+          <div className={`buyer-type ${tipoCls}`}>{tipoTxt}</div>
+          <div className="badges-row">
+            {support_summary && support_summary.open > 0 && (
+              <span className="ctx-badge ctx-badge-support">🔧 {support_summary.open} chamado{support_summary.open !== 1 ? "s" : ""} aberto{support_summary.open !== 1 ? "s" : ""}</span>
+            )}
+            {ld.astron_courses_total > 0 && (
+              <span className="ctx-badge ctx-badge-academy">🎓 Academy {ld.astron_courses_completed}/{ld.astron_courses_total}</span>
+            )}
+            {tags.includes("EC_INICIOU_CHECKOUT") && (
+              <span className="ctx-badge ctx-badge-cart">🛒 Carrinho pendente</span>
+            )}
           </div>
-          <div className="intel-wf-block">
-            <div className="intel-blk-label">Workflow</div>
-            <div className="intel-wf-val-h">{wfScore}<span style={{ fontSize: 13, color: "var(--id-muted)" }}>/10</span></div>
-            <div className="intel-wf-bar-h">
-              {Array.from({ length: 10 }, (_, i) => (
-                <div key={i} className={`intel-wf-seg ${i < wfScore ? "on" : ""}`} />
-              ))}
-            </div>
-          </div>
-          <div>
-            <div className="intel-blk-label">LTV Total</div>
-            <div className="intel-ltv-val">{brl(lead.ltv_total)}</div>
-            <div className="intel-ltv-sub">{lead.total_deals || 0} deal{(lead.total_deals || 0) !== 1 ? "s" : ""}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div className="intel-blk-label">LIS Score</div>
-            <div className={`intel-lis-val-h intel-lis-${lc}-h`}>{lis}</div>
-            <div className={`intel-heat-badge intel-hb-${lc}`}>{lisLabel(lis)}</div>
+          <div className="meta-row">
+            {meta.map((m, i) => (
+              <span key={i} className="meta">{m}</span>
+            ))}
           </div>
         </div>
+        <div className="ltv-block">
+          <div className="ltv-label">LTV TOTAL</div>
+          <div className="ltv-val">{formatBRL(ld.ltv_total)}</div>
+          <div className="ltv-sub">{ld.total_deals || 0} deal{(ld.total_deals || 0) !== 1 ? "s" : ""}</div>
+        </div>
+        <div className="lis-block">
+          <div className={`lis-val ${lisCls}`}>{lis}</div>
+          <div className={`heat-badge ${heatCls}`}>{heatTxt}</div>
+        </div>
+      </div>
 
-        {/* TABS */}
-        <div style={{ background: "var(--id-s1)", border: "1px solid var(--id-b2)", borderRadius: 14, overflow: "hidden" }}>
-          <div className="intel-tabs">
-            {tabs.map(tab => (
-              <div key={tab.key} className={`intel-tab ${activeTab === tab.key ? "active" : ""}`} onClick={() => setActiveTab(tab.key)}>
-                {tab.label}
+      {/* ═══ TABS ═══ */}
+      <div className="tabs">
+        {TABS.map((t) => (
+          <div key={t.key} className={`tab${activeTab === t.key ? " active" : ""}`} onClick={() => setActiveTab(t.key)}>
+            {t.label}
+          </div>
+        ))}
+      </div>
+
+      {/* ═══ TAB CONTENT ═══ */}
+
+      {/* ── HISTÓRICO ── */}
+      {activeTab === "historico" && (
+        <div className="tab-content">
+          <div className="sec">Resumo Financeiro</div>
+          <div className="stats-row">
+            {stats.map((s, i) => (
+              <div key={i} className="stat-box">
+                <div className={`stat-num ${s.cls}`}>{s.num}</div>
+                <div className="stat-lbl">{s.lbl}</div>
               </div>
             ))}
           </div>
-          <div className="intel-tab-body">
 
-            {/* ═══ TAB 1: HISTÓRICO COMPLETO ═══ */}
-            {activeTab === "history" && (
-              <div>
-                {/* Stats Row */}
-                <div className="intel-sec">Resumo Financeiro</div>
-                <div className="intel-stats-row" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
-                  {[
-                    { label: "LTV Total", val: brl(lead.ltv_total), cls: "g" },
-                    { label: "Deals", val: String(lead.total_deals || 0), cls: "b" },
-                    { label: "Unidades", val: String(stats.totalUnits), cls: "" },
-                    { label: "Ticket Médio", val: stats.avgTicket > 0 ? brl(stats.avgTicket) : "—", cls: "y" },
-                    { label: "Maior Compra", val: stats.biggestDeal > 0 ? brl(stats.biggestDeal) : "—", cls: "r" },
-                    { label: "Ciclo Recompra", val: stats.avgCycle > 0 ? `${stats.avgCycle}d` : "—", cls: "" },
-                  ].map((s, i) => (
-                    <div key={i} className="intel-stat-box">
-                      <div className={`intel-stat-num ${s.cls}`}>{s.val}</div>
-                      <div className="intel-stat-lbl">{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Deal Table */}
-                {dealsHistory.length > 0 && (
-                  <>
-                    <div className="intel-sec">Histórico de Deals ({dealsHistory.length})</div>
-                    <div className="intel-deal-table-wrap">
-                      <table className="intel-deal-table">
-                        <thead>
-                          <tr>
-                            <th>Data</th>
-                            <th>Produto</th>
-                            <th>Qtd</th>
-                            <th>Frete</th>
-                            <th>Parcelas</th>
-                            <th>Total</th>
-                            <th>Vendedor</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dealsHistory.map((deal, i) => {
-                            const rawItems = deal.items;
-                            const items = Array.isArray(rawItems) ? rawItems as Record<string, unknown>[] : [];
-                            const productName = items.length > 0
-                              ? items.map(it => String(it.name || it.product_name || "")).filter(Boolean).join(", ")
-                              : String(deal.product || deal.title || `Deal #${i + 1}`);
-                            const qty = items.length > 0
-                              ? items.reduce((sum, it) => sum + Number(it.quantity || it.qty || 1), 0)
-                              : Number(deal.quantity || 1);
-                            return (
-                              <tr key={i}>
-                                <td>{fmtDate(String(deal.date || deal.created_at || ""))}</td>
-                                <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                  {productName}
-                                </td>
-                                <td>{qty}</td>
-                                <td>{String(deal.freight_type || deal.tipo_frete || "—")}</td>
-                                <td>{String(deal.payment_installments || deal.installments || "—")}x</td>
-                                <td style={{ color: "var(--id-teal)", fontWeight: 600 }}>
-                                  {deal.value != null ? formatCurrency(Number(deal.value)) : deal.value_total != null ? formatCurrency(Number(deal.value_total)) : "—"}
-                                </td>
-                                <td>{String(deal.owner_name || "—")}</td>
-                                <td>
-                                  <span className={`intel-s-chip ${deal.status === "won" || deal.status === "ganha" ? "intel-sc-ok" : deal.status === "lost" || deal.status === "perdida" ? "intel-sc-miss" : "intel-sc-open"}`}>
-                                    {String(deal.status || "—")}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-
-                {/* Unified Timeline */}
-                <div className="intel-sec" style={{ marginTop: 16 }}>
-                  Timeline Unificada ({unifiedTimeline.length} eventos)
-                </div>
-                {loadingDetail && unifiedTimeline.length === 0 ? (
-                  <p style={{ fontSize: 12, color: "var(--id-muted)" }}>Carregando...</p>
-                ) : unifiedTimeline.length === 0 ? (
-                  <p style={{ fontSize: 12, color: "var(--id-muted)", fontStyle: "italic" }}>Nenhum evento registrado.</p>
-                ) : (
-                  <>
-                    <div style={{ maxHeight: 500, overflowY: "auto" }}>
-                      {unifiedTimeline.slice(0, timelineLimit).map(event => (
-                        <div key={event.id} className={`intel-timeline-item ${event.isNew ? "is-new" : ""}`}
-                          style={{ borderLeftColor: dotColorMap[event.dotColor] || "var(--id-b1)" }}>
-                          <div className="intel-timeline-dot" style={{ background: dotColorMap[event.dotColor], borderColor: dotColorMap[event.dotColor] }}>
-                            <span style={{ fontSize: 7 }}>{event.emoji}</span>
-                          </div>
-                          <div className="intel-timeline-date">{fmtDateTime(event.timestamp)}</div>
-                          <div className="intel-timeline-label">{event.title}</div>
-                          {event.detail && <div style={{ fontSize: 10, color: "var(--id-muted)", lineHeight: 1.5 }}>{event.detail}</div>}
-                          {event.value && <div style={{ fontSize: 10, color: "var(--id-teal)", fontWeight: 600 }}>{event.value}</div>}
-                        </div>
-                      ))}
-                    </div>
-                    {unifiedTimeline.length > timelineLimit && (
-                      <button className="intel-btn" style={{ width: "100%", justifyContent: "center", marginTop: 8 }} onClick={() => setTimelineLimit(l => l + 100)}>
-                        Carregar mais ({unifiedTimeline.length - timelineLimit} restantes)
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {/* Identity Graph (compacted) */}
-                <div className="intel-sec" style={{ marginTop: 16 }}>Identity Graph</div>
-                <div className="intel-ig-section">
-                  <div className="intel-ig-grid">
-                    <div className="intel-ig-node" style={{ borderColor: "rgba(79,143,255,.3)" }}>
-                      <div className="intel-ig-node-label">📊 lia_attendances</div>
-                      <div className="intel-ig-node-name">{lead.nome}</div>
-                      <div className="intel-ig-hash ok" onClick={() => copyHash(lead.id)}>{shortHash(lead.id)}</div>
-                    </div>
-                    <div className="intel-ig-conn">
-                      <div className={`intel-ig-rel-badge ${personLinked ? "intel-rel-ok" : "intel-rel-miss"}`}>
-                        {personLinked ? "person_id →" : "sem FK →"}
-                      </div>
-                      <div className="intel-ig-arrow-line" />
-                    </div>
-                    <div className="intel-ig-node" style={{ borderColor: personLinked ? "rgba(79,255,176,.25)" : "rgba(255,71,87,.25)" }}>
-                      <div className="intel-ig-node-label">👤 people</div>
-                      <div className="intel-ig-node-name">{lead.nome}</div>
-                      {personLinked ? <div className="intel-ig-hash ok" onClick={() => copyHash(lead.person_id)}>{shortHash(lead.person_id)}</div>
-                        : <div className="intel-ig-hash miss">Não vinculado</div>}
-                    </div>
-                    <div className="intel-ig-conn">
-                      <div className={`intel-ig-rel-badge ${companyLinked ? "intel-rel-ok" : "intel-rel-miss"}`}>
-                        {companyLinked ? "company_id →" : "sem FK →"}
-                      </div>
-                      <div className="intel-ig-arrow-line" />
-                    </div>
-                    <div className="intel-ig-node" style={{ borderColor: companyLinked ? "rgba(232,255,71,.22)" : "rgba(255,71,87,.25)" }}>
-                      <div className="intel-ig-node-label">🏢 companies</div>
-                      <div className="intel-ig-node-name">{lead.empresa_nome || "—"}</div>
-                      {companyLinked ? <div className="intel-ig-hash ok" onClick={() => copyHash(lead.company_id)}>{shortHash(lead.company_id)}</div>
-                        : <div className="intel-ig-hash miss">Não vinculado</div>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═══ TAB 2: ANÁLISE COGNITIVA ═══ */}
-            {activeTab === "cognitive" && (
-              <div>
-                <div className="intel-sec">🧠 Análise Cognitiva — gerada por IA</div>
-                <div className="intel-ai-panel">
-                  <div className="intel-ai-header">
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-purple)" }}>🧠 Copilot IA</span>
-                    <button className="intel-btn" onClick={() => callCopilotForTab("cognitive")} disabled={cognitiveLoading}>
-                      <RefreshCw size={12} className={cognitiveLoading ? "animate-spin" : ""} /> Reanalisar
-                    </button>
-                  </div>
-                  <div className="intel-ai-result">
-                    {cognitiveLoading ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--id-blue)" }}>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span style={{ fontSize: 12 }}>Gerando análise cognitiva...</span>
-                      </div>
-                    ) : cognitiveResult ? (
-                      <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{cognitiveResult}</ReactMarkdown></div>
-                    ) : (
-                      <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Análise será gerada automaticamente...</p>
-                        {s(lead, "resumo_historico_ia") && (
-                          <div style={{ textAlign: "left", marginTop: 16 }}>
-                            <div className="intel-ai-md prose prose-sm">
-                              <h3>📋 Resumo IA Existente</h3>
-                              <p>{s(lead, "resumo_historico_ia")}</p>
-                            </div>
-                          </div>
-                        )}
-                        {/* Show existing fields */}
-                        <div style={{ textAlign: "left", marginTop: 12 }}>
-                          {[
-                            { label: "Estágio Cognitivo", key: "lead_stage_detected" },
-                            { label: "Urgência", key: "urgency_level" },
-                            { label: "Perfil Psicológico", key: "psychological_profile" },
-                            { label: "Motivação Principal", key: "primary_motivation" },
-                            { label: "Risco de Objeção", key: "objection_risk" },
-                            { label: "Abordagem Recomendada", key: "recommended_approach" },
-                          ].map(({ label, key }) => {
-                            const val = s(lead, key);
-                            if (!val) return null;
-                            return (
-                              <div key={key} className="intel-detail-row">
-                                <span className="intel-detail-row-label">{label}</span>
-                                <span className="intel-detail-row-value">{val}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═══ TAB 3: UPSELL & PREVISÃO ═══ */}
-            {activeTab === "upsell" && (
-              <div>
-                <div className="intel-sec">🚀 Upsell & Previsão — Motor Preditivo IA</div>
-                <div className="intel-ai-panel">
-                  <div className="intel-ai-header">
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-teal)" }}>🚀 Motor Preditivo</span>
-                    <button className="intel-btn" onClick={() => callCopilotForTab("upsell")} disabled={upsellLoading}>
-                      <RefreshCw size={12} className={upsellLoading ? "animate-spin" : ""} /> Gerar Previsão
-                    </button>
-                  </div>
-                  <div className="intel-ai-result">
-                    {upsellLoading ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--id-teal)" }}>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span style={{ fontSize: 12 }}>Analisando padrões de compra...</span>
-                      </div>
-                    ) : upsellResult ? (
-                      <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{upsellResult}</ReactMarkdown></div>
-                    ) : (
-                      <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Análise será gerada automaticamente...</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═══ TAB 4: FLUXO DIGITAL — WORKFLOW PORTFOLIO ═══ */}
-            {activeTab === "flow" && (
-              <div>
-                {/* Workflow Portfolio Table */}
-                {portfolioLoading ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 20, color: "var(--id-teal)" }}>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span style={{ fontSize: 12 }}>Carregando portfolio do workflow...</span>
-                  </div>
-                ) : portfolio ? (
-                  <WorkflowPortfolio portfolio={portfolio} />
-                ) : portfolioEmbedUrl ? (
-                  <iframe
-                    src={portfolioEmbedUrl}
-                    style={{ width: "100%", height: 300, border: "none", borderRadius: 8, background: "#111" }}
-                    title="Workflow Portfolio"
-                  />
-                ) : (
-                  <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                    <p style={{ fontSize: 12 }}>Nenhum dado de portfolio disponível</p>
-                  </div>
-                )}
-
-                {/* Product history enrichment */}
-                {productHistory.length > 0 && (
-                  <>
-                    <div className="intel-sec" style={{ marginTop: 14 }}>Produtos Comprados (e-commerce)</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {productHistory.map(ph => (
-                        <div key={ph.id} className="intel-section-panel" style={{ padding: 10 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ fontSize: 12, fontWeight: 600 }}>{ph.product_name || "—"}</span>
-                            {ph.total_purchased_value != null && <span style={{ color: "var(--id-teal)", fontWeight: 700 }}>{formatCurrency(ph.total_purchased_value)}</span>}
-                          </div>
-                          <div style={{ fontSize: 10, color: "var(--id-muted)" }}>
-                            {ph.purchased_at && <span>📅 {fmtDate(ph.purchased_at)}</span>}
-                            {ph.purchase_count != null && <span> · {ph.purchase_count}x compras</span>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Gap Analysis */}
-                <div className="intel-gap-box" style={{ marginTop: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--id-acc)", marginBottom: 6 }}>Gap do Fluxo — Oportunidades Não Exploradas</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                    {!lead.status_scanner && <span className="intel-s-chip intel-sc-miss">🔬 Scanner</span>}
-                    {!lead.status_cad && <span className="intel-s-chip intel-sc-miss">💻 CAD</span>}
-                    {!lead.impressora_modelo && !lead.status_impressora && <span className="intel-s-chip intel-sc-open">🖨️ Impressora</span>}
-                    {courseProgress.length === 0 && <span className="intel-s-chip intel-sc-open">📚 Cursos</span>}
-                    {wfScore >= 7 && <span className="intel-s-chip intel-sc-ok">✅ Setup Avançado</span>}
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--id-muted2)", lineHeight: 1.7 }}>
-                    Workflow score <strong style={{ color: "var(--id-acc)" }}>{wfScore}/10</strong>.
-                    {wfScore < 5 && <span style={{ color: "var(--id-hot)" }}> Setup técnico incompleto — múltiplas oportunidades de expansão.</span>}
-                    {wfScore >= 7 && <span style={{ color: "var(--id-teal)" }}> Setup avançado — foco em consumíveis e expansão.</span>}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═══ TAB 5: LIS BREAKDOWN ═══ */}
-            {activeTab === "lis" && (
-              <div>
-                <div className="intel-sec">LIS Score — breakdown por eixo</div>
-                <div className="intel-stats-row">
-                  <div className="intel-stat-box">
-                    <div className={`intel-stat-num ${lc === "hot" ? "r" : lc === "warm" ? "y" : ""}`}>{lis}</div>
-                    <div className="intel-stat-lbl">LIS Score</div>
-                  </div>
-                  <div className="intel-stat-box">
-                    <div className="intel-stat-num y">{wfScore}/10</div>
-                    <div className="intel-stat-lbl">Workflow</div>
-                  </div>
-                  <div className="intel-stat-box">
-                    <div className="intel-stat-num g">{brl(lead.ltv_total)}</div>
-                    <div className="intel-stat-lbl">LTV</div>
-                  </div>
-                  <div className="intel-stat-box">
-                    <div className="intel-stat-num b">{lead.total_deals || 0}</div>
-                    <div className="intel-stat-lbl">Deals</div>
-                  </div>
-                  <div className="intel-stat-box">
-                    <div className="intel-stat-num">{lead.piperun_id || "—"}</div>
-                    <div className="intel-stat-lbl">OppID</div>
-                  </div>
-                </div>
-                <div className="intel-lis-bd">
-                  {[
-                    { label: "🔥 Sales Heat (35%)", key: "sales_heat" },
-                    { label: "💰 Purchase Power (20%)", key: "purchase_power" },
-                    { label: "⚙️ Technical Maturity (20%)", key: "technical_maturity" },
-                    { label: "📊 Behavioral Engagement (25%)", key: "behavioral_engagement" },
-                  ].map(({ label, key }) => {
-                    const v = axes[key]?.value || 0;
-                    const color = v >= 50 ? "var(--id-teal)" : v >= 30 ? "var(--id-acc)" : "var(--id-muted)";
-                    return (
-                      <div key={key} className="intel-lis-comp">
-                        <div className="intel-lis-comp-label">{label}</div>
-                        <div className="intel-lis-bar-wrap">
-                          <div className="intel-lis-bar-fill" style={{ width: `${v}%`, background: color }} />
-                        </div>
-                        <div className="intel-lis-comp-val" style={{ color }}>{v}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="intel-formula-box">
-                  <strong style={{ color: "var(--id-acc)" }}>Fórmula:</strong>{" "}
-                  ({axes.sales_heat?.value || 0}×0.35) + ({axes.purchase_power?.value || 0}×0.20) + ({axes.technical_maturity?.value || 0}×0.20) + ({axes.behavioral_engagement?.value || 0}×0.25) ={" "}
-                  <strong style={{ color: "var(--id-teal)" }}>{lis}</strong>
-                </div>
-
-                {/* Score History from state events */}
-                {stateEvents.length > 0 && (
-                  <>
-                    <div className="intel-sec" style={{ marginTop: 16 }}>Histórico de Transições ({stateEvents.length})</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {stateEvents.map(se => (
-                        <div key={se.id} className="intel-detail-row">
-                          <span className="intel-detail-row-label">
-                            {se.is_regression ? "⚠️" : "➡️"} {se.from_stage || "—"} → {se.to_stage || "—"}
+          {/* Deal table */}
+          {((ld.piperun_deals_history as any[]) || []).length > 0 && (
+            <>
+              <div className="sec">Deals PipeRun</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th><th>Deal ID</th><th>Funil</th><th>Etapa</th><th>Valor</th><th>Status</th><th>Responsável</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {((ld.piperun_deals_history as any[]) || []).map((d: any, i: number) => (
+                      <tr key={i}>
+                        <td>{formatDate(d.created_at)}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{d.deal_id}</td>
+                        <td>{d.pipeline_name || "—"}</td>
+                        <td>{d.stage_name || "—"}</td>
+                        <td className="green">{formatBRL(d.value)}</td>
+                        <td>
+                          <span className={`status-chip ${d.status === "ganha" ? "s-ganho" : d.status === "perdida" ? "s-perdido" : "s-aberto"}`}>
+                            {d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"}
                           </span>
-                          <span className="intel-detail-row-value">
-                            {fmtDateTime(se.changed_at)}
-                            {se.is_regression && <span style={{ color: "var(--id-hot)" }}> REGRESSÃO</span>}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* ═══ TAB 6: AÇÕES RECOMENDADAS ═══ */}
-            {activeTab === "actions" && (
-              <div>
-                <div className="intel-sec">⚡ Ações Recomendadas — Priorizadas por IA</div>
-                <div className="intel-ai-panel">
-                  <div className="intel-ai-header">
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--id-acc)" }}>⚡ Ações Priorizadas</span>
-                    <button className="intel-btn" onClick={() => callCopilotForTab("actions")} disabled={actionsLoading}>
-                      <RefreshCw size={12} className={actionsLoading ? "animate-spin" : ""} /> Gerar Ações
-                    </button>
-                  </div>
-                  <div className="intel-ai-result">
-                    {actionsLoading ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--id-acc)" }}>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span style={{ fontSize: 12 }}>Gerando ações recomendadas...</span>
-                      </div>
-                    ) : actionsResult ? (
-                      <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{actionsResult}</ReactMarkdown></div>
-                    ) : (
-                      <div style={{ textAlign: "center", padding: 20, color: "var(--id-muted)" }}>
-                        <p style={{ fontSize: 12 }}>Ações serão geradas automaticamente...</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ═══ TAB 7: CHAT IA ═══ */}
-            {activeTab === "chat" && (
-              <div>
-                <div className="intel-sec">💬 Perguntar à IA — conversa contextual</div>
-                <div className="intel-chat-wrap">
-                  <div className="intel-chat-messages">
-                    {chatMessages.length === 0 && (
-                      <div style={{ textAlign: "center", padding: "30px 20px" }}>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>🤖</div>
-                        <p style={{ fontSize: 12, color: "var(--id-muted)", lineHeight: 1.7 }}>
-                          Converse com a LIA sobre este lead.<br />
-                          Pergunte sobre perfil, histórico, estratégias ou qualquer dado.
-                        </p>
-                        <div className="intel-chat-quick-asks">
-                          {[
-                            "Qual o perfil deste lead?",
-                            "Quais produtos recomendar?",
-                            "Histórico de compras",
-                            "Risco de churn?",
-                            "Script de abordagem",
-                            "Estratégia de reativação",
-                          ].map(q => (
-                            <button key={q} className="intel-chat-qa" onClick={() => setChatInput(q)}>{q}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {chatMessages.map((msg, i) => (
-                      <div key={i} className={`intel-msg ${msg.role === "user" ? "intel-msg-user" : "intel-msg-ai"}`}>
-                        {msg.role === "assistant" ? (
-                          <div className="intel-ai-md prose prose-sm"><ReactMarkdown>{msg.content}</ReactMarkdown></div>
-                        ) : msg.content}
-                      </div>
+                        </td>
+                        <td>{ownerDisplay(d.owner_name)}</td>
+                      </tr>
                     ))}
-                    {chatLoading && (
-                      <div className="intel-msg intel-msg-ai" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <Loader2 size={14} className="animate-spin" style={{ color: "var(--id-blue)" }} />
-                        <span style={{ fontSize: 11, color: "var(--id-muted)" }}>LIA pensando...</span>
-                      </div>
-                    )}
-                    <div ref={chatEndRef} />
-                  </div>
-                  <div className="intel-chat-input-wrap">
-                    <input
-                      className="intel-chat-input"
-                      placeholder="Pergunte sobre este lead..."
-                      value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
-                      disabled={chatLoading}
-                    />
-                    <button className="intel-chat-send" onClick={sendChatMessage} disabled={chatLoading || !chatInput.trim()}>
-                      <Send size={14} />
-                    </button>
-                  </div>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* Timeline */}
+          <div className="sec">Timeline Unificada</div>
+          <div className="timeline">
+            {timeline.map((ev, i) => (
+              <div key={i} className="tl-item">
+                <div className={`tl-dot ${ev.dotCls}`} />
+                <div className="tl-body">
+                  <div className="tl-date">{formatDate(ev.date)}</div>
+                  <div className="tl-title">{ev.title}</div>
+                  {ev.desc && <div className="tl-desc">{ev.desc}</div>}
+                  {ev.tags && (
+                    <div className="tl-tags">
+                      {ev.tags.map((tag, ti) => (
+                        <span key={ti} className="tl-tag" style={{ background: "var(--surface3)", border: "1px solid var(--border2)", color: "var(--muted2)" }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {ev.detail && (
+                    <div className="tl-detail">
+                      {Object.entries(ev.detail).map(([k, v]) => (
+                        <div key={k} className="tl-detail-row">
+                          <span style={{ color: "var(--muted)" }}>{k}</span>
+                          <span style={{ fontWeight: 500 }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            ))}
+          </div>
 
+          {/* Support tickets block */}
+          {support_tickets.length > 0 && (
+            <>
+              <div className="sec">🔧 Chamados de Suporte Técnico</div>
+              <div style={{ fontSize: 11, color: "var(--muted2)", marginBottom: 12 }}>
+                {support_summary?.total} total · {support_summary?.open} abertos
+                {(support_summary?.resolved || 0) > 0 && ` · ${support_summary?.resolved} resolvidos`}
+              </div>
+              {support_tickets.map((ticket) => (
+                <div key={ticket.id} className={`ticket-card ${ticket.status === "resolved" ? "ticket-resolved" : ""} ${ticket.open_hours && ticket.open_hours > 72 ? "ticket-old" : ""}`} style={{ marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                    <div>
+                      <span className="ticket-id">#{ticket.ticket_full_id}</span>
+                      <span style={{ fontSize: 12, marginLeft: 8, color: "var(--text)" }}>{ticket.equipment || "Equipamento não especificado"}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className={`status-chip ${ticket.status === "resolved" ? "s-ganho" : "s-aberto"}`}>
+                        {ticket.status === "resolved" ? "✓ Resolvido" : "🟡 Aberto"}
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--muted)" }}>
+                        {ticket.resolved_at ? `Resolvido em ${ticket.resolution_hours}h` : `Aberto há ${ticket.open_hours}h`}
+                      </span>
+                    </div>
+                  </div>
+                  {ticket.client_summary && <div style={{ fontSize: 12, color: "var(--muted2)", marginBottom: 6, fontStyle: "italic" }}>"{ticket.client_summary}"</div>}
+                  {ticket.ai_summary && (
+                    <div className="ticket-ai-box" style={{ marginBottom: 6 }}>
+                      <strong style={{ color: "var(--blue)" }}>🤖 IA:</strong> {ticket.ai_summary}
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 12, fontSize: 10, color: "var(--muted)" }}>
+                    <span>📅 {formatDate(ticket.created_at)}</span>
+                    <span>💬 {ticket.n_messages} mensagem{ticket.n_messages !== 1 ? "s" : ""}</span>
+                    {ticket.last_message && <span>Última: {ticket.last_message.sender} · {formatDate(ticket.last_message.created_at)}</span>}
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── COGNITIVO ── */}
+      {activeTab === "cognitivo" && (
+        <div className="tab-content">
+          <div className="ai-panel">
+            <div className="ai-panel-header">
+              <span>🧠</span>
+              <span>Análise Cognitiva — gerada por IA com base em {ld.total_deals || 0} deal{(ld.total_deals || 0) !== 1 ? "s" : ""} + histórico completo</span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <span className="badge badge-ai">DeepSeek v3</span>
+                <button
+                  onClick={handleReanalisar}
+                  disabled={cognitiveLoading}
+                  style={{
+                    background: "rgba(79,143,255,.15)", border: "1px solid rgba(79,143,255,.3)", color: "var(--blue)",
+                    padding: "3px 10px", borderRadius: 6, cursor: cognitiveLoading ? "default" : "pointer", fontSize: 11,
+                    opacity: cognitiveLoading ? 0.5 : 1,
+                  }}
+                >
+                  {cognitiveLoading ? "⏳ Analisando..." : "↺ Reanalisar"}
+                </button>
+              </div>
+            </div>
+            <div className={`ai-panel-body${cognitiveLoading ? " loading" : ""}`}>
+              {cognitiveLoading ? (
+                <>
+                  <div className="live-dot" />
+                  Analisando histórico, deals, suporte e padrões de comportamento...
+                </>
+              ) : cognitiveText ? (
+                <div
+                  style={{ lineHeight: 1.7, fontSize: 13 }}
+                  dangerouslySetInnerHTML={{
+                    __html: cognitiveText.replace(/\n\n/g, "<br><br>").replace(/\n/g, "<br>").replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>"),
+                  }}
+                />
+              ) : (
+                <div style={{ color: "var(--muted)", fontSize: 12 }}>
+                  Clique em "↺ Reanalisar" para gerar análise cognitiva ao vivo.
+                  {cog?.stage_trajectory && <div style={{ marginTop: 8, color: "var(--muted2)" }}>Última análise salva: {cog.stage_trajectory}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {cogCards.length > 0 ? (
+            <div className="cog-grid">
+              {cogCards.map((card, i) => (
+                <div key={i} className="cog-card">
+                  <h4>{card.title}</h4>
+                  <p>{card.content}</p>
+                  {card.tags.length > 0 && (
+                    <div className="approach-tags">
+                      {card.tags.map((tag, ti) => <span key={ti} className="approach-tag">{tag}</span>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="cog-card" style={{ marginTop: 16 }}>
+              <p style={{ color: "var(--muted)" }}>Clique em "Reanalisar" para gerar análise cognitiva.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── UPSELL ── */}
+      {activeTab === "upsell" && (
+        <div className="tab-content">
+          <div className="sec">Oportunidades Detectadas</div>
+          <div className="upsell-grid">
+            {upsellCards.map((card, i) => (
+              <div key={i} className={`upsell-card upsell-${card.type}`}>
+                <div className="upsell-prob" style={{ color: card.type === "hot" ? "var(--hot)" : card.type === "warm" ? "var(--warm)" : "var(--muted2)" }}>
+                  {card.type === "hot" ? "🔴" : card.type === "warm" ? "🟡" : "⚪"} {card.isEmpty ? "—" : `${card.score}%`}
+                </div>
+                <div className="upsell-title">{card.title}</div>
+                <div className="upsell-desc">{card.desc}</div>
+                <div className="upsell-val" style={{ color: card.type === "hot" ? "var(--hot)" : card.type === "warm" ? "var(--warm)" : "var(--muted)" }}>{card.value}</div>
+                {card.window && <div className="upsell-window">{card.window}</div>}
+                {!card.isEmpty && (
+                  <div className="prob-bar">
+                    <div className="prob-fill" style={{ width: `${card.score}%`, background: card.type === "hot" ? "var(--hot)" : card.type === "warm" ? "var(--warm)" : "var(--cold)" }} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="sec">Projeção LTV</div>
+          <div className="stats-row" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+            {[
+              { label: "LTV Atual", val: formatBRL(ld.ltv_total), color: "var(--accent2)" },
+              { label: "Pipeline aberto", val: formatBRL(totalPipeline), color: "var(--accent)" },
+              { label: "Ticket Médio", val: formatBRL(avgTicket(ld)), color: "var(--muted2)" },
+              { label: "Oportunidades", val: String(opportunities.length), color: "var(--blue)" },
+            ].map((m, i) => (
+              <div key={i} className="stat-box">
+                <div className="stat-num" style={{ color: m.color }}>{m.val}</div>
+                <div className="stat-lbl">{m.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {top5Products.length > 0 && (
+            <>
+              <div className="sec">Mix de Produtos (Top 5)</div>
+              {top5Products.map((p, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, color: "var(--muted2)", minWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  <div style={{ flex: 1, background: "var(--surface3)", borderRadius: 4, height: 6, overflow: "hidden" }}>
+                    <div style={{ width: `${p.pct}%`, height: "100%", borderRadius: 4, background: "var(--accent2)" }} />
+                  </div>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--text)", minWidth: 60, textAlign: "right" }}>{formatBRL(p.val)}</span>
+                  <span style={{ fontSize: 10, color: "var(--muted)", minWidth: 36 }}>{p.pct}%</span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── FLUXO ── */}
+      {activeTab === "fluxo" && (
+        <div className="tab-content">
+          {detail.portfolio ? (
+            <WorkflowPortfolio portfolio={detail.portfolio} />
+          ) : (
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>Portfolio não disponível para este lead.</div>
+          )}
+
+          {opportunities.length > 0 && (
+            <div style={{ marginTop: 16, background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>
+                Gap do Fluxo — Oportunidades Não Exploradas
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {opportunities.map((opp) => (
+                  <span
+                    key={opp.product_name}
+                    style={{
+                      background: opp.priority === "critica" ? "rgba(255,71,87,.08)" : opp.priority === "alta" ? "rgba(232,255,71,.06)" : "rgba(79,143,255,.08)",
+                      border: opp.priority === "critica" ? "1px solid rgba(255,71,87,.2)" : opp.priority === "alta" ? "1px solid rgba(232,255,71,.2)" : "1px solid rgba(79,143,255,.2)",
+                      color: opp.priority === "critica" ? "var(--hot)" : opp.priority === "alta" ? "var(--accent)" : "var(--blue)",
+                      fontSize: 12, padding: "5px 12px", borderRadius: 20,
+                    }}
+                  >
+                    {opp.priority === "critica" ? "🔴" : opp.priority === "alta" ? "🟡" : "🔵"} {opp.product_name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── LIS BREAKDOWN ── */}
+      {activeTab === "lis" && (
+        <div className="tab-content">
+          <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginBottom: 20 }}>
+            <div className="score-ring-wrap">
+              <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--surface3)" strokeWidth="8" />
+                <circle cx="50" cy="50" r={radius} fill="none" stroke={ringColor} strokeWidth="8" strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
+              </svg>
+              <div className="score-ring-center">
+                <div className="score-ring-val" style={{ color: ringColor }}>{lis}</div>
+                <div className="score-ring-lbl">LIS</div>
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="lis-breakdown">
+                {breakdown.map((b, i) => (
+                  <div key={i} className="lis-comp">
+                    <span className="lis-comp-label">{b.label}</span>
+                    <div className="lis-bar-wrap">
+                      <div className="lis-bar" style={{ width: `${b.val}%`, background: b.color }} />
+                    </div>
+                    <span className="lis-comp-val" style={{ color: b.color }}>{b.val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="formula-box" style={{ fontFamily: "'DM Mono', monospace", color: "var(--muted2)", lineHeight: 1.8 }}>
+            <div>LIS = (SH×0.35) + (BE×0.25) + (TM×0.20) + (PP×0.20)</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;= ({sh}×.35) + ({be}×.25) + ({tm}×.20) + ({pp}×.20)</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;= {(sh * 0.35 + be * 0.25 + tm * 0.2 + pp * 0.2).toFixed(1)} ≈ {lis}</div>
+            {cog?.confidence_score_analysis && (
+              <div style={{ marginTop: 8, color: "var(--warm)" }}>⚠️ Confiança da análise: {cog.confidence_score_analysis}%</div>
+            )}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── AÇÕES ── */}
+      {activeTab === "acoes" && (
+        <div className="tab-content">
+          {actions.length === 0 ? (
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>Motor de oportunidades processando... (atualiza a cada 30 min)</div>
+          ) : (
+            <div className="action-list">
+              {actions.map((action, i) => (
+                <div key={i} className={`action-item ${action.itemCls}`}>
+                  <div className="action-icon">{action.icon}</div>
+                  <div className="action-body">
+                    <div className="action-title">{action.title}</div>
+                    <div className="action-desc">{action.desc}</div>
+                    {action.script && <div className="action-script">{action.script}</div>}
+                  </div>
+                  <div className={`action-priority ${action.priorityCls}`}>{action.priority}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
