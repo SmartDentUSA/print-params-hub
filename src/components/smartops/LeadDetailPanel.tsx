@@ -323,6 +323,40 @@ export function LeadDetailPanel({ lead, onClose }: { lead: LeadFull; onClose: ()
     if (activeTab === "actions" && !actionsResult && !actionsLoading) {
       callCopilotForTab("actions");
     }
+    // Fetch portfolio when flow tab is activated
+    if (activeTab === "flow" && !portfolio && !portfolioLoading && lead?.id) {
+      const cached = portfolioCacheRef.current[lead.id];
+      if (cached) {
+        setPortfolio(cached);
+      } else {
+        setPortfolioLoading(true);
+        supabase.functions.invoke("smart-ops-leads-api", {
+          body: null,
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        }).then(() => {
+          // Use fetch directly since invoke doesn't support query params well
+          fetch(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=detail&id=${lead.id}`, {
+            headers: { "Authorization": `Bearer ${(supabase as any).supabaseKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk"}`, "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk" },
+          })
+            .then(r => r.json())
+            .then(data => {
+              if (data?.portfolio) {
+                setPortfolio(data.portfolio);
+                portfolioCacheRef.current[lead.id] = data.portfolio;
+              }
+              if (data?.portfolio_embed_url) {
+                setPortfolioEmbedUrl(data.portfolio_embed_url);
+              }
+            })
+            .catch(() => {
+              // Set embed URL as fallback
+              setPortfolioEmbedUrl(`https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/smart-ops-leads-api?action=portfolio&id=${lead.id}&dark=true`);
+            })
+            .finally(() => setPortfolioLoading(false));
+        }).catch(() => setPortfolioLoading(false));
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
