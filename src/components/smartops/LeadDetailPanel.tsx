@@ -299,16 +299,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
-    // E-commerce orders
-    ((ld.lojaintegrada_historico_pedidos as any[]) || []).forEach((p: any) => {
-      events.push({
-        date: p.data,
-        dotCls: "tl-dot-buy",
-        title: `Pedido e-commerce #${p.numero}`,
-        desc: `${formatBRLFull(p.valor)} · ${p.status}`,
-        detail: { Valor: formatBRLFull(p.valor), Status: p.status },
-      });
-    });
+    // (E-commerce orders removed — data was fake)
 
     // Academy
     if (ld.astron_courses_total > 0) {
@@ -367,15 +358,41 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const props = Array.isArray(d.proposals) ? d.proposals.length : 0;
     return sum + props;
   }, 0);
-  const ecomPedidos = ld.lojaintegrada_total_pedidos_pagos || ((ld.lojaintegrada_historico_pedidos as any[]) || []).length || 0;
+  const wonDeals = allDeals.filter((d: any) => d.status === "ganha");
+  const lostDeals = allDeals.filter((d: any) => d.status === "perdida");
+  const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+  const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+
+  // Consolidated proposal items
+  const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
+  allDeals.forEach((d: any) => {
+    const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+    proposals.forEach((prop: any) => {
+      const items = Array.isArray(prop.items) ? prop.items : [];
+      items.forEach((item: any) => {
+        const qty = Number(item.quantidade || item.quantity || 1);
+        const unitVal = Number(item.valor_unitario || item.unit_value || 0);
+        const totalVal = Number(item.valor_total || item.total_value || qty * unitVal);
+        allProposalItems.push({
+          dealId: String(d.deal_id || "—"),
+          proposalId: String(prop.proposal_id || "—"),
+          name: item.nome || item.name || item.product_name || "Produto",
+          qty,
+          unitVal,
+          totalVal,
+          dealStatus: d.status || "aberto",
+        });
+      });
+    });
+  });
 
   const stats = [
-    { num: formatBRLFull(ld.ltv_total), lbl: "LTV Total", cls: "green" },
-    { num: String(ld.total_deals || 0), lbl: "Deals fechados", cls: "yellow" },
-    { num: String(totalProposals || "—"), lbl: "Propostas enviadas", cls: "" },
-    { num: String(ecomPedidos || "—"), lbl: "Pedidos e-com", cls: "" },
-    { num: formatBRLFull(avgTicket(ld)), lbl: "Ticket médio", cls: "green" },
-    { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados suporte", cls: support_summary?.open ? "red" : "green" },
+    { num: ltvWon > 0 ? formatBRLFull(ltvWon) : (ltvLost > 0 ? formatBRLFull(ltvLost) : "R$ 0"), lbl: ltvWon > 0 ? "LTV Ganho" : (ltvLost > 0 ? "$ Perdido" : "LTV"), cls: ltvWon > 0 ? "green" : (ltvLost > 0 ? "red" : "") },
+    { num: String(wonDeals.length), lbl: "Ganhos", cls: "green" },
+    { num: String(lostDeals.length), lbl: "Perdidos", cls: lostDeals.length > 0 ? "red" : "" },
+    { num: String(totalProposals || "—"), lbl: "Propostas", cls: "" },
+    { num: ltvWon > 0 ? formatBRLFull(ltvWon / wonDeals.length) : "—", lbl: "Ticket médio", cls: "green" },
+    { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados", cls: support_summary?.open ? "red" : "green" },
   ];
 
   // Cognitive cards
@@ -449,9 +466,6 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const totalProductVal = Object.values(productMap).reduce((s, v) => s + v, 0);
   const top5Products = Object.entries(productMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, val]) => ({ name, val, pct: totalProductVal > 0 ? ((val / totalProductVal) * 100).toFixed(1) : "0" }));
 
-  // E-commerce items
-  const ecomItems = (ld.lojaintegrada_itens_json as any[]) || [];
-  const ecomOrders = (ld.lojaintegrada_historico_pedidos as any[]) || [];
 
   // Academy courses
   const astronCourses = (ld.astron_courses_access as any[]) || [];
@@ -504,9 +518,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           </div>
         </div>
         <div className="ltv-block">
-          <div className="ltv-label">LTV TOTAL</div>
-          <div className="ltv-val">{formatBRL(ld.ltv_total)}</div>
-          <div className="ltv-sub">{ld.total_deals || 0} deal{(ld.total_deals || 0) !== 1 ? "s" : ""}</div>
+          <div className="ltv-label">{ltvWon > 0 ? "LTV GANHO" : (ltvLost > 0 ? "$ PERDIDO" : "LTV")}</div>
+          <div className="ltv-val" style={ltvWon === 0 && ltvLost > 0 ? { color: "var(--hot)" } : undefined}>{formatBRL(ltvWon > 0 ? ltvWon : ltvLost)}</div>
+          <div className="ltv-sub">{wonDeals.length} ganho{wonDeals.length !== 1 ? "s" : ""} · {lostDeals.length} perdido{lostDeals.length !== 1 ? "s" : ""}</div>
         </div>
         <div className="lis-block">
           <div className={`lis-val ${lisCls}`}>{lis}</div>
@@ -673,53 +687,35 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </>
           )}
 
-          {/* 🛒 E-commerce section */}
-          {(ecomOrders.length > 0 || ecomItems.length > 0) && (
+          {/* 📦 Consolidated proposal items */}
+          {allProposalItems.length > 0 && (
             <>
-              <div className="sec">🛒 E-commerce — Loja Integrada</div>
-              {ecomOrders.length > 0 && (
-                <div style={{ border: "1px solid var(--border2)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
-                  <table className="deal-table">
-                    <thead>
-                      <tr>
-                        <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ecomOrders.map((p: any, pi: number) => (
-                        <tr key={pi}>
-                          <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || p.order_number || pi + 1}</td>
-                          <td>{formatDate(p.data || p.date)}</td>
-                          <td className="green">{formatBRLFull(p.valor || p.value || 0)}</td>
-                          <td>{p.status || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {ecomItems.length > 0 && (
-                <>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>Itens comprados:</div>
-                  <div style={{ display: "grid", gap: 4, marginBottom: 20 }}>
-                    {ecomItems.map((item: any, ii: number) => (
-                      <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted2)", paddingLeft: 8 }}>
-                        <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {item.nome || item.name || "Produto"}
-                        </span>
-                        {(item.quantidade || item.quantity) && (
-                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>{item.quantidade || item.quantity}×</span>
-                        )}
-                        {(item.preco || item.price || item.valor) && (
-                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 80, textAlign: "right", color: "var(--accent2)" }}>
-                            {formatBRLFull(item.preco || item.price || item.valor)}
+              <div className="sec">📦 Itens de Propostas ({allProposalItems.length})</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Deal</th><th>Item</th><th>Qtd</th><th>Unit</th><th>Total</th><th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProposalItems.map((item, ii) => (
+                      <tr key={ii}>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
+                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{item.qty}×</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--text)" }}>{formatBRLFull(item.totalVal)}</td>
+                        <td>
+                          <span className={`status-chip ${item.dealStatus === "ganha" ? "s-ganho" : item.dealStatus === "perdida" ? "s-perdido" : "s-aberto"}`}>
+                            {item.dealStatus === "ganha" ? "✓ Ganho" : item.dealStatus === "perdida" ? "✗ Perdido" : "● Aberto"}
                           </span>
-                        )}
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                </>
-              )}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 
