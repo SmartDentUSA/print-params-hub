@@ -523,7 +523,7 @@ async function upsertLead(
             .insert(liaPayload);
           if (insErr) {
             console.error(`[upsertLead] fallback insert failed:`, insErr);
-            await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_insert_failed", lead_email: normalizedEmail, details: { error: insErr.message, context: "upsertLead fallback insert" } }).catch(() => {});
+            supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_insert_failed", lead_email: normalizedEmail, details: { error: insErr.message, context: "upsertLead fallback insert" } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
           }
           else console.log(`[upsertLead] fallback INSERT ok for ${normalizedEmail}`);
         }
