@@ -690,53 +690,35 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </>
           )}
 
-          {/* 🛒 E-commerce section */}
-          {(ecomOrders.length > 0 || ecomItems.length > 0) && (
+          {/* 📦 Consolidated proposal items */}
+          {allProposalItems.length > 0 && (
             <>
-              <div className="sec">🛒 E-commerce — Loja Integrada</div>
-              {ecomOrders.length > 0 && (
-                <div style={{ border: "1px solid var(--border2)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
-                  <table className="deal-table">
-                    <thead>
-                      <tr>
-                        <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ecomOrders.map((p: any, pi: number) => (
-                        <tr key={pi}>
-                          <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || p.order_number || pi + 1}</td>
-                          <td>{formatDate(p.data || p.date)}</td>
-                          <td className="green">{formatBRLFull(p.valor || p.value || 0)}</td>
-                          <td>{p.status || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              {ecomItems.length > 0 && (
-                <>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>Itens comprados:</div>
-                  <div style={{ display: "grid", gap: 4, marginBottom: 20 }}>
-                    {ecomItems.map((item: any, ii: number) => (
-                      <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted2)", paddingLeft: 8 }}>
-                        <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {item.nome || item.name || "Produto"}
-                        </span>
-                        {(item.quantidade || item.quantity) && (
-                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>{item.quantidade || item.quantity}×</span>
-                        )}
-                        {(item.preco || item.price || item.valor) && (
-                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 80, textAlign: "right", color: "var(--accent2)" }}>
-                            {formatBRLFull(item.preco || item.price || item.valor)}
+              <div className="sec">📦 Itens de Propostas ({allProposalItems.length})</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Deal</th><th>Item</th><th>Qtd</th><th>Unit</th><th>Total</th><th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allProposalItems.map((item, ii) => (
+                      <tr key={ii}>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
+                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{item.qty}×</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--text)" }}>{formatBRLFull(item.totalVal)}</td>
+                        <td>
+                          <span className={`status-chip ${item.dealStatus === "ganha" ? "s-ganho" : item.dealStatus === "perdida" ? "s-perdido" : "s-aberto"}`}>
+                            {item.dealStatus === "ganha" ? "✓ Ganho" : item.dealStatus === "perdida" ? "✗ Perdido" : "● Aberto"}
                           </span>
-                        )}
-                      </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                </>
-              )}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 
