@@ -868,8 +868,10 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   </script>
   ${buildEntityIndexJsonLd(entityText, knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
