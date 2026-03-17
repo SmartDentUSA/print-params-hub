@@ -285,8 +285,31 @@ export interface PipeRunDealData {
   person_id?: number;
   company_id?: number;
   origin_id?: number;
-  origin?: { id?: number; name?: string };
+  origin?: { id?: number; name?: string; origin?: { name?: string } | string };
   stage?: { id?: number; name?: string };
+  // Deal deep metadata
+  hash?: string;
+  description?: string;
+  observation?: string;
+  deleted?: boolean;
+  freezed?: boolean;
+  frozen_at?: string;
+  probability?: number;
+  lead_time?: number;
+  value_mrr?: number;
+  last_contact?: string;
+  stage_changed_at?: string;
+  probably_closed_at?: string;
+  updated_at?: string;
+  involved_users?: unknown[];
+  tags?: Array<{ name?: string }>;
+  proposals?: unknown[];
+  activities?: unknown;
+  files?: unknown;
+  forms?: unknown;
+  action?: unknown;
+  order?: number;
+  city?: { name?: string };
   person?: {
     name?: string;
     // API list format
@@ -298,8 +321,29 @@ export interface PipeRunDealData {
     job_title?: string;
     city?: { name?: string; uf?: string };
     state?: { initials?: string; abbr?: string; name?: string };
+    // Deep person fields
+    hash?: string;
+    cpf?: string;
+    gender?: string;
+    linkedin?: string;
+    facebook?: string;
+    observation?: string;
+    birth_day?: string;
+    website?: string;
+    address?: Record<string, unknown>;
+    email?: string;
+    phone?: string;
+    mobile?: string;
+    rdstation?: string;
+    manager?: Record<string, unknown>;
+    data_legal_basis_processing?: unknown;
+    data_legal_origin_id?: unknown;
+    lgpd_declaration_accepted?: unknown;
+    custom_fields?: unknown[];
+    company?: Record<string, unknown>;
   };
   company?: {
+    id?: number;
     name?: string;
     // API list format
     phones?: Array<{ phone: string }>;
@@ -317,6 +361,25 @@ export interface PipeRunDealData {
     address_complement?: string;
     address_postal_code?: string;
     district?: string;
+    // Deep company fields
+    hash?: string;
+    company_name?: string;
+    cnpj?: string;
+    ie?: string;
+    cnae?: string;
+    website?: string;
+    facebook?: string;
+    linkedin?: string;
+    status_touch?: string;
+    size?: string;
+    country?: string;
+    email_nf?: string;
+    open_at?: string;
+    cnaes?: unknown[];
+    address?: Record<string, unknown>;
+    custom_fields?: unknown[];
+    email?: string;
+    phone?: string;
   };
   custom_fields?: Array<{
     custom_field_id: number;
@@ -395,21 +458,51 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     piperun_origin_id: deal.origin_id || null,
     piperun_origin_name: deal.origin?.name || null,
     piperun_title: deal.title || null,
+    // ─── Deal deep metadata ───
+    piperun_hash: deal.hash || null,
+    piperun_description: deal.description || null,
+    piperun_observation: deal.observation || null,
+    piperun_deleted: deal.deleted === true,
+    piperun_frozen: deal.freezed === true,
+    piperun_frozen_at: deal.frozen_at || null,
+    piperun_probability: deal.probability != null ? Number(deal.probability) : null,
+    piperun_lead_time: deal.lead_time != null ? Number(deal.lead_time) : null,
+    piperun_value_mrr: deal.value_mrr != null ? Number(deal.value_mrr) : null,
+    piperun_last_contact_at: deal.last_contact || null,
+    piperun_stage_changed_at: deal.stage_changed_at || null,
+    piperun_closed_at: deal.closed_at || null,
+    piperun_probably_closed_at: deal.probably_closed_at || null,
+    piperun_updated_at: deal.updated_at || null,
+    piperun_custom_fields: cf || [],
+    piperun_tags_raw: deal.tags || null,
+    piperun_involved_users: deal.involved_users || null,
+    piperun_activities: deal.activities || null,
+    piperun_files: deal.files || null,
+    piperun_forms: deal.forms || null,
+    piperun_action: deal.action || null,
+    piperun_deal_order: deal.order != null ? Number(deal.order) : null,
+    piperun_deal_city: deal.city?.name || null,
+    // Origin sub-name
+    piperun_origin_sub_name: (() => {
+      const originSub = deal.origin?.origin;
+      if (!originSub) return null;
+      if (typeof originSub === "object" && (originSub as Record<string, unknown>).name) return String((originSub as Record<string, unknown>).name);
+      return String(originSub);
+    })(),
+    // ─── Raw payload for full audit trail ───
+    piperun_raw_payload: deal,
   };
 
   // ─── Email extraction cascade ───
-  // 1. person.contact_emails (webhook format)
-  // 2. person.emails (API list format with[]=person)
-  // 3. deal.reference (API list format - most common)
-  // 4. deal.rdstation_reference (RD Station fallback)
-  // 5. company.contact_emails / company.emails (organization fallback)
   const email =
     person?.contact_emails?.[0]?.address ||
     person?.emails?.[0]?.email ||
+    person?.email ||
     deal.reference ||
     deal.rdstation_reference ||
     company?.contact_emails?.[0]?.address ||
     company?.emails?.[0]?.email ||
+    company?.email ||
     null;
   if (email) fields.email = String(email).trim().toLowerCase();
 
@@ -418,26 +511,45 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   if (nome) fields.nome = nome;
 
   // ─── Phone extraction cascade ───
-  // 1. Custom field WHATSAPP
-  // 2. person.contact_phones (webhook) / person.phones (API list)
-  // 3. company.contact_phones / company.phones
   const whatsappPhone = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.WHATSAPP);
-  const personPhone = person?.contact_phones?.[0]?.number || person?.phones?.[0]?.phone || null;
-  const companyPhone = company?.contact_phones?.[0]?.number || company?.phones?.[0]?.phone || null;
+  const personPhone = person?.contact_phones?.[0]?.number || person?.phones?.[0]?.phone || person?.phone || person?.mobile || null;
+  const companyPhone = company?.contact_phones?.[0]?.number || company?.phones?.[0]?.phone || company?.phone || null;
   const phone = whatsappPhone || personPhone || companyPhone || null;
   if (phone) fields.telefone_raw = phone;
 
-  // Person extra data
+  // ─── Person deep fields ───
   if (person) {
     if (person.job_title) fields.area_atuacao = person.job_title;
     if (person.city?.name) fields.cidade = person.city.name;
-    // UF: cascade city.uf → state.initials → state.abbr
     const personUf = person.city?.uf || person.state?.initials || person.state?.abbr || null;
     if (personUf) fields.uf = personUf;
+    // Identity
+    if (person.hash) fields.pessoa_hash = person.hash;
+    // Deep person data
+    if (person.cpf) fields.pessoa_cpf = person.cpf;
+    if (person.job_title) fields.pessoa_cargo = person.job_title;
+    if (person.gender) fields.pessoa_genero = person.gender;
+    if (person.linkedin) fields.pessoa_linkedin = person.linkedin;
+    if (person.facebook) fields.pessoa_facebook = person.facebook;
+    if (person.observation) fields.pessoa_observation = person.observation;
+    if (person.website) fields.pessoa_website = person.website;
+    if (person.birth_day) fields.pessoa_nascimento = person.birth_day;
+    if (person.address) fields.pessoa_endereco = person.address;
+    if (person.rdstation) fields.pessoa_rdstation = person.rdstation;
+    if (person.manager) fields.pessoa_manager = person.manager;
+    // LGPD
+    const lgpdBasis = person.data_legal_basis_processing;
+    const lgpdOrigin = person.data_legal_origin_id;
+    const lgpdAccepted = person.lgpd_declaration_accepted;
+    if (lgpdBasis || lgpdOrigin || lgpdAccepted) {
+      fields.pessoa_lgpd = { basis: lgpdBasis, origin: lgpdOrigin, accepted: lgpdAccepted };
+    }
   }
 
-  // Company extra data
+  // ─── Company deep fields ───
   if (company) {
+    // Identity
+    if (company.hash) fields.empresa_hash = company.hash;
     // Segment: object.name or string
     const seg = company.segment;
     if (seg) {
@@ -450,6 +562,41 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     if (company.city?.name) fields.empresa_cidade = String(company.city.name);
     const companyUf = company.city?.uf || company.state?.abbr || null;
     if (companyUf) fields.empresa_uf = String(companyUf);
+    // Deep company data
+    if (company.name) fields.empresa_nome = company.name;
+    if (company.company_name) fields.empresa_razao_social = company.company_name;
+    if (company.cnpj) fields.empresa_cnpj = company.cnpj;
+    if (company.ie) fields.empresa_ie = company.ie;
+    if (company.cnae) fields.empresa_cnae = company.cnae;
+    if (company.website) fields.empresa_website = company.website;
+    if (company.facebook) fields.empresa_facebook = company.facebook;
+    if (company.linkedin) fields.empresa_linkedin = company.linkedin;
+    if (company.status_touch) fields.empresa_touch_model = company.status_touch;
+    if (company.size) fields.empresa_porte = company.size;
+    if (company.country) fields.empresa_pais = company.country;
+    if (company.email_nf) fields.empresa_email_nf = company.email_nf;
+    if (company.open_at) fields.empresa_data_abertura = company.open_at;
+    if (company.cnaes) fields.empresa_cnaes = company.cnaes;
+    if (company.custom_fields) fields.empresa_custom_fields = company.custom_fields;
+    // Company address: merge flat fields + nested object
+    const companyAddress = (() => {
+      const nested = company.address;
+      const flat: Record<string, unknown> = {};
+      if (company.address_street) flat.street = company.address_street;
+      if (company.address_number) flat.number = company.address_number;
+      if (company.address_complement) flat.complement = company.address_complement;
+      if (company.address_postal_code) flat.postal_code = company.address_postal_code;
+      if (company.district) flat.district = company.district;
+      const hasFlat = Object.keys(flat).length > 0;
+      if (hasFlat) return { ...(nested || {}), ...flat };
+      return nested || null;
+    })();
+    if (companyAddress) fields.empresa_endereco = companyAddress;
+    // Company phone/email
+    const cPhone = company.contact_phones?.[0]?.number || company.phones?.[0]?.phone || company.phone || null;
+    if (cPhone) fields.empresa_telefone = cPhone;
+    const cEmail = company.contact_emails?.[0]?.address || company.emails?.[0]?.email || company.email || null;
+    if (cEmail) fields.empresa_email = cEmail;
   }
 
   // Custom fields
@@ -471,9 +618,6 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   const bdId = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID);
   if (bdId) fields.id_cliente_smart = bdId;
 
-  // WhatsApp already extracted above as primary phone source
-
-  // New custom fields
   const informacaoDesejada = getCustomFieldValue(cf, DEAL_CUSTOM_FIELDS.INFORMACAO_DESEJADA);
   if (informacaoDesejada) fields.informacao_desejada = informacaoDesejada;
 
@@ -491,7 +635,6 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   if (itensProposta) {
     const parsed = parseProposalItems(itensProposta);
     fields.itens_proposta_parsed = parsed.parsed;
-    // Auto-populate equipment fields when deal is won
     const statusOpp = fields.status_oportunidade;
     if (statusOpp === "ganha") {
       if (parsed.equipments.scanner) fields.equip_scanner = parsed.equipments.scanner;
@@ -500,6 +643,47 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
       if (parsed.equipments.pos_impressao) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
       if (parsed.equipments.notebook) fields.equip_notebook = parsed.equipments.notebook;
       if (parsed.equipments.insumos) fields.insumos_adquiridos = parsed.equipments.insumos;
+    }
+  }
+
+  // ─── Proposals aggregation (from with[]=proposals) ───
+  if (deal.proposals && Array.isArray(deal.proposals) && deal.proposals.length > 0) {
+    let totalValue = 0;
+    let totalMrr = 0;
+    const itemTexts: string[] = [];
+
+    for (const p of deal.proposals) {
+      const prop = p as Record<string, unknown>;
+      if (prop.value != null) totalValue += Number(prop.value) || 0;
+      if (prop.value_mrr != null) totalMrr += Number(prop.value_mrr) || 0;
+      const items = prop.items as Array<Record<string, unknown>> | undefined;
+      if (items) {
+        for (const item of items) {
+          const name = item.name || item.description || "";
+          const qty = item.quantity || 1;
+          if (name) itemTexts.push(`[${qty}] ${name}`);
+        }
+      }
+    }
+
+    fields.proposals_data = deal.proposals;
+    if (totalValue > 0) fields.proposals_total_value = totalValue;
+    if (totalMrr > 0) fields.proposals_total_mrr = totalMrr;
+
+    if (itemTexts.length && !fields.itens_proposta_crm) {
+      const rawText = itemTexts.join(", ");
+      fields.itens_proposta_crm = rawText;
+      const parsed = parseProposalItems(rawText);
+      fields.itens_proposta_parsed = parsed.parsed;
+      const statusOpp = fields.status_oportunidade;
+      if (statusOpp === "ganha") {
+        if (parsed.equipments.scanner) fields.equip_scanner = parsed.equipments.scanner;
+        if (parsed.equipments.impressora) fields.equip_impressora = parsed.equipments.impressora;
+        if (parsed.equipments.cad) fields.equip_cad = parsed.equipments.cad;
+        if (parsed.equipments.pos_impressao) fields.equip_pos_impressao = parsed.equipments.pos_impressao;
+        if (parsed.equipments.notebook) fields.equip_notebook = parsed.equipments.notebook;
+        if (parsed.equipments.insumos) fields.insumos_adquiridos = parsed.equipments.insumos;
+      }
     }
   }
 
