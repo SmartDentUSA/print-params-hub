@@ -358,15 +358,41 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const props = Array.isArray(d.proposals) ? d.proposals.length : 0;
     return sum + props;
   }, 0);
-  const ecomPedidos = ld.lojaintegrada_total_pedidos_pagos || ((ld.lojaintegrada_historico_pedidos as any[]) || []).length || 0;
+  const wonDeals = allDeals.filter((d: any) => d.status === "ganha");
+  const lostDeals = allDeals.filter((d: any) => d.status === "perdida");
+  const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+  const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+
+  // Consolidated proposal items
+  const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
+  allDeals.forEach((d: any) => {
+    const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+    proposals.forEach((prop: any) => {
+      const items = Array.isArray(prop.items) ? prop.items : [];
+      items.forEach((item: any) => {
+        const qty = Number(item.quantidade || item.quantity || 1);
+        const unitVal = Number(item.valor_unitario || item.unit_value || 0);
+        const totalVal = Number(item.valor_total || item.total_value || qty * unitVal);
+        allProposalItems.push({
+          dealId: String(d.deal_id || "—"),
+          proposalId: String(prop.proposal_id || "—"),
+          name: item.nome || item.name || item.product_name || "Produto",
+          qty,
+          unitVal,
+          totalVal,
+          dealStatus: d.status || "aberto",
+        });
+      });
+    });
+  });
 
   const stats = [
-    { num: formatBRLFull(ld.ltv_total), lbl: "LTV Total", cls: "green" },
-    { num: String(ld.total_deals || 0), lbl: "Deals fechados", cls: "yellow" },
-    { num: String(totalProposals || "—"), lbl: "Propostas enviadas", cls: "" },
-    { num: String(ecomPedidos || "—"), lbl: "Pedidos e-com", cls: "" },
-    { num: formatBRLFull(avgTicket(ld)), lbl: "Ticket médio", cls: "green" },
-    { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados suporte", cls: support_summary?.open ? "red" : "green" },
+    { num: ltvWon > 0 ? formatBRLFull(ltvWon) : (ltvLost > 0 ? formatBRLFull(ltvLost) : "R$ 0"), lbl: ltvWon > 0 ? "LTV Ganho" : (ltvLost > 0 ? "$ Perdido" : "LTV"), cls: ltvWon > 0 ? "green" : (ltvLost > 0 ? "red" : "") },
+    { num: String(wonDeals.length), lbl: "Ganhos", cls: "green" },
+    { num: String(lostDeals.length), lbl: "Perdidos", cls: lostDeals.length > 0 ? "red" : "" },
+    { num: String(totalProposals || "—"), lbl: "Propostas", cls: "" },
+    { num: ltvWon > 0 ? formatBRLFull(ltvWon / wonDeals.length) : "—", lbl: "Ticket médio", cls: "green" },
+    { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados", cls: support_summary?.open ? "red" : "green" },
   ];
 
   // Cognitive cards
