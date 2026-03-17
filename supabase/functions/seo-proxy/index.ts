@@ -1154,8 +1154,10 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   })}
   </script>
   ${buildEntityIndexJsonLd(`${resinName} ${resinManufacturer} resina impressão 3D fotopolimerização odontológica DLP LCD/mSLA`, knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
