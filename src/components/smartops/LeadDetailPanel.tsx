@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Send, Loader2, RefreshCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 
 // ─── Types ───
 interface LeadFull {
