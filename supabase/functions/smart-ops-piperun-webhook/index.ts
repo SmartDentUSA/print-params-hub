@@ -10,6 +10,7 @@ import {
   getCustomFieldValue,
   parseProposalItems,
   cleanPersonName,
+  deepParseStringifiedFields,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
@@ -25,23 +26,7 @@ function isInStagnantStatus(leadStatus: string): boolean {
   return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
 }
 
-// ─── Deep Parse Stringified Fields (PipeRun sends objects as JSON strings) ───
-
-function deepParseStringifiedFields(obj: Record<string, unknown>): Record<string, unknown> {
-  const KEYS = ["company","person","stage","pipeline","origin","user",
-    "involved_users","city","proposals","activities","files","fields",
-    "forms","action","tags","lost_reason"];
-  for (const key of KEYS) {
-    const val = obj[key];
-    if (typeof val === "string") {
-      const t = val.trim();
-      if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
-        try { obj[key] = JSON.parse(t); } catch { /* keep string */ }
-      }
-    }
-  }
-  return obj;
-}
+// (deepParseStringifiedFields is now imported from shared piperun-field-map.ts)
 
 // ─── Payload Extraction Helpers ───
 

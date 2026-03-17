@@ -279,9 +279,11 @@ export interface PipeRunDealData {
   value?: number;
   created_at?: string;
   closed_at?: string;
-  lost_reason?: string;
+  lost_reason?: string | { name?: string; description?: string; comment?: string };
   reference?: string;
   rdstation_reference?: string;
+  temperature?: string | number;
+  lead_timing?: number;
   person_id?: number;
   company_id?: number;
   origin_id?: number;
@@ -401,6 +403,27 @@ export function getCustomFieldValue(
 }
 
 /**
+ * Deep parse stringified fields from PipeRun API responses.
+ * PipeRun sometimes sends nested objects as JSON strings (e.g. company, person, proposals).
+ * This function detects and parses them back to objects.
+ */
+export function deepParseStringifiedFields(obj: Record<string, unknown>): Record<string, unknown> {
+  const KEYS = ["company","person","stage","pipeline","origin","user",
+    "involved_users","city","proposals","activities","files","fields",
+    "forms","action","tags","lost_reason"];
+  for (const key of KEYS) {
+    const val = obj[key];
+    if (typeof val === "string") {
+      const t = val.trim();
+      if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+        try { obj[key] = JSON.parse(t); } catch { /* keep string */ }
+      }
+    }
+  }
+  return obj;
+}
+
+/**
  * Clean deal title to extract real name
  * Deals often have format "Name - 12345 - Nova Interação" or "Name - timestamp"
  */
@@ -442,7 +465,19 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     valor_oportunidade: deal.value || null,
     data_primeiro_contato: deal.created_at || null,
     data_fechamento_crm: deal.closed_at || null,
-    motivo_perda: deal.lost_reason || null,
+    motivo_perda: (() => {
+      const lr = deal.lost_reason;
+      if (!lr) return null;
+      if (typeof lr === "object" && lr.name) return String(lr.name);
+      return String(lr);
+    })(),
+    comentario_perda: (() => {
+      const lr = deal.lost_reason;
+      if (!lr || typeof lr !== "object") return null;
+      return lr.description ? String(lr.description) : (lr.comment ? String(lr.comment) : null);
+    })(),
+    temperatura_lead: deal.temperature != null ? String(deal.temperature) : null,
+    lead_timing_dias: deal.lead_timing != null ? Number(deal.lead_timing) : null,
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
     origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
     // PipeRun metadata preservation
@@ -650,12 +685,14 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   if (deal.proposals && Array.isArray(deal.proposals) && deal.proposals.length > 0) {
     let totalValue = 0;
     let totalMrr = 0;
+    let lastStatus: number | null = null;
     const itemTexts: string[] = [];
 
     for (const p of deal.proposals) {
       const prop = p as Record<string, unknown>;
       if (prop.value != null) totalValue += Number(prop.value) || 0;
       if (prop.value_mrr != null) totalMrr += Number(prop.value_mrr) || 0;
+      if (prop.status != null) lastStatus = Number(prop.status);
       const items = prop.items as Array<Record<string, unknown>> | undefined;
       if (items) {
         for (const item of items) {
@@ -669,6 +706,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     fields.proposals_data = deal.proposals;
     if (totalValue > 0) fields.proposals_total_value = totalValue;
     if (totalMrr > 0) fields.proposals_total_mrr = totalMrr;
+    if (lastStatus != null) fields.proposals_last_status = lastStatus;
 
     if (itemTexts.length && !fields.itens_proposta_crm) {
       const rawText = itemTexts.join(", ");
