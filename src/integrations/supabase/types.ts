@@ -3581,19 +3581,25 @@ export type Database = {
           email: string
           empresa_cidade: string | null
           empresa_cnae: string | null
+          empresa_cnaes: Json | null
           empresa_cnpj: string | null
           empresa_custom_fields: Json | null
+          empresa_data_abertura: string | null
+          empresa_email: string | null
+          empresa_email_nf: string | null
           empresa_endereco: Json | null
           empresa_facebook: string | null
           empresa_hash: string | null
           empresa_ie: string | null
           empresa_linkedin: string | null
           empresa_nome: string | null
+          empresa_pais: string | null
           empresa_piperun_id: number | null
           empresa_porte: string | null
           empresa_razao_social: string | null
           empresa_segmento: string | null
           empresa_situacao: string | null
+          empresa_telefone: string | null
           empresa_touch_model: string | null
           empresa_uf: string | null
           empresa_website: string | null
@@ -3767,17 +3773,26 @@ export type Database = {
           pessoa_facebook: string | null
           pessoa_genero: string | null
           pessoa_hash: string | null
+          pessoa_lgpd: Json | null
           pessoa_linkedin: string | null
+          pessoa_manager: Json | null
           pessoa_nascimento: string | null
           pessoa_observation: string | null
           pessoa_piperun_id: number | null
+          pessoa_rdstation: string | null
           pessoa_website: string | null
+          piperun_action: Json | null
+          piperun_activities: Json | null
           piperun_closed_at: string | null
           piperun_created_at: string | null
           piperun_custom_fields: Json | null
+          piperun_deal_city: string | null
+          piperun_deal_order: number | null
           piperun_deals_history: Json | null
           piperun_deleted: boolean | null
           piperun_description: string | null
+          piperun_files: Json | null
+          piperun_forms: Json | null
           piperun_frozen: boolean | null
           piperun_frozen_at: string | null
           piperun_hash: string | null
@@ -3795,12 +3810,14 @@ export type Database = {
           piperun_pipeline_name: string | null
           piperun_probability: number | null
           piperun_probably_closed_at: string | null
+          piperun_raw_payload: Json | null
           piperun_stage_changed_at: string | null
           piperun_stage_id: number | null
           piperun_stage_name: string | null
           piperun_status: number | null
           piperun_tags_raw: Json | null
           piperun_title: string | null
+          piperun_updated_at: string | null
           piperun_value_mrr: number | null
           platform: string | null
           platform_ad_id: string | null
@@ -3979,19 +3996,25 @@ export type Database = {
           email: string
           empresa_cidade?: string | null
           empresa_cnae?: string | null
+          empresa_cnaes?: Json | null
           empresa_cnpj?: string | null
           empresa_custom_fields?: Json | null
+          empresa_data_abertura?: string | null
+          empresa_email?: string | null
+          empresa_email_nf?: string | null
           empresa_endereco?: Json | null
           empresa_facebook?: string | null
           empresa_hash?: string | null
           empresa_ie?: string | null
           empresa_linkedin?: string | null
           empresa_nome?: string | null
+          empresa_pais?: string | null
           empresa_piperun_id?: number | null
           empresa_porte?: string | null
           empresa_razao_social?: string | null
           empresa_segmento?: string | null
           empresa_situacao?: string | null
+          empresa_telefone?: string | null
           empresa_touch_model?: string | null
           empresa_uf?: string | null
           empresa_website?: string | null
@@ -4165,17 +4188,26 @@ export type Database = {
           pessoa_facebook?: string | null
           pessoa_genero?: string | null
           pessoa_hash?: string | null
+          pessoa_lgpd?: Json | null
           pessoa_linkedin?: string | null
+          pessoa_manager?: Json | null
           pessoa_nascimento?: string | null
           pessoa_observation?: string | null
           pessoa_piperun_id?: number | null
+          pessoa_rdstation?: string | null
           pessoa_website?: string | null
+          piperun_action?: Json | null
+          piperun_activities?: Json | null
           piperun_closed_at?: string | null
           piperun_created_at?: string | null
           piperun_custom_fields?: Json | null
+          piperun_deal_city?: string | null
+          piperun_deal_order?: number | null
           piperun_deals_history?: Json | null
           piperun_deleted?: boolean | null
           piperun_description?: string | null
+          piperun_files?: Json | null
+          piperun_forms?: Json | null
           piperun_frozen?: boolean | null
           piperun_frozen_at?: string | null
           piperun_hash?: string | null
@@ -4193,12 +4225,14 @@ export type Database = {
           piperun_pipeline_name?: string | null
           piperun_probability?: number | null
           piperun_probably_closed_at?: string | null
+          piperun_raw_payload?: Json | null
           piperun_stage_changed_at?: string | null
           piperun_stage_id?: number | null
           piperun_stage_name?: string | null
           piperun_status?: number | null
           piperun_tags_raw?: Json | null
           piperun_title?: string | null
+          piperun_updated_at?: string | null
           piperun_value_mrr?: number | null
           platform?: string | null
           platform_ad_id?: string | null
@@ -4377,19 +4411,25 @@ export type Database = {
           email?: string
           empresa_cidade?: string | null
           empresa_cnae?: string | null
+          empresa_cnaes?: Json | null
           empresa_cnpj?: string | null
           empresa_custom_fields?: Json | null
+          empresa_data_abertura?: string | null
+          empresa_email?: string | null
+          empresa_email_nf?: string | null
           empresa_endereco?: Json | null
           empresa_facebook?: string | null
           empresa_hash?: string | null
           empresa_ie?: string | null
           empresa_linkedin?: string | null
           empresa_nome?: string | null
+          empresa_pais?: string | null
           empresa_piperun_id?: number | null
           empresa_porte?: string | null
           empresa_razao_social?: string | null
           empresa_segmento?: string | null
           empresa_situacao?: string | null
+          empresa_telefone?: string | null
           empresa_touch_model?: string | null
           empresa_uf?: string | null
           empresa_website?: string | null
@@ -4563,17 +4603,26 @@ export type Database = {
           pessoa_facebook?: string | null
           pessoa_genero?: string | null
           pessoa_hash?: string | null
+          pessoa_lgpd?: Json | null
           pessoa_linkedin?: string | null
+          pessoa_manager?: Json | null
           pessoa_nascimento?: string | null
           pessoa_observation?: string | null
           pessoa_piperun_id?: number | null
+          pessoa_rdstation?: string | null
           pessoa_website?: string | null
+          piperun_action?: Json | null
+          piperun_activities?: Json | null
           piperun_closed_at?: string | null
           piperun_created_at?: string | null
           piperun_custom_fields?: Json | null
+          piperun_deal_city?: string | null
+          piperun_deal_order?: number | null
           piperun_deals_history?: Json | null
           piperun_deleted?: boolean | null
           piperun_description?: string | null
+          piperun_files?: Json | null
+          piperun_forms?: Json | null
           piperun_frozen?: boolean | null
           piperun_frozen_at?: string | null
           piperun_hash?: string | null
@@ -4591,12 +4640,14 @@ export type Database = {
           piperun_pipeline_name?: string | null
           piperun_probability?: number | null
           piperun_probably_closed_at?: string | null
+          piperun_raw_payload?: Json | null
           piperun_stage_changed_at?: string | null
           piperun_stage_id?: number | null
           piperun_stage_name?: string | null
           piperun_status?: number | null
           piperun_tags_raw?: Json | null
           piperun_title?: string | null
+          piperun_updated_at?: string | null
           piperun_value_mrr?: number | null
           platform?: string | null
           platform_ad_id?: string | null
@@ -7961,19 +8012,25 @@ export type Database = {
           email: string
           empresa_cidade: string | null
           empresa_cnae: string | null
+          empresa_cnaes: Json | null
           empresa_cnpj: string | null
           empresa_custom_fields: Json | null
+          empresa_data_abertura: string | null
+          empresa_email: string | null
+          empresa_email_nf: string | null
           empresa_endereco: Json | null
           empresa_facebook: string | null
           empresa_hash: string | null
           empresa_ie: string | null
           empresa_linkedin: string | null
           empresa_nome: string | null
+          empresa_pais: string | null
           empresa_piperun_id: number | null
           empresa_porte: string | null
           empresa_razao_social: string | null
           empresa_segmento: string | null
           empresa_situacao: string | null
+          empresa_telefone: string | null
           empresa_touch_model: string | null
           empresa_uf: string | null
           empresa_website: string | null
@@ -8147,17 +8204,26 @@ export type Database = {
           pessoa_facebook: string | null
           pessoa_genero: string | null
           pessoa_hash: string | null
+          pessoa_lgpd: Json | null
           pessoa_linkedin: string | null
+          pessoa_manager: Json | null
           pessoa_nascimento: string | null
           pessoa_observation: string | null
           pessoa_piperun_id: number | null
+          pessoa_rdstation: string | null
           pessoa_website: string | null
+          piperun_action: Json | null
+          piperun_activities: Json | null
           piperun_closed_at: string | null
           piperun_created_at: string | null
           piperun_custom_fields: Json | null
+          piperun_deal_city: string | null
+          piperun_deal_order: number | null
           piperun_deals_history: Json | null
           piperun_deleted: boolean | null
           piperun_description: string | null
+          piperun_files: Json | null
+          piperun_forms: Json | null
           piperun_frozen: boolean | null
           piperun_frozen_at: string | null
           piperun_hash: string | null
@@ -8175,12 +8241,14 @@ export type Database = {
           piperun_pipeline_name: string | null
           piperun_probability: number | null
           piperun_probably_closed_at: string | null
+          piperun_raw_payload: Json | null
           piperun_stage_changed_at: string | null
           piperun_stage_id: number | null
           piperun_stage_name: string | null
           piperun_status: number | null
           piperun_tags_raw: Json | null
           piperun_title: string | null
+          piperun_updated_at: string | null
           piperun_value_mrr: number | null
           platform: string | null
           platform_ad_id: string | null
