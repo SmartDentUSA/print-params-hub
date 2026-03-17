@@ -1796,8 +1796,10 @@ async function generateKnowledgeArticleHTML(letter: string, slug: string, supaba
   <meta name="citation_date" content="${content.created_at?.split('T')[0] || ''}" />
   <meta name="citation_publisher" content="Smart Dent" />
   <link rel="cite-as" href="${baseUrl}/base-conhecimento/${letter}/${slug}" />
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <article role="main" id="main-content">
     <h1>${escapeHtml(content.title)}</h1>
