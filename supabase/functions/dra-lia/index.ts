@@ -514,7 +514,7 @@ async function upsertLead(
             .eq("id", existing.id);
           if (updErr) {
             console.error(`[upsertLead] fallback update failed:`, updErr);
-            await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_update_failed", lead_email: normalizedEmail, details: { error: updErr.message, context: "upsertLead fallback update" } }).catch(() => {});
+            supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_update_failed", lead_email: normalizedEmail, details: { error: updErr.message, context: "upsertLead fallback update" } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
           }
           else console.log(`[upsertLead] fallback UPDATE ok for ${normalizedEmail}`);
         } else {
