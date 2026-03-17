@@ -942,8 +942,10 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   </script>
   ${buildEntityIndexJsonLd(`Impressora 3D ${brand.name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
