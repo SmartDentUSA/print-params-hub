@@ -554,7 +554,7 @@ async function upsertLead(
     return lead.id;
   } catch (e) {
     console.error("[upsertLead] exception:", e);
-    await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "upsert_exception", details: { error: String(e) } }).catch(() => {});
+    supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "upsert_exception", details: { error: String(e) } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
     return null;
   }
 }
