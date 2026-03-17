@@ -301,8 +301,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         date: p.data,
         dotCls: "tl-dot-buy",
         title: `Pedido e-commerce #${p.numero}`,
-        desc: `${formatBRL(p.valor)} · ${p.status}`,
-        detail: { Valor: formatBRL(p.valor), Status: p.status },
+        desc: `${formatBRLFull(p.valor)} · ${p.status}`,
+        detail: { Valor: formatBRLFull(p.valor), Status: p.status },
       });
     });
 
