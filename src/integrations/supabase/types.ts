@@ -732,6 +732,27 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_state: {
+        Row: {
+          key: string
+          meta: Json | null
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          meta?: Json | null
+          updated_at?: string | null
+          value?: string
+        }
+        Update: {
+          key?: string
+          meta?: Json | null
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       cs_automation_rules: {
         Row: {
           ativo: boolean
@@ -8280,6 +8301,13 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_leads_for_piperun_backfill: {
+        Args: { batch_size?: number }
+        Returns: {
+          id: string
+          piperun_id: string
+        }[]
       }
       get_rag_stats: {
         Args: never
