@@ -521,9 +521,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           </div>
         </div>
         <div className="ltv-block">
-          <div className="ltv-label">LTV TOTAL</div>
-          <div className="ltv-val">{formatBRL(ld.ltv_total)}</div>
-          <div className="ltv-sub">{ld.total_deals || 0} deal{(ld.total_deals || 0) !== 1 ? "s" : ""}</div>
+          <div className="ltv-label">{ltvWon > 0 ? "LTV GANHO" : (ltvLost > 0 ? "$ PERDIDO" : "LTV")}</div>
+          <div className="ltv-val" style={ltvWon === 0 && ltvLost > 0 ? { color: "var(--hot)" } : undefined}>{formatBRL(ltvWon > 0 ? ltvWon : ltvLost)}</div>
+          <div className="ltv-sub">{wonDeals.length} ganho{wonDeals.length !== 1 ? "s" : ""} · {lostDeals.length} perdido{lostDeals.length !== 1 ? "s" : ""}</div>
         </div>
         <div className="lis-block">
           <div className={`lis-val ${lisCls}`}>{lis}</div>
