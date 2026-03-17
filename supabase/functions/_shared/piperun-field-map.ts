@@ -685,12 +685,14 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
   if (deal.proposals && Array.isArray(deal.proposals) && deal.proposals.length > 0) {
     let totalValue = 0;
     let totalMrr = 0;
+    let lastStatus: number | null = null;
     const itemTexts: string[] = [];
 
     for (const p of deal.proposals) {
       const prop = p as Record<string, unknown>;
       if (prop.value != null) totalValue += Number(prop.value) || 0;
       if (prop.value_mrr != null) totalMrr += Number(prop.value_mrr) || 0;
+      if (prop.status != null) lastStatus = Number(prop.status);
       const items = prop.items as Array<Record<string, unknown>> | undefined;
       if (items) {
         for (const item of items) {
@@ -704,6 +706,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     fields.proposals_data = deal.proposals;
     if (totalValue > 0) fields.proposals_total_value = totalValue;
     if (totalMrr > 0) fields.proposals_total_mrr = totalMrr;
+    if (lastStatus != null) fields.proposals_last_status = lastStatus;
 
     if (itemTexts.length && !fields.itens_proposta_crm) {
       const rawText = itemTexts.join(", ");
