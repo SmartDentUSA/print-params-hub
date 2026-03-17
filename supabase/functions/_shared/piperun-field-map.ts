@@ -403,6 +403,27 @@ export function getCustomFieldValue(
 }
 
 /**
+ * Deep parse stringified fields from PipeRun API responses.
+ * PipeRun sometimes sends nested objects as JSON strings (e.g. company, person, proposals).
+ * This function detects and parses them back to objects.
+ */
+export function deepParseStringifiedFields(obj: Record<string, unknown>): Record<string, unknown> {
+  const KEYS = ["company","person","stage","pipeline","origin","user",
+    "involved_users","city","proposals","activities","files","fields",
+    "forms","action","tags","lost_reason"];
+  for (const key of KEYS) {
+    const val = obj[key];
+    if (typeof val === "string") {
+      const t = val.trim();
+      if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+        try { obj[key] = JSON.parse(t); } catch { /* keep string */ }
+      }
+    }
+  }
+  return obj;
+}
+
+/**
  * Clean deal title to extract real name
  * Deals often have format "Name - 12345 - Nova Interação" or "Name - timestamp"
  */
