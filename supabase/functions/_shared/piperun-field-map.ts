@@ -279,9 +279,11 @@ export interface PipeRunDealData {
   value?: number;
   created_at?: string;
   closed_at?: string;
-  lost_reason?: string;
+  lost_reason?: string | { name?: string; description?: string; comment?: string };
   reference?: string;
   rdstation_reference?: string;
+  temperature?: string | number;
+  lead_timing?: number;
   person_id?: number;
   company_id?: number;
   origin_id?: number;
