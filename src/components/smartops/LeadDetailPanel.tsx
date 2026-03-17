@@ -158,6 +158,10 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     fetch(`${API_BASE}/smart-ops-leads-api?action=detail&id=${lead.id}`)
       .then((r) => r.json())
       .then((data) => {
+        if (!data?.lead) {
+          setError(data?.error ? `Erro: ${typeof data.error === 'object' ? JSON.stringify(data.error) : data.error}` : "Lead não encontrado");
+          return;
+        }
         setDetail(data);
         cachedIdRef.current = lead.id;
         // Pre-fill cognitive text from saved data
