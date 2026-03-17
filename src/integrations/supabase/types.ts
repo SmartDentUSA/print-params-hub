@@ -2710,6 +2710,39 @@ export type Database = {
           },
         ]
       }
+      lead_enrichment_audit: {
+        Row: {
+          fields_updated: string[]
+          id: string
+          lead_id: string
+          new_values: Json | null
+          previous_values: Json | null
+          source: string
+          source_priority: number | null
+          timestamp: string
+        }
+        Insert: {
+          fields_updated?: string[]
+          id?: string
+          lead_id: string
+          new_values?: Json | null
+          previous_values?: Json | null
+          source: string
+          source_priority?: number | null
+          timestamp?: string
+        }
+        Update: {
+          fields_updated?: string[]
+          id?: string
+          lead_id?: string
+          new_values?: Json | null
+          previous_values?: Json | null
+          source?: string
+          source_priority?: number | null
+          timestamp?: string
+        }
+        Relationships: []
+      }
       lead_form_submissions: {
         Row: {
           assigned_to_sdr: string | null
@@ -4907,6 +4940,75 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_assets: {
+        Row: {
+          archived_at: string | null
+          asset_type: string
+          campaign_id: string | null
+          campaign_name: string | null
+          content_html: string | null
+          content_json: Json | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          performance_data: Json | null
+          published_at: string | null
+          related_lead_segments: string[] | null
+          related_product_ids: string[] | null
+          slug: string | null
+          source_id: string | null
+          source_system: string
+          status: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          asset_type: string
+          campaign_id?: string | null
+          campaign_name?: string | null
+          content_html?: string | null
+          content_json?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          performance_data?: Json | null
+          published_at?: string | null
+          related_lead_segments?: string[] | null
+          related_product_ids?: string[] | null
+          slug?: string | null
+          source_id?: string | null
+          source_system?: string
+          status?: string
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          asset_type?: string
+          campaign_id?: string | null
+          campaign_name?: string | null
+          content_html?: string | null
+          content_json?: Json | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          performance_data?: Json | null
+          published_at?: string | null
+          related_lead_segments?: string[] | null
+          related_product_ids?: string[] | null
+          slug?: string | null
+          source_id?: string | null
+          source_system?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       message_logs: {
         Row: {
           created_at: string
@@ -7007,6 +7109,72 @@ export type Database = {
           },
         ]
       }
+      whatsapp_templates: {
+        Row: {
+          approved_at: string | null
+          body_text: string
+          buttons: Json | null
+          created_at: string
+          footer_text: string | null
+          header_content: string | null
+          header_type: string | null
+          id: string
+          language_code: string
+          metadata: Json | null
+          performance_data: Json | null
+          related_product_ids: string[] | null
+          source_id: string | null
+          source_system: string
+          status: string
+          template_category: string
+          template_name: string
+          updated_at: string
+          variables: string[] | null
+        }
+        Insert: {
+          approved_at?: string | null
+          body_text: string
+          buttons?: Json | null
+          created_at?: string
+          footer_text?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          language_code?: string
+          metadata?: Json | null
+          performance_data?: Json | null
+          related_product_ids?: string[] | null
+          source_id?: string | null
+          source_system?: string
+          status?: string
+          template_category?: string
+          template_name: string
+          updated_at?: string
+          variables?: string[] | null
+        }
+        Update: {
+          approved_at?: string | null
+          body_text?: string
+          buttons?: Json | null
+          created_at?: string
+          footer_text?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          language_code?: string
+          metadata?: Json | null
+          performance_data?: Json | null
+          related_product_ids?: string[] | null
+          source_id?: string | null
+          source_system?: string
+          status?: string
+          template_category?: string
+          template_name?: string
+          updated_at?: string
+          variables?: string[] | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       company_ltv: {
@@ -8420,6 +8588,10 @@ export type Database = {
           similarity: number
           source_type: string
         }[]
+      }
+      merge_tags_crm: {
+        Args: { p_lead_id: string; p_new_tags: string[] }
+        Returns: undefined
       }
       normalize_name_for_compare: { Args: { n: string }; Returns: string }
       normalize_text: { Args: { text_input: string }; Returns: string }
