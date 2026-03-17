@@ -285,8 +285,31 @@ export interface PipeRunDealData {
   person_id?: number;
   company_id?: number;
   origin_id?: number;
-  origin?: { id?: number; name?: string };
+  origin?: { id?: number; name?: string; origin?: { name?: string } | string };
   stage?: { id?: number; name?: string };
+  // Deal deep metadata
+  hash?: string;
+  description?: string;
+  observation?: string;
+  deleted?: boolean;
+  freezed?: boolean;
+  frozen_at?: string;
+  probability?: number;
+  lead_time?: number;
+  value_mrr?: number;
+  last_contact?: string;
+  stage_changed_at?: string;
+  probably_closed_at?: string;
+  updated_at?: string;
+  involved_users?: unknown[];
+  tags?: Array<{ name?: string }>;
+  proposals?: unknown[];
+  activities?: unknown;
+  files?: unknown;
+  forms?: unknown;
+  action?: unknown;
+  order?: number;
+  city?: { name?: string };
   person?: {
     name?: string;
     // API list format
@@ -298,8 +321,29 @@ export interface PipeRunDealData {
     job_title?: string;
     city?: { name?: string; uf?: string };
     state?: { initials?: string; abbr?: string; name?: string };
+    // Deep person fields
+    hash?: string;
+    cpf?: string;
+    gender?: string;
+    linkedin?: string;
+    facebook?: string;
+    observation?: string;
+    birth_day?: string;
+    website?: string;
+    address?: Record<string, unknown>;
+    email?: string;
+    phone?: string;
+    mobile?: string;
+    rdstation?: string;
+    manager?: Record<string, unknown>;
+    data_legal_basis_processing?: unknown;
+    data_legal_origin_id?: unknown;
+    lgpd_declaration_accepted?: unknown;
+    custom_fields?: unknown[];
+    company?: Record<string, unknown>;
   };
   company?: {
+    id?: number;
     name?: string;
     // API list format
     phones?: Array<{ phone: string }>;
@@ -317,6 +361,25 @@ export interface PipeRunDealData {
     address_complement?: string;
     address_postal_code?: string;
     district?: string;
+    // Deep company fields
+    hash?: string;
+    company_name?: string;
+    cnpj?: string;
+    ie?: string;
+    cnae?: string;
+    website?: string;
+    facebook?: string;
+    linkedin?: string;
+    status_touch?: string;
+    size?: string;
+    country?: string;
+    email_nf?: string;
+    open_at?: string;
+    cnaes?: unknown[];
+    address?: Record<string, unknown>;
+    custom_fields?: unknown[];
+    email?: string;
+    phone?: string;
   };
   custom_fields?: Array<{
     custom_field_id: number;
