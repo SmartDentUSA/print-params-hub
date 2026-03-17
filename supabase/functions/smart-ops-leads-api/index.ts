@@ -179,8 +179,8 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     })(),
   } : null;
 
-  // 7. Portfolio from workflow_portfolio
-  const portfolio = transformPortfolio(lead.workflow_portfolio);
+  // 7. Portfolio from individual lead columns (workflow_portfolio JSONB is mostly null)
+  const portfolio = transformPortfolioFromLead(lead);
   const portfolio_embed_url = null;
 
   const response = {
@@ -200,7 +200,6 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
 }
 
 // ─── Subcategory mapping per stage ───
-// Maps DB stage keys to the subcategory fields expected by WorkflowPortfolio component
 const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_1_scanner:       ['scanner_intraoral', 'scanner_bancada', 'notebook', 'acessorios', 'pecas_partes'],
   etapa_2_cad:           ['software', 'creditos_ia', 'servico'],
@@ -211,13 +210,80 @@ const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_7_fresagem:      ['equipamentos', 'software', 'servico', 'acessorios', 'pecas_partes'],
 };
 
-function transformPortfolio(raw: any): any {
+// Maps lead columns to portfolio stages & layers
+const LEAD_COLUMN_MAP: { stage: string; subcat: string; layer: string; col: string }[] = [
+  // Etapa 1: Scanner
+  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'ativo', col: 'equip_scanner' },
+  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'conc', col: 'status_scanner' },
+  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'sdr', col: 'sdr_scanner_interesse' },
+  // Etapa 2: CAD
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'ativo', col: 'equip_cad' },
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'conc', col: 'status_cad' },
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'sdr', col: 'sdr_cad_interesse' },
+  // Etapa 3: Impressão
+  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'ativo', col: 'equip_impressora' },
+  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'conc', col: 'status_impressora' },
+  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'sdr', col: 'sdr_impressora_interesse' },
+  // Etapa 4: Pós-Impressão
+  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'ativo', col: 'equip_pos_impressao' },
+  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'conc', col: 'status_pos_impressao' },
+  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'sdr', col: 'sdr_pos_impressao_interesse' },
+  // Etapa 5: Finalização (uses notebook/insumos as proxy)
+  { stage: 'etapa_5_finalizacao', subcat: 'caracterizacao', layer: 'ativo', col: 'equip_notebook' },
+  // Etapa 6: Cursos
+  { stage: 'etapa_6_cursos', subcat: 'presencial', layer: 'ativo', col: 'cs_treinamento' },
+  // Etapa 7: Fresagem
+  { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'sdr', col: 'sdr_fresadora_interesse' },
+];
+
+function transformPortfolioFromLead(lead: any): any {
   const result: Record<string, any> = {};
   let nAtivo = 0, nConc = 0, nSdr = 0;
 
-  // Always build all 7 stages, even if raw is null/empty
+  // First try the JSONB field if it has data
+  if (lead.workflow_portfolio && typeof lead.workflow_portfolio === 'object' && Object.keys(lead.workflow_portfolio).length > 1) {
+    return transformPortfolioFromJsonb(lead.workflow_portfolio);
+  }
+
+  // Build from individual columns
   for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
-    const stageData = raw && typeof raw === 'object' ? raw[stageKey] : null;
+    const stageResult: Record<string, any> = {};
+
+    for (const mapping of LEAD_COLUMN_MAP.filter(m => m.stage === stageKey)) {
+      const val = lead[mapping.col];
+      if (val && typeof val === 'string' && val.trim() !== '' && val !== 'nao' && val !== 'nao_tem') {
+        const layerLabel = mapping.layer === 'ativo' ? 'ativo' : mapping.layer === 'conc' ? 'conc' : 'sdr';
+        // Only set if not already occupied by a higher-priority layer
+        if (!stageResult[mapping.subcat] || stageResult[mapping.subcat].layer === 'vazio') {
+          stageResult[mapping.subcat] = { label: val, layer: layerLabel, hits: 1 };
+          if (layerLabel === 'ativo') nAtivo++;
+          else if (layerLabel === 'conc') nConc++;
+          else nSdr++;
+        }
+      }
+    }
+
+    // Fill all subcategories (empty ones get 'vazio')
+    for (const field of subcats) {
+      if (!stageResult[field]) {
+        stageResult[field] = { label: '—', layer: 'vazio' };
+      }
+    }
+
+    result[stageKey] = stageResult;
+  }
+
+  result.summary = { n_ativo: nAtivo, n_conc: nConc, n_sdr: nSdr };
+  return result;
+}
+
+// Fallback: use the old JSONB-based approach when workflow_portfolio is populated
+function transformPortfolioFromJsonb(raw: any): any {
+  const result: Record<string, any> = {};
+  let nAtivo = 0, nConc = 0, nSdr = 0;
+
+  for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
+    const stageData = raw[stageKey];
     const stageResult: Record<string, any> = {};
 
     if (stageData && typeof stageData === 'object') {
@@ -230,14 +296,12 @@ function transformPortfolio(raw: any): any {
         stageResult[field] = { label: item, layer: 'ativo', hits: 1 };
         nAtivo++;
       });
-
       concItems.forEach((item: string) => {
         const usedFields = Object.keys(stageResult);
         const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
         stageResult[available] = { label: item, layer: 'conc', hits: 1 };
         nConc++;
       });
-
       sdrItems.forEach((item: string) => {
         const usedFields = Object.keys(stageResult);
         const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
@@ -246,13 +310,11 @@ function transformPortfolio(raw: any): any {
       });
     }
 
-    // Fill all subcategories (empty ones get 'vazio')
     for (const field of subcats) {
       if (!stageResult[field]) {
         stageResult[field] = { label: '—', layer: 'vazio' };
       }
     }
-
     result[stageKey] = stageResult;
   }
 

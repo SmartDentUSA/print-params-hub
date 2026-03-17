@@ -222,8 +222,6 @@ verify_jwt = false
 [functions.smart-ops-meta-ads-insights]
 verify_jwt = false
 
-[functions.ai-model-compare]
-verify_jwt = false
 
 [functions.register-loja-webhooks]
 verify_jwt = false
