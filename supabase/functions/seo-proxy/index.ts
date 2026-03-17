@@ -702,8 +702,10 @@ function generate404(): string {
   <title>Página não encontrada | Smart Dent</title>
   <meta name="robots" content="noindex" />
   ${FAVICON_TAGS}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   <h1>404 - Página não encontrada</h1>
   <p>A página solicitada não existe.</p>
   <a href="/">Voltar para o início</a>
