@@ -179,8 +179,8 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     })(),
   } : null;
 
-  // 7. Portfolio placeholder
-  const portfolio = null;
+  // 7. Portfolio from workflow_portfolio
+  const portfolio = transformPortfolio(lead.workflow_portfolio);
   const portfolio_embed_url = null;
 
   const response = {
