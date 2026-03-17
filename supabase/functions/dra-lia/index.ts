@@ -3928,8 +3928,10 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                       .from("lia_attendances")
                       .update({ total_messages: newTotal, ultima_sessao_at: new Date().toISOString() })
                       .eq("id", att.id)
-                      .then(() => console.log(`[counter] total_messages=${newTotal} for ${leadState.email}`))
-                      .catch(e => console.warn("[counter] update error:", e));
+                      .then(({ error: updErr }) => {
+                        if (updErr) console.warn("[counter] update error:", updErr.message);
+                        else console.log(`[counter] total_messages=${newTotal} for ${leadState.email}`);
+                      });
 
                     // ── Independent cognitive trigger (bypass summarize_session) ──
                     if (newTotal >= 5 && !att.cognitive_updated_at) {
