@@ -264,8 +264,20 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     }
 
-    // Deals
+    // Deals with proposal items summary
     ((ld.piperun_deals_history as any[]) || []).forEach((d: any) => {
+      // Build items summary for timeline detail
+      const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+      const allItems: string[] = [];
+      proposals.forEach((prop: any) => {
+        const items = Array.isArray(prop.items) ? prop.items : [];
+        items.forEach((item: any) => {
+          const name = item.nome || item.name || item.product_name || "Produto";
+          const qty = item.quantidade || item.quantity || 1;
+          allItems.push(`${name} (${qty}×)`);
+        });
+      });
+
       events.push({
         date: d.created_at,
         dotCls: d.status === "ganha" ? "tl-dot-buy" : d.status === "perdida" ? "tl-dot-hot" : "tl-dot-crm",
@@ -273,9 +285,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         desc: d.stage_name || "",
         tags: [d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"],
         detail: {
-          Valor: formatBRL(d.value),
+          Valor: formatBRLFull(d.value),
           Status: d.status,
           Responsável: ownerDisplay(d.owner_name),
+          ...(proposals.length > 0 ? { Propostas: `${proposals.length}` } : {}),
+          ...(allItems.length > 0 ? { Itens: allItems.slice(0, 5).join(", ") + (allItems.length > 5 ? ` (+${allItems.length - 5})` : "") } : {}),
           ...(d.closed_at ? { "Fechado em": formatDate(d.closed_at) } : {}),
         },
       });
