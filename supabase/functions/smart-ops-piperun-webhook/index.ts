@@ -25,6 +25,24 @@ function isInStagnantStatus(leadStatus: string): boolean {
   return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
 }
 
+// ─── Deep Parse Stringified Fields (PipeRun sends objects as JSON strings) ───
+
+function deepParseStringifiedFields(obj: Record<string, unknown>): Record<string, unknown> {
+  const KEYS = ["company","person","stage","pipeline","origin","user",
+    "involved_users","city","proposals","activities","files","fields",
+    "forms","action","tags","lost_reason"];
+  for (const key of KEYS) {
+    const val = obj[key];
+    if (typeof val === "string") {
+      const t = val.trim();
+      if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+        try { obj[key] = JSON.parse(t); } catch { /* keep string */ }
+      }
+    }
+  }
+  return obj;
+}
+
 // ─── Payload Extraction Helpers ───
 
 function extractIds(deal: Record<string, unknown>) {
@@ -160,6 +178,23 @@ function extractIds(deal: Record<string, unknown>) {
     })(),
     dealInvolvedUsers: deal.involved_users as unknown[] | undefined,
     dealProposals: deal.proposals as unknown[] | undefined,
+    // NEW: Person extras
+    personRdstation: person?.rdstation ? String(person.rdstation) : null,
+    personManager: person?.manager as Record<string, unknown> | undefined,
+    personLgpd: (() => {
+      if (!person) return null;
+      const basis = person.data_legal_basis_processing;
+      const origin = person.data_legal_origin_id;
+      const accepted = person.lgpd_declaration_accepted;
+      if (!basis && !origin && !accepted) return null;
+      return { basis, origin, accepted };
+    })(),
+    // NEW: Company extras
+    companySize: company?.size ? String(company.size) : null,
+    companyCountry: company?.country ? String(company.country) : null,
+    companyEmailNf: company?.email_nf ? String(company.email_nf) : null,
+    companyOpenAt: company?.open_at ? String(company.open_at) : null,
+    companyCnaes: company?.cnaes as unknown[] | undefined,
   };
 }
 
@@ -340,25 +375,42 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-    const payload = await req.json();
+
+    // ─── Resilient Parsing (Passo 2b) ───
+    let payload: Record<string, unknown>;
+    try {
+      const rawText = await req.text();
+      if (!rawText || rawText.trim().length === 0) {
+        return new Response(JSON.stringify({ ok: true, message: "Webhook ativo — teste vazio recebido." }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      payload = JSON.parse(rawText);
+    } catch {
+      return new Response(JSON.stringify({ ok: true, message: "Payload inválido ignorado." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     console.log("[piperun-webhook] Payload:", JSON.stringify(payload).slice(0, 500));
 
-    const deal = (payload.deal || payload) as Record<string, unknown>;
+    // ─── Deep Parse + Deal extraction (Passo 2c) ───
+    const deal = deepParseStringifiedFields((payload.deal || payload) as Record<string, unknown>);
     const dealId = String(deal.id || payload.deal_id || "");
     const lossReason = (deal.lost_reason || deal.loss_reason) as Record<string, unknown> | undefined;
     const tags = deal.tags as Array<{ name?: string }> | undefined;
+
+    // ─── Handle null/template dealId (Passo 2c) ───
+    if (!dealId || dealId === "null" || dealId === "undefined" || dealId.startsWith("{{")) {
+      return new Response(JSON.stringify({ ok: true, message: "Teste recebido. Aguardando deal real." }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const ids = extractIds(deal);
     const customFields = extractWebhookCustomFields(deal);
 
     const resolvedStatus = ids.stageId ? (STAGE_TO_ETAPA[ids.stageId] || "sem_contato") : "sem_contato";
-
-    if (!dealId) {
-      return new Response(JSON.stringify({ error: "deal_id obrigatório" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     // ─── Identity Resolution (cascading search) ───
     const personEmail = ids.personEmail || ((deal.person as Record<string, unknown>)?.email ? String((deal.person as Record<string, unknown>).email) : null);
@@ -483,6 +535,30 @@ Deno.serve(async (req) => {
         piperun_custom_fields: deal.custom_fields || [],
         piperun_tags_raw: tags || null,
         piperun_involved_users: ids.dealInvolvedUsers || null,
+        // ─── NEW: 4 campos bugados corrigidos (Passo 3b) ───
+        piperun_hash: ids.dealHash,
+        piperun_description: ids.dealDescription,
+        piperun_observation: ids.dealObservation,
+        piperun_title: deal.title ? String(deal.title) : null,
+        // ─── NEW: Campos JSONB e metadados (Passo 3c) ───
+        piperun_updated_at: deal.updated_at ? String(deal.updated_at) : null,
+        piperun_activities: deal.activities || null,
+        piperun_files: deal.files || null,
+        piperun_forms: deal.forms || null,
+        piperun_action: deal.action || null,
+        piperun_deal_order: deal.order != null ? Number(deal.order) : null,
+        piperun_deal_city: (deal.city as Record<string, unknown>)?.name ? String((deal.city as Record<string, unknown>).name) : null,
+        pessoa_rdstation: ids.personRdstation,
+        pessoa_manager: ids.personManager || null,
+        pessoa_lgpd: ids.personLgpd || null,
+        empresa_porte: ids.companySize,
+        empresa_pais: ids.companyCountry,
+        empresa_email_nf: ids.companyEmailNf,
+        empresa_data_abertura: ids.companyOpenAt,
+        empresa_cnaes: ids.companyCnaes || null,
+        empresa_telefone: ids.companyPhone,
+        empresa_email: ids.companyEmail,
+        piperun_raw_payload: deal,
       };
 
       // Deal status
@@ -612,6 +688,37 @@ Deno.serve(async (req) => {
     if (ids.dealProbablyClosedAt) updateData.piperun_probably_closed_at = ids.dealProbablyClosedAt;
     if (deal.custom_fields) updateData.piperun_custom_fields = deal.custom_fields;
     if (ids.dealInvolvedUsers) updateData.piperun_involved_users = ids.dealInvolvedUsers;
+
+    // ─── NEW: 4 campos bugados corrigidos (Passo 3b) ───
+    if (ids.dealHash) updateData.piperun_hash = ids.dealHash;
+    if (ids.dealDescription) updateData.piperun_description = ids.dealDescription;
+    if (ids.dealObservation) updateData.piperun_observation = ids.dealObservation;
+    if (deal.title) updateData.piperun_title = String(deal.title);
+
+    // ─── NEW: Campos JSONB e metadados (Passo 3c) ───
+    // Deal-level extras
+    if (deal.updated_at) updateData.piperun_updated_at = String(deal.updated_at);
+    if (deal.activities) updateData.piperun_activities = deal.activities;
+    if (deal.files) updateData.piperun_files = deal.files;
+    if (deal.forms) updateData.piperun_forms = deal.forms;
+    if (deal.action) updateData.piperun_action = deal.action;
+    if (deal.order != null) updateData.piperun_deal_order = Number(deal.order);
+    const dealCity = deal.city as Record<string, unknown> | undefined;
+    if (dealCity?.name) updateData.piperun_deal_city = String(dealCity.name);
+    // Person extras
+    if (ids.personRdstation) updateData.pessoa_rdstation = ids.personRdstation;
+    if (ids.personManager) updateData.pessoa_manager = ids.personManager;
+    if (ids.personLgpd) updateData.pessoa_lgpd = ids.personLgpd;
+    // Company extras
+    if (ids.companySize) updateData.empresa_porte = ids.companySize;
+    if (ids.companyCountry) updateData.empresa_pais = ids.companyCountry;
+    if (ids.companyEmailNf) updateData.empresa_email_nf = ids.companyEmailNf;
+    if (ids.companyOpenAt) updateData.empresa_data_abertura = ids.companyOpenAt;
+    if (ids.companyCnaes) updateData.empresa_cnaes = ids.companyCnaes;
+    if (ids.companyPhone) updateData.empresa_telefone = ids.companyPhone;
+    if (ids.companyEmail) updateData.empresa_email = ids.companyEmail;
+    // Raw payload (auditoria)
+    updateData.piperun_raw_payload = deal;
 
     // Deal status
     const dealStatus = deal.status;
