@@ -1,0 +1,17 @@
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_updated_at timestamptz;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_activities jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_files jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_forms jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_action jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_deal_city text;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_deal_order integer;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS piperun_raw_payload jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS pessoa_rdstation text;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS pessoa_manager jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS pessoa_lgpd jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS empresa_pais text;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS empresa_cnaes jsonb;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS empresa_email_nf text;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS empresa_data_abertura date;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS empresa_telefone text;
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS empresa_email text;
