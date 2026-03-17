@@ -466,9 +466,6 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const totalProductVal = Object.values(productMap).reduce((s, v) => s + v, 0);
   const top5Products = Object.entries(productMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, val]) => ({ name, val, pct: totalProductVal > 0 ? ((val / totalProductVal) * 100).toFixed(1) : "0" }));
 
-  // E-commerce items
-  const ecomItems = (ld.lojaintegrada_itens_json as any[]) || [];
-  const ecomOrders = (ld.lojaintegrada_historico_pedidos as any[]) || [];
 
   // Academy courses
   const astronCourses = (ld.astron_courses_access as any[]) || [];
