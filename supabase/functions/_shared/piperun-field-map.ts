@@ -465,7 +465,19 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     valor_oportunidade: deal.value || null,
     data_primeiro_contato: deal.created_at || null,
     data_fechamento_crm: deal.closed_at || null,
-    motivo_perda: deal.lost_reason || null,
+    motivo_perda: (() => {
+      const lr = deal.lost_reason;
+      if (!lr) return null;
+      if (typeof lr === "object" && lr.name) return String(lr.name);
+      return String(lr);
+    })(),
+    comentario_perda: (() => {
+      const lr = deal.lost_reason;
+      if (!lr || typeof lr !== "object") return null;
+      return lr.description ? String(lr.description) : (lr.comment ? String(lr.comment) : null);
+    })(),
+    temperatura_lead: deal.temperature != null ? String(deal.temperature) : null,
+    lead_timing_dias: deal.lead_timing != null ? Number(deal.lead_timing) : null,
     piperun_link: `https://app.pipe.run/#/deals/${deal.id}`,
     origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
     // PipeRun metadata preservation
