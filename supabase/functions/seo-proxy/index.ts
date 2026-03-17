@@ -1373,8 +1373,10 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   </script>
   ${buildEntityIndexJsonLd('impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA CAD/CAM scanner intraoral prótese dentária odontologia digital', knowledgeCtx)}
   ${buildKnowledgeGraphJsonLd(knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
