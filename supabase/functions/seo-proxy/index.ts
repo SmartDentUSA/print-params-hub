@@ -1035,8 +1035,10 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   })}
   </script>
   ${buildEntityIndexJsonLd(`Impressora 3D ${model.name} ${(model.brands as any).name} impressão 3D odontológica resina fotopolimerização DLP LCD/mSLA`, knowledgeCtx)}
+  ${buildGTMHead()}
 </head>
 <body>
+  ${buildGTMBody()}
   ${buildStandardHeaderWithNav(knowledgeCtx)}
   <main id="main-content">
     <article>
