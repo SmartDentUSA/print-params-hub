@@ -343,13 +343,20 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
   const timeline = buildTimeline();
 
-  // Stats
+  // Stats — count proposals across all deals
+  const allDeals = (ld.piperun_deals_history as any[]) || [];
+  const totalProposals = allDeals.reduce((sum: number, d: any) => {
+    const props = Array.isArray(d.proposals) ? d.proposals.length : 0;
+    return sum + props;
+  }, 0);
+  const ecomPedidos = ld.lojaintegrada_total_pedidos_pagos || ((ld.lojaintegrada_historico_pedidos as any[]) || []).length || 0;
+
   const stats = [
-    { num: formatBRL(ld.ltv_total), lbl: "LTV Total", cls: "green" },
+    { num: formatBRLFull(ld.ltv_total), lbl: "LTV Total", cls: "green" },
     { num: String(ld.total_deals || 0), lbl: "Deals fechados", cls: "yellow" },
-    { num: String(ld.lojaintegrada_total_pedidos_pagos || "—"), lbl: "Pedidos e-com", cls: "" },
-    { num: formatBRL(avgTicket(ld)), lbl: "Ticket médio", cls: "green" },
-    { num: ld.astron_courses_total > 0 ? `${ld.astron_courses_completed}/${ld.astron_courses_total}` : "—", lbl: "Cursos Academy", cls: "yellow" },
+    { num: String(totalProposals || "—"), lbl: "Propostas enviadas", cls: "" },
+    { num: String(ecomPedidos || "—"), lbl: "Pedidos e-com", cls: "" },
+    { num: formatBRLFull(avgTicket(ld)), lbl: "Ticket médio", cls: "green" },
     { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados suporte", cls: support_summary?.open ? "red" : "green" },
   ];
 
@@ -423,6 +430,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   });
   const totalProductVal = Object.values(productMap).reduce((s, v) => s + v, 0);
   const top5Products = Object.entries(productMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, val]) => ({ name, val, pct: totalProductVal > 0 ? ((val / totalProductVal) * 100).toFixed(1) : "0" }));
+
+  // E-commerce items
+  const ecomItems = (ld.lojaintegrada_itens_json as any[]) || [];
+  const ecomOrders = (ld.lojaintegrada_historico_pedidos as any[]) || [];
+
+  // Academy courses
+  const astronCourses = (ld.astron_courses_access as any[]) || [];
 
   // LIS ring
   const radius = 40;
@@ -506,8 +520,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             ))}
           </div>
 
-          {/* Deal table */}
-          {((ld.piperun_deals_history as any[]) || []).length > 0 && (
+          {/* Deal table with proposal items */}
+          {allDeals.length > 0 && (
             <>
               <div className="sec">Deals PipeRun</div>
               <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
@@ -518,24 +532,176 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                     </tr>
                   </thead>
                   <tbody>
-                    {((ld.piperun_deals_history as any[]) || []).map((d: any, i: number) => (
-                      <tr key={i}>
-                        <td>{formatDate(d.created_at)}</td>
-                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{d.deal_id}</td>
-                        <td>{d.pipeline_name || "—"}</td>
-                        <td>{d.stage_name || "—"}</td>
-                        <td className="green">{formatBRL(d.value)}</td>
-                        <td>
-                          <span className={`status-chip ${d.status === "ganha" ? "s-ganho" : d.status === "perdida" ? "s-perdido" : "s-aberto"}`}>
-                            {d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"}
-                          </span>
-                        </td>
-                        <td>{ownerDisplay(d.owner_name)}</td>
-                      </tr>
-                    ))}
+                    {allDeals.map((d: any, i: number) => {
+                      const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+                      return (
+                        <> 
+                          <tr key={`deal-${i}`}>
+                            <td>{formatDate(d.created_at)}</td>
+                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{d.deal_id}</td>
+                            <td>{d.pipeline_name || "—"}</td>
+                            <td>{d.stage_name || "—"}</td>
+                            <td className="green">{formatBRLFull(d.value)}</td>
+                            <td>
+                              <span className={`status-chip ${d.status === "ganha" ? "s-ganho" : d.status === "perdida" ? "s-perdido" : "s-aberto"}`}>
+                                {d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"}
+                              </span>
+                            </td>
+                            <td>{ownerDisplay(d.owner_name)}</td>
+                          </tr>
+                          {proposals.map((prop: any, pi: number) => {
+                            const items = Array.isArray(prop.items) ? prop.items : [];
+                            return (
+                              <tr key={`prop-${i}-${pi}`} style={{ background: "var(--surface2)" }}>
+                                <td colSpan={7} style={{ padding: "8px 16px" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: items.length > 0 ? 8 : 0 }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--accent2)" }}>
+                                      └ {prop.proposal_id || `PRO${pi + 1}`}
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                                      · {items.length} ite{items.length !== 1 ? "ns" : "m"}
+                                      {prop.value_products ? ` · ${formatBRLFull(prop.value_products)}` : ""}
+                                    </span>
+                                    {(prop.freight_type || prop.value_freight) && (
+                                      <span style={{ fontSize: 10, color: "var(--muted2)" }}>
+                                        · Frete: {prop.freight_type || "—"} {prop.value_freight ? formatBRLFull(prop.value_freight) : ""}
+                                      </span>
+                                    )}
+                                    {prop.payment_installments && (
+                                      <span style={{ fontSize: 10, color: "var(--muted2)" }}>· {prop.payment_installments}× parcelas</span>
+                                    )}
+                                  </div>
+                                  {items.length > 0 && (
+                                    <div style={{ display: "grid", gap: 3 }}>
+                                      {items.map((item: any, ii: number) => (
+                                        <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted2)", paddingLeft: 20 }}>
+                                          <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                            {item.nome || item.name || item.product_name || "Produto"}
+                                          </span>
+                                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>
+                                            {item.quantidade || item.quantity || 1}×
+                                          </span>
+                                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--accent2)" }}>
+                                            {formatBRLFull(item.valor_unitario || item.unit_value || 0)}
+                                          </span>
+                                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--text)" }}>
+                                            {formatBRLFull(item.valor_total || item.total_value || ((item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || 0)))}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+            </>
+          )}
+
+          {/* 🎓 Academy section */}
+          {(astronCourses.length > 0 || ld.astron_courses_total > 0) && (
+            <>
+              <div className="sec">🎓 Academy</div>
+              <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, color: "var(--muted2)" }}>
+                {ld.astron_created_at && <span>📅 Inscrito em: {formatDate(ld.astron_created_at)}</span>}
+                {ld.astron_status && <span>Status: <strong style={{ color: "var(--text)" }}>{ld.astron_status}</strong></span>}
+                <span>{ld.astron_courses_completed}/{ld.astron_courses_total} cursos concluídos</span>
+              </div>
+              {astronCourses.length > 0 && (
+                <div style={{ border: "1px solid var(--border2)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
+                  <table className="deal-table">
+                    <thead>
+                      <tr>
+                        <th>Curso</th><th>Aulas</th><th>Progresso</th><th>Atualização</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {astronCourses.map((course: any, ci: number) => {
+                        const pct = Number(course.percentage) || 0;
+                        const completed = course.completed_classes || 0;
+                        const total = course.total_classes || 0;
+                        return (
+                          <tr key={ci}>
+                            <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {course.course_name || "Curso"}
+                            </td>
+                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
+                              {completed}/{total}
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <div style={{ flex: 1, background: "var(--surface3)", borderRadius: 4, height: 6, overflow: "hidden", maxWidth: 100 }}>
+                                  <div style={{ width: `${pct}%`, height: "100%", borderRadius: 4, background: pct === 100 ? "var(--accent2)" : "var(--blue)" }} />
+                                </div>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: pct === 100 ? "var(--accent2)" : "var(--muted2)", minWidth: 36 }}>
+                                  {pct}%
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ fontSize: 10, color: "var(--muted)" }}>{formatDate(course.updated_at)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* 🛒 E-commerce section */}
+          {(ecomOrders.length > 0 || ecomItems.length > 0) && (
+            <>
+              <div className="sec">🛒 E-commerce — Loja Integrada</div>
+              {ecomOrders.length > 0 && (
+                <div style={{ border: "1px solid var(--border2)", borderRadius: 10, overflow: "hidden", marginBottom: 12 }}>
+                  <table className="deal-table">
+                    <thead>
+                      <tr>
+                        <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ecomOrders.map((p: any, pi: number) => (
+                        <tr key={pi}>
+                          <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || p.order_number || pi + 1}</td>
+                          <td>{formatDate(p.data || p.date)}</td>
+                          <td className="green">{formatBRLFull(p.valor || p.value || 0)}</td>
+                          <td>{p.status || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {ecomItems.length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>Itens comprados:</div>
+                  <div style={{ display: "grid", gap: 4, marginBottom: 20 }}>
+                    {ecomItems.map((item: any, ii: number) => (
+                      <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted2)", paddingLeft: 8 }}>
+                        <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {item.nome || item.name || "Produto"}
+                        </span>
+                        {(item.quantidade || item.quantity) && (
+                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>{item.quantidade || item.quantity}×</span>
+                        )}
+                        {(item.preco || item.price || item.valor) && (
+                          <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 80, textAlign: "right", color: "var(--accent2)" }}>
+                            {formatBRLFull(item.preco || item.price || item.valor)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
 
