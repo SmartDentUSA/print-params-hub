@@ -514,7 +514,7 @@ async function upsertLead(
             .eq("id", existing.id);
           if (updErr) {
             console.error(`[upsertLead] fallback update failed:`, updErr);
-            await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_update_failed", lead_email: normalizedEmail, details: { error: updErr.message, context: "upsertLead fallback update" } }).catch(() => {});
+            supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_update_failed", lead_email: normalizedEmail, details: { error: updErr.message, context: "upsertLead fallback update" } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
           }
           else console.log(`[upsertLead] fallback UPDATE ok for ${normalizedEmail}`);
         } else {
@@ -523,7 +523,7 @@ async function upsertLead(
             .insert(liaPayload);
           if (insErr) {
             console.error(`[upsertLead] fallback insert failed:`, insErr);
-            await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_insert_failed", lead_email: normalizedEmail, details: { error: insErr.message, context: "upsertLead fallback insert" } }).catch(() => {});
+            supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "error", error_type: "upsert_insert_failed", lead_email: normalizedEmail, details: { error: insErr.message, context: "upsertLead fallback insert" } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
           }
           else console.log(`[upsertLead] fallback INSERT ok for ${normalizedEmail}`);
         }
@@ -532,7 +532,7 @@ async function upsertLead(
       }
     } catch (liaErr) {
       console.warn(`[upsertLead] lia_attendances sync failed:`, liaErr);
-      await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "lia_sync_failed", lead_email: normalizedEmail, details: { error: String(liaErr), context: "lia_attendances sync" } }).catch(() => {});
+      supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "lia_sync_failed", lead_email: normalizedEmail, details: { error: String(liaErr), context: "lia_attendances sync" } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
     }
 
     // ── Record lead creation/identification in timeline (fire-and-forget) ──
@@ -554,7 +554,7 @@ async function upsertLead(
     return lead.id;
   } catch (e) {
     console.error("[upsertLead] exception:", e);
-    await supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "upsert_exception", details: { error: String(e) } }).catch(() => {});
+    supabase.from("system_health_logs").insert({ function_name: "dra-lia", severity: "critical", error_type: "upsert_exception", details: { error: String(e) } }).then(({ error: logErr }) => { if (logErr) console.warn("[health_log] insert error:", logErr.message); });
     return null;
   }
 }
@@ -3928,8 +3928,10 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
                       .from("lia_attendances")
                       .update({ total_messages: newTotal, ultima_sessao_at: new Date().toISOString() })
                       .eq("id", att.id)
-                      .then(() => console.log(`[counter] total_messages=${newTotal} for ${leadState.email}`))
-                      .catch(e => console.warn("[counter] update error:", e));
+                      .then(({ error: updErr }) => {
+                        if (updErr) console.warn("[counter] update error:", updErr.message);
+                        else console.log(`[counter] total_messages=${newTotal} for ${leadState.email}`);
+                      });
 
                     // ── Independent cognitive trigger (bypass summarize_session) ──
                     if (newTotal >= 5 && !att.cognitive_updated_at) {
