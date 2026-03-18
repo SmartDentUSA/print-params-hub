@@ -701,6 +701,56 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </>
           )}
 
+          {/* ── Produtos mais vendidos ── */}
+          {topProducts.length > 0 && (
+            <>
+              <div className="sec">🏆 Produtos Mais Vendidos</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Produto</th><th style={{ textAlign: "right" }}>Qtd</th><th style={{ textAlign: "right" }}>Valor Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topProducts.map(([name, agg], i) => (
+                      <tr key={i}>
+                        <td style={{ maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{agg.qty}×</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(agg.totalVal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* ── Vendedor Top ── */}
+          {topSellers.length > 0 && (
+            <>
+              <div className="sec">👤 Vendedor Top</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Vendedor</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Valor Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topSellers.map(([name, agg], i) => (
+                      <tr key={i}>
+                        <td>{name}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{agg.count}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(agg.totalVal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
           {/* 🎓 Academy section */}
           {(astronCourses.length > 0 || ld.astron_courses_total > 0) && (
             <>
