@@ -212,7 +212,7 @@ async function processDeal(
     pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
     stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
     status: dealStatus,
-    value: deal.value != null ? Number(deal.value) || null : null,
+    value: deal.value != null ? Number(deal.value) : null, // Preserva 0 e valores falsy legítimos
     created_at: deal.created_at || null,
     closed_at: deal.closed_at || null,
     product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
