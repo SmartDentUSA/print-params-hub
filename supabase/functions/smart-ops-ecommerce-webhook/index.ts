@@ -14,6 +14,7 @@ const corsHeaders = {
 // ─── Loja Integrada situação CÓDIGO → event type mapping ───
 // Using `codigo` string instead of numeric ID (IDs can vary per store)
 const SITUACAO_CODIGO_MAP: Record<string, string> = {
+  // Codes without prefix (legacy/some stores)
   aguardando_pagamento: "order_created",
   pagamento_em_analise: "order_created",
   pagamento_devolvido: "order_cancelled",
@@ -28,6 +29,14 @@ const SITUACAO_CODIGO_MAP: Record<string, string> = {
   devolvido: "order_cancelled",
   boleto_impresso: "boleto_generated",
   boleto_vencido: "boleto_expired",
+  // Codes WITH "pedido_" prefix (actual LI webhook format)
+  pedido_pago: "order_paid",
+  pedido_em_separacao: "order_paid",
+  pedido_em_producao: "order_paid",
+  pronto_para_envio: "order_paid",
+  pedido_enviado: "order_invoiced",
+  pedido_entregue: "order_delivered",
+  pedido_cancelado: "order_cancelled",
 };
 
 // Fallback: numeric ID mapping (less reliable but covers edge cases)
@@ -425,6 +434,17 @@ Deno.serve(async (req) => {
     let { eventType, resourceUri, situacaoId } = parseLojaIntegradaPayload(order);
 
     console.log(`[ecommerce-webhook] Parsed: event=${eventType} situacao=${situacaoId} resourceUri=${resourceUri}`);
+
+    // ─── Guard: ignore webhooks where situacao_alterada === false ───
+    // LI docs: "considere apenas os webhooks que estão como situacao.situacao_alterada: true"
+    const situacaoObj = order.situacao as Record<string, unknown> | undefined;
+    if (situacaoObj && typeof situacaoObj === "object" && situacaoObj.situacao_alterada === false) {
+      console.log(`[ecommerce-webhook] situacao_alterada=false, ignorando webhook informativo para pedido ${order.numero || order.id}`);
+      return new Response(JSON.stringify({ skipped: true, reason: "situacao_alterada=false" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // If we only got a resource_uri or minimal payload (no items), fetch full order from LI API
     const hasItems = Array.isArray(order.itens) && order.itens.length > 0 || Array.isArray(order.items) && order.items.length > 0;
