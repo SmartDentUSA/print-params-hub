@@ -10,6 +10,7 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, mergeTagsCrm, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
+import { logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +23,29 @@ function isStagnantPipeline(pipelineId: number | undefined): boolean {
 
 function isInStagnantStatus(leadStatus: string): boolean {
   return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
+}
+
+// ─── Most Relevant Deal Logic ───
+// Prioriza: deal aberto com maior valor → deal aberto mais recente → último processado
+function getMostRelevantDeal(deals: DealSnapshot[]): DealSnapshot | null {
+  if (!deals?.length) return null;
+
+  const OPEN_STATUSES = ["aberta", "negociacao", "em_andamento", "open"];
+
+  // 1. Deals abertos ordenados por maior valor
+  const openDeals = deals
+    .filter(d => OPEN_STATUSES.includes((d.status || "").toLowerCase()))
+    .sort((a, b) => ((b.value ?? 0) - (a.value ?? 0)));
+
+  if (openDeals.length > 0) return openDeals[0];
+
+  // 2. Fallback: deal mais recente (independente do status)
+  const sorted = [...deals].sort((a, b) => {
+    const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return db - da;
+  });
+  return sorted[0];
 }
 
 // Pipelines to sync in full mode (all relevant ones)
@@ -211,7 +235,7 @@ async function processDeal(
     pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
     stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
     status: dealStatus,
-    value: deal.value != null ? Number(deal.value) || null : null,
+    value: deal.value != null ? Number(deal.value) : null, // Preserva 0 e valores falsy legítimos
     created_at: deal.created_at || null,
     closed_at: deal.closed_at || null,
     product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
@@ -258,8 +282,37 @@ async function processDeal(
       .update(smartPayload)
       .eq("id", currentLead.id);
 
-    if (!error) counters.updated++;
-    else console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
+    if (!error) {
+      counters.updated++;
+
+      // ─── Deal Consolidation: priorizar deal aberto de maior valor ───
+      const fullHistory = smartPayload.piperun_deals_history as DealSnapshot[] | undefined;
+      if (fullHistory && fullHistory.length > 1) {
+        const relevantDeal = getMostRelevantDeal(fullHistory);
+        if (relevantDeal && String(relevantDeal.deal_id) !== dealId) {
+          const consolidatedValue = relevantDeal.value != null ? Number(relevantDeal.value) : null;
+          const consolidationPayload: Record<string, unknown> = {
+            valor_oportunidade: consolidatedValue,
+            piperun_id: String(relevantDeal.deal_id),
+            piperun_stage_name: relevantDeal.stage_name || null,
+            updated_at: new Date().toISOString(),
+          };
+          await supabase
+            .from("lia_attendances")
+            .update(consolidationPayload)
+            .eq("id", currentLead.id);
+
+          // Auditoria de consolidação
+          logEnrichmentAudit(
+            currentLead.id,
+            "piperun_consolidation",
+            ["valor_oportunidade", "piperun_id", "piperun_stage_name"],
+          ).catch(() => {});
+        }
+      }
+    } else {
+      console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
+    }
   } else {
     // Not found — try to create
     if (!email) {
