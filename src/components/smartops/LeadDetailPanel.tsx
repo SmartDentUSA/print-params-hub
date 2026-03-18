@@ -458,10 +458,12 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
           const unitVal = Number(item.valor_unitario || item.unit_value || item.unit || item.value || 0);
           const totalVal = Number(item.valor_total || item.total_value || item.total || 0) || (qty * unitVal);
+          const sku = String(item.sku || item.external_code || item.referencia || item.cod || item.item_id || "—");
           allProposalItems.push({
             dealId: String(d.deal_id || "—"),
             proposalId: String(prop.proposal_id || prop.id || "—"),
             name: getItemName(item),
+            sku,
             qty,
             unitVal,
             totalVal,
