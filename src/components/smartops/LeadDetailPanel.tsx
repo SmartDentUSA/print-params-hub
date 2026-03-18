@@ -448,7 +448,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const mrrOpenLost = [...openDeals, ...lostDeals].reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
 
   // Consolidated proposal items (filtered: skip empty/placeholder items)
-  const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
+  const allProposalItems: { dealId: string; proposalId: string; name: string; sku: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
   allDeals.forEach((d: any) => {
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
     proposals.forEach((prop: any) => {
