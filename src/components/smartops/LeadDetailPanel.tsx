@@ -340,6 +340,22 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     (detail?.activity_log || []).forEach((ev) => {
       const isEcommerce = ev.source_channel === "ecommerce";
       const evData = ev.event_data || {};
+      const ecommerceDetail: Record<string, string> = {};
+      if (isEcommerce) {
+        if (evData.valor) ecommerceDetail["Valor"] = formatBRLFull(evData.valor);
+        if (evData.valor_desconto) ecommerceDetail["Desconto"] = formatBRLFull(evData.valor_desconto);
+        if (evData.valor_envio) ecommerceDetail["Frete"] = formatBRLFull(evData.valor_envio);
+        if (evData.status) ecommerceDetail["Status"] = evData.status;
+        if (evData.tracking) ecommerceDetail["Rastreio"] = evData.tracking;
+        if (evData.forma_pagamento) ecommerceDetail["Pagamento"] = evData.forma_pagamento;
+        if (evData.parcelas) ecommerceDetail["Parcelas"] = `${evData.parcelas}x${evData.bandeira ? " · " + evData.bandeira : ""}`;
+        if (evData.forma_envio) ecommerceDetail["Envio"] = evData.forma_envio;
+        if (evData.cupom && typeof evData.cupom === "object" && evData.cupom.codigo) ecommerceDetail["Cupom"] = evData.cupom.codigo;
+        if (evData.itens && Array.isArray(evData.itens) && evData.itens.length > 0) {
+          ecommerceDetail["Itens"] = evData.itens.map((it: any) => `${it.nome} (${it.qty}× R$${Number(it.preco || 0).toFixed(0)})`).slice(0, 4).join(", ");
+        }
+        if (evData.fonte) ecommerceDetail["Fonte"] = evData.fonte;
+      }
       events.push({
         date: ev.event_timestamp || ev.created_at,
         dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
@@ -348,7 +364,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           : ev.event_type || "Evento",
         desc: ev.entity_name || (evData.produtos ? evData.produtos.join(", ") : "") || "",
         tags: evData.tags_added?.slice(0, 3) || [],
-        detail: {
+        detail: isEcommerce ? ecommerceDetail : {
           ...(evData.valor ? { Valor: formatBRLFull(evData.valor) } : {}),
           ...(evData.status ? { Status: evData.status } : {}),
           ...(evData.fonte ? { Fonte: evData.fonte } : {}),
@@ -843,7 +859,86 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </div>
           )}
 
-          {/* 📦 Consolidated proposal items */}
+          {/* 🛒 E-commerce Loja Integrada */}
+          {(() => {
+            const liHistorico = Array.isArray(ld.lojaintegrada_historico_pedidos) ? ld.lojaintegrada_historico_pedidos : [];
+            const liLtv = Number(ld.lojaintegrada_ltv) || 0;
+            const liTracking = ld.lojaintegrada_tracking_code || null;
+            const liTotalPedidos = Number(ld.lojaintegrada_total_pedidos_pagos) || 0;
+            const liCpf = ld.lojaintegrada_cpf || null;
+            const liCep = ld.lojaintegrada_cep || null;
+            const liEndereco = ld.lojaintegrada_endereco || null;
+            const hasSomething = liHistorico.length > 0 || liLtv > 0 || liTracking;
+            if (!hasSomething) return null;
+            return (
+              <>
+                <div className="sec">🛒 E-commerce Loja Integrada</div>
+                <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                  {liLtv > 0 && (
+                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, color: "var(--muted)" }}>LTV E-commerce</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "var(--accent2)" }}>{formatBRLFull(liLtv)}</div>
+                    </div>
+                  )}
+                  {liTotalPedidos > 0 && (
+                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, color: "var(--muted)" }}>Pedidos Pagos</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{liTotalPedidos}</div>
+                    </div>
+                  )}
+                  {liTracking && (
+                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, color: "var(--muted)" }}>Rastreio</div>
+                      <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>📦 {String(liTracking)}</div>
+                    </div>
+                  )}
+                  {liCpf && (
+                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, color: "var(--muted)" }}>CPF</div>
+                      <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>{String(liCpf)}</div>
+                    </div>
+                  )}
+                  {liCep && (
+                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                      <div style={{ fontSize: 10, color: "var(--muted)" }}>CEP</div>
+                      <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>{String(liCep)}</div>
+                    </div>
+                  )}
+                </div>
+                {liHistorico.length > 0 && (
+                  <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                    <table className="deal-table">
+                      <thead>
+                        <tr>
+                          <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th><th>Rastreio</th><th>Pgto</th><th>Itens</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {liHistorico.map((p: any, pi: number) => (
+                          <tr key={pi}>
+                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || p.pedido || pi + 1}</td>
+                            <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data || p.data_criacao || p.created_at)}</td>
+                            <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor || p.valor_total || 0)}</td>
+                            <td>
+                              <span className={`status-chip ${p.status === "pago" || p.status === "Pedido Pago" ? "s-ganho" : p.status === "cancelado" ? "s-perdido" : "s-aberto"}`}>
+                                {p.status || "—"}
+                              </span>
+                            </td>
+                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{p.tracking || "—"}</td>
+                            <td style={{ fontSize: 10 }}>{p.parcelas ? `${p.parcelas}x` : "—"}{p.bandeira ? ` ${p.bandeira}` : ""}</td>
+                            <td style={{ fontSize: 10, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {Array.isArray(p.itens) ? p.itens.map((it: any) => it.nome || it.name || "?").join(", ") : (p.produtos ? (Array.isArray(p.produtos) ? p.produtos.join(", ") : String(p.produtos)) : "—")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
           {allProposalItems.length > 0 && (
             <>
               <div className="sec">📦 Itens de Propostas ({allProposalItems.length})</div>
