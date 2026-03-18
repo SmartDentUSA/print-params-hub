@@ -941,7 +941,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                       </div>
                     )}
                   </>
-                )
+                )}
+              </>
+            );
           })()}
 
           {allProposalItems.length > 0 && (
