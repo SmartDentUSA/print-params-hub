@@ -200,6 +200,7 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     portfolio_embed_url,
     support_tickets: enrichedTickets,
     support_summary: supportSummary,
+    activity_log: activityLog || [],
   };
 
   return new Response(JSON.stringify(response), {

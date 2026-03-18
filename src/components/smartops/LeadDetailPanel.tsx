@@ -313,7 +313,25 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
-    // (E-commerce orders removed — data was fake)
+    // Activity log events (e-commerce, forms, SDR, etc.)
+    (detail?.activity_log || []).forEach((ev) => {
+      const isEcommerce = ev.source_channel === "ecommerce";
+      const evData = ev.event_data || {};
+      events.push({
+        date: ev.event_timestamp || ev.created_at,
+        dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
+        title: isEcommerce
+          ? `🛒 ${(ev.event_type || "").replace("ecommerce_", "")} — Pedido #${evData.pedido || ev.entity_id || "?"}`
+          : ev.event_type || "Evento",
+        desc: ev.entity_name || (evData.produtos ? evData.produtos.join(", ") : "") || "",
+        tags: evData.tags_added?.slice(0, 3) || [],
+        detail: {
+          ...(evData.valor ? { Valor: formatBRLFull(evData.valor) } : {}),
+          ...(evData.status ? { Status: evData.status } : {}),
+          ...(evData.fonte ? { Fonte: evData.fonte } : {}),
+        },
+      });
+    });
 
     // Academy
     if (ld.astron_courses_total > 0) {
