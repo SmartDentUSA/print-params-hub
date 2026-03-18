@@ -4,6 +4,7 @@ import {
   PIPELINE_NAMES,
   STAGE_TO_ETAPA,
   DEAL_STATUS_MAP,
+  PIPERUN_USERS,
   mapDealToAttendance,
   deepParseStringifiedFields,
   piperunGet,
