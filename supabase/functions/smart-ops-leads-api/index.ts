@@ -135,6 +135,14 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     .order("created_at", { ascending: false })
     .limit(20);
 
+  // 6b. Activity log (e-commerce, forms, SDR, etc.)
+  const { data: activityLog } = await supabase
+    .from("lead_activity_log")
+    .select("id, event_type, entity_type, entity_id, entity_name, event_data, source_channel, value_numeric, event_timestamp, created_at")
+    .eq("lead_id", id)
+    .order("event_timestamp", { ascending: false })
+    .limit(100);
+
   // Enrich tickets with message counts
   const enrichedTickets = await Promise.all((tickets || []).map(async (t: any) => {
     const { count } = await supabase
