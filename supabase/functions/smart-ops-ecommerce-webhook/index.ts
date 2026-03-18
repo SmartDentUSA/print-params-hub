@@ -254,7 +254,7 @@ async function fetchClienteOrderHistory(
 ): Promise<Array<Record<string, unknown>>> {
   try {
     const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const url = `https://api.awsli.com.br/api/v1/pedido/?cliente_id=${clienteId}&limit=20&${authParams}`;
+    const url = `https://api.awsli.com.br/v1/pedido/?cliente_id=${clienteId}&limit=100&${authParams}`;
 
     console.log(`[ecommerce-webhook] Fetching order history for cliente ${clienteId}...`);
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
