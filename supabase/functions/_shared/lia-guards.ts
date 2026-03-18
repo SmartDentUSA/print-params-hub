@@ -20,7 +20,7 @@ export const isGreeting = (msg: string) =>
 const SUPPORT_KEYWORDS = [
   /(impressora|printer|impresora).{0,30}(não liga|not turning|no enciende|erro|error|defeito|travando|falhou|quebrou|quebrada)/i,
   /(não consigo|can't|cannot|no puedo).{0,20}(imprimir|print|salvar|conectar|ligar)/i,
-  /(erro|error|falha|falhou|travando|bug|problema).{0,20}(impressora|printer|software|slicer)/i,
+  /(erro|error|falha|falhou|travando|bug|problema).{0,20}(impressora|printer|software|slicer|exocad|3shape|cad)/i,
   /(garantia|suporte técnico|assistência técnica|reparo|defeito de fábrica)/i,
   /(peça|peças).{0,20}(reposição|substituição|quebr|troc|defeito|danific|falt)/i,
   /(replacement part|spare part).{0,20}(order|need|broken|replace)/i,
@@ -29,11 +29,19 @@ const SUPPORT_KEYWORDS = [
   /(resina).{0,20}(não (curou|curar|endureceu|endureceu|polimerizo|aderiu))/i,
   /\b(quero|preciso|gostaria de|need to|want to)\b.{0,15}\b(falar com|talk to|hablar con)\b.{0,15}\b(suporte|support|soporte|atendente|humano|pessoa|human|someone)\b/i,
   /\b(falar com o suporte|falar com suporte|talk to support|hablar con soporte)\b/i,
-  // NEW: broader support intent patterns
+  // Broader support intent patterns
   /(preciso|quero|necessito|gostaria).{0,15}(de )?(suporte|ajuda técnica|assistência)/i,
   /(abrir|criar|gerar).{0,10}(chamado|ticket|ocorrência)/i,
   /(chamar|acionar|contactar|contatar).{0,10}(o )?(suporte|técnico|assistência)/i,
   /preciso de (uma )?m[ãa]ozinha/i,
+  // CAD software issues
+  /(exocad|3shape|cad|software|slicer).{0,30}(não (abre|inicia|carrega|funciona|liga)|travou|travando|deu erro|erro|error|bug|problema|crashed|crash)/i,
+  /(problema|issue|problema).{0,15}(com |no |na |with )?(meu |my |mi )?(exocad|3shape|cad|software|slicer)/i,
+  /(não (abre|inicia|carrega|funciona)|travou|deu erro|crashou).{0,20}(exocad|3shape|cad|software|slicer)/i,
+  // Direct human request patterns
+  /\b(atendente humano|suporte humano|falar com algu[eé]m|falar com uma pessoa|quero uma pessoa|preciso de uma pessoa)\b/i,
+  /\b(falar com um humano|talk to a human|hablar con una persona|human agent|live agent)\b/i,
+  /\b(preciso falar com|quero falar com).{0,15}(atendente|humano|pessoa|algu[eé]m|suporte)\b/i,
 ];
 
 export const SUPPORT_FALLBACK: Record<string, string> = {
