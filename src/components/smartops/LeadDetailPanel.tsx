@@ -730,7 +730,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                               </tr>
                             );
                           })}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
