@@ -441,6 +441,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const lostDeals = allDeals.filter((d: any) => isLost(d.status));
   const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
   const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+  const openDeals = allDeals.filter((d: any) => !isWon(d.status) && !isLost(d.status));
+  const psWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value_products) || Number(d.value) || 0), 0);
+  const psOpen = openDeals.reduce((s: number, d: any) => s + (Number(d.value_products) || Number(d.value) || 0), 0);
+  const mrrWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
+  const mrrOpenLost = [...openDeals, ...lostDeals].reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
 
   // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
@@ -742,10 +747,27 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             ))}
           </div>
         </div>
-        <div className="ltv-block">
-          <div className="ltv-label">{ltvWon > 0 ? "LTV GANHO" : (ltvLost > 0 ? "$ PERDIDO" : "LTV")}</div>
-          <div className="ltv-val" style={ltvWon === 0 && ltvLost > 0 ? { color: "var(--hot)" } : undefined}>{formatBRL(ltvWon > 0 ? ltvWon : ltvLost)}</div>
-          <div className="ltv-sub">{wonDeals.length} ganho{wonDeals.length !== 1 ? "s" : ""} · {lostDeals.length} perdido{lostDeals.length !== 1 ? "s" : ""}</div>
+        <div className="ltv-block" style={{ minWidth: 220 }}>
+          <div className="ltv-label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em", marginBottom: 6 }}>Oportunidades ganhas / Propostas abertas</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
+            <div>
+              <div className="ltv-val" style={{ fontSize: "1rem", color: "var(--won, #22c55e)" }}>{formatBRL(psWon)}</div>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Valor de P&S (ganhas)</div>
+            </div>
+            <div>
+              <div className="ltv-val" style={{ fontSize: "1rem", color: "var(--accent-foreground, #3b82f6)" }}>{formatBRL(psOpen)}</div>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Valor de P&S (abertas)</div>
+            </div>
+            <div>
+              <div className="ltv-val" style={{ fontSize: "0.85rem", opacity: mrrWon === 0 ? 0.4 : 1 }}>{formatBRL(mrrWon)}</div>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Valor MRR (ganhas)</div>
+            </div>
+            <div>
+              <div className="ltv-val" style={{ fontSize: "0.85rem", opacity: mrrOpenLost === 0 ? 0.4 : 1 }}>{formatBRL(mrrOpenLost)}</div>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Valor MRR (abertas+perdidas)</div>
+            </div>
+          </div>
+          <div className="ltv-sub" style={{ marginTop: 4 }}>{wonDeals.length} ganho{wonDeals.length !== 1 ? "s" : ""} · {openDeals.length} aberta{openDeals.length !== 1 ? "s" : ""} · {lostDeals.length} perdido{lostDeals.length !== 1 ? "s" : ""}</div>
         </div>
         <div className="lis-block">
           <div className={`lis-val ${lisCls}`}>{lis}</div>
