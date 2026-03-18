@@ -312,9 +312,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const proposals = Array.isArray(d.proposals) ? d.proposals : [];
       const allItems: string[] = [];
       proposals.forEach((prop: any) => {
-        const items = Array.isArray(prop.items) ? prop.items : [];
+        const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
         items.forEach((item: any) => {
-          const name = item.nome || item.name || item.product_name || "Produto";
+          const name = getItemName(item);
           const qty = item.quantidade || item.quantity || 1;
           allItems.push(`${name} (${qty}×)`);
         });
