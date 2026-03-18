@@ -435,6 +435,17 @@ Deno.serve(async (req) => {
 
     console.log(`[ecommerce-webhook] Parsed: event=${eventType} situacao=${situacaoId} resourceUri=${resourceUri}`);
 
+    // ─── Guard: ignore webhooks where situacao_alterada === false ───
+    // LI docs: "considere apenas os webhooks que estão como situacao.situacao_alterada: true"
+    const situacaoObj = order.situacao as Record<string, unknown> | undefined;
+    if (situacaoObj && typeof situacaoObj === "object" && situacaoObj.situacao_alterada === false) {
+      console.log(`[ecommerce-webhook] situacao_alterada=false, ignorando webhook informativo para pedido ${order.numero || order.id}`);
+      return new Response(JSON.stringify({ skipped: true, reason: "situacao_alterada=false" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // If we only got a resource_uri or minimal payload (no items), fetch full order from LI API
     const hasItems = Array.isArray(order.itens) && order.itens.length > 0 || Array.isArray(order.items) && order.items.length > 0;
     const needsFullFetch = !hasItems && LI_API_KEY;
