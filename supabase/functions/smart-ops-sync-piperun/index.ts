@@ -316,7 +316,7 @@ async function processDeal(
     closed_at: deal.closed_at || null,
     product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
     owner_name: ownerName,
-    owner_email: ownerUser?.email || null,
+    owner_email: deal.owner_id ? (PIPERUN_USERS[deal.owner_id]?.email || null) : null,
     origem: deal.origin?.name || null,
     synced_at: new Date().toISOString(),
     proposals: proposalSnapshots,
