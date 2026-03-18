@@ -311,6 +311,7 @@ async function processDeal(
   const dealSnapshot: DealSnapshot = {
     deal_id: dealId,
     deal_hash: deal.hash || null,
+    deal_title: stripHtml((deal as any).title || "") || null,
     pipeline_id: deal.pipeline_id,
     pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
     stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
