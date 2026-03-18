@@ -736,6 +736,19 @@ Deno.serve(async (req) => {
       if (liFormaEnvio) updateData.lojaintegrada_forma_envio = liFormaEnvio;
       if (items.length > 0) updateData.lojaintegrada_itens_json = items;
       if (liUtmCampaign) updateData.lojaintegrada_utm_campaign = liUtmCampaign;
+      // ─── NEW enriched fields ───
+      if (liValorDesconto != null) updateData.lojaintegrada_valor_desconto = liValorDesconto;
+      if (liValorEnvio != null) updateData.lojaintegrada_valor_envio = liValorEnvio;
+      if (liValorSubtotal != null) updateData.lojaintegrada_valor_subtotal = liValorSubtotal;
+      if (liPesoReal != null) updateData.lojaintegrada_peso_real = liPesoReal;
+      if (liDataModificacao) updateData.lojaintegrada_data_modificacao = liDataModificacao;
+      if (liTrackingCode) updateData.lojaintegrada_tracking_code = liTrackingCode;
+      if (liParcelas != null) updateData.lojaintegrada_parcelas = liParcelas;
+      if (liBandeiraCartao) updateData.lojaintegrada_bandeira_cartao = liBandeiraCartao;
+      if (liMarketplace) updateData.lojaintegrada_marketplace = liMarketplace;
+      if (liCupomJson) updateData.lojaintegrada_cupom_json = liCupomJson;
+      if (liPedidoId) updateData.lojaintegrada_pedido_id = liPedidoId;
+      updateData.lojaintegrada_raw_payload = liRawPayload;
       updateData.lojaintegrada_updated_at = new Date().toISOString();
 
       await supabase.from("lia_attendances").update(updateData).eq("id", existingLead.id);
