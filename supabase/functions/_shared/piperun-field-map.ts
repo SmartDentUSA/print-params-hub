@@ -26,6 +26,7 @@ export const PIPELINES = {
   INTERESSE_CURSOS: 93303,
   INSUMOS: 100412,
   ECOMMERCE: 102702,
+  GANHOS_ALEATORIOS: 104500,
 } as const;
 
 export const PIPELINE_NAMES: Record<number, string> = {
