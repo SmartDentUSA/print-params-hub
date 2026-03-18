@@ -25,6 +25,29 @@ function isInStagnantStatus(leadStatus: string): boolean {
   return leadStatus.startsWith("est_") || leadStatus === "estagnado_final";
 }
 
+// ─── Most Relevant Deal Logic ───
+// Prioriza: deal aberto com maior valor → deal aberto mais recente → último processado
+function getMostRelevantDeal(deals: DealSnapshot[]): DealSnapshot | null {
+  if (!deals?.length) return null;
+
+  const OPEN_STATUSES = ["aberta", "negociacao", "em_andamento", "open"];
+
+  // 1. Deals abertos ordenados por maior valor
+  const openDeals = deals
+    .filter(d => OPEN_STATUSES.includes((d.status || "").toLowerCase()))
+    .sort((a, b) => ((b.value ?? 0) - (a.value ?? 0)));
+
+  if (openDeals.length > 0) return openDeals[0];
+
+  // 2. Fallback: deal mais recente (independente do status)
+  const sorted = [...deals].sort((a, b) => {
+    const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return db - da;
+  });
+  return sorted[0];
+}
+
 // Pipelines to sync in full mode (all relevant ones)
 const SYNC_PIPELINES = [
   PIPELINES.VENDAS,
