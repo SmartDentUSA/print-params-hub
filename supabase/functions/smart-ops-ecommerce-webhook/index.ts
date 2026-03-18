@@ -573,13 +573,13 @@ Deno.serve(async (req) => {
     // ─── Deduplication check ───
     if (numeroPedido) {
       try {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const { data: dupeCheck } = await supabase
           .from("message_logs")
           .select("id")
           .eq("tipo", `ecommerce_${eventType}`)
           .ilike("mensagem_preview", `%pedido=${numeroPedido}%`)
-          .gte("created_at", oneHourAgo)
+          .gte("created_at", thirtyDaysAgo)
           .limit(1);
         if (dupeCheck && dupeCheck.length > 0) {
           console.log(`[ecommerce-webhook] Duplicate detected: pedido=${numeroPedido} event=${eventType}, skipping`);
@@ -765,26 +765,45 @@ Deno.serve(async (req) => {
       status: "recebido",
     });
 
-    // ─── Record timeline event in lead_activity_log (append-only) ───
-    await supabase.from("lead_activity_log").insert({
-      lead_id: leadId,
-      event_type: `ecommerce_${eventType}`,
-      entity_type: "order",
-      entity_id: numeroPedido ? String(numeroPedido) : null,
-      entity_name: productNames.length > 0 ? productNames.join(", ").slice(0, 200) : null,
-      event_data: {
-        pedido: numeroPedido,
-        valor: valorTotal,
-        status: liPedidoStatus,
-        produtos: productNames,
-        tags_added: tagsToAdd,
-        fonte: "loja_integrada",
-      },
-      source_channel: "ecommerce",
-      value_numeric: valorTotal,
-    }).then(({ error }) => {
-      if (error) console.warn("[ecommerce-webhook] timeline insert error:", error.message);
-    });
+    // ─── Record timeline event in lead_activity_log (append-only, with dedup) ───
+    const orderDate = liPedidoData || new Date().toISOString();
+    const activityEntityId = numeroPedido ? String(numeroPedido) : null;
+    let skipActivityInsert = false;
+    if (activityEntityId) {
+      const { data: existingActivity } = await supabase
+        .from("lead_activity_log")
+        .select("id")
+        .eq("lead_id", leadId)
+        .eq("event_type", `ecommerce_${eventType}`)
+        .eq("entity_id", activityEntityId)
+        .limit(1);
+      if (existingActivity && existingActivity.length > 0) {
+        skipActivityInsert = true;
+        console.log(`[ecommerce-webhook] activity_log dedup: skipping ${eventType} pedido=${numeroPedido} for lead ${leadId}`);
+      }
+    }
+    if (!skipActivityInsert) {
+      await supabase.from("lead_activity_log").insert({
+        lead_id: leadId,
+        event_type: `ecommerce_${eventType}`,
+        entity_type: "order",
+        entity_id: activityEntityId,
+        entity_name: productNames.length > 0 ? productNames.join(", ").slice(0, 200) : null,
+        event_data: {
+          pedido: numeroPedido,
+          valor: valorTotal,
+          status: liPedidoStatus,
+          produtos: productNames,
+          tags_added: tagsToAdd,
+          fonte: "loja_integrada",
+        },
+        source_channel: "ecommerce",
+        value_numeric: valorTotal,
+        event_timestamp: orderDate,
+      }).then(({ error }) => {
+        if (error) console.warn("[ecommerce-webhook] timeline insert error:", error.message);
+      });
+    }
 
     // ─── Populate lead_product_history for each item ───
     if (items.length > 0) {
@@ -860,9 +879,9 @@ Deno.serve(async (req) => {
         cart_id: String(numeroPedido),
         items: cartItems,
         total_value: valorTotal || 0,
-        created_at: new Date().toISOString(),
+        created_at: liPedidoData || new Date().toISOString(),
         status: eventType === "boleto_expired" ? "abandoned" : "active",
-        abandoned_at: eventType === "boleto_expired" ? new Date().toISOString() : null,
+        abandoned_at: eventType === "boleto_expired" ? (liPedidoData || new Date().toISOString()) : null,
         abandoned_reason: eventType === "boleto_expired" ? "boleto_vencido" : null,
       }, { onConflict: "cart_id" }).then(({ error: cartErr }) => {
         if (cartErr) console.warn("[ecommerce-webhook] cart_history upsert error:", cartErr.message);
