@@ -264,6 +264,8 @@ verify_jwt = false
 
 [functions.smart-ops-leads-api]
 verify_jwt = false
-
 [functions.smart-ops-ingest-asset-from-a]
+verify_jwt = false
+
+[functions.sync-loja-integrada-clients]
 verify_jwt = false

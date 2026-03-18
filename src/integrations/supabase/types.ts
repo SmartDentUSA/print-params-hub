@@ -3745,6 +3745,7 @@ export type Database = {
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
+          lojaintegrada_cliente_data_criacao: string | null
           lojaintegrada_cliente_id: number | null
           lojaintegrada_cliente_obs: string | null
           lojaintegrada_complemento: string | null
@@ -3767,6 +3768,7 @@ export type Database = {
           lojaintegrada_raw_payload: Json | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
+          lojaintegrada_tipo_pessoa: string | null
           lojaintegrada_total_pedidos_pagos: number | null
           lojaintegrada_tracking_code: string | null
           lojaintegrada_ultimo_pedido_data: string | null
@@ -4172,6 +4174,7 @@ export type Database = {
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
+          lojaintegrada_cliente_data_criacao?: string | null
           lojaintegrada_cliente_id?: number | null
           lojaintegrada_cliente_obs?: string | null
           lojaintegrada_complemento?: string | null
@@ -4194,6 +4197,7 @@ export type Database = {
           lojaintegrada_raw_payload?: Json | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
+          lojaintegrada_tipo_pessoa?: string | null
           lojaintegrada_total_pedidos_pagos?: number | null
           lojaintegrada_tracking_code?: string | null
           lojaintegrada_ultimo_pedido_data?: string | null
@@ -4599,6 +4603,7 @@ export type Database = {
           lojaintegrada_bairro?: string | null
           lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
+          lojaintegrada_cliente_data_criacao?: string | null
           lojaintegrada_cliente_id?: number | null
           lojaintegrada_cliente_obs?: string | null
           lojaintegrada_complemento?: string | null
@@ -4621,6 +4626,7 @@ export type Database = {
           lojaintegrada_raw_payload?: Json | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
+          lojaintegrada_tipo_pessoa?: string | null
           lojaintegrada_total_pedidos_pagos?: number | null
           lojaintegrada_tracking_code?: string | null
           lojaintegrada_ultimo_pedido_data?: string | null
@@ -8347,6 +8353,7 @@ export type Database = {
           lojaintegrada_bairro: string | null
           lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
+          lojaintegrada_cliente_data_criacao: string | null
           lojaintegrada_cliente_id: number | null
           lojaintegrada_cliente_obs: string | null
           lojaintegrada_complemento: string | null
@@ -8369,6 +8376,7 @@ export type Database = {
           lojaintegrada_raw_payload: Json | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
+          lojaintegrada_tipo_pessoa: string | null
           lojaintegrada_total_pedidos_pagos: number | null
           lojaintegrada_tracking_code: string | null
           lojaintegrada_ultimo_pedido_data: string | null
