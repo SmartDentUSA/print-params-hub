@@ -441,6 +441,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const lostDeals = allDeals.filter((d: any) => isLost(d.status));
   const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
   const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+  const openDeals = allDeals.filter((d: any) => !isWon(d.status) && !isLost(d.status));
+  const psWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value_products) || Number(d.value) || 0), 0);
+  const psOpen = openDeals.reduce((s: number, d: any) => s + (Number(d.value_products) || Number(d.value) || 0), 0);
+  const mrrWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
+  const mrrOpenLost = [...openDeals, ...lostDeals].reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
 
   // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
