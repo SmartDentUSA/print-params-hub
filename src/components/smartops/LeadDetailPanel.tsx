@@ -860,8 +860,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--text)" }}>{formatBRLFull(item.totalVal)}</td>
                         <td>
-                          <span className={`status-chip ${item.dealStatus === "ganha" ? "s-ganho" : item.dealStatus === "perdida" ? "s-perdido" : "s-aberto"}`}>
-                            {item.dealStatus === "ganha" ? "✓ Ganho" : item.dealStatus === "perdida" ? "✗ Perdido" : "● Aberto"}
+                          <span className={`status-chip ${isWon(item.dealStatus) ? "s-ganho" : isLost(item.dealStatus) ? "s-perdido" : "s-aberto"}`}>
+                            {isWon(item.dealStatus) ? "✓ Ganho" : isLost(item.dealStatus) ? "✗ Perdido" : "● Aberto"}
                           </span>
                         </td>
                       </tr>
