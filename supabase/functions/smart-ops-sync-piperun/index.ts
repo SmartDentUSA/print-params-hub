@@ -282,8 +282,37 @@ async function processDeal(
       .update(smartPayload)
       .eq("id", currentLead.id);
 
-    if (!error) counters.updated++;
-    else console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
+    if (!error) {
+      counters.updated++;
+
+      // ─── Deal Consolidation: priorizar deal aberto de maior valor ───
+      const fullHistory = smartPayload.piperun_deals_history as DealSnapshot[] | undefined;
+      if (fullHistory && fullHistory.length > 1) {
+        const relevantDeal = getMostRelevantDeal(fullHistory);
+        if (relevantDeal && String(relevantDeal.deal_id) !== dealId) {
+          const consolidatedValue = relevantDeal.value != null ? Number(relevantDeal.value) : null;
+          const consolidationPayload: Record<string, unknown> = {
+            valor_oportunidade: consolidatedValue,
+            piperun_id: String(relevantDeal.deal_id),
+            piperun_stage_name: relevantDeal.stage_name || null,
+            updated_at: new Date().toISOString(),
+          };
+          await supabase
+            .from("lia_attendances")
+            .update(consolidationPayload)
+            .eq("id", currentLead.id);
+
+          // Auditoria de consolidação
+          logEnrichmentAudit(
+            currentLead.id,
+            "piperun_consolidation",
+            ["valor_oportunidade", "piperun_id", "piperun_stage_name"],
+          ).catch(() => {});
+        }
+      }
+    } else {
+      console.error(`[sync-piperun] Update error deal ${dealId}:`, error.message);
+    }
   } else {
     // Not found — try to create
     if (!email) {
