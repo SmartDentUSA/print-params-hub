@@ -1186,13 +1186,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                 <table className="deal-table">
                   <thead>
                     <tr>
-                      <th>Deal</th><th>Item</th><th>Qtd</th><th>Unit</th><th>Total</th><th>Status</th>
+                      <th>Deal</th><th>SKU</th><th>Item</th><th>Qtd</th><th>Unit</th><th>Total</th><th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {allProposalItems.map((item, ii) => (
                       <tr key={ii}>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.sku}>{item.sku}</td>
                         <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{item.qty}×</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
