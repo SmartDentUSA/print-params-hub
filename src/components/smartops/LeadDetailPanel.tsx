@@ -489,7 +489,40 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       : []),
   ];
 
-  // Product mix
+  // ── Produtos mais vendidos (agregado de proposal items dos deals ganhos) ──
+  const productAggMap: Record<string, { qty: number; totalVal: number }> = {};
+  wonDeals.forEach((d: any) => {
+    const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+    proposals.forEach((prop: any) => {
+      const items = Array.isArray(prop.items) ? prop.items : [];
+      items.forEach((item: any) => {
+        const name = (item.nome || item.name || item.product_name || "Produto").trim();
+        const qty = Number(item.quantidade || item.quantity || 1);
+        const total = Number(item.valor_total || item.total_value || qty * Number(item.valor_unitario || item.unit_value || 0));
+        if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
+        productAggMap[name].qty += qty;
+        productAggMap[name].totalVal += total;
+      });
+    });
+  });
+  const topProducts = Object.entries(productAggMap)
+    .sort((a, b) => b[1].totalVal - a[1].totalVal)
+    .slice(0, 8);
+
+  // ── Vendedor top (agregado por owner_name dos deals ganhos) ──
+  const sellerAggMap: Record<string, { count: number; totalVal: number }> = {};
+  wonDeals.forEach((d: any) => {
+    const name = ownerDisplay(d.owner_name);
+    if (name === "—") return;
+    if (!sellerAggMap[name]) sellerAggMap[name] = { count: 0, totalVal: 0 };
+    sellerAggMap[name].count += 1;
+    sellerAggMap[name].totalVal += Number(d.value) || 0;
+  });
+  const topSellers = Object.entries(sellerAggMap)
+    .sort((a, b) => b[1].totalVal - a[1].totalVal)
+    .slice(0, 5);
+
+  // Product mix (legacy — kept for backward compat but unused in UI)
   const productMap: Record<string, number> = {};
   ((ld.piperun_deals_history as any[]) || []).forEach((d: any) => {
     const p = (d.product || "Produto").replace(/^\d{1,2}\/\d{1,2}\/\d{4}.*Zapier.*$/, "Deal").slice(0, 30);
