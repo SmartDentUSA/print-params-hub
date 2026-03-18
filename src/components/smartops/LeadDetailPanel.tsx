@@ -1108,6 +1108,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                           <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{liTotalPedidos}</div>
                         </div>
                       )}
+                      {(() => {
+                        const cupom = ld.lojaintegrada_cupom_desconto;
+                        const cupomStr = cupom && String(cupom) !== "[object Object]" ? String(cupom) : null;
+                        return cupomStr ? (
+                          <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                            <div style={{ fontSize: 10, color: "var(--muted)" }}>🎟️ Cupom</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "rgb(245,158,11)" }}>{cupomStr}</div>
+                          </div>
+                        ) : null;
+                      })()}
                       {liTracking && (
                         <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
                           <div style={{ fontSize: 10, color: "var(--muted)" }}>Rastreio</div>
