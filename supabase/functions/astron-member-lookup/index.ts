@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, lead_id, force_refresh } = await req.json();
+    const { email, lead_id, force_refresh, manual_data } = await req.json();
 
     if (!email && !lead_id) {
       return new Response(
@@ -74,7 +74,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Check cache freshness
+    // 2. Manual data import (from CSV)
+    if (manual_data && typeof manual_data === "object") {
+      console.log(`[astron-lookup] Manual data import for lead ${lead.id}`);
+      const updateFields: Record<string, unknown> = {
+        ...manual_data,
+        astron_synced_at: new Date().toISOString(),
+      };
+      const { error: upErr } = await supabase
+        .from("lia_attendances")
+        .update(updateFields)
+        .eq("id", lead.id);
+      if (upErr) throw upErr;
+      return new Response(
+        JSON.stringify({ found: true, source: "manual_import", data: updateFields }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 2b. Check cache freshness
     const syncedAt = lead.astron_synced_at ? new Date(lead.astron_synced_at).getTime() : 0;
     const isFresh = (Date.now() - syncedAt) < CACHE_TTL_MS;
 
