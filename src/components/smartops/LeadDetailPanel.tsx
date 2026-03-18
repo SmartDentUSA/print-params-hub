@@ -872,70 +872,76 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             return (
               <>
                 <div className="sec">🛒 E-commerce Loja Integrada</div>
-                <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                  {liLtv > 0 && (
-                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
-                      <div style={{ fontSize: 10, color: "var(--muted)" }}>LTV E-commerce</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "var(--accent2)" }}>{formatBRLFull(liLtv)}</div>
-                    </div>
-                  )}
-                  {liTotalPedidos > 0 && (
-                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
-                      <div style={{ fontSize: 10, color: "var(--muted)" }}>Pedidos Pagos</div>
-                      <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{liTotalPedidos}</div>
-                    </div>
-                  )}
-                  {liTracking && (
-                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
-                      <div style={{ fontSize: 10, color: "var(--muted)" }}>Rastreio</div>
-                      <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>📦 {String(liTracking)}</div>
-                    </div>
-                  )}
-                  {liCpf && (
-                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
-                      <div style={{ fontSize: 10, color: "var(--muted)" }}>CPF</div>
-                      <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>{String(liCpf)}</div>
-                    </div>
-                  )}
-                  {liCep && (
-                    <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
-                      <div style={{ fontSize: 10, color: "var(--muted)" }}>CEP</div>
-                      <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>{String(liCep)}</div>
-                    </div>
-                  )}
-                </div>
-                {liHistorico.length > 0 && (
-                  <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
-                    <table className="deal-table">
-                      <thead>
-                        <tr>
-                          <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th><th>Rastreio</th><th>Pgto</th><th>Itens</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {liHistorico.map((p: any, pi: number) => (
-                          <tr key={pi}>
-                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || p.pedido || pi + 1}</td>
-                            <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data || p.data_criacao || p.created_at)}</td>
-                            <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor || p.valor_total || 0)}</td>
-                            <td>
-                              <span className={`status-chip ${["pago","pedido_pago","pedido_enviado","enviado","pedido_entregue","entregue","Pedido Pago"].includes(p.status) ? "s-ganho" : ["cancelado","pedido_cancelado","devolvido"].includes(p.status) ? "s-perdido" : "s-aberto"}`}>
-                                {p.status || "—"}
-                              </span>
-                            </td>
-                            <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{p.tracking || "—"}</td>
-                            <td style={{ fontSize: 10 }}>{p.parcelas ? `${p.parcelas}x` : "—"}{p.bandeira ? ` ${p.bandeira}` : ""}</td>
-                            <td style={{ fontSize: 10, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {Array.isArray(p.itens) ? p.itens.map((it: any) => it.nome || it.name || "?").join(", ") : (p.produtos ? (Array.isArray(p.produtos) ? p.produtos.join(", ") : String(p.produtos)) : "—")}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                {!hasSomething ? (
+                  <div style={{ border: "1px dashed var(--border2)", borderRadius: 10, padding: "18px 14px", textAlign: "center", color: "var(--muted2)", fontSize: 12, marginBottom: 20 }}>
+                    Nenhum pedido e-commerce registrado
                   </div>
-                )}
-              </>
-            );
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                      {liLtv > 0 && (
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>LTV E-commerce</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "var(--accent2)" }}>{formatBRLFull(liLtv)}</div>
+                        </div>
+                      )}
+                      {liTotalPedidos > 0 && (
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>Pedidos Pagos</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{liTotalPedidos}</div>
+                        </div>
+                      )}
+                      {liTracking && (
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>Rastreio</div>
+                          <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>📦 {String(liTracking)}</div>
+                        </div>
+                      )}
+                      {liCpf && (
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>CPF</div>
+                          <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>{String(liCpf)}</div>
+                        </div>
+                      )}
+                      {liCep && (
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>CEP</div>
+                          <div style={{ fontSize: 12, fontFamily: "'DM Mono', monospace" }}>{String(liCep)}</div>
+                        </div>
+                      )}
+                    </div>
+                    {liHistorico.length > 0 && (
+                      <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                        <table className="deal-table">
+                          <thead>
+                            <tr>
+                              <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th><th>Rastreio</th><th>Pgto</th><th>Itens</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {liHistorico.map((p: any, pi: number) => (
+                              <tr key={pi}>
+                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || p.pedido || pi + 1}</td>
+                                <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data || p.data_criacao || p.created_at)}</td>
+                                <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor || p.valor_total || 0)}</td>
+                                <td>
+                                  <span className={`status-chip ${["pago","pedido_pago","pedido_enviado","enviado","pedido_entregue","entregue","Pedido Pago"].includes(p.status) ? "s-ganho" : ["cancelado","pedido_cancelado","devolvido"].includes(p.status) ? "s-perdido" : "s-aberto"}`}>
+                                    {p.status || "—"}
+                                  </span>
+                                </td>
+                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{p.tracking || "—"}</td>
+                                <td style={{ fontSize: 10 }}>{p.parcelas ? `${p.parcelas}x` : "—"}{p.bandeira ? ` ${p.bandeira}` : ""}</td>
+                                <td style={{ fontSize: 10, maxWidth: 150, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                  {Array.isArray(p.itens) ? p.itens.map((it: any) => it.nome || it.name || "?").join(", ") : (p.produtos ? (Array.isArray(p.produtos) ? p.produtos.join(", ") : String(p.produtos)) : "—")}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )
           })()}
 
           {allProposalItems.length > 0 && (
