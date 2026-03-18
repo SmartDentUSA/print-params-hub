@@ -351,11 +351,30 @@ function enrichWithOrderHistory(
   // Build full order list (append-only, dedup by numero)
   const allOrderSnapshots = orders.map((o) => {
     const codigo = resolveSituacaoCodigo(o.situacao);
+    const oEnvios = (o.envios || []) as Array<Record<string, unknown>>;
+    const oPagamentos = (o.pagamentos || []) as Array<Record<string, unknown>>;
+    const oItens = (o.itens || []) as Array<Record<string, unknown>>;
     return {
       numero: o.numero || o.id,
+      pedido_id: o.id || null,
       valor: Number(o.valor_total) || 0,
+      valor_desconto: Number(o.valor_desconto) || 0,
+      valor_envio: Number(o.valor_envio) || 0,
       status: codigo || "?",
       data: o.data_criacao || null,
+      data_modificacao: o.data_modificacao || null,
+      tracking: oEnvios[0]?.objeto || null,
+      parcelas: oPagamentos[0]?.numero_parcelas || null,
+      bandeira: oPagamentos[0]?.bandeira || null,
+      forma_pagamento: (oPagamentos[0]?.forma_pagamento as Record<string, unknown>)?.nome || null,
+      itens: oItens.map((i: Record<string, unknown>) => ({
+        sku: i.sku || null,
+        nome: i.nome || i.name || null,
+        qty: Number(i.quantidade || i.quantity || 1),
+        preco_venda: Number(i.preco_venda || 0),
+        preco_cheio: Number(i.preco_cheio || 0),
+        preco_promocional: i.preco_promocional ? Number(i.preco_promocional) : null,
+      })),
     };
   });
 
