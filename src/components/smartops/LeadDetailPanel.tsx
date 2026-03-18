@@ -40,6 +40,19 @@ interface Opportunity {
   value_est_brl: number;
 }
 
+interface ActivityLogEvent {
+  id: string;
+  event_type: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  entity_name: string | null;
+  event_data: Record<string, any> | null;
+  source_channel: string | null;
+  value_numeric: number | null;
+  event_timestamp: string;
+  created_at: string;
+}
+
 interface DetailResponse {
   lead: Record<string, any>;
   person: Record<string, any> | null;
@@ -49,6 +62,7 @@ interface DetailResponse {
   portfolio_embed_url: string | null;
   support_tickets: SupportTicket[];
   support_summary: SupportSummary | null;
+  activity_log: ActivityLogEvent[];
 }
 
 type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes";
