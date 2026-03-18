@@ -720,7 +720,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                                             {formatBRLFull(item.valor_unitario || item.unit_value || item.unit || 0)}
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--text)" }}>
-                                            {formatBRLFull(item.valor_total || item.total_value || ((item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || 0)))}
+                                            {formatBRLFull(item.valor_total || item.total_value || item.total || ((item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || item.unit || 0)))}
                                           </span>
                                         </div>
                                       ))}
