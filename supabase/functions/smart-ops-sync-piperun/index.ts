@@ -99,6 +99,7 @@ interface ProposalSnapshot {
 interface DealSnapshot {
   deal_id: string;
   deal_hash: string | null;
+  deal_title: string | null;
   pipeline_id: number | undefined;
   pipeline_name: string | null;
   stage_name: string | null;
