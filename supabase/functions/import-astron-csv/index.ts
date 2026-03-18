@@ -20,18 +20,41 @@ function parsePercentual(raw: string | null | undefined): number {
   return isNaN(n) ? 0 : n;
 }
 
-/* Parse CSV text (semicolon or comma delimited) into user objects */
-function parseCSV(text: string): Record<string, string>[] {
+/* Parse quoted CSV field properly */
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === "," && !inQuotes) {
+      fields.push(current.trim());
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+/* Parse CSV text into user objects */
+function parseCSV(text: string) {
   const lines = text.split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) return [];
 
-  // Detect delimiter
-  const delim = lines[0].includes(";") ? ";" : ",";
-  const headers = lines[0].split(delim).map(h => h.trim().replace(/^"|"$/g, ""));
-
+  const headers = parseCSVLine(lines[0]);
   const rows: Record<string, string>[] = [];
+
   for (let i = 1; i < lines.length; i++) {
-    const vals = lines[i].split(delim).map(v => v.trim().replace(/^"|"$/g, ""));
+    const vals = parseCSVLine(lines[i]);
     if (vals.length < 2) continue;
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => { row[h] = vals[idx] || ""; });
@@ -43,11 +66,11 @@ function parseCSV(text: string): Record<string, string>[] {
 /* Map CSV headers to standardized fields */
 function mapRow(row: Record<string, string>) {
   return {
-    nome: row["Nome Completo"] || row["nome"] || "",
-    email: (row["Email"] || row["email"] || "").trim().toLowerCase(),
-    cpf: row["CPF"] || row["cpf"] || "",
-    telefone: row["Telefone"] || row["telefone"] || "",
-    genero: row["Gênero"] || row["Genero"] || row["genero"] || "",
+    nome: row["Nome Completo"] || "",
+    email: (row["Email"] || "").trim().toLowerCase(),
+    cpf: row["CPF"] || "",
+    telefone: row["Telefone"] || "",
+    genero: row["Gênero"] || row["Genero"] || "",
     data_nascimento: row["Data de Nascimento"] || "",
     data_cadastro: row["Data de Cadastro"] || "",
     ultimo_login: row["Data de Último Login"] || row["Data de Ultimo Login"] || "",
@@ -63,18 +86,30 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // Accept either { users: [...] } (pre-parsed) or { csv_text: "..." } (raw CSV)
-    let users: { nome: string; email: string; cpf: string; telefone: string; genero: string; data_nascimento: string; data_cadastro: string; ultimo_login: string; percentual: string }[];
+    let users: ReturnType<typeof mapRow>[];
 
-    if (body.csv_text) {
+    // Option 1: Download CSV from URL
+    if (body.csv_url) {
+      console.log(`[import-astron-csv] Downloading CSV from ${body.csv_url}`);
+      const csvResp = await fetch(body.csv_url, { signal: AbortSignal.timeout(30000) });
+      if (!csvResp.ok) throw new Error(`CSV download failed: ${csvResp.status}`);
+      const csvText = await csvResp.text();
+      const parsed = parseCSV(csvText);
+      users = parsed.map(mapRow);
+      console.log(`[import-astron-csv] Parsed ${users.length} rows from URL`);
+    }
+    // Option 2: Raw CSV text
+    else if (body.csv_text) {
       const parsed = parseCSV(body.csv_text);
       users = parsed.map(mapRow);
-      console.log(`[import-astron-csv] Parsed ${users.length} rows from CSV text`);
-    } else if (Array.isArray(body.users)) {
+      console.log(`[import-astron-csv] Parsed ${users.length} rows from text`);
+    }
+    // Option 3: Pre-parsed array
+    else if (Array.isArray(body.users)) {
       users = body.users;
     } else {
       return new Response(
-        JSON.stringify({ error: "Provide 'users' array or 'csv_text' string" }),
+        JSON.stringify({ error: "Provide 'users', 'csv_text', or 'csv_url'" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -91,7 +126,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Normalize emails
+    // Deduplicate by email
     const emailMap = new Map<string, typeof users[0]>();
     for (const u of users) {
       const email = u.email?.trim().toLowerCase();
@@ -113,6 +148,7 @@ Deno.serve(async (req) => {
     const CHUNK = 500;
     for (let i = 0; i < allEmails.length; i += CHUNK) {
       const chunk = allEmails.slice(i, i + CHUNK);
+      console.log(`[import-astron-csv] Chunk ${i / CHUNK + 1}: emails ${i + 1}-${i + chunk.length}`);
 
       const { data: leads, error: fetchErr } = await supabase
         .from("lia_attendances")
@@ -138,6 +174,8 @@ Deno.serve(async (req) => {
         leadsByEmail.get(e)!.push(ld);
       }
 
+      const matchedInChunk = new Set<string>();
+
       for (const email of chunk) {
         const matchedLeads = leadsByEmail.get(email);
         if (!matchedLeads || matchedLeads.length === 0) {
@@ -145,14 +183,13 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        matchedInChunk.add(email);
         const csvUser = emailMap.get(email)!;
         const pct = parsePercentual(csvUser.percentual);
 
-        // Update ALL leads with this email
         for (const lead of matchedLeads) {
           totalMatched++;
 
-          // Preserve existing array, add/replace astronmembers entry
           let existingAccess: unknown[] = [];
           if (Array.isArray(lead.astron_courses_access)) {
             existingAccess = lead.astron_courses_access;
@@ -170,17 +207,14 @@ Deno.serve(async (req) => {
             imported_at: new Date().toISOString(),
           });
 
-          const createdAt = parseDate(csvUser.data_cadastro);
-          const lastLogin = parseDate(csvUser.ultimo_login);
-
           const { error: upErr } = await supabase
             .from("lia_attendances")
             .update({
               astron_status: "active",
               astron_nome: csvUser.nome || null,
               astron_phone: csvUser.telefone || null,
-              astron_created_at: createdAt,
-              astron_last_login_at: lastLogin,
+              astron_created_at: parseDate(csvUser.data_cadastro),
+              astron_last_login_at: parseDate(csvUser.ultimo_login),
               astron_login_url: "https://smartdentacademy.astronmembers.com/",
               astron_synced_at: new Date().toISOString(),
               astron_courses_access: filtered,
@@ -191,15 +225,22 @@ Deno.serve(async (req) => {
             errors.push(`Update ${email}: ${upErr.message}`);
           } else {
             totalUpdated++;
-            if (sampleUpdates.length < 5) {
-              sampleUpdates.push({ email, astron_created_at: createdAt, percentual: pct });
+            if (sampleUpdates.length < 10) {
+              sampleUpdates.push({ email, astron_created_at: parseDate(csvUser.data_cadastro), percentual: pct });
             }
           }
         }
       }
+
+      // Count not_found from chunk
+      for (const email of chunk) {
+        if (!matchedInChunk.has(email) && !leadsByEmail.has(email)) {
+          // already counted above
+        }
+      }
     }
 
-    console.log(`[import-astron-csv] Done: matched=${totalMatched}, updated=${totalUpdated}, not_found=${totalNotFound}, errors=${errors.length}`);
+    console.log(`[import-astron-csv] COMPLETE: matched=${totalMatched}, updated=${totalUpdated}, not_found=${totalNotFound}, errors=${errors.length}`);
 
     return new Response(
       JSON.stringify({
@@ -209,7 +250,7 @@ Deno.serve(async (req) => {
         total_csv: users.length,
         unique_emails: allEmails.length,
         sample_updates: sampleUpdates,
-        errors: errors.slice(0, 20),
+        errors: errors.slice(0, 30),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
