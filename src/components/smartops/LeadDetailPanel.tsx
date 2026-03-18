@@ -390,8 +390,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     const props = Array.isArray(d.proposals) ? d.proposals.length : 0;
     return sum + props;
   }, 0);
-  const wonDeals = allDeals.filter((d: any) => d.status === "ganha");
-  const lostDeals = allDeals.filter((d: any) => d.status === "perdida");
+  const wonDeals = allDeals.filter((d: any) => isWon(d.status));
+  const lostDeals = allDeals.filter((d: any) => isLost(d.status));
   const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
   const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
 
