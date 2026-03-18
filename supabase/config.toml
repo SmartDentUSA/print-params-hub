@@ -262,6 +262,9 @@ verify_jwt = false
 [functions.import-proposals-csv]
 verify_jwt = false
 
+[functions.import-astron-csv]
+verify_jwt = false
+
 [functions.smart-ops-leads-api]
 verify_jwt = false
 [functions.smart-ops-ingest-asset-from-a]
