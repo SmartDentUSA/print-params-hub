@@ -957,7 +957,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                 <table className="deal-table">
                   <thead>
                     <tr>
-                      <th>Cód</th><th>Produto</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Qtd Total</th><th style={{ textAlign: "right" }}>Receita</th><th style={{ textAlign: "right" }}>% Mix</th><th>Tendência</th>
+                      <th>SKU</th><th>Produto</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Qtd Total</th><th style={{ textAlign: "right" }}>Receita</th><th style={{ textAlign: "right" }}>% Mix</th><th>Tendência</th>
                     </tr>
                   </thead>
                   <tbody>
