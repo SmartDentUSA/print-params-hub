@@ -2954,14 +2954,17 @@ REGRAS:
     const isSupportMsg = isSupportQuestion(message);
     
     // If ticket was just completed but user sends a NEW real support request, allow re-entry
+    // Use an effective flag so the reset takes effect in this same execution cycle
+    let ticketBlocksSupport = ticketJustCompleted;
     if (ticketJustCompleted && isSupportMsg) {
-      // Reset flag to allow new ticket creation
+      // Reset flag to allow new ticket creation — AND clear the effective block
+      ticketBlocksSupport = false;
       await supabase.from("agent_sessions").upsert({
         session_id, extracted_entities: { ...(sessionEntities as Record<string, unknown>), support_ticket_completed: undefined }, last_activity_at: new Date().toISOString(),
       }, { onConflict: "session_id" });
     }
     
-    if (!ticketJustCompleted && (isSupportMsg || (topic_context === "support" && !supportFlowStage))) {
+    if (!ticketBlocksSupport && (isSupportMsg || (topic_context === "support" && !supportFlowStage))) {
       console.log(`[support_flow] Triggered — isSupportQuestion=${isSupportMsg}, topic_context=${topic_context}`);
       // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
