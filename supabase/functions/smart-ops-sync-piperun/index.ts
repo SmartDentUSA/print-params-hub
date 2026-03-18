@@ -295,8 +295,7 @@ async function processDeal(
     }
   }
 
-  // Determine owner info
-  const ownerUser = deal.owner_id ? PIPERUN_USERS[deal.owner_id] : null;
+  // Owner email from users map
 
   // Extract value breakdown
   const totalFreight = proposalSnapshots.reduce((s, p) => s + p.valor_frete, 0);
