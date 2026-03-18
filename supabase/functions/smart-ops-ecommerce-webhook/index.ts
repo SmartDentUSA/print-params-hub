@@ -673,18 +673,20 @@ Deno.serve(async (req) => {
           ? existingLead.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>
           : [];
         const newHistory = enrichmentData.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>;
-        // New-first merge: newer snapshots (with richer fields) always win
+        // New-first merge: newer snapshots win; drop entries without valid numero (stale 2020 data)
         const merged: Array<Record<string, unknown>> = [];
         const seen = new Set<string>();
         for (const h of newHistory) {
+          const key = h.numero ? String(h.numero) : null;
+          if (!key || key === 'undefined') continue;
           merged.push(h);
-          seen.add(String(h.numero));
+          seen.add(key);
         }
         for (const h of existingHistory) {
-          if (!seen.has(String(h.numero))) {
-            merged.push(h);
-            seen.add(String(h.numero));
-          }
+          const key = h.numero ? String(h.numero) : null;
+          if (!key || key === 'undefined' || seen.has(key)) continue;
+          merged.push(h);
+          seen.add(key);
         }
         enrichmentData.lojaintegrada_historico_pedidos = merged;
       }
