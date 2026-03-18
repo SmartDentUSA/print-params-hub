@@ -167,8 +167,9 @@ async function fetchOrderFromLI(
 ): Promise<Record<string, unknown> | null> {
   try {
     const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const separator = resourceUri.includes('?') ? '&' : '?';
-    const url = `https://api.awsli.com.br${resourceUri}${separator}${authParams}`;
+    const cleanUri = resourceUri.replace(/^\/api\//, '/');
+    const separator = cleanUri.includes('?') ? '&' : '?';
+    const url = `https://api.awsli.com.br${cleanUri}${separator}${authParams}`;
 
     const res = await fetch(url, {
       headers: { 'Accept': 'application/json' },
@@ -210,7 +211,7 @@ async function fetchClienteFromLI(
     }
     const clienteId = match[1];
     const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const url = `https://api.awsli.com.br/api/v1/cliente/${clienteId}/?${authParams}`;
+    const url = `https://api.awsli.com.br/v1/cliente/${clienteId}/?${authParams}`;
 
     console.log(`[ecommerce-webhook] Fetching client ${clienteId} from LI API...`);
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -253,7 +254,7 @@ async function fetchClienteOrderHistory(
 ): Promise<Array<Record<string, unknown>>> {
   try {
     const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const url = `https://api.awsli.com.br/api/v1/pedido/?cliente_id=${clienteId}&limit=20&${authParams}`;
+    const url = `https://api.awsli.com.br/v1/pedido/?cliente_id=${clienteId}&limit=100&${authParams}`;
 
     console.log(`[ecommerce-webhook] Fetching order history for cliente ${clienteId}...`);
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -672,18 +673,20 @@ Deno.serve(async (req) => {
           ? existingLead.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>
           : [];
         const newHistory = enrichmentData.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>;
-        // New-first merge: newer snapshots (with richer fields) always win
+        // New-first merge: newer snapshots win; drop entries without valid numero (stale 2020 data)
         const merged: Array<Record<string, unknown>> = [];
         const seen = new Set<string>();
         for (const h of newHistory) {
+          const key = h.numero ? String(h.numero) : null;
+          if (!key || key === 'undefined') continue;
           merged.push(h);
-          seen.add(String(h.numero));
+          seen.add(key);
         }
         for (const h of existingHistory) {
-          if (!seen.has(String(h.numero))) {
-            merged.push(h);
-            seen.add(String(h.numero));
-          }
+          const key = h.numero ? String(h.numero) : null;
+          if (!key || key === 'undefined' || seen.has(key)) continue;
+          merged.push(h);
+          seen.add(key);
         }
         enrichmentData.lojaintegrada_historico_pedidos = merged;
       }

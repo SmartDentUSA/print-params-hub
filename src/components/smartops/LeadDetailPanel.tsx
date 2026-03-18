@@ -870,6 +870,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           {/* 🛒 E-commerce Loja Integrada */}
           {(() => {
             const liHistorico = (Array.isArray(ld.lojaintegrada_historico_pedidos) ? [...ld.lojaintegrada_historico_pedidos] : [])
+              .filter((p: any) => p.numero && String(p.numero) !== 'undefined')
               .sort((a: any, b: any) => new Date(b.data || b.data_criacao || 0).getTime() - new Date(a.data || a.data_criacao || 0).getTime());
             const liLtv = Number(ld.lojaintegrada_ltv) || 0;
             const liTracking = ld.lojaintegrada_tracking_code || null;
