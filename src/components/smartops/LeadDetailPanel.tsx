@@ -314,7 +314,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
         items.forEach((item: any) => {
           const name = getItemName(item);
-          const qty = item.quantidade || item.quantity || 1;
+          const qty = item.qtd || item.quantidade || item.quantity || 1;
           allItems.push(`${name} (${qty}×)`);
         });
       });
@@ -450,7 +450,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       if (items.length > 0) {
         items.forEach((item: any) => {
-          const qty = Number(item.quantidade || item.quantity || 1);
+          const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
           const unitVal = Number(item.valor_unitario || item.unit_value || item.unit || item.value || 0);
           const totalVal = Number(item.valor_total || item.total_value || item.total || 0) || (qty * unitVal);
           allProposalItems.push({
@@ -557,7 +557,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
         const name = getItemName(item);
-        const qty = Number(item.quantidade || item.quantity || 1);
+        const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
         productAggMap[name].qty += qty;
@@ -590,6 +590,106 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   });
   const totalProductVal = Object.values(productMap).reduce((s, v) => s + v, 0);
   const top5Products = Object.entries(productMap).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, val]) => ({ name, val, pct: totalProductVal > 0 ? ((val / totalProductVal) * 100).toFixed(1) : "0" }));
+
+  // ── Flat Proposals Table ──
+  const flatProposals: { date: string; sigla: string; funil: string; itens: string; valor: number; frete: string; pgto: string; vendedor: string; status: string }[] = [];
+  allDeals.forEach((d: any) => {
+    const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+    proposals.forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      const itensSummary = items.length > 0
+        ? items.slice(0, 3).map((it: any) => `${it.qtd || it.quantidade || it.quantity || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        : d.product || "—";
+      const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
+      const freteTipo = prop.tipo_frete || prop.freight_type || "";
+      const freteStr = freteVal > 0 ? `${formatBRLFull(freteVal)}${freteTipo ? " " + freteTipo : ""}` : freteTipo || "—";
+      const parcelas = prop.parcelas || prop.payment_installments || null;
+      const pgtoStr = parcelas ? `${parcelas}×` : "—";
+      flatProposals.push({
+        date: d.created_at || "",
+        sigla: prop.sigla || prop.proposal_id || `PRO${prop.id || "?"}`,
+        funil: d.pipeline_name || "—",
+        itens: itensSummary,
+        valor: Number(prop.valor_ps || prop.value_products || prop.value || 0),
+        frete: freteStr,
+        pgto: pgtoStr,
+        vendedor: prop.vendedor || ownerDisplay(d.owner_name),
+        status: d.status || "aberto",
+      });
+    });
+    // Deal without proposals — still show a row
+    if (proposals.length === 0 && (Number(d.value) || 0) > 0) {
+      flatProposals.push({
+        date: d.created_at || "",
+        sigla: `Deal #${d.deal_id}`,
+        funil: d.pipeline_name || "—",
+        itens: d.product || "—",
+        valor: Number(d.value) || 0,
+        frete: "—",
+        pgto: "—",
+        vendedor: ownerDisplay(d.owner_name),
+        status: d.status || "aberto",
+      });
+    }
+  });
+
+  // ── Product Mix Intelligence (all won deals) ──
+  interface ProductMixItem {
+    cod: string;
+    name: string;
+    deals: Set<string>;
+    qtyTotal: number;
+    receita: number;
+    timestamps: number[]; // for trend calculation
+  }
+  const mixMap: Record<string, ProductMixItem> = {};
+  wonDeals.forEach((d: any) => {
+    const dealTs = new Date(d.created_at || 0).getTime();
+    const proposals = Array.isArray(d.proposals) ? d.proposals : [];
+    proposals.forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      items.forEach((item: any) => {
+        const name = getItemName(item);
+        const cod = String(item.item_id || item.cod || item.referencia || "—");
+        const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
+        const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
+        const key = name.toLowerCase().trim();
+        if (!mixMap[key]) {
+          mixMap[key] = { cod, name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+        }
+        mixMap[key].deals.add(String(d.deal_id));
+        mixMap[key].qtyTotal += qty;
+        mixMap[key].receita += total;
+        if (dealTs > 0) mixMap[key].timestamps.push(dealTs);
+      });
+    });
+  });
+  const totalMixReceita = Object.values(mixMap).reduce((s, m) => s + m.receita, 0);
+  const productMixRows = Object.values(mixMap)
+    .sort((a, b) => b.receita - a.receita)
+    .map((m) => {
+      // Trend calculation
+      let trend = "— Uma vez";
+      const sortedTs = [...m.timestamps].sort();
+      if (sortedTs.length >= 3) {
+        const midpoint = Math.floor(sortedTs.length / 2);
+        const firstHalf = sortedTs.slice(0, midpoint).length;
+        const secondHalf = sortedTs.slice(midpoint).length;
+        trend = secondHalf > firstHalf ? "↑ Crescendo" : secondHalf === firstHalf ? "→ Recorrente" : "↓ Diminuindo";
+      } else if (sortedTs.length === 2) {
+        const gap = sortedTs[1] - sortedTs[0];
+        trend = gap < 180 * 86400000 ? "→ Recorrente" : "→ Estável";
+      }
+      return {
+        cod: m.cod,
+        name: m.name,
+        deals: m.deals.size,
+        qtyTotal: m.qtyTotal,
+        receita: m.receita,
+        pctMix: totalMixReceita > 0 ? ((m.receita / totalMixReceita) * 100).toFixed(1) : "0",
+        trend,
+      };
+    });
 
 
   // Academy courses
@@ -737,13 +837,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                                             {getItemName(item)}
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>
-                                            {item.quantidade || item.quantity || 1}×
+                                            {item.qtd || item.quantidade || item.quantity || 1}×
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--accent2)" }}>
                                             {formatBRLFull(item.valor_unitario || item.unit_value || item.unit || 0)}
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--text)" }}>
-                                            {formatBRLFull(item.valor_total || item.total_value || item.total || ((item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || item.unit || 0)))}
+                                            {formatBRLFull(item.valor_total || item.total_value || item.total || ((item.qtd || item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || item.unit || 0)))}
                                           </span>
                                         </div>
                                       ))}
@@ -756,6 +856,43 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                         </React.Fragment>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* ── Tabela de Propostas (flat) ── */}
+          {flatProposals.length > 0 && (
+            <>
+              <div className="sec">📋 Propostas Detalhadas ({flatProposals.length})</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th><th>Proposta</th><th>Funil</th><th>Itens</th><th style={{ textAlign: "right" }}>Valor</th><th>Frete</th><th>Pgto</th><th>Vendedor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flatProposals.map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ fontSize: 10, whiteSpace: "nowrap" }}>{formatDate(p.date)}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{p.sigla}</span>
+                            <span className={`status-chip ${isWon(p.status) ? "s-ganho" : isLost(p.status) ? "s-perdido" : "s-aberto"}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+                              {isWon(p.status) ? "✓" : isLost(p.status) ? "✗" : "●"}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: 10, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.funil}</td>
+                        <td style={{ fontSize: 10, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--muted2)" }}>{p.itens}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(p.valor)}</td>
+                        <td style={{ fontSize: 10, color: "var(--muted2)" }}>{p.frete}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{p.pgto}</td>
+                        <td style={{ fontSize: 10, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.vendedor}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -779,6 +916,35 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                         <td style={{ maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{agg.qty}×</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(agg.totalVal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* ── Product Mix Intelligence ── */}
+          {productMixRows.length > 0 && (
+            <>
+              <div className="sec">📊 Product Mix Intelligence</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Cód</th><th>Produto</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Qtd Total</th><th style={{ textAlign: "right" }}>Receita</th><th style={{ textAlign: "right" }}>% Mix</th><th>Tendência</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productMixRows.map((row, i) => (
+                      <tr key={i}>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)" }}>{row.cod}</td>
+                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{row.deals}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{row.qtyTotal}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(row.receita)}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", fontWeight: 600 }}>{row.pctMix}%</td>
+                        <td style={{ fontSize: 11, color: row.trend.startsWith("↑") ? "var(--accent2)" : row.trend.startsWith("↓") ? "var(--hot)" : "var(--muted2)" }}>{row.trend}</td>
                       </tr>
                     ))}
                   </tbody>
