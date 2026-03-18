@@ -158,6 +158,64 @@ function parseLojaIntegradaPayload(order: Record<string, unknown>): {
 }
 
 /**
+ * Dual-auth fetch for Loja Integrada API.
+ * Strategy 1: Header auth (preferred). Strategy 2: Querystring fallback.
+ * Includes retry with backoff for rate limiting (429).
+ */
+async function apiFetchLI(
+  path: string,
+  apiKey: string,
+  appKey: string | null
+): Promise<Response> {
+  const MAX_RETRIES = 2;
+
+  // Strategy 1: Header auth
+  const headerAuth = `chave_api ${apiKey} aplicacao ${appKey || ''}`;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(`https://api.awsli.com.br${path}`, {
+      headers: { 'Authorization': headerAuth, 'Accept': 'application/json' },
+    });
+    if (res.status === 429) {
+      const wait = 1000 * Math.pow(2, attempt);
+      console.warn(`[ecommerce-webhook] Rate limit (header) → ${wait}ms`);
+      await res.text();
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    if (res.ok) {
+      console.log(`[ecommerce-webhook] ✅ LI fetch OK (header): ${path}`);
+      return res;
+    }
+    if (res.status === 401) {
+      console.warn(`[ecommerce-webhook] 401 with header auth, trying querystring...`);
+      await res.text();
+      break;
+    }
+    return res;
+  }
+
+  // Strategy 2: Querystring fallback
+  const qs = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
+  const sep = path.includes('?') ? '&' : '?';
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(`https://api.awsli.com.br${path}${sep}${qs}`, {
+      headers: { 'Accept': 'application/json' },
+    });
+    if (res.status === 429) {
+      const wait = 1000 * Math.pow(2, attempt);
+      console.warn(`[ecommerce-webhook] Rate limit (qs) → ${wait}ms`);
+      await res.text();
+      await new Promise(r => setTimeout(r, wait));
+      continue;
+    }
+    return res;
+  }
+
+  // All retries exhausted
+  return new Response("Rate limit exhausted", { status: 429 });
+}
+
+/**
  * If we only got a resource_uri, fetch full order data from LI API
  */
 async function fetchOrderFromLI(
@@ -166,14 +224,8 @@ async function fetchOrderFromLI(
   appKey: string | null
 ): Promise<Record<string, unknown> | null> {
   try {
-    const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
     const cleanUri = resourceUri.replace(/^\/api\//, '/');
-    const separator = cleanUri.includes('?') ? '&' : '?';
-    const url = `https://api.awsli.com.br${cleanUri}${separator}${authParams}`;
-
-    const res = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-    });
+    const res = await apiFetchLI(cleanUri, apiKey, appKey);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -203,18 +255,14 @@ async function fetchClienteFromLI(
   appKey: string | null
 ): Promise<Record<string, unknown> | null> {
   try {
-    // Extract client ID from URI like /api/v1/cliente/12345/ or /cliente/12345
     const match = clienteUri.match(/\/cliente\/(\d+)/);
     if (!match) {
       console.warn(`[ecommerce-webhook] Could not extract client ID from URI: ${clienteUri}`);
       return null;
     }
     const clienteId = match[1];
-    const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const url = `https://api.awsli.com.br/v1/cliente/${clienteId}/?${authParams}`;
-
     console.log(`[ecommerce-webhook] Fetching client ${clienteId} from LI API...`);
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const res = await apiFetchLI(`/v1/cliente/${clienteId}/`, apiKey, appKey);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -239,7 +287,6 @@ async function fetchClienteFromLI(
 const PAID_SITUACAO_CODIGOS = new Set([
   "pago", "pagamento_confirmado", "pagamento_aprovado",
   "em_producao", "pronto_envio", "enviado", "entregue",
-  // Loja Integrada returns codes with "pedido_" prefix
   "pedido_pago", "pedido_enviado", "pedido_entregue",
   "pedido_em_producao", "pedido_em_separacao", "pronto_para_envio",
 ]);
@@ -253,11 +300,8 @@ async function fetchClienteOrderHistory(
   appKey: string | null
 ): Promise<Array<Record<string, unknown>>> {
   try {
-    const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const url = `https://api.awsli.com.br/v1/pedido/?cliente_id=${clienteId}&limit=100&${authParams}`;
-
     console.log(`[ecommerce-webhook] Fetching order history for cliente ${clienteId}...`);
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const res = await apiFetchLI(`/v1/pedido/?cliente_id=${clienteId}&limit=100`, apiKey, appKey);
 
     if (!res.ok) {
       console.warn(`[ecommerce-webhook] Order history fetch failed: ${res.status}`);
