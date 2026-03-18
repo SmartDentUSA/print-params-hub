@@ -482,15 +482,15 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     origem_campanha: deal.origin?.name || (deal.origin_id ? String(deal.origin_id) : null),
     // PipeRun metadata preservation
     piperun_created_at: deal.created_at || null,
-    piperun_pipeline_id: deal.pipeline_id || null,
+    piperun_pipeline_id: deal.pipeline_id != null ? Number(deal.pipeline_id) : null, // Preserva 0 e valores falsy legítimos
     piperun_pipeline_name: deal.pipeline_id ? PIPELINE_NAMES[deal.pipeline_id] || null : null,
-    piperun_stage_id: deal.stage_id || null,
+    piperun_stage_id: deal.stage_id != null ? Number(deal.stage_id) : null, // Preserva 0 e valores falsy legítimos
     piperun_stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
     piperun_status: deal.status ?? null,
-    piperun_owner_id: deal.owner_id || null,
-    pessoa_piperun_id: deal.person_id || null,
-    empresa_piperun_id: deal.company_id || null,
-    piperun_origin_id: deal.origin_id || null,
+    piperun_owner_id: deal.owner_id != null ? Number(deal.owner_id) : null, // Preserva 0 e valores falsy legítimos
+    pessoa_piperun_id: deal.person_id != null ? Number(deal.person_id) : null, // Preserva 0 e valores falsy legítimos
+    empresa_piperun_id: deal.company_id != null ? Number(deal.company_id) : null, // Preserva 0 e valores falsy legítimos
+    piperun_origin_id: deal.origin_id != null ? Number(deal.origin_id) : null, // Preserva 0 e valores falsy legítimos
     piperun_origin_name: deal.origin?.name || null,
     piperun_title: deal.title || null,
     // ─── Deal deep metadata ───
