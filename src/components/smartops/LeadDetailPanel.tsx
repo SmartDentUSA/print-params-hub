@@ -531,11 +531,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   wonDeals.forEach((d: any) => {
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
     proposals.forEach((prop: any) => {
-      const items = Array.isArray(prop.items) ? prop.items : [];
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = (item.nome || item.name || item.product_name || "Produto").trim();
+        const name = getItemName(item);
         const qty = Number(item.quantidade || item.quantity || 1);
-        const total = Number(item.valor_total || item.total_value || qty * Number(item.valor_unitario || item.unit_value || 0));
+        const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
         productAggMap[name].qty += qty;
         productAggMap[name].totalVal += total;
