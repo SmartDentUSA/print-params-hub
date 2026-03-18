@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, lead_id, force_refresh } = await req.json();
+    const { email, lead_id, force_refresh, manual_data } = await req.json();
 
     if (!email && !lead_id) {
       return new Response(
