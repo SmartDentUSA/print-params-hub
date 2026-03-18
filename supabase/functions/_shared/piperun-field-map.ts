@@ -26,6 +26,7 @@ export const PIPELINES = {
   INTERESSE_CURSOS: 93303,
   INSUMOS: 100412,
   ECOMMERCE: 102702,
+  GANHOS_ALEATORIOS: 104500,
 } as const;
 
 export const PIPELINE_NAMES: Record<number, string> = {
@@ -40,6 +41,7 @@ export const PIPELINE_NAMES: Record<number, string> = {
   [PIPELINES.INTERESSE_CURSOS]: "Interesse em cursos",
   [PIPELINES.INSUMOS]: "Funil Insumos",
   [PIPELINES.ECOMMERCE]: "Funil E-commerce",
+  [PIPELINES.GANHOS_ALEATORIOS]: "Ganhos Aleatórios",
 };
 
 // ─── Stages (Etapas) ───
