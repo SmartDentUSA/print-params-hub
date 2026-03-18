@@ -24,7 +24,7 @@ const isValidItem = (item: any): boolean => {
 };
 
 const getItemName = (item: any): string => {
-  const raw = item.nome || item.name || item.product_name || "";
+  const raw = item.product_name || item.nome || item.name || "";
   const cleaned = stripHtml(raw);
   return cleaned || "Produto";
 };
@@ -165,13 +165,14 @@ interface TLEvent {
 
 // ─── Cognitive analysis call ───
 async function runCognitiveAnalysis(leadId: string): Promise<string> {
-  const res = await fetch(`${API_BASE}/smart-ops-cognitive-analysis`, {
+  const res = await fetch(`${API_BASE}/cognitive-lead-analysis`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ lead_id: leadId }),
+    body: JSON.stringify({ leadId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Erro na análise");
+  if (data.skip) throw new Error(`Análise não disponível: ${data.skip === "insufficient_messages" ? "Lead precisa de pelo menos 5 mensagens com a Dra. LIA" : data.skip}`);
   return data.analysis;
 }
 
