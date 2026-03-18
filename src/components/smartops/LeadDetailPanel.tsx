@@ -450,7 +450,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       if (items.length > 0) {
         items.forEach((item: any) => {
-          const qty = Number(item.quantidade || item.quantity || 1);
+          const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
           const unitVal = Number(item.valor_unitario || item.unit_value || item.unit || item.value || 0);
           const totalVal = Number(item.valor_total || item.total_value || item.total || 0) || (qty * unitVal);
           allProposalItems.push({
