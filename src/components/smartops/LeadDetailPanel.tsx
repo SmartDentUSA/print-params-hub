@@ -1002,12 +1002,29 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
           {/* 🎓 Academy section */}
           <div className="sec">🎓 Academy</div>
-          {(astronCourses.length > 0 || ld.astron_courses_total > 0) ? (
+          {(astronCourses.length > 0 || ld.astron_courses_total > 0 || ld.astron_status === 'active') ? (
             <>
-              <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, color: "var(--muted2)" }}>
+              <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, color: "var(--muted2)", flexWrap: "wrap" }}>
                 {ld.astron_created_at && <span>📅 Inscrito em: {formatDate(ld.astron_created_at)}</span>}
-                {ld.astron_status && <span>Status: <strong style={{ color: "var(--text)" }}>{ld.astron_status}</strong></span>}
-                <span>{ld.astron_courses_completed}/{ld.astron_courses_total} cursos concluídos</span>
+                {ld.astron_last_login_at && <span>🕐 Último login: {formatDate(ld.astron_last_login_at)}</span>}
+                {ld.astron_status && <span>Status: <strong style={{ color: ld.astron_status === 'active' ? "var(--accent2)" : "var(--text)" }}>{ld.astron_status}</strong></span>}
+                {ld.astron_courses_total > 0 && <span>{ld.astron_courses_completed}/{ld.astron_courses_total} cursos concluídos</span>}
+                {(() => {
+                  const access = Array.isArray(ld.astron_courses_access) ? ld.astron_courses_access : [];
+                  const pctEntry = access.find((a: any) => a?.percentual_conclusao != null);
+                  if (pctEntry && ld.astron_courses_total === 0) {
+                    return <span>📊 Conclusão geral: <strong style={{ color: "var(--blue)" }}>{pctEntry.percentual_conclusao}%</strong></span>;
+                  }
+                  return null;
+                })()}
+              </div>
+              {ld.astron_login_url && (
+                <div style={{ marginBottom: 12, fontSize: 11 }}>
+                  <a href={ld.astron_login_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--blue)", textDecoration: "underline" }}>
+                    🔗 Acessar Academy
+                  </a>
+                </div>
+              )}
               </div>
               {astronCourses.length > 0 && (
                 <div style={{ border: "1px solid var(--border2)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
