@@ -96,8 +96,9 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     .order("piperun_created_at", { ascending: false })
     .limit(50);
 
-  // Attach deals to lead for timeline
-  lead.piperun_deals_history = (deals || []).map((d: any) => ({
+  // ─── Merge JSONB history + table deals, pick richest source ───
+  const jsonbDeals = (Array.isArray(lead.piperun_deals_history) ? lead.piperun_deals_history : []) as any[];
+  const tableDeals = (deals || []).map((d: any) => ({
     deal_id: d.piperun_deal_id || d.id,
     pipeline_name: d.pipeline_name,
     stage_name: d.stage_name,
@@ -109,14 +110,15 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     proposals: d.proposals || [],
   }));
 
-  // Compute LTV & total_deals from deals
-  const wonDeals = (deals || []).filter((d: any) => d.status === "won" || d.status === "ganha");
-  if (!lead.ltv_total) {
-    lead.ltv_total = wonDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0);
-  }
-  if (!lead.total_deals) {
-    lead.total_deals = wonDeals.length;
-  }
+  // Use whichever source has more deals (JSONB history is typically more complete)
+  const allDealsList = jsonbDeals.length >= tableDeals.length ? jsonbDeals : tableDeals;
+  lead.piperun_deals_history = allDealsList;
+
+  // ALWAYS recalculate LTV & total_deals from deal history (never trust stale columns)
+  const WON_STATUSES = ["ganha", "won", "Ganha"];
+  const wonDeals = allDealsList.filter((d: any) => WON_STATUSES.includes(d.status || ""));
+  lead.ltv_total = wonDeals.reduce((sum: number, d: any) => sum + (Number(d.value) || 0), 0);
+  lead.total_deals = wonDeals.length;
 
   // 5. Opportunities
   const { data: opportunities } = await supabase

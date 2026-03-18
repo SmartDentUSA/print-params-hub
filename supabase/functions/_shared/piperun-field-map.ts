@@ -41,6 +41,7 @@ export const PIPELINE_NAMES: Record<number, string> = {
   [PIPELINES.INTERESSE_CURSOS]: "Interesse em cursos",
   [PIPELINES.INSUMOS]: "Funil Insumos",
   [PIPELINES.ECOMMERCE]: "Funil E-commerce",
+  [PIPELINES.GANHOS_ALEATORIOS]: "Ganhos Aleatórios",
 };
 
 // ─── Stages (Etapas) ───
