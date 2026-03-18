@@ -99,6 +99,7 @@ interface ProposalSnapshot {
 interface DealSnapshot {
   deal_id: string;
   deal_hash: string | null;
+  deal_title: string | null;
   pipeline_id: number | undefined;
   pipeline_name: string | null;
   stage_name: string | null;
@@ -280,8 +281,8 @@ async function processDeal(
             nome: stripHtml(it.name || it.description || ""),
             tipo: it.type || "Produto",
             qtd: Number(it.quantity) || 1,
-            unit: Number(it.unit_value || it.unit_price || 0),
-            total: Number(it.total_value || it.total || 0),
+            unit: Number(it.value || it.unit_value || it.unit_price || 0),
+            total: Number(it.value || 0) * (Number(it.quantity) || 1),
             categoria: it.category || "",
           });
         }
@@ -310,6 +311,7 @@ async function processDeal(
   const dealSnapshot: DealSnapshot = {
     deal_id: dealId,
     deal_hash: deal.hash || null,
+    deal_title: stripHtml((deal as any).title || "") || null,
     pipeline_id: deal.pipeline_id,
     pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
     stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
