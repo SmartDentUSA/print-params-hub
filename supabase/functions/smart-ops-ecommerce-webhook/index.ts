@@ -211,7 +211,7 @@ async function fetchClienteFromLI(
     }
     const clienteId = match[1];
     const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const url = `https://api.awsli.com.br/api/v1/cliente/${clienteId}/?${authParams}`;
+    const url = `https://api.awsli.com.br/v1/cliente/${clienteId}/?${authParams}`;
 
     console.log(`[ecommerce-webhook] Fetching client ${clienteId} from LI API...`);
     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
