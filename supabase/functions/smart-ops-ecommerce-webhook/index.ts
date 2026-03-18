@@ -167,8 +167,9 @@ async function fetchOrderFromLI(
 ): Promise<Record<string, unknown> | null> {
   try {
     const authParams = `chave_api=${encodeURIComponent(apiKey)}&chave_aplicacao=${encodeURIComponent(appKey || '')}`;
-    const separator = resourceUri.includes('?') ? '&' : '?';
-    const url = `https://api.awsli.com.br${resourceUri}${separator}${authParams}`;
+    const cleanUri = resourceUri.replace(/^\/api\//, '/');
+    const separator = cleanUri.includes('?') ? '&' : '?';
+    const url = `https://api.awsli.com.br${cleanUri}${separator}${authParams}`;
 
     const res = await fetch(url, {
       headers: { 'Accept': 'application/json' },
