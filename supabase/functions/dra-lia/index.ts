@@ -1752,11 +1752,27 @@ Campos:
       let responseText: string;
       let returningLeadSummary: string | null = null;
       try {
-        const { data: existingLead } = await supabase
+        let existingLead: { id: string; name: string } | null = null;
+        const { data: legacyLead } = await supabase
           .from("leads")
           .select("id, name")
           .eq("email", leadState.email)
           .maybeSingle();
+        if (legacyLead && legacyLead.name) {
+          existingLead = legacyLead;
+        }
+
+        // Fallback: check lia_attendances (many leads only exist here)
+        if (!existingLead) {
+          const { data: liaLead } = await supabase
+            .from("lia_attendances")
+            .select("id, nome")
+            .eq("email", leadState.email)
+            .maybeSingle();
+          if (liaLead && liaLead.nome) {
+            existingLead = { id: liaLead.id, name: liaLead.nome };
+          }
+        }
 
         if (existingLead && existingLead.name) {
           // RETURNING LEAD — found in DB, skip name collection
