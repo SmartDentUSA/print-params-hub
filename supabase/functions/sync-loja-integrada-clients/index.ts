@@ -96,24 +96,28 @@ Deno.serve(async (req) => {
   async function enrichWithOrders(leadId: string, clienteId: number) {
     try {
       const ordersRes = await apiFetch(`/pedido/?cliente_id=${clienteId}&limit=100`);
-      const pedidos = ordersRes?.objects || [];
-      if (pedidos.length === 0) return { orders_found: 0 };
+    const pedidosRaw = ordersRes?.objects || [];
 
-      // Build history array with dedup by numero
-      const { data: existing } = await supabase
-        .from('lia_attendances')
-        .select('lojaintegrada_historico_pedidos')
-        .eq('id', leadId)
-        .single();
+      // ── Filtrar apenas pedidos que realmente pertencem a este cliente ──
+      // O endpoint /pedido/?cliente_id=X NÃO filtra — retorna os primeiros pedidos da loja inteira.
+      // O campo "cliente" é uma URI string "/api/v1/cliente/{id}" ou um objeto com { id }.
+      const pedidosReais = pedidosRaw.filter((p: any) => {
+        const clienteRef = p.cliente;
+        if (!clienteRef) return false;
+        if (typeof clienteRef === 'string') {
+          return clienteRef.includes(`/cliente/${clienteId}`);
+        }
+        if (typeof clienteRef === 'object') {
+          return clienteRef.id === clienteId || String(clienteRef.id) === String(clienteId);
+        }
+        return false;
+      });
+      console.log(`[sync-li-clients] Pedidos API: ${pedidosRaw.length}, reais do cliente ${clienteId}: ${pedidosReais.length}`);
 
-      const rawHistory: any[] = Array.isArray(existing?.lojaintegrada_historico_pedidos)
-        ? existing.lojaintegrada_historico_pedidos : [];
-      // Purge legacy entries that lack situacao_aprovado (old fictitious format)
-      const existingHistory = rawHistory.filter((h: any) => h.situacao_aprovado !== undefined);
-      const existingNumeros = new Set(existingHistory.map((h: any) => h.numero));
+      if (pedidosReais.length === 0) return { orders_found: pedidosRaw.length, real_orders: 0 };
 
-      const newOrders = pedidos
-        .filter((p: any) => !existingNumeros.has(p.numero))
+      // ── Substituir completamente o histórico (purga pedidos fantasmas antigos) ──
+      const newOrders = pedidosReais
         .map((p: any) => ({
           numero: p.numero,
           id: p.id,
@@ -131,32 +135,28 @@ Deno.serve(async (req) => {
           situacao_cancelado: p.situacao?.cancelado || false,
         }));
 
-      if (newOrders.length === 0) return { orders_found: pedidos.length, new_orders: 0 };
-
-      const mergedHistory = [...existingHistory, ...newOrders];
-
       // Calc LTV from approved orders
-      const approvedOrders = mergedHistory.filter((o: any) => o.situacao_aprovado && !o.situacao_cancelado);
+      const approvedOrders = newOrders.filter((o: any) => o.situacao_aprovado && !o.situacao_cancelado);
       const ltvTotal = approvedOrders.reduce((sum: number, o: any) => sum + parseFloat(o.valor_total || '0'), 0);
-      const lastOrderDate = mergedHistory
-        .map((o: any) => o.data_criacao)
-        .filter(Boolean)
-        .sort()
-        .pop() || null;
+      const lastOrder = newOrders
+        .sort((a: any, b: any) => (a.data_criacao || '').localeCompare(b.data_criacao || ''))
+        .pop();
 
       await supabase
         .from('lia_attendances')
         .update({
-          lojaintegrada_historico_pedidos: mergedHistory,
-          lojaintegrada_total_pedidos: mergedHistory.length,
-          lojaintegrada_pedidos_aprovados: approvedOrders.length,
+          lojaintegrada_historico_pedidos: newOrders,
+          lojaintegrada_total_pedidos_pagos: approvedOrders.length,
           ltv_total: ltvTotal > 0 ? ltvTotal : undefined,
-          lojaintegrada_ultimo_pedido: lastOrderDate,
+          lojaintegrada_ultimo_pedido_data: lastOrder?.data_criacao || null,
+          lojaintegrada_ultimo_pedido_valor: lastOrder ? parseFloat(lastOrder.valor_total || '0') : null,
+          lojaintegrada_ultimo_pedido_numero: lastOrder?.numero || null,
+          lojaintegrada_ultimo_pedido_status: lastOrder?.situacao_nome || null,
           lojaintegrada_updated_at: new Date().toISOString(),
         })
         .eq('id', leadId);
 
-      return { orders_found: pedidos.length, new_orders: newOrders.length };
+      return { orders_found: pedidosRaw.length, real_orders: newOrders.length, new_orders: newOrders.length };
     } catch (e) {
       console.warn(`[sync-li-clients] Order enrichment failed for lead ${leadId}: ${e}`);
       return { orders_found: 0, error: (e as Error).message };
