@@ -1926,6 +1926,23 @@ REGRAS:
             if (attendance.astron_login_url) {
               profileFields.push(`Login Astron: ${attendance.astron_login_url}`);
             }
+            // Fetch individual course details from lead_course_progress
+            try {
+              const { data: courseProgress } = await supabase
+                .from("lead_course_progress")
+                .select("course_name, status, progress_pct, lessons_completed, lessons_total, started_at")
+                .eq("lead_id", attendance.id)
+                .order("started_at", { ascending: false })
+                .limit(10);
+              if (courseProgress && courseProgress.length > 0) {
+                const courseLines = courseProgress.map((c: Record<string, unknown>) =>
+                  `• ${c.course_name}: ${c.progress_pct || 0}% (${c.lessons_completed || 0}/${c.lessons_total || '?'} aulas) - ${c.status} - Início: ${c.started_at ? new Date(String(c.started_at)).toLocaleDateString("pt-BR") : "?"}`
+                ).join("\n");
+                profileFields.push(`📚 Cursos detalhados:\n${courseLines}`);
+              }
+            } catch (courseErr) {
+              console.warn("[dra-lia] Failed to fetch course progress:", courseErr);
+            }
           }
           // Financial & deal history context
           if (attendance?.ltv_total && Number(attendance.ltv_total) > 0) profileFields.push(`💰 LTV: R$ ${Number(attendance.ltv_total).toLocaleString("pt-BR")}`);
