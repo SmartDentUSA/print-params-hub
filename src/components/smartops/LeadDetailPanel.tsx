@@ -862,6 +862,43 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </>
           )}
 
+          {/* ── Tabela de Propostas (flat) ── */}
+          {flatProposals.length > 0 && (
+            <>
+              <div className="sec">📋 Propostas Detalhadas ({flatProposals.length})</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th><th>Proposta</th><th>Funil</th><th>Itens</th><th style={{ textAlign: "right" }}>Valor</th><th>Frete</th><th>Pgto</th><th>Vendedor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flatProposals.map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ fontSize: 10, whiteSpace: "nowrap" }}>{formatDate(p.date)}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{p.sigla}</span>
+                            <span className={`status-chip ${isWon(p.status) ? "s-ganho" : isLost(p.status) ? "s-perdido" : "s-aberto"}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+                              {isWon(p.status) ? "✓" : isLost(p.status) ? "✗" : "●"}
+                            </span>
+                          </div>
+                        </td>
+                        <td style={{ fontSize: 10, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.funil}</td>
+                        <td style={{ fontSize: 10, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--muted2)" }}>{p.itens}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(p.valor)}</td>
+                        <td style={{ fontSize: 10, color: "var(--muted2)" }}>{p.frete}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{p.pgto}</td>
+                        <td style={{ fontSize: 10, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.vendedor}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
           {/* ── Produtos mais vendidos ── */}
           {topProducts.length > 0 && (
             <>
@@ -879,6 +916,35 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                         <td style={{ maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{agg.qty}×</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(agg.totalVal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* ── Product Mix Intelligence ── */}
+          {productMixRows.length > 0 && (
+            <>
+              <div className="sec">📊 Product Mix Intelligence</div>
+              <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
+                <table className="deal-table">
+                  <thead>
+                    <tr>
+                      <th>Cód</th><th>Produto</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Qtd Total</th><th style={{ textAlign: "right" }}>Receita</th><th style={{ textAlign: "right" }}>% Mix</th><th>Tendência</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productMixRows.map((row, i) => (
+                      <tr key={i}>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)" }}>{row.cod}</td>
+                        <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{row.deals}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right" }}>{row.qtyTotal}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", color: "var(--accent2)" }}>{formatBRLFull(row.receita)}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "right", fontWeight: 600 }}>{row.pctMix}%</td>
+                        <td style={{ fontSize: 11, color: row.trend.startsWith("↑") ? "var(--accent2)" : row.trend.startsWith("↓") ? "var(--hot)" : "var(--muted2)" }}>{row.trend}</td>
                       </tr>
                     ))}
                   </tbody>
