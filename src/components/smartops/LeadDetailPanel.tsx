@@ -336,8 +336,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
-    // Activity log events (e-commerce, forms, SDR, etc.)
-    (detail?.activity_log || []).forEach((ev) => {
+    // Activity log events (e-commerce, forms, SDR, etc.) — deduplicate by event_type+entity_id
+    const seenActivityKeys = new Set<string>();
+    const dedupedActivityLogs = (detail?.activity_log || []).filter((ev: any) => {
+      if (!ev.entity_id) return true;
+      const key = `${ev.event_type}|${ev.entity_id}`;
+      if (seenActivityKeys.has(key)) return false;
+      seenActivityKeys.add(key);
+      return true;
+    });
+    dedupedActivityLogs.forEach((ev: any) => {
       const isEcommerce = ev.source_channel === "ecommerce";
       const evData = ev.event_data || {};
       const ecommerceDetail: Record<string, string> = {};
@@ -861,7 +869,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
           {/* 🛒 E-commerce Loja Integrada */}
           {(() => {
-            const liHistorico = Array.isArray(ld.lojaintegrada_historico_pedidos) ? ld.lojaintegrada_historico_pedidos : [];
+            const liHistorico = (Array.isArray(ld.lojaintegrada_historico_pedidos) ? [...ld.lojaintegrada_historico_pedidos] : [])
+              .sort((a: any, b: any) => new Date(b.data || b.data_criacao || 0).getTime() - new Date(a.data || a.data_criacao || 0).getTime());
             const liLtv = Number(ld.lojaintegrada_ltv) || 0;
             const liTracking = ld.lojaintegrada_tracking_code || null;
             const liTotalPedidos = Number(ld.lojaintegrada_total_pedidos_pagos) || 0;
