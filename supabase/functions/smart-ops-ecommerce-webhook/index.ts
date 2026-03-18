@@ -879,9 +879,9 @@ Deno.serve(async (req) => {
         cart_id: String(numeroPedido),
         items: cartItems,
         total_value: valorTotal || 0,
-        created_at: new Date().toISOString(),
+        created_at: liPedidoData || new Date().toISOString(),
         status: eventType === "boleto_expired" ? "abandoned" : "active",
-        abandoned_at: eventType === "boleto_expired" ? new Date().toISOString() : null,
+        abandoned_at: eventType === "boleto_expired" ? (liPedidoData || new Date().toISOString()) : null,
         abandoned_reason: eventType === "boleto_expired" ? "boleto_vencido" : null,
       }, { onConflict: "cart_id" }).then(({ error: cartErr }) => {
         if (cartErr) console.warn("[ecommerce-webhook] cart_history upsert error:", cartErr.message);
