@@ -260,6 +260,46 @@ async function processDeal(
     ? (DEAL_STATUS_MAP[deal.status] || "aberta")
     : "aberta";
 
+  // Extract proposals from deal
+  const proposalSnapshots: ProposalSnapshot[] = [];
+  if (Array.isArray(deal.proposals)) {
+    for (const prop of deal.proposals as any[]) {
+      const items: ProposalItem[] = [];
+      if (Array.isArray(prop.items)) {
+        for (const it of prop.items) {
+          items.push({
+            item_id: String(it.id || it.item_id || ""),
+            nome: it.name || it.description || "",
+            tipo: it.type || "Produto",
+            qtd: Number(it.quantity) || 1,
+            unit: Number(it.unit_value || it.unit_price || 0),
+            total: Number(it.total_value || it.total || 0),
+            categoria: it.category || "",
+          });
+        }
+      }
+      proposalSnapshots.push({
+        id: prop.id || "",
+        sigla: prop.initials || prop.sigla || "",
+        status: prop.status || "",
+        vendedor: prop.seller_name || prop.vendedor || ownerName || "",
+        tipo_frete: prop.freight_type || "",
+        valor_frete: Number(prop.freight_value || 0),
+        valor_ps: Number(prop.value || prop.total_value || 0),
+        valor_mrr: Number(prop.value_mrr || 0),
+        parcelas: Number(prop.installments || 0),
+        items,
+      });
+    }
+  }
+
+  // Determine owner info
+  const ownerUser = deal.owner_id ? PIPERUN_USERS[deal.owner_id] : null;
+
+  // Extract value breakdown
+  const totalFreight = proposalSnapshots.reduce((s, p) => s + p.valor_frete, 0);
+  const totalMrr = deal.value_mrr != null ? Number(deal.value_mrr) : 0;
+
   const dealSnapshot: DealSnapshot = {
     deal_id: dealId,
     deal_hash: deal.hash || null,
@@ -267,10 +307,18 @@ async function processDeal(
     pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
     stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
     status: dealStatus,
-    value: deal.value != null ? Number(deal.value) : null, // Preserva 0 e valores falsy legítimos
+    value: deal.value != null ? Number(deal.value) : null,
+    value_products: deal.value != null ? Number(deal.value) - totalFreight : null,
+    value_freight: totalFreight || null,
+    value_mrr: totalMrr || null,
     created_at: deal.created_at || null,
     closed_at: deal.closed_at || null,
     product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
+    owner_name: ownerName,
+    owner_email: ownerUser?.email || null,
+    origem: deal.origin?.name || null,
+    synced_at: new Date().toISOString(),
+    proposals: proposalSnapshots,
   };
 
   if (currentLead) {
