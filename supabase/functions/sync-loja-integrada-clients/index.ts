@@ -106,8 +106,10 @@ Deno.serve(async (req) => {
         .eq('id', leadId)
         .single();
 
-      const existingHistory: any[] = Array.isArray(existing?.lojaintegrada_historico_pedidos)
+      const rawHistory: any[] = Array.isArray(existing?.lojaintegrada_historico_pedidos)
         ? existing.lojaintegrada_historico_pedidos : [];
+      // Purge legacy entries that lack situacao_aprovado (old fictitious format)
+      const existingHistory = rawHistory.filter((h: any) => h.situacao_aprovado !== undefined);
       const existingNumeros = new Set(existingHistory.map((h: any) => h.numero));
 
       const newOrders = pedidos
