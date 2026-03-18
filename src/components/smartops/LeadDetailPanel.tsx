@@ -419,26 +419,39 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
   const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
 
-  // Consolidated proposal items
+  // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
   allDeals.forEach((d: any) => {
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
     proposals.forEach((prop: any) => {
-      const items = Array.isArray(prop.items) ? prop.items : [];
-      items.forEach((item: any) => {
-        const qty = Number(item.quantidade || item.quantity || 1);
-        const unitVal = Number(item.valor_unitario || item.unit_value || 0);
-        const totalVal = Number(item.valor_total || item.total_value || qty * unitVal);
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const qty = Number(item.quantidade || item.quantity || 1);
+          const unitVal = Number(item.valor_unitario || item.unit_value || item.unit || 0);
+          const totalVal = Number(item.valor_total || item.total_value || item.total || qty * unitVal);
+          allProposalItems.push({
+            dealId: String(d.deal_id || "—"),
+            proposalId: String(prop.proposal_id || prop.id || "—"),
+            name: getItemName(item),
+            qty,
+            unitVal,
+            totalVal,
+            dealStatus: d.status || "aberto",
+          });
+        });
+      } else if (Number(prop.valor_ps || prop.value || 0) > 0) {
+        // No valid items but proposal has value — show summary line
         allProposalItems.push({
           dealId: String(d.deal_id || "—"),
-          proposalId: String(prop.proposal_id || "—"),
-          name: item.nome || item.name || item.product_name || "Produto",
-          qty,
-          unitVal,
-          totalVal,
+          proposalId: String(prop.proposal_id || prop.id || "—"),
+          name: prop.sigla || "Proposta",
+          qty: 1,
+          unitVal: Number(prop.valor_ps || prop.value || 0),
+          totalVal: Number(prop.valor_ps || prop.value || 0),
           dealStatus: d.status || "aberto",
         });
-      });
+      }
     });
   });
 
