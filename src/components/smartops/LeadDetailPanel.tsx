@@ -685,7 +685,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                           </tr>
                           {proposals.map((prop: any, pi: number) => {
                             const validItems = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
-                            const items = Array.isArray(prop.items) ? prop.items : [];
+                            const items = validItems;
                             return (
                               <tr key={`prop-${i}-${pi}`} style={{ background: "var(--surface2)" }}>
                                 <td colSpan={7} style={{ padding: "8px 16px" }}>
