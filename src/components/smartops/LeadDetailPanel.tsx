@@ -298,10 +298,10 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
       events.push({
         date: d.created_at,
-        dotCls: d.status === "ganha" ? "tl-dot-buy" : d.status === "perdida" ? "tl-dot-hot" : "tl-dot-crm",
-        title: `Deal #${d.deal_id} — ${d.pipeline_name || ""}`,
-        desc: d.stage_name || "",
-        tags: [d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"],
+      dotCls: isWon(d.status) ? "tl-dot-buy" : isLost(d.status) ? "tl-dot-hot" : "tl-dot-crm",
+      title: `Deal #${d.deal_id} — ${d.pipeline_name || ""}`,
+      desc: d.stage_name || "",
+      tags: [isWon(d.status) ? "✓ Ganho" : isLost(d.status) ? "✗ Perdido" : "● Aberto"],
         detail: {
           Valor: formatBRLFull(d.value),
           Status: d.status,
