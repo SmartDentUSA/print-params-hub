@@ -571,7 +571,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
 
   // Academy courses
-  const astronCourses = (ld.astron_courses_access as any[]) || [];
+  const astronCourses = Array.isArray(ld.astron_courses_access) ? (ld.astron_courses_access as any[]) : [];
 
   // LIS ring
   const radius = 40;
