@@ -66,6 +66,29 @@ const SYNC_PIPELINES = [
 
 // ─── Deal Snapshot for history ───
 
+interface ProposalItem {
+  item_id: string;
+  nome: string;
+  tipo: string;
+  qtd: number;
+  unit: number;
+  total: number;
+  categoria: string;
+}
+
+interface ProposalSnapshot {
+  id: string | number;
+  sigla: string;
+  status: string;
+  vendedor: string;
+  tipo_frete: string;
+  valor_frete: number;
+  valor_ps: number;
+  valor_mrr: number;
+  parcelas: number;
+  items: ProposalItem[];
+}
+
 interface DealSnapshot {
   deal_id: string;
   deal_hash: string | null;
@@ -74,9 +97,17 @@ interface DealSnapshot {
   stage_name: string | null;
   status: string;
   value: number | null;
+  value_products: number | null;
+  value_freight: number | null;
+  value_mrr: number | null;
   created_at: string | null;
   closed_at: string | null;
   product: string | null;
+  owner_name: string | null;
+  owner_email: string | null;
+  origem: string | null;
+  synced_at: string;
+  proposals: ProposalSnapshot[];
 }
 
 function upsertDealHistory(
