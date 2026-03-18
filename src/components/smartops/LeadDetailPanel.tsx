@@ -658,7 +658,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
         const name = getItemName(item);
-        const cod = String(item.item_id || item.cod || item.referencia || "—");
+        const cod = String(item.sku || item.external_code || item.item_id || item.cod || item.referencia || "—");
         const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         const key = name.toLowerCase().trim();
