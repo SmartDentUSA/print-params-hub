@@ -571,7 +571,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
 
   // Academy courses
-  const astronCourses = (ld.astron_courses_access as any[]) || [];
+  const astronCourses = Array.isArray(ld.astron_courses_access) ? (ld.astron_courses_access as any[]) : [];
 
   // LIS ring
   const radius = 40;
@@ -1014,6 +1014,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                   )}
                 </div>
               ))}
+            </div>
+          ) : cog?.ai_narrative ? (
+            <div className="cog-card" style={{ marginTop: 16 }}>
+              <h4>🧠 Análise Cognitiva</h4>
+              <p style={{ lineHeight: 1.7, fontSize: 13, whiteSpace: "pre-line" }}>{cog.ai_narrative}</p>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+                ⚠️ Formato simplificado. Clique "↺ Reanalisar" para gerar cards estruturados.
+              </div>
             </div>
           ) : (
             <div className="cog-card" style={{ marginTop: 16 }}>
