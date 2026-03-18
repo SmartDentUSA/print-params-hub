@@ -351,8 +351,8 @@ function enrichWithOrderHistory(
   });
 
   const extraUpdateData: Record<string, unknown> = {
-    lojaintegrada_ltv: ltv || null,
-    lojaintegrada_total_pedidos_pagos: totalPedidosPagos || null,
+    lojaintegrada_ltv: ltv != null ? ltv : null,
+    lojaintegrada_total_pedidos_pagos: totalPedidosPagos != null ? totalPedidosPagos : null,
     // Append-only: will be merged with existing history in upsert logic
     lojaintegrada_historico_pedidos: allOrderSnapshots,
   };

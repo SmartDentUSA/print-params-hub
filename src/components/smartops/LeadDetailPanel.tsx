@@ -40,6 +40,19 @@ interface Opportunity {
   value_est_brl: number;
 }
 
+interface ActivityLogEvent {
+  id: string;
+  event_type: string;
+  entity_type: string | null;
+  entity_id: string | null;
+  entity_name: string | null;
+  event_data: Record<string, any> | null;
+  source_channel: string | null;
+  value_numeric: number | null;
+  event_timestamp: string;
+  created_at: string;
+}
+
 interface DetailResponse {
   lead: Record<string, any>;
   person: Record<string, any> | null;
@@ -49,6 +62,7 @@ interface DetailResponse {
   portfolio_embed_url: string | null;
   support_tickets: SupportTicket[];
   support_summary: SupportSummary | null;
+  activity_log: ActivityLogEvent[];
 }
 
 type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes";
@@ -299,7 +313,25 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
-    // (E-commerce orders removed — data was fake)
+    // Activity log events (e-commerce, forms, SDR, etc.)
+    (detail?.activity_log || []).forEach((ev) => {
+      const isEcommerce = ev.source_channel === "ecommerce";
+      const evData = ev.event_data || {};
+      events.push({
+        date: ev.event_timestamp || ev.created_at,
+        dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
+        title: isEcommerce
+          ? `🛒 ${(ev.event_type || "").replace("ecommerce_", "")} — Pedido #${evData.pedido || ev.entity_id || "?"}`
+          : ev.event_type || "Evento",
+        desc: ev.entity_name || (evData.produtos ? evData.produtos.join(", ") : "") || "",
+        tags: evData.tags_added?.slice(0, 3) || [],
+        detail: {
+          ...(evData.valor ? { Valor: formatBRLFull(evData.valor) } : {}),
+          ...(evData.status ? { Status: evData.status } : {}),
+          ...(evData.fonte ? { Fonte: evData.fonte } : {}),
+        },
+      });
+    });
 
     // Academy
     if (ld.astron_courses_total > 0) {
