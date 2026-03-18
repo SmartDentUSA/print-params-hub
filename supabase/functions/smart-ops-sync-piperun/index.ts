@@ -277,7 +277,7 @@ async function processDeal(
         for (const it of prop.items) {
           items.push({
             item_id: String(it.id || it.item_id || ""),
-            nome: it.name || it.description || "",
+            nome: stripHtml(it.name || it.description || ""),
             tipo: it.type || "Produto",
             qtd: Number(it.quantity) || 1,
             unit: Number(it.unit_value || it.unit_price || 0),
