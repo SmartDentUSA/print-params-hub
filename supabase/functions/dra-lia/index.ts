@@ -1957,12 +1957,28 @@ REGRAS:
             const recentDeals = dealsHistory.slice(0, 3).map((d: Record<string, unknown>) => `${d.product || "Deal"} R$${d.value || 0} (${d.status || "?"})`).join("; ");
             profileFields.push(`🤝 Últimos deals: ${recentDeals}`);
           }
-          // E-commerce history summary
+          // E-commerce history summary (detailed)
           const ecomHistory = attendance?.lojaintegrada_historico_pedidos as Array<Record<string, unknown>> | null;
-          if (ecomHistory && ecomHistory.length > 0) {
+          if (ecomHistory && Array.isArray(ecomHistory) && ecomHistory.length > 0) {
             profileFields.push(`🛒 Pedidos e-commerce: ${ecomHistory.length}`);
-            const lastOrder = ecomHistory[0];
-            if (lastOrder) profileFields.push(`Último pedido: R$${lastOrder.valor || lastOrder.total || "?"} (${lastOrder.status || "?"})`);
+            const orderLines = ecomHistory.slice(0, 5).map((o: Record<string, unknown>, i: number) => {
+              let line = `• #${o.numero || i + 1}: R$${o.valor_total || o.valor || "?"} - ${o.situacao_nome || o.status || "?"} (${o.data_criacao || o.data ? new Date(String(o.data_criacao || o.data)).toLocaleDateString("pt-BR") : "?"})`;
+              const tracking = o.link_rastreio || o.tracking;
+              if (tracking) line += ` | Rastreio: ${tracking}`;
+              const payment = o.url_pagamento;
+              if (payment) line += ` | Pagamento: ${payment}`;
+              const itensArr = o.itens as Array<Record<string, unknown>> | undefined;
+              if (itensArr && Array.isArray(itensArr) && itensArr.length > 0) {
+                const itensResumo = itensArr.slice(0, 3).map((item: Record<string, unknown>) => item.nome || item.sku || "?").join(", ");
+                line += ` | Itens: ${itensResumo}`;
+              } else if (o.itens_resumo) {
+                line += ` | Itens: ${o.itens_resumo}`;
+              }
+              const formaPag = o.forma_pagamento;
+              if (formaPag) line += ` | ${formaPag}`;
+              return line;
+            }).join("\n");
+            profileFields.push(`📦 Detalhes pedidos:\n${orderLines}`);
           }
           // Tags CRM
           const crmTags = attendance?.tags_crm as string[] | null;
