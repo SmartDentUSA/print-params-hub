@@ -711,7 +711,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                                       {items.map((item: any, ii: number) => (
                                         <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted2)", paddingLeft: 20 }}>
                                           <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                            {item.nome || item.name || item.product_name || "Produto"}
+                                            {getItemName(item)}
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>
                                             {item.quantidade || item.quantity || 1}×
