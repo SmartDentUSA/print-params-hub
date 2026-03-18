@@ -801,6 +801,19 @@ Deno.serve(async (req) => {
       if (liFormaEnvio) insertData.lojaintegrada_forma_envio = liFormaEnvio;
       if (items.length > 0) insertData.lojaintegrada_itens_json = items;
       if (liUtmCampaign) insertData.lojaintegrada_utm_campaign = liUtmCampaign;
+      // ─── NEW enriched fields ───
+      if (liValorDesconto != null) insertData.lojaintegrada_valor_desconto = liValorDesconto;
+      if (liValorEnvio != null) insertData.lojaintegrada_valor_envio = liValorEnvio;
+      if (liValorSubtotal != null) insertData.lojaintegrada_valor_subtotal = liValorSubtotal;
+      if (liPesoReal != null) insertData.lojaintegrada_peso_real = liPesoReal;
+      if (liDataModificacao) insertData.lojaintegrada_data_modificacao = liDataModificacao;
+      if (liTrackingCode) insertData.lojaintegrada_tracking_code = liTrackingCode;
+      if (liParcelas != null) insertData.lojaintegrada_parcelas = liParcelas;
+      if (liBandeiraCartao) insertData.lojaintegrada_bandeira_cartao = liBandeiraCartao;
+      if (liMarketplace) insertData.lojaintegrada_marketplace = liMarketplace;
+      if (liCupomJson) insertData.lojaintegrada_cupom_json = liCupomJson;
+      if (liPedidoId) insertData.lojaintegrada_pedido_id = liPedidoId;
+      insertData.lojaintegrada_raw_payload = liRawPayload;
       insertData.lojaintegrada_updated_at = new Date().toISOString();
 
       const { data: newLead, error: insertError } = await supabase
