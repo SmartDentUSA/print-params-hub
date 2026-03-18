@@ -125,7 +125,7 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     .from("lead_opportunities")
     .select("opportunity_type, product_name, recommended_action, recommended_message, competitor_product, priority, score, value_est_brl")
     .eq("lead_id", id)
-    .eq("status", "open")
+    .eq("status", "aberta")
     .order("score", { ascending: false })
     .limit(20);
 
