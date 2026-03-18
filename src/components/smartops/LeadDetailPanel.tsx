@@ -5,6 +5,10 @@ import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 // ─── Constants ───
 const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
 
+// ─── Status helpers (case-insensitive) ───
+const isWon = (s: string | null | undefined) => ["ganha", "won"].includes((s || "").toLowerCase());
+const isLost = (s: string | null | undefined) => ["perdida", "lost"].includes((s || "").toLowerCase());
+
 // ─── Types ───
 interface SupportTicket {
   id: string;
