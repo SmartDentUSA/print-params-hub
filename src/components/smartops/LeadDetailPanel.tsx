@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { X } from "lucide-react";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 
@@ -8,6 +8,26 @@ const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
 // ─── Status helpers (case-insensitive) ───
 const isWon = (s: string | null | undefined) => ["ganha", "won"].includes((s || "").toLowerCase());
 const isLost = (s: string | null | undefined) => ["perdida", "lost"].includes((s || "").toLowerCase());
+
+// Strip HTML tags and return clean text
+const stripHtml = (str: any): string => {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+};
+
+// Check if a proposal item is a valid displayable item (not a placeholder)
+const isValidItem = (item: any): boolean => {
+  const name = stripHtml(item.nome || item.name || item.product_name || "");
+  const total = Number(item.valor_total || item.total_value || item.total || 0);
+  const unit = Number(item.valor_unitario || item.unit_value || item.unit || 0);
+  return name.length > 0 || total > 0 || unit > 0;
+};
+
+const getItemName = (item: any): string => {
+  const raw = item.nome || item.name || item.product_name || "";
+  const cleaned = stripHtml(raw);
+  return cleaned || "Produto";
+};
 
 // ─── Types ───
 interface SupportTicket {
@@ -292,9 +312,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const proposals = Array.isArray(d.proposals) ? d.proposals : [];
       const allItems: string[] = [];
       proposals.forEach((prop: any) => {
-        const items = Array.isArray(prop.items) ? prop.items : [];
+        const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
         items.forEach((item: any) => {
-          const name = item.nome || item.name || item.product_name || "Produto";
+          const name = getItemName(item);
           const qty = item.quantidade || item.quantity || 1;
           allItems.push(`${name} (${qty}×)`);
         });
@@ -399,26 +419,39 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const ltvWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
   const ltvLost = lostDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
 
-  // Consolidated proposal items
+  // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
   allDeals.forEach((d: any) => {
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
     proposals.forEach((prop: any) => {
-      const items = Array.isArray(prop.items) ? prop.items : [];
-      items.forEach((item: any) => {
-        const qty = Number(item.quantidade || item.quantity || 1);
-        const unitVal = Number(item.valor_unitario || item.unit_value || 0);
-        const totalVal = Number(item.valor_total || item.total_value || qty * unitVal);
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const qty = Number(item.quantidade || item.quantity || 1);
+          const unitVal = Number(item.valor_unitario || item.unit_value || item.unit || 0);
+          const totalVal = Number(item.valor_total || item.total_value || item.total || qty * unitVal);
+          allProposalItems.push({
+            dealId: String(d.deal_id || "—"),
+            proposalId: String(prop.proposal_id || prop.id || "—"),
+            name: getItemName(item),
+            qty,
+            unitVal,
+            totalVal,
+            dealStatus: d.status || "aberto",
+          });
+        });
+      } else if (Number(prop.valor_ps || prop.value || 0) > 0) {
+        // No valid items but proposal has value — show summary line
         allProposalItems.push({
           dealId: String(d.deal_id || "—"),
-          proposalId: String(prop.proposal_id || "—"),
-          name: item.nome || item.name || item.product_name || "Produto",
-          qty,
-          unitVal,
-          totalVal,
+          proposalId: String(prop.proposal_id || prop.id || "—"),
+          name: prop.sigla || "Proposta",
+          qty: 1,
+          unitVal: Number(prop.valor_ps || prop.value || 0),
+          totalVal: Number(prop.valor_ps || prop.value || 0),
           dealStatus: d.status || "aberto",
         });
-      });
+      }
     });
   });
 
@@ -498,11 +531,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   wonDeals.forEach((d: any) => {
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
     proposals.forEach((prop: any) => {
-      const items = Array.isArray(prop.items) ? prop.items : [];
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
-        const name = (item.nome || item.name || item.product_name || "Produto").trim();
+        const name = getItemName(item);
         const qty = Number(item.quantidade || item.quantity || 1);
-        const total = Number(item.valor_total || item.total_value || qty * Number(item.valor_unitario || item.unit_value || 0));
+        const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
         productAggMap[name].qty += qty;
         productAggMap[name].totalVal += total;
@@ -636,22 +669,23 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                     {allDeals.map((d: any, i: number) => {
                       const proposals = Array.isArray(d.proposals) ? d.proposals : [];
                       return (
-                        <> 
-                          <tr key={`deal-${i}`}>
+                         <React.Fragment key={`deal-${i}`}>
+                          <tr>
                             <td>{formatDate(d.created_at)}</td>
                             <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{d.deal_id}</td>
                             <td>{d.pipeline_name || "—"}</td>
                             <td>{d.stage_name || "—"}</td>
                             <td className="green">{formatBRLFull(d.value)}</td>
                             <td>
-                              <span className={`status-chip ${d.status === "ganha" ? "s-ganho" : d.status === "perdida" ? "s-perdido" : "s-aberto"}`}>
-                                {d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"}
+                              <span className={`status-chip ${isWon(d.status) ? "s-ganho" : isLost(d.status) ? "s-perdido" : "s-aberto"}`}>
+                                {isWon(d.status) ? "✓ Ganho" : isLost(d.status) ? "✗ Perdido" : "● Aberto"}
                               </span>
                             </td>
                             <td>{ownerDisplay(d.owner_name)}</td>
                           </tr>
                           {proposals.map((prop: any, pi: number) => {
-                            const items = Array.isArray(prop.items) ? prop.items : [];
+                            const validItems = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+                            const items = validItems;
                             return (
                               <tr key={`prop-${i}-${pi}`} style={{ background: "var(--surface2)" }}>
                                 <td colSpan={7} style={{ padding: "8px 16px" }}>
@@ -677,16 +711,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                                       {items.map((item: any, ii: number) => (
                                         <div key={ii} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--muted2)", paddingLeft: 20 }}>
                                           <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                            {item.nome || item.name || item.product_name || "Produto"}
+                                            {getItemName(item)}
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 36, textAlign: "right" }}>
                                             {item.quantidade || item.quantity || 1}×
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--accent2)" }}>
-                                            {formatBRLFull(item.valor_unitario || item.unit_value || 0)}
+                                            {formatBRLFull(item.valor_unitario || item.unit_value || item.unit || 0)}
                                           </span>
                                           <span style={{ fontFamily: "'DM Mono', monospace", minWidth: 90, textAlign: "right", color: "var(--text)" }}>
-                                            {formatBRLFull(item.valor_total || item.total_value || ((item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || 0)))}
+                                            {formatBRLFull(item.valor_total || item.total_value || item.total || ((item.quantidade || item.quantity || 1) * (item.valor_unitario || item.unit_value || item.unit || 0)))}
                                           </span>
                                         </div>
                                       ))}
@@ -696,7 +730,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                               </tr>
                             );
                           })}
-                        </>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -826,8 +860,8 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--text)" }}>{formatBRLFull(item.totalVal)}</td>
                         <td>
-                          <span className={`status-chip ${item.dealStatus === "ganha" ? "s-ganho" : item.dealStatus === "perdida" ? "s-perdido" : "s-aberto"}`}>
-                            {item.dealStatus === "ganha" ? "✓ Ganho" : item.dealStatus === "perdida" ? "✗ Perdido" : "● Aberto"}
+                          <span className={`status-chip ${isWon(item.dealStatus) ? "s-ganho" : isLost(item.dealStatus) ? "s-perdido" : "s-aberto"}`}>
+                            {isWon(item.dealStatus) ? "✓ Ganho" : isLost(item.dealStatus) ? "✗ Perdido" : "● Aberto"}
                           </span>
                         </td>
                       </tr>

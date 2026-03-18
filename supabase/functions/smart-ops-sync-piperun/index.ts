@@ -65,6 +65,12 @@ const SYNC_PIPELINES = [
   PIPELINES.GANHOS_ALEATORIOS,
 ];
 
+// ─── HTML Sanitization ───
+function stripHtml(str: string | null | undefined): string {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
 // ─── Deal Snapshot for history ───
 
 interface ProposalItem {
@@ -271,7 +277,7 @@ async function processDeal(
         for (const it of prop.items) {
           items.push({
             item_id: String(it.id || it.item_id || ""),
-            nome: it.name || it.description || "",
+            nome: stripHtml(it.name || it.description || ""),
             tipo: it.type || "Produto",
             qtd: Number(it.quantity) || 1,
             unit: Number(it.unit_value || it.unit_price || 0),
@@ -290,7 +296,7 @@ async function processDeal(
         valor_ps: Number(prop.value || prop.total_value || 0),
         valor_mrr: Number(prop.value_mrr || 0),
         parcelas: Number(prop.installments || 0),
-        items,
+        items: items.filter(it => it.nome.length > 0 || it.total > 0 || it.unit > 0),
       });
     }
   }
