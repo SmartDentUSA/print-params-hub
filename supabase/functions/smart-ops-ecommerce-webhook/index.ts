@@ -534,25 +534,52 @@ Deno.serve(async (req) => {
     const liPedidoNumero = order.numero ? Number(order.numero) : null;
     const liPedidoData = order.data_criacao ? String(order.data_criacao) : null;
     const liPedidoValor = Number(order.valor_total || 0) || null;
-    const situacaoObj = order.situacao as Record<string, unknown> | undefined;
-    const liPedidoStatus = situacaoObj?.nome ? String(situacaoObj.nome) : null;
+    const situacaoObjFields = order.situacao as Record<string, unknown> | undefined;
+    const liPedidoStatus = situacaoObjFields?.nome ? String(situacaoObjFields.nome) : null;
     const liUtmCampaign = order.utm_campaign ? String(order.utm_campaign) : null;
+
+    // ─── NEW: Extract all financial/logistics/marketplace fields ───
+    const liValorDesconto = Number(order.valor_desconto) || null;
+    const liValorEnvio = Number(order.valor_envio) || null;
+    const liValorSubtotal = Number(order.valor_subtotal) || null;
+    const liPesoReal = Number(order.peso_real) || null;
+    const liDataModificacao = order.data_modificacao ? String(order.data_modificacao) : null;
+    const liPedidoId = order.id ? Number(order.id) : null;
+
+    // Cupom as structured JSON (not string)
+    const liCupomJson = (order.cupom_desconto && typeof order.cupom_desconto === "object")
+      ? order.cupom_desconto as Record<string, unknown>
+      : null;
+
+    // Marketplace info
+    const liMarketplace = (order.marketplace_info && typeof order.marketplace_info === "object")
+      ? order.marketplace_info as Record<string, unknown>
+      : null;
 
     // Extract forma_pagamento from first payment
     const pagamentos = (order.pagamentos || []) as Array<Record<string, unknown>>;
     let liFormaPagamento: string | null = null;
+    let liParcelas: number | null = null;
+    let liBandeiraCartao: string | null = null;
     if (pagamentos.length > 0) {
       const fp = pagamentos[0].forma_pagamento as Record<string, unknown> | undefined;
       liFormaPagamento = fp?.nome ? String(fp.nome) : (pagamentos[0].pagamento_tipo ? String(pagamentos[0].pagamento_tipo) : null);
+      liParcelas = pagamentos[0].numero_parcelas ? Number(pagamentos[0].numero_parcelas) : null;
+      liBandeiraCartao = pagamentos[0].bandeira ? String(pagamentos[0].bandeira) : null;
     }
 
-    // Extract forma_envio from first shipment
+    // Extract forma_envio + tracking from first shipment
     const envios = (order.envios || []) as Array<Record<string, unknown>>;
     let liFormaEnvio: string | null = null;
+    let liTrackingCode: string | null = null;
     if (envios.length > 0) {
       const fe = envios[0].forma_envio as Record<string, unknown> | undefined;
       liFormaEnvio = fe?.nome ? String(fe.nome) : null;
+      liTrackingCode = envios[0].objeto ? String(envios[0].objeto) : null;
     }
+
+    // Store raw payload for debugging/future extraction
+    const liRawPayload = rawPayload;
 
     // ─── Determine tags from event ───
     const eventConfig = EVENT_MAP[eventType] || { tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT] };
