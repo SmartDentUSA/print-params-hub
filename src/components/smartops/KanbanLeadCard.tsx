@@ -160,8 +160,11 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             )}
           </div>
         )}
-        {((lead as any).lojaintegrada_tracking_code || ((lead as any).lojaintegrada_ltv && Number((lead as any).lojaintegrada_ltv) > 0)) && (
+        {((lead as any).lojaintegrada_tracking_code || ((lead as any).lojaintegrada_ltv && Number((lead as any).lojaintegrada_ltv) > 0) || ((lead as any).lojaintegrada_cupom_desconto && String((lead as any).lojaintegrada_cupom_desconto) !== "[object Object]")) && (
           <div className="flex flex-wrap gap-0.5">
+            {(lead as any).lojaintegrada_cupom_desconto && String((lead as any).lojaintegrada_cupom_desconto) !== "[object Object]" && (
+              <Badge variant="secondary" className="text-[8px] px-1 py-0 font-semibold bg-amber-100 text-amber-800 border-amber-300">🎟️ {String((lead as any).lojaintegrada_cupom_desconto).slice(0, 20)}</Badge>
+            )}
             {(lead as any).lojaintegrada_tracking_code && (
               <Badge variant="secondary" className="text-[8px] px-1 py-0">📦 {String((lead as any).lojaintegrada_tracking_code).slice(0, 15)}</Badge>
             )}

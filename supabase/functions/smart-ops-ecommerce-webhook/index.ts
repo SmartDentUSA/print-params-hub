@@ -542,7 +542,12 @@ Deno.serve(async (req) => {
     // ─── Extract Loja Integrada-specific fields ───
     const liClienteId = customer.id ? Number(customer.id) : null;
     const liClienteObs = order.cliente_obs ? String(order.cliente_obs) : null;
-    const liCupomDesconto = order.cupom_desconto ? String(order.cupom_desconto) : null;
+    const rawCupom = order.cupom_desconto;
+    const liCupomDesconto = rawCupom
+      ? (typeof rawCupom === "object"
+        ? ((rawCupom as Record<string, unknown>).codigo || (rawCupom as Record<string, unknown>).nome || (rawCupom as Record<string, unknown>).code || JSON.stringify(rawCupom)) as string
+        : String(rawCupom))
+      : null;
     const liDataNascimento = customer.data_nascimento ? String(customer.data_nascimento) : null;
     const liSexo = customer.sexo ? String(customer.sexo) : null;
     const liEndereco = endereco.endereco ? String(endereco.endereco) : null;
