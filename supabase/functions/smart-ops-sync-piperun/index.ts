@@ -4,6 +4,7 @@ import {
   PIPELINE_NAMES,
   STAGE_TO_ETAPA,
   DEAL_STATUS_MAP,
+  PIPERUN_USERS,
   mapDealToAttendance,
   deepParseStringifiedFields,
   piperunGet,
@@ -66,6 +67,29 @@ const SYNC_PIPELINES = [
 
 // ─── Deal Snapshot for history ───
 
+interface ProposalItem {
+  item_id: string;
+  nome: string;
+  tipo: string;
+  qtd: number;
+  unit: number;
+  total: number;
+  categoria: string;
+}
+
+interface ProposalSnapshot {
+  id: string | number;
+  sigla: string;
+  status: string;
+  vendedor: string;
+  tipo_frete: string;
+  valor_frete: number;
+  valor_ps: number;
+  valor_mrr: number;
+  parcelas: number;
+  items: ProposalItem[];
+}
+
 interface DealSnapshot {
   deal_id: string;
   deal_hash: string | null;
@@ -74,9 +98,17 @@ interface DealSnapshot {
   stage_name: string | null;
   status: string;
   value: number | null;
+  value_products: number | null;
+  value_freight: number | null;
+  value_mrr: number | null;
   created_at: string | null;
   closed_at: string | null;
   product: string | null;
+  owner_name: string | null;
+  owner_email: string | null;
+  origem: string | null;
+  synced_at: string;
+  proposals: ProposalSnapshot[];
 }
 
 function upsertDealHistory(
@@ -228,6 +260,46 @@ async function processDeal(
   const dealStatus = deal.status !== undefined
     ? (DEAL_STATUS_MAP[deal.status] || "aberta")
     : "aberta";
+  const ownerName = deal.owner_id ? (PIPERUN_USERS[deal.owner_id]?.name || null) : null;
+
+  // Extract proposals from deal
+  const proposalSnapshots: ProposalSnapshot[] = [];
+  if (Array.isArray(deal.proposals)) {
+    for (const prop of deal.proposals as any[]) {
+      const items: ProposalItem[] = [];
+      if (Array.isArray(prop.items)) {
+        for (const it of prop.items) {
+          items.push({
+            item_id: String(it.id || it.item_id || ""),
+            nome: it.name || it.description || "",
+            tipo: it.type || "Produto",
+            qtd: Number(it.quantity) || 1,
+            unit: Number(it.unit_value || it.unit_price || 0),
+            total: Number(it.total_value || it.total || 0),
+            categoria: it.category || "",
+          });
+        }
+      }
+      proposalSnapshots.push({
+        id: prop.id || "",
+        sigla: prop.initials || prop.sigla || "",
+        status: prop.status || "",
+        vendedor: prop.seller_name || prop.vendedor || ownerName || "",
+        tipo_frete: prop.freight_type || "",
+        valor_frete: Number(prop.freight_value || 0),
+        valor_ps: Number(prop.value || prop.total_value || 0),
+        valor_mrr: Number(prop.value_mrr || 0),
+        parcelas: Number(prop.installments || 0),
+        items,
+      });
+    }
+  }
+
+  // Owner email from users map
+
+  // Extract value breakdown
+  const totalFreight = proposalSnapshots.reduce((s, p) => s + p.valor_frete, 0);
+  const totalMrr = deal.value_mrr != null ? Number(deal.value_mrr) : 0;
 
   const dealSnapshot: DealSnapshot = {
     deal_id: dealId,
@@ -236,10 +308,18 @@ async function processDeal(
     pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
     stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
     status: dealStatus,
-    value: deal.value != null ? Number(deal.value) : null, // Preserva 0 e valores falsy legítimos
+    value: deal.value != null ? Number(deal.value) : null,
+    value_products: deal.value != null ? Number(deal.value) - totalFreight : null,
+    value_freight: totalFreight || null,
+    value_mrr: totalMrr || null,
     created_at: deal.created_at || null,
     closed_at: deal.closed_at || null,
     product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
+    owner_name: ownerName,
+    owner_email: deal.owner_id ? (PIPERUN_USERS[deal.owner_id]?.email || null) : null,
+    origem: deal.origin?.name || null,
+    synced_at: new Date().toISOString(),
+    proposals: proposalSnapshots,
   };
 
   if (currentLead) {
