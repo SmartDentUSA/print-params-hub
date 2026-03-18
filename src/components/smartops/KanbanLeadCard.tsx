@@ -160,6 +160,16 @@ export function KanbanLeadCard({ lead, showDaysStagnant = false, onDragStart, on
             )}
           </div>
         )}
+        {((lead as any).lojaintegrada_tracking_code || ((lead as any).lojaintegrada_ltv && Number((lead as any).lojaintegrada_ltv) > 0)) && (
+          <div className="flex flex-wrap gap-0.5">
+            {(lead as any).lojaintegrada_tracking_code && (
+              <Badge variant="secondary" className="text-[8px] px-1 py-0">📦 {String((lead as any).lojaintegrada_tracking_code).slice(0, 15)}</Badge>
+            )}
+            {Number((lead as any).lojaintegrada_ltv) > 0 && (
+              <Badge variant="secondary" className="text-[8px] px-1 py-0 font-semibold">🛒 {formatCurrency(Number((lead as any).lojaintegrada_ltv))}</Badge>
+            )}
+          </div>
+        )}
         <div className="text-[9px] text-muted-foreground truncate">
           {lead.source}{lead.piperun_id ? ` · PR#${lead.piperun_id}` : ""} · {new Date(lead.piperun_created_at || lead.entrada_sistema || lead.created_at).toLocaleDateString("pt-BR")}
         </div>

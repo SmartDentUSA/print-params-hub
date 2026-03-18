@@ -340,6 +340,22 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     (detail?.activity_log || []).forEach((ev) => {
       const isEcommerce = ev.source_channel === "ecommerce";
       const evData = ev.event_data || {};
+      const ecommerceDetail: Record<string, string> = {};
+      if (isEcommerce) {
+        if (evData.valor) ecommerceDetail["Valor"] = formatBRLFull(evData.valor);
+        if (evData.valor_desconto) ecommerceDetail["Desconto"] = formatBRLFull(evData.valor_desconto);
+        if (evData.valor_envio) ecommerceDetail["Frete"] = formatBRLFull(evData.valor_envio);
+        if (evData.status) ecommerceDetail["Status"] = evData.status;
+        if (evData.tracking) ecommerceDetail["Rastreio"] = evData.tracking;
+        if (evData.forma_pagamento) ecommerceDetail["Pagamento"] = evData.forma_pagamento;
+        if (evData.parcelas) ecommerceDetail["Parcelas"] = `${evData.parcelas}x${evData.bandeira ? " · " + evData.bandeira : ""}`;
+        if (evData.forma_envio) ecommerceDetail["Envio"] = evData.forma_envio;
+        if (evData.cupom && typeof evData.cupom === "object" && evData.cupom.codigo) ecommerceDetail["Cupom"] = evData.cupom.codigo;
+        if (evData.itens && Array.isArray(evData.itens) && evData.itens.length > 0) {
+          ecommerceDetail["Itens"] = evData.itens.map((it: any) => `${it.nome} (${it.qty}× R$${Number(it.preco || 0).toFixed(0)})`).slice(0, 4).join(", ");
+        }
+        if (evData.fonte) ecommerceDetail["Fonte"] = evData.fonte;
+      }
       events.push({
         date: ev.event_timestamp || ev.created_at,
         dotCls: isEcommerce ? "tl-dot-buy" : "tl-dot-crm",
@@ -348,7 +364,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           : ev.event_type || "Evento",
         desc: ev.entity_name || (evData.produtos ? evData.produtos.join(", ") : "") || "",
         tags: evData.tags_added?.slice(0, 3) || [],
-        detail: {
+        detail: isEcommerce ? ecommerceDetail : {
           ...(evData.valor ? { Valor: formatBRLFull(evData.valor) } : {}),
           ...(evData.status ? { Status: evData.status } : {}),
           ...(evData.fonte ? { Fonte: evData.fonte } : {}),
