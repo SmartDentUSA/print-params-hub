@@ -96,24 +96,28 @@ Deno.serve(async (req) => {
   async function enrichWithOrders(leadId: string, clienteId: number) {
     try {
       const ordersRes = await apiFetch(`/pedido/?cliente_id=${clienteId}&limit=100`);
-      const pedidos = ordersRes?.objects || [];
-      if (pedidos.length === 0) return { orders_found: 0 };
+    const pedidosRaw = ordersRes?.objects || [];
 
-      // Build history array with dedup by numero
-      const { data: existing } = await supabase
-        .from('lia_attendances')
-        .select('lojaintegrada_historico_pedidos')
-        .eq('id', leadId)
-        .single();
+      // ── Filtrar apenas pedidos que realmente pertencem a este cliente ──
+      // O endpoint /pedido/?cliente_id=X NÃO filtra — retorna os primeiros pedidos da loja inteira.
+      // O campo "cliente" é uma URI string "/api/v1/cliente/{id}" ou um objeto com { id }.
+      const pedidosReais = pedidosRaw.filter((p: any) => {
+        const clienteRef = p.cliente;
+        if (!clienteRef) return false;
+        if (typeof clienteRef === 'string') {
+          return clienteRef.includes(`/cliente/${clienteId}`);
+        }
+        if (typeof clienteRef === 'object') {
+          return clienteRef.id === clienteId || String(clienteRef.id) === String(clienteId);
+        }
+        return false;
+      });
+      console.log(`[sync-li-clients] Pedidos API: ${pedidosRaw.length}, reais do cliente ${clienteId}: ${pedidosReais.length}`);
 
-      const rawHistory: any[] = Array.isArray(existing?.lojaintegrada_historico_pedidos)
-        ? existing.lojaintegrada_historico_pedidos : [];
-      // Purge legacy entries that lack situacao_aprovado (old fictitious format)
-      const existingHistory = rawHistory.filter((h: any) => h.situacao_aprovado !== undefined);
-      const existingNumeros = new Set(existingHistory.map((h: any) => h.numero));
+      if (pedidosReais.length === 0) return { orders_found: pedidosRaw.length, real_orders: 0 };
 
-      const newOrders = pedidos
-        .filter((p: any) => !existingNumeros.has(p.numero))
+      // ── Substituir completamente o histórico (purga pedidos fantasmas antigos) ──
+      const newOrders = pedidosReais
         .map((p: any) => ({
           numero: p.numero,
           id: p.id,
