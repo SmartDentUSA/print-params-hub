@@ -573,7 +573,7 @@ Deno.serve(async (req) => {
     // ─── Deduplication check ───
     if (numeroPedido) {
       try {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
         const { data: dupeCheck } = await supabase
           .from("message_logs")
           .select("id")
