@@ -280,8 +280,8 @@ async function processDeal(
             nome: stripHtml(it.name || it.description || ""),
             tipo: it.type || "Produto",
             qtd: Number(it.quantity) || 1,
-            unit: Number(it.unit_value || it.unit_price || 0),
-            total: Number(it.total_value || it.total || 0),
+            unit: Number(it.value || it.unit_value || it.unit_price || 0),
+            total: Number(it.value || 0) * (Number(it.quantity) || 1),
             categoria: it.category || "",
           });
         }

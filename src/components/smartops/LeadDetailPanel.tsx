@@ -445,7 +445,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         allProposalItems.push({
           dealId: String(d.deal_id || "—"),
           proposalId: String(prop.proposal_id || prop.id || "—"),
-          name: prop.sigla || "Proposta",
+          name: d.product || d.deal_title || prop.sigla || d.pipeline_name || "Proposta",
           qty: 1,
           unitVal: Number(prop.valor_ps || prop.value || 0),
           totalVal: Number(prop.valor_ps || prop.value || 0),
