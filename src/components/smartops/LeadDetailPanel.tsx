@@ -790,9 +790,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           )}
 
           {/* 🎓 Academy section */}
-          {(astronCourses.length > 0 || ld.astron_courses_total > 0) && (
+          <div className="sec">🎓 Academy</div>
+          {(astronCourses.length > 0 || ld.astron_courses_total > 0) ? (
             <>
-              <div className="sec">🎓 Academy</div>
               <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, color: "var(--muted2)" }}>
                 {ld.astron_created_at && <span>📅 Inscrito em: {formatDate(ld.astron_created_at)}</span>}
                 {ld.astron_status && <span>Status: <strong style={{ color: "var(--text)" }}>{ld.astron_status}</strong></span>}
@@ -838,6 +838,10 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                 </div>
               )}
             </>
+          ) : (
+            <div style={{ padding: "12px 16px", marginBottom: 20, borderRadius: 10, border: "1px dashed var(--border2)", color: "var(--muted)", fontSize: 12, textAlign: "center" }}>
+              Nenhum curso na Academy. Lead ainda não se inscreveu na plataforma de cursos.
+            </div>
           )}
 
           {/* 📦 Consolidated proposal items */}
