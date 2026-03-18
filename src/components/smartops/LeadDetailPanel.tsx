@@ -1025,7 +1025,6 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                   </a>
                 </div>
               )}
-              </div>
               {astronCourses.length > 0 && (
                 <div style={{ border: "1px solid var(--border2)", borderRadius: 10, overflow: "hidden", marginBottom: 20 }}>
                   <table className="deal-table">
