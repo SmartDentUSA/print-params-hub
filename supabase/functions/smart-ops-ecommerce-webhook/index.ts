@@ -579,7 +579,7 @@ Deno.serve(async (req) => {
           .select("id")
           .eq("tipo", `ecommerce_${eventType}`)
           .ilike("mensagem_preview", `%pedido=${numeroPedido}%`)
-          .gte("created_at", oneHourAgo)
+          .gte("created_at", thirtyDaysAgo)
           .limit(1);
         if (dupeCheck && dupeCheck.length > 0) {
           console.log(`[ecommerce-webhook] Duplicate detected: pedido=${numeroPedido} event=${eventType}, skipping`);
