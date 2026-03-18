@@ -919,7 +919,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                             <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data || p.data_criacao || p.created_at)}</td>
                             <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor || p.valor_total || 0)}</td>
                             <td>
-                              <span className={`status-chip ${p.status === "pago" || p.status === "Pedido Pago" ? "s-ganho" : p.status === "cancelado" ? "s-perdido" : "s-aberto"}`}>
+                              <span className={`status-chip ${["pago","pedido_pago","pedido_enviado","enviado","pedido_entregue","entregue","Pedido Pago"].includes(p.status) ? "s-ganho" : ["cancelado","pedido_cancelado","devolvido"].includes(p.status) ? "s-perdido" : "s-aberto"}`}>
                                 {p.status || "—"}
                               </span>
                             </td>

@@ -672,16 +672,17 @@ Deno.serve(async (req) => {
           ? existingLead.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>
           : [];
         const newHistory = enrichmentData.lojaintegrada_historico_pedidos as Array<Record<string, unknown>>;
-        const seen = new Set(existingHistory.map((h) => String(h.numero)));
-        const merged = [...existingHistory];
+        // New-first merge: newer snapshots (with richer fields) always win
+        const merged: Array<Record<string, unknown>> = [];
+        const seen = new Set<string>();
         for (const h of newHistory) {
+          merged.push(h);
+          seen.add(String(h.numero));
+        }
+        for (const h of existingHistory) {
           if (!seen.has(String(h.numero))) {
             merged.push(h);
             seen.add(String(h.numero));
-          } else {
-            // Update existing entry with latest status
-            const idx = merged.findIndex((m) => String(m.numero) === String(h.numero));
-            if (idx !== -1) merged[idx] = h;
           }
         }
         enrichmentData.lojaintegrada_historico_pedidos = merged;
