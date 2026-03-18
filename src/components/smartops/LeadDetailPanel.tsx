@@ -9,6 +9,26 @@ const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
 const isWon = (s: string | null | undefined) => ["ganha", "won"].includes((s || "").toLowerCase());
 const isLost = (s: string | null | undefined) => ["perdida", "lost"].includes((s || "").toLowerCase());
 
+// Strip HTML tags and return clean text
+const stripHtml = (str: any): string => {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+};
+
+// Check if a proposal item is a valid displayable item (not a placeholder)
+const isValidItem = (item: any): boolean => {
+  const name = stripHtml(item.nome || item.name || item.product_name || "");
+  const total = Number(item.valor_total || item.total_value || item.total || 0);
+  const unit = Number(item.valor_unitario || item.unit_value || item.unit || 0);
+  return name.length > 0 || total > 0 || unit > 0;
+};
+
+const getItemName = (item: any): string => {
+  const raw = item.nome || item.name || item.product_name || "";
+  const cleaned = stripHtml(raw);
+  return cleaned || "Produto";
+};
+
 // ─── Types ───
 interface SupportTicket {
   id: string;
