@@ -24,7 +24,7 @@ const isValidItem = (item: any): boolean => {
 };
 
 const getItemName = (item: any): string => {
-  const raw = item.nome || item.name || item.product_name || "";
+  const raw = item.product_name || item.nome || item.name || "";
   const cleaned = stripHtml(raw);
   return cleaned || "Produto";
 };
