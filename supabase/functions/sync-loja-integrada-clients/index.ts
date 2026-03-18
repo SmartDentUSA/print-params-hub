@@ -118,22 +118,32 @@ Deno.serve(async (req) => {
 
       // ── Substituir completamente o histórico (purga pedidos fantasmas antigos) ──
       const newOrders = pedidosReais
-        .map((p: any) => ({
-          numero: p.numero,
-          id: p.id,
-          data_criacao: p.data_criacao,
-          data_modificacao: p.data_modificacao,
-          valor_total: p.valor_total,
-          valor_subtotal: p.valor_subtotal,
-          valor_envio: p.valor_envio,
-          valor_desconto: p.valor_desconto,
-          peso_real: p.peso_real,
-          utm_campaign: p.utm_campaign,
-          situacao_codigo: p.situacao?.codigo || null,
-          situacao_nome: p.situacao?.nome || null,
-          situacao_aprovado: p.situacao?.aprovado || false,
-          situacao_cancelado: p.situacao?.cancelado || false,
-        }));
+        .map((p: any) => {
+          const envios = Array.isArray(p.envios) ? p.envios : [];
+          const pagamentos = Array.isArray(p.pagamentos) ? p.pagamentos : [];
+          const itens = Array.isArray(p.itens) ? p.itens : [];
+          return {
+            numero: p.numero,
+            id: p.id,
+            data_criacao: p.data_criacao,
+            data_modificacao: p.data_modificacao,
+            valor_total: p.valor_total,
+            valor_subtotal: p.valor_subtotal,
+            valor_envio: p.valor_envio,
+            valor_desconto: p.valor_desconto,
+            peso_real: p.peso_real,
+            utm_campaign: p.utm_campaign,
+            situacao_codigo: p.situacao?.codigo || null,
+            situacao_nome: p.situacao?.nome || null,
+            situacao_aprovado: p.situacao?.aprovado || false,
+            situacao_cancelado: p.situacao?.cancelado || false,
+            // Tracking & payment enrichment
+            link_rastreio: envios[0]?.objeto || envios[0]?.url || null,
+            url_pagamento: pagamentos[0]?.link_boleto || pagamentos[0]?.link_pix || null,
+            forma_pagamento: pagamentos[0]?.forma_pagamento?.nome || null,
+            itens_resumo: itens.slice(0, 5).map((i: any) => i.nome || i.sku || "").filter(Boolean).join(", ") || null,
+          };
+        });
 
       // Calc LTV from approved orders
       const approvedOrders = newOrders.filter((o: any) => o.situacao_aprovado && !o.situacao_cancelado);
