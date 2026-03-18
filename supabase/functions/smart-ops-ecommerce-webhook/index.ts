@@ -846,58 +846,48 @@ Deno.serve(async (req) => {
     // ─── Record timeline event in lead_activity_log (append-only, with dedup) ───
     const orderDate = liPedidoData || new Date().toISOString();
     const activityEntityId = numeroPedido ? String(numeroPedido) : null;
-    let skipActivityInsert = false;
-    if (activityEntityId) {
-      const { data: existingActivity } = await supabase
-        .from("lead_activity_log")
-        .select("id")
-        .eq("lead_id", leadId)
-        .eq("event_type", `ecommerce_${eventType}`)
-        .eq("entity_id", activityEntityId)
-        .limit(1);
-      if (existingActivity && existingActivity.length > 0) {
-        skipActivityInsert = true;
-        console.log(`[ecommerce-webhook] activity_log dedup: skipping ${eventType} pedido=${numeroPedido} for lead ${leadId}`);
+    // Insert directly — DB unique partial index handles dedup (no more race conditions)
+    const { error: actInsertErr } = await supabase.from("lead_activity_log").insert({
+      lead_id: leadId,
+      event_type: `ecommerce_${eventType}`,
+      entity_type: "order",
+      entity_id: activityEntityId,
+      entity_name: productNames.length > 0 ? productNames.join(", ").slice(0, 200) : null,
+      event_data: {
+        pedido: numeroPedido,
+        pedido_id: liPedidoId,
+        valor: valorTotal,
+        valor_desconto: liValorDesconto,
+        valor_envio: liValorEnvio,
+        valor_subtotal: liValorSubtotal,
+        status: liPedidoStatus,
+        produtos: productNames,
+        tags_added: tagsToAdd,
+        fonte: "loja_integrada",
+        tracking: liTrackingCode,
+        parcelas: liParcelas,
+        bandeira: liBandeiraCartao,
+        forma_pagamento: liFormaPagamento,
+        forma_envio: liFormaEnvio,
+        marketplace: liMarketplace,
+        cupom: liCupomJson,
+        itens: items.map((i: any) => ({
+          sku: i.sku || i.id || null,
+          nome: String(i.nome || i.name || "Produto"),
+          qty: Number(i.quantidade || i.quantity || 1),
+          preco: Number(i.preco_venda || i.preco_custo || i.price || 0),
+        })),
+      },
+      source_channel: "ecommerce",
+      value_numeric: valorTotal,
+      event_timestamp: orderDate,
+    });
+    if (actInsertErr) {
+      if (actInsertErr.code === "23505") {
+        console.log(`[ecommerce-webhook] activity_log dedup (DB constraint): ${eventType} pedido=${numeroPedido}`);
+      } else {
+        console.warn("[ecommerce-webhook] timeline insert error:", actInsertErr.message);
       }
-    }
-    if (!skipActivityInsert) {
-      await supabase.from("lead_activity_log").insert({
-        lead_id: leadId,
-        event_type: `ecommerce_${eventType}`,
-        entity_type: "order",
-        entity_id: activityEntityId,
-        entity_name: productNames.length > 0 ? productNames.join(", ").slice(0, 200) : null,
-        event_data: {
-          pedido: numeroPedido,
-          pedido_id: liPedidoId,
-          valor: valorTotal,
-          valor_desconto: liValorDesconto,
-          valor_envio: liValorEnvio,
-          valor_subtotal: liValorSubtotal,
-          status: liPedidoStatus,
-          produtos: productNames,
-          tags_added: tagsToAdd,
-          fonte: "loja_integrada",
-          tracking: liTrackingCode,
-          parcelas: liParcelas,
-          bandeira: liBandeiraCartao,
-          forma_pagamento: liFormaPagamento,
-          forma_envio: liFormaEnvio,
-          marketplace: liMarketplace,
-          cupom: liCupomJson,
-          itens: items.map((i: any) => ({
-            sku: i.sku || i.id || null,
-            nome: String(i.nome || i.name || "Produto"),
-            qty: Number(i.quantidade || i.quantity || 1),
-            preco: Number(i.preco_venda || i.preco_custo || i.price || 0),
-          })),
-        },
-        source_channel: "ecommerce",
-        value_numeric: valorTotal,
-        event_timestamp: orderDate,
-      }).then(({ error }) => {
-        if (error) console.warn("[ecommerce-webhook] timeline insert error:", error.message);
-      });
     }
 
     // ─── Populate lead_product_history for each item ───
