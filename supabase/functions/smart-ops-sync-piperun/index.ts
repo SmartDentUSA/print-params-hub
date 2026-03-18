@@ -10,6 +10,7 @@ import {
   type PipeRunDealData,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, mergeTagsCrm, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
+import { logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
