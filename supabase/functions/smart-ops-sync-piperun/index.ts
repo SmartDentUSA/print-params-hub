@@ -259,6 +259,7 @@ async function processDeal(
   const dealStatus = deal.status !== undefined
     ? (DEAL_STATUS_MAP[deal.status] || "aberta")
     : "aberta";
+  const ownerName = deal.owner_id ? (PIPERUN_USERS[deal.owner_id]?.name || null) : null;
 
   // Extract proposals from deal
   const proposalSnapshots: ProposalSnapshot[] = [];
