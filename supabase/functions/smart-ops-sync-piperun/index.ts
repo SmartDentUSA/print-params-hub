@@ -65,6 +65,12 @@ const SYNC_PIPELINES = [
   PIPELINES.GANHOS_ALEATORIOS,
 ];
 
+// ─── HTML Sanitization ───
+function stripHtml(str: string | null | undefined): string {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
 // ─── Deal Snapshot for history ───
 
 interface ProposalItem {
