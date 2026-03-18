@@ -16,11 +16,9 @@ const stripHtml = (str: any): string => {
 };
 
 // Check if a proposal item is a valid displayable item (not a placeholder)
-const isValidItem = (item: any): boolean => {
-  const name = stripHtml(item.nome || item.name || item.product_name || "");
-  const total = Number(item.valor_total || item.total_value || item.total || 0);
-  const unit = Number(item.valor_unitario || item.unit_value || item.unit || 0);
-  return name.length > 0 || total > 0 || unit > 0;
+const isValidItem = (_item: any): boolean => {
+  // Accept all items — combos have R$0 items that must be shown
+  return true;
 };
 
 const getItemName = (item: any): string => {
