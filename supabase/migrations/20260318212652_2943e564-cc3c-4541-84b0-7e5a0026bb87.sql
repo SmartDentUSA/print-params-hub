@@ -1,0 +1,1 @@
+UPDATE lia_attendances SET lojaintegrada_cupom_desconto = NULL WHERE lojaintegrada_cupom_desconto = '[object Object]';

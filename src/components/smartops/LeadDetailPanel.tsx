@@ -448,7 +448,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const mrrOpenLost = [...openDeals, ...lostDeals].reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
 
   // Consolidated proposal items (filtered: skip empty/placeholder items)
-  const allProposalItems: { dealId: string; proposalId: string; name: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
+  const allProposalItems: { dealId: string; proposalId: string; name: string; sku: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
   allDeals.forEach((d: any) => {
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
     proposals.forEach((prop: any) => {
@@ -458,10 +458,12 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
           const unitVal = Number(item.valor_unitario || item.unit_value || item.unit || item.value || 0);
           const totalVal = Number(item.valor_total || item.total_value || item.total || 0) || (qty * unitVal);
+          const sku = String(item.sku || item.external_code || item.referencia || item.cod || item.item_id || "—");
           allProposalItems.push({
             dealId: String(d.deal_id || "—"),
             proposalId: String(prop.proposal_id || prop.id || "—"),
             name: getItemName(item),
+            sku,
             qty,
             unitVal,
             totalVal,
@@ -474,6 +476,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           dealId: String(d.deal_id || "—"),
           proposalId: String(prop.proposal_id || prop.id || "—"),
           name: d.product || d.deal_title || prop.sigla || d.pipeline_name || "Proposta",
+          sku: "—",
           qty: 1,
           unitVal: Number(prop.valor_ps || prop.value || 0),
           totalVal: Number(prop.valor_ps || prop.value || 0),
@@ -655,7 +658,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       items.forEach((item: any) => {
         const name = getItemName(item);
-        const cod = String(item.item_id || item.cod || item.referencia || "—");
+        const cod = String(item.sku || item.external_code || item.item_id || item.cod || item.referencia || "—");
         const qty = Number(item.qtd || item.quantidade || item.quantity || 1);
         const total = Number(item.valor_total || item.total_value || item.total || qty * Number(item.valor_unitario || item.unit_value || item.unit || 0));
         const key = name.toLowerCase().trim();
@@ -954,7 +957,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                 <table className="deal-table">
                   <thead>
                     <tr>
-                      <th>Cód</th><th>Produto</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Qtd Total</th><th style={{ textAlign: "right" }}>Receita</th><th style={{ textAlign: "right" }}>% Mix</th><th>Tendência</th>
+                      <th>SKU</th><th>Produto</th><th style={{ textAlign: "right" }}>Deals</th><th style={{ textAlign: "right" }}>Qtd Total</th><th style={{ textAlign: "right" }}>Receita</th><th style={{ textAlign: "right" }}>% Mix</th><th>Tendência</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1105,6 +1108,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                           <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{liTotalPedidos}</div>
                         </div>
                       )}
+                      {(() => {
+                        const cupom = ld.lojaintegrada_cupom_desconto;
+                        const cupomStr = cupom && String(cupom) !== "[object Object]" ? String(cupom) : null;
+                        return cupomStr ? (
+                          <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}>
+                            <div style={{ fontSize: 10, color: "var(--muted)" }}>🎟️ Cupom</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "rgb(245,158,11)" }}>{cupomStr}</div>
+                          </div>
+                        ) : null;
+                      })()}
                       {liTracking && (
                         <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
                           <div style={{ fontSize: 10, color: "var(--muted)" }}>Rastreio</div>
@@ -1128,25 +1141,34 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                       <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
                         <table className="deal-table">
                           <thead>
-                            <tr>
-                              <th>Pedido</th><th>Data</th><th>Valor</th><th>Status</th><th>Frete</th><th>Envio</th>
+                             <tr>
+                              <th>Pedido</th><th>Data</th><th>Itens/SKU</th><th>Valor</th><th>Status</th><th>Cupom</th><th>Frete</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {liHistorico.map((p: any, pi: number) => (
+                            {liHistorico.map((p: any, pi: number) => {
+                              // Extract items/SKU from lojaintegrada_itens_json matching this order
+                              const allLiItens = (() => { try { const raw = ld.lojaintegrada_itens_json; return Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : []); } catch { return []; } })();
+                              const orderItens = allLiItens.filter((it: any) => !p.numero || it.pedido_numero === p.numero || it.order_id === p.numero);
+                              const skuList = (orderItens.length > 0 ? orderItens : allLiItens.slice(0, 3)).map((it: any) => it.sku || it.referencia || "—").filter(Boolean);
+                              const cupomOrder = p.cupom_desconto || p.cupom || null;
+                              const cupomStr = cupomOrder ? (typeof cupomOrder === "object" ? (cupomOrder.codigo || cupomOrder.nome || "—") : String(cupomOrder)) : "—";
+                              return (
                               <tr key={pi}>
                                 <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || pi + 1}</td>
                                 <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data_criacao || p.data || p.created_at)}</td>
+                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={skuList.join(", ")}>{skuList.length > 0 ? skuList.join(", ") : "—"}</td>
                                 <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor_total || p.valor || 0)}</td>
                                 <td>
                                   <span className={`status-chip ${p.situacao_aprovado === true ? "s-ganho" : p.situacao_cancelado === true ? "s-perdido" : "s-aberto"}`}>
                                     {p.situacao_nome || p.status || "—"}
                                   </span>
                                 </td>
+                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: cupomStr !== "—" ? "rgb(245,158,11)" : "var(--muted2)" }}>{cupomStr}</td>
                                 <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, textAlign: "right" }}>{p.valor_envio ? formatBRLFull(p.valor_envio) : "—"}</td>
-                                <td style={{ fontSize: 10 }}>{p.peso_real ? `${p.peso_real}kg` : "—"}</td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -1164,13 +1186,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                 <table className="deal-table">
                   <thead>
                     <tr>
-                      <th>Deal</th><th>Item</th><th>Qtd</th><th>Unit</th><th>Total</th><th>Status</th>
+                      <th>Deal</th><th>SKU</th><th>Item</th><th>Qtd</th><th>Unit</th><th>Total</th><th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {allProposalItems.map((item, ii) => (
                       <tr key={ii}>
                         <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{item.dealId}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={item.sku}>{item.sku}</td>
                         <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{item.qty}×</td>
                         <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(item.unitVal)}</td>
