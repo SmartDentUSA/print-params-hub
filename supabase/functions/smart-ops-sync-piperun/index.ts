@@ -297,7 +297,7 @@ async function processDeal(
         valor_ps: Number(prop.value || prop.total_value || 0),
         valor_mrr: Number(prop.value_mrr || 0),
         parcelas: Number(prop.installments || 0),
-        items: items.filter(it => it.nome.length > 0 || it.total > 0 || it.unit > 0),
+        items,
       });
     }
   }
