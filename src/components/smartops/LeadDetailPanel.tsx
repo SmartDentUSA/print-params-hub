@@ -869,7 +869,6 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             const liCep = ld.lojaintegrada_cep || null;
             const liEndereco = ld.lojaintegrada_endereco || null;
             const hasSomething = liHistorico.length > 0 || liLtv > 0 || liTracking;
-            if (!hasSomething) return null;
             return (
               <>
                 <div className="sec">🛒 E-commerce Loja Integrada</div>
