@@ -669,16 +669,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                     {allDeals.map((d: any, i: number) => {
                       const proposals = Array.isArray(d.proposals) ? d.proposals : [];
                       return (
-                        <> 
-                          <tr key={`deal-${i}`}>
+                         <React.Fragment key={`deal-${i}`}>
+                          <tr>
                             <td>{formatDate(d.created_at)}</td>
                             <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{d.deal_id}</td>
                             <td>{d.pipeline_name || "—"}</td>
                             <td>{d.stage_name || "—"}</td>
                             <td className="green">{formatBRLFull(d.value)}</td>
                             <td>
-                              <span className={`status-chip ${d.status === "ganha" ? "s-ganho" : d.status === "perdida" ? "s-perdido" : "s-aberto"}`}>
-                                {d.status === "ganha" ? "✓ Ganho" : d.status === "perdida" ? "✗ Perdido" : "● Aberto"}
+                              <span className={`status-chip ${isWon(d.status) ? "s-ganho" : isLost(d.status) ? "s-perdido" : "s-aberto"}`}>
+                                {isWon(d.status) ? "✓ Ganho" : isLost(d.status) ? "✗ Perdido" : "● Aberto"}
                               </span>
                             </td>
                             <td>{ownerDisplay(d.owner_name)}</td>
