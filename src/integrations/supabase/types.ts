@@ -3743,11 +3743,14 @@ export type Database = {
           lead_status: string
           lead_timing_dias: number | null
           lojaintegrada_bairro: string | null
+          lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
           lojaintegrada_cliente_id: number | null
           lojaintegrada_cliente_obs: string | null
           lojaintegrada_complemento: string | null
           lojaintegrada_cupom_desconto: string | null
+          lojaintegrada_cupom_json: Json | null
+          lojaintegrada_data_modificacao: string | null
           lojaintegrada_data_nascimento: string | null
           lojaintegrada_endereco: string | null
           lojaintegrada_forma_envio: string | null
@@ -3755,17 +3758,26 @@ export type Database = {
           lojaintegrada_historico_pedidos: Json | null
           lojaintegrada_itens_json: Json | null
           lojaintegrada_ltv: number | null
+          lojaintegrada_marketplace: Json | null
           lojaintegrada_numero: string | null
+          lojaintegrada_parcelas: number | null
+          lojaintegrada_pedido_id: number | null
+          lojaintegrada_peso_real: number | null
           lojaintegrada_primeira_compra: string | null
+          lojaintegrada_raw_payload: Json | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
           lojaintegrada_total_pedidos_pagos: number | null
+          lojaintegrada_tracking_code: string | null
           lojaintegrada_ultimo_pedido_data: string | null
           lojaintegrada_ultimo_pedido_numero: number | null
           lojaintegrada_ultimo_pedido_status: string | null
           lojaintegrada_ultimo_pedido_valor: number | null
           lojaintegrada_updated_at: string | null
           lojaintegrada_utm_campaign: string | null
+          lojaintegrada_valor_desconto: number | null
+          lojaintegrada_valor_envio: number | null
+          lojaintegrada_valor_subtotal: number | null
           ltv_projected_12m: number | null
           ltv_projected_24m: number | null
           ltv_total: number | null
@@ -4158,11 +4170,14 @@ export type Database = {
           lead_status?: string
           lead_timing_dias?: number | null
           lojaintegrada_bairro?: string | null
+          lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
           lojaintegrada_cliente_id?: number | null
           lojaintegrada_cliente_obs?: string | null
           lojaintegrada_complemento?: string | null
           lojaintegrada_cupom_desconto?: string | null
+          lojaintegrada_cupom_json?: Json | null
+          lojaintegrada_data_modificacao?: string | null
           lojaintegrada_data_nascimento?: string | null
           lojaintegrada_endereco?: string | null
           lojaintegrada_forma_envio?: string | null
@@ -4170,17 +4185,26 @@ export type Database = {
           lojaintegrada_historico_pedidos?: Json | null
           lojaintegrada_itens_json?: Json | null
           lojaintegrada_ltv?: number | null
+          lojaintegrada_marketplace?: Json | null
           lojaintegrada_numero?: string | null
+          lojaintegrada_parcelas?: number | null
+          lojaintegrada_pedido_id?: number | null
+          lojaintegrada_peso_real?: number | null
           lojaintegrada_primeira_compra?: string | null
+          lojaintegrada_raw_payload?: Json | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
           lojaintegrada_total_pedidos_pagos?: number | null
+          lojaintegrada_tracking_code?: string | null
           lojaintegrada_ultimo_pedido_data?: string | null
           lojaintegrada_ultimo_pedido_numero?: number | null
           lojaintegrada_ultimo_pedido_status?: string | null
           lojaintegrada_ultimo_pedido_valor?: number | null
           lojaintegrada_updated_at?: string | null
           lojaintegrada_utm_campaign?: string | null
+          lojaintegrada_valor_desconto?: number | null
+          lojaintegrada_valor_envio?: number | null
+          lojaintegrada_valor_subtotal?: number | null
           ltv_projected_12m?: number | null
           ltv_projected_24m?: number | null
           ltv_total?: number | null
@@ -4573,11 +4597,14 @@ export type Database = {
           lead_status?: string
           lead_timing_dias?: number | null
           lojaintegrada_bairro?: string | null
+          lojaintegrada_bandeira_cartao?: string | null
           lojaintegrada_cep?: string | null
           lojaintegrada_cliente_id?: number | null
           lojaintegrada_cliente_obs?: string | null
           lojaintegrada_complemento?: string | null
           lojaintegrada_cupom_desconto?: string | null
+          lojaintegrada_cupom_json?: Json | null
+          lojaintegrada_data_modificacao?: string | null
           lojaintegrada_data_nascimento?: string | null
           lojaintegrada_endereco?: string | null
           lojaintegrada_forma_envio?: string | null
@@ -4585,17 +4612,26 @@ export type Database = {
           lojaintegrada_historico_pedidos?: Json | null
           lojaintegrada_itens_json?: Json | null
           lojaintegrada_ltv?: number | null
+          lojaintegrada_marketplace?: Json | null
           lojaintegrada_numero?: string | null
+          lojaintegrada_parcelas?: number | null
+          lojaintegrada_pedido_id?: number | null
+          lojaintegrada_peso_real?: number | null
           lojaintegrada_primeira_compra?: string | null
+          lojaintegrada_raw_payload?: Json | null
           lojaintegrada_referencia?: string | null
           lojaintegrada_sexo?: string | null
           lojaintegrada_total_pedidos_pagos?: number | null
+          lojaintegrada_tracking_code?: string | null
           lojaintegrada_ultimo_pedido_data?: string | null
           lojaintegrada_ultimo_pedido_numero?: number | null
           lojaintegrada_ultimo_pedido_status?: string | null
           lojaintegrada_ultimo_pedido_valor?: number | null
           lojaintegrada_updated_at?: string | null
           lojaintegrada_utm_campaign?: string | null
+          lojaintegrada_valor_desconto?: number | null
+          lojaintegrada_valor_envio?: number | null
+          lojaintegrada_valor_subtotal?: number | null
           ltv_projected_12m?: number | null
           ltv_projected_24m?: number | null
           ltv_total?: number | null
@@ -8309,11 +8345,14 @@ export type Database = {
           lead_status: string
           lead_timing_dias: number | null
           lojaintegrada_bairro: string | null
+          lojaintegrada_bandeira_cartao: string | null
           lojaintegrada_cep: string | null
           lojaintegrada_cliente_id: number | null
           lojaintegrada_cliente_obs: string | null
           lojaintegrada_complemento: string | null
           lojaintegrada_cupom_desconto: string | null
+          lojaintegrada_cupom_json: Json | null
+          lojaintegrada_data_modificacao: string | null
           lojaintegrada_data_nascimento: string | null
           lojaintegrada_endereco: string | null
           lojaintegrada_forma_envio: string | null
@@ -8321,17 +8360,26 @@ export type Database = {
           lojaintegrada_historico_pedidos: Json | null
           lojaintegrada_itens_json: Json | null
           lojaintegrada_ltv: number | null
+          lojaintegrada_marketplace: Json | null
           lojaintegrada_numero: string | null
+          lojaintegrada_parcelas: number | null
+          lojaintegrada_pedido_id: number | null
+          lojaintegrada_peso_real: number | null
           lojaintegrada_primeira_compra: string | null
+          lojaintegrada_raw_payload: Json | null
           lojaintegrada_referencia: string | null
           lojaintegrada_sexo: string | null
           lojaintegrada_total_pedidos_pagos: number | null
+          lojaintegrada_tracking_code: string | null
           lojaintegrada_ultimo_pedido_data: string | null
           lojaintegrada_ultimo_pedido_numero: number | null
           lojaintegrada_ultimo_pedido_status: string | null
           lojaintegrada_ultimo_pedido_valor: number | null
           lojaintegrada_updated_at: string | null
           lojaintegrada_utm_campaign: string | null
+          lojaintegrada_valor_desconto: number | null
+          lojaintegrada_valor_envio: number | null
+          lojaintegrada_valor_subtotal: number | null
           ltv_projected_12m: number | null
           ltv_projected_24m: number | null
           ltv_total: number | null

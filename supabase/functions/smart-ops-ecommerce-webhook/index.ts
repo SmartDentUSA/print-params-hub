@@ -351,11 +351,30 @@ function enrichWithOrderHistory(
   // Build full order list (append-only, dedup by numero)
   const allOrderSnapshots = orders.map((o) => {
     const codigo = resolveSituacaoCodigo(o.situacao);
+    const oEnvios = (o.envios || []) as Array<Record<string, unknown>>;
+    const oPagamentos = (o.pagamentos || []) as Array<Record<string, unknown>>;
+    const oItens = (o.itens || []) as Array<Record<string, unknown>>;
     return {
       numero: o.numero || o.id,
+      pedido_id: o.id || null,
       valor: Number(o.valor_total) || 0,
+      valor_desconto: Number(o.valor_desconto) || 0,
+      valor_envio: Number(o.valor_envio) || 0,
       status: codigo || "?",
       data: o.data_criacao || null,
+      data_modificacao: o.data_modificacao || null,
+      tracking: oEnvios[0]?.objeto || null,
+      parcelas: oPagamentos[0]?.numero_parcelas || null,
+      bandeira: oPagamentos[0]?.bandeira || null,
+      forma_pagamento: (oPagamentos[0]?.forma_pagamento as Record<string, unknown>)?.nome || null,
+      itens: oItens.map((i: Record<string, unknown>) => ({
+        sku: i.sku || null,
+        nome: i.nome || i.name || null,
+        qty: Number(i.quantidade || i.quantity || 1),
+        preco_venda: Number(i.preco_venda || 0),
+        preco_cheio: Number(i.preco_cheio || 0),
+        preco_promocional: i.preco_promocional ? Number(i.preco_promocional) : null,
+      })),
     };
   });
 
@@ -446,42 +465,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    // If we only got a resource_uri or minimal payload (no items), fetch full order from LI API
-    const hasItems = Array.isArray(order.itens) && order.itens.length > 0 || Array.isArray(order.items) && order.items.length > 0;
-    const needsFullFetch = !hasItems && LI_API_KEY;
+    // ─── ALWAYS fetch full order from LI API when we have keys + order identifier ───
     const orderResourceUri = resourceUri || order.resource_uri as string | undefined;
+    const orderId = order.numero || order.id;
 
-    if (needsFullFetch && orderResourceUri) {
-      console.log("[ecommerce-webhook] Order missing items, fetching full order from LI API...");
-      const fullOrder = await fetchOrderFromLI(orderResourceUri, LI_API_KEY, LI_APP_KEY || null);
+    if (LI_API_KEY && (orderResourceUri || orderId)) {
+      const fetchUri = orderResourceUri || `/api/v1/pedido/${orderId}/`;
+      console.log(`[ecommerce-webhook] Force-fetching full order from LI API: ${fetchUri}`);
+      const fullOrder = await fetchOrderFromLI(fetchUri, LI_API_KEY, LI_APP_KEY || null);
       if (fullOrder) {
-        // Merge full order data but keep existing cliente if already resolved
         const existingCliente = order.cliente;
+        // Merge: full API data wins, but keep webhook-only fields
         order = { ...order, ...fullOrder };
         if (existingCliente && !fullOrder.cliente) order.cliente = existingCliente;
-        // Re-check situação from full order
         if (fullOrder.situacao && typeof fullOrder.situacao === "object") {
           const resolved = resolveEventFromSituacao(fullOrder.situacao as Record<string, unknown>);
           eventType = resolved.eventType;
           situacaoId = resolved.situacaoId;
         }
         console.log(`[ecommerce-webhook] Full order fetched: itens=${(fullOrder.itens || []).length} items`);
-      }
-    } else if (needsFullFetch && !orderResourceUri && order.numero) {
-      // Build resource URI from order number
-      const builtUri = `/api/v1/pedido/${order.numero}/`;
-      console.log(`[ecommerce-webhook] Building resource URI from numero: ${builtUri}`);
-      const fullOrder = await fetchOrderFromLI(builtUri, LI_API_KEY, LI_APP_KEY || null);
-      if (fullOrder) {
-        const existingCliente = order.cliente;
-        order = { ...order, ...fullOrder };
-        if (existingCliente && !fullOrder.cliente) order.cliente = existingCliente;
-        if (fullOrder.situacao && typeof fullOrder.situacao === "object") {
-          const resolved = resolveEventFromSituacao(fullOrder.situacao as Record<string, unknown>);
-          eventType = resolved.eventType;
-          situacaoId = resolved.situacaoId;
-        }
-        console.log(`[ecommerce-webhook] Full order fetched via numero: itens=${(fullOrder.itens || []).length} items`);
+      } else {
+        console.warn(`[ecommerce-webhook] API fetch failed for ${fetchUri}, proceeding with webhook payload`);
       }
     }
 
@@ -549,25 +553,52 @@ Deno.serve(async (req) => {
     const liPedidoNumero = order.numero ? Number(order.numero) : null;
     const liPedidoData = order.data_criacao ? String(order.data_criacao) : null;
     const liPedidoValor = Number(order.valor_total || 0) || null;
-    const situacaoObj = order.situacao as Record<string, unknown> | undefined;
-    const liPedidoStatus = situacaoObj?.nome ? String(situacaoObj.nome) : null;
+    const situacaoObjFields = order.situacao as Record<string, unknown> | undefined;
+    const liPedidoStatus = situacaoObjFields?.nome ? String(situacaoObjFields.nome) : null;
     const liUtmCampaign = order.utm_campaign ? String(order.utm_campaign) : null;
+
+    // ─── NEW: Extract all financial/logistics/marketplace fields ───
+    const liValorDesconto = Number(order.valor_desconto) || null;
+    const liValorEnvio = Number(order.valor_envio) || null;
+    const liValorSubtotal = Number(order.valor_subtotal) || null;
+    const liPesoReal = Number(order.peso_real) || null;
+    const liDataModificacao = order.data_modificacao ? String(order.data_modificacao) : null;
+    const liPedidoId = order.id ? Number(order.id) : null;
+
+    // Cupom as structured JSON (not string)
+    const liCupomJson = (order.cupom_desconto && typeof order.cupom_desconto === "object")
+      ? order.cupom_desconto as Record<string, unknown>
+      : null;
+
+    // Marketplace info
+    const liMarketplace = (order.marketplace_info && typeof order.marketplace_info === "object")
+      ? order.marketplace_info as Record<string, unknown>
+      : null;
 
     // Extract forma_pagamento from first payment
     const pagamentos = (order.pagamentos || []) as Array<Record<string, unknown>>;
     let liFormaPagamento: string | null = null;
+    let liParcelas: number | null = null;
+    let liBandeiraCartao: string | null = null;
     if (pagamentos.length > 0) {
       const fp = pagamentos[0].forma_pagamento as Record<string, unknown> | undefined;
       liFormaPagamento = fp?.nome ? String(fp.nome) : (pagamentos[0].pagamento_tipo ? String(pagamentos[0].pagamento_tipo) : null);
+      liParcelas = pagamentos[0].numero_parcelas ? Number(pagamentos[0].numero_parcelas) : null;
+      liBandeiraCartao = pagamentos[0].bandeira ? String(pagamentos[0].bandeira) : null;
     }
 
-    // Extract forma_envio from first shipment
+    // Extract forma_envio + tracking from first shipment
     const envios = (order.envios || []) as Array<Record<string, unknown>>;
     let liFormaEnvio: string | null = null;
+    let liTrackingCode: string | null = null;
     if (envios.length > 0) {
       const fe = envios[0].forma_envio as Record<string, unknown> | undefined;
       liFormaEnvio = fe?.nome ? String(fe.nome) : null;
+      liTrackingCode = envios[0].objeto ? String(envios[0].objeto) : null;
     }
+
+    // Store raw payload for debugging/future extraction
+    const liRawPayload = rawPayload;
 
     // ─── Determine tags from event ───
     const eventConfig = EVENT_MAP[eventType] || { tags: [ECOMMERCE_TAGS.EC_INICIOU_CHECKOUT] };
@@ -705,6 +736,19 @@ Deno.serve(async (req) => {
       if (liFormaEnvio) updateData.lojaintegrada_forma_envio = liFormaEnvio;
       if (items.length > 0) updateData.lojaintegrada_itens_json = items;
       if (liUtmCampaign) updateData.lojaintegrada_utm_campaign = liUtmCampaign;
+      // ─── NEW enriched fields ───
+      if (liValorDesconto != null) updateData.lojaintegrada_valor_desconto = liValorDesconto;
+      if (liValorEnvio != null) updateData.lojaintegrada_valor_envio = liValorEnvio;
+      if (liValorSubtotal != null) updateData.lojaintegrada_valor_subtotal = liValorSubtotal;
+      if (liPesoReal != null) updateData.lojaintegrada_peso_real = liPesoReal;
+      if (liDataModificacao) updateData.lojaintegrada_data_modificacao = liDataModificacao;
+      if (liTrackingCode) updateData.lojaintegrada_tracking_code = liTrackingCode;
+      if (liParcelas != null) updateData.lojaintegrada_parcelas = liParcelas;
+      if (liBandeiraCartao) updateData.lojaintegrada_bandeira_cartao = liBandeiraCartao;
+      if (liMarketplace) updateData.lojaintegrada_marketplace = liMarketplace;
+      if (liCupomJson) updateData.lojaintegrada_cupom_json = liCupomJson;
+      if (liPedidoId) updateData.lojaintegrada_pedido_id = liPedidoId;
+      updateData.lojaintegrada_raw_payload = liRawPayload;
       updateData.lojaintegrada_updated_at = new Date().toISOString();
 
       await supabase.from("lia_attendances").update(updateData).eq("id", existingLead.id);
@@ -757,6 +801,19 @@ Deno.serve(async (req) => {
       if (liFormaEnvio) insertData.lojaintegrada_forma_envio = liFormaEnvio;
       if (items.length > 0) insertData.lojaintegrada_itens_json = items;
       if (liUtmCampaign) insertData.lojaintegrada_utm_campaign = liUtmCampaign;
+      // ─── NEW enriched fields ───
+      if (liValorDesconto != null) insertData.lojaintegrada_valor_desconto = liValorDesconto;
+      if (liValorEnvio != null) insertData.lojaintegrada_valor_envio = liValorEnvio;
+      if (liValorSubtotal != null) insertData.lojaintegrada_valor_subtotal = liValorSubtotal;
+      if (liPesoReal != null) insertData.lojaintegrada_peso_real = liPesoReal;
+      if (liDataModificacao) insertData.lojaintegrada_data_modificacao = liDataModificacao;
+      if (liTrackingCode) insertData.lojaintegrada_tracking_code = liTrackingCode;
+      if (liParcelas != null) insertData.lojaintegrada_parcelas = liParcelas;
+      if (liBandeiraCartao) insertData.lojaintegrada_bandeira_cartao = liBandeiraCartao;
+      if (liMarketplace) insertData.lojaintegrada_marketplace = liMarketplace;
+      if (liCupomJson) insertData.lojaintegrada_cupom_json = liCupomJson;
+      if (liPedidoId) insertData.lojaintegrada_pedido_id = liPedidoId;
+      insertData.lojaintegrada_raw_payload = liRawPayload;
       insertData.lojaintegrada_updated_at = new Date().toISOString();
 
       const { data: newLead, error: insertError } = await supabase
