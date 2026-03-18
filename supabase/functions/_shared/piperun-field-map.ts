@@ -462,7 +462,7 @@ export function mapDealToAttendance(deal: PipeRunDealData): Record<string, unkno
     ultima_etapa_comercial: deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] || String(deal.stage_id) : null,
     proprietario_lead_crm: deal.owner_id ? PIPERUN_USERS[deal.owner_id]?.name || String(deal.owner_id) : null,
     status_oportunidade: deal.status !== undefined ? DEAL_STATUS_MAP[deal.status] || "aberta" : null,
-    valor_oportunidade: deal.value || null,
+    valor_oportunidade: deal.value != null ? Number(deal.value) : null, // Preserva 0 e valores falsy legítimos
     data_primeiro_contato: deal.created_at || null,
     data_fechamento_crm: deal.closed_at || null,
     motivo_perda: (() => {
