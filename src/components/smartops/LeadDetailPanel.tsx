@@ -684,6 +684,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                             <td>{ownerDisplay(d.owner_name)}</td>
                           </tr>
                           {proposals.map((prop: any, pi: number) => {
+                            const validItems = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
                             const items = Array.isArray(prop.items) ? prop.items : [];
                             return (
                               <tr key={`prop-${i}-${pi}`} style={{ background: "var(--surface2)" }}>
