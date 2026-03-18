@@ -14,6 +14,7 @@ const corsHeaders = {
 // ─── Loja Integrada situação CÓDIGO → event type mapping ───
 // Using `codigo` string instead of numeric ID (IDs can vary per store)
 const SITUACAO_CODIGO_MAP: Record<string, string> = {
+  // Codes without prefix (legacy/some stores)
   aguardando_pagamento: "order_created",
   pagamento_em_analise: "order_created",
   pagamento_devolvido: "order_cancelled",
@@ -28,6 +29,14 @@ const SITUACAO_CODIGO_MAP: Record<string, string> = {
   devolvido: "order_cancelled",
   boleto_impresso: "boleto_generated",
   boleto_vencido: "boleto_expired",
+  // Codes WITH "pedido_" prefix (actual LI webhook format)
+  pedido_pago: "order_paid",
+  pedido_em_separacao: "order_paid",
+  pedido_em_producao: "order_paid",
+  pronto_para_envio: "order_paid",
+  pedido_enviado: "order_invoiced",
+  pedido_entregue: "order_delivered",
+  pedido_cancelado: "order_cancelled",
 };
 
 // Fallback: numeric ID mapping (less reliable but covers edge cases)
