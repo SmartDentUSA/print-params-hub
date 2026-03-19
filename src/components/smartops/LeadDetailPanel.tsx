@@ -1092,23 +1092,26 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
               const seenOrders = new Set<string>();
               const reconstructed: any[] = [];
               for (const ev of ecomEvents) {
-                const orderId = ev.entity_id || "";
-                if (seenOrders.has(orderId)) continue;
-                seenOrders.add(orderId);
                 const d = ev.event_data || {};
+                const orderId = String(d.pedido || ev.entity_id || "");
+                if (!orderId || seenOrders.has(orderId)) continue;
+                seenOrders.add(orderId);
+                const isApproved = (ev.event_type || "").includes("invoiced") || (ev.event_type || "").includes("paid") || (ev.event_type || "").includes("completed");
                 reconstructed.push({
                   numero: orderId,
                   data_criacao: ev.event_timestamp,
                   valor_total: d.valor || d.value || ev.value_numeric || 0,
-                  situacao_nome: d.situacao_nome || ev.event_type?.replace("order_", "") || "—",
-                  situacao_aprovado: ["order_invoiced", "order_paid", "order_completed"].includes(ev.event_type || ""),
-                  situacao_cancelado: ev.event_type === "order_cancelled",
-                  itens_resumo: d.itens_resumo || ev.entity_name || null,
+                  situacao_nome: d.status || ev.event_type?.replace("ecommerce_order_", "").replace("order_", "") || "—",
+                  situacao_aprovado: isApproved,
+                  situacao_cancelado: (ev.event_type || "").includes("cancelled"),
+                  itens_resumo: d.produtos?.join(", ") || d.itens_resumo || ev.entity_name || null,
                   valor_envio: d.valor_envio || null,
                   cupom_desconto: d.cupom || null,
+                  forma_pagamento: d.forma_pagamento || null,
+                  link_rastreio: d.tracking || null,
                   _from_activity: true,
                 });
-                if (["order_invoiced", "order_paid", "order_completed"].includes(ev.event_type || "")) {
+                if (isApproved) {
                   ltvFromActivity += parseFloat(d.valor || d.value || ev.value_numeric || 0);
                 }
               }
