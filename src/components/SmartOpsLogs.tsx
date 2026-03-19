@@ -129,14 +129,15 @@ export function SmartOpsLogs() {
   }, []);
 
   // ── Arrival tab: fetch + realtime ──
-  const mapArrivalRow = useCallback((row: any): ArrivalEntry => {
+  const mapArrivalRow = useCallback((row: any, nameMap: Map<string, string>): ArrivalEntry => {
     const { fonte, direcao } = classifySource(row.event_type || "", row.source_channel, row.entity_type);
+    const resolvedName = row.lead_id ? (nameMap.get(row.lead_id) || row.entity_name || "-") : (row.entity_name || "-");
     return {
       id: row.id,
       hora: row.event_timestamp || row.created_at || "",
       direcao,
       fonte,
-      lead_name: row.entity_name || "-",
+      lead_name: resolvedName,
       evento: formatEventLabel(row.event_type || ""),
       detalhes: row.event_data?.label || row.event_data?.message_preview || row.entity_name || "",
     };
