@@ -112,7 +112,18 @@ Deno.serve(async (req) => {
       });
       console.log(`[sync-li-clients] Pedidos API: ${pedidosRaw.length}, reais do cliente ${clienteId}: ${pedidosReais.length}`);
 
-      if (pedidosReais.length === 0) return { orders_found: pedidosRaw.length, real_orders: 0 };
+      if (pedidosReais.length === 0) {
+        // Zero out ghost data — no real orders for this client
+        await supabase
+          .from('lia_attendances')
+          .update({
+            lojaintegrada_historico_pedidos: [],
+            lojaintegrada_total_pedidos_pagos: 0,
+            lojaintegrada_updated_at: new Date().toISOString(),
+          })
+          .eq('id', leadId);
+        return { orders_found: pedidosRaw.length, real_orders: 0 };
+      }
 
       const newOrders = pedidosReais.map((p: any) => {
         const envios = Array.isArray(p.envios) ? p.envios : [];
