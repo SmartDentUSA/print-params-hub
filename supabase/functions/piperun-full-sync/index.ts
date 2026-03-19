@@ -23,7 +23,17 @@ const corsHeaders = {
 
 // ─── Identity Resolution (4-level cascade) ───
 
-const SELECT_COLS = "id, lead_status, tags_crm, piperun_deals_history, produto_interesse";
+const SELECT_COLS = "id, lead_status, email, tags_crm, piperun_deals_history, produto_interesse, merged_into";
+
+type FullSyncLeadRecord = {
+  id: string;
+  lead_status: string;
+  email: string | null;
+  tags_crm: string[] | null;
+  piperun_deals_history: unknown[] | null;
+  produto_interesse: string | null;
+  merged_into: string | null;
+};
 
 async function findLeadByCascade(
   supabase: ReturnType<typeof createClient>,
@@ -33,28 +43,134 @@ async function findLeadByCascade(
   email: string | null,
 ) {
   const { data: byDeal } = await supabase
-    .from("lia_attendances").select(SELECT_COLS).eq("piperun_id", dealId).maybeSingle();
-  if (byDeal) return byDeal;
+    .from("lia_attendances").select(SELECT_COLS).eq("piperun_id", dealId).is("merged_into", null).maybeSingle();
+  if (byDeal) return byDeal as FullSyncLeadRecord;
 
   if (pessoaHash) {
     const { data: byHash } = await supabase
-      .from("lia_attendances").select(SELECT_COLS).eq("pessoa_hash", pessoaHash).maybeSingle();
-    if (byHash) return byHash;
+      .from("lia_attendances").select(SELECT_COLS).eq("pessoa_hash", pessoaHash).is("merged_into", null).maybeSingle();
+    if (byHash) return byHash as FullSyncLeadRecord;
   }
 
   if (pessoaPiperunId) {
     const { data: byPerson } = await supabase
-      .from("lia_attendances").select(SELECT_COLS).eq("pessoa_piperun_id", pessoaPiperunId).maybeSingle();
-    if (byPerson) return byPerson;
+      .from("lia_attendances").select(SELECT_COLS).eq("pessoa_piperun_id", pessoaPiperunId).is("merged_into", null).maybeSingle();
+    if (byPerson) return byPerson as FullSyncLeadRecord;
   }
 
   if (email) {
     const { data: byEmail } = await supabase
-      .from("lia_attendances").select(SELECT_COLS).eq("email", email.toLowerCase().trim()).maybeSingle();
-    if (byEmail) return byEmail;
+      .from("lia_attendances").select(SELECT_COLS).eq("email", email.toLowerCase().trim()).is("merged_into", null).maybeSingle();
+    if (byEmail) return byEmail as FullSyncLeadRecord;
   }
 
   return null;
+}
+
+async function findLeadByEmail(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  excludeId?: string,
+): Promise<FullSyncLeadRecord | null> {
+  let query = supabase
+    .from("lia_attendances")
+    .select(SELECT_COLS)
+    .eq("email", email.toLowerCase().trim())
+    .is("merged_into", null);
+
+  if (excludeId) {
+    query = query.neq("id", excludeId);
+  }
+
+  const { data } = await query.maybeSingle();
+  return (data as FullSyncLeadRecord | null) ?? null;
+}
+
+function mergeTagLists(...lists: Array<string[] | null | undefined>): string[] | null {
+  const merged = [...new Set(lists.flatMap((list) => list ?? []).filter(Boolean))];
+  return merged.length ? merged : null;
+}
+
+function mergeDealHistorySets(...histories: Array<unknown[] | null | undefined>): RichDealSnapshot[] {
+  let merged: RichDealSnapshot[] = [];
+
+  for (const history of histories) {
+    if (!Array.isArray(history)) continue;
+
+    for (const snapshot of history) {
+      if (!snapshot || typeof snapshot !== "object") continue;
+      merged = upsertDealHistory(merged, snapshot as RichDealSnapshot);
+    }
+  }
+
+  return merged;
+}
+
+async function resolveDuplicateEmailConflict(
+  supabase: ReturnType<typeof createClient>,
+  email: string,
+  payload: Record<string, unknown>,
+  currentLead: FullSyncLeadRecord | null,
+  dealId: string,
+): Promise<boolean> {
+  const canonicalLead = await findLeadByEmail(supabase, email, currentLead?.id);
+  if (!canonicalLead) {
+    console.error(`[piperun-full-sync] Email conflict without canonical lead for deal ${dealId}: ${email}`);
+    return false;
+  }
+
+  const payloadHistory = Array.isArray(payload.piperun_deals_history)
+    ? (payload.piperun_deals_history as unknown[])
+    : null;
+
+  const canonicalPayload: Record<string, unknown> = {
+    ...payload,
+    piperun_deals_history: mergeDealHistorySets(
+      canonicalLead.piperun_deals_history,
+      currentLead?.piperun_deals_history,
+      payloadHistory,
+    ),
+  };
+
+  const mergedTags = mergeTagLists(
+    canonicalLead.tags_crm,
+    currentLead?.tags_crm,
+    Array.isArray(payload.tags_crm) ? (payload.tags_crm as string[]) : null,
+  );
+  if (mergedTags) canonicalPayload.tags_crm = mergedTags;
+
+  const { error: canonicalError } = await supabase
+    .from("lia_attendances")
+    .update(canonicalPayload)
+    .eq("id", canonicalLead.id);
+
+  if (canonicalError) {
+    console.error(`[piperun-full-sync] Canonical update error deal ${dealId}:`, canonicalError.message);
+    return false;
+  }
+
+  if (currentLead && currentLead.id !== canonicalLead.id) {
+    const mergedAt = new Date().toISOString();
+    await supabase
+      .from("lia_attendances")
+      .update({
+        merged_into: canonicalLead.id,
+        merged_at: mergedAt,
+        merge_history: {
+          source: "piperun-full-sync",
+          reason: "email_conflict",
+          conflicting_email: email,
+          conflicting_deal_id: dealId,
+          canonical_id: canonicalLead.id,
+          merged_at: mergedAt,
+        },
+        updated_at: mergedAt,
+      })
+      .eq("id", currentLead.id);
+  }
+
+  console.log(`[piperun-full-sync] Email conflict merged deal ${dealId} into lead ${canonicalLead.id}`);
+  return true;
 }
 
 Deno.serve(async (req) => {
@@ -117,7 +233,6 @@ Deno.serve(async (req) => {
 
     for (const rawDeal of allDeals) {
       try {
-        // GAP 1 FIX: Deep parse stringified fields
         const deal = deepParseStringifiedFields(rawDeal as unknown as Record<string, unknown>) as unknown as PipeRunDealData;
 
         const dealId = String(deal.id);
@@ -129,19 +244,16 @@ Deno.serve(async (req) => {
           updatePayload.updated_at = new Date().toISOString();
         }
 
-        // Extract identity keys for cascade
         const person = deal.person;
         const pessoaHash = person?.hash ? String(person.hash) : null;
         const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
 
-        // Build deal snapshot
         const dealSnapshot = buildRichDealSnapshot(deal, {
           dealId,
           product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
         });
 
-        // GAP 2 FIX: 4-level identity cascade
         const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
 
         if (currentLead) {
@@ -151,25 +263,34 @@ Deno.serve(async (req) => {
               smartPayload[key] = value;
             }
           }
-          // GAP 3 FIX: Upsert deal history
           smartPayload.piperun_deals_history = upsertDealHistory(currentLead.piperun_deals_history, dealSnapshot);
 
-          // GAP 4 FIX: Tags CRM journey
           if (deal.stage_id) {
             const mappedStatus = STAGE_TO_ETAPA[deal.stage_id] || "sem_contato";
             const { tags: updatedTags } = computeTagsFromStage(mappedStatus, currentLead.tags_crm);
             smartPayload.tags_crm = updatedTags;
           }
 
-          await supabase.from("lia_attendances").update(smartPayload).eq("id", currentLead.id);
-          updated++;
+          const { error } = await supabase.from("lia_attendances").update(smartPayload).eq("id", currentLead.id);
+          if (!error) {
+            updated++;
+          } else if (error.code === "23505" && email) {
+            const resolved = await resolveDuplicateEmailConflict(supabase, email, smartPayload, currentLead, dealId);
+            if (resolved) updated++;
+            else {
+              errors++;
+              console.error(`[piperun-full-sync] Update err deal ${dealId}:`, error.message);
+            }
+          } else {
+            errors++;
+            console.error(`[piperun-full-sync] Update err deal ${dealId}:`, error.message);
+          }
         } else if (email) {
-          // Insert new
           const nome = updatePayload.nome || (deal as any).title || `Deal #${dealId}`;
           const resolvedStatus = deal.stage_id ? (STAGE_TO_ETAPA[deal.stage_id] || "sem_contato") : "sem_contato";
           const { tags: initialTags } = computeTagsFromStage(resolvedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
 
-          const insertPayload = {
+          const insertPayload: Record<string, unknown> = {
             ...updatePayload,
             nome,
             piperun_id: dealId,
@@ -181,7 +302,17 @@ Deno.serve(async (req) => {
           };
           const { error } = await supabase.from("lia_attendances").insert(insertPayload);
           if (!error) created++;
-          else { errors++; console.error(`[piperun-full-sync] Insert err deal ${dealId}:`, error.message); }
+          else if (error.code === "23505") {
+            const resolved = await resolveDuplicateEmailConflict(supabase, email, insertPayload, null, dealId);
+            if (resolved) updated++;
+            else {
+              errors++;
+              console.error(`[piperun-full-sync] Insert err deal ${dealId}:`, error.message);
+            }
+          } else {
+            errors++;
+            console.error(`[piperun-full-sync] Insert err deal ${dealId}:`, error.message);
+          }
         } else {
           skipped++;
         }
