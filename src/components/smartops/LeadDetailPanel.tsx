@@ -648,6 +648,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     sellerAggMap[name].count += 1;
     sellerAggMap[name].totalVal += Number(d.value) || 0;
   });
+  // Fallback: se nenhum vendedor veio dos deals, usar proprietario_lead_crm (leads antigos)
+  if (Object.keys(sellerAggMap).length === 0 && ld.proprietario_lead_crm) {
+    const name = String(ld.proprietario_lead_crm);
+    if (name && name !== "—") {
+      const totalWonVal = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+      sellerAggMap[name] = { count: wonDeals.length || 1, totalVal: totalWonVal };
+    }
+  }
   const topSellers = Object.entries(sellerAggMap)
     .sort((a, b) => b[1].totalVal - a[1].totalVal)
     .slice(0, 5);
