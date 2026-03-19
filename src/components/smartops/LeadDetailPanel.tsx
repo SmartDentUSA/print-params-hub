@@ -1000,6 +1000,17 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                             </td>
                             <td>{ownerDisplay(d.owner_name)}</td>
                           </tr>
+                          {(d.person_id || d.company_id) && (
+                            <tr>
+                              <td colSpan={7} style={{ padding: "2px 16px 4px", borderTop: "none" }}>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "var(--muted2)" }}>
+                                  {d.person_id ? `👤 Pessoa: #${d.person_id}` : ""}
+                                  {d.person_id && d.company_id ? " · " : ""}
+                                  {d.company_id ? `🏢 Org: #${d.company_id}` : ""}
+                                </span>
+                              </td>
+                            </tr>
+                          )}
                           {proposals.map((prop: any, pi: number) => {
                             const validItems = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
                             const items = validItems;
