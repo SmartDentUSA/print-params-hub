@@ -7,7 +7,10 @@ import {
   mapDealToAttendance,
   deepParseStringifiedFields,
   piperunGet,
+  buildRichDealSnapshot,
+  upsertDealHistory,
   type PipeRunDealData,
+  type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 
