@@ -711,6 +711,7 @@ async function processCSVInBackground(csvText: string) {
         if (refDeal.produto_interesse) updatePayload.produto_interesse = refDeal.produto_interesse;
         if (refDeal.motivo_perda) updatePayload.motivo_perda = refDeal.motivo_perda;
         if (refDeal.comentario_perda) updatePayload.comentario_perda = refDeal.comentario_perda;
+        if (refDeal.dono_nome) updatePayload.proprietario_lead_crm = refDeal.dono_nome;
         if (pending.phone) updatePayload.telefone_normalized = pending.phone;
 
         updatePayload.proposals_total_value = currentHistory.reduce(

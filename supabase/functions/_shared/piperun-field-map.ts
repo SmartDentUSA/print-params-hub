@@ -766,9 +766,11 @@ export function parseProposalItems(rawText: string): {
   const segments = rawText.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
   const parsed: ParsedProposalItem[] = [];
 
-  for (const seg of segments) {
-    // Try to extract pattern: "PRO XXXX [qty] Name" or just "Name"
-    const match = seg.match(/^(?:PRO\s*\d+\s*)?\[?([\d.]+)\]?\s*(.+)$/i);
+  for (let seg of segments) {
+    // Clean prefixes like "(1796) PRO 12549 [10000]" before parsing
+    seg = seg.replace(/^\(\d+\)\s*/, '').replace(/^PRO\s*\d+\s*/i, '').replace(/^\[\d+\]\s*/, '');
+    // Try to extract pattern: "[qty] Name" or just "Name"
+    const match = seg.match(/^\[?([\d.]+)\]?\s*(.+)$/i);
     if (match) {
       const qty = parseFloat(match[1]) || 1;
       const name = match[2].trim();

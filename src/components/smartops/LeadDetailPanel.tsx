@@ -743,6 +743,19 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
+  // Fallback: se nenhum item veio dos proposals CRM, usar itens_proposta_parsed (leads antigos)
+  if (Object.keys(mixMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+    const mostRecentWon = wonDeals[0] || allDeals[0];
+    ld.itens_proposta_parsed.forEach((item: any) => {
+      const name = item.name || item.item || "Produto";
+      const key = name.toLowerCase().trim();
+      if (!mixMap[key]) {
+        mixMap[key] = { cod: "—", name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+      }
+      mixMap[key].deals.add(String(mostRecentWon?.deal_id || "—"));
+      mixMap[key].qtyTotal += Number(item.qty || item.quantidade || 1);
+    });
+  }
   // E-commerce approved orders → merge into mix
   liApproved.forEach((order: any) => {
     const orderTs = new Date(order.data_criacao || 0).getTime();
