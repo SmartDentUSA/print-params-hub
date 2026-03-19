@@ -626,10 +626,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
-  // Fallback: se nenhum produto veio dos proposals, usar itens_proposta_parsed (leads antigos)
-  if (Object.keys(productAggMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+  // Fallback complementar: wonDeals sem proposals → merge com itens_proposta_parsed
+  const dealsWithoutProposals = wonDeals.filter((d: any) => !Array.isArray(d.proposals) || d.proposals.length === 0);
+  if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     ld.itens_proposta_parsed.forEach((item: any) => {
       const name = item.name || item.item || "Produto";
+      // Ignorar itens corrompidos com HTML
+      if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const qty = Number(item.qty || item.quantidade || 1);
       if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
       productAggMap[name].qty += qty;
@@ -648,12 +651,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     sellerAggMap[name].count += 1;
     sellerAggMap[name].totalVal += Number(d.value) || 0;
   });
-  // Fallback: se nenhum vendedor veio dos deals, usar proprietario_lead_crm (leads antigos)
-  if (Object.keys(sellerAggMap).length === 0 && ld.proprietario_lead_crm) {
+  // Fallback complementar: wonDeals sem owner → atribuir a proprietario_lead_crm
+  const dealsWithoutOwner = wonDeals.filter((d: any) => ownerDisplay(d.owner_name) === "—");
+  if (dealsWithoutOwner.length > 0 && ld.proprietario_lead_crm) {
     const name = String(ld.proprietario_lead_crm);
     if (name && name !== "—") {
-      const totalWonVal = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
-      sellerAggMap[name] = { count: wonDeals.length || 1, totalVal: totalWonVal };
+      if (!sellerAggMap[name]) sellerAggMap[name] = { count: 0, totalVal: 0 };
+      sellerAggMap[name].count += dealsWithoutOwner.length;
+      sellerAggMap[name].totalVal += dealsWithoutOwner.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
     }
   }
   const topSellers = Object.entries(sellerAggMap)
@@ -743,11 +748,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
-  // Fallback: se nenhum item veio dos proposals CRM, usar itens_proposta_parsed (leads antigos)
-  if (Object.keys(mixMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+  // Fallback complementar: wonDeals sem proposals → merge com itens_proposta_parsed no mixMap
+  if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     const mostRecentWon = wonDeals[0] || allDeals[0];
     ld.itens_proposta_parsed.forEach((item: any) => {
       const name = item.name || item.item || "Produto";
+      // Ignorar itens corrompidos com HTML
+      if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const key = name.toLowerCase().trim();
       if (!mixMap[key]) {
         mixMap[key] = { cod: "—", name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
