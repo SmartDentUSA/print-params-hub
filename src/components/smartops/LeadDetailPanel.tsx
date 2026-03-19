@@ -795,7 +795,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       allProposalItems.push({
         name: item.name || item.item || "Item sem nome",
         qty: Number(item.qty || item.quantidade || 1),
-        category: item.category || "",
+        
         sku: item.sku || "—",
         unitVal: 0,
         totalVal: 0,
