@@ -694,16 +694,17 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     }
   });
 
-  // ── Product Mix Intelligence (all won deals) ──
+  // ── Product Mix Intelligence (CRM won deals + E-commerce approved) ──
   interface ProductMixItem {
     cod: string;
     name: string;
     deals: Set<string>;
     qtyTotal: number;
     receita: number;
-    timestamps: number[]; // for trend calculation
+    timestamps: number[];
   }
   const mixMap: Record<string, ProductMixItem> = {};
+  // CRM won deals
   wonDeals.forEach((d: any) => {
     const dealTs = new Date(d.created_at || 0).getTime();
     const proposals = Array.isArray(d.proposals) ? d.proposals : [];
@@ -725,11 +726,44 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
+  // E-commerce approved orders → merge into mix
+  liApproved.forEach((order: any) => {
+    const orderTs = new Date(order.data_criacao || 0).getTime();
+    const orderItems: any[] = Array.isArray(order.itens) ? order.itens : [];
+    if (orderItems.length > 0) {
+      orderItems.forEach((item: any) => {
+        const name = String(item.nome || item.name || "Produto E-com");
+        const cod = String(item.sku || item.referencia || "—");
+        const qty = Number(item.qty || item.quantidade || 1);
+        const unitPrice = Number(item.preco || item.valor_unitario || 0);
+        const total = qty * unitPrice;
+        const key = name.toLowerCase().trim();
+        if (!mixMap[key]) {
+          mixMap[key] = { cod, name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+        }
+        mixMap[key].deals.add(`EC-${order.numero}`);
+        mixMap[key].qtyTotal += qty;
+        mixMap[key].receita += total;
+        if (orderTs > 0) mixMap[key].timestamps.push(orderTs);
+      });
+    } else {
+      // No item detail — use itens_resumo as single product
+      const resumo = order.itens_resumo || "Produto E-commerce";
+      const key = resumo.toLowerCase().trim();
+      const total = parseFloat(order.valor_total) || 0;
+      if (!mixMap[key]) {
+        mixMap[key] = { cod: "—", name: resumo, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+      }
+      mixMap[key].deals.add(`EC-${order.numero}`);
+      mixMap[key].qtyTotal += 1;
+      mixMap[key].receita += total;
+      if (orderTs > 0) mixMap[key].timestamps.push(orderTs);
+    }
+  });
   const totalMixReceita = Object.values(mixMap).reduce((s, m) => s + m.receita, 0);
   const productMixRows = Object.values(mixMap)
     .sort((a, b) => b.receita - a.receita)
     .map((m) => {
-      // Trend calculation
       let trend = "— Uma vez";
       const sortedTs = [...m.timestamps].sort();
       if (sortedTs.length >= 3) {
