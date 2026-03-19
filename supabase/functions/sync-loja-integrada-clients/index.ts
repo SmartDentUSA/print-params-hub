@@ -273,6 +273,7 @@ Deno.serve(async (req) => {
                 source: 'loja_integrada',
                 telefone_normalized: phone,
                 lead_status: 'cliente_ecommerce',
+                data_primeiro_contato: client.data_criacao || new Date().toISOString(),
               })
               .select('id')
               .single();
