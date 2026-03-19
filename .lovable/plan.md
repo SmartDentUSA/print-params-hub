@@ -1,41 +1,26 @@
 
 
-# Diagnóstico: Sync de pipelines grandes está excedendo o timeout
+# Adicionar person_id e company_id ao Rich Deal Snapshot
 
-## O que já funcionou
-Os pipelines menores foram atualizados com sucesso pelo sync com o builder rico:
-- **Pipeline 72938** (Estagnados): 377 leads atualizados
-- **Pipeline 70898**: 184 leads atualizados
-- **Pipeline 73999**: 548 deals processados
+## Problema
+O `RichDealSnapshot` (dentro do array `piperun_deals_history`) não inclui `person_id` nem `company_id`. Esses IDs ficam apenas no nível do lead, o que impede distinguir a pessoa/organização de cada deal individual no histórico.
 
-## O que NÃO funcionou
-Os pipelines grandes (**18784** Vendas e **83896** CS Onboarding) possuem **5000+ deals cada**. A edge function excede o timeout (60s) antes de processar todos. O deal 56186037 (R$26k, RayShape Edge Mini, PRO18302) do lead `ciclistadejaleco@gmail.com` está no pipeline 83896 e não foi alcançado antes do timeout - por isso `proposals: []` permanece.
+## Correção
 
-## Solução: Adicionar chunking ao sync
+### Arquivo: `supabase/functions/_shared/piperun-field-map.ts`
 
-### Arquivo: `supabase/functions/smart-ops-sync-piperun/index.ts`
+1. Adicionar dois campos à interface `RichDealSnapshot`:
+   - `person_id: number | null`
+   - `company_id: number | null`
 
-Adicionar dois parâmetros: `offset` e `chunk_size` (default 500).
+2. No `buildRichDealSnapshot`, preencher os novos campos:
+   - `person_id: deal.person_id ? Number(deal.person_id) : null`
+   - `company_id: deal.company_id ? Number(deal.company_id) : null`
 
-- Quando chamado com `?full=true&pipeline_id=83896&offset=0&chunk_size=500`, processa apenas os deals 0-499
-- O modo `orchestrate` passa a dividir pipelines grandes em chunks automaticamente
-- Cada chunk cabe no timeout de 60s
+### Redeploy
+- `smart-ops-sync-piperun` (usa o shared)
+- `smart-ops-piperun-webhook` (usa o shared)
+- `piperun-full-sync` (usa o shared)
 
-### Mudança no orchestrador (mesmo arquivo)
-```
-Para cada pipeline:
-  1. Busca total de deals na API PipeRun
-  2. Se total > 500, divide em chunks de 500
-  3. Chama self com offset=0, offset=500, offset=1000... sequencialmente
-```
-
-### Resultado esperado
-- O sync completo de TODOS os pipelines passa a funcionar sem timeout
-- O deal 56186037 será processado e seu `proposals[]` será preenchido com os itens reais (RayShape Edge Mini, PRO18302)
-- Todos os leads dos pipelines grandes (Vendas, CS Onboarding) terão seus cards atualizados com vendedor, proposta e SKU corretos
-
-### Sem alteração em nenhum outro arquivo
-- Sem mudança no frontend
-- Sem mudança no schema do banco
-- Sem mudança em nenhum outro edge function
+Nenhuma mudança no frontend, banco ou outros arquivos. Os novos campos aparecerão automaticamente no próximo sync/webhook.
 
