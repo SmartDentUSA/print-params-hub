@@ -89,6 +89,7 @@ export function SmartOpsLogs() {
   const [arrivals, setArrivals] = useState<ArrivalEntry[]>([]);
   const [arrivalsLoading, setArrivalsLoading] = useState(true);
   const [arrivalsSearch, setArrivalsSearch] = useState("");
+  const [leadNameMap, setLeadNameMap] = useState<Map<string, string>>(new Map());
 
   // ── Envios tab ──
   useEffect(() => {
