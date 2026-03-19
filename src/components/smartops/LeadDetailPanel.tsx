@@ -786,6 +786,26 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       };
     });
 
+  // === FALLBACK OBRIGATÓRIO PARA ITENS DE PROPOSTAS ===
+  // Quando proposals[].items[] está vazio/null (comum em deals abertos), usa itens_proposta_parsed
+  if (allProposalItems.length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+    // Usa o deal mais recente para vincular (se houver múltiplos deals)
+    const mostRecentDeal = allDeals.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0] || {};
+    ld.itens_proposta_parsed.forEach((item: any) => {
+      allProposalItems.push({
+        name: item.name || item.item || "Item sem nome",
+        qty: Number(item.qty || item.quantidade || 1),
+        
+        sku: item.sku || "—",
+        unitVal: 0,
+        totalVal: 0,
+        dealId: mostRecentDeal.deal_id || ld.piperun_id || "—",
+        dealStatus: mostRecentDeal.status || ld.status_oportunidade || "aberta",
+        proposalId: "—"  // Como vem do parsed flat, não tem proposal individual
+      });
+    });
+  }
+
 
   // Academy courses
   const astronCourses = Array.isArray(ld.astron_courses_access) ? (ld.astron_courses_access as any[]) : [];
