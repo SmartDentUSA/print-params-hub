@@ -33,7 +33,7 @@ function isInStagnantStatus(leadStatus: string): boolean {
 function extractIds(deal: Record<string, unknown>) {
   const stage = deal.stage as Record<string, unknown> | undefined;
   const pipeline = deal.pipeline as Record<string, unknown> | undefined;
-  const owner = deal.owner as Record<string, unknown> | undefined;
+  const owner = (deal.owner || deal.user) as Record<string, unknown> | undefined;
   const person = deal.person as Record<string, unknown> | undefined;
   const company = (person?.company || deal.company) as Record<string, unknown> | undefined;
 
