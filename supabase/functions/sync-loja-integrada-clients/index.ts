@@ -9,6 +9,7 @@ const API_BASE = 'https://api.awsli.com.br/v1';
 const RATE_LIMIT_DELAY = 800;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000;
+const SKIP_IF_UPDATED_WITHIN_MS = 24 * 60 * 60 * 1000; // 24h
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,7 +22,7 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
 
-  // ── Multi-strategy auth fetch (same as poll-loja-integrada-orders) ──
+  // ── Multi-strategy auth fetch ──
   async function apiFetch(endpoint: string) {
     const strategies = [
       {
@@ -96,11 +97,8 @@ Deno.serve(async (req) => {
   async function enrichWithOrders(leadId: string, clienteId: number) {
     try {
       const ordersRes = await apiFetch(`/pedido/?cliente_id=${clienteId}&limit=100`);
-    const pedidosRaw = ordersRes?.objects || [];
+      const pedidosRaw = ordersRes?.objects || [];
 
-      // ── Filtrar apenas pedidos que realmente pertencem a este cliente ──
-      // O endpoint /pedido/?cliente_id=X NÃO filtra — retorna os primeiros pedidos da loja inteira.
-      // O campo "cliente" é uma URI string "/api/v1/cliente/{id}" ou um objeto com { id }.
       const pedidosReais = pedidosRaw.filter((p: any) => {
         const clienteRef = p.cliente;
         if (!clienteRef) return false;
@@ -116,36 +114,32 @@ Deno.serve(async (req) => {
 
       if (pedidosReais.length === 0) return { orders_found: pedidosRaw.length, real_orders: 0 };
 
-      // ── Substituir completamente o histórico (purga pedidos fantasmas antigos) ──
-      const newOrders = pedidosReais
-        .map((p: any) => {
-          const envios = Array.isArray(p.envios) ? p.envios : [];
-          const pagamentos = Array.isArray(p.pagamentos) ? p.pagamentos : [];
-          const itens = Array.isArray(p.itens) ? p.itens : [];
-          return {
-            numero: p.numero,
-            id: p.id,
-            data_criacao: p.data_criacao,
-            data_modificacao: p.data_modificacao,
-            valor_total: p.valor_total,
-            valor_subtotal: p.valor_subtotal,
-            valor_envio: p.valor_envio,
-            valor_desconto: p.valor_desconto,
-            peso_real: p.peso_real,
-            utm_campaign: p.utm_campaign,
-            situacao_codigo: p.situacao?.codigo || null,
-            situacao_nome: p.situacao?.nome || null,
-            situacao_aprovado: p.situacao?.aprovado || false,
-            situacao_cancelado: p.situacao?.cancelado || false,
-            // Tracking & payment enrichment
-            link_rastreio: envios[0]?.objeto || envios[0]?.url || null,
-            url_pagamento: pagamentos[0]?.link_boleto || pagamentos[0]?.link_pix || null,
-            forma_pagamento: pagamentos[0]?.forma_pagamento?.nome || null,
-            itens_resumo: itens.slice(0, 5).map((i: any) => i.nome || i.sku || "").filter(Boolean).join(", ") || null,
-          };
-        });
+      const newOrders = pedidosReais.map((p: any) => {
+        const envios = Array.isArray(p.envios) ? p.envios : [];
+        const pagamentos = Array.isArray(p.pagamentos) ? p.pagamentos : [];
+        const itens = Array.isArray(p.itens) ? p.itens : [];
+        return {
+          numero: p.numero,
+          id: p.id,
+          data_criacao: p.data_criacao,
+          data_modificacao: p.data_modificacao,
+          valor_total: p.valor_total,
+          valor_subtotal: p.valor_subtotal,
+          valor_envio: p.valor_envio,
+          valor_desconto: p.valor_desconto,
+          peso_real: p.peso_real,
+          utm_campaign: p.utm_campaign,
+          situacao_codigo: p.situacao?.codigo || null,
+          situacao_nome: p.situacao?.nome || null,
+          situacao_aprovado: p.situacao?.aprovado || false,
+          situacao_cancelado: p.situacao?.cancelado || false,
+          link_rastreio: envios[0]?.objeto || envios[0]?.url || null,
+          url_pagamento: pagamentos[0]?.link_boleto || pagamentos[0]?.link_pix || null,
+          forma_pagamento: pagamentos[0]?.forma_pagamento?.nome || null,
+          itens_resumo: itens.slice(0, 5).map((i: any) => i.nome || i.sku || "").filter(Boolean).join(", ") || null,
+        };
+      });
 
-      // Calc LTV from approved orders
       const approvedOrders = newOrders.filter((o: any) => o.situacao_aprovado && !o.situacao_cancelado);
       const ltvTotal = approvedOrders.reduce((sum: number, o: any) => sum + parseFloat(o.valor_total || '0'), 0);
       const lastOrder = newOrders
@@ -173,21 +167,30 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ── Check if lead was recently synced (within 24h) ──
+  function isRecentlySynced(updatedAt: string | null): boolean {
+    if (!updatedAt) return false;
+    const diff = Date.now() - new Date(updatedAt).getTime();
+    return diff < SKIP_IF_UPDATED_WITHIN_MS;
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const batchSize = Math.min(body.batch_size || 50, 50);
     const maxPages = Math.min(body.max_pages || 10, 50);
     const enrichOrders = body.enrich_orders !== false; // default true
+    const fullSync = body.full === true; // force full re-sync, skip nothing
 
     let offset = 0;
     let page = 0;
     let totalSynced = 0;
     let totalSkipped = 0;
+    let totalSkippedRecent = 0;
     let totalCreated = 0;
     let totalUpdated = 0;
     const errors: { email: string; error: string }[] = [];
 
-    console.log(`[sync-li-clients] Starting (batchSize=${batchSize}, maxPages=${maxPages}, enrichOrders=${enrichOrders})`);
+    console.log(`[sync-li-clients] Starting (batchSize=${batchSize}, maxPages=${maxPages}, enrichOrders=${enrichOrders}, full=${fullSync})`);
 
     while (page < maxPages) {
       const endpoint = `/cliente/?limit=${batchSize}&offset=${offset}`;
@@ -212,6 +215,20 @@ Deno.serve(async (req) => {
         if (client.cpf === "99999999999") { totalSkipped++; continue; }
 
         try {
+          // Check existing by email
+          const { data: existing } = await supabase
+            .from('lia_attendances')
+            .select('id, lojaintegrada_updated_at')
+            .eq('email', email)
+            .limit(1)
+            .maybeSingle();
+
+          // ── SKIP if recently synced (unless full=true) ──
+          if (!fullSync && existing && isRecentlySynced(existing.lojaintegrada_updated_at as string | null)) {
+            totalSkippedRecent++;
+            continue;
+          }
+
           const upsertFields: Record<string, unknown> = {
             nome: client.nome || "Cliente LI",
             email,
@@ -225,14 +242,6 @@ Deno.serve(async (req) => {
             lojaintegrada_cliente_data_criacao: client.data_criacao || null,
             lojaintegrada_updated_at: new Date().toISOString(),
           };
-
-          // Check existing by email
-          const { data: existing } = await supabase
-            .from('lia_attendances')
-            .select('id')
-            .eq('email', email)
-            .limit(1)
-            .maybeSingle();
 
           let leadId: string;
 
@@ -258,7 +267,6 @@ Deno.serve(async (req) => {
               .single();
 
             if (insertErr) {
-              // Handle unique constraint (email already exists from concurrent insert)
               if (insertErr.code === '23505') {
                 const { data: retry } = await supabase
                   .from('lia_attendances')
@@ -299,7 +307,7 @@ Deno.serve(async (req) => {
       page++;
     }
 
-    console.log(`[sync-li-clients] Done: synced=${totalSynced}, created=${totalCreated}, updated=${totalUpdated}, skipped=${totalSkipped}, errors=${errors.length}`);
+    console.log(`[sync-li-clients] Done: synced=${totalSynced}, created=${totalCreated}, updated=${totalUpdated}, skipped=${totalSkipped}, skippedRecent=${totalSkippedRecent}, errors=${errors.length}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -307,6 +315,7 @@ Deno.serve(async (req) => {
       created: totalCreated,
       updated: totalUpdated,
       skipped: totalSkipped,
+      skipped_recent: totalSkippedRecent,
       errors,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
