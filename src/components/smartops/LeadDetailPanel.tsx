@@ -651,12 +651,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     sellerAggMap[name].count += 1;
     sellerAggMap[name].totalVal += Number(d.value) || 0;
   });
-  // Fallback: se nenhum vendedor veio dos deals, usar proprietario_lead_crm (leads antigos)
-  if (Object.keys(sellerAggMap).length === 0 && ld.proprietario_lead_crm) {
+  // Fallback complementar: wonDeals sem owner → atribuir a proprietario_lead_crm
+  const dealsWithoutOwner = wonDeals.filter((d: any) => ownerDisplay(d.owner_name) === "—");
+  if (dealsWithoutOwner.length > 0 && ld.proprietario_lead_crm) {
     const name = String(ld.proprietario_lead_crm);
     if (name && name !== "—") {
-      const totalWonVal = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
-      sellerAggMap[name] = { count: wonDeals.length || 1, totalVal: totalWonVal };
+      if (!sellerAggMap[name]) sellerAggMap[name] = { count: 0, totalVal: 0 };
+      sellerAggMap[name].count += dealsWithoutOwner.length;
+      sellerAggMap[name].totalVal += dealsWithoutOwner.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
     }
   }
   const topSellers = Object.entries(sellerAggMap)
