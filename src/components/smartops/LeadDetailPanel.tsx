@@ -1076,12 +1076,53 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
           {/* 🛒 E-commerce Loja Integrada */}
           {(() => {
-            const liHistorico = (Array.isArray(ld.lojaintegrada_historico_pedidos) ? [...ld.lojaintegrada_historico_pedidos] : [])
+            // Primary: use lojaintegrada_historico_pedidos if available
+            let liHistorico = (Array.isArray(ld.lojaintegrada_historico_pedidos) ? [...ld.lojaintegrada_historico_pedidos] : [])
               .filter((p: any) => p.numero && String(p.numero) !== 'undefined')
               .sort((a: any, b: any) => new Date(b.data || b.data_criacao || 0).getTime() - new Date(a.data || a.data_criacao || 0).getTime());
-            const liLtv = Number(ld.lojaintegrada_ltv) || 0;
+
+            // Fallback: reconstruct from activity_log e-commerce events when cache is empty
+            let ltvFromActivity = 0;
+            if (liHistorico.length === 0 && detail?.activity_log) {
+              const ecomEvents = detail.activity_log.filter((ev: any) =>
+                ev.source_channel === "ecommerce" && ev.event_type?.startsWith("order_") && ev.entity_id
+              );
+              const seenOrders = new Set<string>();
+              const reconstructed: any[] = [];
+              for (const ev of ecomEvents) {
+                const orderId = ev.entity_id || "";
+                if (seenOrders.has(orderId)) continue;
+                seenOrders.add(orderId);
+                const d = ev.event_data || {};
+                reconstructed.push({
+                  numero: orderId,
+                  data_criacao: ev.event_timestamp,
+                  valor_total: d.valor || d.value || ev.value_numeric || 0,
+                  situacao_nome: d.situacao_nome || ev.event_type?.replace("order_", "") || "—",
+                  situacao_aprovado: ["order_invoiced", "order_paid", "order_completed"].includes(ev.event_type || ""),
+                  situacao_cancelado: ev.event_type === "order_cancelled",
+                  itens_resumo: d.itens_resumo || ev.entity_name || null,
+                  valor_envio: d.valor_envio || null,
+                  cupom_desconto: d.cupom || null,
+                  _from_activity: true,
+                });
+                if (["order_invoiced", "order_paid", "order_completed"].includes(ev.event_type || "")) {
+                  ltvFromActivity += parseFloat(d.valor || d.value || ev.value_numeric || 0);
+                }
+              }
+              liHistorico = reconstructed.sort((a: any, b: any) =>
+                new Date(b.data_criacao || 0).getTime() - new Date(a.data_criacao || 0).getTime()
+              );
+            }
+
+            // LTV: prefer calculated from historico, fallback to activity, last resort cached field
+            const ltvFromHistorico = liHistorico
+              .filter((p: any) => p.situacao_aprovado && !p.situacao_cancelado)
+              .reduce((sum: number, p: any) => sum + (parseFloat(p.valor_total) || 0), 0);
+            const liLtv = ltvFromHistorico > 0 ? ltvFromHistorico : (ltvFromActivity > 0 ? ltvFromActivity : (Number(ld.lojaintegrada_ltv) || 0));
+
             const liTracking = ld.lojaintegrada_tracking_code || null;
-            const liTotalPedidos = Number(ld.lojaintegrada_total_pedidos_pagos) || 0;
+            const liTotalPedidos = liHistorico.filter((p: any) => p.situacao_aprovado && !p.situacao_cancelado).length || Number(ld.lojaintegrada_total_pedidos_pagos) || 0;
             const liCpf = ld.lojaintegrada_cpf || null;
             const liCep = ld.lojaintegrada_cep || null;
             const liEndereco = ld.lojaintegrada_endereco || null;
