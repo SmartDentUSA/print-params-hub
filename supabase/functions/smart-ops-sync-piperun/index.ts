@@ -519,6 +519,7 @@ Deno.serve(async (req) => {
 
     // ── Orchestrator mode: call self once per pipeline sequentially ──
     if (orchestrate) {
+      const CHUNK_SIZE = 500;
       const pipelinesToSync = singlePipeline
         ? [Number(singlePipeline)]
         : [...SYNC_PIPELINES];
@@ -528,25 +529,54 @@ Deno.serve(async (req) => {
 
       for (const pid of pipelinesToSync) {
         try {
-          const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?pipeline_id=${pid}${fullSync ? "&full=true" : ""}`;
-          const res = await fetch(fnUrl, {
-            headers: {
-              "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-              "Content-Type": "application/json",
-            },
-          });
-          const ct = res.headers.get("content-type") || "";
-          if (!ct.includes("application/json")) {
-            const txt = await res.text();
-            console.error(`[sync-piperun] Pipeline ${pid} returned non-JSON (${res.status}):`, txt.substring(0, 200));
-            allResults[`pipeline_${pid}`] = { error: `Non-JSON response (${res.status})`, preview: txt.substring(0, 100) };
+          // Step 1: Count total deals
+          const totalCount = await countDealsForPipeline(PIPERUN_API_KEY, pid, since);
+          console.log(`[sync-piperun] Pipeline ${pid}: ~${totalCount} deals total`);
+
+          if (totalCount === 0) {
+            allResults[`pipeline_${pid}`] = { total_deals: 0, skipped: true };
             continue;
           }
-          const data = await res.json();
-          allResults[`pipeline_${pid}`] = data;
-          if (data.synced) totalUpdated += data.synced;
-          if (data.created) totalCreated += data.created;
-          if (data.total_deals) totalDeals += data.total_deals;
+
+          // Step 2: Chunk if needed
+          const chunks: number[] = [];
+          if (fullSync && totalCount > CHUNK_SIZE) {
+            for (let off = 0; off < totalCount; off += CHUNK_SIZE) {
+              chunks.push(off);
+            }
+          } else {
+            chunks.push(0); // single chunk
+          }
+
+          const pipelineResults: unknown[] = [];
+          for (const chunkOffset of chunks) {
+            const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
+            const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?${chunkParams}`;
+            try {
+              const res = await fetch(fnUrl, {
+                headers: {
+                  "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+                  "Content-Type": "application/json",
+                },
+              });
+              const ct = res.headers.get("content-type") || "";
+              if (!ct.includes("application/json")) {
+                const txt = await res.text();
+                console.error(`[sync-piperun] Pipeline ${pid} offset=${chunkOffset} non-JSON (${res.status}):`, txt.substring(0, 200));
+                pipelineResults.push({ error: `Non-JSON (${res.status})`, offset: chunkOffset });
+                continue;
+              }
+              const data = await res.json();
+              pipelineResults.push(data);
+              if (data.synced) totalUpdated += data.synced;
+              if (data.created) totalCreated += data.created;
+              if (data.total_deals) totalDeals += data.total_deals;
+            } catch (e) {
+              pipelineResults.push({ error: String(e), offset: chunkOffset });
+            }
+          }
+
+          allResults[`pipeline_${pid}`] = chunks.length === 1 ? pipelineResults[0] : { chunks: pipelineResults, total_chunks: chunks.length };
         } catch (e) {
           allResults[`pipeline_${pid}`] = { error: String(e) };
         }
