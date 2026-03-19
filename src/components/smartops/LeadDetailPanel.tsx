@@ -748,11 +748,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
-  // Fallback: se nenhum item veio dos proposals CRM, usar itens_proposta_parsed (leads antigos)
-  if (Object.keys(mixMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+  // Fallback complementar: wonDeals sem proposals → merge com itens_proposta_parsed no mixMap
+  if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     const mostRecentWon = wonDeals[0] || allDeals[0];
     ld.itens_proposta_parsed.forEach((item: any) => {
       const name = item.name || item.item || "Produto";
+      // Ignorar itens corrompidos com HTML
+      if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const key = name.toLowerCase().trim();
       if (!mixMap[key]) {
         mixMap[key] = { cod: "—", name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
