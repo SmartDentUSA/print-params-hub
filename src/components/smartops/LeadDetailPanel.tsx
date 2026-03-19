@@ -626,6 +626,15 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
+  // Fallback: se nenhum produto veio dos proposals, usar itens_proposta_parsed (leads antigos)
+  if (Object.keys(productAggMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+    ld.itens_proposta_parsed.forEach((item: any) => {
+      const name = item.name || item.item || "Produto";
+      const qty = Number(item.qty || item.quantidade || 1);
+      if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
+      productAggMap[name].qty += qty;
+    });
+  }
   const topProducts = Object.entries(productAggMap)
     .sort((a, b) => b[1].totalVal - a[1].totalVal)
     .slice(0, 8);
@@ -639,6 +648,14 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     sellerAggMap[name].count += 1;
     sellerAggMap[name].totalVal += Number(d.value) || 0;
   });
+  // Fallback: se nenhum vendedor veio dos deals, usar proprietario_lead_crm (leads antigos)
+  if (Object.keys(sellerAggMap).length === 0 && ld.proprietario_lead_crm) {
+    const name = String(ld.proprietario_lead_crm);
+    if (name && name !== "—") {
+      const totalWonVal = wonDeals.reduce((s: number, d: any) => s + (Number(d.value) || 0), 0);
+      sellerAggMap[name] = { count: wonDeals.length || 1, totalVal: totalWonVal };
+    }
+  }
   const topSellers = Object.entries(sellerAggMap)
     .sort((a, b) => b[1].totalVal - a[1].totalVal)
     .slice(0, 5);
@@ -726,6 +743,19 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
+  // Fallback: se nenhum item veio dos proposals CRM, usar itens_proposta_parsed (leads antigos)
+  if (Object.keys(mixMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+    const mostRecentWon = wonDeals[0] || allDeals[0];
+    ld.itens_proposta_parsed.forEach((item: any) => {
+      const name = item.name || item.item || "Produto";
+      const key = name.toLowerCase().trim();
+      if (!mixMap[key]) {
+        mixMap[key] = { cod: "—", name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+      }
+      mixMap[key].deals.add(String(mostRecentWon?.deal_id || "—"));
+      mixMap[key].qtyTotal += Number(item.qty || item.quantidade || 1);
+    });
+  }
   // E-commerce approved orders → merge into mix
   liApproved.forEach((order: any) => {
     const orderTs = new Date(order.data_criacao || 0).getTime();
