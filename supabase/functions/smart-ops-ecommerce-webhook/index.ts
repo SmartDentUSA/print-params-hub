@@ -1047,7 +1047,7 @@ Deno.serve(async (req) => {
     // ─── Convert cart to "converted" when paid ───
     if (["order_paid", "order_invoiced", "order_delivered"].includes(eventType) && numeroPedido) {
       await supabase.from("lead_cart_history")
-        .update({ status: "converted", converted_at: new Date().toISOString() })
+        .update({ status: "converted", converted_at: orderDate })
         .eq("lead_id", leadId)
         .eq("cart_id", String(numeroPedido))
         .then(({ error: convErr }) => {
