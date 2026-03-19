@@ -419,11 +419,11 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
-    // CRM tags
-    tags.filter((tag) => RELEVANT_TAGS.includes(tag)).forEach((tag) => {
+    // CRM tags — only show non-ecommerce tags with real dated events (skip EC_ tags that generate false timeline entries)
+    tags.filter((tag) => RELEVANT_TAGS.includes(tag) && !tag.startsWith("EC_")).forEach((tag) => {
       events.push({
         date: ld.updated_at || ld.created_at,
-        dotCls: tag.startsWith("LIA") || tag.startsWith("A_H") ? "tl-dot-ai" : tag.startsWith("EC") ? "tl-dot-warn" : "tl-dot-crm",
+        dotCls: tag.startsWith("LIA") || tag.startsWith("A_H") ? "tl-dot-ai" : "tl-dot-crm",
         title: TAG_LABELS[tag] || tag,
         desc: TAG_DESCS[tag] || "",
       });
