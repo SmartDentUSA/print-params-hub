@@ -11,6 +11,9 @@ import {
   parseProposalItems,
   cleanPersonName,
   deepParseStringifiedFields,
+  buildRichDealSnapshot,
+  upsertDealHistory,
+  type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
