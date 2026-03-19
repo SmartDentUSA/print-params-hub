@@ -1132,6 +1132,8 @@ export function buildRichDealSnapshot(
     owner_name: ownerName,
     owner_email: ownerEmail,
     origem,
+    person_id: deal.person_id ? Number(deal.person_id) : null,
+    company_id: deal.company_id ? Number(deal.company_id) : null,
     synced_at: new Date().toISOString(),
     proposals: proposalSnapshots,
   };
