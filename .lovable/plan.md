@@ -1,26 +1,41 @@
 
 
-# Adicionar person_id e company_id ao Rich Deal Snapshot
+# Exibir person_id/company_id e corrigir deal #56186037
 
-## Problema
-O `RichDealSnapshot` (dentro do array `piperun_deals_history`) não inclui `person_id` nem `company_id`. Esses IDs ficam apenas no nível do lead, o que impede distinguir a pessoa/organização de cada deal individual no histórico.
+## Diagnóstico
 
-## Correção
+### Deal #56186037 (RayShape Edge Mini, R$26k)
+Este deal foi sincronizado em 17/03 com o builder antigo. O snapshot armazenado tem:
+- `proposals: []` (vazio)
+- `product: "Allan Leonardo Rezende Coelho"` (errado — pegou o titulo do deal em vez do produto)
+- Sem `person_id`, sem `company_id`, sem `deal_title`, sem `origem`
 
-### Arquivo: `supabase/functions/_shared/piperun-field-map.ts`
+O chunked sync que implementamos ainda não re-processou este deal específico no pipeline 83896 (CS Onboarding). Precisamos forçar um re-sync deste pipeline.
 
-1. Adicionar dois campos à interface `RichDealSnapshot`:
-   - `person_id: number | null`
-   - `company_id: number | null`
+### person_id / company_id no frontend
+Somente o deal mais recente (#57961522) tem `person_id: 44194603`. Os 4 deals anteriores não têm porque foram sincronizados antes da adição desses campos. O frontend não exibe esses campos em nenhum lugar.
 
-2. No `buildRichDealSnapshot`, preencher os novos campos:
-   - `person_id: deal.person_id ? Number(deal.person_id) : null`
-   - `company_id: deal.company_id ? Number(deal.company_id) : null`
+## Plano
 
-### Redeploy
-- `smart-ops-sync-piperun` (usa o shared)
-- `smart-ops-piperun-webhook` (usa o shared)
-- `piperun-full-sync` (usa o shared)
+### 1. Frontend: Adicionar person_id e company_id na tabela de Deals
+**Arquivo**: `src/components/smartops/LeadDetailPanel.tsx`
 
-Nenhuma mudança no frontend, banco ou outros arquivos. Os novos campos aparecerão automaticamente no próximo sync/webhook.
+Na tabela "Deals PipeRun" (linha 982), adicionar uma sub-linha discreta abaixo de cada deal row mostrando os IDs quando disponíveis:
+
+```
+👤 Pessoa: #44194603 · 🏢 Org: #12345
+```
+
+Formato: abaixo do deal row, mesma coluna do `deal_id`, em fonte mono pequena (9px), cor muted. Só aparece se pelo menos um dos IDs existir.
+
+### 2. Backend: Forçar re-sync do pipeline 83896 com o novo builder
+Chamar o edge function `smart-ops-sync-piperun` com `pipeline_id=83896&full=true` em chunks para que o deal #56186037 seja re-processado com o `buildRichDealSnapshot` atual, capturando:
+- `proposals[]` com itens reais (RayShape Edge Mini)
+- `person_id` e `company_id`
+- `deal_title` e `origem` corretos
+
+### Resultado esperado
+- Todos os deals mostram `person_id` e `company_id` quando disponíveis
+- Deal #56186037 passa a exibir "RayShape - Edge Mini" nos itens de proposta
+- Deals mais antigos recebem os campos novos no próximo sync
 
