@@ -269,10 +269,18 @@ async function fetchDealsForPipeline(
   apiKey: string,
   pipelineId: number,
   since: string | null,
-  maxPages: number
+  maxPages: number,
+  offset: number = 0,
+  chunkSize: number = 0,
 ): Promise<PipeRunDealData[]> {
   let allDeals: PipeRunDealData[] = [];
   let page = 1;
+  let totalFetched = 0;
+
+  // If offset is set, calculate the starting page (100 per page from API)
+  if (offset > 0) {
+    page = Math.floor(offset / 100) + 1;
+  }
 
   while (page <= maxPages) {
     const params: Record<string, string | number> = {
@@ -294,13 +302,48 @@ async function fetchDealsForPipeline(
     const deals = piperunData?.data || [];
     if (deals.length === 0) break;
 
-    allDeals = allDeals.concat(deals);
+    // Handle offset within the first page
+    let startIdx = 0;
+    if (offset > 0 && page === Math.floor(offset / 100) + 1) {
+      startIdx = offset % 100;
+    }
 
+    const slicedDeals = startIdx > 0 ? deals.slice(startIdx) : deals;
+    
+    for (const deal of slicedDeals) {
+      if (chunkSize > 0 && totalFetched >= chunkSize) break;
+      allDeals.push(deal);
+      totalFetched++;
+    }
+
+    if (chunkSize > 0 && totalFetched >= chunkSize) break;
     if (piperunData?.meta && piperunData.meta.current_page >= piperunData.meta.last_page) break;
     page++;
   }
 
   return allDeals;
+}
+
+// Count total deals in a pipeline (lightweight call)
+async function countDealsForPipeline(
+  apiKey: string,
+  pipelineId: number,
+  since: string | null,
+): Promise<number> {
+  const params: Record<string, string | number> = {
+    show: 1,
+    page: 1,
+    pipeline_id: pipelineId,
+  };
+  if (since) params.updated_since = since;
+
+  const result = await piperunGet(apiKey, "deals", params);
+  if (!result.success) return 0;
+
+  const piperunData = result.data as { meta?: { total: number; last_page: number } };
+  if (piperunData?.meta?.total) return piperunData.meta.total;
+  if (piperunData?.meta?.last_page) return piperunData.meta.last_page * 100; // estimate
+  return 0;
 }
 
 // ─── Process a single deal (shared between single and full sync) ───
