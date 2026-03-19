@@ -312,8 +312,25 @@ async function fetchClienteOrderHistory(
     try {
       const data = JSON.parse(text);
       const objects = data.objects || data.results || (Array.isArray(data) ? data : []);
-      console.log(`[ecommerce-webhook] Found ${objects.length} orders for cliente ${clienteId}`);
-      return objects;
+      
+      // ── CRITICAL: Filter orders that actually belong to this client ──
+      // The LI API /pedido/?cliente_id=X IGNORES the filter and returns
+      // the first 100 orders of the entire store. We must filter client-side.
+      const realOrders = objects.filter((p: Record<string, unknown>) => {
+        const clienteRef = p.cliente;
+        if (!clienteRef) return false;
+        if (typeof clienteRef === 'string') {
+          return clienteRef.includes(`/cliente/${clienteId}`);
+        }
+        if (typeof clienteRef === 'object' && clienteRef !== null) {
+          const ref = clienteRef as Record<string, unknown>;
+          return ref.id === clienteId || String(ref.id) === String(clienteId);
+        }
+        return false;
+      });
+      
+      console.log(`[ecommerce-webhook] Orders API: ${objects.length} total, ${realOrders.length} real for cliente ${clienteId}`);
+      return realOrders;
     } catch {
       console.error("[ecommerce-webhook] Invalid JSON from order history:", text.slice(0, 150));
       return [];
