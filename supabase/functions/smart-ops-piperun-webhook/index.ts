@@ -409,18 +409,15 @@ Deno.serve(async (req) => {
 
       const { tags: initialTags } = computeTagsFromStage(resolvedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
 
-      const initialDealSnapshot: DealSnapshot = {
-        deal_id: dealId,
-        deal_hash: ids.dealHash,
-        pipeline_id: ids.pipelineId,
-        pipeline_name: ids.pipelineName || (ids.pipelineId ? PIPELINE_NAMES[ids.pipelineId] : null) || null,
-        stage_name: ids.stageName,
-        status: "aberta",
-        value: deal.value != null ? Number(deal.value) || null : null,
-        created_at: ids.dealCreatedAt,
-        closed_at: ids.dealClosedAt,
-        product: customFields.produtoInteresse || null,
-      };
+      const initialDealSnapshot = buildRichDealSnapshot(
+        deal as unknown as import("../_shared/piperun-field-map.ts").PipeRunDealData,
+        {
+          dealId,
+          product: customFields.produtoInteresse || null,
+          ownerName: ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null,
+          ownerEmail: ids.ownerEmail || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.email : null) || null,
+        },
+      );
 
       const newLeadData: Record<string, unknown> = {
         nome: personName,
