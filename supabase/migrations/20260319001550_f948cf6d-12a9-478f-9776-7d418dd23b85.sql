@@ -1,0 +1,1 @@
+DELETE FROM message_logs WHERE lead_id = '366ea619-33c3-4fb1-b6ac-cf7c733aaac7' AND tipo = 'ecommerce_order_cancelled' AND mensagem_preview LIKE '%pedido=1101%';
