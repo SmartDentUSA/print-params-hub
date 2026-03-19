@@ -984,3 +984,171 @@ export async function moveDealToStage(
     stage_id: stageId,
   });
 }
+
+// ─── Rich Deal Snapshot (shared across webhook, sync, full-sync) ───
+
+function stripHtmlShared(str: string | null | undefined): string {
+  if (!str || typeof str !== "string") return "";
+  return str.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+}
+
+export interface RichProposalItem {
+  item_id: string;
+  sku: string;
+  nome: string;
+  tipo: string;
+  qtd: number;
+  unit: number;
+  total: number;
+  categoria: string;
+}
+
+export interface RichProposalSnapshot {
+  id: string | number;
+  sigla: string;
+  status: string;
+  vendedor: string;
+  tipo_frete: string;
+  valor_frete: number;
+  valor_ps: number;
+  valor_mrr: number;
+  parcelas: number;
+  items: RichProposalItem[];
+}
+
+export interface RichDealSnapshot {
+  deal_id: string;
+  deal_hash: string | null;
+  deal_title: string | null;
+  pipeline_id: number | undefined;
+  pipeline_name: string | null;
+  stage_name: string | null;
+  status: string;
+  value: number | null;
+  value_products: number | null;
+  value_freight: number | null;
+  value_mrr: number | null;
+  created_at: string | null;
+  closed_at: string | null;
+  product: string | null;
+  owner_name: string | null;
+  owner_email: string | null;
+  origem: string | null;
+  synced_at: string;
+  proposals: RichProposalSnapshot[];
+}
+
+/**
+ * Build a rich deal snapshot from any PipeRun deal payload.
+ * Used by webhook, incremental sync, and full sync to ensure
+ * consistent `piperun_deals_history` entries.
+ */
+export function buildRichDealSnapshot(
+  deal: PipeRunDealData,
+  overrides?: {
+    dealId?: string;
+    product?: string | null;
+    ownerName?: string | null;
+    ownerEmail?: string | null;
+  },
+): RichDealSnapshot {
+  const dealId = overrides?.dealId || String(deal.id);
+  const dealStatus = deal.status !== undefined
+    ? (DEAL_STATUS_MAP[deal.status] || "aberta")
+    : "aberta";
+
+  // Resolve owner from deal.owner_id → PIPERUN_USERS map, or from deal.user/owner object
+  let ownerName = overrides?.ownerName ?? null;
+  let ownerEmail = overrides?.ownerEmail ?? null;
+  if (!ownerName && deal.owner_id && PIPERUN_USERS[deal.owner_id]) {
+    ownerName = PIPERUN_USERS[deal.owner_id].name;
+    ownerEmail = PIPERUN_USERS[deal.owner_id].email;
+  }
+  // Fallback: deal.user or deal.owner object (webhook format)
+  if (!ownerName) {
+    const ownerObj = ((deal as Record<string, unknown>).owner || (deal as Record<string, unknown>).user) as Record<string, unknown> | undefined;
+    if (ownerObj?.name) ownerName = String(ownerObj.name);
+    if (ownerObj?.email && !ownerEmail) ownerEmail = String(ownerObj.email);
+  }
+
+  // Build proposals
+  const proposalSnapshots: RichProposalSnapshot[] = [];
+  if (Array.isArray(deal.proposals)) {
+    for (const p of deal.proposals as any[]) {
+      const items: RichProposalItem[] = [];
+      if (Array.isArray(p.items)) {
+        for (const it of p.items) {
+          const itemId = String(it.id || it.item_id || "");
+          items.push({
+            item_id: itemId,
+            sku: String(it.sku || it.code || it.reference || it.external_code || itemId || ""),
+            nome: stripHtmlShared(it.product_name || it.item?.name || it.name || ""),
+            tipo: it.type || "Produto",
+            qtd: Number(it.qtd || it.quantity || it.quantidade) || 1,
+            unit: Number(it.value || it.unit_value || it.unit_price || 0),
+            total: Number(it.value || 0) * (Number(it.qtd || it.quantity || it.quantidade) || 1),
+            categoria: it.category || "",
+          });
+        }
+      }
+      proposalSnapshots.push({
+        id: p.id || "",
+        sigla: p.initials || p.sigla || "",
+        status: p.status != null ? String(p.status) : "",
+        vendedor: p.seller_name || p.vendedor || ownerName || "",
+        tipo_frete: p.freight_type || "",
+        valor_frete: Number(p.freight_value || 0),
+        valor_ps: Number(p.value || p.total_value || 0),
+        valor_mrr: Number(p.value_mrr || 0),
+        parcelas: Number(p.installments || 0),
+        items,
+      });
+    }
+  }
+
+  const totalFreight = proposalSnapshots.reduce((s, ps) => s + ps.valor_frete, 0);
+  const totalMrr = deal.value_mrr != null ? Number(deal.value_mrr) : 0;
+
+  // Origin name
+  const origem = deal.origin?.name || null;
+
+  return {
+    deal_id: dealId,
+    deal_hash: deal.hash || null,
+    deal_title: stripHtmlShared((deal as any).title) || null,
+    pipeline_id: deal.pipeline_id,
+    pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
+    stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
+    status: dealStatus,
+    value: deal.value != null ? Number(deal.value) : null,
+    value_products: deal.value != null ? Number(deal.value) - totalFreight : null,
+    value_freight: totalFreight || null,
+    value_mrr: totalMrr || null,
+    created_at: deal.created_at || null,
+    closed_at: deal.closed_at || null,
+    product: overrides?.product ?? null,
+    owner_name: ownerName,
+    owner_email: ownerEmail,
+    origem,
+    synced_at: new Date().toISOString(),
+    proposals: proposalSnapshots,
+  };
+}
+
+/**
+ * Upsert a deal snapshot into the deals history array.
+ * Shared across webhook, sync, and full-sync.
+ */
+export function upsertDealHistory(
+  currentHistory: unknown[] | null,
+  snapshot: RichDealSnapshot,
+): RichDealSnapshot[] {
+  const history = (Array.isArray(currentHistory) ? [...currentHistory] : []) as RichDealSnapshot[];
+  const idx = history.findIndex((d) => String(d.deal_id) === String(snapshot.deal_id));
+  if (idx >= 0) {
+    history[idx] = snapshot;
+  } else {
+    history.push(snapshot);
+  }
+  return history;
+}
