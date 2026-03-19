@@ -1034,6 +1034,8 @@ export interface RichDealSnapshot {
   owner_name: string | null;
   owner_email: string | null;
   origem: string | null;
+  person_id: number | null;
+  company_id: number | null;
   synced_at: string;
   proposals: RichProposalSnapshot[];
 }
