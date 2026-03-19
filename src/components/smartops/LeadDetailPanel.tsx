@@ -626,10 +626,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   });
-  // Fallback: se nenhum produto veio dos proposals, usar itens_proposta_parsed (leads antigos)
-  if (Object.keys(productAggMap).length === 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
+  // Fallback complementar: wonDeals sem proposals → merge com itens_proposta_parsed
+  const dealsWithoutProposals = wonDeals.filter((d: any) => !Array.isArray(d.proposals) || d.proposals.length === 0);
+  if (dealsWithoutProposals.length > 0 && ld.itens_proposta_parsed && Array.isArray(ld.itens_proposta_parsed) && ld.itens_proposta_parsed.length > 0) {
     ld.itens_proposta_parsed.forEach((item: any) => {
       const name = item.name || item.item || "Produto";
+      // Ignorar itens corrompidos com HTML
+      if (name.includes('<') || name.includes('rgb(') || name.length > 100) return;
       const qty = Number(item.qty || item.quantidade || 1);
       if (!productAggMap[name]) productAggMap[name] = { qty: 0, totalVal: 0 };
       productAggMap[name].qty += qty;
