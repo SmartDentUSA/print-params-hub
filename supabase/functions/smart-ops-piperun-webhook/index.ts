@@ -290,34 +290,8 @@ async function findLeadByCascade(
   return null;
 }
 
-// ─── Deals History Helper ───
-
-interface DealSnapshot {
-  deal_id: string;
-  deal_hash: string | null;
-  pipeline_id: number | undefined;
-  pipeline_name: string | null;
-  stage_name: string | null;
-  status: string;
-  value: number | null;
-  created_at: string | null;
-  closed_at: string | null;
-  product: string | null;
-}
-
-function upsertDealHistory(
-  currentHistory: unknown[] | null,
-  snapshot: DealSnapshot,
-): DealSnapshot[] {
-  const history = (Array.isArray(currentHistory) ? [...currentHistory] : []) as DealSnapshot[];
-  const idx = history.findIndex((d) => String(d.deal_id) === String(snapshot.deal_id));
-  if (idx >= 0) {
-    history[idx] = snapshot;
-  } else {
-    history.push(snapshot);
-  }
-  return history;
-}
+// ─── Deals History Helper (uses shared builder from piperun-field-map.ts) ───
+// DealSnapshot type and upsertDealHistory are now imported from shared module
 
 // ─── Proposals Aggregation ───
 
