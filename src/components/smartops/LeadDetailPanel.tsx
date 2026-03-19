@@ -1085,7 +1085,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             let ltvFromActivity = 0;
             if (liHistorico.length === 0 && detail?.activity_log) {
               const ecomEvents = detail.activity_log.filter((ev: any) =>
-                ev.source_channel === "ecommerce" && ev.event_type?.startsWith("order_") && ev.entity_id
+                ev.source_channel === "ecommerce" && 
+                (ev.event_type?.startsWith("order_") || ev.event_type?.startsWith("ecommerce_order_")) && 
+                (ev.entity_id || ev.event_data?.pedido)
               );
               const seenOrders = new Set<string>();
               const reconstructed: any[] = [];
