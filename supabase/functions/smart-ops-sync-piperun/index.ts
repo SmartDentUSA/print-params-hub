@@ -8,7 +8,12 @@ import {
   mapDealToAttendance,
   deepParseStringifiedFields,
   piperunGet,
+  buildRichDealSnapshot,
+  upsertDealHistory as sharedUpsertDealHistory,
   type PipeRunDealData,
+  type RichDealSnapshot,
+  type RichProposalSnapshot,
+  type RichProposalItem,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, mergeTagsCrm, ALL_STAGNATION_TAGS, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 import { logEnrichmentAudit } from "../_shared/lead-enrichment.ts";
