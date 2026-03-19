@@ -1,39 +1,19 @@
 
-# Gerar Documento de Auditoria ISO — Workflow 7×3, Formulários e CRM
 
-## Escopo do documento
-Criar `/docs/AUDITORIA_WORKFLOW_FORMULARIOS_CRM.md` com documentação detalhada para o time de engenharia e processos ISO, cobrindo:
+# Exibir "Última conversão" na sub-row de Deals
 
-1. **Workflow Portfolio 7×3** — 7 etapas × subcategorias × 3 camadas (ativo/conc/sdr)
-   - Mapeamento de todas as colunas do banco → células da grade
-   - Regras de prioridade e classificação
-   - Momento de leitura e construção do portfolio
+## Mudança
 
-2. **Formulários** — Criação, estrutura, campos disponíveis, submissão
-   - Tabelas `smartops_forms` + `smartops_form_fields`
-   - 76 campos base com mapeamento direto `db_column`
-   - Fluxo de rendering em `PublicFormPage`
+**Arquivo**: `src/components/smartops/LeadDetailPanel.tsx` (linhas 1003-1011)
 
-3. **Ingestão de leads** — `smart-ops-ingest-lead`
-   - Detecção de campos, normalização de telefone, filtro de emails de teste
-   - Smart Merge com categorias de campos (PROTECTED, ALWAYS_UPDATE, MERGE_ARRAYS)
-   - Auditoria em `lead_enrichment_audit`
-   - Novo lead vs lead existente (update vs insert)
+Adicionar o campo `origem` do snapshot na sub-row existente, com o label **"Última conversão"** em vez de "Origem".
 
-4. **Envio ao CRM** — `smart-ops-lia-assign`
-   - Hierarquia Pessoa → Empresa → Deal no PipeRun
-   - Golden Rule (deal aberto em Vendas = never touch owner)
-   - Round-robin de vendedores
-   - Mensagens outbound (AI greeting vs template)
+A condição da sub-row passa de `(d.person_id || d.company_id)` para `(d.person_id || d.company_id || d.origem)`.
 
-5. **Ações disparadas** — Orquestração pós-ingestão
-   - Timeline (`lead_activity_log`)
-   - Intelligence score recalculation
-   - Cognitive analysis (DeepSeek)
-   - SellFlux sync bidirecional
+Resultado visual:
+```
+📣 Última conversão: Formulário 01 - TikTok · 👤 Pessoa: #44194603 · 🏢 Org: #12345
+```
 
-6. **Extração implícita** — `lia-lead-extraction.ts`
-   - NLP sobre texto da conversa para detectar UF, equipamentos, concorrentes
+Nenhuma mudança no backend.
 
-## Formato
-Documento .md completo, pronto para auditoria, com diagramas ASCII, tabelas de mapeamento e fluxogramas de processo.
