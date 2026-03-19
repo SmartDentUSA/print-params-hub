@@ -1188,62 +1188,15 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
           {/* 🛒 E-commerce Loja Integrada */}
           {(() => {
-            // Primary: use lojaintegrada_historico_pedidos if available
-            let liHistorico = (Array.isArray(ld.lojaintegrada_historico_pedidos) ? [...ld.lojaintegrada_historico_pedidos] : [])
-              .filter((p: any) => p.numero && String(p.numero) !== 'undefined')
-              .sort((a: any, b: any) => new Date(b.data || b.data_criacao || 0).getTime() - new Date(a.data || a.data_criacao || 0).getTime());
-
-            // Fallback: reconstruct from activity_log e-commerce events when cache is empty
-            let ltvFromActivity = 0;
-            if (liHistorico.length === 0 && detail?.activity_log) {
-              const ecomEvents = detail.activity_log.filter((ev: any) =>
-                ev.source_channel === "ecommerce" && 
-                (ev.event_type?.startsWith("order_") || ev.event_type?.startsWith("ecommerce_order_")) && 
-                (ev.entity_id || ev.event_data?.pedido)
-              );
-              const seenOrders = new Set<string>();
-              const reconstructed: any[] = [];
-              for (const ev of ecomEvents) {
-                const d = ev.event_data || {};
-                const orderId = String(d.pedido || ev.entity_id || "");
-                if (!orderId || seenOrders.has(orderId)) continue;
-                seenOrders.add(orderId);
-                const isApproved = (ev.event_type || "").includes("invoiced") || (ev.event_type || "").includes("paid") || (ev.event_type || "").includes("completed");
-                reconstructed.push({
-                  numero: orderId,
-                  data_criacao: ev.event_timestamp,
-                  valor_total: d.valor || d.value || ev.value_numeric || 0,
-                  situacao_nome: d.status || ev.event_type?.replace("ecommerce_order_", "").replace("order_", "") || "—",
-                  situacao_aprovado: isApproved,
-                  situacao_cancelado: (ev.event_type || "").includes("cancelled"),
-                  itens_resumo: d.produtos?.join(", ") || d.itens_resumo || ev.entity_name || null,
-                  valor_envio: d.valor_envio || null,
-                  cupom_desconto: d.cupom || null,
-                  forma_pagamento: d.forma_pagamento || null,
-                  link_rastreio: d.tracking || null,
-                  _from_activity: true,
-                });
-                if (isApproved) {
-                  ltvFromActivity += parseFloat(d.valor || d.value || ev.value_numeric || 0);
-                }
-              }
-              liHistorico = reconstructed.sort((a: any, b: any) =>
-                new Date(b.data_criacao || 0).getTime() - new Date(a.data_criacao || 0).getTime()
-              );
-            }
-
-            // LTV: prefer calculated from historico, fallback to activity, last resort cached field
-            const ltvFromHistorico = liHistorico
-              .filter((p: any) => p.situacao_aprovado && !p.situacao_cancelado)
-              .reduce((sum: number, p: any) => sum + (parseFloat(p.valor_total) || 0), 0);
-            const liLtv = ltvFromHistorico > 0 ? ltvFromHistorico : (ltvFromActivity > 0 ? ltvFromActivity : (Number(ld.lojaintegrada_ltv) || 0));
-
             const liTracking = ld.lojaintegrada_tracking_code || null;
-            const liTotalPedidos = liHistorico.filter((p: any) => p.situacao_aprovado && !p.situacao_cancelado).length || Number(ld.lojaintegrada_total_pedidos_pagos) || 0;
+            const liTotalPedidos = liApproved.length || Number(ld.lojaintegrada_total_pedidos_pagos) || 0;
             const liCpf = ld.lojaintegrada_cpf || null;
             const liCep = ld.lojaintegrada_cep || null;
-            const liEndereco = ld.lojaintegrada_endereco || null;
-            const hasSomething = liHistorico.length > 0 || liLtv > 0 || liTracking;
+            const hasSomething = liHistorico.length > 0 || ltvEcommerce > 0 || liTracking;
+
+            // Build items for each order from activity_log itens or lojaintegrada_itens_json
+            const allLiItens = (() => { try { const raw = ld.lojaintegrada_itens_json; return Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : []); } catch { return []; } })();
+
             return (
               <>
                 <div className="sec">🛒 E-commerce Loja Integrada</div>
@@ -1254,16 +1207,22 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                 ) : (
                   <>
                     <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                      {liLtv > 0 && (
+                      {ltvEcommerce > 0 && (
                         <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
                           <div style={{ fontSize: 10, color: "var(--muted)" }}>LTV E-commerce</div>
-                          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "var(--accent2)" }}>{formatBRLFull(liLtv)}</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "var(--accent2)" }}>{formatBRLFull(ltvEcommerce)}</div>
                         </div>
                       )}
                       {liTotalPedidos > 0 && (
                         <div style={{ padding: "8px 14px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--border2)" }}>
                           <div style={{ fontSize: 10, color: "var(--muted)" }}>Pedidos Pagos</div>
                           <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{liTotalPedidos}</div>
+                        </div>
+                      )}
+                      {ltvAbandono > 0 && (
+                        <div style={{ padding: "8px 14px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>LTV Abandono</div>
+                          <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'DM Mono', monospace", color: "var(--hot, #ef4444)" }}>{formatBRLFull(ltvAbandono)}</div>
                         </div>
                       )}
                       {(() => {
@@ -1299,32 +1258,87 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
                       <div style={{ overflowX: "auto", marginBottom: 20, border: "1px solid var(--border2)", borderRadius: 10 }}>
                         <table className="deal-table">
                           <thead>
-                             <tr>
-                              <th>Pedido</th><th>Data</th><th>Itens/SKU</th><th>Valor</th><th>Status</th><th>Cupom</th><th>Frete</th>
+                            <tr>
+                              <th>Pedido</th><th>Data</th><th>SKU</th><th>Item</th><th style={{ textAlign: "right" }}>Qtd</th><th style={{ textAlign: "right" }}>Unit</th><th style={{ textAlign: "right" }}>Total</th><th style={{ textAlign: "right" }}>Frete</th><th>Meio Pgto</th><th>Forma Pgto</th><th>Status</th>
                             </tr>
                           </thead>
                           <tbody>
                             {liHistorico.map((p: any, pi: number) => {
-                              // Extract items/SKU from lojaintegrada_itens_json matching this order
-                              const allLiItens = (() => { try { const raw = ld.lojaintegrada_itens_json; return Array.isArray(raw) ? raw : (typeof raw === "string" ? JSON.parse(raw) : []); } catch { return []; } })();
-                              const orderItens = allLiItens.filter((it: any) => !p.numero || it.pedido_numero === p.numero || it.order_id === p.numero);
-                              const skuList = (orderItens.length > 0 ? orderItens : allLiItens.slice(0, 3)).map((it: any) => it.sku || it.referencia || "—").filter(Boolean);
+                              // Resolve items: prefer activity itens[], then lojaintegrada_itens_json, then itens_resumo
+                              const orderItems: any[] = Array.isArray(p.itens) && p.itens.length > 0
+                                ? p.itens
+                                : allLiItens.filter((it: any) => it.pedido_numero === p.numero || it.order_id === p.numero);
                               const cupomOrder = p.cupom_desconto || p.cupom || null;
-                              const cupomStr = cupomOrder ? (typeof cupomOrder === "object" ? (cupomOrder.codigo || cupomOrder.nome || "—") : String(cupomOrder)) : "—";
+                              const cupomStr = cupomOrder ? (typeof cupomOrder === "object" ? (cupomOrder.codigo || cupomOrder.nome || "") : String(cupomOrder)) : "";
+                              const meioPgto = p.forma_pagamento || p.bandeira || "—";
+                              const formaPgto = p.parcelas ? `${p.parcelas}×` : "—";
+                              const freteVal = p.valor_envio ? formatBRLFull(p.valor_envio) : "—";
+                              const formaEnvio = p.forma_envio || "";
+
+                              if (orderItems.length > 0) {
+                                return (
+                                  <React.Fragment key={pi}>
+                                    {orderItems.map((item: any, ii: number) => {
+                                      const itemName = item.nome || item.name || "Produto";
+                                      const itemSku = item.sku || item.referencia || "—";
+                                      const itemQty = Number(item.qty || item.quantidade || 1);
+                                      const itemUnit = Number(item.preco || item.valor_unitario || 0);
+                                      const itemTotal = itemQty * itemUnit;
+                                      return (
+                                        <tr key={`${pi}-${ii}`}>
+                                          {ii === 0 && (
+                                            <td rowSpan={orderItems.length} style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, verticalAlign: "top" }}>#{p.numero || pi + 1}</td>
+                                          )}
+                                          {ii === 0 && (
+                                            <td rowSpan={orderItems.length} style={{ fontSize: 10, color: "var(--muted2)", verticalAlign: "top" }}>{formatDate(p.data_criacao || p.data || p.created_at)}</td>
+                                          )}
+                                          <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={itemSku}>{itemSku}</td>
+                                          <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{itemName}</td>
+                                          <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{itemQty}×</td>
+                                          <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>{formatBRLFull(itemUnit)}</td>
+                                          <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(itemTotal)}</td>
+                                          {ii === 0 && (
+                                            <td rowSpan={orderItems.length} style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", fontSize: 10, verticalAlign: "top" }}>{freteVal}{formaEnvio ? ` ${formaEnvio}` : ""}</td>
+                                          )}
+                                          {ii === 0 && (
+                                            <td rowSpan={orderItems.length} style={{ fontSize: 10, verticalAlign: "top" }}>{meioPgto}</td>
+                                          )}
+                                          {ii === 0 && (
+                                            <td rowSpan={orderItems.length} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, verticalAlign: "top" }}>{formaPgto}</td>
+                                          )}
+                                          {ii === 0 && (
+                                            <td rowSpan={orderItems.length} style={{ verticalAlign: "top" }}>
+                                              <span className={`status-chip ${p.situacao_aprovado === true ? "s-ganho" : p.situacao_cancelado === true ? "s-perdido" : "s-aberto"}`}>
+                                                {p.situacao_nome || p.status || "—"}
+                                              </span>
+                                            </td>
+                                          )}
+                                        </tr>
+                                      );
+                                    })}
+                                  </React.Fragment>
+                                );
+                              }
+
+                              // No item detail — single row with itens_resumo
                               return (
-                              <tr key={pi}>
-                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || pi + 1}</td>
-                                <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data_criacao || p.data || p.created_at)}</td>
-                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={skuList.join(", ")}>{skuList.length > 0 ? skuList.join(", ") : "—"}</td>
-                                <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor_total || p.valor || 0)}</td>
-                                <td>
-                                  <span className={`status-chip ${p.situacao_aprovado === true ? "s-ganho" : p.situacao_cancelado === true ? "s-perdido" : "s-aberto"}`}>
-                                    {p.situacao_nome || p.status || "—"}
-                                  </span>
-                                </td>
-                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: cupomStr !== "—" ? "rgb(245,158,11)" : "var(--muted2)" }}>{cupomStr}</td>
-                                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, textAlign: "right" }}>{p.valor_envio ? formatBRLFull(p.valor_envio) : "—"}</td>
-                              </tr>
+                                <tr key={pi}>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>#{p.numero || pi + 1}</td>
+                                  <td style={{ fontSize: 10, color: "var(--muted2)" }}>{formatDate(p.data_criacao || p.data || p.created_at)}</td>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--muted2)" }}>—</td>
+                                  <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.itens_resumo || "—"}</td>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>—</td>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", color: "var(--muted2)" }}>—</td>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right" }}>{formatBRLFull(p.valor_total || p.valor || 0)}</td>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", textAlign: "right", fontSize: 10 }}>{freteVal}{formaEnvio ? ` ${formaEnvio}` : ""}</td>
+                                  <td style={{ fontSize: 10 }}>{meioPgto}</td>
+                                  <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{formaPgto}</td>
+                                  <td>
+                                    <span className={`status-chip ${p.situacao_aprovado === true ? "s-ganho" : p.situacao_cancelado === true ? "s-perdido" : "s-aberto"}`}>
+                                      {p.situacao_nome || p.status || "—"}
+                                    </span>
+                                  </td>
+                                </tr>
                               );
                             })}
                           </tbody>
