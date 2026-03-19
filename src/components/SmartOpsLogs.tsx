@@ -89,6 +89,7 @@ export function SmartOpsLogs() {
   const [arrivals, setArrivals] = useState<ArrivalEntry[]>([]);
   const [arrivalsLoading, setArrivalsLoading] = useState(true);
   const [arrivalsSearch, setArrivalsSearch] = useState("");
+  const [leadNameMap, setLeadNameMap] = useState<Map<string, string>>(new Map());
 
   // ── Envios tab ──
   useEffect(() => {
@@ -128,14 +129,15 @@ export function SmartOpsLogs() {
   }, []);
 
   // ── Arrival tab: fetch + realtime ──
-  const mapArrivalRow = useCallback((row: any): ArrivalEntry => {
+  const mapArrivalRow = useCallback((row: any, nameMap: Map<string, string>): ArrivalEntry => {
     const { fonte, direcao } = classifySource(row.event_type || "", row.source_channel, row.entity_type);
+    const resolvedName = row.lead_id ? (nameMap.get(row.lead_id) || row.entity_name || "-") : (row.entity_name || "-");
     return {
       id: row.id,
       hora: row.event_timestamp || row.created_at || "",
       direcao,
       fonte,
-      lead_name: row.entity_name || "-",
+      lead_name: resolvedName,
       evento: formatEventLabel(row.event_type || ""),
       detalhes: row.event_data?.label || row.event_data?.message_preview || row.entity_name || "",
     };
@@ -145,23 +147,41 @@ export function SmartOpsLogs() {
     const fetchArrivals = async () => {
       const { data } = await supabase
         .from("lead_activity_log")
-        .select("id, event_timestamp, created_at, event_type, source_channel, entity_type, entity_name, event_data")
+        .select("id, lead_id, event_timestamp, created_at, event_type, source_channel, entity_type, entity_name, event_data")
         .order("event_timestamp", { ascending: false })
         .limit(300);
 
-      setArrivals((data || []).map(mapArrivalRow));
+      if (!data?.length) { setArrivals([]); setArrivalsLoading(false); return; }
+
+      // Resolve lead names
+      const leadIds = [...new Set(data.map((d: any) => d.lead_id).filter(Boolean))];
+      let nameMap = new Map<string, string>();
+      if (leadIds.length) {
+        const { data: leads } = await supabase.from("lia_attendances").select("id, nome, email").in("id", leadIds);
+        nameMap = new Map((leads || []).map((l: any) => [l.id, l.nome || l.email || "-"]));
+      }
+      setLeadNameMap(nameMap);
+      setArrivals(data.map((row: any) => mapArrivalRow(row, nameMap)));
       setArrivalsLoading(false);
     };
     fetchArrivals();
 
-    // Realtime subscription
     const channel = supabase
       .channel("arrival-log-realtime")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "lead_activity_log" },
-        (payload) => {
-          const newEntry = mapArrivalRow(payload.new);
+        async (payload) => {
+          const row = payload.new as any;
+          let name = row.entity_name || "-";
+          if (row.lead_id) {
+            const { data: lead } = await supabase.from("lia_attendances").select("nome, email").eq("id", row.lead_id).maybeSingle();
+            if (lead) {
+              name = lead.nome || lead.email || name;
+              setLeadNameMap((prev) => new Map(prev).set(row.lead_id, name));
+            }
+          }
+          const newEntry = mapArrivalRow(row, new Map([[row.lead_id, name]]));
           setArrivals((prev) => [newEntry, ...prev].slice(0, 500));
         }
       )
