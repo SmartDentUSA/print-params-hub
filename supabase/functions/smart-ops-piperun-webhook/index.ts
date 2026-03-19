@@ -33,7 +33,7 @@ function isInStagnantStatus(leadStatus: string): boolean {
 function extractIds(deal: Record<string, unknown>) {
   const stage = deal.stage as Record<string, unknown> | undefined;
   const pipeline = deal.pipeline as Record<string, unknown> | undefined;
-  const owner = deal.owner as Record<string, unknown> | undefined;
+  const owner = (deal.owner || deal.user) as Record<string, unknown> | undefined;
   const person = deal.person as Record<string, unknown> | undefined;
   const company = (person?.company || deal.company) as Record<string, unknown> | undefined;
 
@@ -42,7 +42,7 @@ function extractIds(deal: Record<string, unknown>) {
     stageName: stage?.name ? String(stage.name) : null,
     pipelineId: Number(pipeline?.id || deal.pipeline_id) || undefined,
     pipelineName: pipeline?.name ? String(pipeline.name) : null,
-    ownerId: Number(owner?.id || deal.owner_id) || undefined,
+    ownerId: Number(owner?.id || deal.owner_id || deal.user_id) || undefined,
     ownerName: owner?.name ? String(owner.name) : null,
     ownerEmail: owner?.email ? String(owner.email) : null,
     // Person identity
