@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
         .update({
           lojaintegrada_historico_pedidos: newOrders,
           lojaintegrada_total_pedidos_pagos: approvedOrders.length,
-          ltv_total: ltvTotal > 0 ? ltvTotal : undefined,
+          ltv_total: ltvTotal,
           lojaintegrada_ultimo_pedido_data: lastOrder?.data_criacao || null,
           lojaintegrada_ultimo_pedido_valor: lastOrder ? parseFloat(lastOrder.valor_total || '0') : null,
           lojaintegrada_ultimo_pedido_numero: lastOrder?.numero || null,
