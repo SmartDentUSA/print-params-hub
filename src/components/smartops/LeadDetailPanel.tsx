@@ -837,7 +837,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             ))}
           </div>
         </div>
-        <div className="ltv-block" style={{ minWidth: 220 }}>
+        <div className="ltv-block" style={{ minWidth: 260 }}>
           <div className="ltv-label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em", marginBottom: 6 }}>Oportunidades ganhas / Propostas abertas</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
             <div>
@@ -858,6 +858,31 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </div>
           </div>
           <div className="ltv-sub" style={{ marginTop: 4 }}>{wonDeals.length} ganho{wonDeals.length !== 1 ? "s" : ""} · {openDeals.length} aberta{openDeals.length !== 1 ? "s" : ""} · {lostDeals.length} perdido{lostDeals.length !== 1 ? "s" : ""}</div>
+
+          {/* E-commerce financial block */}
+          {(ltvEcommerce > 0 || ltvAbandono > 0 || ecomWon > 0 || ecomLost > 0) && (
+            <>
+              <div className="ltv-label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em", marginTop: 10, marginBottom: 6 }}>Vendas E-commerce</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: "var(--won, #22c55e)" }}>{formatBRL(ltvEcommerce)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>LTV E-commerce ({ecomWon})</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: ltvAbandono > 0 ? "var(--hot, #ef4444)" : "var(--muted)" }}>{formatBRL(ltvAbandono)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>LTV Abandono ({ecomLost})</div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Financeiro Total consolidado */}
+          {financeiroTotal > 0 && (
+            <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: 6, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7, marginBottom: 2 }}>💰 Financeiro Total (CRM + E-com)</div>
+              <div className="ltv-val" style={{ fontSize: "1.1rem", color: "var(--won, #22c55e)", fontWeight: 800 }}>{formatBRL(financeiroTotal)}</div>
+            </div>
+          )}
         </div>
         <div className="lis-block">
           <div className={`lis-val ${lisCls}`}>{lis}</div>
