@@ -269,10 +269,18 @@ async function fetchDealsForPipeline(
   apiKey: string,
   pipelineId: number,
   since: string | null,
-  maxPages: number
+  maxPages: number,
+  offset: number = 0,
+  chunkSize: number = 0,
 ): Promise<PipeRunDealData[]> {
   let allDeals: PipeRunDealData[] = [];
   let page = 1;
+  let totalFetched = 0;
+
+  // If offset is set, calculate the starting page (100 per page from API)
+  if (offset > 0) {
+    page = Math.floor(offset / 100) + 1;
+  }
 
   while (page <= maxPages) {
     const params: Record<string, string | number> = {
@@ -294,13 +302,48 @@ async function fetchDealsForPipeline(
     const deals = piperunData?.data || [];
     if (deals.length === 0) break;
 
-    allDeals = allDeals.concat(deals);
+    // Handle offset within the first page
+    let startIdx = 0;
+    if (offset > 0 && page === Math.floor(offset / 100) + 1) {
+      startIdx = offset % 100;
+    }
 
+    const slicedDeals = startIdx > 0 ? deals.slice(startIdx) : deals;
+    
+    for (const deal of slicedDeals) {
+      if (chunkSize > 0 && totalFetched >= chunkSize) break;
+      allDeals.push(deal);
+      totalFetched++;
+    }
+
+    if (chunkSize > 0 && totalFetched >= chunkSize) break;
     if (piperunData?.meta && piperunData.meta.current_page >= piperunData.meta.last_page) break;
     page++;
   }
 
   return allDeals;
+}
+
+// Count total deals in a pipeline (lightweight call)
+async function countDealsForPipeline(
+  apiKey: string,
+  pipelineId: number,
+  since: string | null,
+): Promise<number> {
+  const params: Record<string, string | number> = {
+    show: 1,
+    page: 1,
+    pipeline_id: pipelineId,
+  };
+  if (since) params.updated_since = since;
+
+  const result = await piperunGet(apiKey, "deals", params);
+  if (!result.success) return 0;
+
+  const piperunData = result.data as { meta?: { total: number; last_page: number } };
+  if (piperunData?.meta?.total) return piperunData.meta.total;
+  if (piperunData?.meta?.last_page) return piperunData.meta.last_page * 100; // estimate
+  return 0;
 }
 
 // ─── Process a single deal (shared between single and full sync) ───
@@ -476,6 +519,7 @@ Deno.serve(async (req) => {
 
     // ── Orchestrator mode: call self once per pipeline sequentially ──
     if (orchestrate) {
+      const CHUNK_SIZE = 500;
       const pipelinesToSync = singlePipeline
         ? [Number(singlePipeline)]
         : [...SYNC_PIPELINES];
@@ -485,25 +529,54 @@ Deno.serve(async (req) => {
 
       for (const pid of pipelinesToSync) {
         try {
-          const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?pipeline_id=${pid}${fullSync ? "&full=true" : ""}`;
-          const res = await fetch(fnUrl, {
-            headers: {
-              "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-              "Content-Type": "application/json",
-            },
-          });
-          const ct = res.headers.get("content-type") || "";
-          if (!ct.includes("application/json")) {
-            const txt = await res.text();
-            console.error(`[sync-piperun] Pipeline ${pid} returned non-JSON (${res.status}):`, txt.substring(0, 200));
-            allResults[`pipeline_${pid}`] = { error: `Non-JSON response (${res.status})`, preview: txt.substring(0, 100) };
+          // Step 1: Count total deals
+          const totalCount = await countDealsForPipeline(PIPERUN_API_KEY, pid, since);
+          console.log(`[sync-piperun] Pipeline ${pid}: ~${totalCount} deals total`);
+
+          if (totalCount === 0) {
+            allResults[`pipeline_${pid}`] = { total_deals: 0, skipped: true };
             continue;
           }
-          const data = await res.json();
-          allResults[`pipeline_${pid}`] = data;
-          if (data.synced) totalUpdated += data.synced;
-          if (data.created) totalCreated += data.created;
-          if (data.total_deals) totalDeals += data.total_deals;
+
+          // Step 2: Chunk if needed
+          const chunks: number[] = [];
+          if (fullSync && totalCount > CHUNK_SIZE) {
+            for (let off = 0; off < totalCount; off += CHUNK_SIZE) {
+              chunks.push(off);
+            }
+          } else {
+            chunks.push(0); // single chunk
+          }
+
+          const pipelineResults: unknown[] = [];
+          for (const chunkOffset of chunks) {
+            const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
+            const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?${chunkParams}`;
+            try {
+              const res = await fetch(fnUrl, {
+                headers: {
+                  "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+                  "Content-Type": "application/json",
+                },
+              });
+              const ct = res.headers.get("content-type") || "";
+              if (!ct.includes("application/json")) {
+                const txt = await res.text();
+                console.error(`[sync-piperun] Pipeline ${pid} offset=${chunkOffset} non-JSON (${res.status}):`, txt.substring(0, 200));
+                pipelineResults.push({ error: `Non-JSON (${res.status})`, offset: chunkOffset });
+                continue;
+              }
+              const data = await res.json();
+              pipelineResults.push(data);
+              if (data.synced) totalUpdated += data.synced;
+              if (data.created) totalCreated += data.created;
+              if (data.total_deals) totalDeals += data.total_deals;
+            } catch (e) {
+              pipelineResults.push({ error: String(e), offset: chunkOffset });
+            }
+          }
+
+          allResults[`pipeline_${pid}`] = chunks.length === 1 ? pipelineResults[0] : { chunks: pipelineResults, total_chunks: chunks.length };
         } catch (e) {
           allResults[`pipeline_${pid}`] = { error: String(e) };
         }
@@ -546,9 +619,11 @@ Deno.serve(async (req) => {
 
     const pipelineId = Number(singlePipeline);
     const maxPages = fullSync ? 50 : 5;
+    const offset = Number(url.searchParams.get("offset") || "0");
+    const chunkSize = Number(url.searchParams.get("chunk_size") || "0");
 
-    const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages);
-    console.log(`[sync-piperun] Pipeline ${pipelineId}: ${allDeals.length} deals fetched`);
+    const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages, offset, chunkSize);
+    console.log(`[sync-piperun] Pipeline ${pipelineId} offset=${offset} chunk=${chunkSize}: ${allDeals.length} deals fetched`);
 
     const counters = { updated: 0, created: 0, skippedNoData: 0, stagnantStarted: 0, stagnantRescued: 0 };
 
