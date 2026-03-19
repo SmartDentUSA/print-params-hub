@@ -619,9 +619,11 @@ Deno.serve(async (req) => {
 
     const pipelineId = Number(singlePipeline);
     const maxPages = fullSync ? 50 : 5;
+    const offset = Number(url.searchParams.get("offset") || "0");
+    const chunkSize = Number(url.searchParams.get("chunk_size") || "0");
 
-    const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages);
-    console.log(`[sync-piperun] Pipeline ${pipelineId}: ${allDeals.length} deals fetched`);
+    const allDeals = await fetchDealsForPipeline(PIPERUN_API_KEY, pipelineId, since, maxPages, offset, chunkSize);
+    console.log(`[sync-piperun] Pipeline ${pipelineId} offset=${offset} chunk=${chunkSize}: ${allDeals.length} deals fetched`);
 
     const counters = { updated: 0, created: 0, skippedNoData: 0, stagnantStarted: 0, stagnantRescued: 0 };
 
