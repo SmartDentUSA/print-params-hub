@@ -295,10 +295,13 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const buildTimeline = (): TLEvent[] => {
     const events: TLEvent[] = [];
 
-    // Lead created
-    if (ld.data_primeiro_contato) {
+    // Lead created — for LI leads use real origin date
+    const leadOriginDate = ld.source === "loja_integrada"
+      ? (ld.lojaintegrada_cliente_data_criacao || ld.data_primeiro_contato || ld.created_at)
+      : (ld.data_primeiro_contato || ld.created_at);
+    if (leadOriginDate) {
       events.push({
-        date: ld.data_primeiro_contato,
+        date: leadOriginDate,
         dotCls: "tl-dot-lead",
         title: "Lead criado no sistema",
         desc: `Origem: ${ld.source || "piperun"}${ld.utm_source ? " · " + ld.utm_source : ""}`,
