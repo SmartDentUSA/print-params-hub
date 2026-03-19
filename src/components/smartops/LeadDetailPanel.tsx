@@ -450,6 +450,56 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const mrrWon = wonDeals.reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
   const mrrOpenLost = [...openDeals, ...lostDeals].reduce((s: number, d: any) => s + (Number(d.value_mrr) || 0), 0);
 
+  // ── E-commerce data (pre-computed for hero, mix, and table) ──
+  const liHistorico = (() => {
+    let hist = (Array.isArray(ld.lojaintegrada_historico_pedidos) ? [...ld.lojaintegrada_historico_pedidos] : [])
+      .filter((p: any) => p.numero && String(p.numero) !== "undefined")
+      .sort((a: any, b: any) => new Date(b.data || b.data_criacao || 0).getTime() - new Date(a.data || a.data_criacao || 0).getTime());
+    if (hist.length === 0 && detail?.activity_log) {
+      const ecomEvents = detail.activity_log.filter((ev: any) =>
+        ev.source_channel === "ecommerce" &&
+        (ev.event_type?.startsWith("order_") || ev.event_type?.startsWith("ecommerce_order_")) &&
+        (ev.entity_id || ev.event_data?.pedido)
+      );
+      const seenOrders = new Set<string>();
+      const reconstructed: any[] = [];
+      for (const ev of ecomEvents) {
+        const evd = ev.event_data || {};
+        const orderId = String(evd.pedido || ev.entity_id || "");
+        if (!orderId || seenOrders.has(orderId)) continue;
+        seenOrders.add(orderId);
+        const isApproved = (ev.event_type || "").includes("invoiced") || (ev.event_type || "").includes("paid") || (ev.event_type || "").includes("completed");
+        reconstructed.push({
+          numero: orderId,
+          data_criacao: ev.event_timestamp,
+          valor_total: evd.valor || evd.value || ev.value_numeric || 0,
+          situacao_nome: evd.status || ev.event_type?.replace("ecommerce_order_", "").replace("order_", "") || "—",
+          situacao_aprovado: isApproved,
+          situacao_cancelado: (ev.event_type || "").includes("cancelled"),
+          itens_resumo: evd.produtos?.join(", ") || evd.itens_resumo || ev.entity_name || null,
+          valor_envio: evd.valor_envio || null,
+          cupom_desconto: evd.cupom || null,
+          forma_pagamento: evd.forma_pagamento || null,
+          forma_envio: evd.forma_envio || null,
+          link_rastreio: evd.tracking || null,
+          parcelas: evd.parcelas || null,
+          bandeira: evd.bandeira || null,
+          itens: evd.itens || null,
+          _from_activity: true,
+        });
+      }
+      hist = reconstructed.sort((a: any, b: any) => new Date(b.data_criacao || 0).getTime() - new Date(a.data_criacao || 0).getTime());
+    }
+    return hist;
+  })();
+  const liApproved = liHistorico.filter((p: any) => p.situacao_aprovado && !p.situacao_cancelado);
+  const liCancelled = liHistorico.filter((p: any) => p.situacao_cancelado);
+  const ltvEcommerce = liApproved.reduce((sum: number, p: any) => sum + (parseFloat(p.valor_total) || 0), 0);
+  const ltvAbandono = liCancelled.reduce((sum: number, p: any) => sum + (parseFloat(p.valor_total) || 0), 0);
+  const ecomWon = liApproved.length;
+  const ecomLost = liCancelled.length;
+  const financeiroTotal = psWon + ltvEcommerce;
+
   // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; sku: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
   allDeals.forEach((d: any) => {
