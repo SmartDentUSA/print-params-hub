@@ -11,6 +11,9 @@ import {
   parseProposalItems,
   cleanPersonName,
   deepParseStringifiedFields,
+  buildRichDealSnapshot,
+  upsertDealHistory,
+  type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
 
 const corsHeaders = {
@@ -287,34 +290,8 @@ async function findLeadByCascade(
   return null;
 }
 
-// ─── Deals History Helper ───
-
-interface DealSnapshot {
-  deal_id: string;
-  deal_hash: string | null;
-  pipeline_id: number | undefined;
-  pipeline_name: string | null;
-  stage_name: string | null;
-  status: string;
-  value: number | null;
-  created_at: string | null;
-  closed_at: string | null;
-  product: string | null;
-}
-
-function upsertDealHistory(
-  currentHistory: unknown[] | null,
-  snapshot: DealSnapshot,
-): DealSnapshot[] {
-  const history = (Array.isArray(currentHistory) ? [...currentHistory] : []) as DealSnapshot[];
-  const idx = history.findIndex((d) => String(d.deal_id) === String(snapshot.deal_id));
-  if (idx >= 0) {
-    history[idx] = snapshot;
-  } else {
-    history.push(snapshot);
-  }
-  return history;
-}
+// ─── Deals History Helper (uses shared builder from piperun-field-map.ts) ───
+// DealSnapshot type and upsertDealHistory are now imported from shared module
 
 // ─── Proposals Aggregation ───
 
@@ -432,18 +409,15 @@ Deno.serve(async (req) => {
 
       const { tags: initialTags } = computeTagsFromStage(resolvedStatus, [JOURNEY_TAGS.J01_CONSCIENCIA]);
 
-      const initialDealSnapshot: DealSnapshot = {
-        deal_id: dealId,
-        deal_hash: ids.dealHash,
-        pipeline_id: ids.pipelineId,
-        pipeline_name: ids.pipelineName || (ids.pipelineId ? PIPELINE_NAMES[ids.pipelineId] : null) || null,
-        stage_name: ids.stageName,
-        status: "aberta",
-        value: deal.value != null ? Number(deal.value) || null : null,
-        created_at: ids.dealCreatedAt,
-        closed_at: ids.dealClosedAt,
-        product: customFields.produtoInteresse || null,
-      };
+      const initialDealSnapshot = buildRichDealSnapshot(
+        deal as unknown as import("../_shared/piperun-field-map.ts").PipeRunDealData,
+        {
+          dealId,
+          product: customFields.produtoInteresse || null,
+          ownerName: ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null,
+          ownerEmail: ids.ownerEmail || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.email : null) || null,
+        },
+      );
 
       const newLeadData: Record<string, unknown> = {
         nome: personName,
@@ -793,18 +767,15 @@ Deno.serve(async (req) => {
       ? (typeof dealStatus === "number" ? (DEAL_STATUS_MAP[dealStatus] || "aberta") : String(dealStatus))
       : "aberta";
 
-    const dealSnapshot: DealSnapshot = {
-      deal_id: dealId,
-      deal_hash: ids.dealHash,
-      pipeline_id: ids.pipelineId,
-      pipeline_name: ids.pipelineName || (ids.pipelineId ? PIPELINE_NAMES[ids.pipelineId] : null) || null,
-      stage_name: ids.stageName,
-      status: currentDealStatus,
-      value: deal.value != null ? Number(deal.value) || null : null,
-      created_at: ids.dealCreatedAt,
-      closed_at: ids.dealClosedAt,
-      product: customFields.produtoInteresse || leadProduto || null,
-    };
+    const dealSnapshot = buildRichDealSnapshot(
+      deal as unknown as import("../_shared/piperun-field-map.ts").PipeRunDealData,
+      {
+        dealId,
+        product: customFields.produtoInteresse || leadProduto || null,
+        ownerName: ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null,
+        ownerEmail: ids.ownerEmail || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.email : null) || null,
+      },
+    );
 
     updateData.piperun_deals_history = upsertDealHistory(currentDealsHistory, dealSnapshot);
 

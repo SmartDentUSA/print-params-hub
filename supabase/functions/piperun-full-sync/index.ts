@@ -7,7 +7,10 @@ import {
   mapDealToAttendance,
   deepParseStringifiedFields,
   piperunGet,
+  buildRichDealSnapshot,
+  upsertDealHistory,
   type PipeRunDealData,
+  type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
 import { computeTagsFromStage, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 
@@ -16,34 +19,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ─── Deal Snapshot for history ───
-
-interface DealSnapshot {
-  deal_id: string;
-  deal_hash: string | null;
-  pipeline_id: number | undefined;
-  pipeline_name: string | null;
-  stage_name: string | null;
-  status: string;
-  value: number | null;
-  created_at: string | null;
-  closed_at: string | null;
-  product: string | null;
-}
-
-function upsertDealHistory(
-  currentHistory: unknown[] | null,
-  snapshot: DealSnapshot,
-): DealSnapshot[] {
-  const history = (Array.isArray(currentHistory) ? [...currentHistory] : []) as DealSnapshot[];
-  const idx = history.findIndex((d) => String(d.deal_id) === String(snapshot.deal_id));
-  if (idx >= 0) {
-    history[idx] = snapshot;
-  } else {
-    history.push(snapshot);
-  }
-  return history;
-}
+// ─── Deal History (uses shared builder from piperun-field-map.ts) ───
 
 // ─── Identity Resolution (4-level cascade) ───
 
@@ -160,19 +136,10 @@ Deno.serve(async (req) => {
         const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
 
         // Build deal snapshot
-        const dealStatus = deal.status !== undefined ? (DEAL_STATUS_MAP[deal.status] || "aberta") : "aberta";
-        const dealSnapshot: DealSnapshot = {
-          deal_id: dealId,
-          deal_hash: deal.hash || null,
-          pipeline_id: deal.pipeline_id,
-          pipeline_name: deal.pipeline_id ? (PIPELINE_NAMES[deal.pipeline_id] || null) : null,
-          stage_name: deal.stage?.name || (deal.stage_id ? STAGE_TO_ETAPA[deal.stage_id] : null) || null,
-          status: dealStatus,
-          value: deal.value != null ? Number(deal.value) || null : null,
-          created_at: deal.created_at || null,
-          closed_at: deal.closed_at || null,
+        const dealSnapshot = buildRichDealSnapshot(deal, {
+          dealId,
           product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
-        };
+        });
 
         // GAP 2 FIX: 4-level identity cascade
         const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
