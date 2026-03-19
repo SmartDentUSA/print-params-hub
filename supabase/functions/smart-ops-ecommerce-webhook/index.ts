@@ -964,7 +964,7 @@ Deno.serve(async (req) => {
     if (items.length > 0) {
       const isPaid = ["order_paid", "order_invoiced", "order_delivered"].includes(eventType);
       const isCarted = eventType === "order_created";
-      const now = new Date().toISOString();
+      const orderDateForHistory = orderDate;
 
       for (const item of items) {
         const productId = String(item.id || item.sku || item.nome || "unknown");
@@ -984,17 +984,17 @@ Deno.serve(async (req) => {
         if (existingPH) {
           const updatePH: Record<string, unknown> = {
             last_interaction_type: isPaid ? "purchase" : (isCarted ? "cart" : eventType),
-            last_interaction_at: now,
-            updated_at: now,
+            last_interaction_at: orderDateForHistory,
+            updated_at: orderDateForHistory,
           };
           if (isPaid) {
-            updatePH.purchased_at = now;
+            updatePH.purchased_at = orderDateForHistory;
             updatePH.purchase_count = (existingPH.purchase_count || 0) + 1;
             updatePH.total_purchased_qty = (existingPH.total_purchased_qty || 0) + qty;
             updatePH.total_purchased_value = (existingPH.total_purchased_value || 0) + totalPrice;
           }
           if (isCarted) {
-            updatePH.added_to_cart_at = now;
+            updatePH.added_to_cart_at = orderDateForHistory;
             updatePH.cart_count = (existingPH.cart_count || 0) + 1;
           }
           await supabase.from("lead_product_history").update(updatePH).eq("id", existingPH.id);
@@ -1003,17 +1003,17 @@ Deno.serve(async (req) => {
             lead_id: leadId,
             product_id: productId,
             product_name: productName,
-            first_viewed_at: now,
-            last_viewed_at: now,
+            first_viewed_at: orderDateForHistory,
+            last_viewed_at: orderDateForHistory,
             view_count: 1,
-            added_to_cart_at: isCarted ? now : null,
+            added_to_cart_at: isCarted ? orderDateForHistory : null,
             cart_count: isCarted ? 1 : 0,
-            purchased_at: isPaid ? now : null,
+            purchased_at: isPaid ? orderDateForHistory : null,
             purchase_count: isPaid ? 1 : 0,
             total_purchased_qty: isPaid ? qty : 0,
             total_purchased_value: isPaid ? totalPrice : 0,
             last_interaction_type: isPaid ? "purchase" : (isCarted ? "cart" : eventType),
-            last_interaction_at: now,
+            last_interaction_at: orderDateForHistory,
           });
         }
       }
@@ -1047,7 +1047,7 @@ Deno.serve(async (req) => {
     // ─── Convert cart to "converted" when paid ───
     if (["order_paid", "order_invoiced", "order_delivered"].includes(eventType) && numeroPedido) {
       await supabase.from("lead_cart_history")
-        .update({ status: "converted", converted_at: new Date().toISOString() })
+        .update({ status: "converted", converted_at: orderDate })
         .eq("lead_id", leadId)
         .eq("cart_id", String(numeroPedido))
         .then(({ error: convErr }) => {
