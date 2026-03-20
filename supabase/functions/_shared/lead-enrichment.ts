@@ -34,6 +34,12 @@ const ALWAYS_UPDATE: Set<string> = new Set([
   "updated_at",
   // SellFlux custom fields (JSONB merge)
   "sellflux_custom_fields",
+  // Equipamentos ativos — o lead conhece o próprio parque; última resposta de formulário vence
+  "equip_scanner", "equip_impressora", "equip_cad",
+  "equip_pos_impressao", "equip_fresadora", "equip_notebook",
+  // Perfil de atuação — pode mudar ao longo do tempo
+  "area_atuacao", "especialidade", "como_digitaliza",
+  "tem_impressora", "impressora_modelo", "software_cad",
 ]);
 
 /** Fields that are PROTECTED — never overwrite if they have a value */
