@@ -180,6 +180,22 @@ const UserViewSupabase = () => {
     }
   }, [searchParams, toast]);
 
+  // GTM — page_view_parametros event quando parâmetros são carregados
+  useEffect(() => {
+    if (!selectedModel || resins.length === 0) return;
+    try {
+      if (typeof window !== 'undefined' && (window as any).dataLayer) {
+        (window as any).dataLayer.push({
+          event: 'page_view_parametros',
+          page_type: 'parametros',
+          brand: params.brandSlug ?? '',
+          model: params.modelSlug ?? '',
+          resin: params.resinSlug ?? '',
+        });
+      }
+    } catch (e) { /* silencioso */ }
+  }, [selectedModel, resins.length, params.brandSlug, params.modelSlug, params.resinSlug]);
+
   // Auto-scroll to resins section on mobile when model is selected
   useEffect(() => {
     if (selectedModel && resins.length > 0 && isMobile && resinsRef.current) {

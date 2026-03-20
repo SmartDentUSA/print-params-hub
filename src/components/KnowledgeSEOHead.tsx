@@ -627,6 +627,18 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
     "image": content.og_image_url,
     "datePublished": new Date(content.created_at).toISOString(),
     "dateModified": new Date(content.updated_at).toISOString(),
+    // Fix Google Search Console: Product/Article sem offers
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "BRL",
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "SmartDent",
+        "url": "https://parametros.smartdent.com.br"
+      }
+    },
     "articleBody": articleBody,
     "wordCount": wordCount,
     "inLanguage": htmlLang,
@@ -1058,7 +1070,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <link rel="canonical" href={canonicalUrl} />
       
       {/* Robots - always index, translations are auto-generated */}
-      <meta name="robots" content="index, follow" />
+      <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
       
       {/* hreflang tags - all languages (translations are auto-generated) */}
       <link rel="alternate" hrefLang="pt-BR" href={`${baseUrl}${pathByLang['pt']}/${category?.letter?.toLowerCase()}/${content.slug}`} />

@@ -5,6 +5,26 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/:path*"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap"
+    },
+    {
+      "source": "/sitemap-conhecimento-pt.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap"
+    },
+    {
+      "source": "/sitemap-conhecimento-en.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-en"
+    },
+    {
+      "source": "/sitemap-conhecimento-es.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-es"
+    },
+    {
+      "source": "/sitemap-documentos.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap"
+    },
+    {
       "source": "/:path*",
       "has": [
         {

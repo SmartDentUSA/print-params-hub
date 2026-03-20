@@ -34,6 +34,7 @@ interface SdrForm {
   media_type: string | null;
   video_id: string | null;
   video_thumbnail_url: string | null;
+  video_embed_url: string | null;
 }
 
 interface CatalogOption {
@@ -45,6 +46,7 @@ interface VideoOption {
   id: string;
   title: string;
   thumbnail_url: string | null;
+  embed_url: string | null;
 }
 
 export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
@@ -66,6 +68,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   );
   const [videoId, setVideoId] = useState(form.video_id ?? "");
   const [videoThumbnailUrl, setVideoThumbnailUrl] = useState(form.video_thumbnail_url ?? "");
+  const [videoEmbedUrl, setVideoEmbedUrl] = useState(form.video_embed_url ?? "");
 
   const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([]);
   const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
@@ -83,7 +86,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       });
     supabase
       .from("knowledge_videos" as any)
-      .select("id, title, thumbnail_url")
+      .select("id, title, thumbnail_url, embed_url")
       .order("title")
       .then(({ data }) => {
         if (data) setVideoOptions(data as unknown as VideoOption[]);
@@ -115,6 +118,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const handleVideoSelect = (vid: VideoOption) => {
     setVideoId(vid.id);
     setVideoThumbnailUrl(vid.thumbnail_url ?? "");
+    setVideoEmbedUrl(vid.embed_url ?? "");
   };
 
   const handleSaveSectionB = async () => {
@@ -137,6 +141,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         media_type: mediaType,
         video_id: mediaType === "video" ? (videoId || null) : null,
         video_thumbnail_url: mediaType === "video" ? (videoThumbnailUrl || null) : null,
+        video_embed_url: mediaType === "video" ? (videoEmbedUrl || null) : null,
       } as any)
       .eq("id", form.id);
     setSaving(false);
@@ -236,7 +241,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                 )}
               </div>
               <div className="flex-1 space-y-2">
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button
                     type="button"
                     variant="outline"
@@ -245,7 +250,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                     disabled={uploading}
                   >
                     <Upload className="w-3 h-3 mr-1" />
-                    {uploading ? "Enviando..." : "Upload"}
+                    {uploading ? "Enviando..." : heroImageUrl ? "Trocar" : "Upload"}
                   </Button>
                   {heroImageUrl && (
                     <Button
@@ -258,12 +263,14 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                     </Button>
                   )}
                 </div>
-                <Input
-                  value={heroImageUrl}
-                  onChange={(e) => setHeroImageUrl(e.target.value)}
-                  placeholder="Ou cole a URL da imagem"
-                  className="text-xs"
-                />
+                {!heroImageUrl && (
+                  <Input
+                    value={heroImageUrl}
+                    onChange={(e) => setHeroImageUrl(e.target.value)}
+                    placeholder="Ou cole a URL da imagem"
+                    className="text-xs"
+                  />
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -283,27 +290,43 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
           {mediaType === "video" && (
             <div className="space-y-2">
               {/* Preview do vídeo selecionado */}
-              {videoThumbnailUrl && (
-                <div className="flex items-center gap-3 p-2 border rounded-md bg-muted/40">
-                  <img
-                    src={videoThumbnailUrl}
-                    alt="Thumbnail do vídeo"
-                    className="w-24 h-14 object-cover rounded"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">
-                      {videoOptions.find((v) => v.id === videoId)?.title ?? "Vídeo selecionado"}
-                    </p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="mt-1 h-6 text-xs px-2"
-                      onClick={() => { setVideoId(""); setVideoThumbnailUrl(""); }}
-                    >
-                      <X className="w-3 h-3 mr-1" /> Remover
-                    </Button>
+              {videoId && (
+                <div className="space-y-2 p-2 border rounded-md bg-muted/40">
+                  <div className="flex items-center gap-3">
+                    {videoThumbnailUrl && (
+                      <img
+                        src={videoThumbnailUrl}
+                        alt="Thumbnail do vídeo"
+                        className="w-24 h-14 object-cover rounded flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">
+                        {videoOptions.find((v) => v.id === videoId)?.title ?? "Vídeo selecionado"}
+                      </p>
+                      {videoEmbedUrl && (
+                        <p className="text-xs text-green-600 mt-0.5">✓ Player embed configurado</p>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="mt-1 h-6 text-xs px-2"
+                        onClick={() => { setVideoId(""); setVideoThumbnailUrl(""); setVideoEmbedUrl(""); }}
+                      >
+                        <X className="w-3 h-3 mr-1" /> Remover
+                      </Button>
+                    </div>
                   </div>
+                  {videoEmbedUrl && (
+                    <iframe
+                      src={videoEmbedUrl}
+                      className="w-full rounded"
+                      style={{ height: 160 }}
+                      allowFullScreen
+                      allow="autoplay"
+                    />
+                  )}
                 </div>
               )}
 
