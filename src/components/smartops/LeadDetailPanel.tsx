@@ -744,6 +744,31 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     }
   });
 
+  // Cross-reference: inject ld.proposals_data into flatProposals when deals lack embedded proposals
+  if (flatProposals.every(fp => fp.itens === "—" || !fp.itens) && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
+    (ld.proposals_data as any[]).forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      const itensSummary = items.length > 0
+        ? items.slice(0, 3).map((it: any) => `${it.quantity || it.qtd || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        : "—";
+      const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
+      const freteTipo = prop.tipo_frete || prop.freight_type || "";
+      const freteStr = freteVal > 0 ? `${formatBRLFull(freteVal)}${freteTipo ? " " + freteTipo : ""}` : freteTipo || "—";
+      const parcelas = prop.parcelas || prop.payment_installments || null;
+      flatProposals.push({
+        date: prop.created_at || "",
+        sigla: prop.sigla || `PRO${prop.id || "?"}`,
+        funil: prop.pipeline_name || "—",
+        itens: itensSummary,
+        valor: Number(prop.value || prop.valor_ps || 0),
+        frete: freteStr,
+        pgto: parcelas ? `${parcelas}×` : "—",
+        vendedor: prop.vendedor || "—",
+        status: "aberta",
+      });
+    });
+  }
+
   // ── Product Mix Intelligence (CRM won deals + E-commerce approved) ──
   interface ProductMixItem {
     cod: string;
