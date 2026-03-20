@@ -323,7 +323,8 @@ async function createNewDeal(
   if (companyId) dealPayload.company_id = companyId;
   if (customFields.length > 0) dealPayload.custom_fields = customFields;
 
-  console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}, owner=${ownerId}`);
+  console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}, owner=${ownerId}, custom_fields=${JSON.stringify(customFields)}`);
+  console.log(`[lia-assign] Deal payload: ${JSON.stringify(dealPayload).slice(0, 1000)}`);
   const createRes = await piperunPost(apiToken, "deals", dealPayload);
   console.log(`[lia-assign] Deal create: ${createRes.success} (${createRes.status})${!createRes.success ? " body=" + JSON.stringify(createRes.data).slice(0, 500) : ""}`);
 
