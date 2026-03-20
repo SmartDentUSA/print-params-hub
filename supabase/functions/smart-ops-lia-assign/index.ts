@@ -341,6 +341,48 @@ async function createNewDeal(
   return null;
 }
 
+// ── Origin cache: form_name → origin_id ──
+const originCache = new Map<string, number>();
+
+async function resolveOriginId(apiToken: string, formName: string | null): Promise<number> {
+  if (!formName) return ORIGINS.DRA_LIA.id;
+  
+  const cacheKey = formName.trim();
+  if (originCache.has(cacheKey)) return originCache.get(cacheKey)!;
+
+  try {
+    // Search existing origins
+    const searchRes = await piperunGet(apiToken, "origins", { name: cacheKey, show: 5 });
+    if (searchRes.success && searchRes.data) {
+      const items = (searchRes.data as Record<string, unknown>).data as Array<Record<string, unknown>> | undefined;
+      const exact = items?.find(o => String(o.name).trim().toLowerCase() === cacheKey.toLowerCase());
+      if (exact?.id) {
+        const id = Number(exact.id);
+        originCache.set(cacheKey, id);
+        console.log(`[lia-assign] Origin found: "${cacheKey}" → ${id}`);
+        return id;
+      }
+    }
+    // Create new origin
+    const createRes = await piperunPost(apiToken, "origins", {
+      name: cacheKey,
+      description: `Formulário: ${cacheKey} (criado via Dra. L.I.A.)`,
+    });
+    if (createRes.success && createRes.data) {
+      const created = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      if (created?.id) {
+        const id = Number(created.id);
+        originCache.set(cacheKey, id);
+        console.log(`[lia-assign] Origin created: "${cacheKey}" → ${id}`);
+        return id;
+      }
+    }
+    console.warn(`[lia-assign] Could not resolve/create origin for "${cacheKey}", falling back to Dra. L.I.A.`);
+  } catch (e) {
+    console.warn("[lia-assign] Origin resolution error:", e);
+  }
+  return ORIGINS.DRA_LIA.id;
+}
 
 // ─── Team Member Selection ───
 
