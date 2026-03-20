@@ -266,7 +266,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                 <SelectValue placeholder="Selecione a célula do workflow..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Nenhuma —</SelectItem>
+                <SelectItem value="__none__">— Nenhuma —</SelectItem>
                 {WORKFLOW_CELLS.map((cell) => (
                   <SelectItem key={cell.value} value={cell.value}>{cell.label}</SelectItem>
                 ))}
