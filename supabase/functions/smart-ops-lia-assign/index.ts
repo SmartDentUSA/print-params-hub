@@ -308,18 +308,15 @@ async function createNewDeal(
   email: string,
   supabase: ReturnType<typeof createClient>
 ): Promise<string | null> {
-  const formName = lead.form_name as string | null;
-  const dealTitle = formName 
-    ? `${cleanPersonName(lead.nome as string) || email} — ${formName}`
-    : (cleanPersonName(lead.nome as string) || email);
+  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
 
   const dealPayload: Record<string, unknown> = {
-    title: dealTitle,
+    title: cleanPersonName(lead.nome as string) || email,
     pipeline_id: pipelineId,
     stage_id: stageId,
     owner_id: ownerId,
-    origin_id: ORIGINS.DRA_LIA.id,
-    reference: formName ? `${email} | ${formName}` : email,
+    origin_id: formOriginId,
+    reference: email,
     person_id: personId,
   };
 
