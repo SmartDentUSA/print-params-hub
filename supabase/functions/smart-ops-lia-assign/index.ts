@@ -133,7 +133,7 @@ async function findOrCreateCompany(
   existingCompanyId: number | null,
   lead: Record<string, unknown>
 ): Promise<number | null> {
-  const nome = (lead.nome || lead.email || "Empresa Lead") as string;
+  const nome = cleanPersonName(lead.nome as string) || (lead.email as string) || "Empresa Lead";
   const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
 
