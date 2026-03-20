@@ -992,8 +992,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── Idempotency: skip if assigned in last 5 min (unless force=true) ──
-    if (!force && lead.proprietario_lead_crm && lead.updated_at) {
+    // ── Idempotency: skip if assigned in last 5 min (unless force=true or sdr_captacao_reativacao) ──
+    if (!force && trigger !== "sdr_captacao_reativacao" && lead.proprietario_lead_crm && lead.updated_at) {
       const lastUpdate = new Date(lead.updated_at).getTime();
       if (Date.now() - lastUpdate < 5 * 60 * 1000) {
         console.log("[lia-assign] Already assigned recently, skipping");

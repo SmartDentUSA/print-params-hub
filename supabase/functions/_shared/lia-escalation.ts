@@ -5,7 +5,8 @@
  */
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-type SupabaseClient = ReturnType<typeof createClient>;
+// deno-lint-ignore no-explicit-any
+type SupabaseClient = any;
 
 // ── Escalation Types ──
 export type EscalationType = "vendedor" | "cs_suporte" | "especialista" | null;
