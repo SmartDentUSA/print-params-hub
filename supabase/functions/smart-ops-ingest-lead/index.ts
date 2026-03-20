@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
     // --- Fix: declare source from payload ---
     const source = payload.source || payload.utm_source || "formulario";
     const formName = payload.form_name || payload.formName || payload.form || null;
+    const formPurpose: string | null = payload.form_purpose || null;
 
     // --- Extract fields with EXPLICIT keys (avoid form_name collision) ---
     const nome = payload.nome || payload.full_name || payload.name || payload.user_name ||
@@ -301,7 +302,13 @@ Deno.serve(async (req) => {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
         },
-        body: JSON.stringify({ lead_id: leadId, source, trigger: "ingest-lead" }),
+        body: JSON.stringify({
+          lead_id: leadId,
+          source,
+          trigger: (formPurpose === "sdr_captacao" && !!existingLead)
+            ? "sdr_captacao_reativacao"
+            : "ingest-lead",
+        }),
       }).catch(e => console.warn("[ingest-lead] lia-assign fire-and-forget error:", e));
     } catch (e) {
       console.warn("[ingest-lead] lia-assign call failed:", e);
