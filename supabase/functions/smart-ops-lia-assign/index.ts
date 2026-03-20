@@ -316,9 +316,9 @@ async function createNewDeal(
   if (companyId) dealPayload.company_id = companyId;
   if (customFields.length > 0) dealPayload.custom_fields = customFields;
 
-  console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}`);
+  console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}, owner=${ownerId}`);
   const createRes = await piperunPost(apiToken, "deals", dealPayload);
-  console.log(`[lia-assign] Deal create: ${createRes.success} (${createRes.status})`);
+  console.log(`[lia-assign] Deal create: ${createRes.success} (${createRes.status})${!createRes.success ? " body=" + JSON.stringify(createRes.data).slice(0, 500) : ""}`);
 
   if (createRes.success && createRes.data) {
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
