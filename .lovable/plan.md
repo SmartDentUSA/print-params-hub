@@ -1,50 +1,46 @@
 
 
-# Fix: Formulário SDR-Captação bloqueado pelo guard de idempotência
+## Plano: Corrigir criação de deal no PipeRun e limpar dados corrompidos
 
-## Diagnóstico
+### Problema identificado
 
-Os logs confirmam a sequência:
+O formulário "# - Formulário exocad I.A." não é reconhecido como `sdr_captacao`, então o `ingest-lead` envia `trigger: "ingest-lead"` (não `"sdr_captacao_reativacao"`). Quando o `lia-assign` processa, ele encontra deals existentes para a pessoa (deal `25658331` no "Distribuidor de Leads") e entra no branch de atualizar deal existente em vez de criar um novo no Funil de Vendas.
 
-1. `ingest-lead` encontrou o lead existente (`danilohen@gmail.com`, piperun_id `25658331`) e fez merge
-2. `lia-assign` foi chamado com `trigger: "sdr_captacao_reativacao"`
-3. O **guard de idempotência** (linha 995-1003) bloqueou a execução porque `proprietario_lead_crm` já existe E `updated_at` foi há menos de 5 minutos (atualizado pelo merge do ingest-lead segundos antes)
-4. A lógica de reativação (linha 1006+) **nunca executou** — o return acontece antes
+Dois problemas distintos:
+1. **O nome corrompido** (`"22/8/2023 6:52 Zapier..."`) permanece no banco
+2. **Nenhum deal novo** foi criado no Funil de Vendas — o deal antigo do "Distribuidor de Leads" foi mantido
 
-O lead JÁ está no PipeRun (deal #25658331), mas a nota com os novos dados do formulário não foi adicionada ao deal existente.
+### Correções
 
-## Correção
+#### 1. Migration: corrigir nome corrompido do lead
+- SQL UPDATE no `lia_attendances` para setar `nome = 'Danilo Henrique'` onde `email = 'danilohen@gmail.com'`
 
-**Arquivo**: `supabase/functions/smart-ops-lia-assign/index.ts`
+#### 2. Lógica de deal no `lia-assign` — tratar pipeline "Distribuidor de Leads" como não-ativo
+Atualmente, `findPersonDeals` retorna deals de QUALQUER pipeline. Se houver um deal aberto no "Distribuidor de Leads" (pipeline 70898), o sistema o trata como ativo e apenas atualiza.
 
-Mover o check de `sdr_captacao_reativacao` para **antes** do guard de idempotência, ou excluir o trigger `sdr_captacao_reativacao` do guard:
+**Correção no Step 5e** (`smart-ops-lia-assign/index.ts`, ~linha 1124):
+- Adicionar um check para que deals abertos em pipelines "passivos" (Distribuidor de Leads, Ebook, Ganhos Aleatórios) **não** bloqueiem a criação de um novo deal no Funil de Vendas
+- Especificamente: `vendaDeal` deve filtrar apenas `PIPELINES.VENDAS`, e `estagnDeal` apenas `PIPELINES.ESTAGNADOS` (já é assim)
+- Deals em outros pipelines (Distribuidor, Ebook, etc.) devem ser ignorados para fins de decisão, permitindo a criação de um deal novo
 
-```typescript
-// Linha 995-1003: Alterar para permitir reativação SDR
-if (!force && trigger !== "sdr_captacao_reativacao" && lead.proprietario_lead_crm && lead.updated_at) {
-  const lastUpdate = new Date(lead.updated_at).getTime();
-  if (Date.now() - lastUpdate < 5 * 60 * 1000) {
-    console.log("[lia-assign] Already assigned recently, skipping");
-    return new Response(JSON.stringify({ skipped: true, reason: "recently_assigned" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-}
+Olhando o código atual (linha 1125-1130):
 ```
+vendaDeal = openDeals.find(d => Number(d.pipeline_id) === PIPELINES.VENDAS && !d.freezed);
+estagnDeal = openDeals.find(d => Number(d.pipeline_id) === PIPELINES.ESTAGNADOS);
+```
+Isso já está correto — só filtra Vendas e Estagnados. O deal do "Distribuidor de Leads" (70898) **não deveria** ser encontrado como `vendaDeal`.
 
-Também corrigir os **build errors** em `lia-escalation.ts` e `lia-guards.ts` adicionando type assertions para resolver os erros `'never'` causados por tabelas ausentes no `types.ts` gerado.
+**Revisão**: O problema pode estar na `findPersonByEmail` → o lead já tinha `pessoa_piperun_id` cacheado, e o deal 25658331 é encontrado no cascade pelo `piperun_id`. O `lia-assign` após criar/atualizar person vai buscar deals e como não acha deal aberto em Vendas nem Estagnados, **deveria ter criado um novo deal**. Mas o `piperun_id` no lead ainda aponta para o antigo.
 
-## Escopo
+Preciso verificar se o `lia-assign` realmente executou com sucesso para esta submissão. Os logs de WhatsApp confirmam que sim. Então o deal **pode ter sido criado** mas o `piperun_id` não foi atualizado corretamente.
 
-- `smart-ops-lia-assign/index.ts`: 1 condição adicionada no guard (linha 996)
-- `_shared/lia-escalation.ts`: type assertions para corrigir build errors
-- `_shared/lia-guards.ts`: type assertions para corrigir build errors
-- Zero alteração no frontend, ingest-lead, ou card do lead
+#### 3. Verificar deal no PipeRun
+- Testar chamando `lia-assign` diretamente com `force: true` para o lead e verificar o resultado
+- Isso nos dirá exatamente qual flow foi executado e se um deal novo foi criado
 
-## Resultado esperado
+### Ações técnicas
 
-Quando um lead existente preencher um formulário SDR-Captação, o `lia-assign` vai:
-1. Passar pelo guard de idempotência (agora permite `sdr_captacao_reativacao`)
-2. Executar a lógica de reativação que adiciona nota ao deal existente no PipeRun
-3. Atualizar o status do lead conforme necessário
+1. **Migration SQL**: Corrigir nome do lead para "Danilo Henrique"
+2. **Teste direto**: Chamar `lia-assign` com `force: true` e `email: danilohen@gmail.com` para ver o resultado completo (flow type, piperun_id retornado)
+3. **Se necessário**: Ajustar a lógica para que deals em pipelines "passivos" (Distribuidor, Ebook) sejam tratados como "sem deal ativo", permitindo criação de um novo deal em Vendas
 
