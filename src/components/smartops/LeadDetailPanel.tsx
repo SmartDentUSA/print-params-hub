@@ -538,6 +538,25 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       }
     });
   });
+  // Cross-reference: inject ld.proposals_data items into mixMap for open deals
+  if (Object.keys(mixMap).length === 0 && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
+    (ld.proposals_data as any[]).forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      items.forEach((item: any) => {
+        const name = getItemName(item);
+        const cod = String(item.code || item.reference || item.sku || "—");
+        const qty = Number(item.quantity || item.qtd || 1);
+        const total = Number(item.value || item.cost || 0);
+        const key = name.toLowerCase().trim();
+        if (!mixMap[key]) {
+          mixMap[key] = { cod, name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+        }
+        mixMap[key].deals.add(String(prop.deal_id || "open"));
+        mixMap[key].qtyTotal += qty;
+        mixMap[key].receita += total;
+      });
+    });
+  }
 
   // Cross-reference: deals sem proposals embutidos → buscar em ld.proposals_data
   if (allProposalItems.length === 0 && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
