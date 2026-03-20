@@ -491,6 +491,19 @@ ${processedHTML}
         </header>
       )}
 
+      {/* AI Summary Box — Resumo do artigo para crawlers e leitores */}
+      {displayContent.excerpt && (
+        <section
+          className="ai-summary bg-blue-50 border-l-4 border-blue-400 p-4 mb-6 rounded"
+          aria-label="Resumo do artigo"
+          itemScope
+          itemType="https://schema.org/DefinedTerm"
+        >
+          <p className="text-sm font-medium text-blue-800 mb-1">Resumo</p>
+          <p className="text-blue-700" itemProp="description">{displayContent.excerpt}</p>
+        </section>
+      )}
+
       {/* VeredictBox - Featured Snippet para AI Search (posição zero) */}
       {content.veredict_data && (
         <VeredictBox data={content.veredict_data} />

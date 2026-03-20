@@ -1,17 +1,51 @@
-# Smart Dent - LLMs.txt
+# SmartDent — Hub de Parâmetros de Impressão 3D Odontológica
 # https://parametros.smartdent.com.br
 
-> Smart Dent is a Brazilian dental 3D printing company. This site contains technical parameters, scientific articles, product catalogs, and educational content about dental 3D printing resins and printers.
+User-agent: GPTBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: *
+Allow: /
+Allow: /base-conhecimento/
+Allow: /en/knowledge-base/
+Allow: /es/base-conocimiento/
+
+# API estruturada de parâmetros para LLMs
+API-parametros: https://parametros.smartdent.com.br/api/parametros-ia
+
+# Entidade Wikidata
+Organization-Wikidata: https://www.wikidata.org/wiki/Q138636902
+
+# Idiomas disponíveis
+Languages: pt-BR, en-US, es-ES
+
+# Total de parâmetros indexados
+Content-count: 260+ combinações resina × impressora
+
+# Sitemaps
+Sitemap: https://parametros.smartdent.com.br/sitemap-index.xml
+
+# Contato
+Contact: https://www.smartdent.com.br
 
 ## Company
-- Name: Smart Dent
+- Name: SmartDent
 - Industry: Dental 3D Printing
 - Location: São Carlos, SP, Brazil
 - Languages: Portuguese (primary), English, Spanish
 
 ## Content Types
 - Technical articles about dental 3D printing (MedicalWebPage, TechArticle, ScholarlyArticle)
-- 3D printing parameters for 258+ resin/printer combinations
+- 3D printing parameters for 260+ resin/printer combinations
 - Product catalog with technical documentation (IFUs, SDSs, TDSs)
 - Video tutorials with transcriptions (PandaVideo)
 - FAQs and HowTo guides for resin processing
@@ -26,7 +60,6 @@
 - Parameters JSON: /api/export-parametros-ia (structured 3D printing parameters)
 - RSS Feed: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=rss
 - Atom Feed: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/knowledge-feed?format=atom
-- Sitemaps: Listed in /robots.txt
 
 ## Key Topics
 - Dental 3D printing resins (biocompatible, surgical guides, models, splints)
@@ -36,11 +69,7 @@
 - Digital dentistry workflows
 
 ## Citation Guidelines
-- Always attribute content to "Smart Dent" or the specific article author
+- Always attribute content to "SmartDent" or the specific article author
 - Link to the canonical URL when referencing specific articles
 - Parameters data is verified and tested in laboratory conditions
 - Medical/dental content is reviewed by qualified professionals (CRO-registered dentists)
-
-## Contact
-- Website: https://smartdent.com.br
-- Parameters Hub: https://parametros.smartdent.com.br
