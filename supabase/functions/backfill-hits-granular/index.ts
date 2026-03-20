@@ -20,7 +20,7 @@ const PRODUCT_PATTERNS: Array<{ pattern: RegExp; col: string }> = [
 
   // E2 — CAD
   { pattern: /exocad|exoplan|dental.*cad|software.*cad|cad.*software/i,  col: "hits_e2_software"           },
-  { pattern: /cr[eé]dito.*ia|ia.*cad|smart.*slice/i,                     col: "hits_e2_credito_ia"         },
+  { pattern: /cr[eé]ditos.*ia|ia.*cad|smart.*slice/i,                    col: "hits_e2_creditos_ia"        },
 
   // E3 — Impressão 3D
   { pattern: /resina|resin|vitality|salm[aã]o|ocre|model.*dlp|bio.*temp|bio.*guide|bio.*bite|bio.*hybrid|bio.*denture|unichroma|academic/i,
@@ -50,7 +50,7 @@ const PRODUCT_PATTERNS: Array<{ pattern: RegExp; col: string }> = [
 const ALL_HITS_E_COLS = [
   "hits_e1_scanner_intraoral", "hits_e1_scanner_bancada", "hits_e1_notebook",
   "hits_e1_acessorios", "hits_e1_pecas_partes",
-  "hits_e2_software", "hits_e2_credito_ia", "hits_e2_servico", "hits_e2_pecas_partes",
+  "hits_e2_software", "hits_e2_creditos_ia", "hits_e2_servico", "hits_e2_pecas_partes",
   "hits_e3_resina", "hits_e3_impressora", "hits_e3_acessorios",
   "hits_e3_software", "hits_e3_pecas_partes",
   "hits_e4_equipamentos", "hits_e4_limpeza_acabamento",
