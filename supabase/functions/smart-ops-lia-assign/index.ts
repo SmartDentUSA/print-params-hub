@@ -306,13 +306,18 @@ async function createNewDeal(
   email: string,
   supabase: ReturnType<typeof createClient>
 ): Promise<string | null> {
+  const formName = lead.form_name as string | null;
+  const dealTitle = formName 
+    ? `${cleanPersonName(lead.nome as string) || email} — ${formName}`
+    : (cleanPersonName(lead.nome as string) || email);
+
   const dealPayload: Record<string, unknown> = {
-    title: cleanPersonName(lead.nome as string) || email,
+    title: dealTitle,
     pipeline_id: pipelineId,
     stage_id: stageId,
     owner_id: ownerId,
     origin_id: ORIGINS.DRA_LIA.id,
-    reference: email,
+    reference: formName ? `${email} | ${formName}` : email,
     person_id: personId,
   };
 
@@ -545,6 +550,7 @@ async function buildSellerNotification(
     `👤 Lead: ${lead.nome || "N/A"}`,
     `📧 Email: ${lead.email || "N/A"}`,
     `📱 Tel: ${phone || "N/A"}`,
+    `📋 Formulário: ${lead.form_name || "N/A"}`,
     `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
     `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
     `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,

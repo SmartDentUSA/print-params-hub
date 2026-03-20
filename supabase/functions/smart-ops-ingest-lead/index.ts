@@ -34,6 +34,12 @@ function detectProductFromFormName(formName: string | null): string | null {
   if (upper.includes("EDGEMINI") || upper.includes("EDGE MINI")) return "EdgeMini";
   if (upper.includes("IOCONNECT") || upper.includes("IO CONNECT")) return "IoConnect";
   if (upper.includes("EBOOK") || upper.includes("PLACA")) return "Ebook/Placa";
+  if (upper.includes("EXOCAD")) return "exocad";
+  if (upper.includes("MEDIT")) return "Medit";
+  if (upper.includes("MIICRAFT") || upper.includes("MII CRAFT")) return "MiiCraft";
+  if (upper.includes("SCANNER")) return "Scanner Intraoral";
+  if (upper.includes("IMPRESSORA") || upper.includes("PRINTER")) return "Impressora 3D";
+  if (upper.includes("RESINA") || upper.includes("RESIN")) return "Resinas";
   return null;
 }
 
