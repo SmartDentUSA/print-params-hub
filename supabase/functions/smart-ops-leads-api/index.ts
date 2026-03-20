@@ -221,30 +221,53 @@ const STAGE_SUBCATEGORIES: Record<string, string[]> = {
   etapa_7_fresagem:      ['equipamentos', 'software', 'servico', 'acessorios', 'pecas_partes'],
 };
 
-// Maps lead columns to portfolio stages & layers
-const LEAD_COLUMN_MAP: { stage: string; subcat: string; layer: string; col: string }[] = [
-  // Etapa 1: Scanner
-  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'ativo', col: 'equip_scanner' },
-  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'conc', col: 'status_scanner' },
-  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'sdr', col: 'sdr_scanner_interesse' },
-  // Etapa 2: CAD
-  { stage: 'etapa_2_cad', subcat: 'software', layer: 'ativo', col: 'equip_cad' },
-  { stage: 'etapa_2_cad', subcat: 'software', layer: 'conc', col: 'status_cad' },
-  { stage: 'etapa_2_cad', subcat: 'software', layer: 'sdr', col: 'sdr_cad_interesse' },
-  // Etapa 3: Impressão
-  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'ativo', col: 'equip_impressora' },
-  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'conc', col: 'status_impressora' },
-  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'sdr', col: 'sdr_impressora_interesse' },
-  // Etapa 4: Pós-Impressão
-  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'ativo', col: 'equip_pos_impressao' },
-  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'conc', col: 'status_pos_impressao' },
-  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'sdr', col: 'sdr_pos_impressao_interesse' },
-  // Etapa 5: Finalização (uses notebook/insumos as proxy)
-  { stage: 'etapa_5_finalizacao', subcat: 'caracterizacao', layer: 'ativo', col: 'equip_notebook' },
-  // Etapa 6: Cursos
-  { stage: 'etapa_6_cursos', subcat: 'presencial', layer: 'ativo', col: 'cs_treinamento' },
-  // Etapa 7: Fresagem
-  { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'sdr', col: 'sdr_fresadora_interesse' },
+// ─── Layer priority: higher number wins ───
+// ativo (4) > conc (3) > sdr (2) > mapeamento (1) > vazio (0)
+const LAYER_PRIORITY: Record<string, number> = {
+  ativo: 4, conc: 3, sdr: 2, mapeamento: 1, vazio: 0,
+};
+
+// Maps lead columns to portfolio stages & layers.
+//
+// RULE (per business requirement):
+//   ativo     = lead bought from SmartDent → ONLY from hits_* > 0 (won PipeRun deals)
+//   conc      = lead has equipment but purchase source unverified (equip_* fields)
+//   sdr       = lead expressed interest (sdr_* fields)
+//
+// hits_* are integer counters populated from deal_items of won deals.
+// equip_* are string fields populated via NLP/import — indicate possession, NOT purchase source.
+// label_col: when the column is a numeric hits_* field, use this companion field as the display label.
+const LEAD_COLUMN_MAP: { stage: string; subcat: string; layer: string; col: string; label_col?: string }[] = [
+  // ── E1 Scanner ───────────────────────────────────────────────────────────────
+  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'ativo', col: 'hits_scanner',   label_col: 'equip_scanner' },
+  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'conc',  col: 'equip_scanner' },
+  { stage: 'etapa_1_scanner', subcat: 'scanner_intraoral', layer: 'sdr',   col: 'sdr_scanner_interesse' },
+  // ── E2 CAD ───────────────────────────────────────────────────────────────────
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'ativo', col: 'hits_cad',   label_col: 'equip_cad' },
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'conc',  col: 'equip_cad' },
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'conc',  col: 'software_cad' },
+  { stage: 'etapa_2_cad', subcat: 'software', layer: 'sdr',   col: 'sdr_cad_interesse' },
+  // ── E3 Impressão ─────────────────────────────────────────────────────────────
+  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'ativo', col: 'hits_impressao3d', label_col: 'equip_impressora' },
+  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'conc',  col: 'equip_impressora' },
+  { stage: 'etapa_3_impressao', subcat: 'impressora', layer: 'sdr',   col: 'sdr_impressora_interesse' },
+  { stage: 'etapa_3_impressao', subcat: 'resina',     layer: 'conc',  col: 'resina_interesse' },
+  // ── E4 Pós-Impressão ─────────────────────────────────────────────────────────
+  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'ativo', col: 'hits_pos_impressao', label_col: 'equip_pos_impressao' },
+  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'conc',  col: 'equip_pos_impressao' },
+  { stage: 'etapa_4_pos_impressao', subcat: 'equipamentos', layer: 'sdr',   col: 'sdr_pos_impressao_interesse' },
+  // ── E5 Finalização ───────────────────────────────────────────────────────────
+  { stage: 'etapa_5_finalizacao', subcat: 'caracterizacao',  layer: 'ativo', col: 'hits_finalizacao' },
+  { stage: 'etapa_5_finalizacao', subcat: 'caracterizacao',  layer: 'sdr',   col: 'sdr_caracterizacao_interesse' },
+  { stage: 'etapa_5_finalizacao', subcat: 'dentistica_orto', layer: 'sdr',   col: 'sdr_dentistica_interesse' },
+  // ── E6 Cursos ────────────────────────────────────────────────────────────────
+  { stage: 'etapa_6_cursos', subcat: 'presencial', layer: 'ativo', col: 'hits_insumos_cursos' },
+  { stage: 'etapa_6_cursos', subcat: 'presencial', layer: 'conc',  col: 'cs_treinamento' },
+  { stage: 'etapa_6_cursos', subcat: 'presencial', layer: 'sdr',   col: 'sdr_cursos_interesse' },
+  // ── E7 Fresagem ──────────────────────────────────────────────────────────────
+  { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'ativo', col: 'hits_fresagem',  label_col: 'equip_fresadora' },
+  { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'conc',  col: 'equip_fresadora' },
+  { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'sdr',   col: 'sdr_fresagem_interesse' },
 ];
 
 function transformPortfolioFromLead(lead: any): any {
@@ -261,10 +284,17 @@ function transformPortfolioFromLead(lead: any): any {
 
       for (const mapping of LEAD_COLUMN_MAP.filter(m => m.stage === stageKey)) {
         const val = lead[mapping.col];
-        if (val && typeof val === 'string' && val.trim() !== '' && val !== 'nao' && val !== 'nao_tem') {
-          const layerLabel = mapping.layer === 'ativo' ? 'ativo' : mapping.layer === 'conc' ? 'conc' : 'sdr';
-          if (!stageResult[mapping.subcat] || stageResult[mapping.subcat].layer === 'vazio') {
-            stageResult[mapping.subcat] = { label: val, layer: layerLabel, hits: 1 };
+        const isValid = val !== null && val !== undefined && val !== '' && val !== 'nao' && val !== 'nao_tem'
+          && (typeof val === 'number' ? val > 0 : typeof val === 'string' ? val.trim() !== '' : false);
+        if (isValid) {
+          const layerLabel = mapping.layer as string;
+          const newPrio = LAYER_PRIORITY[layerLabel] ?? 0;
+          const existingPrio = LAYER_PRIORITY[stageResult[mapping.subcat]?.layer ?? 'vazio'] ?? 0;
+          if (newPrio > existingPrio) {
+            const displayLabel = mapping.label_col
+              ? String(lead[mapping.label_col] || 'SmartDent')
+              : String(val);
+            stageResult[mapping.subcat] = { label: displayLabel, layer: layerLabel, hits: typeof val === 'number' ? val : 1 };
           }
         }
       }
