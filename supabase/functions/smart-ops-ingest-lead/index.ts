@@ -293,40 +293,32 @@ Deno.serve(async (req) => {
         .then(({ error }: { error: unknown }) => { if (error) console.warn("[ingest-lead] Intelligence score RPC failed:", error); });
     }
 
-    // --- Step 4: Fire-and-forget orchestration ---
+    // --- Step 4: Fire-and-forget orchestration (non-blocking) ---
     // Trigger lia-assign (CRM sync + seller routing)
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({
-          lead_id: leadId,
-          source,
-          trigger: (formPurpose === "sdr_captacao" && !!existingLead)
-            ? "sdr_captacao_reativacao"
-            : "ingest-lead",
-        }),
-      }).catch(e => console.warn("[ingest-lead] lia-assign fire-and-forget error:", e));
-    } catch (e) {
-      console.warn("[ingest-lead] lia-assign call failed:", e);
-    }
+    fetch(`${SUPABASE_URL}/functions/v1/smart-ops-lia-assign`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({
+        lead_id: leadId,
+        source,
+        trigger: (formPurpose === "sdr_captacao" && !!existingLead)
+          ? "sdr_captacao_reativacao"
+          : "ingest-lead",
+      }),
+    }).catch(e => console.warn("[ingest-lead] lia-assign fire-and-forget error:", e));
 
     // Trigger cognitive-lead-analysis
-    try {
-      await fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({ lead_id: leadId, trigger: "ingest-lead" }),
-      }).catch(e => console.warn("[ingest-lead] cognitive-analysis fire-and-forget error:", e));
-    } catch (e) {
-      console.warn("[ingest-lead] cognitive-analysis call failed:", e);
-    }
+    fetch(`${SUPABASE_URL}/functions/v1/cognitive-lead-analysis`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+      },
+      body: JSON.stringify({ lead_id: leadId, trigger: "ingest-lead" }),
+    }).catch(e => console.warn("[ingest-lead] cognitive-analysis fire-and-forget error:", e));
 
     // ─── Sync lead to SellFlux ───
     const SELLFLUX_WEBHOOK_LEADS = Deno.env.get("SELLFLUX_WEBHOOK_LEADS");
