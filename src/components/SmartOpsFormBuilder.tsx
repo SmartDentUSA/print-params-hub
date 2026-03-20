@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText } from "lucide-react";
+import { Plus, Copy, ExternalLink, Pencil, Trash2, Settings, CopyPlus, FileText, Lock } from "lucide-react";
 import { SmartOpsFormEditor } from "./SmartOpsFormEditor";
+import { SmartOpsSdrCaptacaoEditor } from "./SmartOpsSdrCaptacaoEditor";
 import {
   Select,
   SelectContent,
@@ -23,13 +24,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const PURPOSE_CONFIG: Record<string, { label: string; color: string }> = {
-  nps: { label: "NPS", color: "bg-green-100 text-green-800 border-green-300" },
-  sdr: { label: "SDR", color: "bg-blue-100 text-blue-800 border-blue-300" },
-  roi: { label: "ROI", color: "bg-purple-100 text-purple-800 border-purple-300" },
-  cs: { label: "CS", color: "bg-orange-100 text-orange-800 border-orange-300" },
+const PURPOSE_CONFIG: Record<string, { label: string; color: string; disabled?: boolean; description?: string }> = {
+  // Legados
+  nps:      { label: "NPS",      color: "bg-green-100 text-green-800 border-green-300" },
+  sdr:      { label: "SDR",      color: "bg-blue-100 text-blue-800 border-blue-300" },
+  roi:      { label: "ROI",      color: "bg-purple-100 text-purple-800 border-purple-300" },
+  cs:       { label: "CS",       color: "bg-orange-100 text-orange-800 border-orange-300" },
   captacao: { label: "Captação", color: "bg-gray-100 text-gray-800 border-gray-300" },
-  evento: { label: "Evento", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  evento:   { label: "Evento",   color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  // Novos
+  sdr_captacao:   { label: "SDR — Captação",    color: "bg-sky-100 text-sky-800 border-sky-300",       disabled: false, description: "Uso externo" },
+  cm_update_deal:  { label: "CM — Update Deal",  color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
+  cs_update_deals: { label: "CS — Update Deals", color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
+  st_update_deals: { label: "ST — Update Deals", color: "bg-slate-100 text-slate-600 border-slate-300", disabled: true,  description: "Uso interno — em breve" },
 };
 
 interface SmartOpsForm {
@@ -46,6 +53,12 @@ interface SmartOpsForm {
   success_redirect_url: string | null;
   submissions_count: number;
   created_at: string;
+  // Fase 2 — SDR-Captação
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  campaign_identifier: string | null;
+  product_catalog_id: string | null;
+  workflow_stage_target: string | null;
 }
 
 const BASE_FORM_FIELDS = [
@@ -160,6 +173,11 @@ export function SmartOpsFormBuilder() {
   const [metaColor, setMetaColor] = useState("");
   const [metaSuccess, setMetaSuccess] = useState("");
   const [metaRedirect, setMetaRedirect] = useState("");
+  const [metaHeroImageUrl, setMetaHeroImageUrl] = useState("");
+  const [metaHeroImageAlt, setMetaHeroImageAlt] = useState("");
+  const [metaCampaignIdentifier, setMetaCampaignIdentifier] = useState("");
+  const [metaProductCatalogId, setMetaProductCatalogId] = useState("");
+  const [metaWorkflowStageTarget, setMetaWorkflowStageTarget] = useState("");
 
   const PRODUCTION_BASE = "https://parametros.smartdent.com.br";
 
@@ -286,13 +304,18 @@ export function SmartOpsFormBuilder() {
 
   const openEditMeta = (form: SmartOpsForm) => {
     setMetaName(form.name);
-    setMetaTitle((form as any).title || "");
-    setMetaSubtitle((form as any).subtitle || "");
+    setMetaTitle(form.title || "");
+    setMetaSubtitle(form.subtitle || "");
     setMetaDescription(form.description || "");
     setMetaPurpose(form.form_purpose);
     setMetaColor(form.theme_color || "");
     setMetaSuccess(form.success_message || "");
-    setMetaRedirect((form as any).success_redirect_url || "");
+    setMetaRedirect(form.success_redirect_url || "");
+    setMetaHeroImageUrl(form.hero_image_url || "");
+    setMetaHeroImageAlt(form.hero_image_alt || "");
+    setMetaCampaignIdentifier(form.campaign_identifier || "");
+    setMetaProductCatalogId(form.product_catalog_id || "");
+    setMetaWorkflowStageTarget(form.workflow_stage_target || "");
     setEditingMeta(form);
   };
 
@@ -308,6 +331,11 @@ export function SmartOpsFormBuilder() {
         theme_color: metaColor || null,
         success_message: metaSuccess || null,
         success_redirect_url: metaRedirect || null,
+        hero_image_url: metaHeroImageUrl || null,
+        hero_image_alt: metaHeroImageAlt || null,
+        campaign_identifier: metaCampaignIdentifier || null,
+        product_catalog_id: metaProductCatalogId || null,
+        workflow_stage_target: metaWorkflowStageTarget || null,
       } as any)
       .eq("id", editingMeta.id);
     if (error) { toast.error(error.message); return; }
@@ -388,6 +416,7 @@ export function SmartOpsFormBuilder() {
   };
 
   if (editingForm) {
+    const purposeCfg = PURPOSE_CONFIG[editingForm.form_purpose];
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -395,11 +424,15 @@ export function SmartOpsFormBuilder() {
             ← Voltar
           </Button>
           <h3 className="font-semibold text-lg">{editingForm.name}</h3>
-          <Badge className={PURPOSE_CONFIG[editingForm.form_purpose]?.color}>
-            {PURPOSE_CONFIG[editingForm.form_purpose]?.label}
-          </Badge>
+          {purposeCfg && (
+            <Badge className={purposeCfg.color}>{purposeCfg.label}</Badge>
+          )}
         </div>
-        <SmartOpsFormEditor formId={editingForm.id} />
+        {editingForm.form_purpose === "sdr_captacao" ? (
+          <SmartOpsSdrCaptacaoEditor form={editingForm} />
+        ) : (
+          <SmartOpsFormEditor formId={editingForm.id} />
+        )}
       </div>
     );
   }
@@ -418,23 +451,63 @@ export function SmartOpsFormBuilder() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Novo Formulário</DialogTitle>
+                <DialogTitle>Novo Formulário — Selecione o tipo</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <Input
-                  placeholder="Nome do formulário (interno)"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-                <Select value={newPurpose} onValueChange={setNewPurpose}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PURPOSE_CONFIG).map(([key, cfg]) => (
-                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleCreate} className="w-full">Criar</Button>
+              <div className="space-y-3">
+                {/* Tipo: SDR — Captação (habilitado) */}
+                <button
+                  className="w-full text-left rounded-lg border-2 border-sky-300 bg-sky-50 p-3 hover:bg-sky-100 transition-colors"
+                  onClick={() => { setNewPurpose("sdr_captacao"); }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sky-800 text-sm">SDR — Captação</p>
+                      <p className="text-xs text-sky-600 mt-0.5">Formulário público de captação de leads</p>
+                    </div>
+                    {newPurpose === "sdr_captacao" && (
+                      <span className="text-xs bg-sky-600 text-white px-2 py-0.5 rounded">Selecionado</span>
+                    )}
+                  </div>
+                </button>
+
+                {/* Tipos desabilitados */}
+                {(["cm_update_deal", "cs_update_deals", "st_update_deals"] as const).map((key) => {
+                  const cfg = PURPOSE_CONFIG[key];
+                  return (
+                    <div
+                      key={key}
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 opacity-60 cursor-not-allowed"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-slate-500 text-sm flex items-center gap-1.5">
+                            <Lock className="w-3 h-3" />
+                            {cfg.label}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">{cfg.description}</p>
+                        </div>
+                        <span className="text-xs bg-slate-200 text-slate-500 px-2 py-0.5 rounded">Em breve</span>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <hr className="my-1" />
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Nome do formulário (interno)"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  />
+                  <Button
+                    onClick={handleCreate}
+                    className="w-full"
+                    disabled={newPurpose !== "sdr_captacao" || !newName.trim()}
+                  >
+                    Criar formulário SDR — Captação
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -469,7 +542,9 @@ export function SmartOpsFormBuilder() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(PURPOSE_CONFIG).map(([key, cfg]) => (
-                      <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
+                      <SelectItem key={key} value={key} disabled={cfg.disabled}>
+                        {cfg.label}{cfg.disabled ? " (em breve)" : ""}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -487,6 +562,28 @@ export function SmartOpsFormBuilder() {
                 <Input value={metaRedirect} onChange={(e) => setMetaRedirect(e.target.value)} placeholder="https://parametros.smartdent.com.br/obrigado" />
                 <p className="text-xs text-muted-foreground mt-1">Se preenchido, redireciona o lead para esta URL após o envio.</p>
               </div>
+
+              {/* Campos Fase 2 — visíveis para todos os tipos (safe para valores nulos em tipos legados) */}
+              <div className="border-t pt-3 space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">SDR-Captação / Workflow</p>
+                <div>
+                  <label className="text-xs font-medium">URL da imagem HERO</label>
+                  <Input value={metaHeroImageUrl} onChange={(e) => setMetaHeroImageUrl(e.target.value)} placeholder="https://..." />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">ALT da imagem HERO</label>
+                  <Input value={metaHeroImageAlt} onChange={(e) => setMetaHeroImageAlt(e.target.value)} placeholder="Descrição da imagem" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Identificador de campanha</label>
+                  <Input value={metaCampaignIdentifier} onChange={(e) => setMetaCampaignIdentifier(e.target.value)} placeholder="ex: feira-cbo-2026" />
+                </div>
+                <div>
+                  <label className="text-xs font-medium">Etapa Workflow (workflow_stage_target)</label>
+                  <Input value={metaWorkflowStageTarget} onChange={(e) => setMetaWorkflowStageTarget(e.target.value)} placeholder="ex: 1_captura_digital__scanner_intraoral" />
+                </div>
+              </div>
+
               <Button onClick={handleSaveMeta} className="w-full">Salvar</Button>
             </div>
           </DialogContent>
@@ -519,8 +616,8 @@ export function SmartOpsFormBuilder() {
                     )}
                   </td>
                   <td className="p-3">
-                    <Badge variant="outline" className={PURPOSE_CONFIG[form.form_purpose]?.color}>
-                      {PURPOSE_CONFIG[form.form_purpose]?.label}
+                    <Badge variant="outline" className={PURPOSE_CONFIG[form.form_purpose]?.color ?? "bg-gray-100 text-gray-600 border-gray-300"}>
+                      {PURPOSE_CONFIG[form.form_purpose]?.label ?? form.form_purpose}
                     </Badge>
                   </td>
                   <td className="p-3 text-center">{form.submissions_count}</td>
