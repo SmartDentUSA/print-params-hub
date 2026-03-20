@@ -36,6 +36,7 @@ interface FormData {
   hero_image_alt: string | null;
   media_type: string | null;
   video_thumbnail_url: string | null;
+  video_embed_url: string | null;
   workflow_stage_target: string | null;
 }
 
@@ -262,7 +263,18 @@ export default function PublicFormPage() {
     <div className="min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
       <div className="w-full max-w-lg">
         {/* Mídia HERO */}
-        {form.media_type === "video" && form.video_thumbnail_url && (
+        {form.media_type === "video" && form.video_embed_url && (
+          <div className="w-full mb-6 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
+            <iframe
+              src={form.video_embed_url}
+              className="w-full h-full"
+              allowFullScreen
+              allow="autoplay; encrypted-media"
+              style={{ border: 0 }}
+            />
+          </div>
+        )}
+        {form.media_type === "video" && !form.video_embed_url && form.video_thumbnail_url && (
           <img
             src={form.video_thumbnail_url}
             alt={form.hero_image_alt ?? ""}
