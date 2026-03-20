@@ -249,42 +249,76 @@ const LEAD_COLUMN_MAP: { stage: string; subcat: string; layer: string; col: stri
 
 function transformPortfolioFromLead(lead: any): any {
   const result: Record<string, any> = {};
-  let nAtivo = 0, nConc = 0, nSdr = 0;
 
-  // First try the JSONB field if it has data
+  // ── Base: legacy JSONB or individual columns ──
   if (lead.workflow_portfolio && typeof lead.workflow_portfolio === 'object' && Object.keys(lead.workflow_portfolio).length > 1) {
-    return transformPortfolioFromJsonb(lead.workflow_portfolio);
+    const fromJsonb = transformPortfolioFromJsonb(lead.workflow_portfolio);
+    Object.assign(result, fromJsonb);
+  } else {
+    // Build from individual columns (unchanged logic)
+    for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
+      const stageResult: Record<string, any> = {};
+
+      for (const mapping of LEAD_COLUMN_MAP.filter(m => m.stage === stageKey)) {
+        const val = lead[mapping.col];
+        if (val && typeof val === 'string' && val.trim() !== '' && val !== 'nao' && val !== 'nao_tem') {
+          const layerLabel = mapping.layer === 'ativo' ? 'ativo' : mapping.layer === 'conc' ? 'conc' : 'sdr';
+          if (!stageResult[mapping.subcat] || stageResult[mapping.subcat].layer === 'vazio') {
+            stageResult[mapping.subcat] = { label: val, layer: layerLabel, hits: 1 };
+          }
+        }
+      }
+
+      for (const field of subcats) {
+        if (!stageResult[field]) {
+          stageResult[field] = { label: '—', layer: 'vazio' };
+        }
+      }
+
+      result[stageKey] = stageResult;
+    }
   }
 
-  // Build from individual columns
-  for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
-    const stageResult: Record<string, any> = {};
-
-    for (const mapping of LEAD_COLUMN_MAP.filter(m => m.stage === stageKey)) {
-      const val = lead[mapping.col];
-      if (val && typeof val === 'string' && val.trim() !== '' && val !== 'nao' && val !== 'nao_tem') {
-        const layerLabel = mapping.layer === 'ativo' ? 'ativo' : mapping.layer === 'conc' ? 'conc' : 'sdr';
-        // Only set if not already occupied by a higher-priority layer
-        if (!stageResult[mapping.subcat] || stageResult[mapping.subcat].layer === 'vazio') {
-          stageResult[mapping.subcat] = { label: val, layer: layerLabel, hits: 1 };
-          if (layerLabel === 'ativo') nAtivo++;
-          else if (layerLabel === 'conc') nConc++;
-          else nSdr++;
+  // ── Merge portfolio_json — cells from new format have priority over legacy ──
+  const pJson = lead.portfolio_json;
+  if (pJson && typeof pJson === 'object' && Object.keys(pJson).length > 0) {
+    const LAYER_PRIO = ['ativo', 'conc', 'sdr', 'mapeamento'];
+    for (const [stageKey, stageData] of Object.entries(pJson as Record<string, any>)) {
+      if (!stageData || typeof stageData !== 'object') continue;
+      if (!result[stageKey] || typeof result[stageKey] !== 'object') result[stageKey] = {};
+      for (const [subcat, subcatData] of Object.entries(stageData as Record<string, any>)) {
+        if (!subcatData || typeof subcatData !== 'object') continue;
+        for (const layer of LAYER_PRIO) {
+          const layerData = (subcatData as Record<string, any>)[layer];
+          if (layerData && typeof layerData === 'object') {
+            const valor = String(layerData.valor || layerData.status || '').trim();
+            if (valor && valor !== 'nao' && valor !== 'nao_tem') {
+              result[stageKey][subcat] = { label: valor, layer, hits: 1 };
+              break;
+            }
+          }
         }
       }
     }
-
-    // Fill all subcategories (empty ones get 'vazio')
-    for (const field of subcats) {
-      if (!stageResult[field]) {
-        stageResult[field] = { label: '—', layer: 'vazio' };
-      }
-    }
-
-    result[stageKey] = stageResult;
   }
 
-  result.summary = { n_ativo: nAtivo, n_conc: nConc, n_sdr: nSdr };
+  // ── Recount all cells after merge (handles overrides correctly) ──
+  let rAtivo = 0, rConc = 0, rSdr = 0, rMap = 0;
+  for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
+    const stageResult = result[stageKey];
+    if (!stageResult) continue;
+    for (const subcat of subcats) {
+      const cell = stageResult[subcat];
+      if (cell?.layer && cell.layer !== 'vazio') {
+        if (cell.layer === 'ativo') rAtivo++;
+        else if (cell.layer === 'conc') rConc++;
+        else if (cell.layer === 'sdr') rSdr++;
+        else if (cell.layer === 'mapeamento') rMap++;
+      }
+    }
+  }
+
+  result.summary = { n_ativo: rAtivo, n_conc: rConc, n_sdr: rSdr, n_mapeamento: rMap };
   return result;
 }
 

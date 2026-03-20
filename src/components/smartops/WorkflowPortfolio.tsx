@@ -1,7 +1,7 @@
 import React from 'react';
 
 // ─── Types ───
-type Layer = 'ativo' | 'conc' | 'sdr' | 'vazio';
+type Layer = 'ativo' | 'conc' | 'sdr' | 'mapeamento' | 'vazio';
 
 interface PortfolioCell {
   label: string;
@@ -14,6 +14,7 @@ interface PortfolioSummary {
   n_ativo: number;
   n_conc: number;
   n_sdr: number;
+  n_mapeamento?: number;
 }
 
 export interface Portfolio {
@@ -64,20 +65,22 @@ const STAGES = [
   ]},
 ];
 
-const ROW_LAYERS: Layer[] = ['sdr', 'conc', 'ativo'];
-const ROW_LABELS = ['SDR /\nInteresse', 'Mapea-\nmento', 'Ativos\nSmartDent'];
+const ROW_LAYERS: Layer[] = ['sdr', 'conc', 'ativo', 'mapeamento'];
+const ROW_LABELS = ['SDR /\nInteresse', 'Mapea-\nmento', 'Ativos\nSmartDent', 'Mapea-\nForms'];
 
 const LAYER_STYLES: Record<Layer, { bg: string; text: string }> = {
-  ativo: { bg: '#0d2a1a', text: '#4ade80' },
-  conc:  { bg: '#2a1a02', text: '#fbbf24' },
-  sdr:   { bg: '#031020', text: '#60a5fa' },
-  vazio: { bg: 'transparent', text: '#3a3a3a' },
+  ativo:      { bg: '#0d2a1a', text: '#4ade80' },
+  conc:       { bg: '#2a1a02', text: '#fbbf24' },
+  sdr:        { bg: '#031020', text: '#60a5fa' },
+  mapeamento: { bg: '#7c3aed', text: '#a78bfa' },
+  vazio:      { bg: 'transparent', text: '#3a3a3a' },
 };
 
 const LEGEND = [
   { color: '#4ade80', label: 'Ativo SmartDent' },
   { color: '#fbbf24', label: 'Concorrente mapeado' },
   { color: '#60a5fa', label: 'Interesse SDR' },
+  { color: '#a78bfa', label: 'Mapeamento (forms)' },
   { color: '#333',    label: 'Sem sinal', border: '1px solid #555' },
 ];
 
@@ -86,7 +89,7 @@ interface WorkflowPortfolioProps {
 }
 
 export function WorkflowPortfolio({ portfolio }: WorkflowPortfolioProps) {
-  const { n_ativo = 0, n_conc = 0, n_sdr = 0 } = portfolio.summary || {};
+  const { n_ativo = 0, n_conc = 0, n_sdr = 0, n_mapeamento = 0 } = portfolio.summary || {};
 
   const cellBase: React.CSSProperties = {
     fontSize: 8, textAlign: 'center', borderRadius: 4, padding: '3px 2px',
@@ -203,7 +206,12 @@ export function WorkflowPortfolio({ portfolio }: WorkflowPortfolioProps) {
         <span style={{ fontSize: 11, color: '#888' }}>
           <strong style={{ color: '#60a5fa', fontSize: 14, fontWeight: 700 }}>{n_sdr}</strong>{' '}interesses SDR
         </span>
-        {n_ativo === 0 && n_conc === 0 && n_sdr === 0 && (
+        {n_mapeamento > 0 && (
+          <span style={{ fontSize: 11, color: '#888' }}>
+            <strong style={{ color: '#a78bfa', fontSize: 14, fontWeight: 700 }}>{n_mapeamento}</strong>{' '}mapeados (forms)
+          </span>
+        )}
+        {n_ativo === 0 && n_conc === 0 && n_sdr === 0 && n_mapeamento === 0 && (
           <span style={{ fontSize: 11, color: '#555', marginLeft: 'auto' }}>
             Sem sinais identificados — aguarda interação
           </span>
