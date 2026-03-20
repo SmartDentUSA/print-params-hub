@@ -98,14 +98,16 @@ async function updatePersonFields(
   personId: number,
   lead: Record<string, unknown>
 ): Promise<void> {
-  const nome = (lead.nome || lead.email || "") as string;
+  const rawNome = (lead.nome || "") as string;
+  // Don't send corrupted/junk names to PipeRun
+  const nome = cleanPersonName(rawNome) || (lead.email as string) || "";
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
 
   // Build payload with standard fields + custom fields via hash keys
   const updatePayload: Record<string, unknown> = {};
-  if (nome) updatePayload.name = nome;
+  if (nome && nome !== (lead.email as string)) updatePayload.name = nome;
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
 

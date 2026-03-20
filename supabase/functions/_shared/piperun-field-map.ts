@@ -440,13 +440,22 @@ export function cleanDealName(title: string | undefined): string | null {
 
 /**
  * Clean person name by removing trailing timestamps
- * PipeRun often appends " - 2025-12-08 22:56:51.531617-03:00" to person names
+ * PipeRun often appends " - 2025-12-08 22:56:51.531617-03:00" to person names.
+ * Also rejects names that are Zapier junk, dates, or garbage strings.
  */
 export function cleanPersonName(name: string | undefined): string | null {
   if (!name) return null;
   // Remove trailing timestamp pattern: " - YYYY-MM-DD HH:MM:SS..." 
-  const cleaned = name.replace(/\s*-\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}.*$/, "").trim();
+  let cleaned = name.replace(/\s*-\s*\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}.*$/, "").trim();
   if (!cleaned) return null;
+  // Reject names that start with a date pattern (e.g. "22/8/2023 6:52 Zapier...")
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(cleaned)) return null;
+  // Reject names containing "Zapier" or "Plug & Play" (automated garbage)
+  if (/zapier|plug\s*&\s*play/i.test(cleaned)) return null;
+  // Reject names that are just numbers/dates
+  if (/^\d[\d\/\-\s:.,]+$/.test(cleaned)) return null;
+  // Reject names shorter than 2 chars
+  if (cleaned.length < 2) return null;
   return cleaned;
 }
 
