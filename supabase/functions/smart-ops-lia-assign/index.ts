@@ -15,6 +15,7 @@ import {
   mapAttendanceToDealCustomFields,
   mapDealToAttendance,
   customFieldsToHashMap,
+  cleanPersonName,
   DEAL_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
