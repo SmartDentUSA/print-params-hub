@@ -46,13 +46,16 @@ Allow: /
 User-agent: *
 Allow: /
 Allow: /*.pdf$
+Disallow: /admin
+Disallow: /admin/
 
 # ==== SITEMAPS ====
-Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap
-Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap
-Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-en
-Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-knowledge-sitemap-es
-Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-documents-sitemap
+Sitemap: https://parametros.smartdent.com.br/sitemap-index.xml
+Sitemap: https://parametros.smartdent.com.br/sitemap.xml
+Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-pt.xml
+Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-en.xml
+Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-es.xml
+Sitemap: https://parametros.smartdent.com.br/sitemap-documentos.xml
 
 # ==== LLMs.txt ====
 # See https://llmstxt.org/
