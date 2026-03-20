@@ -1,0 +1,1 @@
+UPDATE lia_attendances SET nome = 'Danilo Henrique' WHERE email = 'danilohen@gmail.com' AND nome LIKE '%Zapier%';
