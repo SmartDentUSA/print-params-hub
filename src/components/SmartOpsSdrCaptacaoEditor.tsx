@@ -50,8 +50,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [heroImageUrl, setHeroImageUrl] = useState(form.hero_image_url ?? "");
   const [heroImageAlt, setHeroImageAlt] = useState(form.hero_image_alt ?? "");
   const [campaignIdentifier, setCampaignIdentifier] = useState(form.campaign_identifier ?? "");
-  const [productCatalogId, setProductCatalogId] = useState(form.product_catalog_id ?? "");
-  const [workflowStageTarget, setWorkflowStageTarget] = useState(form.workflow_stage_target ?? "");
+  const [productCatalogId, setProductCatalogId] = useState(form.product_catalog_id ?? "__none__");
+  const [workflowStageTarget, setWorkflowStageTarget] = useState(form.workflow_stage_target ?? "__none__");
 
   const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -64,7 +64,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       .select("id, name")
       .order("name")
       .then(({ data }) => {
-        if (data) setCatalogOptions(data as CatalogOption[]);
+        if (data) setCatalogOptions(data as unknown as CatalogOption[]);
       });
   }, []);
 
@@ -105,8 +105,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         hero_image_url: heroImageUrl || null,
         hero_image_alt: heroImageAlt || null,
         campaign_identifier: campaignIdentifier || null,
-        product_catalog_id: productCatalogId || null,
-        workflow_stage_target: workflowStageTarget || null,
+        product_catalog_id: productCatalogId === "__none__" ? null : (productCatalogId || null),
+        workflow_stage_target: workflowStageTarget === "__none__" ? null : (workflowStageTarget || null),
       } as any)
       .eq("id", form.id);
     setSaving(false);
@@ -250,7 +250,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                 <SelectValue placeholder="Selecione o produto..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Nenhum —</SelectItem>
+                <SelectItem value="__none__">— Nenhum —</SelectItem>
                 {catalogOptions.map((opt) => (
                   <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
                 ))}
@@ -266,7 +266,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                 <SelectValue placeholder="Selecione a célula do workflow..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Nenhuma —</SelectItem>
+                <SelectItem value="__none__">— Nenhuma —</SelectItem>
                 {WORKFLOW_CELLS.map((cell) => (
                   <SelectItem key={cell.value} value={cell.value}>{cell.label}</SelectItem>
                 ))}

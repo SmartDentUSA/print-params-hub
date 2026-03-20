@@ -971,6 +971,13 @@ export type Database = {
             foreignKeyName: "deal_items_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -1169,6 +1176,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "deals_lead_id_fkey"
@@ -1624,6 +1638,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "interactions_lead_id_fkey"
@@ -2237,6 +2258,13 @@ export type Database = {
             foreignKeyName: "lead_activity_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -2378,6 +2406,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_cart_history_lead_id_fkey"
@@ -2532,6 +2567,13 @@ export type Database = {
             foreignKeyName: "lead_conversion_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -2679,6 +2721,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_course_progress_lead_id_fkey"
@@ -2869,6 +2918,13 @@ export type Database = {
             foreignKeyName: "lead_form_submissions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -3019,6 +3075,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
@@ -3198,6 +3261,13 @@ export type Database = {
             foreignKeyName: "lead_product_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -3365,6 +3435,13 @@ export type Database = {
             foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -3494,6 +3571,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lead_state_events_lead_id_fkey"
@@ -3874,6 +3958,7 @@ export type Database = {
           platform_form_id: string | null
           platform_lead_id: string | null
           platform_placement: string | null
+          portfolio_json: Json | null
           portfolio_updated_at: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
@@ -4303,6 +4388,7 @@ export type Database = {
           platform_form_id?: string | null
           platform_lead_id?: string | null
           platform_placement?: string | null
+          portfolio_json?: Json | null
           portfolio_updated_at?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
@@ -4732,6 +4818,7 @@ export type Database = {
           platform_form_id?: string | null
           platform_lead_id?: string | null
           platform_placement?: string | null
+          portfolio_json?: Json | null
           portfolio_updated_at?: string | null
           prediction_accuracy?: number | null
           predictions_updated_at?: string | null
@@ -4921,6 +5008,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "lia_attendances_merged_into_fkey"
@@ -5151,6 +5245,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "message_logs_lead_id_fkey"
@@ -6263,6 +6364,128 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_form_field_responses: {
+        Row: {
+          created_at: string | null
+          field_id: string
+          form_id: string
+          id: string
+          lead_id: string
+          value: string | null
+          workflow_cell_target: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          field_id: string
+          form_id: string
+          id?: string
+          lead_id: string
+          value?: string | null
+          workflow_cell_target?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          field_id?: string
+          form_id?: string
+          id?: string
+          lead_id?: string
+          value?: string | null
+          workflow_cell_target?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_form_field_responses_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_form_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       smartops_form_fields: {
         Row: {
           created_at: string
@@ -6278,6 +6501,7 @@ export type Database = {
           required: boolean
           roi_config: Json | null
           updated_at: string
+          workflow_cell_target: string | null
         }
         Insert: {
           created_at?: string
@@ -6293,6 +6517,7 @@ export type Database = {
           required?: boolean
           roi_config?: Json | null
           updated_at?: string
+          workflow_cell_target?: string | null
         }
         Update: {
           created_at?: string
@@ -6308,6 +6533,7 @@ export type Database = {
           required?: boolean
           roi_config?: Json | null
           updated_at?: string
+          workflow_cell_target?: string | null
         }
         Relationships: [
           {
@@ -6322,11 +6548,15 @@ export type Database = {
       smartops_forms: {
         Row: {
           active: boolean
+          campaign_identifier: string | null
           created_at: string
           description: string | null
           form_purpose: string
+          hero_image_alt: string | null
+          hero_image_url: string | null
           id: string
           name: string
+          product_catalog_id: string | null
           slug: string
           submissions_count: number
           subtitle: string | null
@@ -6335,14 +6565,19 @@ export type Database = {
           theme_color: string | null
           title: string | null
           updated_at: string
+          workflow_stage_target: string | null
         }
         Insert: {
           active?: boolean
+          campaign_identifier?: string | null
           created_at?: string
           description?: string | null
           form_purpose?: string
+          hero_image_alt?: string | null
+          hero_image_url?: string | null
           id?: string
           name: string
+          product_catalog_id?: string | null
           slug: string
           submissions_count?: number
           subtitle?: string | null
@@ -6351,14 +6586,19 @@ export type Database = {
           theme_color?: string | null
           title?: string | null
           updated_at?: string
+          workflow_stage_target?: string | null
         }
         Update: {
           active?: boolean
+          campaign_identifier?: string | null
           created_at?: string
           description?: string | null
           form_purpose?: string
+          hero_image_alt?: string | null
+          hero_image_url?: string | null
           id?: string
           name?: string
+          product_catalog_id?: string | null
           slug?: string
           submissions_count?: number
           subtitle?: string | null
@@ -6367,8 +6607,17 @@ export type Database = {
           theme_color?: string | null
           title?: string | null
           updated_at?: string
+          workflow_stage_target?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "smartops_forms_product_catalog_id_fkey"
+            columns: ["product_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       support_cases: {
         Row: {
@@ -6856,6 +7105,13 @@ export type Database = {
             foreignKeyName: "technical_tickets_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -6992,6 +7248,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "upsell_predictions_lead_id_fkey"
@@ -7141,6 +7404,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "whatsapp_inbox_lead_id_fkey"
@@ -7664,6 +7934,13 @@ export type Database = {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
@@ -7898,6 +8175,135 @@ export type Database = {
           tipo_alerta?: never
           total_hits?: never
           vendedor?: string | null
+        }
+        Relationships: []
+      }
+      v_workflow_portfolio: {
+        Row: {
+          e1_acessorios_raw: string | null
+          e1_notebook: string | null
+          e1_scanner_bancada: string | null
+          e1_scanner_intraoral: string | null
+          e1_sdr_scanner: string | null
+          e1_sdr_scanner_modelo: string | null
+          e2_sdr_licenca: string | null
+          e2_sdr_software: string | null
+          e2_software: string | null
+          e3_impressora: string | null
+          e3_impressora_modelo_conc: string | null
+          e3_resina: string | null
+          e3_sdr_impressora: string | null
+          e3_sdr_resina: string | null
+          e4_equipamentos: string | null
+          e4_sdr: string | null
+          e4_sdr_cura_modelo: string | null
+          e5_sdr_caracterizacao: string | null
+          e5_sdr_dentistica: string | null
+          e6_sdr_area: string | null
+          e6_sdr_cursos: string | null
+          e6_sdr_modalidade: string | null
+          e7_equipamentos: string | null
+          e7_sdr_fresagem: string | null
+          e7_sdr_marca: string | null
+          e7_sdr_modelo: string | null
+          hits_e2_software: number | null
+          hits_e3_impressora: number | null
+          hits_e3_resina: number | null
+          hits_e3_software: number | null
+          hits_e4_equipamentos: number | null
+          hits_e7_equipamentos: number | null
+          hits_e7_software: number | null
+          hits_fresagem: number | null
+          lead_id: string | null
+          status_cad: string | null
+          status_impressora: string | null
+          status_insumos: string | null
+          status_pos_impressao: string | null
+          status_scanner: string | null
+        }
+        Insert: {
+          e1_acessorios_raw?: string | null
+          e1_notebook?: string | null
+          e1_scanner_bancada?: never
+          e1_scanner_intraoral?: never
+          e1_sdr_scanner?: string | null
+          e1_sdr_scanner_modelo?: string | null
+          e2_sdr_licenca?: string | null
+          e2_sdr_software?: string | null
+          e2_software?: never
+          e3_impressora?: never
+          e3_impressora_modelo_conc?: string | null
+          e3_resina?: string | null
+          e3_sdr_impressora?: string | null
+          e3_sdr_resina?: string | null
+          e4_equipamentos?: string | null
+          e4_sdr?: string | null
+          e4_sdr_cura_modelo?: string | null
+          e5_sdr_caracterizacao?: string | null
+          e5_sdr_dentistica?: string | null
+          e6_sdr_area?: string | null
+          e6_sdr_cursos?: string | null
+          e6_sdr_modalidade?: string | null
+          e7_equipamentos?: never
+          e7_sdr_fresagem?: string | null
+          e7_sdr_marca?: string | null
+          e7_sdr_modelo?: string | null
+          hits_e2_software?: number | null
+          hits_e3_impressora?: number | null
+          hits_e3_resina?: number | null
+          hits_e3_software?: number | null
+          hits_e4_equipamentos?: number | null
+          hits_e7_equipamentos?: number | null
+          hits_e7_software?: number | null
+          hits_fresagem?: number | null
+          lead_id?: string | null
+          status_cad?: string | null
+          status_impressora?: string | null
+          status_insumos?: string | null
+          status_pos_impressao?: string | null
+          status_scanner?: string | null
+        }
+        Update: {
+          e1_acessorios_raw?: string | null
+          e1_notebook?: string | null
+          e1_scanner_bancada?: never
+          e1_scanner_intraoral?: never
+          e1_sdr_scanner?: string | null
+          e1_sdr_scanner_modelo?: string | null
+          e2_sdr_licenca?: string | null
+          e2_sdr_software?: string | null
+          e2_software?: never
+          e3_impressora?: never
+          e3_impressora_modelo_conc?: string | null
+          e3_resina?: string | null
+          e3_sdr_impressora?: string | null
+          e3_sdr_resina?: string | null
+          e4_equipamentos?: string | null
+          e4_sdr?: string | null
+          e4_sdr_cura_modelo?: string | null
+          e5_sdr_caracterizacao?: string | null
+          e5_sdr_dentistica?: string | null
+          e6_sdr_area?: string | null
+          e6_sdr_cursos?: string | null
+          e6_sdr_modalidade?: string | null
+          e7_equipamentos?: never
+          e7_sdr_fresagem?: string | null
+          e7_sdr_marca?: string | null
+          e7_sdr_modelo?: string | null
+          hits_e2_software?: number | null
+          hits_e3_impressora?: number | null
+          hits_e3_resina?: number | null
+          hits_e3_software?: number | null
+          hits_e4_equipamentos?: number | null
+          hits_e7_equipamentos?: number | null
+          hits_e7_software?: number | null
+          hits_fresagem?: number | null
+          lead_id?: string | null
+          status_cad?: string | null
+          status_impressora?: string | null
+          status_insumos?: string | null
+          status_pos_impressao?: string | null
+          status_scanner?: string | null
         }
         Relationships: []
       }
@@ -8482,6 +8888,7 @@ export type Database = {
           platform_form_id: string | null
           platform_lead_id: string | null
           platform_placement: string | null
+          portfolio_json: Json | null
           portfolio_updated_at: string | null
           prediction_accuracy: number | null
           predictions_updated_at: string | null
