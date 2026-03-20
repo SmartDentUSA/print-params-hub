@@ -36,6 +36,7 @@ interface FormData {
   hero_image_alt: string | null;
   media_type: string | null;
   video_thumbnail_url: string | null;
+  workflow_stage_target: string | null;
 }
 
 export default function PublicFormPage() {
@@ -193,6 +194,20 @@ export default function PublicFormPage() {
               });
           }
         }
+      }
+
+      // GTM — Lead gerado via formulário SDR-CAPTAÇÃO
+      try {
+        if (typeof window !== 'undefined' && (window as any).dataLayer) {
+          (window as any).dataLayer.push({
+            event: 'generate_lead',
+            form_name: form.name ?? '',
+            form_purpose: form.form_purpose ?? '',
+            product_name: form.workflow_stage_target ?? '',
+          });
+        }
+      } catch (e) {
+        console.error('GTM dataLayer error:', e);
       }
 
       // Redirect if URL configured

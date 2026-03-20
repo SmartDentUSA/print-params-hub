@@ -214,6 +214,9 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       "height": 630
     },
     "sameAs": [
+      "https://www.wikidata.org/wiki/Q138636902",
+      "https://www.smartdent.com.br",
+      "https://loja.smartdent.com.br",
       companyData?.social_media?.instagram,
       companyData?.social_media?.youtube,
       companyData?.social_media?.facebook,
@@ -413,9 +416,19 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
             "value": resin.color
           }] : [])
         ],
-        ...(offers.length > 0 && { 
-          "offers": offers.length === 1 ? offers[0] : offers 
-        })
+        "offers": offers.length > 0
+          ? (offers.length === 1 ? offers[0] : offers)
+          : {
+              "@type": "Offer",
+              "availability": "https://schema.org/InStock",
+              "price": "0",
+              "priceCurrency": "BRL",
+              "seller": {
+                "@type": "Organization",
+                "name": "SmartDent",
+                "url": "https://parametros.smartdent.com.br"
+              }
+            }
       };
     } else {
       // ItemList Schema for multiple resins (each with multiple offers)
@@ -541,9 +554,19 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
                 "value": resin.color
               }] : [])
             ],
-            ...(offers.length > 0 && { 
-              "offers": offers.length === 1 ? offers[0] : offers 
-            })
+            "offers": offers.length > 0
+              ? (offers.length === 1 ? offers[0] : offers)
+              : {
+                  "@type": "Offer",
+                  "availability": "https://schema.org/InStock",
+                  "price": "0",
+                  "priceCurrency": "BRL",
+                  "seller": {
+                    "@type": "Organization",
+                    "name": "SmartDent",
+                    "url": "https://parametros.smartdent.com.br"
+                  }
+                }
           };
         });
 
@@ -575,17 +598,21 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
     };
   }
 
-  // WebSite Schema with search capability
-  const websiteSchema = {
+  // @graph unificado: Organization + WebSite
+  const graphSchema = {
     "@context": "https://schema.org",
-    "@type": "WebSite",
-    "url": baseUrl,
-    "name": "PrinterParams Smart Dent",
-    "description": "Parâmetros de Impressão 3D Odontológica",
-    "publisher": {
-      "@type": "Organization",
-      "name": "Smart Dent"
-    }
+    "@graph": [
+      organizationSchema,
+      {
+        "@type": "WebSite",
+        "@id": `${baseUrl}/#website`,
+        "url": baseUrl,
+        "name": "SmartDent — Parâmetros de Impressão 3D",
+        "description": "Parâmetros de Impressão 3D Odontológica",
+        "publisher": { "@id": `${baseUrl}/#organization` },
+        "inLanguage": ["pt-BR", "en-US", "es-ES"]
+      }
+    ]
   };
 
   // Determine AI content type based on page type
@@ -599,7 +626,8 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <meta name="description" content={description} />
       <meta name="keywords" content={keywords} />
       <meta name="author" content="Smart Dent" />
-      <meta name="robots" content="index, follow" />
+      <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+      <meta name="ai-content-policy" content="allow-indexing:yes, allow-training:no" />
       <link rel="canonical" href={canonical} />
       
       {/* AI Meta Tags */}
@@ -629,11 +657,11 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <link rel="apple-touch-icon" href="https://parametros.smartdent.com.br/apple-touch-icon.png?v=4" />
       <link rel="manifest" href="https://parametros.smartdent.com.br/manifest.json" />
 
-      {/* Structured Data */}
+      {/* Structured Data — @graph Organization + WebSite */}
       <script type="application/ld+json">
-        {JSON.stringify(organizationSchema)}
+        {JSON.stringify(graphSchema)}
       </script>
-      
+
       {breadcrumbSchema && (
         <script type="application/ld+json">
           {JSON.stringify(breadcrumbSchema)}
@@ -652,9 +680,6 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
         </script>
       )}
 
-      <script type="application/ld+json">
-        {JSON.stringify(websiteSchema)}
-      </script>
     </Helmet>
   );
 };
