@@ -240,9 +240,10 @@ async function updateExistingDeal(
   companyId: number | null | undefined,
   supabase: ReturnType<typeof createClient>
 ): Promise<void> {
+  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
-    origin_id: ORIGINS.DRA_LIA.id,
+    origin_id: formOriginId,
     ...hashFields,
   };
   if (ownerId !== null) updatePayload.owner_id = ownerId;
