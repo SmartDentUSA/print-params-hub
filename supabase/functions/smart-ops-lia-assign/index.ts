@@ -15,6 +15,7 @@ import {
   mapAttendanceToDealCustomFields,
   mapDealToAttendance,
   customFieldsToHashMap,
+  cleanPersonName,
   DEAL_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELDS,
   PESSOA_CUSTOM_FIELD_HASHES,
@@ -98,14 +99,16 @@ async function updatePersonFields(
   personId: number,
   lead: Record<string, unknown>
 ): Promise<void> {
-  const nome = (lead.nome || lead.email || "") as string;
+  const rawNome = (lead.nome || "") as string;
+  // Don't send corrupted/junk names to PipeRun
+  const nome = cleanPersonName(rawNome) || (lead.email as string) || "";
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const especialidade = lead.especialidade as string | null;
   const areaAtuacao = lead.area_atuacao as string | null;
 
   // Build payload with standard fields + custom fields via hash keys
   const updatePayload: Record<string, unknown> = {};
-  if (nome) updatePayload.name = nome;
+  if (nome && nome !== (lead.email as string)) updatePayload.name = nome;
   if (phone) updatePayload.phones = [{ phone }];
   if (especialidade) updatePayload.job_title = especialidade;
 
@@ -130,7 +133,7 @@ async function findOrCreateCompany(
   existingCompanyId: number | null,
   lead: Record<string, unknown>
 ): Promise<number | null> {
-  const nome = (lead.nome || lead.email || "Empresa Lead") as string;
+  const nome = cleanPersonName(lead.nome as string) || (lead.email as string) || "Empresa Lead";
   const email = lead.email as string | null;
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
 
@@ -304,7 +307,7 @@ async function createNewDeal(
   supabase: ReturnType<typeof createClient>
 ): Promise<string | null> {
   const dealPayload: Record<string, unknown> = {
-    title: lead.nome || email,
+    title: cleanPersonName(lead.nome as string) || email,
     pipeline_id: pipelineId,
     stage_id: stageId,
     owner_id: ownerId,
@@ -316,9 +319,9 @@ async function createNewDeal(
   if (companyId) dealPayload.company_id = companyId;
   if (customFields.length > 0) dealPayload.custom_fields = customFields;
 
-  console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}`);
+  console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}, owner=${ownerId}`);
   const createRes = await piperunPost(apiToken, "deals", dealPayload);
-  console.log(`[lia-assign] Deal create: ${createRes.success} (${createRes.status})`);
+  console.log(`[lia-assign] Deal create: ${createRes.success} (${createRes.status})${!createRes.success ? " body=" + JSON.stringify(createRes.data).slice(0, 500) : ""}`);
 
   if (createRes.success && createRes.data) {
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;

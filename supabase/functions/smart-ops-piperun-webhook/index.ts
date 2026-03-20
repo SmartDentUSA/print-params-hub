@@ -597,8 +597,8 @@ Deno.serve(async (req) => {
     updateData.piperun_id = dealId;
     updateData.piperun_link = `https://app.pipe.run/#/deals/${dealId}`;
 
-    // Always update nome & telefone from PipeRun (source of truth)
-    if (ids.personName) updateData.nome = ids.personName;
+    // Update nome from PipeRun (source of truth) — but only if it's a valid name
+    if (ids.personName && cleanPersonName(ids.personName)) updateData.nome = cleanPersonName(ids.personName)!;
     if (ids.personPhone) {
       updateData.telefone_raw = ids.personPhone;
       let digits = ids.personPhone.replace(/\D/g, "");
