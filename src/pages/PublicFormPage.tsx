@@ -31,6 +31,8 @@ interface FormData {
   title: string | null;
   subtitle: string | null;
   description: string | null;
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
 }
 
 export default function PublicFormPage() {
@@ -192,6 +194,14 @@ export default function PublicFormPage() {
   return (
     <div className="min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
       <div className="w-full max-w-lg">
+        {form.hero_image_url && (
+          <img
+            src={form.hero_image_url}
+            alt={form.hero_image_alt ?? ""}
+            className="w-full rounded-lg object-cover mb-6"
+          />
+        )}
+
         <div className="mb-6 space-y-2">
           <h1 className="text-2xl font-bold">{form.title || form.name}</h1>
           {form.subtitle && (
