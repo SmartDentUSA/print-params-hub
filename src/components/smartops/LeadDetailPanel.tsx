@@ -539,6 +539,34 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     });
   });
 
+  // Cross-reference: deals sem proposals embutidos → buscar em ld.proposals_data
+  if (allProposalItems.length === 0 && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
+    (ld.proposals_data as any[]).forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      const dealId = String(prop.deal_id || ld.piperun_id || "—");
+      const propId = String(prop.id || prop.hash || "—");
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const qty = Number(item.quantity || item.qtd || item.quantidade || 1);
+          const unitVal = Number(item.value || item.cost || item.valor_unitario || 0);
+          const totalVal = Number(item.value || item.cost || item.valor_total || 0) || (qty * unitVal);
+          allProposalItems.push({
+            dealId, proposalId: propId,
+            name: getItemName(item), sku: String(item.code || item.reference || item.sku || "—"),
+            qty, unitVal, totalVal, dealStatus: "aberta",
+          });
+        });
+      } else if (Number(prop.value) > 0) {
+        allProposalItems.push({
+          dealId, proposalId: propId,
+          name: "Proposta (resumo)", sku: "—",
+          qty: 1, unitVal: Number(prop.value), totalVal: Number(prop.value),
+          dealStatus: "aberta",
+        });
+      }
+    });
+  }
+
   const stats = [
     { num: ltvWon > 0 ? formatBRLFull(ltvWon) : (ltvLost > 0 ? formatBRLFull(ltvLost) : "R$ 0"), lbl: ltvWon > 0 ? "LTV Ganho" : (ltvLost > 0 ? "$ Perdido" : "LTV"), cls: ltvWon > 0 ? "green" : (ltvLost > 0 ? "red" : "") },
     { num: String(wonDeals.length), lbl: "Ganhos", cls: "green" },
