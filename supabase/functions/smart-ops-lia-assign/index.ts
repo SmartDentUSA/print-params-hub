@@ -369,10 +369,13 @@ async function resolveOriginId(apiToken: string, formName: string | null): Promi
       }
     }
     // Create new origin
+    console.log(`[lia-assign] Creating origin: "${cacheKey}" (search returned no match)`);
     const createRes = await piperunPost(apiToken, "origins", {
       name: cacheKey,
+      active: true,
       description: `Formulário: ${cacheKey} (criado via Dra. L.I.A.)`,
     });
+    console.log(`[lia-assign] Origin create response: ${createRes.success} (${createRes.status})`, JSON.stringify(createRes.data).slice(0, 300));
     if (createRes.success && createRes.data) {
       const created = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
       if (created?.id) {
