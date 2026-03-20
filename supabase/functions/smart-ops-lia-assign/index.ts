@@ -318,6 +318,7 @@ async function createNewDeal(
     origin_id: formOriginId,
     reference: email,
     person_id: personId,
+    deleted: 0,
   };
 
   if (companyId) dealPayload.company_id = companyId;
