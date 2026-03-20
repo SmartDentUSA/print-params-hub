@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
       status_oportunidade: payload.status_oportunidade || null,
       valor_oportunidade: payload.valor_oportunidade ? Number(payload.valor_oportunidade) : null,
       proprietario_lead_crm: payload.proprietario_lead_crm || null,
-      produto_interesse_auto: payload.produto_interesse_auto || null,
+      produto_interesse_auto: produtoInteresseAuto || payload.produto_interesse_auto || null,
       // Equipamentos Ativos (seriais)
       equip_scanner: payload.equip_scanner || null,
       equip_scanner_serial: payload.equip_scanner_serial || null,
