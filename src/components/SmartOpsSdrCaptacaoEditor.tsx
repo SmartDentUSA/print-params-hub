@@ -105,8 +105,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         hero_image_url: heroImageUrl || null,
         hero_image_alt: heroImageAlt || null,
         campaign_identifier: campaignIdentifier || null,
-        product_catalog_id: productCatalogId || null,
-        workflow_stage_target: workflowStageTarget || null,
+        product_catalog_id: productCatalogId === "__none__" ? null : (productCatalogId || null),
+        workflow_stage_target: workflowStageTarget === "__none__" ? null : (workflowStageTarget || null),
       } as any)
       .eq("id", form.id);
     setSaving(false);
