@@ -6555,6 +6555,7 @@ export type Database = {
           hero_image_alt: string | null
           hero_image_url: string | null
           id: string
+          media_type: string | null
           name: string
           product_catalog_id: string | null
           slug: string
@@ -6565,6 +6566,9 @@ export type Database = {
           theme_color: string | null
           title: string | null
           updated_at: string
+          video_embed_url: string | null
+          video_id: string | null
+          video_thumbnail_url: string | null
           workflow_stage_target: string | null
         }
         Insert: {
@@ -6576,6 +6580,7 @@ export type Database = {
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          media_type?: string | null
           name: string
           product_catalog_id?: string | null
           slug: string
@@ -6586,6 +6591,9 @@ export type Database = {
           theme_color?: string | null
           title?: string | null
           updated_at?: string
+          video_embed_url?: string | null
+          video_id?: string | null
+          video_thumbnail_url?: string | null
           workflow_stage_target?: string | null
         }
         Update: {
@@ -6597,6 +6605,7 @@ export type Database = {
           hero_image_alt?: string | null
           hero_image_url?: string | null
           id?: string
+          media_type?: string | null
           name?: string
           product_catalog_id?: string | null
           slug?: string
@@ -6607,6 +6616,9 @@ export type Database = {
           theme_color?: string | null
           title?: string | null
           updated_at?: string
+          video_embed_url?: string | null
+          video_id?: string | null
+          video_thumbnail_url?: string | null
           workflow_stage_target?: string | null
         }
         Relationships: [
@@ -6615,6 +6627,13 @@ export type Database = {
             columns: ["product_catalog_id"]
             isOneToOne: false
             referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_forms_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_videos"
             referencedColumns: ["id"]
           },
         ]

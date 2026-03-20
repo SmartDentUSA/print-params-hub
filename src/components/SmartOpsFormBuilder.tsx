@@ -59,6 +59,10 @@ interface SmartOpsForm {
   campaign_identifier: string | null;
   product_catalog_id: string | null;
   workflow_stage_target: string | null;
+  media_type: string | null;
+  video_id: string | null;
+  video_thumbnail_url: string | null;
+  video_embed_url: string | null;
 }
 
 const BASE_FORM_FIELDS = [
