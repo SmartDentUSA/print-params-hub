@@ -843,6 +843,10 @@ export function mapAttendanceToDealCustomFields(
   if (attendance.id_cliente_smart) {
     fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.BANCO_DADOS_ID, value: String(attendance.id_cliente_smart) });
   }
+  // Produto de interesse (auto) — from form's product catalog
+  if (attendance.produto_interesse_auto) {
+    fields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.PRODUTO_INTERESSE_AUTO, value: String(attendance.produto_interesse_auto) });
+  }
 
   return fields;
 }
