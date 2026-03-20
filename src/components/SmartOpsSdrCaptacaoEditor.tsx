@@ -68,9 +68,11 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       });
   }, []);
 
+  const ALLOWED_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
   const handleHeroUpload = async (file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Selecione um arquivo de imagem válido.");
+    if (!ALLOWED_MIME.includes(file.type)) {
+      toast.error("Formato não suportado. Use JPG, PNG, GIF ou WebP.");
       return;
     }
     setUploading(true);
@@ -209,7 +211,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
