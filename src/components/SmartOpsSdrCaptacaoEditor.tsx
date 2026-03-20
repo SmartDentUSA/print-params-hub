@@ -64,7 +64,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       .select("id, name")
       .order("name")
       .then(({ data }) => {
-        if (data) setCatalogOptions(data as CatalogOption[]);
+        if (data) setCatalogOptions(data as unknown as CatalogOption[]);
       });
   }, []);
 
