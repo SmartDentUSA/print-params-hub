@@ -250,7 +250,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                 <SelectValue placeholder="Selecione o produto..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">— Nenhum —</SelectItem>
+                <SelectItem value="__none__">— Nenhum —</SelectItem>
                 {catalogOptions.map((opt) => (
                   <SelectItem key={opt.id} value={opt.id}>{opt.name}</SelectItem>
                 ))}
