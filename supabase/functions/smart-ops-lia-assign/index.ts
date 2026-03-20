@@ -1297,7 +1297,7 @@ Deno.serve(async (req) => {
         flow: flowType,
         owner: assignedOwnerName,
         owner_id: assignedOwnerId,
-        pipeline: piperunFunil,
+        pipeline: updateFields.funil_entrada_crm || "Funil de vendas",
         piperun_id: piperunId,
         pessoa_piperun_id: personId,
         empresa_piperun_id: companyId,
