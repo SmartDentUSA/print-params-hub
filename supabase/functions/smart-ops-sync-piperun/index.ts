@@ -517,103 +517,77 @@ Deno.serve(async (req) => {
     const orchestrate = url.searchParams.get("orchestrate") === "true";
     const since = fullSync ? null : new Date(Date.now() - 35 * 60 * 1000).toISOString();
 
-    // ── Orchestrator mode: call self once per pipeline sequentially ──
+    // ── Orchestrator mode: fire all pipelines in parallel (fire-and-forget) ──
     if (orchestrate) {
       const CHUNK_SIZE = 500;
       const pipelinesToSync = singlePipeline
         ? [Number(singlePipeline)]
         : [...SYNC_PIPELINES];
 
-      const allResults: Record<string, unknown> = {};
-      let totalUpdated = 0, totalCreated = 0, totalDeals = 0;
-
-      for (const pid of pipelinesToSync) {
+      // Run count queries in parallel, then fire chunk workers without awaiting
+      const dispatchTasks = pipelinesToSync.map(async (pid) => {
         try {
-          // Step 1: Count total deals
           const totalCount = await countDealsForPipeline(PIPERUN_API_KEY, pid, since);
-          console.log(`[sync-piperun] Pipeline ${pid}: ~${totalCount} deals total`);
+          console.log(`[sync-piperun] Pipeline ${pid}: ~${totalCount} deals — dispatching`);
+          if (totalCount === 0) return;
 
-          if (totalCount === 0) {
-            allResults[`pipeline_${pid}`] = { total_deals: 0, skipped: true };
-            continue;
-          }
-
-          // Step 2: Chunk if needed
           const chunks: number[] = [];
           if (fullSync && totalCount > CHUNK_SIZE) {
-            for (let off = 0; off < totalCount; off += CHUNK_SIZE) {
-              chunks.push(off);
-            }
+            for (let off = 0; off < totalCount; off += CHUNK_SIZE) chunks.push(off);
           } else {
-            chunks.push(0); // single chunk
+            chunks.push(0);
           }
 
-          const pipelineResults: unknown[] = [];
           for (const chunkOffset of chunks) {
             const chunkParams = `pipeline_id=${pid}${fullSync ? "&full=true" : ""}&offset=${chunkOffset}&chunk_size=${CHUNK_SIZE}`;
             const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?${chunkParams}`;
-            try {
-              const res = await fetch(fnUrl, {
-                headers: {
-                  "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
-                  "Content-Type": "application/json",
-                },
-              });
-              const ct = res.headers.get("content-type") || "";
-              if (!ct.includes("application/json")) {
-                const txt = await res.text();
-                console.error(`[sync-piperun] Pipeline ${pid} offset=${chunkOffset} non-JSON (${res.status}):`, txt.substring(0, 200));
-                pipelineResults.push({ error: `Non-JSON (${res.status})`, offset: chunkOffset });
-                continue;
-              }
-              const data = await res.json();
-              pipelineResults.push(data);
-              if (data.synced) totalUpdated += data.synced;
-              if (data.created) totalCreated += data.created;
-              if (data.total_deals) totalDeals += data.total_deals;
-            } catch (e) {
-              pipelineResults.push({ error: String(e), offset: chunkOffset });
-            }
+            // Fire-and-forget: each pipeline chunk runs as its own independent invocation
+            fetch(fnUrl, {
+              headers: {
+                "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
+                "Content-Type": "application/json",
+              },
+            }).catch((e) => console.error(`[sync-piperun] Pipeline ${pid} offset=${chunkOffset} dispatch error:`, e));
           }
-
-          allResults[`pipeline_${pid}`] = chunks.length === 1 ? pipelineResults[0] : { chunks: pipelineResults, total_chunks: chunks.length };
         } catch (e) {
-          allResults[`pipeline_${pid}`] = { error: String(e) };
+          console.error(`[sync-piperun] Pipeline ${pid} count error:`, e);
         }
-      }
+      });
+
+      // Wait only for the lightweight count queries + dispatch (not for processing)
+      await Promise.all(dispatchTasks);
 
       return new Response(JSON.stringify({
         success: true,
-        mode: "orchestrated",
-        total_updated: totalUpdated,
-        total_created: totalCreated,
-        total_deals: totalDeals,
-        pipeline_details: allResults,
+        mode: "orchestrated-async",
+        pipelines_queued: pipelinesToSync.length,
+        message: "Pipelines dispatched — processing runs in background per invocation",
       }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── Single pipeline mode (default) ──
+    // ── Entry point (no params): fire orchestrator as background task, return immediately ──
     if (!singlePipeline) {
-      // If no pipeline specified and not orchestrating, default to orchestrate
       const fnUrl = `${SUPABASE_URL}/functions/v1/smart-ops-sync-piperun?orchestrate=true${fullSync ? "&full=true" : ""}`;
-      const res = await fetch(fnUrl, {
+
+      // Fire the orchestrator without awaiting — it will dispatch pipeline workers
+      const orchestratePromise = fetch(fnUrl, {
         headers: {
           "Authorization": `Bearer ${SERVICE_ROLE_KEY}`,
           "Content-Type": "application/json",
         },
-      });
-      const ct = res.headers.get("content-type") || "";
-      if (!ct.includes("application/json")) {
-        const txt = await res.text();
-        return new Response(JSON.stringify({ error: "Orchestrator returned non-JSON", status: res.status, preview: txt.substring(0, 200) }), {
-          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const data = await res.json();
-      return new Response(JSON.stringify(data), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }).catch((e) => console.error(`[sync-piperun] Orchestrator dispatch error:`, e));
+
+      // Keep function alive long enough for the fetch to be sent
+      (globalThis as any).EdgeRuntime?.waitUntil?.(orchestratePromise);
+
+      return new Response(JSON.stringify({
+        success: true,
+        mode: "triggered",
+        message: "Sincronização PipeRun iniciada — pipelines serão processados em background",
+      }), {
+        status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

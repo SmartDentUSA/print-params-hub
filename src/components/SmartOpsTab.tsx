@@ -30,7 +30,7 @@ export function SmartOpsTab() {
     try {
       const { error } = await supabase.functions.invoke("smart-ops-sync-piperun");
       if (error) throw error;
-      toast.success("Sync PipeRun iniciado com sucesso");
+      toast.success("Sync PipeRun iniciado — processamento em background");
       setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(`Erro no sync: ${err instanceof Error ? err.message : String(err)}`);
