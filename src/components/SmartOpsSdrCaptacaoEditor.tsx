@@ -50,8 +50,8 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [heroImageUrl, setHeroImageUrl] = useState(form.hero_image_url ?? "");
   const [heroImageAlt, setHeroImageAlt] = useState(form.hero_image_alt ?? "");
   const [campaignIdentifier, setCampaignIdentifier] = useState(form.campaign_identifier ?? "");
-  const [productCatalogId, setProductCatalogId] = useState(form.product_catalog_id ?? "");
-  const [workflowStageTarget, setWorkflowStageTarget] = useState(form.workflow_stage_target ?? "");
+  const [productCatalogId, setProductCatalogId] = useState(form.product_catalog_id ?? "__none__");
+  const [workflowStageTarget, setWorkflowStageTarget] = useState(form.workflow_stage_target ?? "__none__");
 
   const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([]);
   const [uploading, setUploading] = useState(false);
