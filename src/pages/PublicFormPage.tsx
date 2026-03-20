@@ -31,6 +31,10 @@ interface FormData {
   title: string | null;
   subtitle: string | null;
   description: string | null;
+  hero_image_url: string | null;
+  hero_image_alt: string | null;
+  media_type: string | null;
+  video_thumbnail_url: string | null;
 }
 
 export default function PublicFormPage() {
@@ -76,6 +80,24 @@ export default function PublicFormPage() {
     };
     load();
   }, [slug]);
+
+  // OG image meta tag
+  useEffect(() => {
+    if (!form) return;
+    const ogImage =
+      form.media_type === "video" ? form.video_thumbnail_url : form.hero_image_url;
+    if (!ogImage) return;
+    let meta = document.querySelector<HTMLMetaElement>('meta[property="og:image"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("property", "og:image");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", ogImage);
+    return () => {
+      meta?.removeAttribute("content");
+    };
+  }, [form]);
 
   const handleChange = (fieldId: string, value: any) => {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -192,6 +214,22 @@ export default function PublicFormPage() {
   return (
     <div className="min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
       <div className="w-full max-w-lg">
+        {/* Mídia HERO */}
+        {form.media_type === "video" && form.video_thumbnail_url && (
+          <img
+            src={form.video_thumbnail_url}
+            alt={form.hero_image_alt ?? ""}
+            className="w-full rounded-lg object-cover mb-6"
+          />
+        )}
+        {form.media_type !== "video" && form.hero_image_url && (
+          <img
+            src={form.hero_image_url}
+            alt={form.hero_image_alt ?? ""}
+            className="w-full rounded-lg object-cover mb-6"
+          />
+        )}
+
         <div className="mb-6 space-y-2">
           <h1 className="text-2xl font-bold">{form.title || form.name}</h1>
           {form.subtitle && (
