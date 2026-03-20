@@ -307,7 +307,7 @@ async function createNewDeal(
   supabase: ReturnType<typeof createClient>
 ): Promise<string | null> {
   const dealPayload: Record<string, unknown> = {
-    title: lead.nome || email,
+    title: cleanPersonName(lead.nome as string) || email,
     pipeline_id: pipelineId,
     stage_id: stageId,
     owner_id: ownerId,
