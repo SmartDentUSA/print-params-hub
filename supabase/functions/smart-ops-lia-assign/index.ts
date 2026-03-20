@@ -1089,8 +1089,22 @@ Deno.serve(async (req) => {
     let flowType = "unknown";
     let vendaDeal: Record<string, unknown> | undefined;
 
-    // Step 5a: Find or create Person
-    if (!personId) {
+    // Step 5a: Find or create Person (with stale-cache recovery)
+    if (personId) {
+      // Validate cached person still exists in PipeRun
+      const personCheck = await findPersonByEmail(PIPERUN_API_KEY, leadEmail);
+      if (!personCheck || personCheck.id !== personId) {
+        console.log(`[lia-assign] Cached person ${personId} is stale (not found or mismatched). Re-resolving...`);
+        if (personCheck) {
+          personId = personCheck.id;
+          companyId = personCheck.company_id || companyId;
+          console.log(`[lia-assign] Resolved to existing person: ${personId}`);
+        } else {
+          personId = await createPerson(PIPERUN_API_KEY, lead as Record<string, unknown>);
+          console.log(`[lia-assign] Created new person (stale recovery): ${personId}`);
+        }
+      }
+    } else {
       const existingPerson = await findPersonByEmail(PIPERUN_API_KEY, leadEmail);
       if (existingPerson) {
         personId = existingPerson.id;
