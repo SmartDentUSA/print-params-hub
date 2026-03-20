@@ -213,7 +213,18 @@ export function SmartOpsMappingFieldsEditor({ formId }: { formId: string }) {
               </div>
               <div>
                 <Label className="text-xs">Tipo</Label>
-                <Select value={field.field_type} onValueChange={(v) => updateField(field.id, { field_type: v })}>
+                <Select
+                  value={field.field_type}
+                  onValueChange={async (v) => {
+                    await supabase
+                      .from("smartops_form_fields" as any)
+                      .update({ field_type: v } as any)
+                      .eq("id", field.id);
+                    setFields((prev) =>
+                      prev.map((f) => f.id === field.id ? { ...f, field_type: v } : f)
+                    );
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {FIELD_TYPES.map((t) => (
