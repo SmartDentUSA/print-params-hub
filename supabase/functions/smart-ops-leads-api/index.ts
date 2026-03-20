@@ -189,8 +189,22 @@ async function handleDetail(supabase: ReturnType<typeof createClient>, url: URL)
     })(),
   } : null;
 
-  // 7. Portfolio from individual lead columns (workflow_portfolio JSONB is mostly null)
-  const portfolio = transformPortfolioFromLead(lead);
+  // 7a. Load product_taxonomy for JSONB portfolio matching
+  const { data: taxonomyRows } = await supabase
+    .from("product_taxonomy")
+    .select("workflow_stage, subcategory, match_patterns");
+
+  // Build pattern lookup: lowercase pattern → { stage, subcategory }
+  const taxonomyMap: Map<string, { stage: string; subcategory: string }> = new Map();
+  for (const row of (taxonomyRows || []) as any[]) {
+    const patterns: string[] = Array.isArray(row.match_patterns) ? row.match_patterns : [];
+    for (const p of patterns) {
+      taxonomyMap.set(String(p).toLowerCase(), { stage: row.workflow_stage, subcategory: row.subcategory });
+    }
+  }
+
+  // 7b. Portfolio from individual lead columns (workflow_portfolio JSONB is mostly null)
+  const portfolio = transformPortfolioFromLead(lead, taxonomyMap);
   const portfolio_embed_url = null;
 
   const response = {
@@ -270,12 +284,12 @@ const LEAD_COLUMN_MAP: { stage: string; subcat: string; layer: string; col: stri
   { stage: 'etapa_7_fresagem', subcat: 'equipamentos', layer: 'sdr',   col: 'sdr_fresagem_interesse' },
 ];
 
-function transformPortfolioFromLead(lead: any): any {
+function transformPortfolioFromLead(lead: any, taxonomyMap?: Map<string, { stage: string; subcategory: string }>): any {
   const result: Record<string, any> = {};
 
   // ── Base: legacy JSONB or individual columns ──
   if (lead.workflow_portfolio && typeof lead.workflow_portfolio === 'object' && Object.keys(lead.workflow_portfolio).length > 1) {
-    const fromJsonb = transformPortfolioFromJsonb(lead.workflow_portfolio);
+    const fromJsonb = transformPortfolioFromJsonb(lead.workflow_portfolio, taxonomyMap);
     Object.assign(result, fromJsonb);
   } else {
     // Build from individual columns (unchanged logic)
@@ -353,9 +367,23 @@ function transformPortfolioFromLead(lead: any): any {
 }
 
 // Fallback: use the old JSONB-based approach when workflow_portfolio is populated
-function transformPortfolioFromJsonb(raw: any): any {
+function transformPortfolioFromJsonb(raw: any, taxonomyMap?: Map<string, { stage: string; subcategory: string }>): any {
   const result: Record<string, any> = {};
   let nAtivo = 0, nConc = 0, nSdr = 0;
+
+  // Match an item string against taxonomy patterns; return the subcategory for the given stage or fallback
+  function matchSubcat(item: string, stageKey: string, subcats: string[]): string {
+    if (taxonomyMap && taxonomyMap.size > 0) {
+      const lower = item.toLowerCase();
+      for (const [pattern, entry] of taxonomyMap) {
+        if (entry.stage === stageKey && lower.includes(pattern)) {
+          // Only use if the matched subcategory is valid for this stage
+          if (subcats.includes(entry.subcategory)) return entry.subcategory;
+        }
+      }
+    }
+    return subcats[0] || 'default';
+  }
 
   for (const [stageKey, subcats] of Object.entries(STAGE_SUBCATEGORIES)) {
     const stageData = raw[stageKey];
@@ -366,22 +394,30 @@ function transformPortfolioFromJsonb(raw: any): any {
       const concItems = Array.isArray(stageData.mapeamento_concorrente) ? stageData.mapeamento_concorrente : [];
       const sdrItems = Array.isArray(stageData.sdr_interesse) ? stageData.sdr_interesse : [];
 
-      ativoItems.forEach((item: string, idx: number) => {
-        const field = subcats[idx] || subcats[0] || 'default';
-        stageResult[field] = { label: item, layer: 'ativo', hits: 1 };
-        nAtivo++;
+      ativoItems.forEach((item: string) => {
+        const field = matchSubcat(item, stageKey, subcats);
+        // Higher-priority ativo always wins over existing conc/sdr in same slot
+        const existing = stageResult[field];
+        if (!existing || existing.layer !== 'ativo') {
+          stageResult[field] = { label: item, layer: 'ativo', hits: 1 };
+          nAtivo++;
+        }
       });
       concItems.forEach((item: string) => {
-        const usedFields = Object.keys(stageResult);
-        const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
-        stageResult[available] = { label: item, layer: 'conc', hits: 1 };
-        nConc++;
+        const field = matchSubcat(item, stageKey, subcats);
+        const existing = stageResult[field];
+        if (!existing || (LAYER_PRIORITY[existing.layer] ?? 0) < LAYER_PRIORITY['conc']) {
+          stageResult[field] = { label: item, layer: 'conc', hits: 1 };
+          nConc++;
+        }
       });
       sdrItems.forEach((item: string) => {
-        const usedFields = Object.keys(stageResult);
-        const available = subcats.find(f => !usedFields.includes(f)) || subcats[0] || 'default';
-        stageResult[available] = { label: item, layer: 'sdr', hits: 1 };
-        nSdr++;
+        const field = matchSubcat(item, stageKey, subcats);
+        const existing = stageResult[field];
+        if (!existing || (LAYER_PRIORITY[existing.layer] ?? 0) < LAYER_PRIORITY['sdr']) {
+          stageResult[field] = { label: item, layer: 'sdr', hits: 1 };
+          nSdr++;
+        }
       });
     }
 
