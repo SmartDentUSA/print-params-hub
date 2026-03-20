@@ -827,6 +827,117 @@ async function triggerOutboundMessages(
   }
 }
 
+// ─── §4.5 SDR-CAPTAÇÃO: Reativação de Deal ───
+
+/**
+ * Fecha deals abertos no Funil Estagnados como "Perdido" com motivo
+ * "reativacao_formulario" e cria um novo deal no Funil de Vendas
+ * via Round Robin de vendedores ativos. Não herda o owner anterior.
+ */
+async function executarReativacaoSdrCaptacao(
+  apiToken: string,
+  supabase: ReturnType<typeof createClient>,
+  lead: Record<string, unknown>
+): Promise<boolean> {
+  const leadId = lead.id as string;
+  const leadEmail = (lead.email as string).trim().toLowerCase();
+
+  // 1. Resolve personId — usa cached se disponível, senão busca no PipeRun
+  let personId = lead.pessoa_piperun_id as number | null;
+  if (!personId) {
+    const person = await findPersonByEmail(apiToken, leadEmail);
+    personId = person?.id ?? null;
+  }
+  if (!personId) {
+    console.warn("[lia-assign] SDR-CAPTAÇÃO reativação: person not found in PipeRun for", leadEmail);
+    return false;
+  }
+
+  const companyId = (lead.empresa_piperun_id as number | null) ?? null;
+
+  // 2. Busca deals abertos no Funil Estagnados
+  const allDeals = await findPersonDeals(apiToken, personId);
+  const estagnDeals = allDeals.filter(
+    (d) => Number(d.status) === 0 && Number(d.pipeline_id) === PIPELINES.ESTAGNADOS
+  );
+
+  if (estagnDeals.length === 0) {
+    console.log("[lia-assign] SDR-CAPTAÇÃO reativação: nenhum deal Estagnados encontrado para", leadEmail);
+    return false;
+  }
+
+  // 3. Fecha cada deal Estagnados como Perdido
+  for (const deal of estagnDeals) {
+    const res = await piperunPut(apiToken, `deals/${deal.id}`, {
+      status: 2,
+      lost_reason: "reativacao_formulario",
+    });
+    console.log(`[lia-assign] SDR-CAPTAÇÃO: deal ${deal.id} fechado como Perdido: ${res.success} (${res.status})`);
+  }
+
+  // 4. Fresh Round Robin — NUNCA herda owner anterior
+  const newOwner = await pickRandomActiveVendedor(supabase);
+  const newOwnerId = newOwner.piperun_owner_id;
+  const newOwnerName = newOwner.nome_completo;
+  console.log(`[lia-assign] SDR-CAPTAÇÃO reativação: novo owner → ${newOwnerName} (${newOwnerId})`);
+
+  // 5. Cria novo deal no Funil de Vendas
+  const customFields = mapAttendanceToDealCustomFields(lead);
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  if (phone) customFields.push({ custom_field_id: DEAL_CUSTOM_FIELDS.WHATSAPP, value: phone });
+
+  const newDealId = await createNewDeal(
+    apiToken,
+    personId,
+    companyId,
+    lead,
+    PIPELINES.VENDAS,
+    STAGES_VENDAS.SEM_CONTATO,
+    newOwnerId,
+    customFields,
+    leadEmail,
+    supabase
+  );
+
+  if (!newDealId) {
+    console.error("[lia-assign] SDR-CAPTAÇÃO: falha ao criar novo deal para", leadEmail);
+    return false;
+  }
+  console.log(`[lia-assign] SDR-CAPTAÇÃO: novo deal criado: ${newDealId}`);
+
+  // 6. Atualiza lia_attendances com novo owner e deal
+  await supabase
+    .from("lia_attendances")
+    .update({
+      proprietario_lead_crm: newOwnerName,
+      piperun_id: newDealId,
+      piperun_link: `https://app.pipe.run/#/deals/${newDealId}`,
+      funil_entrada_crm: "Funil de vendas",
+      ultima_etapa_comercial: "sem_contato",
+    })
+    .eq("id", leadId);
+
+  // 7. Registra evento na timeline
+  await supabase.from("lead_activity_log").insert({
+    lead_id: leadId,
+    event_type: "deal_reativado_via_formulario",
+    entity_type: "deal",
+    entity_id: newDealId,
+    entity_name: "Deal reativado — SDR Captação",
+    event_data: {
+      label: "Deal reativado via formulário sdr_captacao",
+      deals_fechados: estagnDeals.map((d) => String(d.id)),
+      novo_deal_id: newDealId,
+      novo_owner: newOwnerName,
+      motivo_fechamento: "reativacao_formulario",
+    },
+    source_channel: "form",
+    event_timestamp: new Date().toISOString(),
+  });
+
+  return true;
+}
+
 // ─── Main Handler ───
 
 Deno.serve(async (req) => {
@@ -850,7 +961,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id, force } = body;
+    const { email, lead_id, force, trigger } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
@@ -890,6 +1001,33 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+
+    // ── §4.5 SDR-CAPTAÇÃO Reativação ──
+    if (trigger === "sdr_captacao_reativacao") {
+      let reativacaoOk = false;
+      try {
+        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead);
+      } catch (reativErr) {
+        console.error("[lia-assign] SDR-CAPTAÇÃO reativação error:", reativErr);
+        try {
+          await supabase.from("system_health_logs").insert({
+            function_name: "smart-ops-lia-assign",
+            severity: "error",
+            error_type: "sdr_captacao_reativacao_failed",
+            lead_email: lead.email,
+            details: { error: String(reativErr) },
+          });
+        } catch {}
+      }
+      if (reativacaoOk) {
+        return new Response(
+          JSON.stringify({ success: true, flow: "sdr_captacao_reativacao" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // reativação falhou → continua com fluxo normal para não bloquear
+      console.warn("[lia-assign] SDR-CAPTAÇÃO reativação falhou, continuando com fluxo normal");
     }
 
     // ── 2. Select owner via Round Robin (prioritize WaLeads) ──
