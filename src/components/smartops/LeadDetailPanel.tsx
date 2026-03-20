@@ -539,6 +539,34 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     });
   });
 
+  // Cross-reference: deals sem proposals embutidos → buscar em ld.proposals_data
+  if (allProposalItems.length === 0 && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
+    (ld.proposals_data as any[]).forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      const dealId = String(prop.deal_id || ld.piperun_id || "—");
+      const propId = String(prop.id || prop.hash || "—");
+      if (items.length > 0) {
+        items.forEach((item: any) => {
+          const qty = Number(item.quantity || item.qtd || item.quantidade || 1);
+          const unitVal = Number(item.value || item.cost || item.valor_unitario || 0);
+          const totalVal = Number(item.value || item.cost || item.valor_total || 0) || (qty * unitVal);
+          allProposalItems.push({
+            dealId, proposalId: propId,
+            name: getItemName(item), sku: String(item.code || item.reference || item.sku || "—"),
+            qty, unitVal, totalVal, dealStatus: "aberta",
+          });
+        });
+      } else if (Number(prop.value) > 0) {
+        allProposalItems.push({
+          dealId, proposalId: propId,
+          name: "Proposta (resumo)", sku: "—",
+          qty: 1, unitVal: Number(prop.value), totalVal: Number(prop.value),
+          dealStatus: "aberta",
+        });
+      }
+    });
+  }
+
   const stats = [
     { num: ltvWon > 0 ? formatBRLFull(ltvWon) : (ltvLost > 0 ? formatBRLFull(ltvLost) : "R$ 0"), lbl: ltvWon > 0 ? "LTV Ganho" : (ltvLost > 0 ? "$ Perdido" : "LTV"), cls: ltvWon > 0 ? "green" : (ltvLost > 0 ? "red" : "") },
     { num: String(wonDeals.length), lbl: "Ganhos", cls: "green" },
@@ -716,6 +744,31 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     }
   });
 
+  // Cross-reference: inject ld.proposals_data into flatProposals when deals lack embedded proposals
+  if (flatProposals.every(fp => fp.itens === "—" || !fp.itens) && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
+    (ld.proposals_data as any[]).forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      const itensSummary = items.length > 0
+        ? items.slice(0, 3).map((it: any) => `${it.quantity || it.qtd || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
+        : "—";
+      const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
+      const freteTipo = prop.tipo_frete || prop.freight_type || "";
+      const freteStr = freteVal > 0 ? `${formatBRLFull(freteVal)}${freteTipo ? " " + freteTipo : ""}` : freteTipo || "—";
+      const parcelas = prop.parcelas || prop.payment_installments || null;
+      flatProposals.push({
+        date: prop.created_at || "",
+        sigla: prop.sigla || `PRO${prop.id || "?"}`,
+        funil: prop.pipeline_name || "—",
+        itens: itensSummary,
+        valor: Number(prop.value || prop.valor_ps || 0),
+        frete: freteStr,
+        pgto: parcelas ? `${parcelas}×` : "—",
+        vendedor: prop.vendedor || "—",
+        status: "aberta",
+      });
+    });
+  }
+
   // ── Product Mix Intelligence (CRM won deals + E-commerce approved) ──
   interface ProductMixItem {
     cod: string;
@@ -797,6 +850,25 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       if (orderTs > 0) mixMap[key].timestamps.push(orderTs);
     }
   });
+  // Cross-reference: inject ld.proposals_data items into mixMap for open deals
+  if (Object.keys(mixMap).length === 0 && Array.isArray(ld.proposals_data) && (ld.proposals_data as any[]).length > 0) {
+    (ld.proposals_data as any[]).forEach((prop: any) => {
+      const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
+      items.forEach((item: any) => {
+        const name = getItemName(item);
+        const cod = String(item.code || item.reference || item.sku || "—");
+        const qty = Number(item.quantity || item.qtd || 1);
+        const total = Number(item.value || item.cost || 0);
+        const key = name.toLowerCase().trim();
+        if (!mixMap[key]) {
+          mixMap[key] = { cod, name, deals: new Set(), qtyTotal: 0, receita: 0, timestamps: [] };
+        }
+        mixMap[key].deals.add(String(prop.deal_id || "open"));
+        mixMap[key].qtyTotal += qty;
+        mixMap[key].receita += total;
+      });
+    });
+  }
   const totalMixReceita = Object.values(mixMap).reduce((s, m) => s + m.receita, 0);
   const productMixRows = Object.values(mixMap)
     .sort((a, b) => b.receita - a.receita)
