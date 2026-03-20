@@ -550,6 +550,7 @@ async function buildSellerNotification(
     `👤 Lead: ${lead.nome || "N/A"}`,
     `📧 Email: ${lead.email || "N/A"}`,
     `📱 Tel: ${phone || "N/A"}`,
+    `📋 Formulário: ${lead.form_name || "N/A"}`,
     `🦷 Área de atuação: ${lead.area_atuacao || "N/A"}`,
     `🦷 Especialidade: ${lead.especialidade || "N/A"}`,
     `🎯 Interesse: ${lead.produto_interesse || "N/A"}`,
