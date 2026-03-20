@@ -271,12 +271,13 @@ async function moveDealToVendas(
   companyId: number | null | undefined,
   supabase: ReturnType<typeof createClient>
 ): Promise<void> {
+  const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
   const hashFields = customFieldsToHashMap(customFields);
   const updatePayload: Record<string, unknown> = {
     pipeline_id: PIPELINES.VENDAS,
     stage_id: stageId,
     owner_id: ownerId,
-    origin_id: ORIGINS.DRA_LIA.id,
+    origin_id: formOriginId,
     freezed: 0,
     ...hashFields,
   };
