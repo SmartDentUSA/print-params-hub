@@ -318,10 +318,16 @@ async function createNewDeal(
     origin_id: formOriginId,
     reference: email,
     person_id: personId,
+    deleted: 0,
   };
 
   if (companyId) dealPayload.company_id = companyId;
-  if (customFields.length > 0) dealPayload.custom_fields = customFields;
+
+  // Use hash format for custom fields (PipeRun POST with array is unreliable)
+  if (customFields.length > 0) {
+    const hashFields = customFieldsToHashMap(customFields);
+    Object.assign(dealPayload, hashFields);
+  }
 
   console.log(`[lia-assign] Creating deal: person=${personId}, company=${companyId}, pipeline=${pipelineId}, owner=${ownerId}`);
   const createRes = await piperunPost(apiToken, "deals", dealPayload);

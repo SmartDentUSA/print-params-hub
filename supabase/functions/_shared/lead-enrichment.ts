@@ -34,6 +34,10 @@ const ALWAYS_UPDATE: Set<string> = new Set([
   "updated_at",
   // SellFlux custom fields (JSONB merge)
   "sellflux_custom_fields",
+  // Form metadata — each new submission overwrites with latest form context
+  "form_name", "nome",
+  // Product/interest fields — latest submission wins
+  "produto_interesse", "area_atuacao", "especialidade",
 ]);
 
 /** Fields that are PROTECTED — never overwrite if they have a value */
