@@ -181,16 +181,26 @@ interface FormField {
   roi_config: any;
 }
 
-export function SmartOpsFormEditor({ formId }: { formId: string }) {
+export function SmartOpsFormEditor({
+  formId,
+  filterMappingFields = false,
+}: {
+  formId: string;
+  filterMappingFields?: boolean;
+}) {
   const [fields, setFields] = useState<FormField[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchFields = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("smartops_form_fields" as any)
       .select("*")
       .eq("form_id", formId)
       .order("order_index");
+    if (filterMappingFields) {
+      query = (query as any).is("workflow_cell_target", null);
+    }
+    const { data } = await query;
     if (data) setFields(data as any);
     setLoading(false);
   };
