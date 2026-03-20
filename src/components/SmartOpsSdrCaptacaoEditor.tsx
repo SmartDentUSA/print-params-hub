@@ -47,6 +47,31 @@ interface VideoOption {
   title: string;
   thumbnail_url: string | null;
   embed_url: string | null;
+  pandavideo_id: string | null;
+}
+
+function buildEmbedUrl(video: VideoOption): string | null {
+  // Preferência 1: embed_url já preenchida
+  if (video.embed_url) return video.embed_url;
+
+  // Preferência 2: extrair UUID do player a partir da thumbnail_url
+  // thumbnail: "https://b-vz-004839ee-19a.tv.pandavideo.com.br/UUID/thumbnail.jpg"
+  // embed:     "https://player-vz-004839ee-19a.tv.pandavideo.com.br/embed/?v=UUID"
+  if (video.thumbnail_url) {
+    const match = video.thumbnail_url.match(
+      /\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\//i
+    );
+    if (match) {
+      return `https://player-vz-004839ee-19a.tv.pandavideo.com.br/embed/?v=${match[1]}`;
+    }
+  }
+
+  // Preferência 3: construir a partir do pandavideo_id
+  if (video.pandavideo_id) {
+    return `https://player-vz-004839ee-19a.tv.pandavideo.com.br/embed/?v=${video.pandavideo_id}`;
+  }
+
+  return null;
 }
 
 export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
@@ -86,7 +111,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
       });
     supabase
       .from("knowledge_videos" as any)
-      .select("id, title, thumbnail_url, embed_url")
+      .select("id, title, thumbnail_url, embed_url, pandavideo_id")
       .order("title")
       .then(({ data }) => {
         if (data) setVideoOptions(data as unknown as VideoOption[]);
@@ -118,7 +143,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const handleVideoSelect = (vid: VideoOption) => {
     setVideoId(vid.id);
     setVideoThumbnailUrl(vid.thumbnail_url ?? "");
-    setVideoEmbedUrl(vid.embed_url ?? "");
+    setVideoEmbedUrl(buildEmbedUrl(vid) ?? "");
   };
 
   const handleSaveSectionB = async () => {
