@@ -18,6 +18,7 @@ interface FormField {
   required: boolean;
   placeholder: string | null;
   order_index: number;
+  workflow_cell_target: string | null;
 }
 
 interface FormData {
@@ -131,7 +132,7 @@ export default function PublicFormPage() {
     }
 
     try {
-      const { error } = await supabase.functions.invoke("smart-ops-ingest-lead", {
+      const { data: ingestData, error } = await supabase.functions.invoke("smart-ops-ingest-lead", {
         body: payload,
       });
       if (error) throw error;
@@ -140,6 +141,37 @@ export default function PublicFormPage() {
       await supabase.from("smartops_forms" as any)
         .update({ submissions_count: (form as any).submissions_count + 1 } as any)
         .eq("id", form.id);
+
+      // Gravar respostas dos campos de mapeamento
+      const leadId = ingestData?.lead_id;
+      if (form.form_purpose === "sdr_captacao" && leadId) {
+        const mappingFields = fields.filter((f) => f.workflow_cell_target);
+        if (mappingFields.length > 0) {
+          const responses = mappingFields
+            .map((f) => {
+              const raw = values[f.id];
+              if (raw === undefined || raw === null || raw === "") return null;
+              const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
+              return {
+                form_id: form.id,
+                field_id: f.id,
+                lead_id: leadId,
+                value,
+                workflow_cell_target: f.workflow_cell_target,
+              };
+            })
+            .filter(Boolean);
+
+          if (responses.length > 0) {
+            supabase
+              .from("smartops_form_field_responses" as any)
+              .insert(responses as any)
+              .then(({ error: respError }: { error: any }) => {
+                if (respError) console.error("[PublicFormPage] Erro ao gravar field responses:", respError);
+              });
+          }
+        }
+      }
 
       // Redirect if URL configured
       const redirectUrl = (form as any).success_redirect_url;
