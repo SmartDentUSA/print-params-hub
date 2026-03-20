@@ -93,7 +93,9 @@ Deno.serve(async (req) => {
     const temImpressora = extractField(payload, "impressoes 3d", "tem_impressora", "utiliza impressoes");
     const impressoraModelo = extractField(payload, "impressora_modelo", "modelo impressora", "printer_model");
     const resinaInteresse = extractField(payload, "resina_interesse", "resina", "resin");
-    const produtoInteresse = detectProductFromFormName(formName) || extractField(payload, "produto_interesse", "product");
+    const formProduct = detectProductFromFormName(formName);
+    const produtoInteresse = formProduct || extractField(payload, "produto_interesse", "product");
+    const produtoInteresseAuto = formProduct || payload.produto_interesse_auto || null;
 
     // --- Step 1: Check if lead already exists ---
     const { data: existingLead } = await supabase
