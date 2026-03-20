@@ -348,6 +348,39 @@ O arquivo `docs/AUDITORIA_WORKFLOW_FORMULARIOS_CRM.md` no repositório contém a
 
 ---
 
+## SEO & TRACKING
+
+### GTM
+- Container web: GTM-NZ64Q899 (parametros.smartdent.com.br)
+- GA4: G-59WWJQN34P
+- Meta Pixel: 167413567155597
+- TikTok: D05CI83C77UE5QUU9FR0
+
+### Eventos dataLayer implementados
+- `generate_lead` — submit do formulário SDR-CAPTAÇÃO (PublicFormPage.tsx)
+- `page_view_parametros` — carregamento de página de parâmetros (UserViewSupabase.tsx)
+
+### Schema.org
+- @graph global: Organization + WebSite (SEOHead.tsx — consolida os dois schemas)
+- Article @graph com `offers`: páginas de artigo (/base-conhecimento — KnowledgeSEOHead.tsx)
+- Product @graph com `offers`: páginas de parâmetros (SEOHead.tsx — fallback para resinas sem CTA)
+- Fix Google Search Console: `offers` adicionado para resolver erro "Especifique offers, review ou aggregateRating"
+- Organization.sameAs inclui Wikidata Q138636902, smartdent.com.br, loja.smartdent.com.br
+
+### AI Readiness
+- llms.txt: /public/llms.txt
+- Wikidata entities: src/lib/wikidata-entities.ts
+- AI Summary Box: componente de artigo KnowledgeContentViewer.tsx (campo excerpt)
+- AI Crawlers Policy: meta robots estendido + ai-content-policy (index.html + SEOHead.tsx)
+- SmartDent Wikidata: Q138636902
+
+### Sitemaps
+- Sitemap index: /public/sitemap-index.xml
+- robots.txt aponta para URLs canonicais em parametros.smartdent.com.br
+- vercel.json rewrites: /sitemap*.xml → Edge Functions Supabase (okeogjgqijbfkudfjadz)
+
+---
+
 ## PADRÕES DE CÓDIGO DO PROJETO
 
 - TypeScript estrito
