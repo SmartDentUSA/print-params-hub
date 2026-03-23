@@ -271,6 +271,34 @@ Deno.serve(async (req) => {
             smartPayload.tags_crm = updatedTags;
           }
 
+          // ─── Won/Lost processing (mirrors webhook logic) ───
+          const isWon = deal.status === "won" || deal.status === 1 || String(deal.status) === "1";
+          const isLost = deal.status === "lost" || deal.status === 2 || String(deal.status) === "2";
+
+          if (isWon || isLost) {
+            const produtoEncerrado = smartPayload.produto_interesse
+              ? String(smartPayload.produto_interesse)
+              : currentLead.produto_interesse || null;
+            const closedType = isWon ? "COMPRA" : "NAO_COMPROU";
+            const baseTags = (smartPayload.tags_crm as string[]) || currentLead.tags_crm || [];
+
+            const addTags: string[] = [
+              `C_OPP_ENCERRADA_${closedType}`,
+              "C_REENTRADA_NUTRICAO",
+            ];
+            if (isWon) {
+              addTags.push("J04_COMPRA", "C_CONTRATO_FECHADO", "C_PQL_RECOMPRA");
+              if (produtoEncerrado) addTags.push(`COMPROU_${produtoEncerrado.toUpperCase().replace(/\s+/g, "_")}`);
+            } else {
+              if (produtoEncerrado) addTags.push(`NAO_COMPROU_${produtoEncerrado.toUpperCase().replace(/\s+/g, "_")}`);
+            }
+
+            const removeTags = ["J03_NEGOCIACAO", "C_PERDIDO"];
+            smartPayload.tags_crm = mergeTagsCrm(baseTags, addTags, removeTags);
+            smartPayload.status_oportunidade = isWon ? "ganha" : "perdida_renutrir";
+            console.log(`[piperun-full-sync] Deal ${dealId} status=${isWon ? "WON" : "LOST"} → tags updated`);
+          }
+
           const { error } = await supabase.from("lia_attendances").update(smartPayload).eq("id", currentLead.id);
           if (!error) {
             updated++;
