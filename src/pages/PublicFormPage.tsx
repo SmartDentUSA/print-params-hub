@@ -317,193 +317,199 @@ export default function PublicFormPage() {
       `}</style>
       {/* Brand color strip */}
       <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />
-      <div className="w-full max-w-lg mt-1">
-        {/* Mídia HERO */}
-        {form.media_type === "video" && form.video_embed_url && (
-          <div className="video-glow w-full mb-6 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
-            <iframe
-              src={form.video_embed_url}
-              className="w-full h-full"
-              allowFullScreen
-              allow="autoplay; encrypted-media"
-              style={{ border: 0 }}
+      <div className="w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
+        {/* Left column — media + text (sticky on desktop) */}
+        <div className="md:sticky md:top-8 space-y-6">
+          {/* Mídia HERO */}
+          {form.media_type === "video" && form.video_embed_url && (
+            <div className="video-glow w-full rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
+              <iframe
+                src={form.video_embed_url}
+                className="w-full h-full"
+                allowFullScreen
+                allow="autoplay; encrypted-media"
+                style={{ border: 0 }}
+              />
+            </div>
+          )}
+          {form.media_type === "video" && !form.video_embed_url && form.video_thumbnail_url && (
+            <img
+              src={form.video_thumbnail_url}
+              alt={form.hero_image_alt ?? ""}
+              className="w-full rounded-lg object-cover"
             />
-          </div>
-        )}
-        {form.media_type === "video" && !form.video_embed_url && form.video_thumbnail_url && (
-          <img
-            src={form.video_thumbnail_url}
-            alt={form.hero_image_alt ?? ""}
-            className="w-full rounded-lg object-cover mb-6"
-          />
-        )}
-        {form.media_type !== "video" && form.hero_image_url && (
-          <img
-            src={form.hero_image_url}
-            alt={form.hero_image_alt ?? ""}
-            className="w-full rounded-lg object-cover mb-6"
-          />
-        )}
+          )}
+          {form.media_type !== "video" && form.hero_image_url && (
+            <img
+              src={form.hero_image_url}
+              alt={form.hero_image_alt ?? ""}
+              className="w-full rounded-lg object-cover"
+            />
+          )}
 
-        <div className="mb-6 space-y-2">
-          <h1 className="text-2xl font-bold">{form.title || form.name}</h1>
-          {form.subtitle && (
-            <p className="text-lg text-muted-foreground">{form.subtitle}</p>
-          )}
-          {form.description && (
-            <p className="text-sm text-muted-foreground">{form.description}</p>
-          )}
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold">{form.title || form.name}</h1>
+            {form.subtitle && (
+              <p className="text-lg text-muted-foreground">{form.subtitle}</p>
+            )}
+            {form.description && (
+              <p className="text-sm text-muted-foreground">{form.description}</p>
+            )}
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {fields.map((field) => (
-            <div key={field.id} className="space-y-1.5">
-              <Label>
-                {field.label}
-                {field.required && <span className="text-destructive ml-1">*</span>}
-              </Label>
+        {/* Right column — form fields */}
+        <div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {fields.map((field) => (
+              <div key={field.id} className="space-y-1.5">
+                <Label>
+                  {field.label}
+                  {field.required && <span className="text-destructive ml-1">*</span>}
+                </Label>
 
-              {field.field_type === "text" && (
-                <Input
-                  placeholder={field.placeholder || ""}
-                  value={values[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  required={field.required}
-                />
-              )}
+                {field.field_type === "text" && (
+                  <Input
+                    placeholder={field.placeholder || ""}
+                    value={values[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    required={field.required}
+                  />
+                )}
 
-              {field.field_type === "email" && (
-                <Input
-                  type="email"
-                  placeholder={field.placeholder || "email@exemplo.com"}
-                  value={values[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  required={field.required}
-                />
-              )}
+                {field.field_type === "email" && (
+                  <Input
+                    type="email"
+                    placeholder={field.placeholder || "email@exemplo.com"}
+                    value={values[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    required={field.required}
+                  />
+                )}
 
-              {field.field_type === "phone" && (
-                <PhoneInputWithDDI
-                  placeholder={field.placeholder || "(11) 99999-9999"}
-                  value={values[field.id] || ""}
-                  onChange={(val) => handleChange(field.id, val)}
-                  required={field.required}
-                />
-              )}
+                {field.field_type === "phone" && (
+                  <PhoneInputWithDDI
+                    placeholder={field.placeholder || "(11) 99999-9999"}
+                    value={values[field.id] || ""}
+                    onChange={(val) => handleChange(field.id, val)}
+                    required={field.required}
+                  />
+                )}
 
-              {field.field_type === "number" && (
-                <Input
-                  type="number"
-                  placeholder={field.placeholder || ""}
-                  value={values[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  required={field.required}
-                />
-              )}
+                {field.field_type === "number" && (
+                  <Input
+                    type="number"
+                    placeholder={field.placeholder || ""}
+                    value={values[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    required={field.required}
+                  />
+                )}
 
-              {field.field_type === "textarea" && (
-                <textarea
-                  className="w-full border rounded-md p-2 text-sm min-h-[100px] bg-background border-input"
-                  placeholder={field.placeholder || ""}
-                  value={values[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  required={field.required}
-                />
-              )}
+                {field.field_type === "textarea" && (
+                  <textarea
+                    className="w-full border rounded-md p-2 text-sm min-h-[100px] bg-background border-input"
+                    placeholder={field.placeholder || ""}
+                    value={values[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    required={field.required}
+                  />
+                )}
 
-              {field.field_type === "select" && (
-                <select
-                  className="w-full border rounded-md p-2 text-sm bg-background border-input"
-                  value={values[field.id] || ""}
-                  onChange={(e) => handleChange(field.id, e.target.value)}
-                  required={field.required}
-                >
-                  <option value="">{field.placeholder || "Selecione..."}</option>
-                  {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              )}
+                {field.field_type === "select" && (
+                  <select
+                    className="w-full border rounded-md p-2 text-sm bg-background border-input"
+                    value={values[field.id] || ""}
+                    onChange={(e) => handleChange(field.id, e.target.value)}
+                    required={field.required}
+                  >
+                    <option value="">{field.placeholder || "Selecione..."}</option>
+                    {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                )}
 
-              {field.field_type === "radio" && (
-                <div className="space-y-2">
-                  {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name={`field-${field.id}`}
-                        value={opt}
-                        checked={values[field.id] === opt}
-                        onChange={() => handleChange(field.id, opt)}
-                        required={field.required && !values[field.id]}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {field.field_type === "checkbox" && (
-                <div className="space-y-2">
-                  {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={(values[field.id] || []).includes(opt)}
-                        onChange={(e) => {
-                          const current = values[field.id] || [];
-                          handleChange(
-                            field.id,
-                            e.target.checked ? [...current, opt] : current.filter((v: string) => v !== opt)
-                          );
-                        }}
-                      />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              )}
-
-              {field.field_type === "slider" && (() => {
-                const opts = (field.options && !Array.isArray(field.options)) ? field.options as Record<string, any> : {};
-                const min = opts.min ?? 0;
-                const mid = opts.mid ?? 50;
-                const max = opts.max ?? 100;
-                const current = values[field.id] ?? mid;
-                return (
-                  <div className="space-y-3 pt-2">
-                    <Slider
-                      min={min}
-                      max={max}
-                      step={1}
-                      value={[current]}
-                      onValueChange={([v]) => handleChange(field.id, v)}
-                    />
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>{min}</span>
-                      <span>{mid}</span>
-                      <span>{max}</span>
-                    </div>
-                    <p className="text-sm font-medium text-center">Valor: {current}</p>
+                {field.field_type === "radio" && (
+                  <div className="space-y-2">
+                    {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
+                      <label key={opt} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={`field-${field.id}`}
+                          value={opt}
+                          checked={values[field.id] === opt}
+                          onChange={() => handleChange(field.id, opt)}
+                          required={field.required && !values[field.id]}
+                        />
+                        {opt}
+                      </label>
+                    ))}
                   </div>
-                );
-              })()}
-            </div>
-          ))}
+                )}
 
-          {inlineError && (
-            <p className="text-sm text-destructive">{inlineError}</p>
-          )}
+                {field.field_type === "checkbox" && (
+                  <div className="space-y-2">
+                    {(Array.isArray(field.options) ? field.options : []).map((opt: string) => (
+                      <label key={opt} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={(values[field.id] || []).includes(opt)}
+                          onChange={(e) => {
+                            const current = values[field.id] || [];
+                            handleChange(
+                              field.id,
+                              e.target.checked ? [...current, opt] : current.filter((v: string) => v !== opt)
+                            );
+                          }}
+                        />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                )}
 
-          <Button
-            type="submit"
-            className="brand-btn w-full"
-            disabled={submitting}
-            style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
-          >
-            {submitting ? "Enviando..." : "Enviar"}
-          </Button>
-        </form>
+                {field.field_type === "slider" && (() => {
+                  const opts = (field.options && !Array.isArray(field.options)) ? field.options as Record<string, any> : {};
+                  const min = opts.min ?? 0;
+                  const mid = opts.mid ?? 50;
+                  const max = opts.max ?? 100;
+                  const current = values[field.id] ?? mid;
+                  return (
+                    <div className="space-y-3 pt-2">
+                      <Slider
+                        min={min}
+                        max={max}
+                        step={1}
+                        value={[current]}
+                        onValueChange={([v]) => handleChange(field.id, v)}
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{min}</span>
+                        <span>{mid}</span>
+                        <span>{max}</span>
+                      </div>
+                      <p className="text-sm font-medium text-center">Valor: {current}</p>
+                    </div>
+                  );
+                })()}
+              </div>
+            ))}
+
+            {inlineError && (
+              <p className="text-sm text-destructive">{inlineError}</p>
+            )}
+
+            <Button
+              type="submit"
+              className="brand-btn w-full"
+              disabled={submitting}
+              style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
+            >
+              {submitting ? "Enviando..." : "Enviar"}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );
