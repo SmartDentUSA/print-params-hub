@@ -5,7 +5,7 @@ import { logAIUsage } from "../_shared/log-ai-usage.ts";
 import { buildCommercialInstruction, determineLeadArchetype, ARCHETYPE_STRATEGIES, classifyLeadMaturity } from "../_shared/lia-sdr.ts";
 import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, FALLBACK_MESSAGES, type EscalationType } from "../_shared/lia-escalation.ts";
 import { detectPrinterDialogState, isPrinterParamQuestion, isOffTopicFromDialog, fetchActiveBrands, fetchBrandModels, fetchAvailableResins, findBrandInMessage, findModelInList, findResinInList, ASK_BRAND, ASK_MODEL, ASK_RESIN, RESIN_FOUND, RESIN_NOT_FOUND, BRAND_NOT_FOUND, MODEL_NOT_FOUND, type DialogState } from "../_shared/lia-printer-dialog.ts";
-import { isGreeting, isSupportQuestion, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap } from "../_shared/lia-guards.ts";
+import { isGreeting, isSupportQuestion, isSupportInfoQuery, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap } from "../_shared/lia-guards.ts";
 import { TOPIC_WEIGHTS, applyTopicWeights, searchByILIKE, searchCompanyKB, CONTENT_REQUEST_REGEX, searchContentDirect, searchCatalogProducts, searchProcessingInstructions, searchParameterSets, searchArticlesAndAuthors, searchKnowledge, buildStructuredContext } from "../_shared/lia-rag.ts";
 
 const corsHeaders = {
@@ -2952,6 +2952,72 @@ REGRAS:
       }
     }
 
+    // 0b-query. Ticket listing interceptor — detect "meus chamados", "status do chamado", etc.
+    if (isSupportInfoQuery(message) && currentLeadId) {
+      console.log(`[support_info] Detected ticket query intent for lead ${currentLeadId}`);
+      try {
+        // Resolve email from leads table to find lia_attendances lead_id
+        const { data: leadsRow } = await supabase.from("leads").select("email").eq("id", currentLeadId).maybeSingle();
+        let liaLeadId = currentLeadId;
+        if (leadsRow?.email) {
+          const { data: liaRow } = await supabase.from("lia_attendances").select("id").eq("email", leadsRow.email).maybeSingle();
+          if (liaRow) liaLeadId = liaRow.id;
+        }
+
+        const { data: tickets } = await supabase
+          .from("technical_tickets")
+          .select("ticket_full_id, status, equipment, client_summary, ai_summary, created_at")
+          .eq("lead_id", liaLeadId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        let ticketListText: string;
+        if (!tickets || tickets.length === 0) {
+          const noTicketTexts: Record<string, string> = {
+            "pt-BR": "Você ainda não tem chamados técnicos registrados. Se precisar abrir um, é só me dizer! 😊",
+            "en-US": "You don't have any technical tickets yet. If you need to open one, just let me know! 😊",
+            "es-ES": "Aún no tienes tickets técnicos registrados. Si necesitas abrir uno, ¡solo dime! 😊",
+          };
+          ticketListText = noTicketTexts[lang] || noTicketTexts["pt-BR"];
+        } else {
+          const statusEmoji: Record<string, string> = { open: "🟡", in_progress: "🔵", resolved: "✅", closed: "⚫" };
+          const statusLabel: Record<string, Record<string, string>> = {
+            "pt-BR": { open: "Aberto", in_progress: "Em andamento", resolved: "Resolvido", closed: "Fechado" },
+            "en-US": { open: "Open", in_progress: "In progress", resolved: "Resolved", closed: "Closed" },
+            "es-ES": { open: "Abierto", in_progress: "En progreso", resolved: "Resuelto", closed: "Cerrado" },
+          };
+          const labels = statusLabel[lang] || statusLabel["pt-BR"];
+          const headerTexts: Record<string, string> = {
+            "pt-BR": "📋 **Seus chamados técnicos:**\n\n",
+            "en-US": "📋 **Your technical tickets:**\n\n",
+            "es-ES": "📋 **Tus tickets técnicos:**\n\n",
+          };
+          const footerTexts: Record<string, string> = {
+            "pt-BR": "\n\nDeseja abrir um novo chamado ou saber mais sobre algum desses?",
+            "en-US": "\n\nWould you like to open a new ticket or learn more about any of these?",
+            "es-ES": "\n\n¿Deseas abrir un nuevo ticket o saber más sobre alguno de estos?",
+          };
+
+          const ticketLines = tickets.map((t: any, i: number) => {
+            const emoji = statusEmoji[t.status] || "⚪";
+            const label = labels[t.status] || t.status;
+            const date = new Date(t.created_at).toLocaleDateString(lang === "en-US" ? "en-US" : lang === "es-ES" ? "es-ES" : "pt-BR");
+            const summary = t.ai_summary || t.client_summary || "";
+            const summaryLine = summary ? `\n   📝 ${summary.slice(0, 80)}${summary.length > 80 ? "..." : ""}` : "";
+            return `${i + 1}. **Chamado ${t.ticket_full_id}** ${emoji} ${label}\n   📅 ${date}\n   🔧 ${t.equipment || "—"}${summaryLine}`;
+          });
+
+          ticketListText = (headerTexts[lang] || headerTexts["pt-BR"]) + ticketLines.join("\n\n") + (footerTexts[lang] || footerTexts["pt-BR"]);
+        }
+
+        try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: ticketListText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_info→ticket_list" }); } catch { /* ignore */ }
+        return streamTextResponse(ticketListText, corsHeaders);
+      } catch (e) {
+        console.error("[support_info] Error listing tickets:", e);
+        // Fall through to normal flow
+      }
+    }
+
     // 0b-entry. Support question detection — start support ticket flow instead of static redirect
     // Also force support flow when topic_context === "support" (card "Preciso de uma mãozinha")
     const ticketJustCompleted = (sessionEntities as Record<string, unknown>)?.support_ticket_completed === true;
@@ -2968,7 +3034,7 @@ REGRAS:
       }, { onConflict: "session_id" });
     }
     
-    if (!ticketBlocksSupport && (isSupportMsg || (topic_context === "support" && !supportFlowStage))) {
+    if (!ticketBlocksSupport && !isSupportInfoQuery(message) && (isSupportMsg || (topic_context === "support" && !supportFlowStage))) {
       console.log(`[support_flow] Triggered — isSupportQuestion=${isSupportMsg}, topic_context=${topic_context}`);
       // Fetch lead equipment for selection — resolve lia_attendances ID from leads.id
       let equipmentOptions: string[] = [];
