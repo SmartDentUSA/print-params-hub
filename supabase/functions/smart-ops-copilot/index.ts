@@ -893,13 +893,21 @@ function applyAdvancedFilters(query: any, args: any): any {
   if (args.where_not_null) {
     for (const f of args.where_not_null) query = query.not(f, "is", null);
   }
-  // Text search in JSONB/text fields — for JSONB we use textRepresentation.cd operator
-  // For regular text fields, just use ilike
+  // Text search in JSONB/text fields
+  // For known JSONB columns, cast to ::text via RPC or use textual filter workaround
+  const JSONB_COLUMNS = new Set([
+    "piperun_deals_history", "cognitive_analysis", "proposals_data",
+    "portfolio_json", "itens_proposta_parsed", "historico_resumos",
+    "sellflux_custom_fields", "extra_data"
+  ]);
   if (args.where_text_search) {
     for (const [k, v] of Object.entries(args.where_text_search)) {
-      // Use ilike which works on text columns; for JSONB columns like itens_proposta_parsed,
-      // itens_proposta_crm is actually text so ilike works directly
-      query = query.ilike(k, `%${v}%`);
+      if (JSONB_COLUMNS.has(k)) {
+        // For JSONB columns, use ::text cast via .filter() with raw PostgREST syntax
+        query = query.filter(k + "::text", "ilike", `%${v}%`);
+      } else {
+        query = query.ilike(k, `%${v}%`);
+      }
     }
   }
   if (args.order_by) query = query.order(args.order_by, { ascending: args.ascending ?? false });
