@@ -63,6 +63,9 @@ interface SmartOpsForm {
   video_id: string | null;
   video_thumbnail_url: string | null;
   video_embed_url: string | null;
+  brand_color_h: number | null;
+  brand_color_s: number | null;
+  brand_color_l: number | null;
 }
 
 const BASE_FORM_FIELDS = [
