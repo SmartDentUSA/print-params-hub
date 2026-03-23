@@ -1340,6 +1340,21 @@ CAMPOS IMPORTANTES de lia_attendances:
 - cognitive_analysis, historico_resumos, resumo_historico_ia
 - entrada_sistema, created_at, updated_at, ultima_sessao_at
 - produto_interesse, impressora_modelo, resina_interesse
+- empresa_nome, empresa_cnpj, empresa_piperun_id (dados de empresa do lead)
+- piperun_origin_name, original_source, source_reference (origem do lead)
+- piperun_activities_count, piperun_last_activity_at (atividades no CRM)
+- piperun_deals_history (JSONB array — NÃO use query_leads_advanced para buscar dentro dele, use query_deal_history)
+- ltv_total, anchor_product, workflow_score (métricas calculadas)
+- pessoa_hash, empresa_hash, pessoa_piperun_id (identificadores de consolidação)
+
+HISTÓRICO DE DEALS (query_deal_history):
+- Use SEMPRE que precisar buscar deals ganhos, perdidos, por produto ou vendedor
+- Exemplos:
+  - "Quais deals foram ganhos?" → query_deal_history com status="ganho"
+  - "Quem comprou Medit?" → query_deal_history com product="Medit"
+  - "Deals da Patricia" → query_deal_history com owner="Patricia"
+  - "Deals acima de 50k" → query_deal_history com min_value=50000
+- NUNCA tente buscar deals via where_text_search em piperun_deals_history — use query_deal_history
 
 TAGS CRM PADRONIZADAS:
 - Jornada: J01_CONSCIENCIA → J06_APOIO
