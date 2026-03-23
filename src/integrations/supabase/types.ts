@@ -256,8 +256,78 @@ export type Database = {
             foreignKeyName: "agent_sessions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "lead_model_routing"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
           },
         ]
       }
@@ -6548,11 +6618,13 @@ export type Database = {
       smartops_forms: {
         Row: {
           active: boolean
+          badge_text: string | null
           brand_color_h: number | null
           brand_color_l: number | null
           brand_color_s: number | null
           campaign_identifier: string | null
           created_at: string
+          cta_text: string | null
           description: string | null
           form_purpose: string
           hero_image_alt: string | null
@@ -6568,6 +6640,7 @@ export type Database = {
           success_redirect_url: string | null
           theme_color: string | null
           title: string | null
+          trust_text: string | null
           updated_at: string
           video_embed_url: string | null
           video_id: string | null
@@ -6576,11 +6649,13 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          badge_text?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
           campaign_identifier?: string | null
           created_at?: string
+          cta_text?: string | null
           description?: string | null
           form_purpose?: string
           hero_image_alt?: string | null
@@ -6596,6 +6671,7 @@ export type Database = {
           success_redirect_url?: string | null
           theme_color?: string | null
           title?: string | null
+          trust_text?: string | null
           updated_at?: string
           video_embed_url?: string | null
           video_id?: string | null
@@ -6604,11 +6680,13 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          badge_text?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
           campaign_identifier?: string | null
           created_at?: string
+          cta_text?: string | null
           description?: string | null
           form_purpose?: string
           hero_image_alt?: string | null
@@ -6624,6 +6702,7 @@ export type Database = {
           success_redirect_url?: string | null
           theme_color?: string | null
           title?: string | null
+          trust_text?: string | null
           updated_at?: string
           video_embed_url?: string | null
           video_id?: string | null
