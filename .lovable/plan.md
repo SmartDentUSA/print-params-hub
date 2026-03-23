@@ -1,46 +1,28 @@
 
 
-## Apply Split Layout to PublicFormPage
+## Diagnosis: Frontend Not Yet Published
 
-### File: `src/pages/PublicFormPage.tsx`
-
-**Single change** — replace lines 320-507 (the `<div className="w-full max-w-lg mt-1">` wrapper and its contents) with a two-column grid:
-
-**Outer wrapper** changes from:
+I verified the code in `src/pages/PublicFormPage.tsx` — the split layout grid is correctly implemented at line 320:
 ```
-<div className="w-full max-w-lg mt-1">
-```
-to:
-```
-<div className="w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
+grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12
 ```
 
-**Left column** — wrap media + title/subtitle/description in:
-```html
-<div className="md:sticky md:top-8 space-y-6">
-  <!-- video/image hero (remove mb-6 from each) -->
-  <!-- title/subtitle/description block (remove mb-6) -->
-</div>
-```
+However, screenshots from **both** URLs show the old single-column layout:
+- `parametros.smartdent.com.br` (Vercel)
+- `print-params-hub.lovable.app` (Lovable published)
 
-**Right column** — wrap `<form>` in:
-```html
-<div>
-  <form onSubmit={handleSubmit} className="space-y-5">
-    <!-- all field renderers unchanged -->
-  </form>
-</div>
-```
+**Root cause:** Frontend code changes in Lovable require an explicit **Publish → Update** to go live. The code is saved in the editor but hasn't been deployed yet.
 
-### Summary of class changes
-| Element | Before | After |
-|---|---|---|
-| Outer container | `max-w-lg` | `max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start` |
-| Left column (new wrapper) | — | `md:sticky md:top-8 space-y-6` |
-| Media elements | `mb-6` | removed (spacing handled by parent `space-y-6`) |
-| Title block | `mb-6 space-y-2` | `space-y-2` (no mb-6) |
-| Right column (new wrapper) | — | plain `<div>` |
-| Form + fields | unchanged | unchanged |
+### Steps to deploy
 
-No logic, state, or submission changes. Mobile stacks vertically as before.
+1. **Lovable published URL** (`print-params-hub.lovable.app`):
+   - Click the **Publish** button (top right) → Click **Update**
+   - This will deploy the latest frontend build
+
+2. **Vercel / parametros.smartdent.com.br**:
+   - If GitHub integration is connected: sync/push changes to GitHub, then Vercel will auto-rebuild
+   - If not connected: you'll need to connect GitHub or manually deploy
+
+### No code changes needed
+The split layout implementation is already correct. This is purely a deployment step.
 
