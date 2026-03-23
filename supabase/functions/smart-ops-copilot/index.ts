@@ -439,6 +439,25 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_deal_history",
+      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use esta ferramenta sempre que precisar consultar deals fechados, ganhos, perdidos ou buscar por produto em propostas.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", description: "Status do deal: ganho, won, perdido, lost, aberto, open (busca parcial)" },
+          product: { type: "string", description: "Nome do produto (busca parcial no deal inteiro)" },
+          owner: { type: "string", description: "Nome do vendedor/owner (busca parcial)" },
+          min_value: { type: "number", description: "Valor mínimo do deal" },
+          max_value: { type: "number", description: "Valor máximo do deal" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 50)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
