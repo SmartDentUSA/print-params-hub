@@ -280,7 +280,7 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div className="public-form-page min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
+    <div className="public-form-page min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16" data-layout="split-v2">
       <style>{`
         :root {
           --brand-h: 215;
