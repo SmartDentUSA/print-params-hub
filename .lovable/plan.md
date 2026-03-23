@@ -1,46 +1,46 @@
 
-Objetivo: fazer o layout novo realmente chegar ao ambiente publicado em `https://print-params-hub.lovable.app` e no domínio `https://parametros.smartdent.com.br`.
 
-O que eu confirmei agora:
-- No código atual, `src/pages/PublicFormPage.tsx` já está com o layout novo:
-  - `max-w-5xl`
-  - `grid grid-cols-1 md:grid-cols-2`
-  - coluna esquerda `md:sticky md:top-8`
-- Mas o HTML servido em produção ainda está antigo. Eu li o HTML das duas URLs publicadas e ambas ainda entregam:
-  - `<div class="w-full max-w-lg mt-1">`
-  - mídia com `mb-6`
-- Então o problema não é “CSS novo não carregou”. O problema é que o deploy publicado ainda está usando markup antigo.
+# Bug Fix: Dra. L.I.A. Loop de Saudação — Sessão Nunca Persiste
 
-Plano de correção:
-1. Reconciliar a publicação do frontend
-   - Publicar novamente este projeto no Lovable usando **Publish → Update**.
-   - Isso é necessário porque mudanças de frontend só entram em produção após publish.
+## Problema
+Toda mensagem do lead é tratada como "primeiro contato", gerando uma saudação repetida em loop. O bot nunca avança para o fluxo de RAG/conversa real.
 
-2. Confirmar o ambiente correto
-   - Verificar em **Settings → Domains** se `parametros.smartdent.com.br` está ligado a este projeto atual, e não a outro deploy/projeto antigo.
-   - Se o domínio estiver em outro projeto, mover/reconectar.
+## Causa Raiz
+A tabela `agent_sessions` tem uma foreign key `agent_sessions_lead_id_fkey` que referencia `leads(id)`. Porém, o sistema migrou para usar `lia_attendances` como tabela principal de leads. Leads que existem apenas em `lia_attendances` (como Thiago — `f611bce3-2bc8-49bd-a6f5-976eb91075a3`) **não existem em `leads`**, causando violação de FK silenciosa.
 
-3. Validar a saída publicada
-   - Após a publicação, conferir novamente o HTML da rota `/f/-formulario-exocad-ia`.
-   - O esperado é aparecer no HTML publicado algo como:
+Resultado: o `upsert` em `agent_sessions` (linha ~2030) falha silenciosamente. Na próxima mensagem, `sessionEntities` é `null`, e o `detectLeadCollectionState` retorna `needs_name` em vez de `from_session`. O ciclo se repete infinitamente.
+
 ```text
-w-full max-w-5xl mt-1 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start
+Fluxo atual (bug):
+  MSG 1 (email) → needs_name → encontra lead → gera saudação → tenta upsert session → FK FAIL (silencioso)
+  MSG 2 (qualquer) → session lookup → NULL → detecta email no history → needs_name → saudação de novo
+  MSG 3 → mesmo ciclo...
 ```
 
-4. Eliminar falso positivo de cache
-   - Testar em janela anônima / hard refresh.
-   - Se ainda aparecer o layout antigo depois do publish, isso reforça que o domínio está apontando para outro projeto/deploy, não para cache.
+## Plano de Correção
 
-5. QA final
-   - Desktop: mídia/texto à esquerda e formulário à direita.
-   - Mobile: empilhado verticalmente.
-   - Verificar tanto em `print-params-hub.lovable.app` quanto em `parametros.smartdent.com.br`.
+### 1. Migração: Alterar FK de `agent_sessions.lead_id`
+Mudar a foreign key para referenciar `lia_attendances(id)` em vez de `leads(id)`.
 
-Detalhe técnico importante:
-- A URL de preview autenticado não ficou acessível publicamente para inspeção direta, mas as duas URLs live/publicadas foram suficientes para provar a divergência.
-- Como o HTML publicado contém `max-w-lg`, não há evidência de bug no Tailwind nem no JSX atual; a divergência está no deploy/publicação/domínio.
+```sql
+ALTER TABLE agent_sessions DROP CONSTRAINT agent_sessions_lead_id_fkey;
+ALTER TABLE agent_sessions ADD CONSTRAINT agent_sessions_lead_id_fkey 
+  FOREIGN KEY (lead_id) REFERENCES lia_attendances(id) ON DELETE SET NULL;
+```
 
-Se eu fosse implementar a correção em modo de execução, eu focaria em:
-- republicar o frontend;
-- checar o vínculo do domínio customizado;
-- validar o HTML publicado depois.
+### 2. Backfill: Sincronizar leads ausentes (proteção temporária)
+Inserir na tabela `leads` os registros de `lia_attendances` que não existem lá, para evitar quebra de outras dependências.
+
+### 3. Melhorar tratamento de erro no upsert de sessão
+No `dra-lia/index.ts`, adicionar log explícito quando o upsert de sessão falha (atualmente é silencioso no catch).
+
+### 4. Validar fix
+- Reenviar mensagem como Thiago e confirmar que a segunda mensagem NÃO gera saudação.
+- Verificar que `agent_sessions` contém o registro com `lead_id` preenchido.
+
+## Detalhes Técnicos
+- **Tabela afetada:** `agent_sessions` (constraint `agent_sessions_lead_id_fkey`)
+- **Lead de teste:** `thiago.nct@gmail.com` — ID `f611bce3-2bc8-49bd-a6f5-976eb91075a3` existe em `lia_attendances` mas não em `leads`
+- **Arquivo principal:** `supabase/functions/dra-lia/index.ts` linhas ~2030-2051 (upsert session)
+- **Impacto:** afeta TODOS os leads que foram criados diretamente em `lia_attendances` sem correspondência em `leads`
+
