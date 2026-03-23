@@ -495,7 +495,7 @@ export default function PublicFormPage() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full hover:opacity-90 transition-opacity"
               disabled={submitting}
               style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
             >
