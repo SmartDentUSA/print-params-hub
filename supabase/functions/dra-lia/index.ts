@@ -2028,7 +2028,7 @@ REGRAS:
           const missingPhone = !attendance?.telefone_normalized;
 
           // Update session with lead info + profile + recent history + archetype + timeline
-          await supabase.from("agent_sessions").upsert({
+          const { error: returningSessionErr } = await supabase.from("agent_sessions").upsert({
             session_id,
             lead_id: leadId,
             extracted_entities: {
@@ -2050,6 +2050,7 @@ REGRAS:
             current_state: "idle",
             last_activity_at: new Date().toISOString(),
           }, { onConflict: "session_id" });
+          if (returningSessionErr) console.error("[returning-lead] session upsert FAILED:", returningSessionErr.message, "lead_id:", leadId);
           currentLeadId = leadId;
 
           // ── Record session_start event in lead_activity_log (fire-and-forget) ──
