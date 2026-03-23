@@ -8655,6 +8655,29 @@ export type Database = {
         }
         Returns: string
       }
+      fn_search_deals_by_status: {
+        Args: {
+          p_limit?: number
+          p_max_value?: number
+          p_min_value?: number
+          p_owner?: string
+          p_product?: string
+          p_status?: string
+        }
+        Returns: {
+          deal_created_at: string
+          deal_id: string
+          deal_items: string
+          deal_origin: string
+          deal_owner: string
+          deal_stage: string
+          deal_status: string
+          deal_value: number
+          lead_email: string
+          lead_id: string
+          lead_nome: string
+        }[]
+      }
       fn_search_leads_by_proposal_product: {
         Args: { deal_status?: string; product_search: string }
         Returns: {

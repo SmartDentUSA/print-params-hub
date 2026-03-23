@@ -439,6 +439,25 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_deal_history",
+      description: "Busca no histórico de deals (piperun_deals_history JSONB) usando lateral join eficiente. Permite filtrar por status (ganho/perdido/aberto), produto, vendedor e faixa de valor. Use esta ferramenta sempre que precisar consultar deals fechados, ganhos, perdidos ou buscar por produto em propostas.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", description: "Status do deal: ganho, won, perdido, lost, aberto, open (busca parcial)" },
+          product: { type: "string", description: "Nome do produto (busca parcial no deal inteiro)" },
+          owner: { type: "string", description: "Nome do vendedor/owner (busca parcial)" },
+          min_value: { type: "number", description: "Valor mínimo do deal" },
+          max_value: { type: "number", description: "Valor máximo do deal" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 50)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
@@ -874,13 +893,21 @@ function applyAdvancedFilters(query: any, args: any): any {
   if (args.where_not_null) {
     for (const f of args.where_not_null) query = query.not(f, "is", null);
   }
-  // Text search in JSONB/text fields — for JSONB we use textRepresentation.cd operator
-  // For regular text fields, just use ilike
+  // Text search in JSONB/text fields
+  // For known JSONB columns, cast to ::text via RPC or use textual filter workaround
+  const JSONB_COLUMNS = new Set([
+    "piperun_deals_history", "cognitive_analysis", "proposals_data",
+    "portfolio_json", "itens_proposta_parsed", "historico_resumos",
+    "sellflux_custom_fields", "extra_data"
+  ]);
   if (args.where_text_search) {
     for (const [k, v] of Object.entries(args.where_text_search)) {
-      // Use ilike which works on text columns; for JSONB columns like itens_proposta_parsed,
-      // itens_proposta_crm is actually text so ilike works directly
-      query = query.ilike(k, `%${v}%`);
+      if (JSONB_COLUMNS.has(k)) {
+        // For JSONB columns, use ::text cast via .filter() with raw PostgREST syntax
+        query = query.filter(k + "::text", "ilike", `%${v}%`);
+      } else {
+        query = query.ilike(k, `%${v}%`);
+      }
     }
   }
   if (args.order_by) query = query.order(args.order_by, { ascending: args.ascending ?? false });
@@ -1134,6 +1161,23 @@ async function executeVerifyConsolidation(args: any) {
   }
 }
 
+async function executeQueryDealHistory(args: any) {
+  try {
+    const { data, error } = await supabase.rpc("fn_search_deals_by_status", {
+      p_status: args.status || null,
+      p_product: args.product || null,
+      p_owner: args.owner || null,
+      p_min_value: args.min_value || null,
+      p_max_value: args.max_value || null,
+      p_limit: Math.min(args.limit || 50, 200),
+    });
+    if (error) return { error: error.message };
+    return { count: data?.length || 0, deals: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1159,6 +1203,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   move_crm_stage: executeMoveCrmStage,
   query_ecommerce_orders: executeQueryEcommerceOrders,
   verify_consolidation: executeVerifyConsolidation,
+  query_deal_history: executeQueryDealHistory,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
@@ -1295,6 +1340,21 @@ CAMPOS IMPORTANTES de lia_attendances:
 - cognitive_analysis, historico_resumos, resumo_historico_ia
 - entrada_sistema, created_at, updated_at, ultima_sessao_at
 - produto_interesse, impressora_modelo, resina_interesse
+- empresa_nome, empresa_cnpj, empresa_piperun_id (dados de empresa do lead)
+- piperun_origin_name, original_source, source_reference (origem do lead)
+- piperun_activities_count, piperun_last_activity_at (atividades no CRM)
+- piperun_deals_history (JSONB array — NÃO use query_leads_advanced para buscar dentro dele, use query_deal_history)
+- ltv_total, anchor_product, workflow_score (métricas calculadas)
+- pessoa_hash, empresa_hash, pessoa_piperun_id (identificadores de consolidação)
+
+HISTÓRICO DE DEALS (query_deal_history):
+- Use SEMPRE que precisar buscar deals ganhos, perdidos, por produto ou vendedor
+- Exemplos:
+  - "Quais deals foram ganhos?" → query_deal_history com status="ganho"
+  - "Quem comprou Medit?" → query_deal_history com product="Medit"
+  - "Deals da Patricia" → query_deal_history com owner="Patricia"
+  - "Deals acima de 50k" → query_deal_history com min_value=50000
+- NUNCA tente buscar deals via where_text_search em piperun_deals_history — use query_deal_history
 
 TAGS CRM PADRONIZADAS:
 - Jornada: J01_CONSCIENCIA → J06_APOIO
