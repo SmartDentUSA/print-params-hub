@@ -1754,24 +1754,26 @@ Campos:
       let returningLeadSummary: string | null = null;
       try {
         let existingLead: { id: string; name: string } | null = null;
-        const { data: legacyLead } = await supabase
-          .from("leads")
-          .select("id, name")
+
+        // Check lia_attendances FIRST (canonical table, FK target for agent_sessions)
+        const { data: liaLead } = await supabase
+          .from("lia_attendances")
+          .select("id, nome")
           .eq("email", leadState.email)
           .maybeSingle();
-        if (legacyLead && legacyLead.name) {
-          existingLead = legacyLead;
+        if (liaLead && liaLead.nome) {
+          existingLead = { id: liaLead.id, name: liaLead.nome };
         }
 
-        // Fallback: check lia_attendances (many leads only exist here)
+        // Fallback: check legacy leads table (name only, but ID won't match FK)
         if (!existingLead) {
-          const { data: liaLead } = await supabase
-            .from("lia_attendances")
-            .select("id, nome")
+          const { data: legacyLead } = await supabase
+            .from("leads")
+            .select("id, name")
             .eq("email", leadState.email)
             .maybeSingle();
-          if (liaLead && liaLead.nome) {
-            existingLead = { id: liaLead.id, name: liaLead.nome };
+          if (legacyLead && legacyLead.name) {
+            existingLead = { id: legacyLead.id, name: legacyLead.name };
           }
         }
 
