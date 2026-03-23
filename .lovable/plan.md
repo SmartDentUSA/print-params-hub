@@ -1,46 +1,60 @@
 
 
-# Bug Fix: Dra. L.I.A. Loop de Saudação — Sessão Nunca Persiste
+# Fix: Greeting Loop Still Happening — Lead ID Mismatch Between `leads` and `lia_attendances`
 
-## Problema
-Toda mensagem do lead é tratada como "primeiro contato", gerando uma saudação repetida em loop. O bot nunca avança para o fluxo de RAG/conversa real.
-
-## Causa Raiz
-A tabela `agent_sessions` tem uma foreign key `agent_sessions_lead_id_fkey` que referencia `leads(id)`. Porém, o sistema migrou para usar `lia_attendances` como tabela principal de leads. Leads que existem apenas em `lia_attendances` (como Thiago — `f611bce3-2bc8-49bd-a6f5-976eb91075a3`) **não existem em `leads`**, causando violação de FK silenciosa.
-
-Resultado: o `upsert` em `agent_sessions` (linha ~2030) falha silenciosamente. Na próxima mensagem, `sessionEntities` é `null`, e o `detectLeadCollectionState` retorna `needs_name` em vez de `from_session`. O ciclo se repete infinitamente.
+## Problem
+The previous migration correctly changed the FK on `agent_sessions.lead_id` to reference `lia_attendances`, but the **lookup logic** in `dra-lia/index.ts` (lines 1757-1764) still checks the `leads` table FIRST. When Danilo is found in `leads` with ID `77b33ad0...`, that ID is used for the session upsert — but it doesn't exist in `lia_attendances`, causing FK violation. The session never persists, and the greeting repeats.
 
 ```text
-Fluxo atual (bug):
-  MSG 1 (email) → needs_name → encontra lead → gera saudação → tenta upsert session → FK FAIL (silencioso)
-  MSG 2 (qualquer) → session lookup → NULL → detecta email no history → needs_name → saudação de novo
-  MSG 3 → mesmo ciclo...
+Current flow (still broken):
+  1. User sends email → detectLeadCollectionState returns "needs_name"
+  2. Lookup: leads table → finds Danilo with ID 77b33ad0 (legacy)
+  3. Session upsert with lead_id=77b33ad0 → FK FAILS (not in lia_attendances)
+  4. Next message → session lookup → NULL → greeting again
 ```
 
-## Plano de Correção
+## Root Cause
+Lines 1757-1764: `lia_attendances` is the canonical table, but `leads` is checked first. The `leads.id` ≠ `lia_attendances.id` for the same email.
 
-### 1. Migração: Alterar FK de `agent_sessions.lead_id`
-Mudar a foreign key para referenciar `lia_attendances(id)` em vez de `leads(id)`.
+## Fix (1 file change)
 
-```sql
-ALTER TABLE agent_sessions DROP CONSTRAINT agent_sessions_lead_id_fkey;
-ALTER TABLE agent_sessions ADD CONSTRAINT agent_sessions_lead_id_fkey 
-  FOREIGN KEY (lead_id) REFERENCES lia_attendances(id) ON DELETE SET NULL;
+### `supabase/functions/dra-lia/index.ts` — Reverse lookup priority
+
+Change the lead lookup order to check `lia_attendances` FIRST (the canonical table), and only fall back to `leads` if not found. When found in `leads`, cross-reference with `lia_attendances` to get the correct ID.
+
+**Lines 1756-1776** — Replace with:
+
+```typescript
+let existingLead: { id: string; name: string } | null = null;
+
+// Check lia_attendances FIRST (canonical table, FK target)
+const { data: liaLead } = await supabase
+  .from("lia_attendances")
+  .select("id, nome")
+  .eq("email", leadState.email)
+  .maybeSingle();
+if (liaLead && liaLead.nome) {
+  existingLead = { id: liaLead.id, name: liaLead.nome };
+}
+
+// Fallback: check legacy leads table (use name only, ID from lia_attendances)
+if (!existingLead) {
+  const { data: legacyLead } = await supabase
+    .from("leads")
+    .select("id, name")
+    .eq("email", leadState.email)
+    .maybeSingle();
+  if (legacyLead && legacyLead.name) {
+    // Try to find/create matching lia_attendances record
+    existingLead = { id: legacyLead.id, name: legacyLead.name };
+  }
+}
 ```
 
-### 2. Backfill: Sincronizar leads ausentes (proteção temporária)
-Inserir na tabela `leads` os registros de `lia_attendances` que não existem lá, para evitar quebra de outras dependências.
+This ensures that when the session upsert runs at line 2031 with `lead_id: leadId`, the ID always comes from `lia_attendances` (the FK target), not the legacy `leads` table.
 
-### 3. Melhorar tratamento de erro no upsert de sessão
-No `dra-lia/index.ts`, adicionar log explícito quando o upsert de sessão falha (atualmente é silencioso no catch).
-
-### 4. Validar fix
-- Reenviar mensagem como Thiago e confirmar que a segunda mensagem NÃO gera saudação.
-- Verificar que `agent_sessions` contém o registro com `lead_id` preenchido.
-
-## Detalhes Técnicos
-- **Tabela afetada:** `agent_sessions` (constraint `agent_sessions_lead_id_fkey`)
-- **Lead de teste:** `thiago.nct@gmail.com` — ID `f611bce3-2bc8-49bd-a6f5-976eb91075a3` existe em `lia_attendances` mas não em `leads`
-- **Arquivo principal:** `supabase/functions/dra-lia/index.ts` linhas ~2030-2051 (upsert session)
-- **Impacto:** afeta TODOS os leads que foram criados diretamente em `lia_attendances` sem correspondência em `leads`
+## Impact
+- Fixes the greeting loop for ALL leads that exist in both `leads` and `lia_attendances` with different IDs
+- No migration needed — code-only fix
+- Backwards compatible: leads only in `leads` table still work via fallback
 
