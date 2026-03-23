@@ -38,6 +38,9 @@ interface FormData {
   video_thumbnail_url: string | null;
   video_embed_url: string | null;
   workflow_stage_target: string | null;
+  brand_color_h: number | null;
+  brand_color_s: number | null;
+  brand_color_l: number | null;
 }
 
 export default function PublicFormPage() {
@@ -101,6 +104,23 @@ export default function PublicFormPage() {
       meta?.removeAttribute("content");
     };
   }, [form]);
+
+  // Adaptive color palette — apply brand_color_h/s/l as CSS vars
+  useEffect(() => {
+    if (!form) return;
+    const h = form.brand_color_h ?? 215;
+    const s = form.brand_color_s ?? 78;
+    const l = form.brand_color_l ?? 54;
+    const root = document.documentElement;
+    root.style.setProperty('--brand-h', String(h));
+    root.style.setProperty('--brand-s', `${s}%`);
+    root.style.setProperty('--brand-l', `${l}%`);
+    return () => {
+      root.style.removeProperty('--brand-h');
+      root.style.removeProperty('--brand-s');
+      root.style.removeProperty('--brand-l');
+    };
+  }, [form?.brand_color_h, form?.brand_color_s, form?.brand_color_l]);
 
   const handleChange = (fieldId: string, value: any) => {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -252,7 +272,7 @@ export default function PublicFormPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4 p-8">
-          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: form.theme_color || "#3b82f6" }} />
+          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: 'var(--brand, #3b82f6)' }} />
           <p className="text-lg font-medium">{form.success_message}</p>
         </div>
       </div>
@@ -260,11 +280,47 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
-      <div className="w-full max-w-lg">
+    <div className="public-form-page min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16">
+      <style>{`
+        :root {
+          --brand-h: 215;
+          --brand-s: 78%;
+          --brand-l: 54%;
+        }
+        .public-form-page {
+          --brand:       hsl(var(--brand-h), var(--brand-s), var(--brand-l));
+          --brand-dark:  hsl(var(--brand-h), var(--brand-s), calc(var(--brand-l) - 12%));
+          --brand-glow:  hsl(var(--brand-h), 90%,            calc(var(--brand-l) + 14%));
+          --brand-faint: hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.12);
+          --brand-border:hsla(var(--brand-h), var(--brand-s), var(--brand-l), 0.28);
+        }
+        .public-form-page .brand-strip {
+          background: var(--brand);
+        }
+        .public-form-page .brand-btn {
+          background: var(--brand);
+          border-color: var(--brand-dark);
+        }
+        .public-form-page .brand-btn:hover {
+          background: var(--brand-dark);
+        }
+        .public-form-page input:focus,
+        .public-form-page select:focus,
+        .public-form-page textarea:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px var(--brand-faint), 0 0 0 1px var(--brand-border);
+          border-color: var(--brand);
+        }
+        .public-form-page .video-glow {
+          box-shadow: 0 0 32px var(--brand-faint);
+        }
+      `}</style>
+      {/* Brand color strip */}
+      <div className="brand-strip fixed top-0 left-0 right-0 h-1 z-50" />
+      <div className="w-full max-w-lg mt-1">
         {/* Mídia HERO */}
         {form.media_type === "video" && form.video_embed_url && (
-          <div className="w-full mb-6 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
+          <div className="video-glow w-full mb-6 rounded-lg overflow-hidden" style={{ aspectRatio: "16/9" }}>
             <iframe
               src={form.video_embed_url}
               className="w-full h-full"
@@ -441,9 +497,9 @@ export default function PublicFormPage() {
 
           <Button
             type="submit"
-            className="w-full"
+            className="brand-btn w-full"
             disabled={submitting}
-            style={{ backgroundColor: form.theme_color || undefined }}
+            style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
           >
             {submitting ? "Enviando..." : "Enviar"}
           </Button>
