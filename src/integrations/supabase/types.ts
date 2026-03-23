@@ -6548,11 +6548,13 @@ export type Database = {
       smartops_forms: {
         Row: {
           active: boolean
+          badge_text: string | null
           brand_color_h: number | null
           brand_color_l: number | null
           brand_color_s: number | null
           campaign_identifier: string | null
           created_at: string
+          cta_text: string | null
           description: string | null
           form_purpose: string
           hero_image_alt: string | null
@@ -6568,6 +6570,7 @@ export type Database = {
           success_redirect_url: string | null
           theme_color: string | null
           title: string | null
+          trust_text: string | null
           updated_at: string
           video_embed_url: string | null
           video_id: string | null
@@ -6576,11 +6579,13 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          badge_text?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
           campaign_identifier?: string | null
           created_at?: string
+          cta_text?: string | null
           description?: string | null
           form_purpose?: string
           hero_image_alt?: string | null
@@ -6596,6 +6601,7 @@ export type Database = {
           success_redirect_url?: string | null
           theme_color?: string | null
           title?: string | null
+          trust_text?: string | null
           updated_at?: string
           video_embed_url?: string | null
           video_id?: string | null
@@ -6604,11 +6610,13 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          badge_text?: string | null
           brand_color_h?: number | null
           brand_color_l?: number | null
           brand_color_s?: number | null
           campaign_identifier?: string | null
           created_at?: string
+          cta_text?: string | null
           description?: string | null
           form_purpose?: string
           hero_image_alt?: string | null
@@ -6624,6 +6632,7 @@ export type Database = {
           success_redirect_url?: string | null
           theme_color?: string | null
           title?: string | null
+          trust_text?: string | null
           updated_at?: string
           video_embed_url?: string | null
           video_id?: string | null
