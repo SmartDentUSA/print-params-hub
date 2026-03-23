@@ -6548,6 +6548,9 @@ export type Database = {
       smartops_forms: {
         Row: {
           active: boolean
+          brand_color_h: number | null
+          brand_color_l: number | null
+          brand_color_s: number | null
           campaign_identifier: string | null
           created_at: string
           description: string | null
@@ -6573,6 +6576,9 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          brand_color_h?: number | null
+          brand_color_l?: number | null
+          brand_color_s?: number | null
           campaign_identifier?: string | null
           created_at?: string
           description?: string | null
@@ -6598,6 +6604,9 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          brand_color_h?: number | null
+          brand_color_l?: number | null
+          brand_color_s?: number | null
           campaign_identifier?: string | null
           created_at?: string
           description?: string | null
