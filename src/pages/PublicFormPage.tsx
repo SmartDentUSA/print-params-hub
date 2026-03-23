@@ -272,7 +272,7 @@ export default function PublicFormPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4 p-8">
-          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: 'var(--brand, #3b82f6)' }} />
+          <CheckCircle className="w-16 h-16 mx-auto" style={{ color: `hsl(var(--brand-h, 215), var(--brand-s, 78%), var(--brand-l, 54%))` }} />
           <p className="text-lg font-medium">{form.success_message}</p>
         </div>
       </div>
@@ -296,13 +296,6 @@ export default function PublicFormPage() {
         }
         .public-form-page .brand-strip {
           background: var(--brand);
-        }
-        .public-form-page .brand-btn {
-          background: var(--brand);
-          border-color: var(--brand-dark);
-        }
-        .public-form-page .brand-btn:hover {
-          background: var(--brand-dark);
         }
         .public-form-page input:focus,
         .public-form-page select:focus,
@@ -502,7 +495,7 @@ export default function PublicFormPage() {
 
             <Button
               type="submit"
-              className="brand-btn w-full"
+              className="w-full"
               disabled={submitting}
               style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
             >
