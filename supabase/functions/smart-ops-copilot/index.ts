@@ -1161,6 +1161,23 @@ async function executeVerifyConsolidation(args: any) {
   }
 }
 
+async function executeQueryDealHistory(args: any) {
+  try {
+    const { data, error } = await supabase.rpc("fn_search_deals_by_status", {
+      p_status: args.status || null,
+      p_product: args.product || null,
+      p_owner: args.owner || null,
+      p_min_value: args.min_value || null,
+      p_max_value: args.max_value || null,
+      p_limit: Math.min(args.limit || 50, 200),
+    });
+    if (error) return { error: error.message };
+    return { count: data?.length || 0, deals: data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1186,6 +1203,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   move_crm_stage: executeMoveCrmStage,
   query_ecommerce_orders: executeQueryEcommerceOrders,
   verify_consolidation: executeVerifyConsolidation,
+  query_deal_history: executeQueryDealHistory,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
