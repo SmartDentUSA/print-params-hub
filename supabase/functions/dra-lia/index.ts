@@ -457,7 +457,7 @@ async function upsertLead(
     }
 
     // Update session with lead_id and entities
-    await supabase.from("agent_sessions").upsert({
+    const { error: sessionUpsertErr } = await supabase.from("agent_sessions").upsert({
       session_id: sessionId,
       lead_id: lead.id,
       extracted_entities: {
@@ -469,6 +469,7 @@ async function upsertLead(
       current_state: "idle",
       last_activity_at: new Date().toISOString(),
     }, { onConflict: "session_id" });
+    if (sessionUpsertErr) console.error("[upsertLead] session upsert FAILED:", sessionUpsertErr.message, "lead_id:", lead.id);
 
     console.log(`[upsertLead] Lead saved: ${name} (${normalizedEmail}) → ${lead.id}`);
 
