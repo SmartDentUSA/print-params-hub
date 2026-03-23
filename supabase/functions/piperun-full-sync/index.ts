@@ -12,7 +12,7 @@ import {
   type PipeRunDealData,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
-import { computeTagsFromStage, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
+import { computeTagsFromStage, mergeTagsCrm, JOURNEY_TAGS } from "../_shared/sellflux-field-map.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
