@@ -312,7 +312,11 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         lead_id: leadId,
         source,
-        trigger: (formPurpose === "sdr_captacao" && !!existingLead)
+        // sdr_captacao_reativacao only if lead already has Piperun presence (deal or person).
+        // Leads without Piperun presence (e.g. came via SellFlux) use "ingest-lead" so the
+        // normal flow creates the person + deal directly without a wasted lookup round-trip.
+        trigger: (formPurpose === "sdr_captacao" && !!existingLead &&
+          !!(existingLead.piperun_id || existingLead.pessoa_piperun_id))
           ? "sdr_captacao_reativacao"
           : "ingest-lead",
       }),

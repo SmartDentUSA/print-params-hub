@@ -82,12 +82,18 @@ async function createPerson(
   if (personCustomFields.length > 0) personPayload.custom_fields = personCustomFields;
 
   console.log(`[lia-assign] Creating person: ${nome} with ${personCustomFields.length} custom fields`);
-  const createRes = await piperunPost(apiToken, "persons", personPayload);
-  if (createRes.success && createRes.data) {
-    const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
-    if (personData?.id) return Number(personData.id);
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    if (attempt > 1) await new Promise((r) => setTimeout(r, 2000));
+    const createRes = await piperunPost(apiToken, "persons", personPayload);
+    if (createRes.success && createRes.data) {
+      const personData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+      if (personData?.id) return Number(personData.id);
+    }
+    console.warn(
+      `[lia-assign] createPerson attempt ${attempt}/2 failed` +
+      ` (HTTP ${createRes.status}): ${JSON.stringify(createRes.data).slice(0, 400)}`
+    );
   }
-  console.warn(`[lia-assign] Failed to create person (${createRes.status})`);
   return null;
 }
 
@@ -1265,8 +1271,36 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      console.error("[lia-assign] Could not find or create person in PipeRun");
+      console.error("[lia-assign] Could not find or create person in PipeRun for", leadEmail);
       flowType = "error_no_person";
+      // Log failure so ops team can monitor and retry
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "error",
+          error_type: "piperun_person_creation_failed",
+          lead_email: lead.email as string,
+          details: {
+            lead_id: lead.id,
+            trigger: trigger || "unknown",
+            message: "findPersonByEmail + createPerson both failed — deal not created in PipeRun",
+          },
+        });
+        await supabase.from("lead_activity_log").insert({
+          lead_id: lead.id as string,
+          event_type: "piperun_sync_failed",
+          entity_type: "piperun",
+          entity_id: null,
+          entity_name: "Sync Piperun — Falha ao criar pessoa",
+          event_data: {
+            label: "Falha ao criar pessoa/deal no Piperun — verifique logs do edge function",
+            trigger: trigger || "unknown",
+            reason: "person_not_found_or_created",
+          },
+          source_channel: trigger || "unknown",
+          event_timestamp: new Date().toISOString(),
+        });
+      } catch {}
     }
 
     // ── 6. Update lead in lia_attendances ──
