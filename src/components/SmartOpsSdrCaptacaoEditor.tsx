@@ -35,6 +35,75 @@ interface SdrForm {
   video_id: string | null;
   video_thumbnail_url: string | null;
   video_embed_url: string | null;
+  brand_color_h: number | null;
+  brand_color_s: number | null;
+  brand_color_l: number | null;
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+      case g: h = ((b - r) / d + 2) / 6; break;
+      default: h = ((r - g) / d + 4) / 6;
+    }
+  }
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+async function extractDominantHue(
+  imageUrl: string
+): Promise<{ h: number; s: number; l: number }> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 80; canvas.height = 45;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, 80, 45);
+        const data = ctx.getImageData(0, 0, 80, 45).data;
+
+        // Count vibrant hue buckets
+        const buckets: Record<number, number> = {};
+        for (let i = 0; i < data.length; i += 16) {
+          if (data[i + 3] < 100) continue;
+          const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+          // Only vibrant colors
+          if (s < 28 || l < 18 || l > 80) continue;
+          const bucket = Math.round(h / 15) * 15;
+          buckets[bucket] = (buckets[bucket] || 0) + 1;
+        }
+
+        // Find dominant hue
+        let bestHue = 215;
+        let bestCount = 0;
+        for (const [hue, count] of Object.entries(buckets)) {
+          if (count > bestCount) { bestCount = count; bestHue = +hue; }
+        }
+
+        // Tune saturation/lightness by hue range
+        let s = 72, l = 54;
+        if (bestHue >= 15 && bestHue <= 50)   { s = 88; l = 52; } // orange/gold
+        else if (bestHue >= 250 && bestHue <= 295) { s = 68; l = 52; } // purple
+        else if (bestHue >= 190 && bestHue <= 250) { s = 75; l = 50; } // blue/cyan
+        else if (bestHue >= 95  && bestHue <= 165) { s = 65; l = 42; } // green
+
+        resolve({ h: bestHue, s, l });
+      } catch {
+        resolve({ h: 215, s: 78, l: 54 }); // fallback SmartDent blue
+      }
+    };
+    img.onerror = () => resolve({ h: 215, s: 78, l: 54 });
+    img.src = imageUrl;
+  });
 }
 
 interface CatalogOption {
@@ -69,6 +138,12 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
   const [videoId, setVideoId] = useState(form.video_id ?? "");
   const [videoThumbnailUrl, setVideoThumbnailUrl] = useState(form.video_thumbnail_url ?? "");
   const [videoEmbedUrl, setVideoEmbedUrl] = useState(form.video_embed_url ?? "");
+
+  const [brandColor, setBrandColor] = useState<{ h: number; s: number; l: number } | null>(
+    form.brand_color_h != null
+      ? { h: form.brand_color_h, s: form.brand_color_s ?? 78, l: form.brand_color_l ?? 54 }
+      : null
+  );
 
   const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([]);
   const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
@@ -113,16 +188,31 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
     setHeroImageUrl(urlData.publicUrl);
     setUploading(false);
     toast.success("Imagem HERO enviada!");
+    // Extract dominant color from uploaded image
+    extractDominantHue(urlData.publicUrl).then((color) => setBrandColor(color));
   };
 
   const handleVideoSelect = (vid: VideoOption) => {
     setVideoId(vid.id);
     setVideoThumbnailUrl(vid.thumbnail_url ?? "");
     setVideoEmbedUrl(vid.embed_url ?? "");
+    // Extract dominant color from video thumbnail
+    if (vid.thumbnail_url) {
+      extractDominantHue(vid.thumbnail_url).then((color) => setBrandColor(color));
+    }
   };
 
   const handleSaveSectionB = async () => {
     setSaving(true);
+
+    // Extract dominant color from media if not yet extracted
+    const imageToAnalyze = mediaType === "video" ? videoThumbnailUrl : heroImageUrl;
+    let colorResult = brandColor ?? { h: 215, s: 78, l: 54 };
+    if (imageToAnalyze && !brandColor) {
+      colorResult = await extractDominantHue(imageToAnalyze);
+      setBrandColor(colorResult);
+    }
+
     const { error } = await supabase
       .from("smartops_forms" as any)
       .update({
@@ -142,6 +232,9 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
         video_id: mediaType === "video" ? (videoId || null) : null,
         video_thumbnail_url: mediaType === "video" ? (videoThumbnailUrl || null) : null,
         video_embed_url: mediaType === "video" ? (videoEmbedUrl || null) : null,
+        brand_color_h: colorResult.h,
+        brand_color_s: colorResult.s,
+        brand_color_l: colorResult.l,
       } as any)
       .eq("id", form.id);
     setSaving(false);
@@ -367,6 +460,21 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
             </div>
           )}
         </div>
+
+        {/* Adaptive color preview */}
+        {brandColor && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: 4,
+              background: `hsl(${brandColor.h}, ${brandColor.s}%, ${brandColor.l}%)`,
+              border: '1px solid rgba(0,0,0,0.15)',
+              flexShrink: 0,
+            }} />
+            <span style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)' }}>
+              Cor adaptativa extraída · hsl({brandColor.h}, {brandColor.s}%, {brandColor.l}%)
+            </span>
+          </div>
+        )}
 
         {/* Hero ALT (acessibilidade / SEO) */}
         <div>
