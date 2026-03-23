@@ -5,7 +5,7 @@ import { logAIUsage } from "../_shared/log-ai-usage.ts";
 import { buildCommercialInstruction, determineLeadArchetype, ARCHETYPE_STRATEGIES, classifyLeadMaturity } from "../_shared/lia-sdr.ts";
 import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, FALLBACK_MESSAGES, type EscalationType } from "../_shared/lia-escalation.ts";
 import { detectPrinterDialogState, isPrinterParamQuestion, isOffTopicFromDialog, fetchActiveBrands, fetchBrandModels, fetchAvailableResins, findBrandInMessage, findModelInList, findResinInList, ASK_BRAND, ASK_MODEL, ASK_RESIN, RESIN_FOUND, RESIN_NOT_FOUND, BRAND_NOT_FOUND, MODEL_NOT_FOUND, type DialogState } from "../_shared/lia-printer-dialog.ts";
-import { isGreeting, isSupportQuestion, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap } from "../_shared/lia-guards.ts";
+import { isGreeting, isSupportQuestion, isSupportInfoQuery, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap } from "../_shared/lia-guards.ts";
 import { TOPIC_WEIGHTS, applyTopicWeights, searchByILIKE, searchCompanyKB, CONTENT_REQUEST_REGEX, searchContentDirect, searchCatalogProducts, searchProcessingInstructions, searchParameterSets, searchArticlesAndAuthors, searchKnowledge, buildStructuredContext } from "../_shared/lia-rag.ts";
 
 const corsHeaders = {
