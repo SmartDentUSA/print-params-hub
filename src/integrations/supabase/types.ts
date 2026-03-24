@@ -6434,6 +6434,309 @@ export type Database = {
         }
         Relationships: []
       }
+      smartops_course_enrollments: {
+        Row: {
+          area_atuacao: string | null
+          course_id: string
+          created_at: string | null
+          created_by: string | null
+          deal_id: string | null
+          deal_pipeline_name: string | null
+          deal_title: string | null
+          deal_value: number | null
+          empresa_cidade: string | null
+          empresa_cnpj: string | null
+          empresa_endereco: string | null
+          empresa_estado: string | null
+          empresa_pais: string | null
+          empresa_telefone: string | null
+          enrolled_at: string | null
+          especialidade: string | null
+          id: string
+          lead_id: string | null
+          notes: string | null
+          numero_contrato: string | null
+          person_name: string | null
+          person_piperun_id: string | null
+          proposal_items_snapshot: Json | null
+          serial_numbers: Json | null
+          status: string | null
+          turma_id: string
+          turma_snapshot: Json
+          updated_at: string | null
+          validated_at: string | null
+          wa_error: string | null
+          wa_sent_at: string | null
+        }
+        Insert: {
+          area_atuacao?: string | null
+          course_id: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          deal_pipeline_name?: string | null
+          deal_title?: string | null
+          deal_value?: number | null
+          empresa_cidade?: string | null
+          empresa_cnpj?: string | null
+          empresa_endereco?: string | null
+          empresa_estado?: string | null
+          empresa_pais?: string | null
+          empresa_telefone?: string | null
+          enrolled_at?: string | null
+          especialidade?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          numero_contrato?: string | null
+          person_name?: string | null
+          person_piperun_id?: string | null
+          proposal_items_snapshot?: Json | null
+          serial_numbers?: Json | null
+          status?: string | null
+          turma_id: string
+          turma_snapshot?: Json
+          updated_at?: string | null
+          validated_at?: string | null
+          wa_error?: string | null
+          wa_sent_at?: string | null
+        }
+        Update: {
+          area_atuacao?: string | null
+          course_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: string | null
+          deal_pipeline_name?: string | null
+          deal_title?: string | null
+          deal_value?: number | null
+          empresa_cidade?: string | null
+          empresa_cnpj?: string | null
+          empresa_endereco?: string | null
+          empresa_estado?: string | null
+          empresa_pais?: string | null
+          empresa_telefone?: string | null
+          enrolled_at?: string | null
+          especialidade?: string | null
+          id?: string
+          lead_id?: string | null
+          notes?: string | null
+          numero_contrato?: string | null
+          person_name?: string | null
+          person_piperun_id?: string | null
+          proposal_items_snapshot?: Json | null
+          serial_numbers?: Json | null
+          status?: string | null
+          turma_id?: string
+          turma_snapshot?: Json
+          updated_at?: string | null
+          validated_at?: string | null
+          wa_error?: string | null
+          wa_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_course_enrollments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      smartops_courses: {
+        Row: {
+          active: boolean | null
+          category: string | null
+          cover_image_url: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          duration_days: number | null
+          duration_hours_per_day: number | null
+          id: string
+          instructor_name: string | null
+          location: string | null
+          max_capacity: number | null
+          meeting_link: string | null
+          modality: string
+          public_visible: boolean | null
+          schedule_dates: Json | null
+          sellflux_campaign_tag: string | null
+          slug: string
+          title: string
+          updated_at: string | null
+          whatsapp_group_link: string | null
+          whatsapp_message_template: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_days?: number | null
+          duration_hours_per_day?: number | null
+          id?: string
+          instructor_name?: string | null
+          location?: string | null
+          max_capacity?: number | null
+          meeting_link?: string | null
+          modality: string
+          public_visible?: boolean | null
+          schedule_dates?: Json | null
+          sellflux_campaign_tag?: string | null
+          slug: string
+          title: string
+          updated_at?: string | null
+          whatsapp_group_link?: string | null
+          whatsapp_message_template?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          category?: string | null
+          cover_image_url?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          duration_days?: number | null
+          duration_hours_per_day?: number | null
+          id?: string
+          instructor_name?: string | null
+          location?: string | null
+          max_capacity?: number | null
+          meeting_link?: string | null
+          modality?: string
+          public_visible?: boolean | null
+          schedule_dates?: Json | null
+          sellflux_campaign_tag?: string | null
+          slug?: string
+          title?: string
+          updated_at?: string | null
+          whatsapp_group_link?: string | null
+          whatsapp_message_template?: string | null
+        }
+        Relationships: []
+      }
+      smartops_enrollment_companions: {
+        Row: {
+          area_atuacao: string | null
+          created_at: string | null
+          email: string | null
+          enrollment_id: string
+          especialidade: string | null
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          area_atuacao?: string | null
+          created_at?: string | null
+          email?: string | null
+          enrollment_id: string
+          especialidade?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          area_atuacao?: string | null
+          created_at?: string | null
+          email?: string | null
+          enrollment_id?: string
+          especialidade?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_enrollment_companions_enrollment_id_fkey"
+            columns: ["enrollment_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_enrollments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       smartops_form_field_responses: {
         Row: {
           created_at: string | null
