@@ -108,7 +108,7 @@ export default function PublicFormPage() {
     };
   }, [form]);
 
-  // Adaptive color palette — apply brand_color_h/s/l as CSS vars
+  // Adaptive color palette — apply brand_color_h/s/l as CSS vars (DB fallback)
   useEffect(() => {
     if (!form) return;
     const h = form.brand_color_h ?? 215;
@@ -124,6 +124,50 @@ export default function PublicFormPage() {
       root.style.removeProperty('--brand-l');
     };
   }, [form?.brand_color_h, form?.brand_color_s, form?.brand_color_l]);
+
+  // Extract vibrant color from hero image/thumbnail and override CSS vars
+  const handleHeroImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    try {
+      const img = e.currentTarget;
+      const canvas = document.createElement('canvas');
+      canvas.width = 60;
+      canvas.height = 60;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, 60, 60);
+      const { data } = ctx.getImageData(0, 0, 60, 60);
+
+      let bestH = -1, bestS = 0, bestL = 0, bestScore = -1;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i] / 255, g = data[i + 1] / 255, b = data[i + 2] / 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const lv = (max + min) / 2;
+        if (lv < 0.18 || lv > 0.82) continue; // skip too dark/light
+        const d = max - min;
+        if (d < 0.12) continue; // skip near-grey
+        const sv = d / (1 - Math.abs(2 * lv - 1));
+        const score = sv * (1 - Math.abs(lv - 0.45) * 1.5);
+        if (score > bestScore) {
+          bestScore = score;
+          let hv = 0;
+          if (max === r) hv = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          else if (max === g) hv = ((b - r) / d + 2) / 6;
+          else hv = ((r - g) / d + 4) / 6;
+          bestH = Math.round(hv * 360);
+          bestS = Math.round(sv * 100);
+          bestL = Math.round(lv * 100);
+        }
+      }
+      if (bestH >= 0) {
+        const root = document.documentElement;
+        root.style.setProperty('--brand-h', String(bestH));
+        root.style.setProperty('--brand-s', `${bestS}%`);
+        root.style.setProperty('--brand-l', `${bestL}%`);
+      }
+    } catch {
+      // CORS or canvas error — keep DB/default values
+    }
+  };
 
   const handleChange = (fieldId: string, value: any) => {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
@@ -333,6 +377,17 @@ export default function PublicFormPage() {
               src={form.video_thumbnail_url}
               alt={form.hero_image_alt ?? ""}
               className="w-full rounded-lg object-cover"
+              crossOrigin="anonymous"
+              onLoad={handleHeroImageLoad}
+            />
+          )}
+          {form.media_type === "video" && form.video_embed_url && form.video_thumbnail_url && (
+            <img
+              src={form.video_thumbnail_url}
+              alt=""
+              className="hidden"
+              crossOrigin="anonymous"
+              onLoad={handleHeroImageLoad}
             />
           )}
           {form.media_type !== "video" && form.hero_image_url && (
@@ -340,6 +395,8 @@ export default function PublicFormPage() {
               src={form.hero_image_url}
               alt={form.hero_image_alt ?? ""}
               className="w-full rounded-lg object-cover"
+              crossOrigin="anonymous"
+              onLoad={handleHeroImageLoad}
             />
           )}
 
