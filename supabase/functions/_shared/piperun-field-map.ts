@@ -763,6 +763,9 @@ function classifyItem(name: string): ParsedProposalItem["category"] {
   return "outro";
 }
 
+// CSS/HTML garbage patterns to filter out after stripping HTML
+const CSS_GARBAGE_RE = /^(rgb\(|rgba\(|font-size|font-family|font-weight|font-style|line-height|text-decoration|text-align|margin|padding|border|color:|background|display|overflow|white-space|letter-spacing|word-spacing|vertical-align|list-style|\d+px|\d+%|\d+em|\d+rem|style=|class=|<|>|\)$)/i;
+
 export function parseProposalItems(rawText: string): {
   parsed: ParsedProposalItem[];
   equipments: { scanner: string | null; impressora: string | null; cad: string | null; pos_impressao: string | null; notebook: string | null; insumos: string | null };
@@ -771,11 +774,20 @@ export function parseProposalItems(rawText: string): {
     return { parsed: [], equipments: { scanner: null, impressora: null, cad: null, pos_impressao: null, notebook: null, insumos: null } };
   }
 
+  // Strip HTML first to avoid CSS garbage in splits
+  const cleanedText = stripHtmlShared(rawText);
+  if (!cleanedText) {
+    return { parsed: [], equipments: { scanner: null, impressora: null, cad: null, pos_impressao: null, notebook: null, insumos: null } };
+  }
+
   // Split by comma or semicolon
-  const segments = rawText.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+  const segments = cleanedText.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
   const parsed: ParsedProposalItem[] = [];
 
   for (let seg of segments) {
+    // Filter CSS/HTML garbage fragments
+    if (CSS_GARBAGE_RE.test(seg) || seg.length < 2 || /^\d+$/.test(seg)) continue;
+
     // Clean prefixes like "(1796) PRO 12549 [10000]" before parsing
     seg = seg.replace(/^\(\d+\)\s*/, '').replace(/^PRO\s*\d+\s*/i, '').replace(/^\[\d+\]\s*/, '');
     // Try to extract pattern: "[qty] Name" or just "Name"
@@ -783,11 +795,12 @@ export function parseProposalItems(rawText: string): {
     if (match) {
       const qty = parseFloat(match[1]) || 1;
       const name = match[2].trim();
+      if (CSS_GARBAGE_RE.test(name) || name.length < 2) continue;
       const category = classifyItem(name);
       parsed.push({ name, qty, category });
     } else {
       const name = seg.trim();
-      if (name) {
+      if (name && !CSS_GARBAGE_RE.test(name) && name.length >= 2) {
         const category = classifyItem(name);
         parsed.push({ name, qty: 1, category });
       }

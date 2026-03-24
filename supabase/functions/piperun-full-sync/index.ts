@@ -252,6 +252,7 @@ Deno.serve(async (req) => {
         const dealSnapshot = buildRichDealSnapshot(deal, {
           dealId,
           product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
+          ownerName: updatePayload.proprietario_lead_crm ? String(updatePayload.proprietario_lead_crm) : null,
         });
 
         const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
