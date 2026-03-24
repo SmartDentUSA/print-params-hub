@@ -147,6 +147,7 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
 
   const [catalogOptions, setCatalogOptions] = useState<CatalogOption[]>([]);
   const [videoOptions, setVideoOptions] = useState<VideoOption[]>([]);
+  const [videoSearch, setVideoSearch] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -423,37 +424,45 @@ export function SmartOpsSdrCaptacaoEditor({ form }: { form: SdrForm }) {
                 </div>
               )}
 
-              {/* Grid de seleção de vídeos */}
-              <p className="text-xs text-muted-foreground">Selecione um vídeo da biblioteca:</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto border rounded-md p-2">
-                {videoOptions.map((vid) => (
-                  <button
-                    key={vid.id}
-                    type="button"
-                    onClick={() => handleVideoSelect(vid)}
-                    className={`rounded-md overflow-hidden border-2 text-left transition-colors ${
-                      videoId === vid.id
-                        ? "border-primary"
-                        : "border-transparent hover:border-muted-foreground/40"
-                    }`}
-                  >
-                    {vid.thumbnail_url ? (
-                      <img
-                        src={vid.thumbnail_url}
-                        alt={vid.title}
-                        className="w-full h-14 object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-14 bg-muted flex items-center justify-center">
-                        <Video className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <p className="text-xs px-1 py-0.5 truncate">{vid.title}</p>
-                  </button>
-                ))}
-                {videoOptions.length === 0 && (
+              {/* Busca + Grid de seleção de vídeos */}
+              <p className="text-xs font-medium text-muted-foreground">Selecione um vídeo da biblioteca:</p>
+              <Input
+                placeholder="Buscar vídeo por título..."
+                value={videoSearch}
+                onChange={(e) => setVideoSearch(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-80 overflow-y-auto border rounded-md p-2">
+                {videoOptions
+                  .filter((v) => v.title.toLowerCase().includes(videoSearch.toLowerCase()))
+                  .map((vid) => (
+                    <button
+                      key={vid.id}
+                      type="button"
+                      onClick={() => handleVideoSelect(vid)}
+                      className={`rounded-md overflow-hidden border-2 text-left transition-colors ${
+                        videoId === vid.id
+                          ? "border-primary"
+                          : "border-transparent hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      {vid.thumbnail_url ? (
+                        <img
+                          src={vid.thumbnail_url}
+                          alt={vid.title}
+                          className="w-full h-24 object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-24 bg-muted flex items-center justify-center">
+                          <Video className="w-6 h-6 text-muted-foreground" />
+                        </div>
+                      )}
+                      <p className="text-xs px-1 py-1 leading-tight line-clamp-2">{vid.title}</p>
+                    </button>
+                  ))}
+                {videoOptions.filter((v) => v.title.toLowerCase().includes(videoSearch.toLowerCase())).length === 0 && (
                   <p className="col-span-3 text-xs text-muted-foreground text-center py-4">
-                    Nenhum vídeo encontrado.
+                    {videoSearch ? `Nenhum resultado para "${videoSearch}"` : "Nenhum vídeo encontrado."}
                   </p>
                 )}
               </div>
