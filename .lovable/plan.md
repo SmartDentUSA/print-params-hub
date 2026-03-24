@@ -1,86 +1,27 @@
 
 
-# Impacto: Converter Admin de Tabs para Sidebar SaaS
+# Plano: Adicionar icones de redes sociais no footer do PublicFormPage
 
-## Situacao Atual
+## Problema
 
-O admin usa **2 niveis de tabs horizontais**:
-- **Nivel 1** (`AdminViewSecure.tsx`): 11 tabs — Modelos, Catalogo, Docs, Conteudo, Autores, Ferramentas, Estatisticas, Usuarios, Configuracoes, PandaVideo, **Smart Ops**
-- **Nivel 2** (`SmartOpsTab.tsx`): 14 sub-tabs dentro de Smart Ops — Bowtie, Kanban, Equipe, Automacoes, Logs, etc.
+O footer do `PublicFormPage.tsx` esta hardcoded — nao usa `useCompanyData()` e portanto nao exibe os icones de redes sociais que vem do Sistema A.
 
-Problema: 25+ tabs horizontais com scroll, dificil de navegar, nao escala.
+## Solucao
 
-## Proposta: Sidebar com Shadcn Sidebar
+Adicionar `useCompanyData()` no `PublicFormPage.tsx` e renderizar icones de redes sociais no footer, usando o mesmo pattern do `Footer.tsx` principal.
 
-Converter para layout SaaS com sidebar lateral colapsavel usando o componente `Sidebar` do shadcn/ui (ja disponivel em `src/components/ui/sidebar.tsx`).
+## Mudanca
 
-### Estrutura da Sidebar
+**Arquivo:** `src/pages/PublicFormPage.tsx`
 
-```text
-┌──────────────────┬─────────────────────────────┐
-│  SIDEBAR (240px) │  CONTEUDO PRINCIPAL          │
-│                  │                              │
-│  [Logo]          │                              │
-│                  │                              │
-│  ▼ Catalogo      │  (componente ativo)          │
-│    Modelos       │                              │
-│    Produtos      │                              │
-│    Docs Sistema  │                              │
-│                  │                              │
-│  ▼ Conteudo      │                              │
-│    Artigos       │                              │
-│    Autores       │                              │
-│                  │                              │
-│  ▼ Smart Ops     │                              │
-│    Bowtie        │                              │
-│    Leads         │                              │
-│    Equipe        │                              │
-│    Automacoes    │                              │
-│    WhatsApp      │                              │
-│    Formularios   │                              │
-│    Treinamentos  │ ← novo                      │
-│    Copilot       │                              │
-│    ...           │                              │
-│                  │                              │
-│  ▼ Sistema       │                              │
-│    Usuarios      │                              │
-│    Configuracoes │                              │
-│    Estatisticas  │                              │
-│                  │                              │
-│  [Logout]        │                              │
-│  [Voltar ao Site]│                              │
-└──────────────────┴─────────────────────────────┘
-```
+1. Importar `useCompanyData` e icones do Lucide (`Instagram`, `Youtube`, `Facebook`, `Linkedin`, `Twitter`)
+2. Chamar `const { data: company } = useCompanyData()` no componente
+3. Substituir o footer hardcoded por um que use `company` para dados textuais (nome, CNPJ, endereco, telefone, site) e renderize icones de redes sociais filtrados (mesmo array pattern do `Footer.tsx`)
+4. Icones exibidos como circulos compactos linkados, centralizados abaixo dos dados da empresa
 
-## Impacto nos Arquivos
+## Detalhes tecnicos
 
-| Arquivo | Impacto |
-|---|---|
-| `src/pages/AdminViewSecure.tsx` | **Alto** — Reescrever layout: trocar `Tabs`/`TabsList`/`TabsContent` por `SidebarProvider` + `Sidebar` + state de secao ativa via `useState` ou rotas |
-| `src/components/SmartOpsTab.tsx` | **Alto** — Eliminar `Tabs`/`TabsList` internas; cada sub-tab vira item direto na sidebar. O componente pode virar apenas um wrapper ou ser eliminado |
-| `src/components/ui/sidebar.tsx` | **Nenhum** — ja existe no projeto |
-| Todos os 25+ componentes de conteudo | **Nenhum** — `AdminModels`, `SmartOpsBowtie`, `SmartOpsLeadsList`, etc. continuam identicos, apenas muda quem os renderiza |
-
-## Abordagem de Navegacao
-
-**Opcao recomendada: useState simples** (sem novas rotas)
-
-- Um `useState<string>('models')` controla qual secao esta ativa
-- Sidebar renderiza `SidebarMenuButton` com `onClick` que muda o state
-- Conteudo principal renderiza o componente correspondente com um switch/map
-- Mantem a mesma URL `/admin` (sem sub-rotas)
-- Vantagem: zero impacto em roteamento, historico, ou deep-linking existente
-
-## Escopo de Mudanca
-
-- **2 arquivos principais** alterados (`AdminViewSecure.tsx` e `SmartOpsTab.tsx`)
-- **0 componentes de conteudo** alterados
-- **0 rotas** novas
-- Sidebar colapsavel em mobile (mini-mode com icones)
-- Grupos colapsaveis (Catalogo, Conteudo, Smart Ops, Sistema)
-- Condicional por role (`isAdmin`/`isAuthor`) ja existente, apenas move para sidebar items
-
-## Risco
-
-Baixo. Os componentes de conteudo sao independentes e nao sabem que estao dentro de tabs. A mudanca e puramente de layout/navegacao no `AdminViewSecure.tsx`.
+- Reutiliza `useCompanyData()` que ja faz cache via React Query
+- Fallback: se `company` nao carregar, mantem os dados hardcoded atuais
+- Icones: circulos de 32px com hover, mesmo estilo do Footer principal mas menor escala
 
