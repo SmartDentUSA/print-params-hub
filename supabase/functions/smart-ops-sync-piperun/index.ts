@@ -380,6 +380,7 @@ async function processDeal(
   const dealSnapshot = buildRichDealSnapshot(deal, {
     dealId,
     product: updatePayload.produto_interesse ? String(updatePayload.produto_interesse) : null,
+    ownerName: updatePayload.proprietario_lead_crm ? String(updatePayload.proprietario_lead_crm) : null,
   });
 
   if (currentLead) {
