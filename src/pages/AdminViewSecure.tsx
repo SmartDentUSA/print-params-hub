@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { User } from '@supabase/supabase-js';
-import { Link } from "react-router-dom";
 import { supabase } from '@/integrations/supabase/client';
 import { ConnectionError } from "@/components/ConnectionError";
 import { AuthPage } from "@/components/AuthPage";
-import { DataImport } from "@/components/DataImport";
 import { AdminStats } from "@/components/AdminStats";
 import { AdminUsers } from "@/components/AdminUsers";
 import { AdminSettings } from "@/components/AdminSettings";
@@ -15,8 +13,7 @@ import { AdminModels } from "@/components/AdminModels";
 import AdminDocumentsList from "@/components/AdminDocumentsList";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, Users, Database, Settings, LogOut, BarChart3, ArrowLeft, FileText, UserCircle, ShoppingCart, FolderOpen, Wrench, Zap } from "lucide-react";
+import { Shield, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AdminKnowledge } from "@/components/AdminKnowledge";
 import { AdminAuthors } from "@/components/AdminAuthors";
@@ -27,7 +24,26 @@ import { AdminArticleReformatter } from "@/components/AdminArticleReformatter";
 import AdminArticleEnricher from "@/components/AdminArticleEnricher";
 import { ApostilaExport } from "@/components/ApostilaExport";
 import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
-import { SmartOpsTab } from "@/components/SmartOpsTab";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/AdminSidebar";
+import { Wrench } from "lucide-react";
+
+// Smart Ops components (flattened from SmartOpsTab)
+import { SmartOpsBowtie } from "@/components/SmartOpsBowtie";
+import { SmartOpsLeadsList } from "@/components/SmartOpsLeadsList";
+import { SmartOpsTeam } from "@/components/SmartOpsTeam";
+import { SmartOpsCSRules } from "@/components/SmartOpsCSRules";
+import { SmartOpsLogs } from "@/components/SmartOpsLogs";
+import { SmartOpsSystemHealth } from "@/components/SmartOpsSystemHealth";
+import { SmartOpsContentProduction } from "@/components/SmartOpsContentProduction";
+import { SmartOpsWhatsAppInbox } from "@/components/SmartOpsWhatsAppInbox";
+import { SmartOpsFormBuilder } from "@/components/SmartOpsFormBuilder";
+import { SmartOpsAIUsageDashboard } from "@/components/SmartOpsAIUsageDashboard";
+import { SmartOpsIntelligenceDashboard } from "@/components/SmartOpsIntelligenceDashboard";
+import { SmartOpsReports } from "@/components/SmartOpsReports";
+import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalytics";
+import { SmartOpsCopilot } from "@/components/SmartOpsCopilot";
+
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -35,10 +51,11 @@ export default function AdminViewSecure() {
   const [userRole, setUserRole] = useState<'admin' | 'author' | 'user' | null>(null);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>('models');
+  const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check authentication and admin status
     const checkAuthAndRole = async () => {
       try {
         const sessionPromise = supabase.auth.getSession();
@@ -57,6 +74,7 @@ export default function AdminViewSecure() {
             setUserRole(roleData.role);
             setIsAdmin(roleData.role === 'admin');
             setIsAuthor(roleData.role === 'author');
+            if (roleData.role === 'author') setActiveSection('knowledge');
           }
         }
       } catch (error) {
@@ -68,7 +86,6 @@ export default function AdminViewSecure() {
 
     checkAuthAndRole();
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
@@ -78,8 +95,6 @@ export default function AdminViewSecure() {
           setUserRole(null);
         } else if (session?.user) {
           setUser(session.user);
-          
-          // Check user role for new session
           setTimeout(async () => {
             try {
               const { data: roleData } = await supabase
@@ -87,15 +102,12 @@ export default function AdminViewSecure() {
                 .select('role')
                 .eq('user_id', session.user.id)
                 .single();
-              
               if (roleData) {
                 setUserRole(roleData.role);
                 setIsAdmin(roleData.role === 'admin');
                 setIsAuthor(roleData.role === 'author');
               }
-            } catch (error) {
-              // Silent error handling for security
-            }
+            } catch (error) {}
           }, 100);
         }
       }
@@ -132,12 +144,10 @@ export default function AdminViewSecure() {
     return <ConnectionError onRetry={() => window.location.reload()} />;
   }
 
-  // Show authentication page if not logged in
   if (!user) {
     return <AuthPage onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Show access denied if not admin or author
   if (!isAdmin && !isAuthor) {
     return (
       <div className="min-h-screen bg-gradient-surface flex items-center justify-center p-4">
@@ -149,7 +159,6 @@ export default function AdminViewSecure() {
             <CardTitle className="text-2xl text-destructive">Acesso Negado</CardTitle>
             <CardDescription>
               Você não tem permissão para acessar esta área.
-              Entre em contato com um administrador para solicitar acesso.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -163,166 +172,93 @@ export default function AdminViewSecure() {
     );
   }
 
-  // Show admin panel if authenticated and admin
+  const renderContent = () => {
+    switch (activeSection) {
+      // Catálogo
+      case 'models': return <AdminModels />;
+      case 'catalog': return <AdminCatalog />;
+      case 'documents': return <AdminDocumentsList />;
+      // Conteúdo
+      case 'knowledge': return <AdminKnowledge />;
+      case 'authors': return <AdminAuthors />;
+      // Ferramentas
+      case 'tools': return (
+        <div className="space-y-6">
+          <ApostilaExport />
+          <AdminArticleEnricher />
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="w-5 h-5" />
+                Reformatar HTML de Artigos com IA
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AdminArticleReformatter />
+            </CardContent>
+          </Card>
+          <AdminParameterPages />
+          <AdminVideoProductLinks />
+        </div>
+      );
+      case 'pandavideo-test': return (
+        <div className="space-y-6">
+          <AdminPandaVideoSync />
+          <AdminPandaVideoTest />
+          <AdminVideoAnalyticsDashboard />
+        </div>
+      );
+      // Sistema
+      case 'stats': return (
+        <div className="space-y-6">
+          <AdminStats />
+          <AdminDraLIAStats />
+        </div>
+      );
+      case 'users': return <AdminUsers />;
+      case 'settings': return <AdminSettings />;
+      // Smart Ops (flattened)
+      case 'so-bowtie': return <SmartOpsBowtie key={`bowtie-${refreshKey}`} />;
+      case 'so-kanban': return <SmartOpsLeadsList key={`leads-${refreshKey}`} />;
+      case 'so-equipe': return <SmartOpsTeam key={`equipe-${refreshKey}`} />;
+      case 'so-reguas': return <SmartOpsCSRules key={`reguas-${refreshKey}`} />;
+      case 'so-logs': return <SmartOpsLogs key={`logs-${refreshKey}`} />;
+      case 'so-reports': return <SmartOpsReports key={`reports-${refreshKey}`} />;
+      case 'so-conteudo': return <SmartOpsContentProduction key={`conteudo-${refreshKey}`} />;
+      case 'so-saude': return <SmartOpsSystemHealth key={`saude-${refreshKey}`} />;
+      case 'so-whatsapp': return <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />;
+      case 'so-formularios': return <SmartOpsFormBuilder key={`forms-${refreshKey}`} />;
+      case 'so-tokens-ia': return <SmartOpsAIUsageDashboard />;
+      case 'so-intelligence': return <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />;
+      case 'so-roi': return <SmartOpsSmartFlowAnalytics />;
+      case 'so-copilot': return <SmartOpsCopilot />;
+      default: return <AdminModels />;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <div className="bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div className="container mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-white">Painel Administrativo</h1>
-          <p className="text-white/80">Gerenciamento seguro do sistema</p>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AdminSidebar
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+          isAdmin={isAdmin}
+          isAuthor={isAuthor}
+          userEmail={user.email || ''}
+          onLogout={handleLogout}
+        />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-12 flex items-center border-b border-border bg-card px-4 gap-3 shrink-0">
+            <SidebarTrigger />
+            <h1 className="text-sm font-semibold text-foreground truncate">
+              Painel Administrativo
+            </h1>
+          </header>
+          <main className="flex-1 overflow-auto p-6">
+            {renderContent()}
+          </main>
         </div>
       </div>
-      
-      <div className="container mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-2">
-            <Shield className="w-6 h-6 text-primary" />
-            <span className="text-lg font-semibold">
-              Bem-vindo, {user.email}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button 
-                variant="default" 
-                size="sm" 
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Voltar ao Site</span>
-                <span className="sm:hidden">Home</span>
-              </Button>
-            </Link>
-            <Button onClick={handleLogout} variant="outline">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </div>
-        </div>
-
-        <Tabs defaultValue={isAuthor ? "knowledge" : "models"} className="space-y-6">
-          <TabsList className="flex w-full overflow-x-auto flex-nowrap justify-start gap-1"  style={{ display: 'flex' }}>
-            {isAdmin && (
-              <>
-                <TabsTrigger value="models" className="flex items-center gap-2">
-                  <Database className="w-4 h-4" />
-                  Modelos
-                </TabsTrigger>
-                <TabsTrigger value="catalog" className="flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4" />
-                  Catálogo
-                </TabsTrigger>
-                <TabsTrigger value="documents" className="flex items-center gap-2">
-                  <FolderOpen className="w-4 h-4" />
-                  Docs Sistema
-                </TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="knowledge" className="flex items-center gap-2">
-              <FileText className="w-4 h-4" />
-              Conteúdo
-            </TabsTrigger>
-            <TabsTrigger value="authors" className="flex items-center gap-2">
-              <UserCircle className="w-4 h-4" />
-              Autores
-            </TabsTrigger>
-            {isAdmin && (
-              <>
-                <TabsTrigger value="tools" className="flex items-center gap-2">
-                  <Wrench className="w-4 h-4" />
-                  Ferramentas
-                </TabsTrigger>
-                <TabsTrigger value="stats" className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Estatísticas
-                </TabsTrigger>
-                <TabsTrigger value="users" className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Usuários
-                </TabsTrigger>
-                <TabsTrigger value="settings" className="flex items-center gap-2">
-                  <Settings className="w-4 h-4" />
-                  Configurações
-                </TabsTrigger>
-                <TabsTrigger value="pandavideo-test">
-                  🧪 PandaVideo Test
-                </TabsTrigger>
-                <TabsTrigger value="smart-ops" className="flex items-center gap-1">
-                  <Zap className="w-4 h-4" />
-                  Smart Ops
-                </TabsTrigger>
-              </>
-            )}
-          </TabsList>
-
-          {isAdmin && (
-            <>
-              <TabsContent value="models" className="space-y-6">
-                <AdminModels />
-              </TabsContent>
-              <TabsContent value="catalog" className="space-y-6">
-                <AdminCatalog />
-              </TabsContent>
-              <TabsContent value="documents" className="space-y-6">
-                <AdminDocumentsList />
-              </TabsContent>
-            </>
-          )}
-
-          <TabsContent value="knowledge" className="space-y-6">
-            <AdminKnowledge />
-          </TabsContent>
-
-          <TabsContent value="authors" className="space-y-6">
-            <AdminAuthors />
-          </TabsContent>
-
-          {isAdmin && (
-            <>
-              <TabsContent value="tools" className="space-y-6">
-                <ApostilaExport />
-                <AdminArticleEnricher />
-                <Card className="bg-gradient-card border-border shadow-medium">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Wrench className="w-5 h-5" />
-                      Reformatar HTML de Artigos com IA
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AdminArticleReformatter />
-                  </CardContent>
-                </Card>
-                <AdminParameterPages />
-                <AdminVideoProductLinks />
-              </TabsContent>
-
-              <TabsContent value="stats" className="space-y-6">
-                <AdminStats />
-                <AdminDraLIAStats />
-              </TabsContent>
-
-              <TabsContent value="users" className="space-y-6">
-                <AdminUsers />
-              </TabsContent>
-
-              <TabsContent value="settings" className="space-y-6">
-                <AdminSettings />
-              </TabsContent>
-
-              <TabsContent value="pandavideo-test" className="space-y-6">
-                <AdminPandaVideoSync />
-                <AdminPandaVideoTest />
-                <AdminVideoAnalyticsDashboard />
-              </TabsContent>
-
-              <TabsContent value="smart-ops" className="space-y-6">
-                <SmartOpsTab />
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
-      </div>
-    </div>
+    </SidebarProvider>
   );
 }
