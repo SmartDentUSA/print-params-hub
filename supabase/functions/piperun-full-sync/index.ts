@@ -296,7 +296,8 @@ Deno.serve(async (req) => {
             const removeTags = ["J03_NEGOCIACAO", "C_PERDIDO"];
             smartPayload.tags_crm = mergeTagsCrm(baseTags, addTags, removeTags);
             smartPayload.status_oportunidade = isWon ? "ganha" : "perdida_renutrir";
-            console.log(`[piperun-full-sync] Deal ${dealId} status=${isWon ? "WON" : "LOST"} → tags updated`);
+            if (isWon) smartPayload.lead_status = "CLIENTE_ativo";
+            console.log(`[piperun-full-sync] Deal ${dealId} status=${isWon ? "WON" : "LOST"} → lead_status=${isWon ? "CLIENTE_ativo" : "kept"}, tags updated`);
           }
 
           const { error } = await supabase.from("lia_attendances").update(smartPayload).eq("id", currentLead.id);

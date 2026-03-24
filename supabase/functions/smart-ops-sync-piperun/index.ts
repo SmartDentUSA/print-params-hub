@@ -438,7 +438,8 @@ async function processDeal(
       const removeTags = [JOURNEY_TAGS.J03_NEGOCIACAO, "C_PERDIDO"];
       smartPayload.tags_crm = mergeTagsCrm(baseTags, addTags, removeTags);
       smartPayload.status_oportunidade = isWon ? "ganha" : "perdida_renutrir";
-      console.log(`[sync-piperun] Deal ${dealId} status=${isWon ? "WON" : "LOST"} → tags updated`);
+      if (isWon) smartPayload.lead_status = "CLIENTE_ativo";
+      console.log(`[sync-piperun] Deal ${dealId} status=${isWon ? "WON" : "LOST"} → lead_status=${isWon ? "CLIENTE_ativo" : "kept"}, tags updated`);
     }
 
     const { error } = await supabase
