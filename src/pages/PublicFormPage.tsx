@@ -41,6 +41,9 @@ interface FormData {
   brand_color_h: number | null;
   brand_color_s: number | null;
   brand_color_l: number | null;
+  badge_text: string | null;
+  cta_text: string | null;
+  trust_text: string | null;
 }
 
 export default function PublicFormPage() {
@@ -341,6 +344,14 @@ export default function PublicFormPage() {
           )}
 
           <div className="space-y-2">
+            {form.badge_text && (
+              <span
+                className="inline-block text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full"
+                style={{ backgroundColor: 'var(--brand-faint)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
+              >
+                {form.badge_text}
+              </span>
+            )}
             <h1 className="text-2xl font-bold">{form.title || form.name}</h1>
             {form.subtitle && (
               <p className="text-lg text-muted-foreground">{form.subtitle}</p>
@@ -499,8 +510,11 @@ export default function PublicFormPage() {
               disabled={submitting}
               style={{ backgroundColor: 'var(--brand)', borderColor: 'var(--brand-dark)' }}
             >
-              {submitting ? "Enviando..." : "Enviar"}
+              {submitting ? "Enviando..." : (form.cta_text || "Enviar")}
             </Button>
+            {form.trust_text && (
+              <p className="text-xs text-center text-muted-foreground pt-1">{form.trust_text}</p>
+            )}
           </form>
         </div>
       </div>
