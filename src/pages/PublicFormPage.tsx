@@ -50,6 +50,7 @@ interface FormData {
 export default function PublicFormPage() {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
+  const { data: company } = useCompanyData();
   const [form, setForm] = useState<FormData | null>(null);
   const [fields, setFields] = useState<FormField[]>([]);
   const [values, setValues] = useState<Record<string, any>>({});
@@ -578,16 +579,66 @@ export default function PublicFormPage() {
       </div>
 
       {/* Footer — dados da empresa */}
-      <footer className="w-full max-w-5xl mt-12 mb-6 pt-6 border-t border-border text-center space-y-1">
-        <p className="text-xs font-semibold text-foreground">Smart Dent Produtos Odontológicos Ltda</p>
-        <p className="text-xs text-muted-foreground">CNPJ 18.569.948/0001-77</p>
-        <p className="text-xs text-muted-foreground">Rua Doutor Paulo Décio Regis, 1055 — Parque Industrial Lagoinha — Ribeirão Preto/SP — CEP 14095-290</p>
-        <p className="text-xs text-muted-foreground">
-          <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">smartdent.com.br</a>
-          {" · "}
-          <a href="tel:+551636219100" className="underline hover:opacity-80">(16) 3621-9100</a>
+      <footer className="w-full max-w-5xl mt-12 mb-6 pt-6 border-t border-border text-center space-y-2">
+        <p className="text-xs font-semibold text-foreground">
+          {company?.business?.legal_name || "Smart Dent Produtos Odontológicos Ltda"}
         </p>
-        <p className="text-xs text-muted-foreground pt-1">© {new Date().getFullYear()} Smart Dent. Todos os direitos reservados.</p>
+        <p className="text-xs text-muted-foreground">
+          CNPJ {company?.business?.tax_id || "18.569.948/0001-77"}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {company?.contact?.address || "Rua Doutor Paulo Décio Regis, 1055 — Parque Industrial Lagoinha — Ribeirão Preto/SP — CEP 14095-290"}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          <a href={company?.website_url || "https://smartdent.com.br"} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
+            {(company?.website_url || "smartdent.com.br").replace(/^https?:\/\//, '')}
+          </a>
+          {(company?.contact?.phone || "(16) 3621-9100") && (
+            <>
+              {" · "}
+              <a href={`tel:${company?.contact?.phone || "+551636219100"}`} className="underline hover:opacity-80">
+                {company?.contact?.phone || "(16) 3621-9100"}
+              </a>
+            </>
+          )}
+        </p>
+
+        {/* Social media icons */}
+        {company?.social_media && (() => {
+          const socialLinks = [
+            { icon: Instagram, url: company.social_media.instagram, label: "Instagram" },
+            { icon: Youtube, url: company.social_media.youtube, label: "YouTube" },
+            { icon: Facebook, url: company.social_media.facebook, label: "Facebook" },
+            { icon: Linkedin, url: company.social_media.linkedin, label: "LinkedIn" },
+            { icon: Twitter, url: company.social_media.twitter, label: "Twitter" },
+          ].filter(link => link.url);
+
+          if (socialLinks.length === 0) return null;
+
+          return (
+            <div className="flex justify-center gap-2 pt-2">
+              {socialLinks.map((link, index) => {
+                const Icon = link.icon;
+                return (
+                  <a
+                    key={index}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={link.label}
+                    className="w-8 h-8 rounded-full bg-muted hover:bg-accent text-muted-foreground hover:text-accent-foreground transition-all flex items-center justify-center"
+                  >
+                    <Icon className="w-4 h-4" />
+                  </a>
+                );
+              })}
+            </div>
+          );
+        })()}
+
+        <p className="text-xs text-muted-foreground pt-1">
+          © {new Date().getFullYear()} {company?.name || "Smart Dent"}. Todos os direitos reservados.
+        </p>
       </footer>
     </div>
   );
