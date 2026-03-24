@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, Instagram, Youtube, Facebook, Linkedin, Twitter } from "lucide-react";
 import { PhoneInputWithDDI } from "@/components/PhoneInputWithDDI";
+import { useCompanyData } from "@/hooks/useCompanyData";
 import { Slider } from "@/components/ui/slider";
 
 interface FormField {
