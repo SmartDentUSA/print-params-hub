@@ -575,6 +575,19 @@ export default function PublicFormPage() {
           </form>
         </div>
       </div>
+
+      {/* Footer — dados da empresa */}
+      <footer className="w-full max-w-5xl mt-12 mb-6 pt-6 border-t border-border text-center space-y-1">
+        <p className="text-xs font-semibold text-foreground">Smart Dent Produtos Odontológicos Ltda</p>
+        <p className="text-xs text-muted-foreground">CNPJ 18.569.948/0001-77</p>
+        <p className="text-xs text-muted-foreground">Rua Doutor Paulo Décio Regis, 1055 — Parque Industrial Lagoinha — Ribeirão Preto/SP — CEP 14095-290</p>
+        <p className="text-xs text-muted-foreground">
+          <a href="https://smartdent.com.br" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">smartdent.com.br</a>
+          {" · "}
+          <a href="tel:+551636219100" className="underline hover:opacity-80">(16) 3621-9100</a>
+        </p>
+        <p className="text-xs text-muted-foreground pt-1">© {new Date().getFullYear()} Smart Dent. Todos os direitos reservados.</p>
+      </footer>
     </div>
   );
 }
