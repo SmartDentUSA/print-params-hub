@@ -841,6 +841,7 @@ Deno.serve(async (req) => {
       const removeTags = [JOURNEY_TAGS.J03_NEGOCIACAO, "C_PERDIDO"];
       updateData.tags_crm = mergeTagsCrm(baseTags, addTags, removeTags);
       updateData.status_oportunidade = isWon ? "ganha" : "perdida_renutrir";
+      if (isWon) updateData.lead_status = "CLIENTE_ativo";
 
       if (isWon) {
         const { data: leadData } = await supabase
