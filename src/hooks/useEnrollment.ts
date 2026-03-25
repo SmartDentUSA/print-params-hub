@@ -85,9 +85,11 @@ export function useEnrollment() {
       // 3. TAG SellFlux — assinatura exata: merge_tags_crm(p_lead_id, p_new_tags)
       const tag = p.selectedTurma.sellflux_tag || p.course.sellflux_campaign_tag;
       if (tag) {
-        await supabase.rpc('merge_tags_crm' as any, {
-          p_lead_id: p.dealResult.lead_id, p_new_tags: [tag],
-        }).then(() => {}).catch((e: any) => console.warn('[tags]', e));
+        try {
+          await supabase.rpc('merge_tags_crm' as any, {
+            p_lead_id: p.dealResult.lead_id, p_new_tags: [tag],
+          });
+        } catch (e: any) { console.warn('[tags]', e); }
       }
 
       // 4. Kanban PipeRun (best-effort) — pipeline e stage dinamicos por curso
