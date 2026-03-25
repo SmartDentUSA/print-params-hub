@@ -38,6 +38,7 @@ import { SmartOpsSystemHealth } from "@/components/SmartOpsSystemHealth";
 import { SmartOpsContentProduction } from "@/components/SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "@/components/SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "@/components/SmartOpsFormBuilder";
+import { SmartOpsCourses } from "@/components/SmartOpsCourses";
 import { SmartOpsAIUsageDashboard } from "@/components/SmartOpsAIUsageDashboard";
 import { SmartOpsIntelligenceDashboard } from "@/components/SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "@/components/SmartOpsReports";
@@ -228,6 +229,7 @@ export default function AdminViewSecure() {
       case 'so-saude': return <SmartOpsSystemHealth key={`saude-${refreshKey}`} />;
       case 'so-whatsapp': return <SmartOpsWhatsAppInbox key={`whatsapp-${refreshKey}`} refreshKey={refreshKey} />;
       case 'so-formularios': return <SmartOpsFormBuilder key={`forms-${refreshKey}`} />;
+      case 'so-treinamentos': return <SmartOpsCourses key={`training-${refreshKey}`} />;
       case 'so-tokens-ia': return <SmartOpsAIUsageDashboard />;
       case 'so-intelligence': return <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />;
       case 'so-roi': return <SmartOpsSmartFlowAnalytics />;

@@ -83,6 +83,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-saude", title: "Saúde do Sistema", icon: Heart },
       { id: "so-whatsapp", title: "WhatsApp", icon: MessageSquare },
       { id: "so-formularios", title: "Formulários", icon: ClipboardList },
+      { id: "so-treinamentos", title: "Treinamentos", icon: GraduationCap },
       { id: "so-tokens-ia", title: "Tokens IA", icon: Coins },
       { id: "so-intelligence", title: "Intelligence", icon: BrainCircuit },
       { id: "so-roi", title: "ROI", icon: LineChart },
