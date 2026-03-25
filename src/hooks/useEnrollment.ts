@@ -24,6 +24,10 @@ interface EnrollParams {
   turmadays: TurmaDay[];
   companions: Partial<EnrollmentCompanion>[];
   notes?: string;
+  instagram?: string;
+  numero_proposta?: string;
+  tipo_entrega?: 'enviar' | 'retirar';
+  rastreamento?: string;
 }
 
 export function useEnrollment() {
@@ -65,6 +69,10 @@ export function useEnrollment() {
           empresa_telefone:        p.formData.empresa_telefone,
           proposal_items_snapshot: p.proposalItems,
           equipment_data:          p.equipmentData,
+          instagram:               p.instagram || null,
+          numero_proposta:         p.numero_proposta || null,
+          tipo_entrega:            p.tipo_entrega || null,
+          rastreamento:            p.tipo_entrega === 'enviar' ? (p.rastreamento || null) : null,
           status:                  'agendado',
           enrolled_at:             new Date().toISOString(),
           notes:                   p.notes,
@@ -118,8 +126,15 @@ export function useEnrollment() {
         },
       }).then(() => {}).catch((e: any) => console.warn('[log]', e));
 
-      // 6. Writeback seriais em lia_attendances (best-effort)
+      // 6. Writeback seriais + instagram em lia_attendances (best-effort)
       await writebackEquipment(p.dealResult.lead_id, enrollment.id, p.equipmentData);
+      if (p.instagram) {
+        await (supabase as any).from('lia_attendances')
+          .update({ instagram: p.instagram })
+          .eq('id', p.dealResult.lead_id)
+          .is('merged_into', null)
+          .then(() => {}).catch((e: any) => console.warn('[instagram writeback]', e));
+      }
 
       // 7. WhatsApp (best-effort)
       await sendEnrollmentWA({

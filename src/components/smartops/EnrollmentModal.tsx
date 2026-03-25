@@ -120,10 +120,12 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   // Step 2 form
   const [formData, setFormData] = useState({
     deal_title: "", person_name: "", especialidade: "", area_atuacao: "",
-    numero_contrato: "",
+    numero_contrato: "", instagram: "",
     empresa_cnpj: "", empresa_pais: "", empresa_estado: "",
     empresa_cidade: "", empresa_endereco: "", empresa_telefone: "",
   });
+  const [tipoEntrega, setTipoEntrega] = useState<'enviar' | 'retirar' | ''>('');
+  const [rastreamento, setRastreamento] = useState('');
   const [proposalItems, setProposalItems] = useState<ProposalItem[]>([]);
   const [equipmentData, setEquipmentData] = useState<EquipmentData>({});
 
@@ -221,6 +223,17 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
     return interpolateTemplate(tpl, vars);
   }, [course, selectedTurma, selectedDays, formData.person_name]);
 
+  // Extract numero_proposta from deal proposals
+  const numeroProposta = useMemo(() => {
+    if (!dealSearch.result) return '';
+    const deal = dealSearch.result.matched_deal;
+    const proposals = deal?.proposals ?? [];
+    return proposals
+      .map((p: any) => p.sigla || String(p.id))
+      .filter(Boolean)
+      .join(', ');
+  }, [dealSearch.result]);
+
   const handleSubmit = async () => {
     if (!dealSearch.result || !selectedTurma) return;
     setSubmitting(true);
@@ -234,6 +247,10 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       turmadays: selectedDays,
       companions,
       notes,
+      instagram: formData.instagram,
+      numero_proposta: numeroProposta,
+      tipo_entrega: tipoEntrega || undefined,
+      rastreamento: tipoEntrega === 'enviar' ? rastreamento : undefined,
     });
     setSubmitting(false);
     if (ok) onClose();
@@ -346,6 +363,10 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     <Label className="text-xs">Nº Contrato</Label>
                     <Input value={formData.numero_contrato} onChange={(e) => updateForm("numero_contrato", e.target.value)} />
                   </div>
+                  <div>
+                    <Label className="text-xs">Instagram</Label>
+                    <Input value={formData.instagram} onChange={(e) => updateForm("instagram", e.target.value)} placeholder="@usuario" />
+                  </div>
                 </div>
 
                 {/* B2B */}
@@ -381,6 +402,14 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   </div>
                 )}
 
+                {/* Numero da Proposta */}
+                {numeroProposta && (
+                  <div className="bg-muted/50 rounded-md px-4 py-2.5 text-sm">
+                    <span className="text-muted-foreground">Proposta: </span>
+                    <span className="font-semibold">{numeroProposta}</span>
+                  </div>
+                )}
+
                 {/* Equipamentos */}
                 {proposalItems.length > 0 && (
                   <div className="space-y-2">
@@ -392,6 +421,21 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     />
                   </div>
                 )}
+
+                {/* Tipo de Entrega + Rastreamento */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground">Tipo de Entrega</h4>
+                  <div className="flex gap-3">
+                    <Button type="button" size="sm" variant={tipoEntrega === 'enviar' ? 'default' : 'outline'} onClick={() => setTipoEntrega('enviar')}>Enviar</Button>
+                    <Button type="button" size="sm" variant={tipoEntrega === 'retirar' ? 'default' : 'outline'} onClick={() => { setTipoEntrega('retirar'); setRastreamento(''); }}>Retirar</Button>
+                  </div>
+                  {tipoEntrega === 'enviar' && (
+                    <div>
+                      <Label className="text-xs">Rastreamento</Label>
+                      <Input value={rastreamento} onChange={(e) => setRastreamento(e.target.value)} placeholder="Ex: BR123456789BR" />
+                    </div>
+                  )}
+                </div>
 
                 {/* Acompanhantes inline */}
                 <CompanionsInline companions={companions} onChange={setCompanions} />

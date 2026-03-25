@@ -117,6 +117,10 @@ export interface CourseEnrollment {
   wa_error?: string;
   enrolled_at: string;
   notes?: string;
+  instagram?: string;
+  numero_proposta?: string;
+  tipo_entrega?: 'enviar' | 'retirar';
+  rastreamento?: string;
   equip_writeback_at?: string;
   equip_writeback_error?: string;
   created_at: string;
@@ -167,6 +171,7 @@ export interface PiperunDeal {
 
 export interface PiperunProposal {
   id: string | number;
+  sigla?: string;
   status?: string;
   items: PiperunProposalItem[];
   valor_ps?: number;

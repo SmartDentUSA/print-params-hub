@@ -87,7 +87,7 @@ interface DetailResponse {
   activity_log: ActivityLogEvent[];
 }
 
-type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes";
+type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "historico", label: "📋 Histórico Completo" },
@@ -96,6 +96,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "fluxo", label: "🔄 Fluxo Digital" },
   { key: "lis", label: "📊 LIS Breakdown" },
   { key: "acoes", label: "⚡ Ações Recomendadas" },
+  { key: "cs", label: "🎓 CS" },
 ];
 
 // ─── Helpers ───
@@ -1831,6 +1832,213 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
           )}
         </div>
       )}
+
+      {/* ── CS — Treinamentos ── */}
+      {activeTab === "cs" && (
+        <CsEnrollmentsTab leadId={lead.id} />
+      )}
+    </div>
+  );
+}
+
+// ─── CS Tab Component ───
+function CsEnrollmentsTab({ leadId }: { leadId: string }) {
+  const [enrollments, setEnrollments] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [editId, setEditId] = React.useState<string | null>(null);
+
+  const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
+
+  React.useEffect(() => {
+    loadEnrollments();
+  }, [leadId]);
+
+  const loadEnrollments = async () => {
+    setLoading(true);
+    try {
+      const token = (await (window as any).__supabase_session?.())?.access_token;
+      const headers: Record<string, string> = {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk',
+        'Content-Type': 'application/json',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(
+        `https://okeogjgqijbfkudfjadz.supabase.co/rest/v1/smartops_course_enrollments?lead_id=eq.${leadId}&select=id,status,enrolled_at,validated_at,numero_contrato,numero_proposta,instagram,tipo_entrega,rastreamento,person_name,especialidade,area_atuacao,deal_title,deal_value,equipment_data,proposal_items_snapshot,wa_sent_at,wa_error,notes,course:smartops_courses(title,modality,instructor_name),turma:smartops_course_turmas(label),companions:smartops_enrollment_companions(*)&order=enrolled_at.desc`,
+        { headers }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setEnrollments(data);
+      }
+    } catch (e) {
+      console.warn('[CS tab]', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveEdit = async (enrollment: any, form: any) => {
+    try {
+      const changed: Record<string, any> = {};
+      if (form.status !== enrollment.status) changed.status = form.status;
+      if (form.numero_contrato !== (enrollment.numero_contrato || '')) changed.numero_contrato = form.numero_contrato || null;
+      if (form.numero_proposta !== (enrollment.numero_proposta || '')) changed.numero_proposta = form.numero_proposta || null;
+      if (form.instagram !== (enrollment.instagram || '')) changed.instagram = form.instagram || null;
+      if (form.tipo_entrega !== (enrollment.tipo_entrega || '')) changed.tipo_entrega = form.tipo_entrega || null;
+      if (form.rastreamento !== (enrollment.rastreamento || '')) changed.rastreamento = form.tipo_entrega === 'enviar' ? (form.rastreamento || null) : null;
+      if (form.notes !== (enrollment.notes || '')) changed.notes = form.notes || null;
+      if (JSON.stringify(form.equipment_data) !== JSON.stringify(enrollment.equipment_data || {})) changed.equipment_data = form.equipment_data;
+
+      if (Object.keys(changed).length === 0) { setEditId(null); return; }
+
+      const token = (await (window as any).__supabase_session?.())?.access_token;
+      const headers: Record<string, string> = {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZW9namdxaWpiZmt1ZGZqYWR6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY4NzE5MDgsImV4cCI6MjA3MjQ0NzkwOH0.OGdtvsJNdEqAfUoDA4O9OcnD69Titu69TsXS38TaVtk',
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(
+        `https://okeogjgqijbfkudfjadz.supabase.co/rest/v1/smartops_course_enrollments?id=eq.${enrollment.id}`,
+        { method: 'PATCH', headers, body: JSON.stringify({ ...changed, updated_at: new Date().toISOString() }) }
+      );
+
+      if (changed.instagram) {
+        await fetch(
+          `https://okeogjgqijbfkudfjadz.supabase.co/rest/v1/lia_attendances?id=eq.${leadId}&merged_into=is.null`,
+          { method: 'PATCH', headers, body: JSON.stringify({ instagram: changed.instagram }) }
+        );
+      }
+
+      setEditId(null);
+      loadEnrollments();
+    } catch (e) {
+      console.warn('[CS save]', e);
+    }
+  };
+
+  if (loading) return <div className="tab-content"><div style={{ color: "var(--muted)", fontSize: 12 }}>Carregando treinamentos...</div></div>;
+  if (!enrollments.length) return <div className="tab-content"><div style={{ color: "var(--muted)", fontSize: 12 }}>Nenhum treinamento agendado.</div></div>;
+
+  const STATUS_MAP: Record<string, { label: string; color: string }> = {
+    agendado: { label: 'Agendado', color: '#3b82f6' }, confirmado: { label: 'Confirmado', color: '#8b5cf6' },
+    presente: { label: 'Presente', color: '#22c55e' }, ausente: { label: 'Ausente', color: '#ef4444' },
+    cancelado: { label: 'Cancelado', color: '#6b7280' },
+  };
+
+  return (
+    <div className="tab-content" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {enrollments.map((e: any) => {
+        const st = STATUS_MAP[e.status] || { label: e.status, color: '#888' };
+        const isEditing = editId === e.id;
+        const equipEntries = Object.entries(e.equipment_data || {}).filter(([, v]: any) => v?.serial);
+        const companionNames = (e.companions || []).map((c: any) => c.name).filter(Boolean).join(', ');
+        const waStatus = e.wa_sent_at ? `✓ enviado em ${new Date(e.wa_sent_at).toLocaleDateString('pt-BR')}` : e.wa_error ? `✗ erro` : '— não enviado';
+
+        if (isEditing) return <CsEditForm key={e.id} enrollment={e} onSave={(form: any) => saveEdit(e, form)} onCancel={() => setEditId(null)} />;
+
+        return (
+          <div key={e.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 12, fontSize: 13 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div>
+                <strong>📚 {e.course?.title || 'Curso'}</strong>
+                {e.turma?.label && <span style={{ color: "var(--muted)", marginLeft: 8 }}>— {e.turma.label}</span>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ background: st.color, color: "#fff", padding: "2px 8px", borderRadius: 4, fontSize: 11 }}>{st.label}</span>
+                <button onClick={() => setEditId(e.id)} style={{ background: "none", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontSize: 11 }}>✏ Editar</button>
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 16px", fontSize: 12, color: "var(--muted)" }}>
+              <div>Participante: <span style={{ color: "var(--foreground)" }}>{e.person_name}</span></div>
+              {e.numero_contrato && <div>Contrato: <span style={{ color: "var(--foreground)" }}>{e.numero_contrato}</span></div>}
+              {e.numero_proposta && <div>Proposta: <span style={{ color: "var(--foreground)" }}>{e.numero_proposta}</span></div>}
+              {e.instagram && <div>Instagram: <span style={{ color: "var(--foreground)" }}>{e.instagram}</span></div>}
+              {e.tipo_entrega && <div>Entrega: <span style={{ color: "var(--foreground)" }}>{e.tipo_entrega.toUpperCase()}{e.rastreamento ? ` — ${e.rastreamento}` : ''}</span></div>}
+              {e.deal_title && <div>Deal: <span style={{ color: "var(--foreground)" }}>{e.deal_title}</span></div>}
+            </div>
+            {equipEntries.length > 0 && (
+              <div style={{ marginTop: 8, fontSize: 12 }}>
+                <span style={{ color: "var(--muted)" }}>Equipamentos:</span>
+                {equipEntries.map(([key, entry]: [string, any]) => (
+                  <div key={key} style={{ marginLeft: 12 }}>• {entry.item_nome || key}: {entry.serial}{entry.ativacao ? ` (${entry.ativacao})` : ''}</div>
+                ))}
+              </div>
+            )}
+            {companionNames && <div style={{ marginTop: 4, fontSize: 12 }}>Acompanhantes: {companionNames}</div>}
+            <div style={{ marginTop: 4, fontSize: 11, color: "var(--muted)" }}>WA: {waStatus}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── CS Edit Form (inline) ───
+function CsEditForm({ enrollment, onSave, onCancel }: { enrollment: any; onSave: (form: any) => void; onCancel: () => void }) {
+  const [form, setForm] = React.useState({
+    status: enrollment.status || 'agendado',
+    numero_contrato: enrollment.numero_contrato || '',
+    numero_proposta: enrollment.numero_proposta || '',
+    instagram: enrollment.instagram || '',
+    tipo_entrega: enrollment.tipo_entrega || '',
+    rastreamento: enrollment.rastreamento || '',
+    notes: enrollment.notes || '',
+    equipment_data: { ...(enrollment.equipment_data || {}) },
+  });
+
+  const statuses = ['agendado', 'confirmado', 'presente', 'ausente', 'cancelado'];
+  const equipEntries = Object.entries(form.equipment_data).filter(([, v]: any) => v);
+  const inputStyle = { border: "1px solid var(--border)", borderRadius: 4, padding: "4px 8px", fontSize: 12, width: "100%", background: "var(--background)" } as const;
+
+  return (
+    <div style={{ border: "1px solid var(--primary)", borderRadius: 8, padding: 12, fontSize: 13 }}>
+      <div style={{ fontWeight: 600, marginBottom: 8 }}>Editando — {enrollment.course?.title}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12 }}>
+        <div>
+          <div style={{ color: "var(--muted)", marginBottom: 2 }}>Status</div>
+          <select value={form.status} onChange={(ev) => setForm((f) => ({ ...f, status: ev.target.value }))} style={inputStyle}>
+            {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div><div style={{ color: "var(--muted)", marginBottom: 2 }}>Contrato</div><input style={inputStyle} value={form.numero_contrato} onChange={(ev) => setForm((f) => ({ ...f, numero_contrato: ev.target.value }))} /></div>
+        <div><div style={{ color: "var(--muted)", marginBottom: 2 }}>Proposta</div><input style={inputStyle} value={form.numero_proposta} onChange={(ev) => setForm((f) => ({ ...f, numero_proposta: ev.target.value }))} /></div>
+        <div><div style={{ color: "var(--muted)", marginBottom: 2 }}>Instagram</div><input style={inputStyle} value={form.instagram} onChange={(ev) => setForm((f) => ({ ...f, instagram: ev.target.value }))} placeholder="@usuario" /></div>
+        <div>
+          <div style={{ color: "var(--muted)", marginBottom: 2 }}>Entrega</div>
+          <div style={{ display: "flex", gap: 4 }}>
+            {['enviar', 'retirar'].map((t) => (
+              <button key={t} onClick={() => setForm((f) => ({ ...f, tipo_entrega: t, ...(t === 'retirar' ? { rastreamento: '' } : {}) }))}
+                style={{ padding: "2px 10px", borderRadius: 4, fontSize: 11, cursor: "pointer", border: "1px solid var(--border)", background: form.tipo_entrega === t ? "var(--primary)" : "transparent", color: form.tipo_entrega === t ? "#fff" : "inherit" }}>
+                {t.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+        {form.tipo_entrega === 'enviar' && (
+          <div><div style={{ color: "var(--muted)", marginBottom: 2 }}>Rastreamento</div><input style={inputStyle} value={form.rastreamento} onChange={(ev) => setForm((f) => ({ ...f, rastreamento: ev.target.value }))} /></div>
+        )}
+        <div style={{ gridColumn: "1 / -1" }}><div style={{ color: "var(--muted)", marginBottom: 2 }}>Observações</div><textarea style={{ ...inputStyle, minHeight: 40 }} value={form.notes} onChange={(ev) => setForm((f) => ({ ...f, notes: ev.target.value }))} /></div>
+      </div>
+      {equipEntries.length > 0 && (
+        <div style={{ marginTop: 8, fontSize: 12 }}>
+          <div style={{ color: "var(--muted)", marginBottom: 4 }}>Equipamentos</div>
+          {equipEntries.map(([key, entry]: [string, any]) => (
+            <div key={key} style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+              <span style={{ minWidth: 80, color: "var(--muted)" }}>{entry?.item_nome || key}:</span>
+              <input style={{ ...inputStyle, flex: 1 }} value={entry?.serial || ''} placeholder="Serial"
+                onChange={(ev) => setForm((f) => ({ ...f, equipment_data: { ...f.equipment_data, [key]: { ...entry, serial: ev.target.value } } }))} />
+              <input style={{ ...inputStyle, width: 120 }} type="date" value={entry?.ativacao || ''}
+                onChange={(ev) => setForm((f) => ({ ...f, equipment_data: { ...f.equipment_data, [key]: { ...entry, ativacao: ev.target.value } } }))} />
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button onClick={() => onSave(form)} style={{ padding: "4px 16px", borderRadius: 4, background: "var(--primary)", color: "#fff", border: "none", cursor: "pointer", fontSize: 12 }}>Salvar</button>
+        <button onClick={onCancel} style={{ padding: "4px 16px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: 12 }}>Cancelar</button>
+      </div>
     </div>
   );
 }

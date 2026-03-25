@@ -11,9 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
-  XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight,
+  XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
 } from "lucide-react";
+import type { EquipKey, EquipmentData } from "@/types/courses";
+import { EQUIP_CONFIG } from "@/lib/courseUtils";
 import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/courses";
 import { MODALITY_CONFIG, STATUS_CONFIG, formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { CourseCreateModal } from "./smartops/CourseCreateModal";
@@ -257,6 +266,131 @@ function CatalogoTab() {
   );
 }
 
+// ─── Edit Enrollment Dialog ───
+function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    status: enrollment.status || 'agendado',
+    numero_contrato: enrollment.numero_contrato || '',
+    numero_proposta: enrollment.numero_proposta || '',
+    instagram: enrollment.instagram || '',
+    tipo_entrega: enrollment.tipo_entrega || '',
+    rastreamento: enrollment.rastreamento || '',
+    notes: enrollment.notes || '',
+    equipment_data: enrollment.equipment_data || {},
+  });
+
+  const updateEquip = (key: string, field: string, value: string) => {
+    setForm((f) => ({
+      ...f,
+      equipment_data: {
+        ...f.equipment_data,
+        [key]: { ...(f.equipment_data as any)?.[key], [field]: value },
+      },
+    }));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const changed: Record<string, any> = {};
+      if (form.status !== enrollment.status) changed.status = form.status;
+      if (form.numero_contrato !== (enrollment.numero_contrato || '')) changed.numero_contrato = form.numero_contrato || null;
+      if (form.numero_proposta !== (enrollment.numero_proposta || '')) changed.numero_proposta = form.numero_proposta || null;
+      if (form.instagram !== (enrollment.instagram || '')) changed.instagram = form.instagram || null;
+      if (form.tipo_entrega !== (enrollment.tipo_entrega || '')) changed.tipo_entrega = form.tipo_entrega || null;
+      if (form.rastreamento !== (enrollment.rastreamento || '')) changed.rastreamento = form.tipo_entrega === 'enviar' ? (form.rastreamento || null) : null;
+      if (form.notes !== (enrollment.notes || '')) changed.notes = form.notes || null;
+      if (JSON.stringify(form.equipment_data) !== JSON.stringify(enrollment.equipment_data || {})) {
+        changed.equipment_data = form.equipment_data;
+      }
+
+      if (Object.keys(changed).length === 0) { toast({ title: "Nenhuma alteração" }); onClose(); return; }
+
+      const { error } = await (supabase as any).from('smartops_course_enrollments')
+        .update({ ...changed, updated_at: new Date().toISOString() })
+        .eq('id', enrollment.id);
+      if (error) throw error;
+
+      // Instagram writeback
+      if (changed.instagram && enrollment.lead_id) {
+        await (supabase as any).from('lia_attendances')
+          .update({ instagram: changed.instagram })
+          .eq('id', enrollment.lead_id)
+          .is('merged_into', null);
+      }
+
+      qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+      toast({ title: "Inscrição atualizada!" });
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const equipEntries = Object.entries(form.equipment_data as Record<string, any>).filter(([, v]) => v);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Editar Inscrição — {enrollment.person_name}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label className="text-xs">Status</Label>
+            <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label className="text-xs">Nº Contrato</Label><Input value={form.numero_contrato} onChange={(e) => setForm((f) => ({ ...f, numero_contrato: e.target.value }))} /></div>
+            <div><Label className="text-xs">Nº Proposta</Label><Input value={form.numero_proposta} onChange={(e) => setForm((f) => ({ ...f, numero_proposta: e.target.value }))} /></div>
+            <div><Label className="text-xs">Instagram</Label><Input value={form.instagram} onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))} placeholder="@usuario" /></div>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs">Tipo de Entrega</Label>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" variant={form.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'enviar' }))}>Enviar</Button>
+              <Button type="button" size="sm" variant={form.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'retirar', rastreamento: '' }))}>Retirar</Button>
+            </div>
+            {form.tipo_entrega === 'enviar' && (
+              <div><Label className="text-xs">Rastreamento</Label><Input value={form.rastreamento} onChange={(e) => setForm((f) => ({ ...f, rastreamento: e.target.value }))} placeholder="Ex: BR123456789BR" /></div>
+            )}
+          </div>
+          {equipEntries.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold">Equipamentos</Label>
+              {equipEntries.map(([key, entry]: [string, any]) => {
+                const cfg = EQUIP_CONFIG[key as EquipKey];
+                if (!cfg) return null;
+                return (
+                  <div key={key} className="grid gap-2 sm:grid-cols-2 p-2 bg-muted/50 rounded">
+                    <div><Label className="text-xs">{cfg.label} — {cfg.serial_label}</Label><Input value={entry?.serial || ''} onChange={(e) => updateEquip(key, 'serial', e.target.value)} /></div>
+                    {cfg.lia_date_field && <div><Label className="text-xs">Ativação</Label><Input type="date" value={entry?.ativacao || ''} onChange={(e) => updateEquip(key, 'ativacao', e.target.value)} /></div>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} /></div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+            <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── Aba Inscrições ───
 function InscricoesTab() {
   const [page, setPage] = useState(0);
@@ -264,6 +398,8 @@ function InscricoesTab() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const PAGE_SIZE = 50;
+  const [editRow, setEditRow] = useState<any>(null);
+  const [deleteRow, setDeleteRow] = useState<any>(null);
 
   const { data: courses = [] } = useQuery({
     queryKey: ["smartops_courses_list"],
@@ -279,8 +415,9 @@ function InscricoesTab() {
       let q = (supabase as any)
         .from("smartops_course_enrollments")
         .select(
-          `id, person_name, status, numero_contrato, deal_title, deal_id, enrolled_at,
-           wa_sent_at, wa_error, turma_snapshot, equipment_data,
+          `id, person_name, status, numero_contrato, numero_proposta, instagram,
+           tipo_entrega, rastreamento, deal_title, deal_id, enrolled_at,
+           lead_id, wa_sent_at, wa_error, turma_snapshot, equipment_data, notes,
            course:smartops_courses(title, modality),
            turma:smartops_course_turmas(label)`,
           { count: "exact" }
@@ -302,42 +439,36 @@ function InscricoesTab() {
   const total = result?.count ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const updateStatus = async (id: string, status: string) => {
-    const { error } = await (supabase as any)
-      .from("smartops_course_enrollments")
-      .update({ status })
-      .eq("id", id);
-    if (error) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } else {
+  const handleDelete = async () => {
+    if (!deleteRow) return;
+    try {
+      await (supabase as any).from('smartops_enrollment_companions').delete().eq('enrollment_id', deleteRow.id);
+      const { error } = await (supabase as any).from('smartops_course_enrollments').delete().eq('id', deleteRow.id);
+      if (error) throw error;
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
+      qc.invalidateQueries({ queryKey: ["v_turmas_com_vagas"] });
+      toast({ title: "Inscrição excluída" });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setDeleteRow(null);
     }
-  };
-
-  const resendWA = async (id: string) => {
-    toast({ title: "Reenvio WA", description: "Funcionalidade em breve." });
   };
 
   const exportCSV = () => {
     if (!rows.length) return;
     const headers = ["Nome", "Curso", "Turma", "Deal", "Status", "Data Inscrição", "WA"];
     const csvRows = rows.map((r: any) => [
-      r.person_name,
-      r.course?.title,
-      r.turma?.label,
-      r.deal_id,
-      r.status,
-      r.enrolled_at?.substring(0, 10),
+      r.person_name, r.course?.title, r.turma?.label, r.deal_id,
+      r.status, r.enrolled_at?.substring(0, 10),
       r.wa_sent_at ? "Enviado" : r.wa_error ? "Erro" : "Pendente",
     ]);
     const csv = [headers, ...csvRows].map((r) => r.map((c: any) => `"${c ?? ""}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
+    const a = document.createElement("a"); a.href = url;
     a.download = `inscricoes_${new Date().toISOString().substring(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    a.click(); URL.revokeObjectURL(url);
   };
 
   const waIcon = (r: any) => {
@@ -352,33 +483,24 @@ function InscricoesTab() {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 items-end">
         <div className="flex-1 min-w-[200px]">
-          <Input
-            placeholder="Buscar por nome..."
-            value={filters.search}
-            onChange={(e) => { setFilters((f) => ({ ...f, search: e.target.value })); setPage(0); }}
-          />
+          <Input placeholder="Buscar por nome..." value={filters.search}
+            onChange={(e) => { setFilters((f) => ({ ...f, search: e.target.value })); setPage(0); }} />
         </div>
         <Select value={filters.status} onValueChange={(v) => { setFilters((f) => ({ ...f, status: v === "all" ? "" : v })); setPage(0); }}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v.label}</SelectItem>
-            ))}
+            {Object.entries(STATUS_CONFIG).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
           </SelectContent>
         </Select>
         <Select value={filters.course_id} onValueChange={(v) => { setFilters((f) => ({ ...f, course_id: v === "all" ? "" : v })); setPage(0); }}>
           <SelectTrigger className="w-[200px]"><SelectValue placeholder="Curso" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os cursos</SelectItem>
-            {courses.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
-            ))}
+            {courses.map((c) => (<SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>))}
           </SelectContent>
         </Select>
-        <Button variant="outline" size="sm" onClick={exportCSV}>
-          <Download className="w-4 h-4 mr-1" /> CSV
-        </Button>
+        <Button variant="outline" size="sm" onClick={exportCSV}><Download className="w-4 h-4 mr-1" /> CSV</Button>
       </div>
 
       {/* Tabela */}
@@ -411,33 +533,19 @@ function InscricoesTab() {
                     <TableCell className="text-sm">{r.course?.title}</TableCell>
                     <TableCell className="text-sm">{r.turma?.label}</TableCell>
                     <TableCell className="text-sm">{startDate ? formatDatePtBr(startDate) : "—"}</TableCell>
-                    <TableCell>
-                      <Select value={r.status} onValueChange={(v) => updateStatus(r.id, v)}>
-                        <SelectTrigger className="h-7 w-[130px]">
-                          <Badge className={st?.badge}>{st?.label ?? r.status}</Badge>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                            <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
+                    <TableCell><Badge className={st?.badge}>{st?.label ?? r.status}</Badge></TableCell>
                     <TableCell className="text-center">{waIcon(r)}</TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" onClick={() => resendWA(r.id)}>
-                        <Send className="w-3.5 h-3.5" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setEditRow(r)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setDeleteRow(r)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
               })}
               {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Nenhuma inscrição encontrada.
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma inscrição encontrada.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -449,18 +557,31 @@ function InscricoesTab() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">{total} inscrições</span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-              Anterior
-            </Button>
-            <span className="text-sm py-1.5">
-              {page + 1} / {totalPages}
-            </span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
-              Próxima
-            </Button>
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
+            <span className="text-sm py-1.5">{page + 1} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>Próxima</Button>
           </div>
         </div>
       )}
+
+      {/* Edit Dialog */}
+      {editRow && <EditEnrollmentDialog enrollment={editRow} open={!!editRow} onClose={() => setEditRow(null)} />}
+
+      {/* Delete AlertDialog */}
+      <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir agendamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o agendamento de <strong>{deleteRow?.person_name}</strong> no curso <strong>{deleteRow?.course?.title}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
