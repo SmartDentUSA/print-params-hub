@@ -273,22 +273,32 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     status: enrollment.status || 'agendado',
+    person_name: enrollment.person_name || '',
+    especialidade: enrollment.especialidade || '',
+    area_atuacao: enrollment.area_atuacao || '',
+    deal_title: enrollment.deal_title || '',
+    deal_value: enrollment.deal_value ?? '',
     numero_contrato: enrollment.numero_contrato || '',
     numero_proposta: enrollment.numero_proposta || '',
     instagram: enrollment.instagram || '',
+    empresa_cnpj: enrollment.empresa_cnpj || '',
+    empresa_pais: enrollment.empresa_pais || '',
+    empresa_estado: enrollment.empresa_estado || '',
+    empresa_cidade: enrollment.empresa_cidade || '',
+    empresa_endereco: enrollment.empresa_endereco || '',
+    empresa_telefone: enrollment.empresa_telefone || '',
     tipo_entrega: enrollment.tipo_entrega || '',
     rastreamento: enrollment.rastreamento || '',
     notes: enrollment.notes || '',
     equipment_data: enrollment.equipment_data || {},
   });
 
+  const uf = (field: string, value: any) => setForm((f) => ({ ...f, [field]: value }));
+
   const updateEquip = (key: string, field: string, value: string) => {
     setForm((f) => ({
       ...f,
-      equipment_data: {
-        ...f.equipment_data,
-        [key]: { ...(f.equipment_data as any)?.[key], [field]: value },
-      },
+      equipment_data: { ...f.equipment_data, [key]: { ...(f.equipment_data as any)?.[key], [field]: value } },
     }));
   };
 
@@ -296,13 +306,31 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
     setSaving(true);
     try {
       const changed: Record<string, any> = {};
-      if (form.status !== enrollment.status) changed.status = form.status;
-      if (form.numero_contrato !== (enrollment.numero_contrato || '')) changed.numero_contrato = form.numero_contrato || null;
-      if (form.numero_proposta !== (enrollment.numero_proposta || '')) changed.numero_proposta = form.numero_proposta || null;
-      if (form.instagram !== (enrollment.instagram || '')) changed.instagram = form.instagram || null;
-      if (form.tipo_entrega !== (enrollment.tipo_entrega || '')) changed.tipo_entrega = form.tipo_entrega || null;
-      if (form.rastreamento !== (enrollment.rastreamento || '')) changed.rastreamento = form.tipo_entrega === 'enviar' ? (form.rastreamento || null) : null;
-      if (form.notes !== (enrollment.notes || '')) changed.notes = form.notes || null;
+      const diff = (field: string, formVal: any) => {
+        const orig = (enrollment as any)[field] ?? '';
+        if (String(formVal ?? '') !== String(orig ?? '')) changed[field] = formVal || null;
+      };
+      diff('status', form.status);
+      diff('person_name', form.person_name);
+      diff('especialidade', form.especialidade);
+      diff('area_atuacao', form.area_atuacao);
+      diff('deal_title', form.deal_title);
+      if (String(form.deal_value) !== String(enrollment.deal_value ?? '')) {
+        changed.deal_value = form.deal_value !== '' ? Number(form.deal_value) : null;
+      }
+      diff('numero_contrato', form.numero_contrato);
+      diff('numero_proposta', form.numero_proposta);
+      diff('instagram', form.instagram);
+      diff('empresa_cnpj', form.empresa_cnpj);
+      diff('empresa_pais', form.empresa_pais);
+      diff('empresa_estado', form.empresa_estado);
+      diff('empresa_cidade', form.empresa_cidade);
+      diff('empresa_endereco', form.empresa_endereco);
+      diff('empresa_telefone', form.empresa_telefone);
+      diff('tipo_entrega', form.tipo_entrega);
+      if (form.tipo_entrega === 'enviar') { diff('rastreamento', form.rastreamento); }
+      else if (enrollment.rastreamento) { changed.rastreamento = null; }
+      diff('notes', form.notes);
       if (JSON.stringify(form.equipment_data) !== JSON.stringify(enrollment.equipment_data || {})) {
         changed.equipment_data = form.equipment_data;
       }
@@ -314,12 +342,9 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
         .eq('id', enrollment.id);
       if (error) throw error;
 
-      // Instagram writeback
       if (changed.instagram && enrollment.lead_id) {
         await (supabase as any).from('lia_attendances')
-          .update({ instagram: changed.instagram })
-          .eq('id', enrollment.lead_id)
-          .is('merged_into', null);
+          .update({ instagram: changed.instagram }).eq('id', enrollment.lead_id).is('merged_into', null);
       }
 
       qc.invalidateQueries({ queryKey: ["smartops_enrollments"] });
@@ -336,38 +361,65 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Editar Inscrição — {enrollment.person_name}</DialogTitle></DialogHeader>
         <div className="space-y-4">
+          {/* Status */}
           <div>
             <Label className="text-xs">Status</Label>
-            <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+            <Select value={form.status} onValueChange={(v) => uf('status', v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
-                ))}
+                {Object.entries(STATUS_CONFIG).map(([k, v]) => (<SelectItem key={k} value={k}>{v.label}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Dados do participante */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Participante</h4>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><Label className="text-xs">Nº Contrato</Label><Input value={form.numero_contrato} onChange={(e) => setForm((f) => ({ ...f, numero_contrato: e.target.value }))} /></div>
-            <div><Label className="text-xs">Nº Proposta</Label><Input value={form.numero_proposta} onChange={(e) => setForm((f) => ({ ...f, numero_proposta: e.target.value }))} /></div>
-            <div><Label className="text-xs">Instagram</Label><Input value={form.instagram} onChange={(e) => setForm((f) => ({ ...f, instagram: e.target.value }))} placeholder="@usuario" /></div>
+            <div><Label className="text-xs">Nome</Label><Input value={form.person_name} onChange={(e) => uf('person_name', e.target.value)} /></div>
+            <div><Label className="text-xs">Especialidade</Label><Input value={form.especialidade} onChange={(e) => uf('especialidade', e.target.value)} /></div>
+            <div><Label className="text-xs">Área de atuação</Label><Input value={form.area_atuacao} onChange={(e) => uf('area_atuacao', e.target.value)} /></div>
+            <div><Label className="text-xs">Instagram</Label><Input value={form.instagram} onChange={(e) => uf('instagram', e.target.value)} placeholder="@usuario" /></div>
+            <div><Label className="text-xs">ID PipeRun</Label><Input value={enrollment.person_piperun_id || ''} disabled /></div>
+            <div><Label className="text-xs">Deal ID</Label><Input value={enrollment.deal_id || ''} disabled /></div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-xs">Tipo de Entrega</Label>
-            <div className="flex gap-2">
-              <Button type="button" size="sm" variant={form.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'enviar' }))}>Enviar</Button>
-              <Button type="button" size="sm" variant={form.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => setForm((f) => ({ ...f, tipo_entrega: 'retirar', rastreamento: '' }))}>Retirar</Button>
-            </div>
-            {form.tipo_entrega === 'enviar' && (
-              <div><Label className="text-xs">Rastreamento</Label><Input value={form.rastreamento} onChange={(e) => setForm((f) => ({ ...f, rastreamento: e.target.value }))} placeholder="Ex: BR123456789BR" /></div>
-            )}
+
+          {/* Deal */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Deal</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label className="text-xs">Título do Deal</Label><Input value={form.deal_title} onChange={(e) => uf('deal_title', e.target.value)} /></div>
+            <div><Label className="text-xs">Valor (R$)</Label><Input type="number" value={form.deal_value} onChange={(e) => uf('deal_value', e.target.value)} /></div>
+            <div><Label className="text-xs">Nº Contrato</Label><Input value={form.numero_contrato} onChange={(e) => uf('numero_contrato', e.target.value)} /></div>
+            <div><Label className="text-xs">Nº Proposta</Label><Input value={form.numero_proposta} onChange={(e) => uf('numero_proposta', e.target.value)} /></div>
           </div>
+
+          {/* Empresa */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Empresa</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label className="text-xs">CNPJ</Label><Input value={form.empresa_cnpj} onChange={(e) => uf('empresa_cnpj', e.target.value)} /></div>
+            <div><Label className="text-xs">País</Label><Input value={form.empresa_pais} onChange={(e) => uf('empresa_pais', e.target.value)} /></div>
+            <div><Label className="text-xs">Estado</Label><Input value={form.empresa_estado} onChange={(e) => uf('empresa_estado', e.target.value)} /></div>
+            <div><Label className="text-xs">Cidade</Label><Input value={form.empresa_cidade} onChange={(e) => uf('empresa_cidade', e.target.value)} /></div>
+            <div className="sm:col-span-2"><Label className="text-xs">Endereço</Label><Input value={form.empresa_endereco} onChange={(e) => uf('empresa_endereco', e.target.value)} /></div>
+            <div><Label className="text-xs">Telefone</Label><Input value={form.empresa_telefone} onChange={(e) => uf('empresa_telefone', e.target.value)} /></div>
+          </div>
+
+          {/* Entrega */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Entrega</h4>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant={form.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => uf('tipo_entrega', 'enviar')}>Enviar</Button>
+            <Button type="button" size="sm" variant={form.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => { uf('tipo_entrega', 'retirar'); uf('rastreamento', ''); }}>Retirar</Button>
+          </div>
+          {form.tipo_entrega === 'enviar' && (
+            <div><Label className="text-xs">Rastreamento</Label><Input value={form.rastreamento} onChange={(e) => uf('rastreamento', e.target.value)} placeholder="Ex: BR123456789BR" /></div>
+          )}
+
+          {/* Equipamentos */}
           {equipEntries.length > 0 && (
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold">Equipamentos</Label>
+            <>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamentos</h4>
               {equipEntries.map(([key, entry]: [string, any]) => {
                 const cfg = EQUIP_CONFIG[key as EquipKey];
                 if (!cfg) return null;
@@ -378,12 +430,15 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
                   </div>
                 );
               })}
-            </div>
+            </>
           )}
-          <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} /></div>
-          <div className="flex gap-2">
+
+          {/* Observações */}
+          <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => uf('notes', e.target.value)} rows={2} /></div>
+
+          <div className="flex gap-2 pt-2 border-t">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
+            <Button className="flex-1" onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar alterações"}</Button>
           </div>
         </div>
       </DialogContent>
@@ -415,9 +470,11 @@ function InscricoesTab() {
       let q = (supabase as any)
         .from("smartops_course_enrollments")
         .select(
-          `id, person_name, status, numero_contrato, numero_proposta, instagram,
-           tipo_entrega, rastreamento, deal_title, deal_id, enrolled_at,
-           lead_id, wa_sent_at, wa_error, turma_snapshot, equipment_data, notes,
+          `id, person_name, person_piperun_id, status, especialidade, area_atuacao,
+           numero_contrato, numero_proposta, instagram, deal_title, deal_id, deal_value,
+           empresa_cnpj, empresa_pais, empresa_estado, empresa_cidade, empresa_endereco, empresa_telefone,
+           tipo_entrega, rastreamento, enrolled_at, lead_id, wa_sent_at, wa_error,
+           turma_snapshot, equipment_data, notes,
            course:smartops_courses(title, modality),
            turma:smartops_course_turmas(label)`,
           { count: "exact" }
