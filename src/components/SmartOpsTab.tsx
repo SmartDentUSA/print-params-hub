@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Zap, CheckCircle, GraduationCap } from "lucide-react";
+import { RefreshCw, Zap, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SmartOpsBowtie } from "./SmartOpsBowtie";
@@ -84,7 +84,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="saude">Saúde do Sistema</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="formularios">Formulários</TabsTrigger>
-          <TabsTrigger value="treinamentos" className="gap-1"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
+          <TabsTrigger value="treinamentos">Treinamentos</TabsTrigger>
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
           <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           <TabsTrigger value="roi">ROI</TabsTrigger>
