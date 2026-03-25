@@ -3812,6 +3812,9 @@ export type Database = {
           equip_scanner: string | null
           equip_scanner_ativacao: string | null
           equip_scanner_ativacao_estimada: string | null
+          equip_scanner_bancada: string | null
+          equip_scanner_bancada_ativacao: string | null
+          equip_scanner_bancada_serial: string | null
           equip_scanner_idade_meses: number | null
           equip_scanner_serial: string | null
           equip_upgrade_produto: string | null
@@ -4242,6 +4245,9 @@ export type Database = {
           equip_scanner?: string | null
           equip_scanner_ativacao?: string | null
           equip_scanner_ativacao_estimada?: string | null
+          equip_scanner_bancada?: string | null
+          equip_scanner_bancada_ativacao?: string | null
+          equip_scanner_bancada_serial?: string | null
           equip_scanner_idade_meses?: number | null
           equip_scanner_serial?: string | null
           equip_upgrade_produto?: string | null
@@ -4672,6 +4678,9 @@ export type Database = {
           equip_scanner?: string | null
           equip_scanner_ativacao?: string | null
           equip_scanner_ativacao_estimada?: string | null
+          equip_scanner_bancada?: string | null
+          equip_scanner_bancada_ativacao?: string | null
+          equip_scanner_bancada_serial?: string | null
           equip_scanner_idade_meses?: number | null
           equip_scanner_serial?: string | null
           equip_upgrade_produto?: string | null
@@ -6451,6 +6460,9 @@ export type Database = {
           empresa_pais: string | null
           empresa_telefone: string | null
           enrolled_at: string | null
+          equip_writeback_at: string | null
+          equip_writeback_error: string | null
+          equipment_data: Json | null
           especialidade: string | null
           id: string
           lead_id: string | null
@@ -6459,7 +6471,6 @@ export type Database = {
           person_name: string | null
           person_piperun_id: string | null
           proposal_items_snapshot: Json | null
-          serial_numbers: Json | null
           status: string | null
           turma_id: string
           turma_snapshot: Json
@@ -6484,6 +6495,9 @@ export type Database = {
           empresa_pais?: string | null
           empresa_telefone?: string | null
           enrolled_at?: string | null
+          equip_writeback_at?: string | null
+          equip_writeback_error?: string | null
+          equipment_data?: Json | null
           especialidade?: string | null
           id?: string
           lead_id?: string | null
@@ -6492,7 +6506,6 @@ export type Database = {
           person_name?: string | null
           person_piperun_id?: string | null
           proposal_items_snapshot?: Json | null
-          serial_numbers?: Json | null
           status?: string | null
           turma_id: string
           turma_snapshot?: Json
@@ -6517,6 +6530,9 @@ export type Database = {
           empresa_pais?: string | null
           empresa_telefone?: string | null
           enrolled_at?: string | null
+          equip_writeback_at?: string | null
+          equip_writeback_error?: string | null
+          equipment_data?: Json | null
           especialidade?: string | null
           id?: string
           lead_id?: string | null
@@ -6525,7 +6541,6 @@ export type Database = {
           person_name?: string | null
           person_piperun_id?: string | null
           proposal_items_snapshot?: Json | null
-          serial_numbers?: Json | null
           status?: string | null
           turma_id?: string
           turma_snapshot?: Json
@@ -6619,6 +6634,70 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "smartops_course_enrollments_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smartops_course_turmas: {
+        Row: {
+          active: boolean
+          course_id: string
+          created_at: string | null
+          enrolled_count: number
+          id: string
+          label: string
+          sellflux_tag: string | null
+          slots: number
+          sort_order: number
+          updated_at: string | null
+          whatsapp_group_link: string | null
+        }
+        Insert: {
+          active?: boolean
+          course_id: string
+          created_at?: string | null
+          enrolled_count?: number
+          id?: string
+          label: string
+          sellflux_tag?: string | null
+          slots?: number
+          sort_order?: number
+          updated_at?: string | null
+          whatsapp_group_link?: string | null
+        }
+        Update: {
+          active?: boolean
+          course_id?: string
+          created_at?: string | null
+          enrolled_count?: number
+          id?: string
+          label?: string
+          sellflux_tag?: string | null
+          slots?: number
+          sort_order?: number
+          updated_at?: string | null
+          whatsapp_group_link?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_course_turmas_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_courses"
+            referencedColumns: ["id"]
+          },
         ]
       }
       smartops_courses: {
@@ -6637,10 +6716,11 @@ export type Database = {
           max_capacity: number | null
           meeting_link: string | null
           modality: string
+          pipeline_id_kanban: number
           public_visible: boolean | null
-          schedule_dates: Json | null
           sellflux_campaign_tag: string | null
           slug: string
+          stage_after_enroll: string
           title: string
           updated_at: string | null
           whatsapp_group_link: string | null
@@ -6661,10 +6741,11 @@ export type Database = {
           max_capacity?: number | null
           meeting_link?: string | null
           modality: string
+          pipeline_id_kanban?: number
           public_visible?: boolean | null
-          schedule_dates?: Json | null
           sellflux_campaign_tag?: string | null
           slug: string
+          stage_after_enroll?: string
           title: string
           updated_at?: string | null
           whatsapp_group_link?: string | null
@@ -6685,10 +6766,11 @@ export type Database = {
           max_capacity?: number | null
           meeting_link?: string | null
           modality?: string
+          pipeline_id_kanban?: number
           public_visible?: boolean | null
-          schedule_dates?: Json | null
           sellflux_campaign_tag?: string | null
           slug?: string
+          stage_after_enroll?: string
           title?: string
           updated_at?: string | null
           whatsapp_group_link?: string | null
@@ -7025,6 +7107,54 @@ export type Database = {
             columns: ["video_id"]
             isOneToOne: false
             referencedRelation: "knowledge_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smartops_turma_days: {
+        Row: {
+          created_at: string | null
+          date: string
+          day_number: number
+          end_time: string
+          id: string
+          start_time: string
+          topic: string | null
+          turma_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          day_number: number
+          end_time: string
+          id?: string
+          start_time: string
+          topic?: string | null
+          turma_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          day_number?: number
+          end_time?: string
+          id?: string
+          start_time?: string
+          topic?: string | null
+          turma_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_turma_days_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_turma_days_turma_id_fkey"
+            columns: ["turma_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
             referencedColumns: ["id"]
           },
         ]
@@ -8049,6 +8179,19 @@ export type Database = {
         }
         Relationships: []
       }
+      v_equipment_field_map: {
+        Row: {
+          ativacao_field: string | null
+          etapa_nome: string | null
+          etapa_numero: number | null
+          field_key: string | null
+          match_patterns: string[] | null
+          model_field: string | null
+          serial_field: string | null
+          subcategoria: string | null
+        }
+        Relationships: []
+      }
       v_lead_academy: {
         Row: {
           academy_curso_concluido: string[] | null
@@ -8588,6 +8731,41 @@ export type Database = {
         }
         Relationships: []
       }
+      v_turmas_com_vagas: {
+        Row: {
+          active: boolean | null
+          course_id: string | null
+          course_title: string | null
+          end_date: string | null
+          end_time: string | null
+          enrolled_count: number | null
+          id: string | null
+          instructor_name: string | null
+          label: string | null
+          location: string | null
+          meeting_link: string | null
+          modality: string | null
+          pipeline_id_kanban: number | null
+          sellflux_tag: string | null
+          slots: number | null
+          sort_order: number | null
+          stage_after_enroll: string | null
+          start_date: string | null
+          start_time: string | null
+          total_days: number | null
+          vagas_disponiveis: number | null
+          whatsapp_group_link: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_course_turmas_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_workflow_portfolio: {
         Row: {
           e1_acessorios_raw: string | null
@@ -9105,6 +9283,9 @@ export type Database = {
           equip_scanner: string | null
           equip_scanner_ativacao: string | null
           equip_scanner_ativacao_estimada: string | null
+          equip_scanner_bancada: string | null
+          equip_scanner_bancada_ativacao: string | null
+          equip_scanner_bancada_serial: string | null
           equip_scanner_idade_meses: number | null
           equip_scanner_serial: string | null
           equip_upgrade_produto: string | null
