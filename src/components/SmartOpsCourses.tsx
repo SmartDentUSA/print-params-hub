@@ -20,7 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
-  ChevronDown, ChevronUp, Repeat,
+  ChevronDown, ChevronUp, Repeat, Clock, Star, UserPlus,
 } from "lucide-react";
 import type { EquipKey, EquipmentData } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
