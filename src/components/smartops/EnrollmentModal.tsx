@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle,
+  Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle, User,
 } from "lucide-react";
 import type {
   SmartopsCourse, Turma, TurmaDay, DealSearchResult,
@@ -28,6 +28,85 @@ interface Props {
   preselectedTurmaId?: string;
   open: boolean;
   onClose: () => void;
+}
+
+// ─── Inline companions for Step 2 ───
+function CompanionsInline({ companions, onChange }: {
+  companions: Partial<EnrollmentCompanion>[];
+  onChange: (c: Partial<EnrollmentCompanion>[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<Partial<EnrollmentCompanion>>({});
+
+  const saveDraft = () => {
+    if (!draft.name?.trim()) return;
+    onChange([...companions, draft]);
+    setDraft({});
+    setAdding(false);
+  };
+
+  const remove = (idx: number) => {
+    onChange(companions.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold text-muted-foreground">Acompanhantes</h4>
+
+      {/* Saved chips */}
+      {companions.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {companions.map((c, i) => (
+            <Badge key={i} variant="secondary" className="gap-1.5 py-1 px-2.5 text-sm">
+              <User className="w-3 h-3" />
+              {c.name}
+              <button type="button" onClick={() => remove(i)} className="ml-1 hover:text-destructive">
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Add form */}
+      {adding ? (
+        <Card className="border">
+          <CardContent className="pt-3 space-y-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Nome *</Label>
+                <Input value={draft.name || ""} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} autoFocus />
+              </div>
+              <div>
+                <Label className="text-xs">E-mail</Label>
+                <Input value={draft.email || ""} onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Celular</Label>
+                <Input value={draft.phone || ""} onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))} />
+              </div>
+              <div>
+                <Label className="text-xs">Área de atuação</Label>
+                <Input value={draft.area_atuacao || ""} onChange={(e) => setDraft((d) => ({ ...d, area_atuacao: e.target.value }))} />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Especialidade</Label>
+                <Input value={draft.especialidade || ""} onChange={(e) => setDraft((d) => ({ ...d, especialidade: e.target.value }))} />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={saveDraft} disabled={!draft.name?.trim()}>Salvar acompanhante</Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setAdding(false); setDraft({}); }}>Cancelar</Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Button type="button" variant="outline" size="sm" onClick={() => setAdding(true)}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar acompanhante
+        </Button>
+      )}
+    </div>
+  );
 }
 
 export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: Props) {
@@ -313,6 +392,9 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     />
                   </div>
                 )}
+
+                {/* Acompanhantes inline */}
+                <CompanionsInline companions={companions} onChange={setCompanions} />
 
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => goToStep(1)}>

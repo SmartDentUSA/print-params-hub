@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Pencil, Trash2, Save, X } from "lucide-react";
 import type { ProposalItem, EquipmentData, EquipKey, EquipmentEntry } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
 
@@ -16,6 +16,10 @@ interface Props {
 
 export function EquipmentSerialsSection({ items, equipmentData, onChange }: Props) {
   const [showManualFresadora, setShowManualFresadora] = useState(false);
+  // Track which equip keys are in "editing" mode
+  const [editing, setEditing] = useState<Set<string>>(new Set());
+  // Draft values while editing
+  const [drafts, setDrafts] = useState<Record<string, { serial: string; ativacao: string }>>({});
 
   const withEquip = items.filter((i) => i.equip_key !== null);
   const noEquip = items.filter((i) => i.equip_key === null);
@@ -31,12 +35,26 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
     grouped[cfg.etapa_number].items.push(item);
   }
 
-  const sortedEtapas = Object.entries(grouped)
-    .sort(([a], [b]) => Number(a) - Number(b));
+  const sortedEtapas = Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b));
+
+  const resolveKey = (item: ProposalItem, currentSubtipo: string): EquipKey => {
+    const cfg = EQUIP_CONFIG[item.equip_key!];
+    if (cfg?.pode_ser_bancada) {
+      return currentSubtipo === "bancada" ? "equip_scanner_bancada" : "equip_scanner";
+    }
+    return item.equip_key!;
+  };
 
   const updateEntry = (key: EquipKey, partial: Partial<EquipmentEntry>) => {
     const current = equipmentData[key] || { serial: "", ativacao: "", item_nome: "", proposal_ref: "" };
     onChange({ ...equipmentData, [key]: { ...current, ...partial } });
+  };
+
+  const removeEntry = (key: EquipKey) => {
+    const updated = { ...equipmentData };
+    delete updated[key];
+    onChange(updated);
+    setEditing((prev) => { const s = new Set(prev); s.delete(key); return s; });
   };
 
   const handleSubtipoToggle = (item: ProposalItem, newSubtipo: "intraoral" | "bancada") => {
@@ -44,19 +62,46 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
     const newKey: EquipKey = newSubtipo === "bancada" ? "equip_scanner_bancada" : "equip_scanner";
     const oldData = equipmentData[oldKey];
     const updated = { ...equipmentData };
-
-    // Mover dados entre chaves
     if (oldData) {
       delete updated[oldKey];
       updated[newKey] = { ...oldData, subtipo: newSubtipo };
     } else {
-      updated[newKey] = {
-        serial: "", ativacao: "", item_nome: item.nome,
-        proposal_ref: item.proposal_id, subtipo: newSubtipo,
-      };
+      updated[newKey] = { serial: "", ativacao: "", item_nome: item.nome, proposal_ref: item.proposal_id, subtipo: newSubtipo };
     }
-
     onChange(updated);
+  };
+
+  const startAdd = (key: EquipKey) => {
+    setDrafts((d) => ({ ...d, [key]: { serial: "", ativacao: "" } }));
+    setEditing((prev) => new Set(prev).add(key));
+  };
+
+  const startEdit = (key: EquipKey) => {
+    const entry = equipmentData[key];
+    setDrafts((d) => ({ ...d, [key]: { serial: entry?.serial || "", ativacao: entry?.ativacao || "" } }));
+    setEditing((prev) => new Set(prev).add(key));
+  };
+
+  const cancelEdit = (key: EquipKey) => {
+    setEditing((prev) => { const s = new Set(prev); s.delete(key); return s; });
+    setDrafts((d) => { const n = { ...d }; delete n[key]; return n; });
+  };
+
+  const saveDraft = (key: EquipKey, item: ProposalItem) => {
+    const draft = drafts[key];
+    if (!draft) return;
+    updateEntry(key, {
+      serial: draft.serial,
+      ativacao: draft.ativacao,
+      item_nome: item.nome,
+      proposal_ref: item.proposal_id,
+    });
+    setEditing((prev) => { const s = new Set(prev); s.delete(key); return s; });
+    setDrafts((d) => { const n = { ...d }; delete n[key]; return n; });
+  };
+
+  const updateDraft = (key: string, field: "serial" | "ativacao", value: string) => {
+    setDrafts((d) => ({ ...d, [key]: { ...d[key], [field]: value } }));
   };
 
   const hasFresadora = withEquip.some((i) => i.equip_key === "equip_fresadora");
@@ -72,10 +117,16 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
               const cfg = EQUIP_CONFIG[equipKey];
               const entry = equipmentData[equipKey];
               const currentSubtipo = entry?.subtipo || "intraoral";
+              const resolvedKey = resolveKey(item, currentSubtipo);
+              const resolvedEntry = equipmentData[resolvedKey];
+              const isEditing = editing.has(resolvedKey);
+              const hasSerial = !!resolvedEntry?.serial;
+              const draft = drafts[resolvedKey];
 
               return (
                 <Card key={`${item.proposal_id}-${item.item_idx}-${idx}`} className="border">
                   <CardContent className="pt-4 space-y-3">
+                    {/* Header */}
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-medium text-sm">{item.nome}</span>
@@ -89,71 +140,74 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
                     {/* Toggle intraoral/bancada */}
                     {cfg.pode_ser_bancada && (
                       <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={currentSubtipo === "intraoral" ? "default" : "outline"}
-                          onClick={() => handleSubtipoToggle(item, "intraoral")}
-                        >
-                          Intraoral
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={currentSubtipo === "bancada" ? "default" : "outline"}
-                          onClick={() => handleSubtipoToggle(item, "bancada")}
-                        >
-                          Bancada
-                        </Button>
+                        <Button type="button" size="sm" variant={currentSubtipo === "intraoral" ? "default" : "outline"} onClick={() => handleSubtipoToggle(item, "intraoral")}>Intraoral</Button>
+                        <Button type="button" size="sm" variant={currentSubtipo === "bancada" ? "default" : "outline"} onClick={() => handleSubtipoToggle(item, "bancada")}>Bancada</Button>
                       </div>
                     )}
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <Label className="text-xs">{cfg.serial_label}</Label>
-                        <Input
-                          placeholder={cfg.serial_placeholder}
-                          value={entry?.serial || ""}
-                          onChange={(e) =>
-                            updateEntry(
-                              cfg.pode_ser_bancada
-                                ? (currentSubtipo === "bancada" ? "equip_scanner_bancada" : "equip_scanner")
-                                : equipKey,
-                              {
-                                serial: e.target.value,
-                                item_nome: item.nome,
-                                proposal_ref: item.proposal_id,
-                                subtipo: cfg.pode_ser_bancada ? currentSubtipo : undefined,
-                              }
-                            )
-                          }
-                        />
-                      </div>
+                    {/* State: no serial, not editing → show [+ Adicionar] */}
+                    {!hasSerial && !isEditing && (
+                      <Button type="button" variant="outline" size="sm" onClick={() => startAdd(resolvedKey)}>
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
+                      </Button>
+                    )}
 
-                      {/* Data ativação — SOMENTE se cfg.lia_date_field !== null (equip_cad não tem) */}
-                      {cfg.lia_date_field !== null && (
-                        <div>
-                          <Label className="text-xs">Data de ativação</Label>
-                          <Input
-                            type="date"
-                            value={entry?.ativacao || ""}
-                            onChange={(e) =>
-                              updateEntry(
-                                cfg.pode_ser_bancada
-                                  ? (currentSubtipo === "bancada" ? "equip_scanner_bancada" : "equip_scanner")
-                                  : equipKey,
-                                {
-                                  ativacao: e.target.value,
-                                  item_nome: item.nome,
-                                  proposal_ref: item.proposal_id,
-                                  subtipo: cfg.pode_ser_bancada ? currentSubtipo : undefined,
-                                }
-                              )
-                            }
-                          />
+                    {/* State: has serial, not editing → show readonly + [Edit] [Remove] */}
+                    {hasSerial && !isEditing && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 text-sm bg-muted/50 rounded px-3 py-2">
+                          <div className="flex-1">
+                            <span className="text-xs text-muted-foreground">{cfg.serial_label}: </span>
+                            <span className="font-mono">{resolvedEntry!.serial}</span>
+                          </div>
+                          {resolvedEntry!.ativacao && cfg.lia_date_field !== null && (
+                            <div>
+                              <span className="text-xs text-muted-foreground">Ativação: </span>
+                              <span className="font-mono text-xs">{resolvedEntry!.ativacao}</span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                        <div className="flex gap-2">
+                          <Button type="button" variant="outline" size="sm" onClick={() => startEdit(resolvedKey)}>
+                            <Pencil className="w-3.5 h-3.5 mr-1" /> Editar
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => removeEntry(resolvedKey)}>
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Remover
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* State: editing → show inputs + [Save] [Cancel] */}
+                    {isEditing && draft && (
+                      <div className="space-y-3">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <Label className="text-xs">{cfg.serial_label}</Label>
+                            <Input
+                              placeholder={cfg.serial_placeholder}
+                              value={draft.serial}
+                              onChange={(e) => updateDraft(resolvedKey, "serial", e.target.value)}
+                              autoFocus
+                            />
+                          </div>
+                          {cfg.lia_date_field !== null && (
+                            <div>
+                              <Label className="text-xs">Data de ativação</Label>
+                              <Input type="date" value={draft.ativacao} onChange={(e) => updateDraft(resolvedKey, "ativacao", e.target.value)} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" onClick={() => saveDraft(resolvedKey, item)} disabled={!draft.serial.trim()}>
+                            <Save className="w-3.5 h-3.5 mr-1" /> Salvar
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => cancelEdit(resolvedKey)}>
+                            <X className="w-3.5 h-3.5 mr-1" /> Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -181,12 +235,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
       {!hasFresadora && (
         <div>
           {!showManualFresadora ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowManualFresadora(true)}
-            >
+            <Button type="button" variant="outline" size="sm" onClick={() => setShowManualFresadora(true)}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar fresadora manualmente
             </Button>
           ) : (
@@ -199,42 +248,15 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div>
                     <Label className="text-xs">Modelo</Label>
-                    <Input
-                      placeholder="Ex: DWX-52D"
-                      value={equipmentData.equip_fresadora?.item_nome || ""}
-                      onChange={(e) =>
-                        updateEntry("equip_fresadora", {
-                          item_nome: e.target.value,
-                          proposal_ref: "manual",
-                        })
-                      }
-                    />
+                    <Input placeholder="Ex: DWX-52D" value={equipmentData.equip_fresadora?.item_nome || ""} onChange={(e) => updateEntry("equip_fresadora", { item_nome: e.target.value, proposal_ref: "manual" })} />
                   </div>
                   <div>
                     <Label className="text-xs">Nº de série</Label>
-                    <Input
-                      placeholder={EQUIP_CONFIG.equip_fresadora.serial_placeholder}
-                      value={equipmentData.equip_fresadora?.serial || ""}
-                      onChange={(e) =>
-                        updateEntry("equip_fresadora", {
-                          serial: e.target.value,
-                          proposal_ref: "manual",
-                        })
-                      }
-                    />
+                    <Input placeholder={EQUIP_CONFIG.equip_fresadora.serial_placeholder} value={equipmentData.equip_fresadora?.serial || ""} onChange={(e) => updateEntry("equip_fresadora", { serial: e.target.value, proposal_ref: "manual" })} />
                   </div>
                   <div>
                     <Label className="text-xs">Data de ativação</Label>
-                    <Input
-                      type="date"
-                      value={equipmentData.equip_fresadora?.ativacao || ""}
-                      onChange={(e) =>
-                        updateEntry("equip_fresadora", {
-                          ativacao: e.target.value,
-                          proposal_ref: "manual",
-                        })
-                      }
-                    />
+                    <Input type="date" value={equipmentData.equip_fresadora?.ativacao || ""} onChange={(e) => updateEntry("equip_fresadora", { ativacao: e.target.value, proposal_ref: "manual" })} />
                   </div>
                 </div>
               </CardContent>
