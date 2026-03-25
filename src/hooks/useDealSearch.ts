@@ -19,58 +19,64 @@ export function useDealSearch() {
 
       let data: any = null;
 
-      // Tentativa 1: piperun_id do lead (string match)
-      {
-        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+      // Tentativa 1: piperun_id do lead (string match — coluna text)
+      if (!data) {
+        const res = await (supabase as any).from('lia_attendances').select(fields)
           .eq('piperun_id', id)
           .is('merged_into', null)
-          .limit(1).maybeSingle();
-        if (d) data = d;
+          .limit(1);
+        console.log('[DealSearch] T1 piperun_id:', { data: res.data?.length, error: res.error?.message });
+        if (!res.error && res.data?.length) data = res.data[0];
       }
 
-      // Tentativa 2: pessoa_piperun_id (pode ser numerico)
-      if (!data) {
-        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
-          .eq('pessoa_piperun_id', id)
+      // Tentativa 2: pessoa_piperun_id (coluna integer)
+      if (!data && /^\d+$/.test(id)) {
+        const res = await (supabase as any).from('lia_attendances').select(fields)
+          .eq('pessoa_piperun_id', Number(id))
           .is('merged_into', null)
-          .limit(1).maybeSingle();
-        if (d) data = d;
+          .limit(1);
+        console.log('[DealSearch] T2 pessoa_piperun_id:', { data: res.data?.length, error: res.error?.message });
+        if (!res.error && res.data?.length) data = res.data[0];
       }
 
       // Tentativa 3: deal_id dentro do JSONB como string
       if (!data) {
-        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+        const res = await (supabase as any).from('lia_attendances').select(fields)
           .contains('piperun_deals_history', JSON.stringify([{ deal_id: id }]))
           .is('merged_into', null)
-          .limit(1).maybeSingle();
-        if (d) data = d;
+          .limit(1);
+        console.log('[DealSearch] T3 JSONB string:', { data: res.data?.length, error: res.error?.message });
+        if (!res.error && res.data?.length) data = res.data[0];
       }
 
       // Tentativa 4: deal_id como numero no JSONB
       if (!data && /^\d+$/.test(id)) {
-        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+        const res = await (supabase as any).from('lia_attendances').select(fields)
           .contains('piperun_deals_history', JSON.stringify([{ deal_id: Number(id) }]))
           .is('merged_into', null)
-          .limit(1).maybeSingle();
-        if (d) data = d;
+          .limit(1);
+        console.log('[DealSearch] T4 JSONB number:', { data: res.data?.length, error: res.error?.message });
+        if (!res.error && res.data?.length) data = res.data[0];
       }
 
-      // Tentativa 5: busca textual no JSONB inteiro (fallback)
+      // Tentativa 5: busca textual no JSONB (deal_id como valor string no JSON)
       if (!data) {
-        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
-          .filter('piperun_deals_history::text', 'ilike', `%"deal_id":"${id}"%`)
+        const res = await (supabase as any).from('lia_attendances').select(fields)
+          .like('piperun_deals_history::text', `%"deal_id":"${id}"%`)
           .is('merged_into', null)
-          .limit(1).maybeSingle();
-        if (d) data = d;
+          .limit(1);
+        console.log('[DealSearch] T5 text like quoted:', { data: res.data?.length, error: res.error?.message });
+        if (!res.error && res.data?.length) data = res.data[0];
       }
 
-      // Tentativa 6: variante sem aspas no valor (deal_id numerico serializado)
+      // Tentativa 6: busca textual (deal_id numerico no JSON)
       if (!data && /^\d+$/.test(id)) {
-        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
-          .filter('piperun_deals_history::text', 'ilike', `%"deal_id":${id}%`)
+        const res = await (supabase as any).from('lia_attendances').select(fields)
+          .like('piperun_deals_history::text', `%"deal_id":${id},%`)
           .is('merged_into', null)
-          .limit(1).maybeSingle();
-        if (d) data = d;
+          .limit(1);
+        console.log('[DealSearch] T6 text like numeric:', { data: res.data?.length, error: res.error?.message });
+        if (!res.error && res.data?.length) data = res.data[0];
       }
 
       if (!data) {
