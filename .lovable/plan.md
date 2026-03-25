@@ -1,30 +1,22 @@
 
 
-# Fix: Footer do formulario publico — layout e icones de redes sociais
+# O codigo ja esta correto — falta publicar
 
-## Problemas identificados
+O arquivo `PublicFormPage.tsx` ja contem:
+- `useCompanyData()` importado e chamado (linha 9, linha 53)
+- Footer com dados dinamicos da empresa (linhas 582-643)
+- Icones de redes sociais com fallback para Instagram e YouTube (linhas 607-638)
+- Layout `flex flex-col` no container principal (linha 332)
 
-1. **Layout quebrado**: O container externo usa `flex items-start` sem `flex-col` nem `flex-wrap`. O footer fica ao lado do grid em vez de abaixo dele — visivel no screenshot onde o footer aparece no canto superior direito.
+**O problema e que a versao em producao (`parametros.smartdent.com.br`) nao foi atualizada.** O codigo no editor ja esta correto.
 
-2. **Icones nao aparecem**: Mesmo com o codigo correto para renderizar icones, o layout faz o footer ficar comprimido e possivelmente os dados de `social_media` nao estao chegando (o `useCompanyData` pode retornar `social_media` como objeto vazio `{}`).
+## Acao necessaria
 
-## Correção
+Nenhuma alteracao de codigo. Voce precisa **republicar o projeto**:
 
-**Arquivo:** `src/pages/PublicFormPage.tsx`
+1. Clique em **"Publish" → "Update"** no painel do Lovable para que as alteracoes sejam enviadas ao dominio customizado
+2. Aguarde o deploy finalizar (1-2 minutos)
+3. Acesse `https://parametros.smartdent.com.br/f/-formulario-exocad-ia` e confirme que o footer agora exibe os icones de redes sociais
 
-### Mudanca 1 — Corrigir layout flex
-Adicionar `flex-col` e `flex-wrap` ao container principal (linha 332):
-
-```
-flex items-start justify-center → flex flex-col items-center
-```
-
-Isso faz o grid e o footer empilharem verticalmente, com o footer sempre abaixo do conteudo.
-
-### Mudanca 2 — Garantir renderizacao dos icones
-Remover a condicional `company?.social_media &&` que envolve o bloco de icones — se `social_media` for `{}` (objeto vazio, truthy), o `.filter(link => link.url)` ja cuida de esconder icones sem URL. O problema e que quando `company` ainda esta carregando, nada aparece. Usar fallback hardcoded para as redes sociais conhecidas da empresa.
-
-## Resultado esperado
-
-Footer centralizado abaixo do formulario, com icones de Instagram/YouTube/Facebook/LinkedIn clicaveis quando configurados no Sistema A.
+Enquanto isso, voce pode verificar que o preview do Lovable ja mostra o footer correto acessando a mesma rota `/f/-formulario-exocad-ia` na preview.
 
