@@ -329,7 +329,7 @@ export default function PublicFormPage() {
   }
 
   return (
-    <div className="public-form-page min-h-screen bg-background flex items-start justify-center p-4 pt-8 md:pt-16" data-layout="split-v2">
+    <div className="public-form-page min-h-screen bg-background flex flex-col items-center p-4 pt-8 md:pt-16" data-layout="split-v2">
       <style>{`
         :root {
           --brand-h: 215;
@@ -604,13 +604,14 @@ export default function PublicFormPage() {
         </p>
 
         {/* Social media icons */}
-        {company?.social_media && (() => {
+        {(() => {
+          const sm = company?.social_media || {};
           const socialLinks = [
-            { icon: Instagram, url: company.social_media.instagram, label: "Instagram" },
-            { icon: Youtube, url: company.social_media.youtube, label: "YouTube" },
-            { icon: Facebook, url: company.social_media.facebook, label: "Facebook" },
-            { icon: Linkedin, url: company.social_media.linkedin, label: "LinkedIn" },
-            { icon: Twitter, url: company.social_media.twitter, label: "Twitter" },
+            { icon: Instagram, url: sm.instagram || "https://www.instagram.com/smartdentbr", label: "Instagram" },
+            { icon: Youtube, url: sm.youtube || "https://www.youtube.com/@smartdentbr", label: "YouTube" },
+            { icon: Facebook, url: sm.facebook, label: "Facebook" },
+            { icon: Linkedin, url: sm.linkedin, label: "LinkedIn" },
+            { icon: Twitter, url: sm.twitter, label: "Twitter" },
           ].filter(link => link.url);
 
           if (socialLinks.length === 0) return null;
