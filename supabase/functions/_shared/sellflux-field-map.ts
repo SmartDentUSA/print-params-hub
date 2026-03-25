@@ -13,6 +13,7 @@ export const TAG_PREFIXES = {
   CS: "CS_",
   LIA: "LIA_",
   ALERT: "A_",
+  TRAINING: "TREIN_",
 } as const;
 
 export const LIA_TAGS = {
