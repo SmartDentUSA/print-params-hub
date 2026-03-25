@@ -1,27 +1,30 @@
 
 
-# Plano: Adicionar icones de redes sociais no footer do PublicFormPage
+# Fix: Footer do formulario publico — layout e icones de redes sociais
 
-## Problema
+## Problemas identificados
 
-O footer do `PublicFormPage.tsx` esta hardcoded — nao usa `useCompanyData()` e portanto nao exibe os icones de redes sociais que vem do Sistema A.
+1. **Layout quebrado**: O container externo usa `flex items-start` sem `flex-col` nem `flex-wrap`. O footer fica ao lado do grid em vez de abaixo dele — visivel no screenshot onde o footer aparece no canto superior direito.
 
-## Solucao
+2. **Icones nao aparecem**: Mesmo com o codigo correto para renderizar icones, o layout faz o footer ficar comprimido e possivelmente os dados de `social_media` nao estao chegando (o `useCompanyData` pode retornar `social_media` como objeto vazio `{}`).
 
-Adicionar `useCompanyData()` no `PublicFormPage.tsx` e renderizar icones de redes sociais no footer, usando o mesmo pattern do `Footer.tsx` principal.
-
-## Mudanca
+## Correção
 
 **Arquivo:** `src/pages/PublicFormPage.tsx`
 
-1. Importar `useCompanyData` e icones do Lucide (`Instagram`, `Youtube`, `Facebook`, `Linkedin`, `Twitter`)
-2. Chamar `const { data: company } = useCompanyData()` no componente
-3. Substituir o footer hardcoded por um que use `company` para dados textuais (nome, CNPJ, endereco, telefone, site) e renderize icones de redes sociais filtrados (mesmo array pattern do `Footer.tsx`)
-4. Icones exibidos como circulos compactos linkados, centralizados abaixo dos dados da empresa
+### Mudanca 1 — Corrigir layout flex
+Adicionar `flex-col` e `flex-wrap` ao container principal (linha 332):
 
-## Detalhes tecnicos
+```
+flex items-start justify-center → flex flex-col items-center
+```
 
-- Reutiliza `useCompanyData()` que ja faz cache via React Query
-- Fallback: se `company` nao carregar, mantem os dados hardcoded atuais
-- Icones: circulos de 32px com hover, mesmo estilo do Footer principal mas menor escala
+Isso faz o grid e o footer empilharem verticalmente, com o footer sempre abaixo do conteudo.
+
+### Mudanca 2 — Garantir renderizacao dos icones
+Remover a condicional `company?.social_media &&` que envolve o bloco de icones — se `social_media` for `{}` (objeto vazio, truthy), o `.filter(link => link.url)` ja cuida de esconder icones sem URL. O problema e que quando `company` ainda esta carregando, nada aparece. Usar fallback hardcoded para as redes sociais conhecidas da empresa.
+
+## Resultado esperado
+
+Footer centralizado abaixo do formulario, com icones de Instagram/YouTube/Facebook/LinkedIn clicaveis quando configurados no Sistema A.
 
