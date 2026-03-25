@@ -10,6 +10,7 @@ import {
   piperunGet,
   buildRichDealSnapshot,
   upsertDealHistory as sharedUpsertDealHistory,
+  callNormalizeFromLead,
   type PipeRunDealData,
   type RichDealSnapshot,
   type RichProposalSnapshot,
@@ -450,6 +451,7 @@ async function processDeal(
 
     if (!error) {
       counters.updated++;
+      callNormalizeFromLead(supabase, currentLead.id).catch(() => {});
 
       const fullHistory = smartPayload.piperun_deals_history as DealSnapshot[] | undefined;
       if (fullHistory && fullHistory.length > 1) {
@@ -505,9 +507,10 @@ async function processDeal(
       tags_crm: initialTags,
     };
 
-    const { error } = await supabase.from("lia_attendances").insert(insertPayload);
-    if (!error) {
+    const { data: newLead, error } = await supabase.from("lia_attendances").insert(insertPayload).select("id").maybeSingle();
+    if (!error && newLead) {
       counters.created++;
+      callNormalizeFromLead(supabase, newLead.id).catch(() => {});
     } else if (error.code === "23505") {
       const resolved = await resolveDuplicateEmailConflict(supabase, email, insertPayload, null, dealId);
       if (resolved) {

@@ -9165,6 +9165,10 @@ export type Database = {
           lead_id: string
         }[]
       }
+      fn_sync_normalized_from_lead: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       get_brand_distribution: {
         Args: never
         Returns: {

@@ -13,6 +13,7 @@ import {
   deepParseStringifiedFields,
   buildRichDealSnapshot,
   upsertDealHistory,
+  callNormalizeFromLead,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
 
@@ -913,6 +914,9 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Normalize to relational tables (people/companies/deals)
+    callNormalizeFromLead(supabase, leadId).catch(() => {});
 
     // Find team member
     let teamMember = null;

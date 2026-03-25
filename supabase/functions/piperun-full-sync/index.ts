@@ -9,6 +9,7 @@ import {
   piperunGet,
   buildRichDealSnapshot,
   upsertDealHistory,
+  callNormalizeFromLead,
   type PipeRunDealData,
   type RichDealSnapshot,
 } from "../_shared/piperun-field-map.ts";
@@ -304,6 +305,7 @@ Deno.serve(async (req) => {
           const { error } = await supabase.from("lia_attendances").update(smartPayload).eq("id", currentLead.id);
           if (!error) {
             updated++;
+            callNormalizeFromLead(supabase, currentLead.id).catch(() => {});
           } else if (error.code === "23505" && email) {
             const resolved = await resolveDuplicateEmailConflict(supabase, email, smartPayload, currentLead, dealId);
             if (resolved) updated++;
@@ -330,8 +332,11 @@ Deno.serve(async (req) => {
             piperun_deals_history: [dealSnapshot],
             tags_crm: initialTags,
           };
-          const { error } = await supabase.from("lia_attendances").insert(insertPayload);
-          if (!error) created++;
+          const { data: newLead, error } = await supabase.from("lia_attendances").insert(insertPayload).select("id").maybeSingle();
+          if (!error && newLead) {
+            created++;
+            callNormalizeFromLead(supabase, newLead.id).catch(() => {});
+          }
           else if (error.code === "23505") {
             const resolved = await resolveDuplicateEmailConflict(supabase, email, insertPayload, null, dealId);
             if (resolved) updated++;
