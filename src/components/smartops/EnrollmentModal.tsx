@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Search, ArrowRight, ArrowLeft, CalendarDays, Users, Check, Plus, X, AlertTriangle,
@@ -167,7 +166,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
   // ─── Render ───
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Agendar — {course.title}
@@ -175,7 +174,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
           <div className="space-y-4 pb-4">
             {/* ═══ STEP 1: Busca por Deal ═══ */}
             {step === 1 && (
@@ -587,7 +585,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
               </div>
             )}
           </div>
-        </ScrollArea>
       </DialogContent>
     </Dialog>
   );

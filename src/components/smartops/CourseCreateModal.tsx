@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -435,12 +434,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar Curso" : "Novo Curso"}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
           <div className="space-y-6 pb-4">
             {/* ─── Dados do curso ─── */}
             <div className="space-y-4">
@@ -693,7 +691,6 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
               </div>
             </div>
           </div>
-        </ScrollArea>
 
         {/* Footer */}
         <div className="flex gap-2 pt-4 border-t">
