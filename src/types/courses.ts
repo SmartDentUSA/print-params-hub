@@ -148,7 +148,7 @@ export interface DealSearchResult {
   empresa_cnpj?: string;
   cidade?: string;
   uf?: string;
-  pais?: string;
+  pais_origem?: string;
   piperun_deals_history: PiperunDeal[];
   matched_deal: PiperunDeal;
 }

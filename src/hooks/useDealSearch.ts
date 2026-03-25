@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { DealSearchResult, PiperunDeal } from '@/types/courses';
 import { isDealGanho } from '@/lib/courseUtils';
 
-const FIELDS = 'id,nome,email,telefone_normalized,piperun_id,pessoa_piperun_id,especialidade,area_atuacao,buyer_type,empresa_cnpj,cidade,uf,pais,piperun_deals_history';
+const FIELDS = 'id,nome,email,telefone_normalized,piperun_id,pessoa_piperun_id,especialidade,area_atuacao,buyer_type,empresa_cnpj,cidade,uf,pais_origem,piperun_deals_history';
 
 export function useDealSearch() {
   const [loading, setLoading] = useState(false);

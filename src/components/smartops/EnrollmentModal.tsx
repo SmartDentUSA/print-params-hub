@@ -77,7 +77,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       area_atuacao: result.area_atuacao || "",
       numero_contrato: "",
       empresa_cnpj: result.empresa_cnpj || "",
-      empresa_pais: result.pais || "",
+      empresa_pais: result.pais_origem || "",
       empresa_estado: result.uf || "",
       empresa_cidade: result.cidade || "",
       empresa_endereco: "",
