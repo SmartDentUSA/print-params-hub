@@ -1,71 +1,49 @@
 
 
-# Plano: Turmas em lista dentro do card + countdown + fix build errors
+# Plano: Acordeao por tipo de modalidade na aba Agendamentos
 
-## Problema
+## Situacao atual
 
-1. Cada turma aparece como um card separado dentro de um grid 3 colunas -- o usuario quer todas as datas como linhas dentro de um unico card por curso
-2. Falta: countdown regressivo, numero de contratos, acompanhantes, instrutor, dias da semana, NPS placeholder
-3. Build errors em `lia-lead-extraction.ts`, `lia-printer-dialog.ts` (tipos `never` em `agent_sessions`), e `EnrollmentModal.tsx` (campo `instagram` faltando)
+Os cursos aparecem como cards planos em sequencia. O usuario quer:
+1. Agrupar por **tipo de modalidade** (Presencial, Online ao Vivo, etc.)
+2. Cada grupo e um **acordeao** (colapsavel)
+3. Dentro de cada acordeao, os cards de curso com suas tabelas de turmas permanecem
 
-## Mudancas
+## Mudanca
 
-### 1. `src/components/SmartOpsCourses.tsx` — AgendamentosTab (linhas 83-168)
+**Arquivo: `src/components/SmartOpsCourses.tsx`** — `AgendamentosTab` (linhas 124-249)
 
-Substituir o grid de cards por uma **tabela** dentro de cada card de curso. Cada turma vira uma linha com:
+### Logica
 
-| Coluna | Conteudo |
-|---|---|
-| Turma | Label da turma |
-| Countdown | `Xd Xh Xm` ate `start_date` (atualizado via `useEffect` + `setInterval` 60s). Se ja passou: "Em andamento" ou "Encerrado" |
-| Dias | Dias da semana extraidos das datas (ex: "Qua, Qui, Sex") |
-| Contratos | `enrolled_count` (numero de inscritos) |
-| Acompanhantes | Query count de `smartops_enrollment_companions` agrupado por `enrollment.turma_id` |
-| Instrutor | `course.instructor_name` |
-| NPS | Placeholder "—" com tooltip "Em breve" |
-| Vagas | Progress bar + `X/Y` |
-| Acao | Botao "Agendar" |
+1. Importar `Accordion, AccordionContent, AccordionItem, AccordionTrigger` de `@/components/ui/accordion`
+2. Apos agrupar por `course_id` (ja existente), reagrupar por `modality`:
+   ```ts
+   const byModality = Object.entries(grouped).reduce((acc, [id, entry]) => {
+     const mod = entry.course.modality || 'presencial';
+     if (!acc[mod]) acc[mod] = [];
+     acc[mod].push({ courseId: id, ...entry });
+     return acc;
+   }, {});
+   ```
+3. Renderizar um `Accordion type="multiple" defaultValue={Object.keys(byModality)}` com um `AccordionItem` por modalidade
+4. O `AccordionTrigger` exibe o label da modalidade (ex: "Presencial") + badge com contagem de cursos
+5. O `AccordionContent` contem os cards de curso existentes (sem alteracao interna)
 
-Adicionar query de acompanhantes via join:
-```sql
-SELECT turma_id, count(*) 
-FROM smartops_enrollment_companions c
-JOIN smartops_course_enrollments e ON c.enrollment_id = e.id
-GROUP BY e.turma_id
+### Resultado visual
+
+```text
+▼ Presencial (1 curso)
+  ┌─ Teste [Presencial] ── Danilo Coutigi ─┐
+  │ Turma 1 | Encerrado | qua,qui,sex | ...│
+  └─────────────────────────────────────────┘
+
+▼ Online ao Vivo (1 curso)
+  ┌─ dede [Online ao Vivo] ── dedede ───────┐
+  │ dede — 26/03/2026 | 0d 13h 21m | ...   │
+  │ dede — 02/04/2026 | 7d 13h 21m | ...   │
+  │ ...                                     │
+  └─────────────────────────────────────────┘
 ```
 
-Countdown helper inline:
-```ts
-function useCountdown(targetDate?: string) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);
-  if (!targetDate) return null;
-  const diff = new Date(targetDate + 'T09:00:00').getTime() - now;
-  if (diff <= 0) return 'Encerrado';
-  const d = Math.floor(diff / 86400000);
-  const h = Math.floor((diff % 86400000) / 3600000);
-  const m = Math.floor((diff % 3600000) / 60000);
-  return `${d}d ${h}h ${m}m`;
-}
-```
-
-### 2. `src/components/smartops/EnrollmentModal.tsx` (linha 154)
-
-Adicionar `instagram: ""` ao objeto `setFormData` em `populateFromResult`.
-
-### 3. `supabase/functions/_shared/lia-lead-extraction.ts` (linhas 149-162)
-
-Cast `supabase.from("lia_attendances")` com `as any` nas linhas 141 e 160 para resolver erros de tipo `never`.
-
-### 4. `supabase/functions/_shared/lia-printer-dialog.ts` (linhas 189-211)
-
-Cast `supabase.from("agent_sessions")` com `as any` nas linhas 189, 194, 205 para resolver erros de tipo `never`.
-
-### 5. `src/hooks/useDealSearch.ts`
-
-Ja corrigido (`pais_origem`), sem mudanca necessaria.
-
-## Resultado esperado
-
-Um unico card por curso com header (titulo + modalidade + instrutor) e uma tabela de turmas com countdown regressivo, metricas operacionais e botao de acao por linha.
+Todos os acordeoes abertos por padrao. Um unico arquivo modificado.
 
