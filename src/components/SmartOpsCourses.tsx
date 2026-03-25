@@ -27,6 +27,7 @@ import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/co
 import { MODALITY_CONFIG, STATUS_CONFIG, formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { CourseCreateModal } from "./smartops/CourseCreateModal";
 import { EnrollmentModal } from "./smartops/EnrollmentModal";
+import { EquipmentSerialsSection } from "./smartops/EquipmentSerialsSection";
 
 // ─── Aba Agendamentos ───
 function AgendamentosTab() {
@@ -290,17 +291,14 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
     tipo_entrega: enrollment.tipo_entrega || '',
     rastreamento: enrollment.rastreamento || '',
     notes: enrollment.notes || '',
-    equipment_data: enrollment.equipment_data || {},
+    equipment_data: enrollment.equipment_data || {} as EquipmentData,
   });
 
   const uf = (field: string, value: any) => setForm((f) => ({ ...f, [field]: value }));
 
-  const updateEquip = (key: string, field: string, value: string) => {
-    setForm((f) => ({
-      ...f,
-      equipment_data: { ...f.equipment_data, [key]: { ...(f.equipment_data as any)?.[key], [field]: value } },
-    }));
-  };
+  const proposalItems: any[] = enrollment.proposal_items_snapshot || [];
+  const companions: any[] = enrollment.companions || [];
+  const turmaSnap = enrollment.turma_snapshot;
 
   const handleSave = async () => {
     setSaving(true);
@@ -357,14 +355,29 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
     }
   };
 
-  const equipEntries = Object.entries(form.equipment_data as Record<string, any>).filter(([, v]) => v);
-
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Editar Inscrição — {enrollment.person_name}</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          {/* Status */}
+
+          {/* ── Curso / Turma (readonly) ── */}
+          <div className="bg-muted/50 rounded-md p-3 text-sm space-y-1">
+            <div><span className="text-muted-foreground">Curso: </span><strong>{enrollment.course?.title}</strong></div>
+            <div><span className="text-muted-foreground">Turma: </span><strong>{enrollment.turma?.label}</strong></div>
+            {turmaSnap?.days?.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {turmaSnap.days.map((d: any) => (
+                  <span key={d.day_number} className="mr-3">{formatDatePtBr(d.date)} {d.start_time?.substring(0, 5)}–{d.end_time?.substring(0, 5)}</span>
+                ))}
+              </div>
+            )}
+            {enrollment.course?.instructor_name && (
+              <div className="text-xs text-muted-foreground">Instrutor: {enrollment.course.instructor_name}</div>
+            )}
+          </div>
+
+          {/* ── Status ── */}
           <div>
             <Label className="text-xs">Status</Label>
             <Select value={form.status} onValueChange={(v) => uf('status', v)}>
@@ -375,28 +388,21 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             </Select>
           </div>
 
-          {/* Dados do participante */}
+          {/* ── Dados do participante (idêntico ao Step 2) ── */}
           <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Participante</h4>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><Label className="text-xs">Nome</Label><Input value={form.person_name} onChange={(e) => uf('person_name', e.target.value)} /></div>
+            <div><Label className="text-xs">Deal</Label><Input value={form.deal_title} onChange={(e) => uf('deal_title', e.target.value)} /></div>
+            <div><Label className="text-xs">Participante</Label><Input value={form.person_name} onChange={(e) => uf('person_name', e.target.value)} /></div>
+            <div><Label className="text-xs">ID PipeRun</Label><Input value={enrollment.person_piperun_id || ''} disabled /></div>
             <div><Label className="text-xs">Especialidade</Label><Input value={form.especialidade} onChange={(e) => uf('especialidade', e.target.value)} /></div>
             <div><Label className="text-xs">Área de atuação</Label><Input value={form.area_atuacao} onChange={(e) => uf('area_atuacao', e.target.value)} /></div>
-            <div><Label className="text-xs">Instagram</Label><Input value={form.instagram} onChange={(e) => uf('instagram', e.target.value)} placeholder="@usuario" /></div>
-            <div><Label className="text-xs">ID PipeRun</Label><Input value={enrollment.person_piperun_id || ''} disabled /></div>
-            <div><Label className="text-xs">Deal ID</Label><Input value={enrollment.deal_id || ''} disabled /></div>
-          </div>
-
-          {/* Deal */}
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Deal</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div><Label className="text-xs">Título do Deal</Label><Input value={form.deal_title} onChange={(e) => uf('deal_title', e.target.value)} /></div>
-            <div><Label className="text-xs">Valor (R$)</Label><Input type="number" value={form.deal_value} onChange={(e) => uf('deal_value', e.target.value)} /></div>
             <div><Label className="text-xs">Nº Contrato</Label><Input value={form.numero_contrato} onChange={(e) => uf('numero_contrato', e.target.value)} /></div>
-            <div><Label className="text-xs">Nº Proposta</Label><Input value={form.numero_proposta} onChange={(e) => uf('numero_proposta', e.target.value)} /></div>
+            <div><Label className="text-xs">Instagram</Label><Input value={form.instagram} onChange={(e) => uf('instagram', e.target.value)} placeholder="@usuario" /></div>
+            <div><Label className="text-xs">Valor Deal (R$)</Label><Input type="number" value={form.deal_value} onChange={(e) => uf('deal_value', e.target.value)} /></div>
           </div>
 
-          {/* Empresa */}
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Empresa</h4>
+          {/* ── Empresa (B2B) ── */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Dados da Empresa (B2B)</h4>
           <div className="grid gap-3 sm:grid-cols-2">
             <div><Label className="text-xs">CNPJ</Label><Input value={form.empresa_cnpj} onChange={(e) => uf('empresa_cnpj', e.target.value)} /></div>
             <div><Label className="text-xs">País</Label><Input value={form.empresa_pais} onChange={(e) => uf('empresa_pais', e.target.value)} /></div>
@@ -406,8 +412,63 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             <div><Label className="text-xs">Telefone</Label><Input value={form.empresa_telefone} onChange={(e) => uf('empresa_telefone', e.target.value)} /></div>
           </div>
 
-          {/* Entrega */}
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Entrega</h4>
+          {/* ── Nº Proposta ── */}
+          {form.numero_proposta && (
+            <div className="bg-muted/50 rounded-md px-4 py-2.5 text-sm">
+              <span className="text-muted-foreground">Proposta: </span>
+              <span className="font-semibold">{form.numero_proposta}</span>
+              <Input className="mt-2" value={form.numero_proposta} onChange={(e) => uf('numero_proposta', e.target.value)} />
+            </div>
+          )}
+          {!form.numero_proposta && (
+            <div><Label className="text-xs">Nº Proposta</Label><Input value={form.numero_proposta} onChange={(e) => uf('numero_proposta', e.target.value)} placeholder="Ex: PRO17851" /></div>
+          )}
+
+          {/* ── Itens da Proposta (readonly snapshot) ── */}
+          {proposalItems.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Itens da Proposta</h4>
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs">Item</TableHead>
+                      <TableHead className="text-xs text-right">Qtd</TableHead>
+                      <TableHead className="text-xs text-right">Unit (R$)</TableHead>
+                      <TableHead className="text-xs text-right">Total (R$)</TableHead>
+                      <TableHead className="text-xs">Tipo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {proposalItems.map((item: any, idx: number) => (
+                      <TableRow key={idx}>
+                        <TableCell className="text-xs">{item.nome}</TableCell>
+                        <TableCell className="text-xs text-right">{item.qtd}</TableCell>
+                        <TableCell className="text-xs text-right">{Number(item.unit || 0).toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-xs text-right">{Number(item.total || 0).toLocaleString('pt-BR')}</TableCell>
+                        <TableCell className="text-xs">{item.equip_key ? <Badge variant="outline" className="text-[10px]">{EQUIP_CONFIG[item.equip_key as EquipKey]?.label || item.equip_key}</Badge> : <span className="text-muted-foreground">Insumo</span>}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Equipamentos e Seriais (editável) ── */}
+          {proposalItems.some((i: any) => i.equip_key) && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamentos e Seriais</h4>
+              <EquipmentSerialsSection
+                items={proposalItems}
+                equipmentData={form.equipment_data as EquipmentData}
+                onChange={(ed) => uf('equipment_data', ed)}
+              />
+            </div>
+          )}
+
+          {/* ── Tipo de Entrega ── */}
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo de Entrega</h4>
           <div className="flex gap-2">
             <Button type="button" size="sm" variant={form.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => uf('tipo_entrega', 'enviar')}>Enviar</Button>
             <Button type="button" size="sm" variant={form.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => { uf('tipo_entrega', 'retirar'); uf('rastreamento', ''); }}>Retirar</Button>
@@ -416,25 +477,27 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             <div><Label className="text-xs">Rastreamento</Label><Input value={form.rastreamento} onChange={(e) => uf('rastreamento', e.target.value)} placeholder="Ex: BR123456789BR" /></div>
           )}
 
-          {/* Equipamentos */}
-          {equipEntries.length > 0 && (
-            <>
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamentos</h4>
-              {equipEntries.map(([key, entry]: [string, any]) => {
-                const cfg = EQUIP_CONFIG[key as EquipKey];
-                if (!cfg) return null;
-                return (
-                  <div key={key} className="grid gap-2 sm:grid-cols-2 p-2 bg-muted/50 rounded">
-                    <div><Label className="text-xs">{cfg.label} — {cfg.serial_label}</Label><Input value={entry?.serial || ''} onChange={(e) => updateEquip(key, 'serial', e.target.value)} /></div>
-                    {cfg.lia_date_field && <div><Label className="text-xs">Ativação</Label><Input type="date" value={entry?.ativacao || ''} onChange={(e) => updateEquip(key, 'ativacao', e.target.value)} /></div>}
-                  </div>
-                );
-              })}
-            </>
+          {/* ── Acompanhantes (readonly) ── */}
+          {companions.length > 0 && (
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Acompanhantes</h4>
+              <div className="flex flex-wrap gap-2">
+                {companions.map((c: any) => (
+                  <Badge key={c.id} variant="secondary" className="text-xs">{c.name}{c.especialidade ? ` (${c.especialidade})` : ''}</Badge>
+                ))}
+              </div>
+            </div>
           )}
 
-          {/* Observações */}
+          {/* ── Observações ── */}
           <div><Label className="text-xs">Observações</Label><Textarea value={form.notes} onChange={(e) => uf('notes', e.target.value)} rows={2} /></div>
+
+          {/* ── Info readonly ── */}
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <div>Deal ID: {enrollment.deal_id || '—'} | Pipeline: {enrollment.deal_pipeline_name || '—'}</div>
+            <div>Inscrito em: {enrollment.enrolled_at ? new Date(enrollment.enrolled_at).toLocaleString('pt-BR') : '—'}</div>
+            <div>WA: {enrollment.wa_sent_at ? `Enviado ${new Date(enrollment.wa_sent_at).toLocaleString('pt-BR')}` : enrollment.wa_error ? `Erro: ${enrollment.wa_error}` : 'Não enviado'}</div>
+          </div>
 
           <div className="flex gap-2 pt-2 border-t">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -472,11 +535,13 @@ function InscricoesTab() {
         .select(
           `id, person_name, person_piperun_id, status, especialidade, area_atuacao,
            numero_contrato, numero_proposta, instagram, deal_title, deal_id, deal_value,
+           deal_pipeline_name,
            empresa_cnpj, empresa_pais, empresa_estado, empresa_cidade, empresa_endereco, empresa_telefone,
            tipo_entrega, rastreamento, enrolled_at, lead_id, wa_sent_at, wa_error,
-           turma_snapshot, equipment_data, notes,
-           course:smartops_courses(title, modality),
-           turma:smartops_course_turmas(label)`,
+           turma_snapshot, equipment_data, proposal_items_snapshot, notes,
+           course:smartops_courses(title, modality, instructor_name),
+           turma:smartops_course_turmas(label),
+           companions:smartops_enrollment_companions(id, name, email, phone, especialidade, area_atuacao)`,
           { count: "exact" }
         )
         .order("enrolled_at", { ascending: false });
