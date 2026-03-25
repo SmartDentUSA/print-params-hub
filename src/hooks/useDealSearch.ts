@@ -10,25 +10,67 @@ export function useDealSearch() {
 
   const search = async (dealId: string) => {
     if (!dealId.trim()) return;
+    const id = dealId.trim();
     setLoading(true); setError(null); setResult(null);
     try {
       const fields = `id, nome, email, telefone_normalized,
         piperun_id, pessoa_piperun_id, especialidade, area_atuacao,
         buyer_type, empresa_cnpj, cidade, uf, pais, piperun_deals_history`;
 
-      // Tentativa 1: piperun_id do lead (indice direto)
-      let { data } = await (supabase as any).from('lia_attendances').select(fields)
-        .eq('piperun_id', dealId.trim())
-        .is('merged_into', null)  // SEMPRE — regra absoluta
-        .limit(1).maybeSingle();
+      let data: any = null;
 
-      // Tentativa 2: deal_id dentro do JSONB
-      if (!data) {
-        const { data: d2 } = await (supabase as any).from('lia_attendances').select(fields)
-          .contains('piperun_deals_history', JSON.stringify([{ deal_id: dealId.trim() }]))
+      // Tentativa 1: piperun_id do lead (string match)
+      {
+        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+          .eq('piperun_id', id)
           .is('merged_into', null)
           .limit(1).maybeSingle();
-        data = d2;
+        if (d) data = d;
+      }
+
+      // Tentativa 2: pessoa_piperun_id (pode ser numerico)
+      if (!data) {
+        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+          .eq('pessoa_piperun_id', id)
+          .is('merged_into', null)
+          .limit(1).maybeSingle();
+        if (d) data = d;
+      }
+
+      // Tentativa 3: deal_id dentro do JSONB como string
+      if (!data) {
+        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+          .contains('piperun_deals_history', JSON.stringify([{ deal_id: id }]))
+          .is('merged_into', null)
+          .limit(1).maybeSingle();
+        if (d) data = d;
+      }
+
+      // Tentativa 4: deal_id como numero no JSONB
+      if (!data && /^\d+$/.test(id)) {
+        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+          .contains('piperun_deals_history', JSON.stringify([{ deal_id: Number(id) }]))
+          .is('merged_into', null)
+          .limit(1).maybeSingle();
+        if (d) data = d;
+      }
+
+      // Tentativa 5: busca textual no JSONB inteiro (fallback)
+      if (!data) {
+        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+          .filter('piperun_deals_history::text', 'ilike', `%"deal_id":"${id}"%`)
+          .is('merged_into', null)
+          .limit(1).maybeSingle();
+        if (d) data = d;
+      }
+
+      // Tentativa 6: variante sem aspas no valor (deal_id numerico serializado)
+      if (!data && /^\d+$/.test(id)) {
+        const { data: d } = await (supabase as any).from('lia_attendances').select(fields)
+          .filter('piperun_deals_history::text', 'ilike', `%"deal_id":${id}%`)
+          .is('merged_into', null)
+          .limit(1).maybeSingle();
+        if (d) data = d;
       }
 
       if (!data) {
@@ -38,12 +80,18 @@ export function useDealSearch() {
 
       const history: PiperunDeal[] = data.piperun_deals_history ?? [];
       const matchedDeal =
-        history.find((d: PiperunDeal) => d.deal_id === dealId.trim()) ??
+        history.find((d: PiperunDeal) => String(d.deal_id) === id) ??
         history.find(isDealGanho) ??
         history[0];
 
-      setResult({ ...data, lead_id: data.id, piperun_deals_history: history, matched_deal: matchedDeal! });
-    } catch {
+      if (!matchedDeal) {
+        setError('Lead encontrado mas sem deals no histórico.');
+        return;
+      }
+
+      setResult({ ...data, lead_id: data.id, piperun_deals_history: history, matched_deal: matchedDeal });
+    } catch (err) {
+      console.error('[useDealSearch]', err);
       setError('Erro na busca. Tente novamente.');
     } finally {
       setLoading(false);
