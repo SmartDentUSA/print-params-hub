@@ -455,27 +455,19 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
             </div>
           )}
 
-          {/* ── Equipamentos e Seriais (editável) ── */}
-          {proposalItems.some((i: any) => i.equip_key) && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamentos e Seriais</h4>
-              <EquipmentSerialsSection
-                items={proposalItems}
-                equipmentData={form.equipment_data as EquipmentData}
-                onChange={(ed) => uf('equipment_data', ed)}
-              />
-            </div>
-          )}
-
-          {/* ── Tipo de Entrega ── */}
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tipo de Entrega</h4>
-          <div className="flex gap-2">
-            <Button type="button" size="sm" variant={form.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => uf('tipo_entrega', 'enviar')}>Enviar</Button>
-            <Button type="button" size="sm" variant={form.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => { uf('tipo_entrega', 'retirar'); uf('rastreamento', ''); }}>Retirar</Button>
+          {/* ── Equipamentos, Seriais + Tipo de Entrega ── */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Equipamentos e Seriais</h4>
+            <EquipmentSerialsSection
+              items={proposalItems}
+              equipmentData={form.equipment_data as EquipmentData}
+              onChange={(ed) => uf('equipment_data', ed)}
+              tipoEntrega={form.tipo_entrega}
+              rastreamento={form.rastreamento}
+              onTipoEntregaChange={(v) => uf('tipo_entrega', v)}
+              onRastreamentoChange={(v) => uf('rastreamento', v)}
+            />
           </div>
-          {form.tipo_entrega === 'enviar' && (
-            <div><Label className="text-xs">Rastreamento</Label><Input value={form.rastreamento} onChange={(e) => uf('rastreamento', e.target.value)} placeholder="Ex: BR123456789BR" /></div>
-          )}
 
           {/* ── Acompanhantes (readonly) ── */}
           {companions.length > 0 && (

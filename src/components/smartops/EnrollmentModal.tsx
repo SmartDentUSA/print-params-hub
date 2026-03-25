@@ -410,31 +410,18 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                   </div>
                 )}
 
-                {/* Equipamentos */}
-                {proposalItems.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-muted-foreground">Equipamentos e Seriais</h4>
-                    <EquipmentSerialsSection
-                      items={proposalItems}
-                      equipmentData={equipmentData}
-                      onChange={setEquipmentData}
-                    />
-                  </div>
-                )}
-
-                {/* Tipo de Entrega + Rastreamento */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-muted-foreground">Tipo de Entrega</h4>
-                  <div className="flex gap-3">
-                    <Button type="button" size="sm" variant={tipoEntrega === 'enviar' ? 'default' : 'outline'} onClick={() => setTipoEntrega('enviar')}>Enviar</Button>
-                    <Button type="button" size="sm" variant={tipoEntrega === 'retirar' ? 'default' : 'outline'} onClick={() => { setTipoEntrega('retirar'); setRastreamento(''); }}>Retirar</Button>
-                  </div>
-                  {tipoEntrega === 'enviar' && (
-                    <div>
-                      <Label className="text-xs">Rastreamento</Label>
-                      <Input value={rastreamento} onChange={(e) => setRastreamento(e.target.value)} placeholder="Ex: BR123456789BR" />
-                    </div>
-                  )}
+                {/* Equipamentos + Tipo de Entrega */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold text-muted-foreground">Equipamentos e Seriais</h4>
+                  <EquipmentSerialsSection
+                    items={proposalItems}
+                    equipmentData={equipmentData}
+                    onChange={setEquipmentData}
+                    tipoEntrega={tipoEntrega}
+                    rastreamento={rastreamento}
+                    onTipoEntregaChange={(v) => setTipoEntrega(v as any)}
+                    onRastreamentoChange={setRastreamento}
+                  />
                 </div>
 
                 {/* Acompanhantes inline */}

@@ -12,9 +12,13 @@ interface Props {
   items: ProposalItem[];
   equipmentData: EquipmentData;
   onChange: (data: EquipmentData) => void;
+  tipoEntrega?: string;
+  rastreamento?: string;
+  onTipoEntregaChange?: (v: string) => void;
+  onRastreamentoChange?: (v: string) => void;
 }
 
-export function EquipmentSerialsSection({ items, equipmentData, onChange }: Props) {
+export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEntrega, rastreamento, onTipoEntregaChange, onRastreamentoChange }: Props) {
   const [showManualFresadora, setShowManualFresadora] = useState(false);
   // Track which equip keys are in "editing" mode
   const [editing, setEditing] = useState<Set<string>>(new Set());
@@ -228,6 +232,23 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Tipo de Entrega + Rastreamento */}
+      {onTipoEntregaChange && (
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-muted-foreground">Tipo de Entrega</h4>
+          <div className="flex gap-3">
+            <Button type="button" size="sm" variant={tipoEntrega === 'enviar' ? 'default' : 'outline'} onClick={() => onTipoEntregaChange('enviar')}>Enviar</Button>
+            <Button type="button" size="sm" variant={tipoEntrega === 'retirar' ? 'default' : 'outline'} onClick={() => { onTipoEntregaChange('retirar'); onRastreamentoChange?.(''); }}>Retirar</Button>
+          </div>
+          {tipoEntrega === 'enviar' && onRastreamentoChange && (
+            <div>
+              <Label className="text-xs">Rastreamento</Label>
+              <Input value={rastreamento || ''} onChange={(e) => onRastreamentoChange(e.target.value)} placeholder="Ex: BR123456789BR" />
+            </div>
+          )}
         </div>
       )}
 
