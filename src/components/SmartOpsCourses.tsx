@@ -28,6 +28,7 @@ import type { TurmaComVagas, SmartopsCourse, CourseEnrollment } from "@/types/co
 import { MODALITY_CONFIG, STATUS_CONFIG, formatDatePtBr, formatWeekday } from "@/lib/courseUtils";
 import { CourseCreateModal } from "./smartops/CourseCreateModal";
 import { EnrollmentModal } from "./smartops/EnrollmentModal";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { EquipmentSerialsSection } from "./smartops/EquipmentSerialsSection";
 
 // ─── Countdown Hook ───
