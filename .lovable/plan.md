@@ -1,49 +1,32 @@
 
 
-# Plano: Acordeao por tipo de modalidade na aba Agendamentos
+# Plan: AlertDialog safety check + recurrenceBaseDate on edit
 
-## Situacao atual
+## Overview
+Two targeted fixes in `src/components/smartops/CourseCreateModal.tsx`.
 
-Os cursos aparecem como cards planos em sequencia. O usuario quer:
-1. Agrupar por **tipo de modalidade** (Presencial, Online ao Vivo, etc.)
-2. Cada grupo e um **acordeao** (colapsavel)
-3. Dentro de cada acordeao, os cards de curso com suas tabelas de turmas permanecem
+## Fix 1 — AlertDialog before recreating enrolled sessions
 
-## Mudanca
+**Current behavior (lines 476-490):** The RPC `fn_generate_recurrent_turmas` is called directly without checking for existing sessions with enrollees.
 
-**Arquivo: `src/components/SmartOpsCourses.tsx`** — `AgendamentosTab` (linhas 124-249)
+**Changes:**
+1. Add two states: `showRecreateConfirm` (boolean) and `enrolledSessionsCount` (number)
+2. Extract lines 478-489 into a standalone `executeRecurrenceGeneration(courseId)` async function
+3. In `handleSave`, before calling the RPC (line 477), if `isEdit`:
+   - Query `smartops_course_turmas` for `course_id = courseId`, `recurrence_parent_id IS NOT NULL`, `enrolled_count > 0` with `count: 'exact', head: true`
+   - If count > 0: set states, show AlertDialog, `return` (pause save)
+   - If count = 0: call `executeRecurrenceGeneration` directly
+4. Add AlertDialog JSX at component bottom with "Cancelar" and "Continuar" buttons. "Continuar" calls `executeRecurrenceGeneration`.
 
-### Logica
+## Fix 2 — Populate recurrenceBaseDate when editing
 
-1. Importar `Accordion, AccordionContent, AccordionItem, AccordionTrigger` de `@/components/ui/accordion`
-2. Apos agrupar por `course_id` (ja existente), reagrupar por `modality`:
-   ```ts
-   const byModality = Object.entries(grouped).reduce((acc, [id, entry]) => {
-     const mod = entry.course.modality || 'presencial';
-     if (!acc[mod]) acc[mod] = [];
-     acc[mod].push({ courseId: id, ...entry });
-     return acc;
-   }, {});
-   ```
-3. Renderizar um `Accordion type="multiple" defaultValue={Object.keys(byModality)}` com um `AccordionItem` por modalidade
-4. O `AccordionTrigger` exibe o label da modalidade (ex: "Presencial") + badge com contagem de cursos
-5. O `AccordionContent` contem os cards de curso existentes (sem alteracao interna)
+**Current behavior (line 248):** The useEffect loads all recurrence fields except `recurrenceBaseDate`.
 
-### Resultado visual
+**Change:** After `loadTurmas(course.id)` call (line 250), if `course.recurrence_enabled`:
+- Query `smartops_course_turmas` with `course_id`, ordered by `recurrence_index asc`, limit 1, selecting `days:smartops_turma_days(date)`
+- Extract the earliest date from the first turma's days
+- Call `setRecurrenceBaseDate(firstDate)`
 
-```text
-▼ Presencial (1 curso)
-  ┌─ Teste [Presencial] ── Danilo Coutigi ─┐
-  │ Turma 1 | Encerrado | qua,qui,sex | ...│
-  └─────────────────────────────────────────┘
-
-▼ Online ao Vivo (1 curso)
-  ┌─ dede [Online ao Vivo] ── dedede ───────┐
-  │ dede — 26/03/2026 | 0d 13h 21m | ...   │
-  │ dede — 02/04/2026 | 7d 13h 21m | ...   │
-  │ ...                                     │
-  └─────────────────────────────────────────┘
-```
-
-Todos os acordeoes abertos por padrao. Um unico arquivo modificado.
+## Files modified
+- `src/components/smartops/CourseCreateModal.tsx` only
 
