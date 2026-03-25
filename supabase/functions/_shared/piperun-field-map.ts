@@ -26,6 +26,7 @@ export const PIPELINES = {
   INTERESSE_CURSOS: 93303,
   INSUMOS: 100412,
   ECOMMERCE: 102702,
+  GANHOS_ALEATORIOS_CS: 102893,
   GANHOS_ALEATORIOS: 104500,
 } as const;
 
@@ -41,6 +42,7 @@ export const PIPELINE_NAMES: Record<number, string> = {
   [PIPELINES.INTERESSE_CURSOS]: "Interesse em cursos",
   [PIPELINES.INSUMOS]: "Funil Insumos",
   [PIPELINES.ECOMMERCE]: "Funil E-commerce",
+  [PIPELINES.GANHOS_ALEATORIOS_CS]: "Ganhos Aleatórios (CS)",
   [PIPELINES.GANHOS_ALEATORIOS]: "Ganhos Aleatórios",
 };
 
@@ -247,6 +249,8 @@ export const PESSOA_CUSTOM_FIELD_HASHES: Record<number, string> = {
 // ─── Users (Vendedores) ───
 
 export const PIPERUN_USERS: Record<number, { name: string; email: string; role: string; cellphone?: string }> = {
+  // ─── Ativos ───
+  100952: { name: "Adriano Oliveira", email: "adriano.oliveira@smartdent.com.br", role: "vendedor" },
   100600: { name: "Marcela Brito", email: "marcela.brito@smartdent.com.br", role: "vendedora" },
   98054: { name: "Gabriella Ferreira", email: "gabriella.ferreira@smartdent.com.br", role: "vendedora" },
   95097: { name: "Paulo Sérgio", email: "paulo.sergio@smartdent.com.br", role: "vendedor", cellphone: "5516993014067" },
@@ -259,6 +263,28 @@ export const PIPERUN_USERS: Record<number, { name: string; email: string; role: 
   47802: { name: "Lucas Silva", email: "lucas.silva@smartdent.com.br", role: "vendedor", cellphone: "5516999939130" },
   47675: { name: "Patricia Gastaldi", email: "patricia.gastaldi@smartdent.com.br", role: "vendedora", cellphone: "5516981158403" },
   33626: { name: "Evandro Silva", email: "evandro.silva@smartdent.com.br", role: "vendedor", cellphone: "5516993895371" },
+  33621: { name: "Equipe Smart Dent", email: "equipe@smartdent.com.br", role: "sistema" },
+  // ─── Inativos (historico) ───
+  99582: { name: "Bruno Souza", email: "bruno.souza@smartdent.com.br", role: "vendedor" },
+  95098: { name: "Rogerio Junior", email: "rogerio.junior@smartdent.com.br", role: "vendedor", cellphone: "5516993104703" },
+  87666: { name: "Danilo Silva", email: "danilo.silva@smartdent.com.br", role: "vendedor", cellphone: "5516993061659" },
+  82734: { name: "Olavo Neto", email: "olavo.neto@smartdent.com.br", role: "vendedor" },
+  69958: { name: "Vinicius Taipeiro", email: "vinicius.tapeiro@smartdent.com.br", role: "vendedor", cellphone: "5516996237248" },
+  69316: { name: "Emerson Junior", email: "emersonjr@smartdent.com.br", role: "vendedor" },
+  62293: { name: "Janaine Gusson", email: "sales@smartdent.com.br", role: "vendedora" },
+  53254: { name: "José Ricardo Mello", email: "ricardo.smartdent@gmail.com", role: "vendedor", cellphone: "5521994410379" },
+  51543: { name: "Cicilia", email: "cicilia@smartdent.com.br", role: "vendedora" },
+  49361: { name: "Juliana Guedes", email: "atos@smartdent.com.br", role: "vendedora", cellphone: "5516981596947" },
+  48555: { name: "Align - exocad", email: "sfujihara@aligntech.com", role: "parceiro" },
+  48553: { name: "Rafael Almeida", email: "rafael.almeida@smartdent.com.br", role: "vendedor" },
+  47793: { name: "Rafael Suporte", email: "suporte2@smartdent.com.br", role: "suporte" },
+  47679: { name: "Heloísa Martins", email: "heloisa.martins@smartdent.com.br", role: "gestora", cellphone: "5516997666503" },
+  47677: { name: "ADM SMART", email: "adm@smartdent.com.br", role: "admin" },
+  33730: { name: "Mauro Foltran", email: "mauricio@smartdent.com.br", role: "vendedor" },
+  33725: { name: "Rodrigo Moreira", email: "rodrigo.moreira@smartdent.com.br", role: "vendedor" },
+  33724: { name: "Ricardo Mello", email: "jrcmello19@gmail.com", role: "vendedor" },
+  33723: { name: "Daniel Marçal", email: "comercial2@smartdent.com.br", role: "vendedor" },
+  33722: { name: "Nathan Toyama", email: "nathan.toyama@smartdent.com.br", role: "vendedor" },
 };
 
 // ─── Deal status mapping ───
@@ -1085,18 +1111,28 @@ export function buildRichDealSnapshot(
     ? (DEAL_STATUS_MAP[deal.status] || "aberta")
     : "aberta";
 
-  // Resolve owner from deal.owner_id → PIPERUN_USERS map, or from deal.user/owner object
-  let ownerName = overrides?.ownerName ?? null;
+  // Resolve owner — IGNORE numeric-only overrides (they are raw IDs, not names)
+  const overrideOwner = overrides?.ownerName && !/^\d+$/.test(overrides.ownerName) ? overrides.ownerName : null;
+  let ownerName = overrideOwner;
   let ownerEmail = overrides?.ownerEmail ?? null;
+  // 1st fallback: PIPERUN_USERS map
   if (!ownerName && deal.owner_id && PIPERUN_USERS[deal.owner_id]) {
     ownerName = PIPERUN_USERS[deal.owner_id].name;
     ownerEmail = PIPERUN_USERS[deal.owner_id].email;
   }
-  // Fallback: deal.user or deal.owner object (webhook format)
+  // 2nd fallback: deal.user or deal.owner object (webhook format)
   if (!ownerName) {
     const ownerObj = ((deal as Record<string, unknown>).owner || (deal as Record<string, unknown>).user) as Record<string, unknown> | undefined;
     if (ownerObj?.name) ownerName = String(ownerObj.name);
     if (ownerObj?.email && !ownerEmail) ownerEmail = String(ownerObj.email);
+  }
+  // 3rd fallback: try resolving the raw numeric override via PIPERUN_USERS
+  if (!ownerName && overrides?.ownerName && /^\d+$/.test(overrides.ownerName)) {
+    const numId = Number(overrides.ownerName);
+    if (PIPERUN_USERS[numId]) {
+      ownerName = PIPERUN_USERS[numId].name;
+      ownerEmail = PIPERUN_USERS[numId].email;
+    }
   }
 
   // Build proposals
