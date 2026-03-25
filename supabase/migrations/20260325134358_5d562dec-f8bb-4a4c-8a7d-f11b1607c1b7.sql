@@ -1,0 +1,1 @@
+UPDATE lia_attendances SET proprietario_lead_crm = 'Lucas Azzis', updated_at = now() WHERE proprietario_lead_crm = '69319' AND merged_into IS NULL;
