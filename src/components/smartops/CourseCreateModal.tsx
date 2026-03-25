@@ -434,6 +434,28 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     });
   })();
 
+  // ─── Recurrence generation helper ───
+  const executeRecurrenceGeneration = async (courseId: string) => {
+    setSaving(true);
+    try {
+      const { data: count, error: rpcErr } = await supabase.rpc('fn_generate_recurrent_turmas' as any, {
+        p_course_id: courseId,
+        p_base_date: recurrenceBaseDate,
+        p_slots: recurrenceSlotsPerSession,
+        p_template_label: title.trim(),
+      });
+      if (rpcErr) throw rpcErr;
+      qc.invalidateQueries({ queryKey: ["smartops_courses"] });
+      qc.invalidateQueries({ queryKey: ["v_turmas_com_vagas"] });
+      toast({ title: `${count ?? 0} sessões criadas com sucesso!` });
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar sessões", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ─── Save ───
   const handleSave = async () => {
     if (!title.trim()) {
@@ -858,5 +880,35 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showRecreateConfirm} onOpenChange={setShowRecreateConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Recriar sessões recorrentes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {enrolledSessionsCount} sessão{enrolledSessionsCount !== 1 ? 'ões têm' : ' tem'} inscritos
+            e {enrolledSessionsCount !== 1 ? 'serão mantidas' : 'será mantida'}.
+            As demais serão deletadas e recriadas com a nova configuração.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => { setShowRecreateConfirm(false); setPendingCourseId(null); }}>
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={async () => {
+              setShowRecreateConfirm(false);
+              if (pendingCourseId) {
+                await executeRecurrenceGeneration(pendingCourseId);
+                setPendingCourseId(null);
+              }
+            }}
+          >
+            Continuar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
