@@ -202,6 +202,11 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [recurrenceUntil, setRecurrenceUntil] = useState('');
   const [recurrenceSlotsPerSession, setRecurrenceSlotsPerSession] = useState(20);
 
+  // AlertDialog for recreating enrolled sessions
+  const [showRecreateConfirm, setShowRecreateConfirm] = useState(false);
+  const [enrolledSessionsCount, setEnrolledSessionsCount] = useState(0);
+  const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
+
   const isOnline = modality === 'online' || modality === 'online_ao_vivo';
 
   // Turmas
@@ -248,6 +253,21 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
     // Load turmas
     loadTurmas(course.id);
+
+    // Load recurrenceBaseDate from first recurrent turma
+    if (course.recurrence_enabled) {
+      (async () => {
+        const { data: turmasDoCurso } = await (supabase as any)
+          .from('smartops_course_turmas')
+          .select('id, recurrence_index, days:smartops_turma_days(date)')
+          .eq('course_id', course.id)
+          .order('recurrence_index', { ascending: true })
+          .limit(1);
+        const firstDate = turmasDoCurso?.[0]?.days
+          ?.sort((a: any, b: any) => a.date.localeCompare(b.date))[0]?.date;
+        if (firstDate) setRecurrenceBaseDate(firstDate);
+      })();
+    }
   }, [course]);
 
   const loadTurmas = async (courseId: string) => {
@@ -414,6 +434,28 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     });
   })();
 
+  // ─── Recurrence generation helper ───
+  const executeRecurrenceGeneration = async (courseId: string) => {
+    setSaving(true);
+    try {
+      const { data: count, error: rpcErr } = await supabase.rpc('fn_generate_recurrent_turmas' as any, {
+        p_course_id: courseId,
+        p_base_date: recurrenceBaseDate,
+        p_slots: recurrenceSlotsPerSession,
+        p_template_label: title.trim(),
+      });
+      if (rpcErr) throw rpcErr;
+      qc.invalidateQueries({ queryKey: ["smartops_courses"] });
+      qc.invalidateQueries({ queryKey: ["v_turmas_com_vagas"] });
+      toast({ title: `${count ?? 0} sessões criadas com sucesso!` });
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Erro ao gerar sessões", description: err.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // ─── Save ───
   const handleSave = async () => {
     if (!title.trim()) {
@@ -475,18 +517,26 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
 
       // PASSO 1.5: Recurrence — generate turmas via SQL function
       if (useRecurrence && recurrenceBaseDate) {
-        const { data: count, error: rpcErr } = await supabase.rpc('fn_generate_recurrent_turmas' as any, {
-          p_course_id: courseId,
-          p_base_date: recurrenceBaseDate,
-          p_slots: recurrenceSlotsPerSession,
-          p_template_label: title.trim(),
-        });
-        if (rpcErr) throw rpcErr;
-        qc.invalidateQueries({ queryKey: ["smartops_courses"] });
-        qc.invalidateQueries({ queryKey: ["v_turmas_com_vagas"] });
-        toast({ title: `${count ?? 0} sessões criadas com sucesso!` });
-        onClose();
-        return; // skip manual turma save for recurrent courses
+        // Check for enrolled sessions before recreating (edit mode only)
+        if (isEdit) {
+          const { count: enrolledCount } = await (supabase as any)
+            .from('smartops_course_turmas')
+            .select('id', { count: 'exact', head: true })
+            .eq('course_id', courseId)
+            .not('recurrence_parent_id', 'is', null)
+            .gt('enrolled_count', 0);
+
+          if (enrolledCount && enrolledCount > 0) {
+            setEnrolledSessionsCount(enrolledCount);
+            setPendingCourseId(courseId);
+            setShowRecreateConfirm(true);
+            setSaving(false);
+            return; // wait for user confirmation
+          }
+        }
+
+        await executeRecurrenceGeneration(courseId);
+        return;
       }
 
       // Soft delete turmas removidas
@@ -588,6 +638,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -830,5 +881,35 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showRecreateConfirm} onOpenChange={setShowRecreateConfirm}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Recriar sessões recorrentes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {enrolledSessionsCount} sessão{enrolledSessionsCount !== 1 ? 'ões têm' : ' tem'} inscritos
+            e {enrolledSessionsCount !== 1 ? 'serão mantidas' : 'será mantida'}.
+            As demais serão deletadas e recriadas com a nova configuração.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => { setShowRecreateConfirm(false); setPendingCourseId(null); }}>
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={async () => {
+              setShowRecreateConfirm(false);
+              if (pendingCourseId) {
+                await executeRecurrenceGeneration(pendingCourseId);
+                setPendingCourseId(null);
+              }
+            }}
+          >
+            Continuar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
