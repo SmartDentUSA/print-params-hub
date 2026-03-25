@@ -458,6 +458,25 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_enrollments",
+      description: "Consulta agendamentos de treinamentos. Use para: quem está inscrito em qual turma, turmas desta semana, participantes por status, buscar por nome ou deal.",
+      parameters: {
+        type: "object",
+        properties: {
+          course_id: { type: "string", description: "UUID do curso" },
+          turma_id: { type: "string", description: "UUID da turma" },
+          status: { type: "string", enum: ["agendado","confirmado","presente","ausente","cancelado"], description: "Status da inscrição" },
+          deal_id: { type: "string", description: "ID do deal PipeRun" },
+          person_name: { type: "string", description: "Busca parcial ILIKE no nome do participante" },
+          limit: { type: "number", description: "Máximo de resultados (padrão 20)" },
+        },
+        required: []
+      }
+    }
   }
 ];
 
@@ -1178,6 +1197,29 @@ async function executeQueryDealHistory(args: any) {
   }
 }
 
+async function executeQueryEnrollments(args: any) {
+  try {
+    let q = supabase
+      .from('smartops_course_enrollments')
+      .select(`id, deal_id, deal_title, person_name, especialidade, status,
+               numero_contrato, enrolled_at, wa_sent_at, turma_snapshot,
+               course:smartops_courses(title, modality),
+               turma:smartops_course_turmas(label)`)
+      .order('enrolled_at', { ascending: false })
+      .limit(args.limit ?? 20);
+    if (args.course_id)   q = q.eq('course_id', args.course_id);
+    if (args.turma_id)    q = q.eq('turma_id', args.turma_id);
+    if (args.status)      q = q.eq('status', args.status);
+    if (args.deal_id)     q = q.eq('deal_id', args.deal_id);
+    if (args.person_name) q = q.ilike('person_name', `%${args.person_name}%`);
+    const { data, error } = await q;
+    if (error) return { error: error.message };
+    return { count: data?.length || 0, data };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1204,6 +1246,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_ecommerce_orders: executeQueryEcommerceOrders,
   verify_consolidation: executeVerifyConsolidation,
   query_deal_history: executeQueryDealHistory,
+  query_enrollments: executeQueryEnrollments,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.

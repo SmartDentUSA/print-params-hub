@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Zap, CheckCircle } from "lucide-react";
+import { RefreshCw, Zap, CheckCircle, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SmartOpsBowtie } from "./SmartOpsBowtie";
@@ -14,6 +14,7 @@ import { SmartOpsSystemHealth } from "./SmartOpsSystemHealth";
 import { SmartOpsContentProduction } from "./SmartOpsContentProduction";
 import { SmartOpsWhatsAppInbox } from "./SmartOpsWhatsAppInbox";
 import { SmartOpsFormBuilder } from "./SmartOpsFormBuilder";
+import { SmartOpsCourses } from "./SmartOpsCourses";
 import { SmartOpsAIUsageDashboard } from "./SmartOpsAIUsageDashboard";
 import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "./SmartOpsReports";
@@ -83,6 +84,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="saude">Saúde do Sistema</TabsTrigger>
           <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
           <TabsTrigger value="formularios">Formulários</TabsTrigger>
+          <TabsTrigger value="treinamentos" className="gap-1"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
           <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           <TabsTrigger value="roi">ROI</TabsTrigger>
@@ -118,6 +120,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="formularios">
           <SmartOpsFormBuilder key={`forms-${refreshKey}`} />
+        </TabsContent>
+        <TabsContent value="treinamentos">
+          <SmartOpsCourses key={`training-${refreshKey}`} />
         </TabsContent>
         <TabsContent value="tokens-ia">
           <SmartOpsAIUsageDashboard />
