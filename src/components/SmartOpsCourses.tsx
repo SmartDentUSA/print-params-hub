@@ -89,28 +89,30 @@ function AgendamentosTab() {
     },
   });
 
-  // Group by course_id
-  const grouped = turmas.reduce<Record<string, { course: Partial<SmartopsCourse>; turmas: TurmaComVagas[] }>>((acc, t) => {
-    if (!acc[t.course_id]) {
-      acc[t.course_id] = {
-        course: {
-          id: t.course_id,
-          title: t.course_title || "Sem título",
-          modality: t.modality || "presencial",
-          instructor_name: t.instructor_name,
-          location: t.location,
-          meeting_link: t.meeting_link,
-          pipeline_id_kanban: t.pipeline_id_kanban || 83896,
-          stage_after_enroll: t.stage_after_enroll || "treinamento_agendado",
-        } as Partial<SmartopsCourse>,
-        turmas: [],
-      };
-    }
-    acc[t.course_id].turmas.push(t);
-    return acc;
-  }, {});
+  // Group by course_id (memoized for stable reference)
+  const grouped = useMemo(() => {
+    return turmas.reduce<Record<string, { course: Partial<SmartopsCourse>; turmas: TurmaComVagas[] }>>((acc, t) => {
+      if (!acc[t.course_id]) {
+        acc[t.course_id] = {
+          course: {
+            id: t.course_id,
+            title: t.course_title || "Sem título",
+            modality: t.modality || "presencial",
+            instructor_name: t.instructor_name,
+            location: t.location,
+            meeting_link: t.meeting_link,
+            pipeline_id_kanban: t.pipeline_id_kanban || 83896,
+            stage_after_enroll: t.stage_after_enroll || "treinamento_agendado",
+          } as Partial<SmartopsCourse>,
+          turmas: [],
+        };
+      }
+      acc[t.course_id].turmas.push(t);
+      return acc;
+    }, {});
+  }, [turmas]);
 
-  // Group by modality (must be before early returns to respect hooks rules)
+  // Group by modality
   const byModality = useMemo(() => {
     const result: Record<string, Array<{ courseId: string; course: any; turmas: TurmaComVagas[] }>> = {};
     Object.entries(grouped).forEach(([courseId, { course, turmas: courseTurmas }]) => {
