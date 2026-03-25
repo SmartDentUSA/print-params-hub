@@ -122,121 +122,150 @@ function AgendamentosTab() {
     );
   }
 
+  // Group by modality
+  const byModality = useMemo(() => {
+    const result: Record<string, Array<{ courseId: string; course: any; turmas: TurmaComVagas[] }>> = {};
+    Object.entries(grouped).forEach(([courseId, { course, turmas: courseTurmas }]) => {
+      const mod = (course.modality as string) || "presencial";
+      if (!result[mod]) result[mod] = [];
+      result[mod].push({ courseId, course, turmas: courseTurmas });
+    });
+    return result;
+  }, [grouped]);
+
+  const modalityLabels: Record<string, string> = {
+    presencial: "Presencial",
+    online_ao_vivo: "Online ao Vivo",
+    hibrido: "Híbrido",
+    gravado: "Gravado",
+  };
+
   return (
     <>
-      <div className="space-y-6">
-        {Object.entries(grouped).map(([courseId, { course, turmas: courseTurmas }]) => {
-          const mod = MODALITY_CONFIG[course.modality as keyof typeof MODALITY_CONFIG];
-          return (
-            <Card key={courseId}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <CardTitle className="text-lg">{course.title}</CardTitle>
-                    {mod && <Badge className={mod.badge}>{mod.label}</Badge>}
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {course.instructor_name && (
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {course.instructor_name}</span>
-                    )}
-                    {course.location && <span>{course.location}</span>}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">Turma</TableHead>
-                      <TableHead><Clock className="w-3.5 h-3.5 inline mr-1" />Countdown</TableHead>
-                      <TableHead>Dias</TableHead>
-                      <TableHead className="text-center">Contratos</TableHead>
-                      <TableHead className="text-center"><UserPlus className="w-3.5 h-3.5 inline mr-1" />Acomp.</TableHead>
-                      <TableHead>Instrutor</TableHead>
-                      <TableHead className="text-center"><Star className="w-3.5 h-3.5 inline mr-1" />NPS</TableHead>
-                      <TableHead>Vagas</TableHead>
-                      <TableHead className="text-right pr-6">Ação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {courseTurmas.map((turma) => {
-                      const pct = turma.slots > 0 ? ((turma.enrolled_count / turma.slots) * 100) : 0;
-                      const lotado = turma.vagas_disponiveis === 0;
-                      const countdown = getCountdown(turma.start_date, turma.start_time);
-                      const isEncerrado = countdown === "Encerrado";
+      <Accordion type="multiple" defaultValue={Object.keys(byModality)} className="space-y-4">
+        {Object.entries(byModality).map(([modKey, courses]) => (
+          <AccordionItem key={modKey} value={modKey} className="border rounded-lg">
+            <AccordionTrigger className="px-6 py-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <span className="text-lg font-semibold">{modalityLabels[modKey] || modKey}</span>
+                <Badge variant="secondary">{courses.length} {courses.length === 1 ? "curso" : "cursos"}</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-2 pb-4 space-y-4">
+              {courses.map(({ courseId, course, turmas: courseTurmas }) => {
+                const mod = MODALITY_CONFIG[course.modality as keyof typeof MODALITY_CONFIG];
+                return (
+                  <Card key={courseId}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <CardTitle className="text-lg">{course.title}</CardTitle>
+                          {mod && <Badge className={mod.badge}>{mod.label}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          {course.instructor_name && (
+                            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {course.instructor_name}</span>
+                          )}
+                          {course.location && <span>{course.location}</span>}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="pl-6">Turma</TableHead>
+                            <TableHead><Clock className="w-3.5 h-3.5 inline mr-1" />Countdown</TableHead>
+                            <TableHead>Dias</TableHead>
+                            <TableHead className="text-center">Contratos</TableHead>
+                            <TableHead className="text-center"><UserPlus className="w-3.5 h-3.5 inline mr-1" />Acomp.</TableHead>
+                            <TableHead>Instrutor</TableHead>
+                            <TableHead className="text-center"><Star className="w-3.5 h-3.5 inline mr-1" />NPS</TableHead>
+                            <TableHead>Vagas</TableHead>
+                            <TableHead className="text-right pr-6">Ação</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {courseTurmas.map((turma) => {
+                            const pct = turma.slots > 0 ? ((turma.enrolled_count / turma.slots) * 100) : 0;
+                            const lotado = turma.vagas_disponiveis === 0;
+                            const countdown = getCountdown(turma.start_date, turma.start_time);
+                            const isEncerrado = countdown === "Encerrado";
 
-                      // Extract weekday names from start/end
-                      const weekdays: string[] = [];
-                      if (turma.start_date) {
-                        const start = new Date(turma.start_date + "T12:00:00");
-                        const end = turma.end_date ? new Date(turma.end_date + "T12:00:00") : start;
-                        const d = new Date(start);
-                        while (d <= end) {
-                          weekdays.push(d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""));
-                          d.setDate(d.getDate() + 1);
-                        }
-                      }
+                            const weekdays: string[] = [];
+                            if (turma.start_date) {
+                              const start = new Date(turma.start_date + "T12:00:00");
+                              const end = turma.end_date ? new Date(turma.end_date + "T12:00:00") : start;
+                              const d = new Date(start);
+                              while (d <= end) {
+                                weekdays.push(d.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""));
+                                d.setDate(d.getDate() + 1);
+                              }
+                            }
 
-                      return (
-                        <TableRow key={turma.id} className={isEncerrado ? "opacity-50" : ""}>
-                          <TableCell className="pl-6 font-medium">
-                            <div>
-                              <span>{turma.label}</span>
-                              {turma.start_date && (
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDatePtBr(turma.start_date)}
-                                  {turma.end_date && turma.end_date !== turma.start_date && (
-                                    <> – {formatDatePtBr(turma.end_date)}</>
+                            return (
+                              <TableRow key={turma.id} className={isEncerrado ? "opacity-50" : ""}>
+                                <TableCell className="pl-6 font-medium">
+                                  <div>
+                                    <span>{turma.label}</span>
+                                    {turma.start_date && (
+                                      <div className="text-xs text-muted-foreground">
+                                        {formatDatePtBr(turma.start_date)}
+                                        {turma.end_date && turma.end_date !== turma.start_date && (
+                                          <> – {formatDatePtBr(turma.end_date)}</>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  {countdown && (
+                                    <Badge variant={isEncerrado ? "secondary" : "outline"} className={!isEncerrado ? "font-mono text-xs" : ""}>
+                                      {isEncerrado ? "Encerrado" : countdown}
+                                    </Badge>
                                   )}
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {countdown && (
-                              <Badge variant={isEncerrado ? "secondary" : "outline"} className={!isEncerrado ? "font-mono text-xs" : ""}>
-                                {isEncerrado ? "Encerrado" : countdown}
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {weekdays.length > 0 ? weekdays.slice(0, 5).join(", ") : "—"}
-                          </TableCell>
-                          <TableCell className="text-center font-medium">{turma.enrolled_count}</TableCell>
-                          <TableCell className="text-center text-muted-foreground">
-                            {(companionCounts as Record<string, number>)[turma.id] || 0}
-                          </TableCell>
-                          <TableCell className="text-sm">{course.instructor_name || "—"}</TableCell>
-                          <TableCell className="text-center text-muted-foreground text-xs" title="Em breve">—</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2 min-w-[120px]">
-                              <Progress value={pct} className="h-2 flex-1" />
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {turma.enrolled_count}/{turma.slots}
-                              </span>
-                            </div>
-                            {lotado && <Badge variant="destructive" className="mt-1 text-[10px]">Lotado</Badge>}
-                          </TableCell>
-                          <TableCell className="text-right pr-6">
-                            <Button
-                              size="sm"
-                              variant={lotado ? "secondary" : "default"}
-                              disabled={lotado}
-                              onClick={() => setEnrollModal({ course: course as SmartopsCourse, turmaId: turma.id })}
-                            >
-                              {lotado ? "Sem vagas" : "Agendar"}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                  {weekdays.length > 0 ? weekdays.slice(0, 5).join(", ") : "—"}
+                                </TableCell>
+                                <TableCell className="text-center font-medium">{turma.enrolled_count}</TableCell>
+                                <TableCell className="text-center text-muted-foreground">
+                                  {(companionCounts as Record<string, number>)[turma.id] || 0}
+                                </TableCell>
+                                <TableCell className="text-sm">{course.instructor_name || "—"}</TableCell>
+                                <TableCell className="text-center text-muted-foreground text-xs" title="Em breve">—</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-2 min-w-[120px]">
+                                    <Progress value={pct} className="h-2 flex-1" />
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {turma.enrolled_count}/{turma.slots}
+                                    </span>
+                                  </div>
+                                  {lotado && <Badge variant="destructive" className="mt-1 text-[10px]">Lotado</Badge>}
+                                </TableCell>
+                                <TableCell className="text-right pr-6">
+                                  <Button
+                                    size="sm"
+                                    variant={lotado ? "secondary" : "default"}
+                                    disabled={lotado}
+                                    onClick={() => setEnrollModal({ course: course as SmartopsCourse, turmaId: turma.id })}
+                                  >
+                                    {lotado ? "Sem vagas" : "Agendar"}
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
 
       {enrollModal && (
         <EnrollmentModal
