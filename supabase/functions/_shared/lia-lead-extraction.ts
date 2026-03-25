@@ -138,7 +138,7 @@ export async function extractImplicitLeadData(
   if (Object.keys(updates).length === 0) return;
 
   // Fetch current record, apply COALESCE logic
-  const { data: current } = await supabaseClient
+  const { data: current } = await (supabaseClient as any)
     .from("lia_attendances")
     .select("uf, tem_impressora, tem_scanner, impressora_modelo, como_digitaliza, raw_payload, software_cad, volume_mensal_pecas, principal_aplicacao, produto_interesse")
     .eq("email", email)
@@ -157,7 +157,7 @@ export async function extractImplicitLeadData(
 
   if (Object.keys(safeUpdates).length === 0) return;
 
-  await supabaseClient.from("lia_attendances")
+  await (supabaseClient as any).from("lia_attendances")
     .update({ ...safeUpdates, updated_at: new Date().toISOString() })
     .eq("email", email);
 

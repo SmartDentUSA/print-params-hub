@@ -157,6 +157,7 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       especialidade: result.especialidade || "",
       area_atuacao: result.area_atuacao || "",
       numero_contrato: "",
+      instagram: "",
       empresa_cnpj: result.empresa_cnpj || "",
       empresa_pais: result.pais_origem || "",
       empresa_estado: result.uf || "",

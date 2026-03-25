@@ -186,12 +186,12 @@ export async function detectPrinterDialogState(
   // Load persistent session state
   let sessionData: { current_state: string; extracted_entities: Record<string, string>; last_activity_at: string } | null = null;
   try {
-    const { data } = await supabase.from("agent_sessions").select("current_state, extracted_entities, last_activity_at").eq("session_id", sessionId).maybeSingle();
+    const { data } = await (supabase as any).from("agent_sessions").select("current_state, extracted_entities, last_activity_at").eq("session_id", sessionId).maybeSingle();
     if (data) {
       const lastActivity = new Date(data.last_activity_at).getTime();
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
       if (lastActivity < twoHoursAgo) {
-        await supabase.from("agent_sessions").upsert({ session_id: sessionId, current_state: "idle", extracted_entities: {}, last_activity_at: new Date().toISOString() }, { onConflict: "session_id" });
+        await (supabase as any).from("agent_sessions").upsert({ session_id: sessionId, current_state: "idle", extracted_entities: {}, last_activity_at: new Date().toISOString() }, { onConflict: "session_id" });
         sessionData = null;
       } else {
         sessionData = data as typeof sessionData;
@@ -202,7 +202,7 @@ export async function detectPrinterDialogState(
   const persistState = async (newState: string, newEntities: Record<string, string>) => {
     const updatedEntities = { ...(sessionData?.extracted_entities || {}), ...newEntities };
     try {
-      await supabase.from("agent_sessions").upsert({ session_id: sessionId, current_state: newState, extracted_entities: updatedEntities, last_activity_at: new Date().toISOString() }, { onConflict: "session_id" });
+      await (supabase as any).from("agent_sessions").upsert({ session_id: sessionId, current_state: newState, extracted_entities: updatedEntities, last_activity_at: new Date().toISOString() }, { onConflict: "session_id" });
     } catch (e) { console.warn("agent_sessions upsert failed:", e); }
     return updatedEntities;
   };

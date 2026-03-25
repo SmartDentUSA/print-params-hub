@@ -3866,6 +3866,7 @@ export type Database = {
           imersao_turma_id: string | null
           impressora_modelo: string | null
           informacao_desejada: string | null
+          instagram: string | null
           insumos_adquiridos: string | null
           intelligence_score: Json | null
           intelligence_score_backfilled_at: string | null
@@ -4299,6 +4300,7 @@ export type Database = {
           imersao_turma_id?: string | null
           impressora_modelo?: string | null
           informacao_desejada?: string | null
+          instagram?: string | null
           insumos_adquiridos?: string | null
           intelligence_score?: Json | null
           intelligence_score_backfilled_at?: string | null
@@ -4732,6 +4734,7 @@ export type Database = {
           imersao_turma_id?: string | null
           impressora_modelo?: string | null
           informacao_desejada?: string | null
+          instagram?: string | null
           insumos_adquiridos?: string | null
           intelligence_score?: Json | null
           intelligence_score_backfilled_at?: string | null
@@ -6465,13 +6468,17 @@ export type Database = {
           equipment_data: Json | null
           especialidade: string | null
           id: string
+          instagram: string | null
           lead_id: string | null
           notes: string | null
           numero_contrato: string | null
+          numero_proposta: string | null
           person_name: string | null
           person_piperun_id: string | null
           proposal_items_snapshot: Json | null
+          rastreamento: string | null
           status: string | null
+          tipo_entrega: string | null
           turma_id: string
           turma_snapshot: Json
           updated_at: string | null
@@ -6500,13 +6507,17 @@ export type Database = {
           equipment_data?: Json | null
           especialidade?: string | null
           id?: string
+          instagram?: string | null
           lead_id?: string | null
           notes?: string | null
           numero_contrato?: string | null
+          numero_proposta?: string | null
           person_name?: string | null
           person_piperun_id?: string | null
           proposal_items_snapshot?: Json | null
+          rastreamento?: string | null
           status?: string | null
+          tipo_entrega?: string | null
           turma_id: string
           turma_snapshot?: Json
           updated_at?: string | null
@@ -6535,13 +6546,17 @@ export type Database = {
           equipment_data?: Json | null
           especialidade?: string | null
           id?: string
+          instagram?: string | null
           lead_id?: string | null
           notes?: string | null
           numero_contrato?: string | null
+          numero_proposta?: string | null
           person_name?: string | null
           person_piperun_id?: string | null
           proposal_items_snapshot?: Json | null
+          rastreamento?: string | null
           status?: string | null
+          tipo_entrega?: string | null
           turma_id?: string
           turma_snapshot?: Json
           updated_at?: string | null
@@ -6658,6 +6673,9 @@ export type Database = {
           enrolled_count: number
           id: string
           label: string
+          launch_date: string | null
+          recurrence_index: number | null
+          recurrence_parent_id: string | null
           sellflux_tag: string | null
           slots: number
           sort_order: number
@@ -6671,6 +6689,9 @@ export type Database = {
           enrolled_count?: number
           id?: string
           label: string
+          launch_date?: string | null
+          recurrence_index?: number | null
+          recurrence_parent_id?: string | null
           sellflux_tag?: string | null
           slots?: number
           sort_order?: number
@@ -6684,6 +6705,9 @@ export type Database = {
           enrolled_count?: number
           id?: string
           label?: string
+          launch_date?: string | null
+          recurrence_index?: number | null
+          recurrence_parent_id?: string | null
           sellflux_tag?: string | null
           slots?: number
           sort_order?: number
@@ -6696,6 +6720,20 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "smartops_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_turmas_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_turmas_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
             referencedColumns: ["id"]
           },
         ]
@@ -6718,6 +6756,13 @@ export type Database = {
           modality: string
           pipeline_id_kanban: number
           public_visible: boolean | null
+          recurrence_duration_h: number | null
+          recurrence_enabled: boolean | null
+          recurrence_interval: number | null
+          recurrence_time_end: string | null
+          recurrence_time_start: string | null
+          recurrence_type: string | null
+          recurrence_until: string | null
           sellflux_campaign_tag: string | null
           slug: string
           stage_after_enroll: string
@@ -6743,6 +6788,13 @@ export type Database = {
           modality: string
           pipeline_id_kanban?: number
           public_visible?: boolean | null
+          recurrence_duration_h?: number | null
+          recurrence_enabled?: boolean | null
+          recurrence_interval?: number | null
+          recurrence_time_end?: string | null
+          recurrence_time_start?: string | null
+          recurrence_type?: string | null
+          recurrence_until?: string | null
           sellflux_campaign_tag?: string | null
           slug: string
           stage_after_enroll?: string
@@ -6768,6 +6820,13 @@ export type Database = {
           modality?: string
           pipeline_id_kanban?: number
           public_visible?: boolean | null
+          recurrence_duration_h?: number | null
+          recurrence_enabled?: boolean | null
+          recurrence_interval?: number | null
+          recurrence_time_end?: string | null
+          recurrence_time_start?: string | null
+          recurrence_type?: string | null
+          recurrence_until?: string | null
           sellflux_campaign_tag?: string | null
           slug?: string
           stage_after_enroll?: string
@@ -8736,16 +8795,24 @@ export type Database = {
           active: boolean | null
           course_id: string | null
           course_title: string | null
+          course_whatsapp_group_link: string | null
           end_date: string | null
           end_time: string | null
           enrolled_count: number | null
           id: string | null
           instructor_name: string | null
           label: string | null
+          launch_date: string | null
           location: string | null
           meeting_link: string | null
           modality: string | null
           pipeline_id_kanban: number | null
+          recurrence_enabled: boolean | null
+          recurrence_index: number | null
+          recurrence_interval: number | null
+          recurrence_parent_id: string | null
+          recurrence_type: string | null
+          recurrence_until: string | null
           sellflux_tag: string | null
           slots: number | null
           sort_order: number | null
@@ -8762,6 +8829,20 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "smartops_courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_turmas_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_course_turmas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_turmas_recurrence_parent_id_fkey"
+            columns: ["recurrence_parent_id"]
+            isOneToOne: false
+            referencedRelation: "v_turmas_com_vagas"
             referencedColumns: ["id"]
           },
         ]
@@ -9103,6 +9184,15 @@ export type Database = {
           valor_unitario: number
         }[]
       }
+      fn_generate_recurrent_turmas: {
+        Args: {
+          p_base_date: string
+          p_course_id: string
+          p_slots: number
+          p_template_label: string
+        }
+        Returns: number
+      }
       fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
       fn_list_proposal_products: {
         Args: never
@@ -9341,6 +9431,7 @@ export type Database = {
           imersao_turma_id: string | null
           impressora_modelo: string | null
           informacao_desejada: string | null
+          instagram: string | null
           insumos_adquiridos: string | null
           intelligence_score: Json | null
           intelligence_score_backfilled_at: string | null
