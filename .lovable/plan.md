@@ -1,72 +1,71 @@
 
 
-# Plano: Vincular B2B/B2C com dados reais e historicos (revisado)
+# Plano: Turmas em lista dentro do card + countdown + fix build errors
 
-## Situacao atual
+## Problema
 
-```text
-Modelo operacional: lia_attendances (28.120 leads, empresa denormalizada)
-Modelo relacional (sub-utilizado):
-  people:     4.070 registros, apenas 1 com primary_company_id
-  companies:  1.628 registros, sem vinculo a people
-  deals:      8.125 registros, parcialmente vinculados
-  buyer_type: 11.408 como 'unknown'
-```
+1. Cada turma aparece como um card separado dentro de um grid 3 colunas -- o usuario quer todas as datas como linhas dentro de um unico card por curso
+2. Falta: countdown regressivo, numero de contratos, acompanhantes, instrutor, dias da semana, NPS placeholder
+3. Build errors em `lia-lead-extraction.ts`, `lia-printer-dialog.ts` (tipos `never` em `agent_sessions`), e `EnrollmentModal.tsx` (campo `instagram` faltando)
 
 ## Mudancas
 
-### 1. Migration SQL — Funcao `fn_sync_normalized_from_lead(lead_id uuid)`
+### 1. `src/components/SmartOpsCourses.tsx` — AgendamentosTab (linhas 83-168)
 
-Funcao PL/pgSQL SECURITY DEFINER que:
-- Upsert em `companies` se `empresa_piperun_id` existir (usando campos `empresa_*` do lead)
-- Upsert em `people` se `pessoa_piperun_id` existir, com `primary_company_id` vinculado
-- Itera `piperun_deals_history[]` e upsert em `deals` com FK para person e company
-- Classifica `buyer_type`: empresa existente → `B2B`, sem empresa → `B2C`
+Substituir o grid de cards por uma **tabela** dentro de cada card de curso. Cada turma vira uma linha com:
 
-### 2. Migration SQL — Backfill massivo
-
-Executa `fn_sync_normalized_from_lead()` para todos os 28.120 leads existentes, populando people, companies, deals e vinculos.
-
-### 3. Migration SQL — Classificar buyer_type
-
-UPDATE massivo: leads com `empresa_piperun_id` → `B2B`, sem empresa → `B2C`.
-
-### 4. Integrar nos motores de sync
-
-Chamar `fn_sync_normalized_from_lead()` automaticamente apos cada deal processado em:
-- `piperun-full-sync/index.ts`
-- `smart-ops-sync-piperun/index.ts`
-- `smart-ops-piperun-webhook/index.ts`
-
-Isso garante que toda sincronizacao futura alimente automaticamente as tabelas normalizadas.
-
-### 5. Verificar `v_customer_graph`
-
-A view ja existe e cruzara os dados automaticamente apos o backfill.
-
-## Arquivos a criar/modificar
-
-| Arquivo | Acao |
+| Coluna | Conteudo |
 |---|---|
-| Migration SQL | Criar `fn_sync_normalized_from_lead()` + backfill + buyer_type |
-| `piperun-field-map.ts` | Adicionar helper `callNormalize()` reutilizavel |
-| `piperun-full-sync/index.ts` | Chamar normalize apos cada deal |
-| `smart-ops-sync-piperun/index.ts` | Chamar normalize apos cada deal |
-| `smart-ops-piperun-webhook/index.ts` | Chamar normalize apos cada upsert |
+| Turma | Label da turma |
+| Countdown | `Xd Xh Xm` ate `start_date` (atualizado via `useEffect` + `setInterval` 60s). Se ja passou: "Em andamento" ou "Encerrado" |
+| Dias | Dias da semana extraidos das datas (ex: "Qua, Qui, Sex") |
+| Contratos | `enrolled_count` (numero de inscritos) |
+| Acompanhantes | Query count de `smartops_enrollment_companions` agrupado por `enrollment.turma_id` |
+| Instrutor | `course.instructor_name` |
+| NPS | Placeholder "—" com tooltip "Em breve" |
+| Vagas | Progress bar + `X/Y` |
+| Acao | Botao "Agendar" |
 
-## Ordem de execucao
+Adicionar query de acompanhantes via join:
+```sql
+SELECT turma_id, count(*) 
+FROM smartops_enrollment_companions c
+JOIN smartops_course_enrollments e ON c.enrollment_id = e.id
+GROUP BY e.turma_id
+```
 
-1. Criar funcao SQL `fn_sync_normalized_from_lead()`
-2. Executar backfill massivo
-3. Classificar buyer_type
-4. Integrar chamada nos 3 motores de sync
-5. Verificar v_customer_graph
+Countdown helper inline:
+```ts
+function useCountdown(targetDate?: string) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60000); return () => clearInterval(t); }, []);
+  if (!targetDate) return null;
+  const diff = new Date(targetDate + 'T09:00:00').getTime() - now;
+  if (diff <= 0) return 'Encerrado';
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  return `${d}d ${h}h ${m}m`;
+}
+```
+
+### 2. `src/components/smartops/EnrollmentModal.tsx` (linha 154)
+
+Adicionar `instagram: ""` ao objeto `setFormData` em `populateFromResult`.
+
+### 3. `supabase/functions/_shared/lia-lead-extraction.ts` (linhas 149-162)
+
+Cast `supabase.from("lia_attendances")` com `as any` nas linhas 141 e 160 para resolver erros de tipo `never`.
+
+### 4. `supabase/functions/_shared/lia-printer-dialog.ts` (linhas 189-211)
+
+Cast `supabase.from("agent_sessions")` com `as any` nas linhas 189, 194, 205 para resolver erros de tipo `never`.
+
+### 5. `src/hooks/useDealSearch.ts`
+
+Ja corrigido (`pais_origem`), sem mudanca necessaria.
 
 ## Resultado esperado
 
-```text
-people.primary_company_id: 1 → ~6.000+
-buyer_type classificado: 28.120/28.120
-v_customer_graph: dados reais B2B com LTV agregado por empresa
-```
+Um unico card por curso com header (titulo + modalidade + instrutor) e uma tabela de turmas com countdown regressivo, metricas operacionais e botao de acao por linha.
 
