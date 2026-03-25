@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { DealSearchResult, PiperunDeal } from '@/types/courses';
 import { isDealGanho } from '@/lib/courseUtils';
 
-const SEARCH_FIELDS = 'id,nome,email,telefone_normalized,piperun_id,pessoa_piperun_id,especialidade,area_atuacao,buyer_type,empresa_cnpj,cidade,uf,pais,piperun_deals_history';
+const FIELDS = 'id,nome,email,telefone_normalized,piperun_id,pessoa_piperun_id,especialidade,area_atuacao,buyer_type,empresa_cnpj,cidade,uf,pais,piperun_deals_history';
 
 export function useDealSearch() {
   const [loading, setLoading] = useState(false);
@@ -14,75 +14,59 @@ export function useDealSearch() {
     if (!dealId.trim()) return;
     const id = dealId.trim();
     setLoading(true); setError(null); setResult(null);
+
+    const errors: string[] = [];
+
     try {
       let data: any = null;
 
-      // Tentativa 1: piperun_id do lead (coluna text)
-      if (!data) {
-        const res = await (supabase as any).from('lia_attendances').select(SEARCH_FIELDS)
-          .eq('piperun_id', id)
-          .is('merged_into', null)
-          .limit(1);
-        console.log('[DealSearch] T1 piperun_id:', { count: res.data?.length, err: res.error?.message });
-        if (!res.error && res.data?.length) data = res.data[0];
-      }
+      // T1: piperun_id (coluna text)
+      const r1 = await (supabase as any).from('lia_attendances')
+        .select(FIELDS)
+        .eq('piperun_id', id)
+        .is('merged_into', null)
+        .limit(1);
+      if (r1.error) errors.push(`T1: ${r1.error.message}`);
+      if (!r1.error && r1.data?.length) data = r1.data[0];
 
-      // Tentativa 2: pessoa_piperun_id (coluna integer)
+      // T2: pessoa_piperun_id (coluna int4)
       if (!data && /^\d+$/.test(id)) {
-        const res = await (supabase as any).from('lia_attendances').select(SEARCH_FIELDS)
+        const r2 = await (supabase as any).from('lia_attendances')
+          .select(FIELDS)
           .eq('pessoa_piperun_id', Number(id))
           .is('merged_into', null)
           .limit(1);
-        console.log('[DealSearch] T2 pessoa_piperun_id:', { count: res.data?.length, err: res.error?.message });
-        if (!res.error && res.data?.length) data = res.data[0];
+        if (r2.error) errors.push(`T2: ${r2.error.message}`);
+        if (!r2.error && r2.data?.length) data = r2.data[0];
       }
 
-      // Tentativa 3: deal_id dentro do JSONB como string
+      // T3: JSONB contains deal_id string
       if (!data) {
-        const res = await (supabase as any).from('lia_attendances').select(SEARCH_FIELDS)
+        const r3 = await (supabase as any).from('lia_attendances')
+          .select(FIELDS)
           .contains('piperun_deals_history', JSON.stringify([{ deal_id: id }]))
           .is('merged_into', null)
           .limit(1);
-        console.log('[DealSearch] T3 JSONB string:', { count: res.data?.length, err: res.error?.message });
-        if (!res.error && res.data?.length) data = res.data[0];
+        if (r3.error) errors.push(`T3: ${r3.error.message}`);
+        if (!r3.error && r3.data?.length) data = r3.data[0];
       }
 
-      // Tentativa 4: deal_id como numero no JSONB
+      // T4: JSONB contains deal_id number
       if (!data && /^\d+$/.test(id)) {
-        const res = await (supabase as any).from('lia_attendances').select(SEARCH_FIELDS)
+        const r4 = await (supabase as any).from('lia_attendances')
+          .select(FIELDS)
           .contains('piperun_deals_history', JSON.stringify([{ deal_id: Number(id) }]))
           .is('merged_into', null)
           .limit(1);
-        console.log('[DealSearch] T4 JSONB number:', { count: res.data?.length, err: res.error?.message });
-        if (!res.error && res.data?.length) data = res.data[0];
-      }
-
-      // Tentativa 5: textSearch via RPC (fallback mais confiável)
-      if (!data) {
-        const { data: rpcData, error: rpcErr } = await supabase.rpc('fn_search_deals_by_status' as any, {
-          p_status: null,
-          p_product: null,
-          p_owner: null,
-          p_min_value: null,
-          p_max_value: null,
-          p_limit: 1,
-        });
-        console.log('[DealSearch] T5 RPC fallback:', { count: (rpcData as any)?.length, err: rpcErr?.message });
-        // Se a RPC retorna deals, procurar o deal_id match
-        if (!rpcErr && Array.isArray(rpcData)) {
-          const match = (rpcData as any[]).find((r: any) => String(r.deal_id) === id);
-          if (match?.lead_id) {
-            const res = await (supabase as any).from('lia_attendances').select(SEARCH_FIELDS)
-              .eq('id', match.lead_id)
-              .is('merged_into', null)
-              .limit(1);
-            if (!res.error && res.data?.length) data = res.data[0];
-          }
-        }
+        if (r4.error) errors.push(`T4: ${r4.error.message}`);
+        if (!r4.error && r4.data?.length) data = r4.data[0];
       }
 
       if (!data) {
-        setError('Deal não encontrado. Verifique o ID e tente novamente.');
+        const detail = errors.length > 0
+          ? `Erros: ${errors.join(' | ')}`
+          : 'Nenhum registro com esse ID. Verifique se é o Deal ID correto.';
+        setError(detail);
         return;
       }
 
@@ -93,14 +77,13 @@ export function useDealSearch() {
         history[0];
 
       if (!matchedDeal) {
-        setError('Lead encontrado mas sem deals no histórico.');
+        setError(`Lead "${data.nome}" encontrado mas sem deals no histórico (${history.length} deals).`);
         return;
       }
 
       setResult({ ...data, lead_id: data.id, piperun_deals_history: history, matched_deal: matchedDeal });
-    } catch (err) {
-      console.error('[useDealSearch]', err);
-      setError('Erro na busca. Tente novamente.');
+    } catch (err: any) {
+      setError(`Erro: ${err?.message || String(err)}`);
     } finally {
       setLoading(false);
     }
