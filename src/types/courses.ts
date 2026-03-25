@@ -33,6 +33,13 @@ export interface Turma {
   active: boolean;
   sort_order?: number;
   days?: TurmaDay[];
+  recurrence_parent_id?: string | null;
+  recurrence_index?: number | null;
+  vagas_disponiveis?: number;
+  start_date?: string;
+  start_time?: string;
+  end_date?: string;
+  end_time?: string;
 }
 
 export interface TurmaComVagas extends Turma {
@@ -72,6 +79,13 @@ export interface SmartopsCourse {
   stage_after_enroll: string;
   public_visible: boolean;
   active: boolean;
+  recurrence_enabled?: boolean;
+  recurrence_type?: 'days' | 'weeks' | 'months';
+  recurrence_interval?: number;
+  recurrence_until?: string;
+  recurrence_time_start?: string;
+  recurrence_time_end?: string;
+  recurrence_duration_h?: number;
   created_at: string;
   updated_at: string;
   turmas?: Turma[];

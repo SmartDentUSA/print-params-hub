@@ -20,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   CalendarDays, Users, Plus, Search, Download, Send, Edit2, CheckCircle,
   XCircle, AlertTriangle, Minus, Image, ToggleLeft, ToggleRight, Pencil, Trash2,
+  ChevronDown, ChevronUp, Repeat,
 } from "lucide-react";
 import type { EquipKey, EquipmentData } from "@/types/courses";
 import { EQUIP_CONFIG } from "@/lib/courseUtils";
@@ -167,10 +168,33 @@ function AgendamentosTab() {
   );
 }
 
+// ─── RecurrenceSummary inline ───
+function RecurrenceSummary({ course }: { course: SmartopsCourse }) {
+  if (!course.recurrence_enabled) return null;
+  const typeLabel: Record<string, string> = {
+    days: course.recurrence_interval === 1 ? 'diário' : `a cada ${course.recurrence_interval} dias`,
+    weeks: course.recurrence_interval === 1 ? 'semanal' : `a cada ${course.recurrence_interval} semanas`,
+    months: course.recurrence_interval === 1 ? 'mensal' : `a cada ${course.recurrence_interval} meses`,
+  };
+  const t = (s?: string) => s?.substring(0, 5) ?? '';
+  const until = course.recurrence_until
+    ? new Date(course.recurrence_until + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : '';
+  return (
+    <p className="text-xs text-muted-foreground flex items-center gap-1">
+      <Repeat className="w-3 h-3" />
+      {typeLabel[course.recurrence_type!] ?? ''} {' · '}
+      {t(course.recurrence_time_start)}–{t(course.recurrence_time_end)}
+      {until && ` · até ${until}`}
+    </p>
+  );
+}
+
 // ─── Aba Catálogo ───
 function CatalogoTab() {
   const [showCreate, setShowCreate] = useState(false);
   const [editCourse, setEditCourse] = useState<SmartopsCourse | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -179,23 +203,43 @@ function CatalogoTab() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("smartops_courses")
-        .select("*")
+        .select(`
+          id, title, slug, modality, category, instructor_name,
+          cover_image_url, max_capacity, duration_days, location,
+          meeting_link, active, public_visible,
+          recurrence_enabled, recurrence_type, recurrence_interval,
+          recurrence_until, recurrence_time_start, recurrence_time_end,
+          whatsapp_group_link,
+          turmas:smartops_course_turmas (
+            id, label, slots, enrolled_count, active,
+            recurrence_parent_id, recurrence_index, sort_order,
+            days:smartops_turma_days (day_number, date, start_time, end_time)
+          )
+        `)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data as SmartopsCourse[];
+      return (data ?? []).map((c: any) => ({
+        ...c,
+        turmas: (c.turmas ?? [])
+          .filter((t: any) => t.active !== false)
+          .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((t: any) => {
+            const days = (t.days ?? []).sort((a: any, b: any) => a.day_number - b.day_number);
+            return {
+              ...t, days,
+              vagas_disponiveis: Math.max(t.slots - t.enrolled_count, 0),
+              start_date: days[0]?.date, start_time: days[0]?.start_time,
+              end_date: days[days.length - 1]?.date, end_time: days[days.length - 1]?.end_time,
+            };
+          }),
+      })) as SmartopsCourse[];
     },
   });
 
   const toggleField = async (id: string, field: "active" | "public_visible", value: boolean) => {
-    const { error } = await (supabase as any)
-      .from("smartops_courses")
-      .update({ [field]: value })
-      .eq("id", id);
-    if (error) {
-      toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
-    } else {
-      qc.invalidateQueries({ queryKey: ["smartops_courses"] });
-    }
+    const { error } = await (supabase as any).from("smartops_courses").update({ [field]: value }).eq("id", id);
+    if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
+    else qc.invalidateQueries({ queryKey: ["smartops_courses"] });
   };
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando cursos...</div>;
@@ -203,54 +247,110 @@ function CatalogoTab() {
   return (
     <>
       <div className="flex justify-end mb-4">
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="w-4 h-4 mr-2" /> Novo Curso
-        </Button>
+        <Button onClick={() => setShowCreate(true)}><Plus className="w-4 h-4 mr-2" /> Novo Curso</Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="space-y-4">
         {courses.map((c) => {
           const mod = MODALITY_CONFIG[c.modality as keyof typeof MODALITY_CONFIG];
+          const turmasList = (c.turmas ?? []) as any[];
+          const isExpanded = expandedId === c.id;
+          const visibleTurmas = isExpanded ? turmasList : turmasList.slice(0, 3);
+
           return (
             <Card key={c.id} className="overflow-hidden">
-              {c.cover_image_url && (
-                <div className="h-36 bg-muted overflow-hidden">
-                  <img src={c.cover_image_url} alt={c.title} className="w-full h-full object-cover" />
-                </div>
-              )}
-              {!c.cover_image_url && (
-                <div className="h-20 bg-muted flex items-center justify-center">
-                  <Image className="w-8 h-8 text-muted-foreground/40" />
-                </div>
-              )}
-              <CardContent className="pt-4 space-y-3">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-semibold leading-tight">{c.title}</h3>
-                  {mod && <Badge className={`ml-2 shrink-0 ${mod.badge}`}>{mod.label}</Badge>}
-                </div>
-                {c.instructor_name && (
-                  <p className="text-sm text-muted-foreground">Instrutor: {c.instructor_name}</p>
+              <div className="flex">
+                {c.cover_image_url ? (
+                  <div className="w-32 shrink-0 bg-muted overflow-hidden hidden sm:block">
+                    <img src={c.cover_image_url} alt={c.title} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="w-32 shrink-0 bg-muted items-center justify-center hidden sm:flex">
+                    <Image className="w-8 h-8 text-muted-foreground/40" />
+                  </div>
                 )}
-                <div className="flex items-center gap-3 text-xs">
-                  <button
-                    className="flex items-center gap-1"
-                    onClick={() => toggleField(c.id, "active", !c.active)}
-                  >
-                    {c.active ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
-                    {c.active ? "Ativo" : "Inativo"}
-                  </button>
-                  <button
-                    className="flex items-center gap-1"
-                    onClick={() => toggleField(c.id, "public_visible", !c.public_visible)}
-                  >
-                    {c.public_visible ? <ToggleRight className="w-4 h-4 text-blue-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
-                    {c.public_visible ? "Público" : "Privado"}
-                  </button>
-                </div>
-                <Button variant="outline" size="sm" className="w-full" onClick={() => setEditCourse(c)}>
-                  <Edit2 className="w-3.5 h-3.5 mr-1" /> Editar
-                </Button>
-              </CardContent>
+                <CardContent className="pt-4 flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-semibold leading-tight">{c.title}</h3>
+                      {c.instructor_name && <p className="text-xs text-muted-foreground">Instrutor: {c.instructor_name}</p>}
+                      {c.duration_days && <span className="text-xs text-muted-foreground">{c.duration_days} dia{c.duration_days > 1 ? 's' : ''}</span>}
+                      {c.location && <span className="text-xs text-muted-foreground ml-2">{c.location}</span>}
+                      <RecurrenceSummary course={c} />
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {mod && <Badge className={mod.badge}>{mod.label}</Badge>}
+                      <Button variant="outline" size="sm" onClick={() => setEditCourse(c)}>
+                        <Edit2 className="w-3.5 h-3.5 mr-1" /> Editar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Turmas/Sessões */}
+                  {turmasList.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Turmas e Sessões</h4>
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-muted-foreground border-b border-border">
+                            <th className="text-left py-1.5 pr-4 font-medium">Turma / Data</th>
+                            <th className="text-left py-1.5 pr-4 font-medium">Horário</th>
+                            <th className="text-right py-1.5 pr-4 font-medium">Inscritos</th>
+                            <th className="text-right py-1.5 font-medium">Vagas</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visibleTurmas.map((t: any) => (
+                            <tr key={t.id} className="border-b border-border/50 hover:bg-muted/30">
+                              <td className="py-1.5 pr-4">
+                                {t.start_date
+                                  ? new Date(t.start_date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+                                  : t.label}
+                                {t.end_date && t.end_date !== t.start_date && (
+                                  <span className="text-muted-foreground"> – {new Date(t.end_date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+                                )}
+                              </td>
+                              <td className="py-1.5 pr-4 font-mono">
+                                {t.start_time?.substring(0, 5)}–{t.end_time?.substring(0, 5)}
+                              </td>
+                              <td className="py-1.5 pr-4 text-right">{t.enrolled_count}</td>
+                              <td className="py-1.5 text-right">
+                                <span className={
+                                  t.vagas_disponiveis === 0 ? 'text-red-500 font-medium' :
+                                  t.vagas_disponiveis <= 3 ? 'text-amber-500' : 'text-muted-foreground'
+                                }>
+                                  {t.vagas_disponiveis === 0 ? 'Lotado' : `${t.vagas_disponiveis} restantes`}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {turmasList.length > 3 && (
+                        <button
+                          onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                          className="text-xs text-blue-600 hover:text-blue-800 mt-2 flex items-center gap-1"
+                        >
+                          {isExpanded
+                            ? <><ChevronUp className="w-3 h-3" /> Recolher</>
+                            : <><ChevronDown className="w-3 h-3" /> Mostrar todas as {turmasList.length} sessões</>}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 text-xs pt-1 border-t">
+                    <button className="flex items-center gap-1" onClick={() => toggleField(c.id, "active", !c.active)}>
+                      {c.active ? <ToggleRight className="w-4 h-4 text-green-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                      {c.active ? "Ativo" : "Inativo"}
+                    </button>
+                    <button className="flex items-center gap-1" onClick={() => toggleField(c.id, "public_visible", !c.public_visible)}>
+                      {c.public_visible ? <ToggleRight className="w-4 h-4 text-blue-600" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
+                      {c.public_visible ? "Público" : "Privado"}
+                    </button>
+                  </div>
+                </CardContent>
+              </div>
             </Card>
           );
         })}

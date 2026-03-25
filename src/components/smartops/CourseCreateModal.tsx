@@ -10,7 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, X, CalendarDays, Image } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Plus, X, CalendarDays, Image, Repeat } from "lucide-react";
 import { slugify, buildCourseTag, MODALITY_CONFIG } from "@/lib/courseUtils";
 import {
   TEMPLATE_VARIABLES, DEFAULT_ENROLLMENT_TEMPLATE,
@@ -57,6 +62,112 @@ const CATEGORIES = [
   { value: "webinar", label: "Webinar" },
 ] as const;
 
+// ─── Recurrence preview ───
+function previewRecurrenceDates(
+  baseDate: string, type: 'days' | 'weeks' | 'months', interval: number, until: string
+): Date[] {
+  const dates: Date[] = [];
+  if (!baseDate || !until) return dates;
+  const current = new Date(baseDate + 'T12:00:00');
+  const end = new Date(until + 'T23:59:59');
+  while (current <= end && dates.length < 100) {
+    dates.push(new Date(current));
+    if (type === 'days')   current.setDate(current.getDate() + interval);
+    if (type === 'weeks')  current.setDate(current.getDate() + interval * 7);
+    if (type === 'months') current.setMonth(current.getMonth() + interval);
+  }
+  return dates;
+}
+
+function RecurrenceSection(props: {
+  recurrenceEnabled: boolean; setRecurrenceEnabled: (v: boolean) => void;
+  recurrenceType: 'days' | 'weeks' | 'months'; setRecurrenceType: (v: 'days' | 'weeks' | 'months') => void;
+  recurrenceInterval: number; setRecurrenceInterval: (v: number) => void;
+  recurrenceBaseDate: string; setRecurrenceBaseDate: (v: string) => void;
+  recurrenceTimeStart: string; setRecurrenceTimeStart: (v: string) => void;
+  recurrenceTimeEnd: string; setRecurrenceTimeEnd: (v: string) => void;
+  recurrenceUntil: string; setRecurrenceUntil: (v: string) => void;
+  slotsPerSession: number; setSlotsPerSession: (v: number) => void;
+  whatsappGroupLink: string; setWhatsappGroupLink: (v: string) => void;
+}) {
+  const p = props;
+  const preview = previewRecurrenceDates(p.recurrenceBaseDate, p.recurrenceType, p.recurrenceInterval, p.recurrenceUntil);
+  const t = (s: string) => s?.substring(0, 5) ?? '';
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold flex items-center gap-2"><Repeat className="w-4 h-4" /> Sessões Recorrentes</h3>
+
+      <div className="flex items-center gap-2">
+        <Switch checked={p.recurrenceEnabled} onCheckedChange={p.setRecurrenceEnabled} />
+        <Label className="text-sm">Repetir este treinamento automaticamente</Label>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="text-xs">Primeira sessão</Label>
+          <Input type="date" value={p.recurrenceBaseDate} onChange={(e) => p.setRecurrenceBaseDate(e.target.value)} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><Label className="text-xs">Início</Label><Input type="time" value={p.recurrenceTimeStart} onChange={(e) => p.setRecurrenceTimeStart(e.target.value)} /></div>
+          <div><Label className="text-xs">Fim</Label><Input type="time" value={p.recurrenceTimeEnd} onChange={(e) => p.setRecurrenceTimeEnd(e.target.value)} /></div>
+        </div>
+        <div>
+          <Label className="text-xs">Vagas por sessão</Label>
+          <Input type="number" min={1} value={p.slotsPerSession} onChange={(e) => p.setSlotsPerSession(Number(e.target.value) || 20)} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">Repetir a cada</Label>
+            <Input type="number" min={1} value={p.recurrenceInterval} onChange={(e) => p.setRecurrenceInterval(Number(e.target.value) || 1)} />
+          </div>
+          <div>
+            <Label className="text-xs">Tipo</Label>
+            <Select value={p.recurrenceType} onValueChange={(v) => p.setRecurrenceType(v as any)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="days">Dias</SelectItem>
+                <SelectItem value="weeks">Semanas</SelectItem>
+                <SelectItem value="months">Meses</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Até a data</Label>
+          <Input type="date" value={p.recurrenceUntil} onChange={(e) => p.setRecurrenceUntil(e.target.value)} />
+        </div>
+      </div>
+
+      {/* Preview */}
+      {preview.length > 0 && (
+        <Card className="border">
+          <CardContent className="pt-3 space-y-1">
+            <Label className="text-xs font-semibold">Preview das sessões</Label>
+            {preview.slice(0, 3).map((d, i) => (
+              <div key={i} className="text-xs text-muted-foreground">
+                {d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                {' '}{t(p.recurrenceTimeStart)}–{t(p.recurrenceTimeEnd)}
+              </div>
+            ))}
+            {preview.length > 3 && (
+              <div className="text-xs text-muted-foreground">
+                ... e mais {preview.length - 3} sessões até {new Date(p.recurrenceUntil + 'T12:00:00').toLocaleDateString('pt-BR')}
+              </div>
+            )}
+            <p className="text-xs font-medium mt-1">Serão criadas {preview.length} sessões automaticamente</p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div>
+        <Label className="text-xs">Link do grupo WhatsApp (compartilhado por todas as sessões)</Label>
+        <Input value={p.whatsappGroupLink} onChange={(e) => p.setWhatsappGroupLink(e.target.value)} placeholder="https://chat.whatsapp.com/..." />
+      </div>
+    </div>
+  );
+}
+
 export function CourseCreateModal({ open, course, onClose }: Props) {
   const isEdit = !!course;
   const qc = useQueryClient();
@@ -81,6 +192,18 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
   const [publicVisible, setPublicVisible] = useState(false);
   const [waTemplate, setWaTemplate] = useState(DEFAULT_ENROLLMENT_TEMPLATE);
 
+  // Recurrence (online only)
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
+  const [recurrenceType, setRecurrenceType] = useState<'days' | 'weeks' | 'months'>('weeks');
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
+  const [recurrenceBaseDate, setRecurrenceBaseDate] = useState('');
+  const [recurrenceTimeStart, setRecurrenceTimeStart] = useState('09:00');
+  const [recurrenceTimeEnd, setRecurrenceTimeEnd] = useState('11:00');
+  const [recurrenceUntil, setRecurrenceUntil] = useState('');
+  const [recurrenceSlotsPerSession, setRecurrenceSlotsPerSession] = useState(20);
+
+  const isOnline = modality === 'online' || modality === 'online_ao_vivo';
+
   // Turmas
   const [turmas, setTurmas] = useState<LocalTurma[]>([]);
   const [turmasLoading, setTurmasLoading] = useState(false);
@@ -95,6 +218,9 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       setLocation(""); setMeetingLink(""); setWhatsappGroupLink("");
       setPipelineId(83896); setStageAfterEnroll("treinamento_agendado");
       setPublicVisible(false); setWaTemplate(DEFAULT_ENROLLMENT_TEMPLATE);
+      setRecurrenceEnabled(false); setRecurrenceType('weeks'); setRecurrenceInterval(1);
+      setRecurrenceBaseDate(''); setRecurrenceTimeStart('09:00'); setRecurrenceTimeEnd('11:00');
+      setRecurrenceUntil(''); setRecurrenceSlotsPerSession(20);
       setTurmas([]);
       return;
     }
@@ -113,6 +239,12 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
     setStageAfterEnroll(course.stage_after_enroll);
     setPublicVisible(course.public_visible);
     setWaTemplate(course.whatsapp_message_template || DEFAULT_ENROLLMENT_TEMPLATE);
+    setRecurrenceEnabled(course.recurrence_enabled || false);
+    setRecurrenceType((course.recurrence_type as any) || 'weeks');
+    setRecurrenceInterval(course.recurrence_interval || 1);
+    setRecurrenceUntil(course.recurrence_until || '');
+    setRecurrenceTimeStart(course.recurrence_time_start?.substring(0, 5) || '09:00');
+    setRecurrenceTimeEnd(course.recurrence_time_end?.substring(0, 5) || '11:00');
 
     // Load turmas
     loadTurmas(course.id);
@@ -294,7 +426,8 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
       if (!user) throw new Error("Não autenticado");
 
       // PASSO 1: INSERT/UPDATE curso
-      const coursePayload = {
+      const useRecurrence = isOnline && recurrenceEnabled;
+      const coursePayload: Record<string, any> = {
         title: title.trim(),
         ...(isEdit ? {} : { slug: slugify(title.trim()) }),
         description: description || null,
@@ -302,7 +435,7 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         category,
         instructor_name: instructorName || null,
         cover_image_url: coverImageUrl || null,
-        max_capacity: turmas[0]?.slots || 20,
+        max_capacity: useRecurrence ? recurrenceSlotsPerSession : (turmas[0]?.slots || 20),
         duration_days: durationDays,
         duration_hours_per_day: durationHoursPerDay || null,
         location: location || null,
@@ -314,6 +447,12 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
         public_visible: publicVisible,
         active: true,
         ...(isEdit ? {} : { created_by: user.id }),
+        recurrence_enabled: useRecurrence,
+        recurrence_type: useRecurrence ? recurrenceType : null,
+        recurrence_interval: useRecurrence ? recurrenceInterval : null,
+        recurrence_until: useRecurrence ? (recurrenceUntil || null) : null,
+        recurrence_time_start: useRecurrence ? recurrenceTimeStart : null,
+        recurrence_time_end: useRecurrence ? recurrenceTimeEnd : null,
       };
 
       let courseId: string;
@@ -332,6 +471,22 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
           .single();
         if (error) throw error;
         courseId = data.id;
+      }
+
+      // PASSO 1.5: Recurrence — generate turmas via SQL function
+      if (useRecurrence && recurrenceBaseDate) {
+        const { data: count, error: rpcErr } = await supabase.rpc('fn_generate_recurrent_turmas' as any, {
+          p_course_id: courseId,
+          p_base_date: recurrenceBaseDate,
+          p_slots: recurrenceSlotsPerSession,
+          p_template_label: title.trim(),
+        });
+        if (rpcErr) throw rpcErr;
+        qc.invalidateQueries({ queryKey: ["smartops_courses"] });
+        qc.invalidateQueries({ queryKey: ["v_turmas_com_vagas"] });
+        toast({ title: `${count ?? 0} sessões criadas com sucesso!` });
+        onClose();
+        return; // skip manual turma save for recurrent courses
       }
 
       // Soft delete turmas removidas
@@ -554,108 +709,82 @@ export function CourseCreateModal({ open, course, onClose }: Props) {
             </div>
 
             {/* ─── Turmas e Cronograma ─── */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Turmas e Cronograma</h3>
-                <Button type="button" variant="outline" size="sm" onClick={addTurma}>
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar turma
-                </Button>
+            {!isOnline || !recurrenceEnabled ? (
+              /* PRESENCIAL ou online sem recorrência: editor manual */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">Turmas e Cronograma</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={addTurma}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar turma
+                  </Button>
+                </div>
+
+                {isOnline && (
+                  <div className="flex items-center gap-2">
+                    <Switch checked={recurrenceEnabled} onCheckedChange={setRecurrenceEnabled} />
+                    <Label className="text-sm">Repetir este treinamento automaticamente</Label>
+                  </div>
+                )}
+
+                {turmasLoading && <p className="text-sm text-muted-foreground">Carregando turmas...</p>}
+
+                {turmas.map((turma, tIdx) => (
+                  <Card key={tIdx} className="border">
+                    <CardContent className="pt-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">
+                          {turma.id ? turma.label : `Nova turma ${tIdx + 1}`}
+                          {turma.id && turma.enrolled_count > 0 && (
+                            <Badge variant="outline" className="ml-2">{turma.enrolled_count} inscritos</Badge>
+                          )}
+                        </span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeTurma(tIdx)}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div><Label className="text-xs">Label</Label><Input value={turma.label} onChange={(e) => updateTurma(tIdx, "label", e.target.value)} /></div>
+                        <div><Label className="text-xs">Vagas</Label><Input type="number" min={1} value={turma.slots} onChange={(e) => updateTurma(tIdx, "slots", Number(e.target.value) || 20)} /></div>
+                        <div><Label className="text-xs">Grupo WA</Label><Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." /></div>
+                        <div><Label className="text-xs">TAG SellFlux</Label><Input value={turma.sellflux_tag} onChange={(e) => updateTurma(tIdx, "sellflux_tag", e.target.value)} placeholder={buildCourseTag(title, turma.days[0]?.date)} /></div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold">Cronograma</Label>
+                        {turma.days.map((day, dIdx) => (
+                          <div key={dIdx} className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
+                            <Input type="date" className="w-[140px]" value={day.date} onChange={(e) => updateDay(tIdx, dIdx, "date", e.target.value)} />
+                            <Input type="time" className="w-[100px]" value={day.start_time} onChange={(e) => updateDay(tIdx, dIdx, "start_time", e.target.value)} />
+                            <span className="text-xs">às</span>
+                            <Input type="time" className="w-[100px]" value={day.end_time} onChange={(e) => updateDay(tIdx, dIdx, "end_time", e.target.value)} />
+                            <Input className="flex-1 min-w-[120px]" placeholder="Tópico" value={day.topic} onChange={(e) => updateDay(tIdx, dIdx, "topic", e.target.value)} />
+                            <Button type="button" variant="ghost" size="sm" onClick={() => removeDay(tIdx, dIdx)}><X className="w-3 h-3" /></Button>
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={() => addDay(tIdx)}>
+                          <Plus className="w-3 h-3 mr-1" /> Adicionar dia
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-
-              {turmasLoading && <p className="text-sm text-muted-foreground">Carregando turmas...</p>}
-
-              {turmas.map((turma, tIdx) => (
-                <Card key={tIdx} className="border">
-                  <CardContent className="pt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-sm">
-                        {turma.id ? turma.label : `Nova turma ${tIdx + 1}`}
-                        {turma.id && turma.enrolled_count > 0 && (
-                          <Badge variant="outline" className="ml-2">{turma.enrolled_count} inscritos</Badge>
-                        )}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeTurma(tIdx)}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <div>
-                        <Label className="text-xs">Label</Label>
-                        <Input value={turma.label} onChange={(e) => updateTurma(tIdx, "label", e.target.value)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Vagas</Label>
-                        <Input type="number" min={1} value={turma.slots} onChange={(e) => updateTurma(tIdx, "slots", Number(e.target.value) || 20)} />
-                      </div>
-                      <div>
-                        <Label className="text-xs">Grupo WA</Label>
-                        <Input value={turma.whatsapp_group_link} onChange={(e) => updateTurma(tIdx, "whatsapp_group_link", e.target.value)} placeholder="https://chat.whatsapp.com/..." />
-                      </div>
-                      <div>
-                        <Label className="text-xs">TAG SellFlux</Label>
-                        <Input
-                          value={turma.sellflux_tag}
-                          onChange={(e) => updateTurma(tIdx, "sellflux_tag", e.target.value)}
-                          placeholder={buildCourseTag(title, turma.days[0]?.date)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Dias */}
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold">Cronograma</Label>
-                      {turma.days.map((day, dIdx) => (
-                        <div key={dIdx} className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs text-muted-foreground w-6">D{day.day_number}</span>
-                          <Input
-                            type="date"
-                            className="w-[140px]"
-                            value={day.date}
-                            onChange={(e) => updateDay(tIdx, dIdx, "date", e.target.value)}
-                          />
-                          <Input
-                            type="time"
-                            className="w-[100px]"
-                            value={day.start_time}
-                            onChange={(e) => updateDay(tIdx, dIdx, "start_time", e.target.value)}
-                          />
-                          <span className="text-xs">às</span>
-                          <Input
-                            type="time"
-                            className="w-[100px]"
-                            value={day.end_time}
-                            onChange={(e) => updateDay(tIdx, dIdx, "end_time", e.target.value)}
-                          />
-                          <Input
-                            className="flex-1 min-w-[120px]"
-                            placeholder="Tópico"
-                            value={day.topic}
-                            onChange={(e) => updateDay(tIdx, dIdx, "topic", e.target.value)}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeDay(tIdx, dIdx)}
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button type="button" variant="outline" size="sm" onClick={() => addDay(tIdx)}>
-                        <Plus className="w-3 h-3 mr-1" /> Adicionar dia
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            ) : (
+              /* ONLINE com recorrência habilitada */
+              <RecurrenceSection
+                recurrenceEnabled={recurrenceEnabled} setRecurrenceEnabled={setRecurrenceEnabled}
+                recurrenceType={recurrenceType} setRecurrenceType={setRecurrenceType}
+                recurrenceInterval={recurrenceInterval} setRecurrenceInterval={setRecurrenceInterval}
+                recurrenceBaseDate={recurrenceBaseDate} setRecurrenceBaseDate={setRecurrenceBaseDate}
+                recurrenceTimeStart={recurrenceTimeStart} setRecurrenceTimeStart={setRecurrenceTimeStart}
+                recurrenceTimeEnd={recurrenceTimeEnd} setRecurrenceTimeEnd={setRecurrenceTimeEnd}
+                recurrenceUntil={recurrenceUntil} setRecurrenceUntil={setRecurrenceUntil}
+                slotsPerSession={recurrenceSlotsPerSession} setSlotsPerSession={setRecurrenceSlotsPerSession}
+                whatsappGroupLink={whatsappGroupLink} setWhatsappGroupLink={setWhatsappGroupLink}
+              />
+            )}
 
             {/* ─── Mensagem WhatsApp ─── */}
             <div className="space-y-3">
