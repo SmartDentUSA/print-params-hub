@@ -1218,3 +1218,16 @@ export function upsertDealHistory(
   }
   return history;
 }
+
+// ─── Normalize helper: syncs lia_attendances data to people/companies/deals ───
+
+export async function callNormalizeFromLead(
+  supabase: ReturnType<typeof import("https://esm.sh/@supabase/supabase-js@2").createClient>,
+  leadId: string,
+): Promise<void> {
+  try {
+    await supabase.rpc("fn_sync_normalized_from_lead", { p_lead_id: leadId });
+  } catch (e) {
+    console.warn(`[normalize] Error for lead ${leadId}:`, e);
+  }
+}
