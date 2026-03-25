@@ -110,19 +110,7 @@ function AgendamentosTab() {
     return acc;
   }, {});
 
-  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando agendamentos...</div>;
-
-  if (Object.keys(grouped).length === 0) {
-    return (
-      <div className="text-center py-12 text-muted-foreground">
-        <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
-        <p>Nenhum agendamento disponível.</p>
-        <p className="text-sm mt-1">Crie um curso na aba "Catálogo" para começar.</p>
-      </div>
-    );
-  }
-
-  // Group by modality
+  // Group by modality (must be before early returns to respect hooks rules)
   const byModality = useMemo(() => {
     const result: Record<string, Array<{ courseId: string; course: any; turmas: TurmaComVagas[] }>> = {};
     Object.entries(grouped).forEach(([courseId, { course, turmas: courseTurmas }]) => {
@@ -139,6 +127,19 @@ function AgendamentosTab() {
     hibrido: "Híbrido",
     gravado: "Gravado",
   };
+
+  if (isLoading) return <div className="text-center py-8 text-muted-foreground">Carregando agendamentos...</div>;
+
+  if (Object.keys(grouped).length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <CalendarDays className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <p>Nenhum agendamento disponível.</p>
+        <p className="text-sm mt-1">Crie um curso na aba "Catálogo" para começar.</p>
+      </div>
+    );
+  }
+
 
   return (
     <>
