@@ -223,8 +223,10 @@ function AgendamentosTab() {
                           {courseTurmas.map((turma) => {
                             const pct = turma.slots > 0 ? ((turma.enrolled_count / turma.slots) * 100) : 0;
                             const lotado = turma.vagas_disponiveis === 0;
-                            const countdown = getCountdown(turma.start_date, turma.start_time);
-                            const isEncerrado = countdown === "Encerrado";
+                            const countdown = getCountdown(turma.start_date, turma.start_time, turma.end_date, turma.end_time, course.modality);
+                            const isEncerrado = countdown?.variant === 'muted';
+                            const isInscricoesEncerradas = countdown?.variant === 'red';
+                            const cannotEnroll = isEncerrado || isInscricoesEncerradas;
 
                             const weekdays: string[] = [];
                             if (turma.start_date) {
@@ -254,8 +256,11 @@ function AgendamentosTab() {
                                 </TableCell>
                                 <TableCell>
                                   {countdown && (
-                                    <Badge variant={isEncerrado ? "secondary" : "outline"} className={!isEncerrado ? "font-mono text-xs" : ""}>
-                                      {isEncerrado ? "Encerrado" : countdown}
+                                    <Badge
+                                      variant={isEncerrado ? "secondary" : "outline"}
+                                      className={`text-xs ${VARIANT_CLASSES[countdown.variant] || ''}`}
+                                    >
+                                      {countdown.label}
                                     </Badge>
                                   )}
                                 </TableCell>
