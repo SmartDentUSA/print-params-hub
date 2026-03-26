@@ -6446,6 +6446,24 @@ export type Database = {
         }
         Relationships: []
       }
+      smart_form_rate_limit: {
+        Row: {
+          ip_hash: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          ip_hash: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          ip_hash?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
       smartops_course_enrollments: {
         Row: {
           area_atuacao: string | null
@@ -7002,6 +7020,7 @@ export type Database = {
       }
       smartops_form_fields: {
         Row: {
+          conditions: Json | null
           created_at: string
           custom_field_name: string | null
           db_column: string | null
@@ -7014,10 +7033,12 @@ export type Database = {
           placeholder: string | null
           required: boolean
           roi_config: Json | null
+          show_when_especialidade: string[] | null
           updated_at: string
           workflow_cell_target: string | null
         }
         Insert: {
+          conditions?: Json | null
           created_at?: string
           custom_field_name?: string | null
           db_column?: string | null
@@ -7030,10 +7051,12 @@ export type Database = {
           placeholder?: string | null
           required?: boolean
           roi_config?: Json | null
+          show_when_especialidade?: string[] | null
           updated_at?: string
           workflow_cell_target?: string | null
         }
         Update: {
+          conditions?: Json | null
           created_at?: string
           custom_field_name?: string | null
           db_column?: string | null
@@ -7046,6 +7069,7 @@ export type Database = {
           placeholder?: string | null
           required?: boolean
           roi_config?: Json | null
+          show_when_especialidade?: string[] | null
           updated_at?: string
           workflow_cell_target?: string | null
         }
