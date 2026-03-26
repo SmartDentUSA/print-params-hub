@@ -285,11 +285,11 @@ function AgendamentosTab() {
                                 <TableCell className="text-right pr-6">
                                   <Button
                                     size="sm"
-                                    variant={lotado ? "secondary" : "default"}
-                                    disabled={lotado}
+                                    variant={(lotado || cannotEnroll) ? "secondary" : "default"}
+                                    disabled={lotado || cannotEnroll}
                                     onClick={() => setEnrollModal({ course: course as SmartopsCourse, turmaId: turma.id })}
                                   >
-                                    {lotado ? "Sem vagas" : "Agendar"}
+                                    {lotado ? "Sem vagas" : cannotEnroll ? countdown?.label ?? "Encerrado" : "Agendar"}
                                   </Button>
                                 </TableCell>
                               </TableRow>
