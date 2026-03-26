@@ -32,21 +32,52 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { EquipmentSerialsSection } from "./smartops/EquipmentSerialsSection";
 
 // ─── Countdown Hook ───
+type CountdownResult = {
+  label: string;
+  variant: 'green' | 'amber' | 'red' | 'blue' | 'muted';
+} | null;
+
+const VARIANT_CLASSES: Record<string, string> = {
+  green: 'bg-green-100 text-green-800 border-green-200',
+  amber: 'bg-amber-100 text-amber-800 border-amber-200',
+  red: 'bg-red-100 text-red-800 border-red-200',
+  blue: 'bg-blue-100 text-blue-800 border-blue-200 animate-pulse',
+  muted: '',
+};
+
 function useCountdown() {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
   }, []);
-  return (targetDate?: string, targetTime?: string) => {
-    if (!targetDate) return null;
-    const time = targetTime ? targetTime.substring(0, 5) : "09:00";
-    const diff = new Date(`${targetDate}T${time}:00`).getTime() - now;
-    if (diff <= 0) return "Encerrado";
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor((diff % 86400000) / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    return `${d}d ${h}h ${m}m`;
+  return (startDate?: string, startTime?: string, endDate?: string, endTime?: string, modality?: string): CountdownResult => {
+    if (!startDate) return null;
+    const sTime = startTime?.substring(0, 5) ?? '09:00';
+    const eDate = endDate ?? startDate;
+    const eTime = endTime?.substring(0, 5) ?? '18:00';
+    const startMs = new Date(`${startDate}T${sTime}:00`).getTime();
+    const endMs = new Date(`${eDate}T${eTime}:00`).getTime();
+    const diffStart = startMs - now;
+    const daysUntil = Math.ceil(diffStart / 86400000);
+
+    // After end → Curso realizado
+    if (now >= endMs) return { label: 'Curso realizado', variant: 'muted' };
+    // During event → Acontecendo agora
+    if (now >= startMs) return { label: 'Acontecendo agora', variant: 'blue' };
+
+    // Presencial-specific enrollment phases
+    if (modality === 'presencial') {
+      if (daysUntil <= 3) return { label: 'Inscrições encerradas', variant: 'red' };
+      if (daysUntil <= 7) return { label: `Faltam ${daysUntil} dias para encerrar inscrições`, variant: 'amber' };
+      return { label: 'Inscrições abertas', variant: 'green' };
+    }
+
+    // Online/other: keep numeric countdown
+    const d = Math.floor(diffStart / 86400000);
+    const h = Math.floor((diffStart % 86400000) / 3600000);
+    const m = Math.floor((diffStart % 3600000) / 60000);
+    return { label: `${d}d ${h}h ${m}m`, variant: 'green' };
   };
 }
 
