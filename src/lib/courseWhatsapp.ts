@@ -30,7 +30,7 @@ export const TEMPLATE_VARIABLES = [
   { key: '{{data_inicio}}',    desc: 'DD/MM/AAAA' },
   { key: '{{data_fim}}',       desc: 'DD/MM/AAAA' },
   { key: '{{horario_inicio}}', desc: 'HH:MM do 1º dia' },
-  { key: '{{grupo_whatsapp}}', desc: 'Link do grupo WA' },
+  { key: '{{grupo_whatsapp}}', desc: 'CTA + link do grupo WhatsApp' },
   { key: '{{cs_nome}}',        desc: 'Nome do CS' },
 ] as const;
 
@@ -55,7 +55,9 @@ export function interpolateTemplate(template: string, vars: {
   local: string; cronograma: string; duracao: string; data_inicio: string;
   data_fim: string; horario_inicio: string; grupo_whatsapp: string; cs_nome: string;
 }): string {
-  const grupoLine = vars.grupo_whatsapp ? `📱 Grupo da turma: ${vars.grupo_whatsapp}` : '';
+  const grupoLine = vars.grupo_whatsapp
+    ? `📱 *Entre no grupo de WhatsApp do seu treinamento:*\n👉 ${vars.grupo_whatsapp}`
+    : '';
   const fmt = (d: string) => d ? d.split('-').reverse().join('/') : '';
   return template
     .replace(/\{\{nome\}\}/g,           vars.nome)
