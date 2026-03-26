@@ -1,54 +1,33 @@
 
 
-# Plan: WhatsApp group link in enrollment messages
+# Plan: Create company profile documentation (.MD)
 
-## What changes
+## What
 
-The `{{grupo_whatsapp}}` variable currently renders as a plain line with the raw URL. The user wants it to render as an invitation CTA with the link, e.g.:
+Generate a Markdown file at `/mnt/documents/COMPANY_PROFILE_SCHEMA.md` documenting:
 
-```
-📱 *Entre no grupo de WhatsApp do seu treinamento:*
-👉 https://chat.whatsapp.com/abc123
-```
+1. **All fields in the `CompanyData` interface** (from `src/hooks/useCompanyData.ts`) organized by section (core, business, reviews_reputation, media, corporate, contact, seo, social_media, institutional_links, company_videos)
+2. **Data source**: table `system_a_catalog` where `category = 'company_info'`, with fields mapped from `extra_data` JSONB column
+3. **All 11 consumer components** that use `useCompanyData()`:
+   - `src/components/Footer.tsx` — footer with contact, social links, institutional links
+   - `src/components/OrganizationSchema.tsx` — JSON-LD structured data (Organization/LocalBusiness)
+   - `src/components/AboutSEOHead.tsx` — SEO meta tags for /sobre page
+   - `src/components/SEOHead.tsx` — generic SEO head with company context
+   - `src/components/KnowledgeSEOHead.tsx` — knowledge base article SEO
+   - `src/components/GoogleReviewsBadge.tsx` — rating star badge
+   - `src/components/GoogleReviewsWidget.tsx` — reviews carousel widget
+   - `src/pages/About.tsx` — about page UI
+   - `src/pages/ProductPage.tsx` — product page SEO
+   - `src/pages/CategoryPage.tsx` — category page SEO
+   - `src/pages/PublicFormPage.tsx` — public form branding
 
-There is no URL shortener in the project. Adding one (Bitly, TinyURL, etc.) would require an API key and add a failure point to enrollment. Instead, the improvement is purely cosmetic — better copy around the existing link.
+## Output
 
-## Changes
+Single file `/mnt/documents/COMPANY_PROFILE_SCHEMA.md` with:
+- Field inventory table (field, type, example, section)
+- Data origin (Supabase table + column mapping)
+- Consumer component list with purpose
+- Hook location and caching config (30min staleTime)
 
-**File: `src/lib/courseWhatsapp.ts`**
-
-### 1. Update DEFAULT_ENROLLMENT_TEMPLATE (line 15)
-
-Change the `{{grupo_whatsapp}}` placeholder position/context in the default template to be more explicit:
-
-```
-{{cronograma}}
-
-{{grupo_whatsapp}}
-
-Qualquer dúvida, estou à disposição!
-```
-
-No structural change needed here — the template already has the variable in the right place.
-
-### 2. Update `interpolateTemplate` (line 58)
-
-Change the `grupoLine` construction from:
-```ts
-const grupoLine = vars.grupo_whatsapp ? `📱 Grupo da turma: ${vars.grupo_whatsapp}` : '';
-```
-To:
-```ts
-const grupoLine = vars.grupo_whatsapp
-  ? `📱 *Entre no grupo de WhatsApp do seu treinamento:*\n👉 ${vars.grupo_whatsapp}`
-  : '';
-```
-
-This produces a two-line block with a clear CTA and the link on its own line (WhatsApp will auto-linkify it).
-
-### 3. Update TEMPLATE_VARIABLES description (line 33)
-
-Update the description for `{{grupo_whatsapp}}` from `'Link do grupo WA'` to `'CTA + link do grupo WhatsApp'` so editors understand the variable now renders as a multi-line block.
-
-**Single file modified:** `src/lib/courseWhatsapp.ts`
+No code changes to the project.
 
