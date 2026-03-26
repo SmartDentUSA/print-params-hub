@@ -1,33 +1,51 @@
 
 
-# Plan: Create company profile documentation (.MD)
+# Plan: Generate PRODUCT_CATALOG_SCHEMA.md
 
 ## What
 
-Generate a Markdown file at `/mnt/documents/COMPANY_PROFILE_SCHEMA.md` documenting:
+Create `/mnt/documents/PRODUCT_CATALOG_SCHEMA.md` documenting every field in the product catalog system.
 
-1. **All fields in the `CompanyData` interface** (from `src/hooks/useCompanyData.ts`) organized by section (core, business, reviews_reputation, media, corporate, contact, seo, social_media, institutional_links, company_videos)
-2. **Data source**: table `system_a_catalog` where `category = 'company_info'`, with fields mapped from `extra_data` JSONB column
-3. **All 11 consumer components** that use `useCompanyData()`:
-   - `src/components/Footer.tsx` — footer with contact, social links, institutional links
-   - `src/components/OrganizationSchema.tsx` — JSON-LD structured data (Organization/LocalBusiness)
-   - `src/components/AboutSEOHead.tsx` — SEO meta tags for /sobre page
-   - `src/components/SEOHead.tsx` — generic SEO head with company context
-   - `src/components/KnowledgeSEOHead.tsx` — knowledge base article SEO
-   - `src/components/GoogleReviewsBadge.tsx` — rating star badge
-   - `src/components/GoogleReviewsWidget.tsx` — reviews carousel widget
-   - `src/pages/About.tsx` — about page UI
-   - `src/pages/ProductPage.tsx` — product page SEO
-   - `src/pages/CategoryPage.tsx` — category page SEO
-   - `src/pages/PublicFormPage.tsx` — public form branding
+## Content structure
 
-## Output
+### 1. Database table: `system_a_catalog` (32 columns)
 
-Single file `/mnt/documents/COMPANY_PROFILE_SCHEMA.md` with:
-- Field inventory table (field, type, example, section)
-- Data origin (Supabase table + column mapping)
-- Consumer component list with purpose
-- Hook location and caching config (30min staleTime)
+| Section | Fields |
+|---|---|
+| **Identity** | `id` (uuid PK), `name` (text, required), `slug` (text), `external_id` (text, required), `source` (text, default 'manual'), `category` (text, required — 'product', 'resin', 'company_info', 'category_config') |
+| **Taxonomy** | `product_category` (text), `product_subcategory` (text) |
+| **Commercial** | `description` (text), `price` (numeric), `promo_price` (numeric), `currency` (text, default 'BRL'), `rating` (numeric), `review_count` (integer) |
+| **Media** | `image_url` (text), `og_image_url` (text) |
+| **CTAs** | `cta_1_label`, `cta_1_url`, `cta_1_description`, `cta_2_label`, `cta_2_url`, `cta_2_description`, `cta_3_label`, `cta_3_url`, `cta_3_description` (all text) |
+| **SEO** | `seo_title_override` (text), `meta_description` (text), `canonical_url` (text), `keywords` (text[]), `keyword_ids` (text[]) |
+| **Status** | `active` (bool), `approved` (bool), `visible_in_ui` (bool), `display_order` (integer) |
+| **Extra** | `extra_data` (JSONB — variations, benefits, features, faqs arrays) |
+| **Sync** | `last_sync_at` (timestamptz) |
+| **Timestamps** | `created_at`, `updated_at` (timestamptz) |
 
-No code changes to the project.
+### 2. Related table: `resin_documents` (24 columns)
+
+Product documents (PDFs, IFUs) linked via `product_id` → `system_a_catalog.id`. Fields: `id`, `resin_id` (FK), `document_name`, `document_description`, `document_category`, `document_subcategory`, `document_type`, `file_url`, `file_name`, `file_size`, `file_hash`, `language`, `order_index`, `active`, `extracted_text`, `extracted_at`, `extraction_status`, `extraction_method`, `extraction_error`, `extraction_tokens`, `created_at`, `updated_at`.
+
+### 3. Frontend interface: `CatalogProduct` (useCatalogCRUD.ts)
+
+Map of TypeScript interface fields to DB columns.
+
+### 4. UI Components (admin form)
+
+- `AdminCatalogFormSection.tsx` — form fields: name, slug, category/subcategory (with datalist), description, price/promo_price, image_url (with preview), 3 CTAs, status switches (active/approved/visible_in_ui)
+- `AdminModal.tsx` (type='catalog') — wraps form, handles SEO fields import, document management, Loja Integrada import
+- `AdminCatalog.tsx` — list table with filters (search, category, status), image migration
+
+### 5. Public consumers
+
+- `ProductPage.tsx` — full product page with SEO, Schema.org, FAQs, variations, benefits
+- `InlineProductCard.tsx` — embedded card in articles
+- `useCatalogProducts.ts` — product name→slug map for article linking
+- `useProductReviews.ts` — product data for review displays
+- 12+ Edge Functions that read from `system_a_catalog`
+
+## Execution
+
+Single script to generate the .md file at `/mnt/documents/PRODUCT_CATALOG_SCHEMA.md`. No code changes.
 
