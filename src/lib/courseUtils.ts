@@ -21,6 +21,7 @@ export function extractProposalItems(
   parsedCategories: Record<string, string> = {}
 ): ProposalItem[] {
   const items: ProposalItem[] = [];
+  let globalIdx = 0;
   for (const proposal of deal.proposals ?? []) {
     for (let idx = 0; idx < (proposal.items ?? []).length; idx++) {
       const it = proposal.items[idx];
@@ -30,8 +31,9 @@ export function extractProposalItems(
         proposal_id: String(proposal.id), item_idx: idx,
         sku: it.sku ?? it.item_id ?? '', nome: it.nome,
         qtd: Number(it.qtd) || 1, unit: Number(it.unit) || 0, total: Number(it.total) || 0,
-        equip_key: categoryToEquipKey(category),
+        equip_key: categoryToEquipKey(category, globalIdx),
       });
+      globalIdx++;
     }
   }
   return items;
