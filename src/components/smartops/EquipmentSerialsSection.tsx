@@ -18,20 +18,39 @@ interface Props {
   onRastreamentoChange?: (v: string) => void;
 }
 
+function isOutroKey(key: EquipKey): boolean {
+  return key.startsWith('equip_outro_');
+}
+
+function getItemConfig(equipKey: EquipKey) {
+  if (isOutroKey(equipKey)) {
+    return {
+      label: 'Acessório / Insumo',
+      etapa: 'Outros itens',
+      etapa_number: 99,
+      serial_label: 'Nº de série / Lote',
+      serial_placeholder: 'Ex: LOTE-2024-001',
+      lia_serial_field: '',
+      lia_model_field: '',
+      lia_date_field: 'ativacao',
+      pode_ser_bancada: false,
+    };
+  }
+  return EQUIP_CONFIG[equipKey as keyof typeof EQUIP_CONFIG];
+}
+
 export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEntrega, rastreamento, onTipoEntregaChange, onRastreamentoChange }: Props) {
   const [showManualFresadora, setShowManualFresadora] = useState(false);
-  // Track which equip keys are in "editing" mode
   const [editing, setEditing] = useState<Set<string>>(new Set());
-  // Draft values while editing
   const [drafts, setDrafts] = useState<Record<string, { serial: string; ativacao: string }>>({});
 
-  const withEquip = items.filter((i) => i.equip_key !== null);
-  const noEquip = items.filter((i) => i.equip_key === null);
+  // All items now have equip_key (either known or equip_outro_N)
+  const allItems = items.filter((i) => i.equip_key !== null);
 
   // Agrupar por etapa_number
   const grouped: Record<number, { etapa: string; items: ProposalItem[] }> = {};
-  for (const item of withEquip) {
-    const cfg = EQUIP_CONFIG[item.equip_key!];
+  for (const item of allItems) {
+    const cfg = getItemConfig(item.equip_key!);
     if (!cfg) continue;
     if (!grouped[cfg.etapa_number]) {
       grouped[cfg.etapa_number] = { etapa: cfg.etapa, items: [] };
@@ -42,7 +61,8 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
   const sortedEtapas = Object.entries(grouped).sort(([a], [b]) => Number(a) - Number(b));
 
   const resolveKey = (item: ProposalItem, currentSubtipo: string): EquipKey => {
-    const cfg = EQUIP_CONFIG[item.equip_key!];
+    if (isOutroKey(item.equip_key!)) return item.equip_key!;
+    const cfg = EQUIP_CONFIG[item.equip_key as keyof typeof EQUIP_CONFIG];
     if (cfg?.pode_ser_bancada) {
       return currentSubtipo === "bancada" ? "equip_scanner_bancada" : "equip_scanner";
     }
@@ -108,17 +128,20 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
     setDrafts((d) => ({ ...d, [key]: { ...d[key], [field]: value } }));
   };
 
-  const hasFresadora = withEquip.some((i) => i.equip_key === "equip_fresadora");
+  const hasFresadora = allItems.some((i) => i.equip_key === "equip_fresadora");
 
   return (
     <div className="space-y-4">
       {sortedEtapas.map(([etapaNum, { etapa, items: etapaItems }]) => (
         <div key={etapaNum}>
-          <h4 className="text-sm font-semibold text-muted-foreground mb-2">Etapa {etapa}</h4>
+          <h4 className="text-sm font-semibold text-muted-foreground mb-2">
+            {Number(etapaNum) === 99 ? 'Outros itens da proposta' : `Etapa ${etapa}`}
+          </h4>
           <div className="space-y-3">
             {etapaItems.map((item, idx) => {
               const equipKey = item.equip_key!;
-              const cfg = EQUIP_CONFIG[equipKey];
+              const cfg = getItemConfig(equipKey);
+              if (!cfg) return null;
               const entry = equipmentData[equipKey];
               const currentSubtipo = entry?.subtipo || "intraoral";
               const resolvedKey = resolveKey(item, currentSubtipo);
@@ -126,6 +149,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
               const isEditing = editing.has(resolvedKey);
               const hasSerial = !!resolvedEntry?.serial;
               const draft = drafts[resolvedKey];
+              const isOutro = isOutroKey(equipKey);
 
               return (
                 <Card key={`${item.proposal_id}-${item.item_idx}-${idx}`} className="border">
@@ -138,7 +162,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
                           Qtd: {item.qtd} | R$ {item.total.toLocaleString("pt-BR")}
                         </span>
                       </div>
-                      <Badge variant="outline">{cfg.label}</Badge>
+                      <Badge variant={isOutro ? "secondary" : "outline"}>{cfg.label}</Badge>
                     </div>
 
                     {/* Toggle intraoral/bancada */}
@@ -152,7 +176,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
                     {/* State: no serial, not editing → show [+ Adicionar] */}
                     {!hasSerial && !isEditing && (
                       <Button type="button" variant="outline" size="sm" onClick={() => startAdd(resolvedKey)}>
-                        <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
+                        <Plus className="w-3.5 h-3.5 mr-1" /> {isOutro ? 'Adicionar série / lote' : 'Adicionar'}
                       </Button>
                     )}
 
@@ -164,7 +188,7 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
                             <span className="text-xs text-muted-foreground">{cfg.serial_label}: </span>
                             <span className="font-mono">{resolvedEntry!.serial}</span>
                           </div>
-                          {resolvedEntry!.ativacao && cfg.lia_date_field !== null && (
+                          {resolvedEntry!.ativacao && (
                             <div>
                               <span className="text-xs text-muted-foreground">Ativação: </span>
                               <span className="font-mono text-xs">{resolvedEntry!.ativacao}</span>
@@ -195,12 +219,10 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
                               autoFocus
                             />
                           </div>
-                          {cfg.lia_date_field !== null && (
-                            <div>
-                              <Label className="text-xs">Data de ativação</Label>
-                              <Input type="date" value={draft.ativacao} onChange={(e) => updateDraft(resolvedKey, "ativacao", e.target.value)} />
-                            </div>
-                          )}
+                          <div>
+                            <Label className="text-xs">Data de ativação</Label>
+                            <Input type="date" value={draft.ativacao} onChange={(e) => updateDraft(resolvedKey, "ativacao", e.target.value)} />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <Button type="button" size="sm" onClick={() => saveDraft(resolvedKey, item)} disabled={!draft.serial.trim()}>
@@ -219,21 +241,6 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
           </div>
         </div>
       ))}
-
-      {/* Insumos e serviços */}
-      {noEquip.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-muted-foreground mb-2">Insumos e serviços</h4>
-          <div className="space-y-1">
-            {noEquip.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between text-sm py-1.5 px-3 bg-muted/50 rounded">
-                <span>{item.nome}</span>
-                <span className="text-muted-foreground">Qtd: {item.qtd} | R$ {item.total.toLocaleString("pt-BR")}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Tipo de Entrega + Rastreamento */}
       {onTipoEntregaChange && (

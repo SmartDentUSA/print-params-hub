@@ -1,6 +1,7 @@
 export type EquipKey =
   | 'equip_scanner' | 'equip_scanner_bancada' | 'equip_notebook'
-  | 'equip_cad' | 'equip_impressora' | 'equip_pos_impressao' | 'equip_fresadora';
+  | 'equip_cad' | 'equip_impressora' | 'equip_pos_impressao' | 'equip_fresadora'
+  | `equip_outro_${number}`;
 
 export interface EquipmentEntry {
   serial: string;

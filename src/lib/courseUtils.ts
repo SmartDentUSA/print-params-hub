@@ -21,6 +21,7 @@ export function extractProposalItems(
   parsedCategories: Record<string, string> = {}
 ): ProposalItem[] {
   const items: ProposalItem[] = [];
+  let globalIdx = 0;
   for (const proposal of deal.proposals ?? []) {
     for (let idx = 0; idx < (proposal.items ?? []).length; idx++) {
       const it = proposal.items[idx];
@@ -30,8 +31,9 @@ export function extractProposalItems(
         proposal_id: String(proposal.id), item_idx: idx,
         sku: it.sku ?? it.item_id ?? '', nome: it.nome,
         qtd: Number(it.qtd) || 1, unit: Number(it.unit) || 0, total: Number(it.total) || 0,
-        equip_key: categoryToEquipKey(category),
+        equip_key: categoryToEquipKey(category, globalIdx),
       });
+      globalIdx++;
     }
   }
   return items;
@@ -45,16 +47,20 @@ function inferCategory(nome: string): string {
   if (/impressora|printer|mars|photon|elegoo|formlabs/.test(n)) return 'impressora';
   if (/wash|cure|lavadora|curadora|mercury/.test(n))            return 'pos_impressao';
   if (/fresadora|milling|dgshape/.test(n))                      return 'fresadora';
+  if (/forno|sinteri|autoclave|compressor|fotopolimeriz/.test(n)) return 'acessorio';
   return 'outro';
 }
 
-export function categoryToEquipKey(category: string): EquipKey | null {
+export function categoryToEquipKey(category: string, itemIndex?: number): EquipKey | null {
   const map: Record<string, EquipKey> = {
     scanner: 'equip_scanner', notebook: 'equip_notebook', cad: 'equip_cad',
     impressora: 'equip_impressora', pos_impressao: 'equip_pos_impressao',
     fresadora: 'equip_fresadora',
   };
-  return map[category] ?? null;
+  if (map[category]) return map[category];
+  // For uncategorized or 'acessorio'/'outro', return a dynamic key using item index
+  if (itemIndex !== undefined) return `equip_outro_${itemIndex}` as EquipKey;
+  return null;
 }
 
 export function formatDatePtBr(d: string): string {
