@@ -18,10 +18,12 @@ export function isDealGanho(deal: PiperunDeal): boolean {
 // CRITICO: nunca usar deal_items — usa piperun_deals_history
 export function extractProposalItems(
   deal: PiperunDeal,
-  parsedCategories: Record<string, string> = {}
+  parsedCategories: Record<string, string> = {},
+  dealLabel?: string
 ): ProposalItem[] {
   const items: ProposalItem[] = [];
   let globalIdx = 0;
+  const ref = dealLabel || deal.deal_title || deal.deal_id || '';
   for (const proposal of deal.proposals ?? []) {
     for (let idx = 0; idx < (proposal.items ?? []).length; idx++) {
       const it = proposal.items[idx];
@@ -32,6 +34,7 @@ export function extractProposalItems(
         sku: it.sku ?? it.item_id ?? '', nome: it.nome,
         qtd: Number(it.qtd) || 1, unit: Number(it.unit) || 0, total: Number(it.total) || 0,
         equip_key: categoryToEquipKey(category, globalIdx),
+        deal_ref: ref,
       });
       globalIdx++;
     }
