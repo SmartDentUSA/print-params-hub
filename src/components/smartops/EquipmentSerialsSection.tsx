@@ -12,10 +12,6 @@ interface Props {
   items: ProposalItem[];
   equipmentData: EquipmentData;
   onChange: (data: EquipmentData) => void;
-  tipoEntrega?: string;
-  rastreamento?: string;
-  onTipoEntregaChange?: (v: string) => void;
-  onRastreamentoChange?: (v: string) => void;
 }
 
 function isOutroKey(key: EquipKey): boolean {
@@ -39,7 +35,7 @@ function getItemConfig(equipKey: EquipKey) {
   return EQUIP_CONFIG[equipKey as keyof typeof EQUIP_CONFIG];
 }
 
-export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEntrega, rastreamento, onTipoEntregaChange, onRastreamentoChange }: Props) {
+export function EquipmentSerialsSection({ items, equipmentData, onChange }: Props) {
   const [showManualFresadora, setShowManualFresadora] = useState(false);
   const [editing, setEditing] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, { serial: string; ativacao: string }>>({});
@@ -239,6 +235,29 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
                         </div>
                       </div>
                     )}
+
+                    {/* Tipo de Entrega per item */}
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label className="text-xs text-muted-foreground">Tipo de Entrega</Label>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" variant={resolvedEntry?.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => updateEntry(resolvedKey, { tipo_entrega: 'enviar', item_nome: item.nome, proposal_ref: item.proposal_id })}>
+                          Enviar
+                        </Button>
+                        <Button type="button" size="sm" variant={resolvedEntry?.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => { updateEntry(resolvedKey, { tipo_entrega: 'retirar', rastreamento: '', item_nome: item.nome, proposal_ref: item.proposal_id }); }}>
+                          Retirar
+                        </Button>
+                      </div>
+                      {resolvedEntry?.tipo_entrega === 'enviar' && (
+                        <div>
+                          <Label className="text-xs">Rastreamento</Label>
+                          <Input
+                            value={resolvedEntry?.rastreamento || ''}
+                            onChange={(e) => updateEntry(resolvedKey, { rastreamento: e.target.value })}
+                            placeholder="Ex: BR123456789BR"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -247,22 +266,6 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
         </div>
       ))}
 
-      {/* Tipo de Entrega + Rastreamento */}
-      {onTipoEntregaChange && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-muted-foreground">Tipo de Entrega</h4>
-          <div className="flex gap-3">
-            <Button type="button" size="sm" variant={tipoEntrega === 'enviar' ? 'default' : 'outline'} onClick={() => onTipoEntregaChange('enviar')}>Enviar</Button>
-            <Button type="button" size="sm" variant={tipoEntrega === 'retirar' ? 'default' : 'outline'} onClick={() => { onTipoEntregaChange('retirar'); onRastreamentoChange?.(''); }}>Retirar</Button>
-          </div>
-          {tipoEntrega === 'enviar' && onRastreamentoChange && (
-            <div>
-              <Label className="text-xs">Rastreamento</Label>
-              <Input value={rastreamento || ''} onChange={(e) => onRastreamentoChange(e.target.value)} placeholder="Ex: BR123456789BR" />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Card manual fresadora */}
       {!hasFresadora && (

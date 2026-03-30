@@ -124,8 +124,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
     empresa_cnpj: "", empresa_pais: "", empresa_estado: "",
     empresa_cidade: "", empresa_endereco: "", empresa_telefone: "",
   });
-  const [tipoEntrega, setTipoEntrega] = useState<'enviar' | 'retirar' | ''>('');
-  const [rastreamento, setRastreamento] = useState('');
   const [proposalItems, setProposalItems] = useState<ProposalItem[]>([]);
   const [equipmentData, setEquipmentData] = useState<EquipmentData>({});
 
@@ -274,8 +272,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       notes,
       instagram: formData.instagram,
       numero_proposta: numeroProposta,
-      tipo_entrega: tipoEntrega || undefined,
-      rastreamento: tipoEntrega === 'enviar' ? rastreamento : undefined,
     });
     setSubmitting(false);
     if (ok) onClose();
@@ -442,10 +438,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     items={proposalItems}
                     equipmentData={equipmentData}
                     onChange={setEquipmentData}
-                    tipoEntrega={tipoEntrega}
-                    rastreamento={rastreamento}
-                    onTipoEntregaChange={(v) => setTipoEntrega(v as any)}
-                    onRastreamentoChange={setRastreamento}
                   />
                 </div>
 
