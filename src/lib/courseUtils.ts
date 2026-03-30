@@ -49,13 +49,16 @@ function inferCategory(nome: string): string {
   return 'outro';
 }
 
-export function categoryToEquipKey(category: string): EquipKey | null {
+export function categoryToEquipKey(category: string, itemIndex?: number): EquipKey | null {
   const map: Record<string, EquipKey> = {
     scanner: 'equip_scanner', notebook: 'equip_notebook', cad: 'equip_cad',
     impressora: 'equip_impressora', pos_impressao: 'equip_pos_impressao',
     fresadora: 'equip_fresadora',
   };
-  return map[category] ?? null;
+  if (map[category]) return map[category];
+  // For uncategorized or 'acessorio'/'outro', return a dynamic key using item index
+  if (itemIndex !== undefined) return `equip_outro_${itemIndex}` as EquipKey;
+  return null;
 }
 
 export function formatDatePtBr(d: string): string {
