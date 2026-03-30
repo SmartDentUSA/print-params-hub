@@ -113,8 +113,10 @@ const formatBRLFull = (val: any): string => {
 };
 
 const formatDate = (dt: string | null | undefined): string => {
-  if (!dt) return "—";
-  return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  if (!dt || typeof dt !== 'string' || !dt.trim()) return "—";
+  const d = new Date(dt);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 };
 
 const avgTicket = (lead: any): number => {
