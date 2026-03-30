@@ -45,6 +45,7 @@ function inferCategory(nome: string): string {
   if (/impressora|printer|mars|photon|elegoo|formlabs/.test(n)) return 'impressora';
   if (/wash|cure|lavadora|curadora|mercury/.test(n))            return 'pos_impressao';
   if (/fresadora|milling|dgshape/.test(n))                      return 'fresadora';
+  if (/forno|sinteri|autoclave|compressor|fotopolimeriz/.test(n)) return 'acessorio';
   return 'outro';
 }
 
