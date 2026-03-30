@@ -712,10 +712,6 @@ function EditEnrollmentDialog({ enrollment, open, onClose }: { enrollment: any; 
               items={proposalItems}
               equipmentData={form.equipment_data as EquipmentData}
               onChange={(ed) => uf('equipment_data', ed)}
-              tipoEntrega={form.tipo_entrega}
-              rastreamento={form.rastreamento}
-              onTipoEntregaChange={(v) => uf('tipo_entrega', v)}
-              onRastreamentoChange={(v) => uf('rastreamento', v)}
             />
           </div>
 
