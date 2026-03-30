@@ -1,31 +1,68 @@
 
 
-# Fix: Deal "Itens" column showing lead name instead of product name
+# Fix: Backfill Missing Proposals + Prevent Future Gaps
 
-## Problem
-For deals without embedded proposals (line 735-747), the code falls back to `d.product` for the "Itens" column. In PipeRun, the `product` field on some deals contains the person/lead name (e.g., "Matheus Guilherme Lucas") rather than an actual product name. This makes the table misleading.
+## Summary
 
-## Fix — `src/components/smartops/LeadDetailPanel.tsx`
+The sync engine (`smart-ops-sync-piperun`) already requests `with[]=proposals` (line 292). The `upsertDealHistory` function replaces snapshots by `deal_id` — so re-syncing WILL overwrite empty snapshots. The root cause was likely that these deals were first ingested via webhook (which doesn't include proposals) and subsequent syncs didn't reach them (offset/pagination or timing).
 
-### Line 740: Guard against `d.product` being the lead's name
-Before using `d.product` as fallback, compare it against the lead's name (`ld.nome`). If they match, show `d.deal_title` instead, or fall back to "—".
+## Changes
 
-```ts
-// Current (line 740):
-itens: d.product || "—",
+### 1. Create Edge Function: `backfill-deal-proposals` (new file)
 
-// New:
-itens: (d.product && d.product !== ld.nome) ? d.product : (d.deal_title && d.deal_title !== ld.nome ? d.deal_title : "—"),
+A targeted function that:
+- Accepts a list of `deal_ids` (or auto-detects deals with `proposals: []` and `value > 0`)
+- Fetches each deal individually from PipeRun API with `with[]=proposals,proposals.items`
+- Rebuilds the `RichDealSnapshot` using `buildRichDealSnapshot`
+- Replaces the snapshot in `piperun_deals_history` via `upsertDealHistory`
+- Calls `callNormalizeFromLead` to propagate to normalized tables
+
+```text
+Input:  { deal_ids?: string[], auto_detect?: boolean, limit?: number }
+Output: { backfilled: number, errors: number, details: [...] }
 ```
 
-Same logic applies to line 716 where `d.product` is used as fallback when proposals have no valid items:
-```ts
-// Current (line 716):
-: d.product || "—";
-
-// New:
-: (d.product && d.product !== ld.nome) ? d.product : "—";
+Auto-detect query logic:
+```sql
+SELECT id, piperun_deals_history
+FROM lia_attendances
+WHERE piperun_deals_history IS NOT NULL
+  -- Find any deal in the JSONB array with value > 0 but empty proposals
 ```
 
-This prevents the lead's own name from appearing as a product/item description in the proposals table.
+For each matching lead, iterate `piperun_deals_history`, find snapshots where `proposals` is empty and `value > 0`, fetch from PipeRun `/deals/{deal_id}?with[]=proposals&with[]=proposals.items`, rebuild snapshot.
+
+### 2. Update `smart-ops-piperun-webhook/index.ts` — Re-fetch deal with proposals
+
+The webhook payload from PipeRun does NOT include `proposals` data. After processing the webhook deal, if the snapshot has `proposals: []` and `value > 0`, make a follow-up API call to fetch the deal with `with[]=proposals` and update the snapshot.
+
+Add after the `buildRichDealSnapshot` call (~line 200-250 area):
+```ts
+// If proposals are empty but deal has value, re-fetch with proposals
+if (dealSnapshot.proposals.length === 0 && (dealSnapshot.value ?? 0) > 0) {
+  const enriched = await piperunGet(PIPERUN_API_KEY, `deals/${dealId}`, {}, 
+    { "with[]": ["proposals", "proposals.items"] });
+  if (enriched.success && enriched.data?.data?.proposals) {
+    // Rebuild snapshot with proposals
+    const enrichedDeal = { ...deal, proposals: enriched.data.data.proposals };
+    dealSnapshot = buildRichDealSnapshot(enrichedDeal, overrides);
+  }
+}
+```
+
+### 3. Immediate backfill execution
+
+After deploying the new function, invoke it with:
+```json
+{ "deal_ids": ["56243300", "56506351"] }
+```
+
+This will fix the two confirmed missing-proposal deals for `lucasmatheus@hotmail.com`.
+
+## Technical Details
+
+- **File 1** (new): `supabase/functions/backfill-deal-proposals/index.ts`
+- **File 2** (edit): `supabase/functions/smart-ops-piperun-webhook/index.ts` — add proposal re-fetch when webhook snapshot has empty proposals
+- **No migration needed** — data structure unchanged
+- **Reuses**: `piperunGet`, `buildRichDealSnapshot`, `upsertDealHistory`, `callNormalizeFromLead` from `_shared/piperun-field-map.ts`
 
