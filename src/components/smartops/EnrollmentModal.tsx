@@ -124,8 +124,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
     empresa_cnpj: "", empresa_pais: "", empresa_estado: "",
     empresa_cidade: "", empresa_endereco: "", empresa_telefone: "",
   });
-  const [tipoEntrega, setTipoEntrega] = useState<'enviar' | 'retirar' | ''>('');
-  const [rastreamento, setRastreamento] = useState('');
   const [proposalItems, setProposalItems] = useState<ProposalItem[]>([]);
   const [equipmentData, setEquipmentData] = useState<EquipmentData>({});
 
