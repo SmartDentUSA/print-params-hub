@@ -113,8 +113,10 @@ const formatBRLFull = (val: any): string => {
 };
 
 const formatDate = (dt: string | null | undefined): string => {
-  if (!dt) return "—";
-  return new Date(dt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  if (!dt || typeof dt !== 'string' || !dt.trim()) return "—";
+  const d = new Date(dt);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 };
 
 const avgTicket = (lead: any): number => {
@@ -915,6 +917,15 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
   }
+
+  // Sort proposals descending by date, invalid/missing dates go to end
+  flatProposals.sort((a, b) => {
+    const dateA = a.date?.trim() ? new Date(a.date).getTime() : 0;
+    const dateB = b.date?.trim() ? new Date(b.date).getTime() : 0;
+    if (isNaN(dateA)) return 1;
+    if (isNaN(dateB)) return -1;
+    return dateB - dateA;
+  });
 
 
   // Academy courses
