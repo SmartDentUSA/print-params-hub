@@ -1354,17 +1354,19 @@ CAMPANHAS EM MASSA (bulk_campaign):
   - "Envie para quem tem tag A_ESTAGNADO_15D" → use where_contains em tags_crm
 
 FILTROS AVANÇADOS (query_leads_advanced):
-- where_text_search: busca texto dentro de campos JSONB como itens_proposta_parsed, cognitive_analysis, proposals_data
+- where_text_search: busca texto dentro de campos JSONB como cognitive_analysis, proposals_data
 - where_contains: verifica se array (tags_crm) contém uma tag específica
 - where_gte/where_lte: ranges de data (entrada_sistema, updated_at) e numéricos (intelligence_score_total, proposals_total_value)
 - where_not: exclusão (lead_status diferente de 'fechamento')
+- ⚠️ itens_proposta_parsed e itens_proposta_crm: SOMENTE para filtrar leads que RECEBERAM proposta de determinado produto (campanhas, reativação)
+- ⚠️ Para ANALISAR vendas realizadas, produtos vendidos ou faturamento, use query_deal_history com status="ganho" — retorna deal_items detalhados com nomes dos produtos
 
 INTELIGÊNCIA DA LIA (disponível nos leads):
 - cognitive_analysis: análise comportamental profunda feita pela Dra. LIA (eixos: perfil psicológico, motivação, objeções, urgência, persona recomendada)
 - historico_resumos: resumos de todas as sessões de chat do lead com a LIA
 - intelligence_score_total: score de 0-100 calculado por 4 eixos (sales_heat, technical_maturity, behavioral_engagement, purchase_power)
-- itens_proposta_parsed: JSONB com itens de propostas comerciais (scanner, impressora, insumos) 
-- itens_proposta_crm: texto com itens da proposta no CRM
+- itens_proposta_parsed: JSONB com itens de propostas comerciais — use SOMENTE para filtro de leads, NÃO para análise de vendas
+- itens_proposta_crm: texto com itens da proposta no CRM — use SOMENTE para filtro de leads
 
 TABELAS PRINCIPAIS:
 - lia_attendances: Hub central de leads (~200 colunas) — use query_leads_advanced para consultas complexas
