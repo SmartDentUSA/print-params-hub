@@ -35,7 +35,7 @@ function getItemConfig(equipKey: EquipKey) {
   return EQUIP_CONFIG[equipKey as keyof typeof EQUIP_CONFIG];
 }
 
-export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEntrega, rastreamento, onTipoEntregaChange, onRastreamentoChange }: Props) {
+export function EquipmentSerialsSection({ items, equipmentData, onChange }: Props) {
   const [showManualFresadora, setShowManualFresadora] = useState(false);
   const [editing, setEditing] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, { serial: string; ativacao: string }>>({});
