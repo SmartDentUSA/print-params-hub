@@ -737,7 +737,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         date: d.created_at || "",
         sigla: `Deal #${d.deal_id}`,
         funil: d.pipeline_name || "—",
-        itens: d.product || "—",
+        itens: (d.product && d.product !== ld.nome) ? d.product : (d.deal_title && d.deal_title !== ld.nome ? d.deal_title : "—"),
         valor: Number(d.value) || 0,
         frete: "—",
         pgto: "—",
