@@ -918,6 +918,15 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     });
   }
 
+  // Sort proposals descending by date, invalid/missing dates go to end
+  flatProposals.sort((a, b) => {
+    const dateA = a.date?.trim() ? new Date(a.date).getTime() : 0;
+    const dateB = b.date?.trim() ? new Date(b.date).getTime() : 0;
+    if (isNaN(dateA)) return 1;
+    if (isNaN(dateB)) return -1;
+    return dateB - dateA;
+  });
+
 
   // Academy courses
   const astronCourses = Array.isArray(ld.astron_courses_access) ? (ld.astron_courses_access as any[]) : [];
