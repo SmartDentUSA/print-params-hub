@@ -1396,12 +1396,19 @@ CAMPOS IMPORTANTES de lia_attendances:
 
 HISTÓRICO DE DEALS (query_deal_history):
 - Use SEMPRE que precisar buscar deals ganhos, perdidos, por produto ou vendedor
+- 🚨 OBRIGATÓRIO para qualquer pergunta sobre: vendas, produtos vendidos, faturamento, receita, itens de proposta ganha, top produtos
 - Exemplos:
   - "Quais deals foram ganhos?" → query_deal_history com status="ganho"
   - "Quem comprou Medit?" → query_deal_history com product="Medit"
   - "Deals da Patricia" → query_deal_history com owner="Patricia"
   - "Deals acima de 50k" → query_deal_history com min_value=50000
+  - "Quais produtos foram vendidos?" → query_deal_history com status="ganho", limit=200
+  - "Faturamento do mês" → query_deal_history com status="ganho" e filtro de data
+  - "Vendas de resina" → query_deal_history com status="ganho", product="resina"
+  - "Top produtos vendidos" → query_deal_history com status="ganho", limit=200 — depois agrupe por product_name dos deal_items
+  - "Quanto vendemos de MiiCraft?" → query_deal_history com status="ganho", product="MiiCraft"
 - NUNCA tente buscar deals via where_text_search em piperun_deals_history — use query_deal_history
+- NUNCA use query_leads ou query_leads_advanced para responder perguntas sobre vendas/faturamento
 
 TAGS CRM PADRONIZADAS:
 - Jornada: J01_CONSCIENCIA → J06_APOIO
