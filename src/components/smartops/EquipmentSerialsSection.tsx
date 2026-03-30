@@ -161,6 +161,11 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange, tipoEn
                         <span className="text-xs text-muted-foreground ml-2">
                           Qtd: {item.qtd} | R$ {item.total.toLocaleString("pt-BR")}
                         </span>
+                        {item.deal_ref && (
+                          <span className="block text-[10px] text-muted-foreground/70 mt-0.5 truncate max-w-[300px]">
+                            Negócio: {item.deal_ref}
+                          </span>
+                        )}
                       </div>
                       <Badge variant={isOutro ? "secondary" : "outline"}>{cfg.label}</Badge>
                     </div>
