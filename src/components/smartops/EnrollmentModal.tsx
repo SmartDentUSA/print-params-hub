@@ -272,8 +272,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
       notes,
       instagram: formData.instagram,
       numero_proposta: numeroProposta,
-      tipo_entrega: tipoEntrega || undefined,
-      rastreamento: tipoEntrega === 'enviar' ? rastreamento : undefined,
     });
     setSubmitting(false);
     if (ok) onClose();
