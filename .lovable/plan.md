@@ -1,51 +1,55 @@
 
 
-# Plan: Generate PRODUCT_CATALOG_SCHEMA.md
+# Diagnóstico: Copilot não identifica itens de propostas ganhas
 
-## What
+## Resumo da investigação
 
-Create `/mnt/documents/PRODUCT_CATALOG_SCHEMA.md` documenting every field in the product catalog system.
+A infraestrutura de dados está correta:
+- **3.375 deals ganhos** no banco, dos quais **2.676 têm itens de proposta detalhados**
+- A função SQL `fn_search_deals_by_status` retorna `deal_items` corretamente
+- 680 deals ganhos (~20%) têm o array `proposals` vazio — são deals antigos do backfill que não tinham snapshot de proposta
 
-## Content structure
+## Causa raiz
 
-### 1. Database table: `system_a_catalog` (32 columns)
+O **prompt do sistema do Copilot tem instruções contraditórias**:
 
-| Section | Fields |
-|---|---|
-| **Identity** | `id` (uuid PK), `name` (text, required), `slug` (text), `external_id` (text, required), `source` (text, default 'manual'), `category` (text, required — 'product', 'resin', 'company_info', 'category_config') |
-| **Taxonomy** | `product_category` (text), `product_subcategory` (text) |
-| **Commercial** | `description` (text), `price` (numeric), `promo_price` (numeric), `currency` (text, default 'BRL'), `rating` (numeric), `review_count` (integer) |
-| **Media** | `image_url` (text), `og_image_url` (text) |
-| **CTAs** | `cta_1_label`, `cta_1_url`, `cta_1_description`, `cta_2_label`, `cta_2_url`, `cta_2_description`, `cta_3_label`, `cta_3_url`, `cta_3_description` (all text) |
-| **SEO** | `seo_title_override` (text), `meta_description` (text), `canonical_url` (text), `keywords` (text[]), `keyword_ids` (text[]) |
-| **Status** | `active` (bool), `approved` (bool), `visible_in_ui` (bool), `display_order` (integer) |
-| **Extra** | `extra_data` (JSONB — variations, benefits, features, faqs arrays) |
-| **Sync** | `last_sync_at` (timestamptz) |
-| **Timestamps** | `created_at`, `updated_at` (timestamptz) |
+1. **Linha 1316**: diz para usar `query_leads_advanced` com `where_text_search` em campos JSONB para buscar por produto
+2. **Linhas 1350-1356**: reforça o uso de `where_text_search` em `itens_proposta_parsed` e `proposals_data`
+3. **Linhas 1389-1400**: diz para "NUNCA" usar `query_leads_advanced` para `piperun_deals_history` e usar `query_deal_history`
 
-### 2. Related table: `resin_documents` (24 columns)
+Quando o usuário pergunta "quais produtos foram vendidos?" ou "vendas de resina", o modelo pode escolher `query_leads` (que retorna campos flat sem itens) ou `query_leads_advanced` com `where_text_search` (que faz busca textual mas não retorna os itens detalhados), em vez de usar `query_deal_history` que é a ferramenta correta.
 
-Product documents (PDFs, IFUs) linked via `product_id` → `system_a_catalog.id`. Fields: `id`, `resin_id` (FK), `document_name`, `document_description`, `document_category`, `document_subcategory`, `document_type`, `file_url`, `file_name`, `file_size`, `file_hash`, `language`, `order_index`, `active`, `extracted_text`, `extracted_at`, `extraction_status`, `extraction_method`, `extraction_error`, `extraction_tokens`, `created_at`, `updated_at`.
+## Correção proposta
 
-### 3. Frontend interface: `CatalogProduct` (useCatalogCRUD.ts)
+**Arquivo: `supabase/functions/smart-ops-copilot/index.ts`** — apenas ajustes no `SYSTEM_PROMPT`
 
-Map of TypeScript interface fields to DB columns.
+### 1. Reforçar no bloco COMPORTAMENTO (linhas ~1314-1327)
 
-### 4. UI Components (admin form)
+Adicionar regra explícita:
+```
+- Para vendas, produtos vendidos, itens de proposta, faturamento ou deal ganho → use SEMPRE query_deal_history
+- NUNCA use query_leads ou query_leads_advanced para buscar vendas/produtos vendidos — eles não retornam deal_items
+```
 
-- `AdminCatalogFormSection.tsx` — form fields: name, slug, category/subcategory (with datalist), description, price/promo_price, image_url (with preview), 3 CTAs, status switches (active/approved/visible_in_ui)
-- `AdminModal.tsx` (type='catalog') — wraps form, handles SEO fields import, document management, Loja Integrada import
-- `AdminCatalog.tsx` — list table with filters (search, category, status), image migration
+### 2. Atualizar bloco de filtros avançados (linhas ~1354-1365)
 
-### 5. Public consumers
+Remover a sugestão de usar `where_text_search` em `itens_proposta_parsed` para análise de vendas e redirecionar para `query_deal_history`:
+```
+- itens_proposta_parsed e itens_proposta_crm: SOMENTE para filtrar leads que receberam proposta de determinado produto (campanhas, reativação)
+- Para ANALISAR vendas realizadas, use query_deal_history com status="ganho" — retorna deal_items com nomes dos produtos
+```
 
-- `ProductPage.tsx` — full product page with SEO, Schema.org, FAQs, variations, benefits
-- `InlineProductCard.tsx` — embedded card in articles
-- `useCatalogProducts.ts` — product name→slug map for article linking
-- `useProductReviews.ts` — product data for review displays
-- 12+ Edge Functions that read from `system_a_catalog`
+### 3. Expandir exemplos no bloco HISTÓRICO DE DEALS (linhas ~1393-1400)
 
-## Execution
+Adicionar exemplos de perguntas comuns que devem usar `query_deal_history`:
+```
+- "Quais produtos foram vendidos?" → query_deal_history com status="ganho"
+- "Faturamento do mês" → query_deal_history com status="ganho"
+- "Vendas de resina" → query_deal_history com status="ganho", product="resina"
+- "Top produtos vendidos" → query_deal_history com status="ganho", limit=200
+```
 
-Single script to generate the .md file at `/mnt/documents/PRODUCT_CATALOG_SCHEMA.md`. No code changes.
+## Resultado esperado
+
+O Copilot passará a usar consistentemente `query_deal_history` para qualquer pergunta sobre vendas/produtos vendidos, retornando os `deal_items` corretamente.
 
