@@ -30,8 +30,9 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const body = await req.json().catch(() => ({}));
-    const { deal_ids, auto_detect = false, limit = 50 } = body as {
+    const { deal_ids, lead_ids, auto_detect = false, limit = 50 } = body as {
       deal_ids?: string[];
+      lead_ids?: string[];
       auto_detect?: boolean;
       limit?: number;
     };
@@ -45,40 +46,67 @@ Deno.serve(async (req) => {
     const targets: BackfillTarget[] = [];
 
     if (deal_ids && deal_ids.length > 0) {
-      // Find leads that contain these deal_ids using targeted JSONB text search
+      // Strategy: find leads by piperun_id match first, then scan their history
+      const leadMap = new Map<string, { id: string; history: RichDealSnapshot[] }>();
+
       for (const dealIdTarget of deal_ids) {
-        const { data: leads, error } = await supabase
+        if (leadMap.has(dealIdTarget)) continue;
+
+        // Try finding lead by piperun_id
+        const { data: byPiperun } = await supabase
+          .from("lia_attendances")
+          .select("id, piperun_deals_history")
+          .eq("piperun_id", dealIdTarget)
+          .maybeSingle();
+
+        if (byPiperun) {
+          const history = (byPiperun.piperun_deals_history || []) as RichDealSnapshot[];
+          const snap = history.find((d) => String(d.deal_id) === String(dealIdTarget));
+          if (snap) {
+            targets.push({ lead_id: byPiperun.id, deal_id: dealIdTarget, current_history: history });
+            leadMap.set(dealIdTarget, { id: byPiperun.id, history });
+            continue;
+          }
+        }
+      }
+
+      // For deals not found by piperun_id, search via lead_ids if provided
+      const remainingDeals = deal_ids.filter((d) => !leadMap.has(d));
+      if (remainingDeals.length > 0 && lead_ids && lead_ids.length > 0) {
+        for (const lid of lead_ids) {
+          const { data: lead } = await supabase
+            .from("lia_attendances")
+            .select("id, piperun_deals_history")
+            .eq("id", lid)
+            .maybeSingle();
+          if (!lead) continue;
+          const history = (lead.piperun_deals_history || []) as RichDealSnapshot[];
+          for (const dealIdTarget of remainingDeals) {
+            const snap = history.find((d) => String(d.deal_id) === String(dealIdTarget));
+            if (snap) {
+              targets.push({ lead_id: lead.id, deal_id: dealIdTarget, current_history: history });
+            }
+          }
+        }
+      }
+
+      // Last resort: scan with JSONB contains for any still-missing deals
+      const foundDealIds = new Set(targets.map((t) => t.deal_id));
+      const stillMissing = deal_ids.filter((d) => !foundDealIds.has(d));
+      for (const dealIdTarget of stillMissing) {
+        // Use raw SQL-like search via ilike on the text representation
+        const { data: leads } = await supabase
           .from("lia_attendances")
           .select("id, piperun_deals_history")
           .not("piperun_deals_history", "is", null)
-          .filter("piperun_deals_history", "cs", JSON.stringify([{ deal_id: dealIdTarget }]));
-
-        if (error) {
-          // Fallback: use textual contains on the JSONB column
-          console.warn(`[backfill] cs filter failed for ${dealIdTarget}, trying text search:`, error.message);
-          const { data: fallbackLeads } = await supabase
-            .from("lia_attendances")
-            .select("id, piperun_deals_history")
-            .not("piperun_deals_history", "is", null)
-            .textSearch("piperun_deals_history", dealIdTarget);
-
-          for (const lead of fallbackLeads || []) {
-            const history = lead.piperun_deals_history as RichDealSnapshot[];
-            if (!Array.isArray(history)) continue;
-            const snap = history.find((d) => String(d.deal_id) === String(dealIdTarget));
-            if (snap) {
-              targets.push({ lead_id: lead.id, deal_id: String(dealIdTarget), current_history: history });
-            }
-          }
-          continue;
-        }
+          .like("piperun_deals_history::text", `%"deal_id":"${dealIdTarget}"%`)
+          .limit(5);
 
         for (const lead of leads || []) {
-          const history = lead.piperun_deals_history as RichDealSnapshot[];
-          if (!Array.isArray(history)) continue;
+          const history = (lead.piperun_deals_history || []) as RichDealSnapshot[];
           const snap = history.find((d) => String(d.deal_id) === String(dealIdTarget));
           if (snap) {
-            targets.push({ lead_id: lead.id, deal_id: String(dealIdTarget), current_history: history });
+            targets.push({ lead_id: lead.id, deal_id: dealIdTarget, current_history: history });
           }
         }
       }
