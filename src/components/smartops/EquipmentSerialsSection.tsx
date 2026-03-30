@@ -12,10 +12,6 @@ interface Props {
   items: ProposalItem[];
   equipmentData: EquipmentData;
   onChange: (data: EquipmentData) => void;
-  tipoEntrega?: string;
-  rastreamento?: string;
-  onTipoEntregaChange?: (v: string) => void;
-  onRastreamentoChange?: (v: string) => void;
 }
 
 function isOutroKey(key: EquipKey): boolean {
