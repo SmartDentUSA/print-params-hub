@@ -780,7 +780,7 @@ Deno.serve(async (req) => {
 
     // ─── Re-fetch proposals if webhook payload was missing them ───
     if (dealSnapshot.proposals.length === 0 && (dealSnapshot.value ?? 0) > 0) {
-      const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_TOKEN");
+      const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
       if (PIPERUN_API_KEY) {
         try {
           const { piperunGet } = await import("../_shared/piperun-field-map.ts");

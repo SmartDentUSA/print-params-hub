@@ -20,10 +20,10 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_TOKEN");
+    const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_KEY");
 
     if (!PIPERUN_API_KEY) {
-      return new Response(JSON.stringify({ error: "PIPERUN_API_TOKEN not configured" }), {
+      return new Response(JSON.stringify({ error: "PIPERUN_API_KEY not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
