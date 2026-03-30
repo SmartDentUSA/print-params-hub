@@ -9,6 +9,8 @@ export interface EquipmentEntry {
   item_nome: string;
   proposal_ref: string;
   subtipo?: 'intraoral' | 'bancada';
+  tipo_entrega?: 'enviar' | 'retirar';
+  rastreamento?: string;
 }
 
 export type EquipmentData = Partial<Record<EquipKey, EquipmentEntry>>;

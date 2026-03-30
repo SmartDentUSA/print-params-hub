@@ -266,22 +266,6 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
         </div>
       ))}
 
-      {/* Tipo de Entrega + Rastreamento */}
-      {onTipoEntregaChange && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-muted-foreground">Tipo de Entrega</h4>
-          <div className="flex gap-3">
-            <Button type="button" size="sm" variant={tipoEntrega === 'enviar' ? 'default' : 'outline'} onClick={() => onTipoEntregaChange('enviar')}>Enviar</Button>
-            <Button type="button" size="sm" variant={tipoEntrega === 'retirar' ? 'default' : 'outline'} onClick={() => { onTipoEntregaChange('retirar'); onRastreamentoChange?.(''); }}>Retirar</Button>
-          </div>
-          {tipoEntrega === 'enviar' && onRastreamentoChange && (
-            <div>
-              <Label className="text-xs">Rastreamento</Label>
-              <Input value={rastreamento || ''} onChange={(e) => onRastreamentoChange(e.target.value)} placeholder="Ex: BR123456789BR" />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Card manual fresadora */}
       {!hasFresadora && (

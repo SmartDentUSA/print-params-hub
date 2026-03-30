@@ -438,10 +438,6 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
                     items={proposalItems}
                     equipmentData={equipmentData}
                     onChange={setEquipmentData}
-                    tipoEntrega={tipoEntrega}
-                    rastreamento={rastreamento}
-                    onTipoEntregaChange={(v) => setTipoEntrega(v as any)}
-                    onRastreamentoChange={setRastreamento}
                   />
                 </div>
 
