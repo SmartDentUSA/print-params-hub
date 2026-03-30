@@ -1,55 +1,43 @@
 
 
-# Diagnóstico: Copilot não identifica itens de propostas ganhas
+# Plan: Fix proposal items not appearing for serial/date entry in enrollment
 
-## Resumo da investigação
+## Problem
 
-A infraestrutura de dados está correta:
-- **3.375 deals ganhos** no banco, dos quais **2.676 têm itens de proposta detalhados**
-- A função SQL `fn_search_deals_by_status` retorna `deal_items` corretamente
-- 680 deals ganhos (~20%) têm o array `proposals` vazio — são deals antigos do backfill que não tinham snapshot de proposta
+When scheduling an enrollment, proposal items from "won" deals either:
+1. Don't appear at all (empty `proposals` array in the deal snapshot)
+2. Appear under "Insumos e serviços" as read-only text without serial number, activation date, or delivery type inputs — because `inferCategory()` returns `'outro'` and `categoryToEquipKey('outro')` returns `null`
 
-## Causa raiz
+Currently, only items matching specific regex patterns (scanner, notebook, CAD, impressora, etc.) get the equipment card UI with serial/date inputs. Everything else is shown as plain text.
 
-O **prompt do sistema do Copilot tem instruções contraditórias**:
+## Root cause
 
-1. **Linha 1316**: diz para usar `query_leads_advanced` com `where_text_search` em campos JSONB para buscar por produto
-2. **Linhas 1350-1356**: reforça o uso de `where_text_search` em `itens_proposta_parsed` e `proposals_data`
-3. **Linhas 1389-1400**: diz para "NUNCA" usar `query_leads_advanced` para `piperun_deals_history` e usar `query_deal_history`
+**`src/lib/courseUtils.ts` — `inferCategory()` function** has limited regex patterns. Products with names like "Resina 3D", "Kit de Calibração", "Forno", "Articulador" etc. all fall into `'outro'` → `equip_key: null` → no serial inputs.
 
-Quando o usuário pergunta "quais produtos foram vendidos?" ou "vendas de resina", o modelo pode escolher `query_leads` (que retorna campos flat sem itens) ou `query_leads_advanced` com `where_text_search` (que faz busca textual mas não retorna os itens detalhados), em vez de usar `query_deal_history` que é a ferramenta correta.
+**`src/components/smartops/EquipmentSerialsSection.tsx`** only renders serial/date inputs for items where `equip_key !== null`.
 
-## Correção proposta
+## Fix (2 files)
 
-**Arquivo: `supabase/functions/smart-ops-copilot/index.ts`** — apenas ajustes no `SYSTEM_PROMPT`
+### 1. `src/components/smartops/EquipmentSerialsSection.tsx`
+- Add serial number and activation date inputs for ALL items (including those with `equip_key === null`)
+- The "Insumos e serviços" section currently shows plain text — change it to show expandable cards with optional serial, activation date fields
+- Add a generic `equip_key` override: let the user manually assign an equipment category via a dropdown if the auto-detection was wrong
+- Keep the "Tipo de Entrega" (enviar/retirar) and "Rastreamento" at the bottom as-is
 
-### 1. Reforçar no bloco COMPORTAMENTO (linhas ~1314-1327)
+### 2. `src/types/courses.ts`
+- Add a catch-all `equip_outro` key to `EquipKey` type so uncategorized items can still carry serial/date data
+- Update `EquipmentData` accordingly
 
-Adicionar regra explícita:
-```
-- Para vendas, produtos vendidos, itens de proposta, faturamento ou deal ganho → use SEMPRE query_deal_history
-- NUNCA use query_leads ou query_leads_advanced para buscar vendas/produtos vendidos — eles não retornam deal_items
-```
+### 3. `src/lib/courseUtils.ts`
+- Add `equip_outro` to `EQUIP_CONFIG` with generic labels
+- Update `categoryToEquipKey` to return `'equip_outro'` instead of `null` for unmatched items
+- Expand `inferCategory` regex to catch more common product names (forno, articulador, compressor, autoclave, fotopolimerizador, kit)
 
-### 2. Atualizar bloco de filtros avançados (linhas ~1354-1365)
+## Result
 
-Remover a sugestão de usar `where_text_search` em `itens_proposta_parsed` para análise de vendas e redirecionar para `query_deal_history`:
-```
-- itens_proposta_parsed e itens_proposta_crm: SOMENTE para filtrar leads que receberam proposta de determinado produto (campanhas, reativação)
-- Para ANALISAR vendas realizadas, use query_deal_history com status="ganho" — retorna deal_items com nomes dos produtos
-```
-
-### 3. Expandir exemplos no bloco HISTÓRICO DE DEALS (linhas ~1393-1400)
-
-Adicionar exemplos de perguntas comuns que devem usar `query_deal_history`:
-```
-- "Quais produtos foram vendidos?" → query_deal_history com status="ganho"
-- "Faturamento do mês" → query_deal_history com status="ganho"
-- "Vendas de resina" → query_deal_history com status="ganho", product="resina"
-- "Top produtos vendidos" → query_deal_history com status="ganho", limit=200
-```
-
-## Resultado esperado
-
-O Copilot passará a usar consistentemente `query_deal_history` para qualquer pergunta sobre vendas/produtos vendidos, retornando os `deal_items` corretamente.
+Every proposal item — regardless of category — will display as an interactive card with:
+- Product name + quantity + value (existing)
+- Serial number input
+- Activation date input
+- Equipment category badge (auto-detected or manually overridden)
 
