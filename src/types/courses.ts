@@ -101,6 +101,7 @@ export interface ProposalItem {
   unit: number;
   total: number;
   equip_key: EquipKey | null;
+  deal_ref?: string;
 }
 
 export interface CourseEnrollment {

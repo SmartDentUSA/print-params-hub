@@ -190,8 +190,19 @@ export function EnrollmentModal({ course, preselectedTurmaId, open, onClose }: P
     if (!dealSearch.result) return;
     setSelectedDealIdx(idx);
     const deal = ganhoDeals[idx] || dealSearch.result.matched_deal;
-    const items = extractProposalItems(deal);
-    setProposalItems(items);
+    // Still aggregate ALL ganho deals items
+    let globalIdx = 0;
+    const allItems = ganhoDeals.flatMap(d => {
+      const dItems = extractProposalItems(d, {}, d.deal_title || d.deal_id || '');
+      return dItems.map(it => {
+        if (it.equip_key?.startsWith('equip_outro_')) {
+          return { ...it, equip_key: `equip_outro_${globalIdx++}` as any };
+        }
+        globalIdx++;
+        return it;
+      });
+    });
+    setProposalItems(allItems);
     setFormData((f) => ({ ...f, deal_title: deal.deal_title || "" }));
     setEquipmentData({});
   };
