@@ -235,6 +235,29 @@ export function EquipmentSerialsSection({ items, equipmentData, onChange }: Prop
                         </div>
                       </div>
                     )}
+
+                    {/* Tipo de Entrega per item */}
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label className="text-xs text-muted-foreground">Tipo de Entrega</Label>
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" variant={resolvedEntry?.tipo_entrega === 'enviar' ? 'default' : 'outline'} onClick={() => updateEntry(resolvedKey, { tipo_entrega: 'enviar', item_nome: item.nome, proposal_ref: item.proposal_id })}>
+                          Enviar
+                        </Button>
+                        <Button type="button" size="sm" variant={resolvedEntry?.tipo_entrega === 'retirar' ? 'default' : 'outline'} onClick={() => { updateEntry(resolvedKey, { tipo_entrega: 'retirar', rastreamento: '', item_nome: item.nome, proposal_ref: item.proposal_id }); }}>
+                          Retirar
+                        </Button>
+                      </div>
+                      {resolvedEntry?.tipo_entrega === 'enviar' && (
+                        <div>
+                          <Label className="text-xs">Rastreamento</Label>
+                          <Input
+                            value={resolvedEntry?.rastreamento || ''}
+                            onChange={(e) => updateEntry(resolvedKey, { rastreamento: e.target.value })}
+                            placeholder="Ex: BR123456789BR"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
