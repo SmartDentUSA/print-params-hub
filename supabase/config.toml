@@ -272,3 +272,6 @@ verify_jwt = false
 
 [functions.sync-loja-integrada-clients]
 verify_jwt = false
+
+[functions.backfill-deal-proposals]
+verify_jwt = false

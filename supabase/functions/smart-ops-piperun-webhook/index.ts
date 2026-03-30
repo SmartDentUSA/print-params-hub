@@ -768,7 +768,7 @@ Deno.serve(async (req) => {
       ? (typeof dealStatus === "number" ? (DEAL_STATUS_MAP[dealStatus] || "aberta") : String(dealStatus))
       : "aberta";
 
-    const dealSnapshot = buildRichDealSnapshot(
+    let dealSnapshot = buildRichDealSnapshot(
       deal as unknown as import("../_shared/piperun-field-map.ts").PipeRunDealData,
       {
         dealId,
@@ -777,6 +777,38 @@ Deno.serve(async (req) => {
         ownerEmail: ids.ownerEmail || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.email : null) || null,
       },
     );
+
+    // ─── Re-fetch proposals if webhook payload was missing them ───
+    if (dealSnapshot.proposals.length === 0 && (dealSnapshot.value ?? 0) > 0) {
+      const PIPERUN_API_KEY = Deno.env.get("PIPERUN_API_TOKEN");
+      if (PIPERUN_API_KEY) {
+        try {
+          const { piperunGet } = await import("../_shared/piperun-field-map.ts");
+          const enriched = await piperunGet(PIPERUN_API_KEY, `deals/${dealId}`, {}, {
+            "with[]": ["proposals", "proposals.items"],
+          });
+          if (enriched.success && enriched.data) {
+            const enrichedDeal = (enriched.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
+            if (enrichedDeal && Array.isArray(enrichedDeal.proposals) && enrichedDeal.proposals.length > 0) {
+              // Merge proposals into the original deal object and rebuild
+              const mergedDeal = { ...deal, proposals: enrichedDeal.proposals };
+              dealSnapshot = buildRichDealSnapshot(
+                mergedDeal as unknown as import("../_shared/piperun-field-map.ts").PipeRunDealData,
+                {
+                  dealId,
+                  product: customFields.produtoInteresse || leadProduto || null,
+                  ownerName: ids.ownerName || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.name : null) || null,
+                  ownerEmail: ids.ownerEmail || (ids.ownerId ? PIPERUN_USERS[ids.ownerId]?.email : null) || null,
+                },
+              );
+              console.log(`[piperun-webhook] Enriched deal ${dealId} with ${dealSnapshot.proposals.length} proposals`);
+            }
+          }
+        } catch (e) {
+          console.warn(`[piperun-webhook] Failed to enrich proposals for deal ${dealId}:`, e);
+        }
+      }
+    }
 
     updateData.piperun_deals_history = upsertDealHistory(currentDealsHistory, dealSnapshot);
 
