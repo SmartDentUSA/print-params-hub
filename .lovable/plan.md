@@ -1,30 +1,31 @@
 
 
-# Fix: Invalid Date + Sort Propostas Detalhadas
+# Fix: Deal "Itens" column showing lead name instead of product name
 
-## Changes — single file: `src/components/smartops/LeadDetailPanel.tsx`
+## Problem
+For deals without embedded proposals (line 735-747), the code falls back to `d.product` for the "Itens" column. In PipeRun, the `product` field on some deals contains the person/lead name (e.g., "Matheus Guilherme Lucas") rather than an actual product name. This makes the table misleading.
 
-### 1. Robust `formatDate` (lines 115-118)
-Replace with version that guards empty/whitespace strings and validates `getTime()`:
+## Fix — `src/components/smartops/LeadDetailPanel.tsx`
+
+### Line 740: Guard against `d.product` being the lead's name
+Before using `d.product` as fallback, compare it against the lead's name (`ld.nome`). If they match, show `d.deal_title` instead, or fall back to "—".
+
 ```ts
-const formatDate = (dt: string | null | undefined): string => {
-  if (!dt || typeof dt !== 'string' || !dt.trim()) return "—";
-  const d = new Date(dt);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
-};
+// Current (line 740):
+itens: d.product || "—",
+
+// New:
+itens: (d.product && d.product !== ld.nome) ? d.product : (d.deal_title && d.deal_title !== ld.nome ? d.deal_title : "—"),
 ```
 
-### 2. Sort flatProposals descending by date (after line 746)
-Add sort before rendering, pushing invalid/missing dates to end:
+Same logic applies to line 716 where `d.product` is used as fallback when proposals have no valid items:
 ```ts
-flatProposals.sort((a, b) => {
-  const dateA = a.date?.trim() ? new Date(a.date).getTime() : 0;
-  const dateB = b.date?.trim() ? new Date(b.date).getTime() : 0;
-  if (isNaN(dateA)) return 1;
-  if (isNaN(dateB)) return -1;
-  return dateB - dateA;
-});
+// Current (line 716):
+: d.product || "—";
+
+// New:
+: (d.product && d.product !== ld.nome) ? d.product : "—";
 ```
-This sorts in-place right after the `flatProposals` array is fully built (after the cross-reference block ~line 770), so no variable rename needed — the existing `.map()` at line 1157 continues to work.
+
+This prevents the lead's own name from appearing as a product/item description in the proposals table.
 
