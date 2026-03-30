@@ -713,7 +713,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       const items = (Array.isArray(prop.items) ? prop.items : []).filter(isValidItem);
       const itensSummary = items.length > 0
         ? items.slice(0, 3).map((it: any) => `${it.qtd || it.quantidade || it.quantity || 1}× ${getItemName(it)}`).join(", ") + (items.length > 3 ? ` (+${items.length - 3})` : "")
-        : d.product || "—";
+        : (d.product && d.product !== ld.nome) ? d.product : "—";
       const freteVal = Number(prop.valor_frete || prop.value_freight || 0);
       const freteTipo = prop.tipo_frete || prop.freight_type || "";
       const freteStr = freteVal > 0 ? `${formatBRLFull(freteVal)}${freteTipo ? " " + freteTipo : ""}` : freteTipo || "—";
