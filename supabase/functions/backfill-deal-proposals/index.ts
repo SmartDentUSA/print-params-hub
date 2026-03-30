@@ -45,26 +45,40 @@ Deno.serve(async (req) => {
     const targets: BackfillTarget[] = [];
 
     if (deal_ids && deal_ids.length > 0) {
-      // Find leads that contain these deal_ids in their history
-      const { data: leads, error } = await supabase
-        .from("lia_attendances")
-        .select("id, piperun_deals_history")
-        .not("piperun_deals_history", "is", null);
+      // Find leads that contain these deal_ids using targeted JSONB text search
+      for (const dealIdTarget of deal_ids) {
+        const { data: leads, error } = await supabase
+          .from("lia_attendances")
+          .select("id, piperun_deals_history")
+          .not("piperun_deals_history", "is", null)
+          .filter("piperun_deals_history", "cs", JSON.stringify([{ deal_id: dealIdTarget }]));
 
-      if (error) throw error;
+        if (error) {
+          // Fallback: use textual contains on the JSONB column
+          console.warn(`[backfill] cs filter failed for ${dealIdTarget}, trying text search:`, error.message);
+          const { data: fallbackLeads } = await supabase
+            .from("lia_attendances")
+            .select("id, piperun_deals_history")
+            .not("piperun_deals_history", "is", null)
+            .textSearch("piperun_deals_history", dealIdTarget);
 
-      for (const lead of leads || []) {
-        const history = lead.piperun_deals_history as RichDealSnapshot[];
-        if (!Array.isArray(history)) continue;
+          for (const lead of fallbackLeads || []) {
+            const history = lead.piperun_deals_history as RichDealSnapshot[];
+            if (!Array.isArray(history)) continue;
+            const snap = history.find((d) => String(d.deal_id) === String(dealIdTarget));
+            if (snap) {
+              targets.push({ lead_id: lead.id, deal_id: String(dealIdTarget), current_history: history });
+            }
+          }
+          continue;
+        }
 
-        for (const dealIdTarget of deal_ids) {
+        for (const lead of leads || []) {
+          const history = lead.piperun_deals_history as RichDealSnapshot[];
+          if (!Array.isArray(history)) continue;
           const snap = history.find((d) => String(d.deal_id) === String(dealIdTarget));
           if (snap) {
-            targets.push({
-              lead_id: lead.id,
-              deal_id: String(dealIdTarget),
-              current_history: history,
-            });
+            targets.push({ lead_id: lead.id, deal_id: String(dealIdTarget), current_history: history });
           }
         }
       }
