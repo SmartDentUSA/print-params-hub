@@ -626,6 +626,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     { num: String(totalProposals || "—"), lbl: "Propostas", cls: "" },
     { num: ltvWon > 0 ? formatBRLFull(ltvWon / wonDeals.length) : "—", lbl: "Ticket médio", cls: "green" },
     { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados", cls: support_summary?.open ? "red" : "green" },
+    ...(omieScore > 0 ? [{ num: String(omieScore), lbl: "Score ERP", cls: omieScore >= 80 ? "green" : omieScore >= 50 ? "" : "red" }] : []),
   ];
 
   // Cognitive cards
