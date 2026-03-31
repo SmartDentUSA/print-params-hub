@@ -938,6 +938,7 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     // Tentar por email
     if (lead.email) {
       try {
+        console.log(`sync-lead: buscando por email=${lead.email}`)
         const data = await omieGet("/geral/clientes/", "ListarClientes", {
           pagina: 1, registros_por_pagina: 5,
           clientesFiltro: { email: lead.email }
@@ -945,8 +946,12 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
         const found = data.clientes_cadastro?.[0]
         if (found) {
           const parsed = parseOmieCliente(found)
+          console.log(`sync-lead: email match → codigoCliente=${parsed.codigoCliente}, razao=${parsed.razaoSocial}`)
           omieCodigoCliente = parsed.codigoCliente
-          await patchLeadFromCliente(supabase, leadId, parsed)
+          const patchRes = await patchLeadFromCliente(supabase, leadId, parsed)
+          console.log(`sync-lead: patchLeadFromCliente resultado:`, JSON.stringify(patchRes))
+        } else {
+          console.log(`sync-lead: nenhum cliente encontrado por email`)
         }
       } catch (e) { console.warn("sync-lead: busca por email falhou:", e) }
     }
@@ -956,6 +961,7 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
       const doc = normalizeDoc(lead.empresa_cnpj) || normalizeDoc(lead.pessoa_cpf)
       if (doc) {
         try {
+          console.log(`sync-lead: buscando por doc=${doc}`)
           const data = await omieGet("/geral/clientes/", "ListarClientes", {
             pagina: 1, registros_por_pagina: 5,
             clientesFiltro: { cnpj_cpf: doc }
@@ -963,8 +969,12 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
           const found = data.clientes_cadastro?.[0]
           if (found) {
             const parsed = parseOmieCliente(found)
+            console.log(`sync-lead: doc match → codigoCliente=${parsed.codigoCliente}`)
             omieCodigoCliente = parsed.codigoCliente
-            await patchLeadFromCliente(supabase, leadId, parsed)
+            const patchRes = await patchLeadFromCliente(supabase, leadId, parsed)
+            console.log(`sync-lead: patchLeadFromCliente resultado:`, JSON.stringify(patchRes))
+          } else {
+            console.log(`sync-lead: nenhum cliente encontrado por doc`)
           }
         } catch (e) { console.warn("sync-lead: busca por doc falhou:", e) }
       }
@@ -975,6 +985,7 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     console.warn(`sync-lead: cliente Omie não encontrado para ${leadId}`)
     return { ok: false, reason: "cliente_nao_encontrado" }
   }
+  console.log(`sync-lead: omieCodigoCliente=${omieCodigoCliente} para lead=${leadId}`)
 
   // 3. Buscar pedidos do cliente no Omie
   // Omie ListarPedidos não suporta filtrar_por_cliente — iterar páginas e filtrar in-code
