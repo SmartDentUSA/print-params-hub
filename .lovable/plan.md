@@ -1,29 +1,27 @@
 
 
-# Cron Jobs para Sync Omie — 09:00 e 17:30
+## Problema
 
-## O que será feito
+A Edge Function `smart-ops-meta-lead-webhook` existe no código mas **não está deployada** no Supabase. Quando o Meta tenta acessar a URL, recebe 404.
 
-Criar 2 cron jobs via `pg_cron` para chamar a edge function `omie-lead-enricher` diariamente:
+## Causa
 
-- **09:00 BRT** (12:00 UTC) — sync matinal
-- **17:30 BRT** (20:30 UTC) — sync fim de expediente
+A função precisa ser re-deployada. Isso acontece automaticamente quando há um commit que altera o arquivo, mas como o arquivo já existia sem alterações recentes, o deploy pode não ter sido disparado.
 
-## Implementação
+## Solução
 
-Uma única execução SQL (via SQL Editor, não migration) com dois `cron.schedule()`:
+1. **Forçar o deploy** da Edge Function fazendo uma alteração mínima no arquivo (ex: adicionar um comentário com timestamp) para que o Lovable dispare o deploy automático.
 
-```sql
--- 09:00 BRT = 12:00 UTC
-SELECT cron.schedule('omie-sync-morning', '0 12 * * *', $$...$$);
+2. **Verificar o deploy** chamando o endpoint GET com os parâmetros de verificação do webhook.
 
--- 17:30 BRT = 20:30 UTC  
-SELECT cron.schedule('omie-sync-evening', '30 20 * * *', $$...$$);
-```
+3. **Confirmar que o Meta consegue alcançar** testando com um POST simulando um lead real.
 
-Cada job chama `net.http_post` para `omie-lead-enricher` com o anon key, seguindo o mesmo padrão dos cron jobs existentes (ex: `sync-loja-integrada-clients`).
+## Alteração
 
-## Arquivos
+**Arquivo:** `supabase/functions/smart-ops-meta-lead-webhook/index.ts`
+- Adicionar comentário `// deployed 2026-03-31` no topo para forçar redeploy
 
-Nenhum arquivo alterado — apenas SQL executado no banco.
+Depois do deploy, testarei:
+- GET de verificação (hub.mode=subscribe)
+- POST com payload de lead simulado
 
