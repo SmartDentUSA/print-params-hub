@@ -990,12 +990,14 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
   }
   console.log(`sync-lead: omieCodigoCliente=${omieCodigoCliente} para lead=${leadId}`)
 
-  // 3. Buscar pedidos do cliente no Omie (filtro nativo por cliente)
+  // 3. Buscar pedidos do cliente no Omie (filtro in-code por codigo_cliente)
+  // Omie ListarPedidos NÃO suporta filtro nativo por cliente — filtramos in-code
+  // Para evitar timeout, fazemos ConsultarPedido APENAS para pedidos do cliente
   let totalPedidos = 0
   let pagina = 1
   const TIMEOUT_SYNC_LEAD = 45_000
   const syncLeadStart = Date.now()
-  console.log(`sync-lead: buscando pedidos com filtrar_por_cliente=${omieCodigoCliente}`)
+  console.log(`sync-lead: buscando pedidos, filtrando in-code por codigo_cliente=${omieCodigoCliente}`)
   while (true) {
     if (Date.now() - syncLeadStart > TIMEOUT_SYNC_LEAD) {
       console.log(`sync-lead: timeout pedidos na página ${pagina}`)
@@ -1004,11 +1006,16 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     try {
       const data = await omieGet("/produtos/pedido/", "ListarPedidos", {
         pagina, registros_por_pagina: 50,
-        etapa: "60", status_pedido: "FATURADO",
-        filtrar_por_cliente: Number(omieCodigoCliente)
+        etapa: "60", status_pedido: "FATURADO"
       })
-      console.log(`sync-lead: página ${pagina}/${data.total_de_paginas ?? 1}, pedidos=${(data.pedido_venda_produto ?? []).length}`)
-      for (const resumo of data.pedido_venda_produto ?? []) {
+      const pedidos = data.pedido_venda_produto ?? []
+      // Filtrar ANTES de chamar ConsultarPedido (economia de API calls)
+      const doCliente = pedidos.filter((r: any) => {
+        const cc = r.cabecalho?.codigo_cliente ?? r.cabecalho?.codigo_cliente_omie
+        return cc && Number(cc) === Number(omieCodigoCliente)
+      })
+      console.log(`sync-lead: página ${pagina}/${data.total_de_paginas ?? 1}, total=${pedidos.length}, doCliente=${doCliente.length}`)
+      for (const resumo of doCliente) {
         try {
           const pedido = await omieGet("/produtos/pedido/", "ConsultarPedido", {
             nCodPed: resumo.cabecalho.codigo_pedido
@@ -1044,7 +1051,8 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
       }
       if (pagina >= (data.total_de_paginas ?? 1)) break
       pagina++
-      await sleep(280)
+      // Se não há pedidos do cliente nesta página, avançar mais rápido
+      await sleep(doCliente.length > 0 ? 280 : 100)
     } catch (e) {
       console.warn("sync-lead ListarPedidos:", e)
       break
