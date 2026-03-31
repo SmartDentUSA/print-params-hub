@@ -296,6 +296,31 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncPipeRun = async () => {
+    if (!lead?.id || syncing) return;
+    setSyncing(true);
+    try {
+      const dealIds = Array.isArray(lead.piperun_deals_history)
+        ? (lead.piperun_deals_history as any[]).map((d: any) => String(d.deal_id)).filter(Boolean)
+        : lead.piperun_id ? [String(lead.piperun_id)] : [];
+      if (dealIds.length === 0) {
+        toast.error("Lead sem deal_id para sincronizar");
+        setSyncing(false);
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("backfill-deal-proposals", {
+        body: { deal_ids: dealIds, lead_ids: [lead.id] },
+      });
+      if (error) throw error;
+      toast.success(`Sync concluído: ${data?.backfilled || 0} deal(s) atualizados`);
+    } catch (e: any) {
+      toast.error(`Erro ao sincronizar: ${e.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!lead?.id || !open) {
