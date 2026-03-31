@@ -1,28 +1,43 @@
 
 
-# Add Per-Lead "Sync PipeRun" Button to Lead Detail Panels
+# Plano: Explorar API Omie via Edge Function
 
-## Problem
-There is no individual sync button on the lead card/detail UI. The only sync exists at the SmartOps top level and syncs ALL leads. The user needs a per-lead button to re-fetch a specific lead's data from PipeRun.
+## Bloqueio atual
 
-## Solution
-Add a "🔄 Sync PipeRun" button to both lead detail views (Intelligence panel + Kanban sheet) that calls `backfill-deal-proposals` with the lead's `piperun_id` to re-fetch deals + proposals for that specific lead.
+Os secrets `OMIE_APP_KEY` e `OMIE_APP_SECRET` **NÃO estão configurados**. A lista atual tem 20 secrets e nenhum é do Omie. Preciso solicitá-los antes de prosseguir.
 
-## Changes
+## Após adicionar os secrets
 
-### 1. `src/components/smartops/LeadDetailPanel.tsx`
-- Add a "🔄 Sync" button in the hero section (next to the close button or in the action bar)
-- On click: call `smart-ops-sync-piperun` with `{ person_id: lead.piperun_person_id }` or `backfill-deal-proposals` with `{ deal_ids: [...] }`
-- Show loading state + toast on success/error
-- After success, re-fetch the detail data
+### Criar Edge Function `omie-api-explorer`
 
-### 2. `src/components/smartops/KanbanLeadDetail.tsx`
-- Add the same sync button in the Sheet header area
-- Same logic: invoke edge function for the specific lead, then refresh
+Uma function diagnóstica que chama os principais endpoints Omie e retorna os dados disponíveis.
 
-### Technical Details
-- Both components already have access to `lead.piperun_id` and the API_BASE constant
-- Will use `supabase.functions.invoke("backfill-deal-proposals", { body: { deal_ids: [lead.piperun_id] } })` pattern
-- Loading state via local `useState`
-- Toast feedback via `sonner`
+**Endpoints a consultar:**
+
+| Endpoint | Call | O que retorna |
+|----------|------|---------------|
+| `/geral/clientes/` | `ListarClientes` | Cadastro de clientes |
+| `/geral/clientes/` | `ListarClientesResumido` | Versão resumida |
+| `/produtos/pedido/` | `ListarPedidos` | Pedidos de venda |
+| `/financas/contareceber/` | `ListarContasReceber` | Parcelas financeiras |
+| `/estoque/consulta/` | `ListarPosEstoque` | Posição de estoque |
+| `/produtos/requisicaomprod/` | `ListarReqCompra` | Requisições de compra |
+
+Cada endpoint retorna 5 registros de amostra + contagem total + lista de campos disponíveis.
+
+**Comportamento:**
+- `GET` sem params → todos os endpoints
+- `?only=clientes,pedidos` → endpoints específicos
+- Timeout 15s por endpoint, erro graceful
+
+### Arquivos
+
+1. `supabase/functions/omie-api-explorer/index.ts` — function completa
+2. `supabase/config.toml` — registrar com `verify_jwt = false`
+
+### Passos
+
+1. Solicitar secrets `OMIE_APP_KEY` e `OMIE_APP_SECRET`
+2. Criar a Edge Function
+3. Testar via curl e analisar o retorno
 
