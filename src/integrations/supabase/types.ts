@@ -3938,8 +3938,19 @@ export type Database = {
           equip_upgrade_reasoning: string | null
           equip_upgrade_signal: boolean | null
           equip_upgrade_urgency: string | null
+          erp_last_event: string | null
+          erp_status: string | null
+          erp_updated_at: string | null
           especialidade: string | null
           form_name: string | null
+          frete_codigo_rastreio: string | null
+          frete_link_rastreio: string | null
+          frete_previsao_entrega: string | null
+          frete_status: string | null
+          frete_tipo: string | null
+          frete_transportadora: string | null
+          frete_updated_at: string | null
+          frete_valor: number | null
           funil_entrada_crm: string | null
           historico_resumos: Json | null
           hits_cad: number | null
@@ -4080,6 +4091,9 @@ export type Database = {
           nps_satisfacao: number | null
           nps_temas_cursos: string[] | null
           objection_risk: string | null
+          omie_codigo_cliente: number | null
+          omie_last_sync: string | null
+          omie_nf_count: number | null
           opportunity_score: number | null
           opportunity_signals: Json | null
           origem_campanha: string | null
@@ -4166,6 +4180,7 @@ export type Database = {
           proprietario_lead_crm: string | null
           psychological_profile: string | null
           raw_payload: Json | null
+          real_status: string | null
           recommended_approach: string | null
           recompra_alert: boolean | null
           recompra_days_overdue: number | null
@@ -4372,8 +4387,19 @@ export type Database = {
           equip_upgrade_reasoning?: string | null
           equip_upgrade_signal?: boolean | null
           equip_upgrade_urgency?: string | null
+          erp_last_event?: string | null
+          erp_status?: string | null
+          erp_updated_at?: string | null
           especialidade?: string | null
           form_name?: string | null
+          frete_codigo_rastreio?: string | null
+          frete_link_rastreio?: string | null
+          frete_previsao_entrega?: string | null
+          frete_status?: string | null
+          frete_tipo?: string | null
+          frete_transportadora?: string | null
+          frete_updated_at?: string | null
+          frete_valor?: number | null
           funil_entrada_crm?: string | null
           historico_resumos?: Json | null
           hits_cad?: number | null
@@ -4514,6 +4540,9 @@ export type Database = {
           nps_satisfacao?: number | null
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
+          omie_codigo_cliente?: number | null
+          omie_last_sync?: string | null
+          omie_nf_count?: number | null
           opportunity_score?: number | null
           opportunity_signals?: Json | null
           origem_campanha?: string | null
@@ -4600,6 +4629,7 @@ export type Database = {
           proprietario_lead_crm?: string | null
           psychological_profile?: string | null
           raw_payload?: Json | null
+          real_status?: string | null
           recommended_approach?: string | null
           recompra_alert?: boolean | null
           recompra_days_overdue?: number | null
@@ -4806,8 +4836,19 @@ export type Database = {
           equip_upgrade_reasoning?: string | null
           equip_upgrade_signal?: boolean | null
           equip_upgrade_urgency?: string | null
+          erp_last_event?: string | null
+          erp_status?: string | null
+          erp_updated_at?: string | null
           especialidade?: string | null
           form_name?: string | null
+          frete_codigo_rastreio?: string | null
+          frete_link_rastreio?: string | null
+          frete_previsao_entrega?: string | null
+          frete_status?: string | null
+          frete_tipo?: string | null
+          frete_transportadora?: string | null
+          frete_updated_at?: string | null
+          frete_valor?: number | null
           funil_entrada_crm?: string | null
           historico_resumos?: Json | null
           hits_cad?: number | null
@@ -4948,6 +4989,9 @@ export type Database = {
           nps_satisfacao?: number | null
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
+          omie_codigo_cliente?: number | null
+          omie_last_sync?: string | null
+          omie_nf_count?: number | null
           opportunity_score?: number | null
           opportunity_signals?: Json | null
           origem_campanha?: string | null
@@ -5034,6 +5078,7 @@ export type Database = {
           proprietario_lead_crm?: string | null
           psychological_profile?: string | null
           raw_payload?: Json | null
+          real_status?: string | null
           recommended_approach?: string | null
           recompra_alert?: boolean | null
           recompra_days_overdue?: number | null
@@ -9775,8 +9820,19 @@ export type Database = {
           equip_upgrade_reasoning: string | null
           equip_upgrade_signal: boolean | null
           equip_upgrade_urgency: string | null
+          erp_last_event: string | null
+          erp_status: string | null
+          erp_updated_at: string | null
           especialidade: string | null
           form_name: string | null
+          frete_codigo_rastreio: string | null
+          frete_link_rastreio: string | null
+          frete_previsao_entrega: string | null
+          frete_status: string | null
+          frete_tipo: string | null
+          frete_transportadora: string | null
+          frete_updated_at: string | null
+          frete_valor: number | null
           funil_entrada_crm: string | null
           historico_resumos: Json | null
           hits_cad: number | null
@@ -9917,6 +9973,9 @@ export type Database = {
           nps_satisfacao: number | null
           nps_temas_cursos: string[] | null
           objection_risk: string | null
+          omie_codigo_cliente: number | null
+          omie_last_sync: string | null
+          omie_nf_count: number | null
           opportunity_score: number | null
           opportunity_signals: Json | null
           origem_campanha: string | null
@@ -10003,6 +10062,7 @@ export type Database = {
           proprietario_lead_crm: string | null
           psychological_profile: string | null
           raw_payload: Json | null
+          real_status: string | null
           recommended_approach: string | null
           recompra_alert: boolean | null
           recompra_days_overdue: number | null

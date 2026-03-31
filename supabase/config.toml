@@ -275,3 +275,6 @@ verify_jwt = false
 
 [functions.backfill-deal-proposals]
 verify_jwt = false
+
+[functions.omie-lead-enricher]
+verify_jwt = false
