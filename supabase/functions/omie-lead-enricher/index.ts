@@ -1,4 +1,4 @@
-// redeployed 2026-03-31T20:00Z — fix cnpj→empresa_cnpj, add CPF fallback, action=sync
+// redeployed 2026-03-31T22:00Z — robust identity, cursor fix, sync financial, sync-lead
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -70,7 +70,53 @@ function normalizePhone(ddd?: string, numero?: string): string | null {
   return `+55${ddd}${numero}`.replace(/\D/g, "").replace(/^\+/, "+")
 }
 
-// ─── Identity resolution: omie_id → CNPJ → email → telefone ─────────────────
+// ─── Normalizar documento para dígitos ────────────────────────────────────────
+function normalizeDoc(raw: string | null | undefined): string {
+  if (!raw) return ""
+  return raw.replace(/\D/g, "")
+}
+
+// ─── Formatar CPF/CNPJ mascarado ──────────────────────────────────────────────
+function formatCpf(digits: string): string {
+  if (digits.length !== 11) return digits
+  return `${digits.slice(0,3)}.${digits.slice(3,6)}.${digits.slice(6,9)}-${digits.slice(9)}`
+}
+function formatCnpj(digits: string): string {
+  if (digits.length !== 14) return digits
+  return `${digits.slice(0,2)}.${digits.slice(2,5)}.${digits.slice(5,8)}/${digits.slice(8,12)}-${digits.slice(12)}`
+}
+
+// ─── Busca robusta por documento (CPF ou CNPJ) ───────────────────────────────
+// Tenta match por dígitos puros E por versão mascarada em ambas as colunas
+async function findLeadByDoc(
+  supabase: ReturnType<typeof createClient>,
+  docDigits: string
+): Promise<{ id: string } | null> {
+  if (!docDigits || docDigits.length < 11) return null
+
+  // Gerar variantes: dígitos puros + formato mascarado
+  const variants = [docDigits]
+  if (docDigits.length === 11) variants.push(formatCpf(docDigits))
+  if (docDigits.length === 14) variants.push(formatCnpj(docDigits))
+
+  // Tentar empresa_cnpj (para PJ)
+  for (const v of variants) {
+    const { data } = await (supabase as any).from("lia_attendances").select("id")
+      .eq("empresa_cnpj", v).is("merged_into", null).maybeSingle()
+    if (data) return data
+  }
+
+  // Tentar pessoa_cpf (para PF)
+  for (const v of variants) {
+    const { data } = await (supabase as any).from("lia_attendances").select("id")
+      .eq("pessoa_cpf", v).is("merged_into", null).maybeSingle()
+    if (data) return data
+  }
+
+  return null
+}
+
+// ─── Identity resolution: omie_id → doc → email → telefone ──────────────────
 async function resolveLeadByOmieEvent(
   supabase: ReturnType<typeof createClient>,
   event: any,
@@ -95,19 +141,9 @@ async function resolveLeadByOmieEvent(
     pedidoCabecalho?.cnpj_cpf_cliente
   )
   if (cnpjCpf) {
-    const cnpjCpfNorm = cnpjCpf.replace(/\D/g, "")
-    // Busca por CNPJ (empresa_cnpj)
-    const { data: byCnpj } = await (supabase as any)
-      .from("lia_attendances").select("id")
-      .eq("empresa_cnpj", cnpjCpfNorm)
-      .is("merged_into", null).maybeSingle()
-    if (byCnpj) return byCnpj
-    // Fallback: busca por CPF (pessoa_cpf) — PF
-    const { data: byCpf } = await (supabase as any)
-      .from("lia_attendances").select("id")
-      .eq("pessoa_cpf", cnpjCpfNorm)
-      .is("merged_into", null).maybeSingle()
-    if (byCpf) return byCpf
+    const docDigits = normalizeDoc(cnpjCpf)
+    const found = await findLeadByDoc(supabase, docDigits)
+    if (found) return found
   }
 
   const email = (
@@ -137,6 +173,57 @@ async function resolveLeadByOmieEvent(
   }
 
   console.warn("Lead não encontrado:", { codigoCliente, cnpjCpf, email })
+  return null
+}
+
+// ─── Resolve lead por dados de um cliente Omie (parser resiliente) ────────────
+function parseOmieCliente(raw: any): {
+  email: string | null, docDigits: string, codigoCliente: number | null,
+  razaoSocial: string | null, tipoPessoa: string | null,
+  cidade: string | null, estado: string | null, tags: string[],
+  ddd: string | null, numero: string | null
+} {
+  // Omie pode retornar flat ou aninhado em cliente_cadastro
+  const c = raw?.cliente_cadastro ?? raw ?? {}
+  return {
+    email:          (c.email ?? c.cEmail ?? "").toLowerCase().trim() || null,
+    docDigits:      normalizeDoc(c.cnpj_cpf ?? c.cCNPJCPF ?? ""),
+    codigoCliente:  c.codigo_cliente_omie ?? c.nCodCli ?? null,
+    razaoSocial:    c.razao_social ?? c.cRazaoSocial ?? null,
+    tipoPessoa:     (c.pessoa_fisica === "S" || c.cPessoaFisica === "S") ? "PF" : "PJ",
+    cidade:         c.cidade ?? c.cCidade ?? null,
+    estado:         c.estado ?? c.cEstado ?? null,
+    tags:           c.tags ?? [],
+    ddd:            c.telefone1_ddd ?? c.cTelefone1DDD ?? null,
+    numero:         c.telefone1_numero ?? c.cTelefone1Num ?? null,
+  }
+}
+
+// ─── Resolve lead a partir de dados parseados do cliente Omie ─────────────────
+async function resolveLeadFromOmieCliente(
+  supabase: ReturnType<typeof createClient>,
+  parsed: ReturnType<typeof parseOmieCliente>
+): Promise<{ id: string } | null> {
+  // 1. Por email
+  if (parsed.email) {
+    const { data } = await (supabase as any).from("lia_attendances").select("id")
+      .eq("email", parsed.email).is("merged_into", null).maybeSingle()
+    if (data) return data
+  }
+  // 2. Por documento (CPF/CNPJ robustos)
+  if (parsed.docDigits) {
+    const found = await findLeadByDoc(supabase, parsed.docDigits)
+    if (found) return found
+  }
+  // 3. Por telefone
+  if (parsed.ddd && parsed.numero) {
+    const tel = normalizePhone(parsed.ddd, parsed.numero)
+    if (tel) {
+      const { data } = await (supabase as any).from("lia_attendances").select("id")
+        .eq("telefone_normalized", tel).is("merged_into", null).maybeSingle()
+      if (data) return data
+    }
+  }
   return null
 }
 
@@ -367,7 +454,6 @@ async function marcarParcelaPaga(
   if ((pendentes?.length ?? 0) === 0) {
     await updateErpStatus(supabase, parcela.lead_id, "PAGO", "financeiro.quitado")
   }
-  // Webhook: enriquecer imediatamente
   await enrichLead(supabase, parcela.lead_id)
 }
 
@@ -434,7 +520,6 @@ async function enrichFromPedido(
       .update({ frete_status: "NONE", frete_tipo: freteData.frete_tipo }).eq("id", leadId)
   }
 
-  // Webhook: enriquecer imediatamente
   await enrichLead(supabase, leadId)
 }
 
@@ -484,6 +569,45 @@ async function dispararCobrancas(supabase: ReturnType<typeof createClient>) {
     }
   }
   return total
+}
+
+// ─── Cursor helpers (tabela omie_sync_cursors usa key/value) ──────────────────
+async function getCursor(supabase: ReturnType<typeof createClient>, cursorKey: string): Promise<string | null> {
+  const { data, error } = await (supabase as any).from("omie_sync_cursors")
+    .select("value").eq("key", cursorKey).maybeSingle()
+  if (error) {
+    console.error(`getCursor(${cursorKey}) error:`, error.message)
+    return null
+  }
+  return data?.value ?? null
+}
+
+async function setCursor(supabase: ReturnType<typeof createClient>, cursorKey: string, cursorValue: string) {
+  const { error } = await (supabase as any).from("omie_sync_cursors")
+    .upsert({ key: cursorKey, value: cursorValue, updated_at: new Date().toISOString() },
+      { onConflict: "key" })
+  if (error) console.error(`setCursor(${cursorKey}) error:`, error.message)
+}
+
+// ─── Patch lead from Omie cliente data ────────────────────────────────────────
+async function patchLeadFromCliente(
+  supabase: ReturnType<typeof createClient>,
+  leadId: string,
+  parsed: ReturnType<typeof parseOmieCliente>
+) {
+  const { data: cur } = await (supabase as any).from("lia_attendances")
+    .select("cidade,estado,empresa_cnpj").eq("id", leadId).single()
+  const patch: Record<string, any> = {
+    omie_codigo_cliente:  parsed.codigoCliente,
+    omie_last_sync:       new Date().toISOString(),
+    omie_tipo_pessoa:     parsed.tipoPessoa,
+  }
+  if (!cur?.cidade       && parsed.cidade)     patch.cidade            = parsed.cidade
+  if (!cur?.estado       && parsed.estado)     patch.estado            = parsed.estado
+  if (!cur?.empresa_cnpj && parsed.docDigits)  patch.empresa_cnpj      = parsed.docDigits
+  if (parsed.razaoSocial)                      patch.omie_razao_social  = parsed.razaoSocial
+  if (parsed.tags?.length)                     patch.omie_segmento      = parsed.tags[0]
+  await (supabase as any).from("lia_attendances").update(patch).eq("id", leadId)
 }
 
 // ─── handleWebhook ────────────────────────────────────────────────────────────
@@ -600,136 +724,367 @@ async function handleWebhook(
     const cliente = await omieGet("/geral/clientes/", "ConsultarCliente", {
       codigo_cliente_omie: event.codigo_cliente_omie
     })
-    const email = cliente?.email?.toLowerCase()?.trim()
-    const cnpjCpfNorm = cliente?.cnpj_cpf?.replace(/\D/g, "")
-    // Resolve lead: email → CNPJ → CPF
-    let lead: { id: string; cidade?: string; estado?: string; empresa_cnpj?: string } | null = null
-    if (email) {
-      const { data } = await (supabase as any).from("lia_attendances")
-        .select("id,cidade,estado,empresa_cnpj")
-        .eq("email", email).is("merged_into", null).maybeSingle()
-      lead = data
-    }
-    if (!lead && cnpjCpfNorm) {
-      const { data } = await (supabase as any).from("lia_attendances")
-        .select("id,cidade,estado,empresa_cnpj")
-        .eq("empresa_cnpj", cnpjCpfNorm).is("merged_into", null).maybeSingle()
-      lead = data
-    }
-    if (!lead && cnpjCpfNorm) {
-      const { data } = await (supabase as any).from("lia_attendances")
-        .select("id,cidade,estado,empresa_cnpj")
-        .eq("pessoa_cpf", cnpjCpfNorm).is("merged_into", null).maybeSingle()
-      lead = data
-    }
+    const parsed = parseOmieCliente(cliente)
+    const lead = await resolveLeadFromOmieCliente(supabase, parsed)
     if (!lead) return
-    const patch: Record<string, any> = {
-      omie_codigo_cliente:  event.codigo_cliente_omie,
-      omie_last_sync:       new Date().toISOString(),
-      omie_tipo_pessoa:     cliente.pessoa_fisica === "S" ? "PF" : "PJ",
-    }
-    if (!lead.cidade && cliente.cidade)          patch.cidade            = cliente.cidade
-    if (!lead.estado && cliente.estado)          patch.estado            = cliente.estado
-    if (!lead.empresa_cnpj && cnpjCpfNorm)       patch.empresa_cnpj      = cnpjCpfNorm
-    if (cliente.razao_social)                     patch.omie_razao_social  = cliente.razao_social
-    if (cliente.tags?.length)                     patch.omie_segmento      = cliente.tags[0]
-    await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
+    await patchLeadFromCliente(supabase, lead.id, parsed)
     return
   }
 }
 
-// ─── runSync — Fase A incremental (para cron leve) ───────────────────────────
+// ─── runSync — incremental completo (clientes + pedidos + CR) com cursors ─────
 async function runSync(supabase: ReturnType<typeof createClient>) {
   const startTime = Date.now()
-  const TIMEOUT_MS = 50_000 // 50s guard
-  console.log("Sync incremental Omie — apenas Fase A (clientes)")
+  const TIMEOUT_MS = 50_000
+  console.log("Sync incremental Omie — clientes + pedidos + CR")
   leadsToEnrich.clear()
-  let totalClientes = 0
-  let pagina = 1
+  let totalClientes = 0, totalPedidos = 0, totalCR = 0
 
-  // Recuperar cursor salvo
-  const { data: cursorRow } = await (supabase as any).from("omie_sync_cursors")
-    .select("cursor_value").eq("cursor_key", "sync_clientes_pagina").maybeSingle()
-  if (cursorRow?.cursor_value) {
-    pagina = parseInt(cursorRow.cursor_value) || 1
-  }
-
-  while (true) {
+  // ── Fase A: clientes ──
+  let pagina = parseInt(await getCursor(supabase, "sync_clientes_pagina") ?? "1") || 1
+  let faseAConcluida = false
+  while (!faseAConcluida) {
     if (Date.now() - startTime > TIMEOUT_MS) {
-      console.log(`Timeout guard: parando na página ${pagina}`)
-      // Salvar cursor para retomar
-      await (supabase as any).from("omie_sync_cursors")
-        .upsert({ cursor_key: "sync_clientes_pagina", cursor_value: String(pagina), updated_at: new Date().toISOString() },
-          { onConflict: "cursor_key" })
-      break
+      console.log(`Timeout guard Fase A: parando na página ${pagina}`)
+      await setCursor(supabase, "sync_clientes_pagina", String(pagina))
+      const scoreCount = await flushEnrichQueue(supabase, "Sync score (timeout)")
+      return { totalClientes, totalPedidos, totalCR, scoreCount, timeout: true }
     }
     const data = await omieGet("/geral/clientes/", "ListarClientes", {
       pagina, registros_por_pagina: 50
     })
     for (const c of data.clientes_cadastro ?? []) {
-      const email    = c.email?.toLowerCase()?.trim()
-      const cnpjNorm = c.cnpj_cpf?.replace(/\D/g,"")
-      if (!email && !cnpjNorm) continue
+      const parsed = parseOmieCliente(c)
+      if (!parsed.email && !parsed.docDigits) continue
 
-      let lead: { id: string } | null = null
-      if (email) {
-        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("email", email).is("merged_into", null).maybeSingle()
-        lead = r
-      }
-      if (!lead && cnpjNorm) {
-        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("empresa_cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
-        lead = r
-      }
-      if (!lead && cnpjNorm) {
-        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("pessoa_cpf", cnpjNorm).is("merged_into", null).maybeSingle()
-        lead = r
-      }
-      if (!lead && c.telefone1_ddd && c.telefone1_numero) {
-        const tel = normalizePhone(c.telefone1_ddd, c.telefone1_numero)
-        if (tel) {
-          const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-            .eq("telefone_normalized", tel).is("merged_into", null).maybeSingle()
-          lead = r
-        }
-      }
+      const lead = await resolveLeadFromOmieCliente(supabase, parsed)
       if (!lead) continue
 
-      const { data: cur } = await (supabase as any).from("lia_attendances")
-        .select("cidade,estado,empresa_cnpj").eq("id", lead.id).single()
-      const patch: Record<string, any> = {
-        omie_codigo_cliente:  c.codigo_cliente_omie,
-        omie_last_sync:       new Date().toISOString(),
-        omie_tipo_pessoa:     c.pessoa_fisica === "S" ? "PF" : "PJ",
-      }
-      if (!cur?.cidade       && c.cidade)  patch.cidade            = c.cidade
-      if (!cur?.estado       && c.estado)  patch.estado            = c.estado
-      if (!cur?.empresa_cnpj && cnpjNorm)  patch.empresa_cnpj      = cnpjNorm
-      if (c.razao_social)                  patch.omie_razao_social  = c.razao_social
-      if (c.tags?.length)                  patch.omie_segmento      = c.tags[0]
-      await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
+      await patchLeadFromCliente(supabase, lead.id, parsed)
       queueEnrich(lead.id)
       totalClientes++
     }
     if (pagina >= (data.total_de_paginas ?? 1)) {
-      // Completou — resetar cursor
-      await (supabase as any).from("omie_sync_cursors")
-        .upsert({ cursor_key: "sync_clientes_pagina", cursor_value: "1", updated_at: new Date().toISOString() },
-          { onConflict: "cursor_key" })
+      await setCursor(supabase, "sync_clientes_pagina", "1")
+      faseAConcluida = true
+    } else {
+      pagina++
+      await sleep(280)
+    }
+  }
+  console.log(`Sync Fase A: ${totalClientes} clientes`)
+
+  // ── Fase B: pedidos faturados (incremental por cursor de página) ──
+  let paginaPedidos = parseInt(await getCursor(supabase, "sync_pedidos_pagina") ?? "1") || 1
+  let faseBConcluida = false
+  while (!faseBConcluida) {
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      console.log(`Timeout guard Fase B: parando na página ${paginaPedidos}`)
+      await setCursor(supabase, "sync_pedidos_pagina", String(paginaPedidos))
+      const scoreCount = await flushEnrichQueue(supabase, "Sync score (timeout B)")
+      return { totalClientes, totalPedidos, totalCR, scoreCount, timeout: true }
+    }
+    const data = await omieGet("/produtos/pedido/", "ListarPedidos", {
+      pagina: paginaPedidos, registros_por_pagina: 20, etapa: "60", status_pedido: "FATURADO"
+    })
+    for (const resumo of data.pedido_venda_produto ?? []) {
+      try {
+        const pedido = await omieGet("/produtos/pedido/", "ConsultarPedido", {
+          nCodPed: resumo.cabecalho.codigo_pedido
+        })
+        const lead = await resolveLeadByOmieEvent(supabase, resumo.cabecalho, pedido?.cabecalho)
+        if (!lead) { await sleep(100); continue }
+        const info = pedido.infoCadastro ?? {}
+        if (info.cancelado === "S") {
+          await updateErpStatus(supabase, lead.id, "CANCELADO", "sync.cancelado")
+          await (supabase as any).from("omie_parcelas").update({ status: "CANCELADO" })
+            .eq("lead_id", lead.id).in("status", ["PENDENTE","VENCIDO"])
+          queueEnrich(lead.id); await sleep(100); continue
+        }
+        if (info.devolvido === "S") {
+          await updateErpStatus(supabase, lead.id, "DEVOLVIDO", "sync.devolvido")
+          queueEnrich(lead.id); await sleep(100); continue
+        }
+        if (info.faturado !== "S") { await sleep(100); continue }
+        await updateErpStatus(supabase, lead.id, "FATURADO", "sync.faturado")
+        const dealItems: object[] = []
+        for (const item of pedido.det ?? []) {
+          const p = item.produto
+          dealItems.push({
+            lead_id: lead.id, source: "omie",
+            product_name: p.descricao,
+            product_code: String(p.codigo ?? ""),
+            quantity:    parseFloat(p.quantidade ?? 1),
+            unit_value:  parseFloat(p.valor_unitario ?? 0),
+            total_value: parseFloat(p.valor_total ?? 0),
+            nfe_number:  String(resumo.cabecalho.numero_pedido ?? ""),
+            proposal_id: 'omie-direct',
+            synced_at:   new Date().toISOString()
+          })
+        }
+        if (dealItems.length > 0) {
+          await (supabase as any).from("deal_items")
+            .upsert(dealItems, { onConflict: "lead_id,nfe_number,product_code", ignoreDuplicates: true })
+        }
+        await upsertParcelas(supabase, lead.id, pedido)
+        const freteData = extractFreteData(pedido)
+        if (freteData.frete_tipo !== "SEM_FRETE" && freteData.frete_tipo !== "FOB") {
+          await updateFreteStatus(supabase, lead.id, freteData.frete_status, {
+            ...freteData, event_name: "sync.frete"
+          })
+        }
+        queueEnrich(lead.id)
+        totalPedidos++
+      } catch (e) { console.warn("Erro pedido sync B:", e) }
+      await sleep(300)
+    }
+    if (paginaPedidos >= (data.total_de_paginas ?? 1)) {
+      await setCursor(supabase, "sync_pedidos_pagina", "1")
+      faseBConcluida = true
+    } else {
+      paginaPedidos++
+      await sleep(280)
+    }
+  }
+  console.log(`Sync Fase B: ${totalPedidos} pedidos`)
+
+  // ── Fase C: Contas a Receber (incremental) ──
+  let paginaCR = parseInt(await getCursor(supabase, "sync_cr_pagina") ?? "1") || 1
+  let faseCConcluida = false
+  while (!faseCConcluida) {
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      console.log(`Timeout guard Fase C: parando na página ${paginaCR}`)
+      await setCursor(supabase, "sync_cr_pagina", String(paginaCR))
+      const scoreCount = await flushEnrichQueue(supabase, "Sync score (timeout C)")
+      return { totalClientes, totalPedidos, totalCR, scoreCount, timeout: true }
+    }
+    const data = await omieGet("/financas/contareceber/", "ListarContasReceber", {
+      pagina: paginaCR, registros_por_pagina: 100, apenas_importado_api: "N"
+    })
+    const titulos: any[] = data.conta_receber_cadastro ?? []
+    if (!titulos.length && paginaCR === 1) {
+      console.warn("Sync Fase C: nenhuma conta a receber. Keys:", Object.keys(data))
       break
     }
-    pagina++
-    await sleep(280)
+    for (const titulo of titulos) {
+      try {
+        const codigoCliente = titulo.codigo_cliente_fornecedor
+        if (!codigoCliente) continue
+        const lead = await resolveLeadByOmieEvent(supabase, { nCodCliente: codigoCliente })
+        if (!lead) continue
+        const dataVenc = parseOmieDate(titulo.data_vencimento)
+        if (!dataVenc) continue
+        const statusParcela = (() => {
+          const s = (titulo.status_titulo ?? "").toUpperCase().trim()
+          if (["RECEBIDO","LIQUIDADO","BAIXADO"].includes(s)) return "PAGO"
+          if (["ATRASADO","VENCIDO"].includes(s))             return "VENCIDO"
+          if (s === "CANCELADO")                              return "CANCELADO"
+          return dataVenc < new Date() ? "VENCIDO" : "PENDENTE"
+        })()
+        const tituloId = titulo.codigo_lancamento_omie || titulo.nCodTitulo
+        if (!tituloId) continue
+        await (supabase as any).from("omie_parcelas").upsert([{
+          lead_id:         lead.id,
+          omie_titulo_id:  Number(String(tituloId)),
+          numero_pedido:   titulo.numero_titulo ?? null,
+          numero_parcela:  parseInt(titulo.codigo_parcela ?? "1") || 1,
+          total_parcelas:  1,
+          valor:           parseFloat(titulo.valor_documento ?? 0),
+          data_vencimento: dataVenc.toISOString().split("T")[0],
+          tipo_documento:  mapTipoDocumento(titulo.tipo_documento),
+          status:          statusParcela,
+          valor_pago:      statusParcela === "PAGO"
+                             ? parseFloat(titulo.valor_documento ?? 0) : 0,
+          data_pagamento:  statusParcela === "PAGO"
+                             ? parseOmieDate(titulo.data_previsao)?.toISOString().split("T")[0] ?? null
+                             : null,
+          source:          "omie_cr",
+        }], { onConflict: "omie_titulo_id", ignoreDuplicates: false })
+        queueEnrich(lead.id)
+        totalCR++
+      } catch (e) { console.warn("Erro CR sync:", e) }
+    }
+    if (paginaCR >= (data.total_de_paginas ?? 1)) {
+      await setCursor(supabase, "sync_cr_pagina", "1")
+      faseCConcluida = true
+    } else {
+      paginaCR++
+      await sleep(280)
+    }
   }
-  console.log(`Sync: ${totalClientes} clientes vinculados`)
+  console.log(`Sync Fase C: ${totalCR} contas a receber`)
 
   // Fase D rápida: atualizar parcelas vencidas
   try { await (supabase as any).rpc("fn_atualizar_parcelas_vencidas") } catch (_) {}
 
   const scoreCount = await flushEnrichQueue(supabase, "Sync score")
-  return { totalClientes, scoreCount }
+  return { totalClientes, totalPedidos, totalCR, scoreCount }
+}
+
+// ─── runSyncLead — reprocessamento pontual de um lead ─────────────────────────
+async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: string) {
+  console.log(`sync-lead: processando ${leadId}`)
+
+  // 1. Buscar dados do lead
+  const { data: lead, error } = await (supabase as any).from("lia_attendances")
+    .select("id,email,pessoa_cpf,empresa_cnpj,telefone_normalized,omie_codigo_cliente")
+    .eq("id", leadId).single()
+  if (error || !lead) throw new Error(`Lead ${leadId} não encontrado`)
+
+  let omieCodigoCliente = lead.omie_codigo_cliente
+
+  // 2. Se não tem omie_codigo_cliente, buscar no Omie por email/CPF/CNPJ
+  if (!omieCodigoCliente) {
+    // Tentar por email
+    if (lead.email) {
+      try {
+        const data = await omieGet("/geral/clientes/", "ListarClientes", {
+          pagina: 1, registros_por_pagina: 5,
+          clientesFiltro: { email: lead.email }
+        })
+        const found = data.clientes_cadastro?.[0]
+        if (found) {
+          const parsed = parseOmieCliente(found)
+          omieCodigoCliente = parsed.codigoCliente
+          await patchLeadFromCliente(supabase, leadId, parsed)
+        }
+      } catch (e) { console.warn("sync-lead: busca por email falhou:", e) }
+    }
+
+    // Tentar por CNPJ/CPF
+    if (!omieCodigoCliente) {
+      const doc = normalizeDoc(lead.empresa_cnpj) || normalizeDoc(lead.pessoa_cpf)
+      if (doc) {
+        try {
+          const data = await omieGet("/geral/clientes/", "ListarClientes", {
+            pagina: 1, registros_por_pagina: 5,
+            clientesFiltro: { cnpj_cpf: doc }
+          })
+          const found = data.clientes_cadastro?.[0]
+          if (found) {
+            const parsed = parseOmieCliente(found)
+            omieCodigoCliente = parsed.codigoCliente
+            await patchLeadFromCliente(supabase, leadId, parsed)
+          }
+        } catch (e) { console.warn("sync-lead: busca por doc falhou:", e) }
+      }
+    }
+  }
+
+  if (!omieCodigoCliente) {
+    console.warn(`sync-lead: cliente Omie não encontrado para ${leadId}`)
+    return { ok: false, reason: "cliente_nao_encontrado" }
+  }
+
+  // 3. Buscar pedidos do cliente no Omie
+  let totalPedidos = 0
+  let pagina = 1
+  while (true) {
+    try {
+      const data = await omieGet("/produtos/pedido/", "ListarPedidos", {
+        pagina, registros_por_pagina: 20,
+        etapa: "60", status_pedido: "FATURADO",
+        filtrar_por_cliente: omieCodigoCliente
+      })
+      for (const resumo of data.pedido_venda_produto ?? []) {
+        try {
+          const pedido = await omieGet("/produtos/pedido/", "ConsultarPedido", {
+            nCodPed: resumo.cabecalho.codigo_pedido
+          })
+          const info = pedido.infoCadastro ?? {}
+          if (info.cancelado === "S" || info.devolvido === "S") continue
+          if (info.faturado !== "S") continue
+          await updateErpStatus(supabase, leadId, "FATURADO", "sync-lead.faturado")
+          const dealItems: object[] = []
+          for (const item of pedido.det ?? []) {
+            const p = item.produto
+            dealItems.push({
+              lead_id: leadId, source: "omie",
+              product_name: p.descricao,
+              product_code: String(p.codigo ?? ""),
+              quantity:    parseFloat(p.quantidade ?? 1),
+              unit_value:  parseFloat(p.valor_unitario ?? 0),
+              total_value: parseFloat(p.valor_total ?? 0),
+              nfe_number:  String(resumo.cabecalho.numero_pedido ?? ""),
+              proposal_id: 'omie-direct',
+              synced_at:   new Date().toISOString()
+            })
+          }
+          if (dealItems.length > 0) {
+            await (supabase as any).from("deal_items")
+              .upsert(dealItems, { onConflict: "lead_id,nfe_number,product_code", ignoreDuplicates: true })
+          }
+          await upsertParcelas(supabase, leadId, pedido)
+          totalPedidos++
+        } catch (e) { console.warn("sync-lead pedido:", e) }
+        await sleep(300)
+      }
+      if (pagina >= (data.total_de_paginas ?? 1)) break
+      pagina++
+      await sleep(280)
+    } catch (e) {
+      console.warn("sync-lead ListarPedidos:", e)
+      break
+    }
+  }
+
+  // 4. Buscar contas a receber do cliente
+  let totalCR = 0
+  pagina = 1
+  while (true) {
+    try {
+      const data = await omieGet("/financas/contareceber/", "ListarContasReceber", {
+        pagina, registros_por_pagina: 100,
+        apenas_importado_api: "N",
+        filtrar_por_cliente: omieCodigoCliente
+      })
+      for (const titulo of data.conta_receber_cadastro ?? []) {
+        try {
+          const dataVenc = parseOmieDate(titulo.data_vencimento)
+          if (!dataVenc) continue
+          const statusParcela = (() => {
+            const s = (titulo.status_titulo ?? "").toUpperCase().trim()
+            if (["RECEBIDO","LIQUIDADO","BAIXADO"].includes(s)) return "PAGO"
+            if (["ATRASADO","VENCIDO"].includes(s))             return "VENCIDO"
+            if (s === "CANCELADO")                              return "CANCELADO"
+            return dataVenc < new Date() ? "VENCIDO" : "PENDENTE"
+          })()
+          const tituloId = titulo.codigo_lancamento_omie || titulo.nCodTitulo
+          if (!tituloId) continue
+          await (supabase as any).from("omie_parcelas").upsert([{
+            lead_id:         leadId,
+            omie_titulo_id:  Number(String(tituloId)),
+            numero_pedido:   titulo.numero_titulo ?? null,
+            numero_parcela:  parseInt(titulo.codigo_parcela ?? "1") || 1,
+            total_parcelas:  1,
+            valor:           parseFloat(titulo.valor_documento ?? 0),
+            data_vencimento: dataVenc.toISOString().split("T")[0],
+            tipo_documento:  mapTipoDocumento(titulo.tipo_documento),
+            status:          statusParcela,
+            valor_pago:      statusParcela === "PAGO"
+                               ? parseFloat(titulo.valor_documento ?? 0) : 0,
+            data_pagamento:  statusParcela === "PAGO"
+                               ? parseOmieDate(titulo.data_previsao)?.toISOString().split("T")[0] ?? null
+                               : null,
+            source:          "omie_cr",
+          }], { onConflict: "omie_titulo_id", ignoreDuplicates: false })
+          totalCR++
+        } catch (e) { console.warn("sync-lead CR:", e) }
+      }
+      if (pagina >= (data.total_de_paginas ?? 1)) break
+      pagina++
+      await sleep(280)
+    } catch (e) {
+      console.warn("sync-lead ListarContasReceber:", e)
+      break
+    }
+  }
+
+  // 5. Enriquecer
+  await enrichLead(supabase, leadId)
+
+  console.log(`sync-lead ${leadId}: ${totalPedidos} pedidos, ${totalCR} CR`)
+  return { ok: true, omieCodigoCliente, totalPedidos, totalCR }
 }
 
 // ─── runBackfill — 6 fases com debounce ──────────────────────────────────────
@@ -746,51 +1101,13 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
       pagina, registros_por_pagina: 50
     })
     for (const c of data.clientes_cadastro ?? []) {
-      const email    = c.email?.toLowerCase()?.trim()
-      const cnpjNorm = c.cnpj_cpf?.replace(/\D/g,"")
-      if (!email && !cnpjNorm) continue
+      const parsed = parseOmieCliente(c)
+      if (!parsed.email && !parsed.docDigits) continue
 
-      let lead: { id: string } | null = null
-      if (email) {
-        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("email", email).is("merged_into", null).maybeSingle()
-        lead = r
-      }
-      if (!lead && cnpjNorm) {
-        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("empresa_cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
-        lead = r
-      }
-      if (!lead && cnpjNorm) {
-        // Fallback: busca por CPF (pessoa física)
-        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("pessoa_cpf", cnpjNorm).is("merged_into", null).maybeSingle()
-        lead = r
-      }
-      if (!lead && c.telefone1_ddd && c.telefone1_numero) {
-        const tel = normalizePhone(c.telefone1_ddd, c.telefone1_numero)
-        if (tel) {
-          const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-            .eq("telefone_normalized", tel)
-            .is("merged_into", null).maybeSingle()
-          lead = r
-        }
-      }
+      const lead = await resolveLeadFromOmieCliente(supabase, parsed)
       if (!lead) continue
 
-      const { data: cur } = await (supabase as any).from("lia_attendances")
-        .select("cidade,estado,empresa_cnpj").eq("id", lead.id).single()
-      const patch: Record<string, any> = {
-        omie_codigo_cliente:  c.codigo_cliente_omie,
-        omie_last_sync:       new Date().toISOString(),
-        omie_tipo_pessoa:     c.pessoa_fisica === "S" ? "PF" : "PJ",
-      }
-      if (!cur?.cidade       && c.cidade)  patch.cidade            = c.cidade
-      if (!cur?.estado       && c.estado)  patch.estado            = c.estado
-      if (!cur?.empresa_cnpj && cnpjNorm)  patch.empresa_cnpj      = cnpjNorm
-      if (c.razao_social)             patch.omie_razao_social  = c.razao_social
-      if (c.tags?.length)             patch.omie_segmento      = c.tags[0]
-      await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
+      await patchLeadFromCliente(supabase, lead.id, parsed)
       queueEnrich(lead.id)
       totalClientes++
     }
@@ -829,7 +1146,6 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
         if (info.faturado !== "S") { await sleep(100); continue }
         await updateErpStatus(supabase, lead.id, "FATURADO", "backfill.faturado")
 
-        // Batch: upsert items + queue (NÃO enriquecer agora)
         const dealItems: object[] = []
         for (const item of pedido.det ?? []) {
           const p = item.produto
@@ -907,7 +1223,7 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
   console.log(`Fase C: ${totalEntregas} entregas`)
 
   // ── Fase D: parcelas vencidas ──
-  await (supabase as any).rpc("fn_atualizar_parcelas_vencidas")
+  try { await (supabase as any).rpc("fn_atualizar_parcelas_vencidas") } catch (_) {}
   console.log("Fase D: parcelas vencidas atualizadas")
 
   // ── Fase E: Contas a Receber ──
@@ -1018,7 +1334,6 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
             chaveNFe
           )
         }
-        // Atualiza omie_ultima_nf_emitida se for mais recente
         if (dataEmissao) {
           const dataStr = dataEmissao.toISOString().split("T")[0]
           await (supabase as any).from("lia_attendances")
@@ -1038,7 +1353,6 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
   }
   console.log(`Fase F: ${totalNFe} NF-e`)
 
-  // ── Flush: enriquece TODOS os leads tocados — 1x cada ──
   const scoreCount = await flushEnrichQueue(supabase, "Backfill score")
 
   return { totalClientes, totalPedidos, totalEntregas, totalContasReceber, totalNFe, scoreCount }
@@ -1069,6 +1383,12 @@ serve(async (req) => {
     if (action === "sync") {
       const result = await runSync(supabase)
       return new Response(JSON.stringify({ ok: true, ...result }), { headers: CORS })
+    }
+    if (action === "sync-lead") {
+      const leadId = url.searchParams.get("lead_id")
+      if (!leadId) return new Response(JSON.stringify({ error: "lead_id required" }), { status: 400, headers: CORS })
+      const result = await runSyncLead(supabase, leadId)
+      return new Response(JSON.stringify(result), { headers: CORS, status: result.ok ? 200 : 404 })
     }
     if (body?.topic) {
       await handleWebhook(supabase, body)
