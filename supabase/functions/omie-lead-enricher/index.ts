@@ -1043,11 +1043,14 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
   while (true) {
     try {
       const data = await omieGet("/financas/contareceber/", "ListarContasReceber", {
-        pagina, registros_por_pagina: 100,
-        apenas_importado_api: "N",
-        filtrar_por_cliente: omieCodigoCliente
+        pagina: paginaCR, registros_por_pagina: 100,
+        apenas_importado_api: "N"
       })
-      for (const titulo of data.conta_receber_cadastro ?? []) {
+      const titulos = data.conta_receber_cadastro ?? []
+      // Filtrar pelo codigo_cliente do lead
+      for (const titulo of titulos.filter((t: any) =>
+        t.codigo_cliente_fornecedor && Number(t.codigo_cliente_fornecedor) === Number(omieCodigoCliente)
+      )) {
         try {
           const dataVenc = parseOmieDate(titulo.data_vencimento)
           if (!dataVenc) continue
