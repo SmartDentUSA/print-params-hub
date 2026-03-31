@@ -1,4 +1,4 @@
-// redeployed 2026-03-31T14:30Z
+// redeployed 2026-03-31T20:00Z — fix cnpj→empresa_cnpj, add CPF fallback, action=sync
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
