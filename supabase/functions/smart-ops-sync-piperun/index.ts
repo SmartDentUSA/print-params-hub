@@ -1,3 +1,4 @@
+// redeployed 2026-03-31T14:30Z — fix merge collision + email normalization
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   PIPELINES,
