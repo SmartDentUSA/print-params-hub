@@ -596,18 +596,21 @@ async function patchLeadFromCliente(
   parsed: ReturnType<typeof parseOmieCliente>
 ) {
   const { data: cur } = await (supabase as any).from("lia_attendances")
-    .select("cidade,estado,empresa_cnpj").eq("id", leadId).single()
+    .select("cidade,uf,empresa_cnpj").eq("id", leadId).single()
   const patch: Record<string, any> = {
-    omie_codigo_cliente:  parsed.codigoCliente,
+    omie_codigo_cliente:  parsed.codigoCliente ? Number(parsed.codigoCliente) : null,
     omie_last_sync:       new Date().toISOString(),
     omie_tipo_pessoa:     parsed.tipoPessoa,
   }
   if (!cur?.cidade       && parsed.cidade)     patch.cidade            = parsed.cidade
-  if (!cur?.estado       && parsed.estado)     patch.estado            = parsed.estado
+  if (!cur?.uf           && parsed.estado)     patch.uf                = parsed.estado
   if (!cur?.empresa_cnpj && parsed.docDigits)  patch.empresa_cnpj      = parsed.docDigits
   if (parsed.razaoSocial)                      patch.omie_razao_social  = parsed.razaoSocial
   if (parsed.tags?.length)                     patch.omie_segmento      = parsed.tags[0]
-  await (supabase as any).from("lia_attendances").update(patch).eq("id", leadId)
+  console.log(`patchLeadFromCliente: leadId=${leadId}, patch=`, JSON.stringify(patch))
+  const { error } = await (supabase as any).from("lia_attendances").update(patch).eq("id", leadId)
+  if (error) console.error(`patchLeadFromCliente ERROR: ${error.message}`, error)
+  return { patched: !error, error: error?.message }
 }
 
 // ─── handleWebhook ────────────────────────────────────────────────────────────
@@ -938,6 +941,7 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     // Tentar por email
     if (lead.email) {
       try {
+        console.log(`sync-lead: buscando por email=${lead.email}`)
         const data = await omieGet("/geral/clientes/", "ListarClientes", {
           pagina: 1, registros_por_pagina: 5,
           clientesFiltro: { email: lead.email }
@@ -945,8 +949,12 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
         const found = data.clientes_cadastro?.[0]
         if (found) {
           const parsed = parseOmieCliente(found)
+          console.log(`sync-lead: email match → codigoCliente=${parsed.codigoCliente}, razao=${parsed.razaoSocial}`)
           omieCodigoCliente = parsed.codigoCliente
-          await patchLeadFromCliente(supabase, leadId, parsed)
+          const patchRes = await patchLeadFromCliente(supabase, leadId, parsed)
+          console.log(`sync-lead: patchLeadFromCliente resultado:`, JSON.stringify(patchRes))
+        } else {
+          console.log(`sync-lead: nenhum cliente encontrado por email`)
         }
       } catch (e) { console.warn("sync-lead: busca por email falhou:", e) }
     }
@@ -956,6 +964,7 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
       const doc = normalizeDoc(lead.empresa_cnpj) || normalizeDoc(lead.pessoa_cpf)
       if (doc) {
         try {
+          console.log(`sync-lead: buscando por doc=${doc}`)
           const data = await omieGet("/geral/clientes/", "ListarClientes", {
             pagina: 1, registros_por_pagina: 5,
             clientesFiltro: { cnpj_cpf: doc }
@@ -963,8 +972,12 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
           const found = data.clientes_cadastro?.[0]
           if (found) {
             const parsed = parseOmieCliente(found)
+            console.log(`sync-lead: doc match → codigoCliente=${parsed.codigoCliente}`)
             omieCodigoCliente = parsed.codigoCliente
-            await patchLeadFromCliente(supabase, leadId, parsed)
+            const patchRes = await patchLeadFromCliente(supabase, leadId, parsed)
+            console.log(`sync-lead: patchLeadFromCliente resultado:`, JSON.stringify(patchRes))
+          } else {
+            console.log(`sync-lead: nenhum cliente encontrado por doc`)
           }
         } catch (e) { console.warn("sync-lead: busca por doc falhou:", e) }
       }
@@ -975,13 +988,16 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     console.warn(`sync-lead: cliente Omie não encontrado para ${leadId}`)
     return { ok: false, reason: "cliente_nao_encontrado" }
   }
+  console.log(`sync-lead: omieCodigoCliente=${omieCodigoCliente} para lead=${leadId}`)
 
-  // 3. Buscar pedidos do cliente no Omie
-  // Omie ListarPedidos não suporta filtrar_por_cliente — iterar páginas e filtrar in-code
+  // 3. Buscar pedidos do cliente no Omie (filtro in-code por codigo_cliente)
+  // Omie ListarPedidos NÃO suporta filtro nativo por cliente — filtramos in-code
+  // Para evitar timeout, fazemos ConsultarPedido APENAS para pedidos do cliente
   let totalPedidos = 0
   let pagina = 1
   const TIMEOUT_SYNC_LEAD = 45_000
   const syncLeadStart = Date.now()
+  console.log(`sync-lead: buscando pedidos, filtrando in-code por codigo_cliente=${omieCodigoCliente}`)
   while (true) {
     if (Date.now() - syncLeadStart > TIMEOUT_SYNC_LEAD) {
       console.log(`sync-lead: timeout pedidos na página ${pagina}`)
@@ -992,10 +1008,14 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
         pagina, registros_por_pagina: 50,
         etapa: "60", status_pedido: "FATURADO"
       })
-      for (const resumo of data.pedido_venda_produto ?? []) {
-        // Filtrar pelo codigo_cliente do lead
-        const cabCliente = resumo.cabecalho?.codigo_cliente ?? resumo.cabecalho?.codigo_cliente_omie
-        if (cabCliente && Number(cabCliente) !== Number(omieCodigoCliente)) continue
+      const pedidos = data.pedido_venda_produto ?? []
+      // Filtrar ANTES de chamar ConsultarPedido (economia de API calls)
+      const doCliente = pedidos.filter((r: any) => {
+        const cc = r.cabecalho?.codigo_cliente ?? r.cabecalho?.codigo_cliente_omie
+        return cc && Number(cc) === Number(omieCodigoCliente)
+      })
+      console.log(`sync-lead: página ${pagina}/${data.total_de_paginas ?? 1}, total=${pedidos.length}, doCliente=${doCliente.length}`)
+      for (const resumo of doCliente) {
         try {
           const pedido = await omieGet("/produtos/pedido/", "ConsultarPedido", {
             nCodPed: resumo.cabecalho.codigo_pedido
@@ -1020,8 +1040,9 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
             })
           }
           if (dealItems.length > 0) {
-            await (supabase as any).from("deal_items")
+            const upsRes = await (supabase as any).from("deal_items")
               .upsert(dealItems, { onConflict: "lead_id,nfe_number,product_code", ignoreDuplicates: true })
+            console.log(`sync-lead: upsert deal_items: ${dealItems.length} itens, error=${upsRes.error?.message ?? 'none'}`)
           }
           await upsertParcelas(supabase, leadId, pedido)
           totalPedidos++
@@ -1030,16 +1051,19 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
       }
       if (pagina >= (data.total_de_paginas ?? 1)) break
       pagina++
-      await sleep(280)
+      // Se não há pedidos do cliente nesta página, avançar mais rápido
+      await sleep(doCliente.length > 0 ? 280 : 100)
     } catch (e) {
       console.warn("sync-lead ListarPedidos:", e)
       break
     }
   }
 
-  // 4. Buscar contas a receber do cliente
+  // 4. Buscar contas a receber do cliente (filtro in-code por codigo_cliente_fornecedor)
+  // Omie ListarContasReceber com nCodCliente retorna HTTP 500 — filtramos in-code
   let totalCR = 0
   let paginaCR = 1
+  console.log(`sync-lead: buscando CR, filtrando in-code por codigo_cliente_fornecedor=${omieCodigoCliente}`)
   while (true) {
     if (Date.now() - syncLeadStart > TIMEOUT_SYNC_LEAD) {
       console.log(`sync-lead: timeout CR na página ${paginaCR}`)
@@ -1051,9 +1075,11 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
         apenas_importado_api: "N"
       })
       const titulos = data.conta_receber_cadastro ?? []
-      for (const titulo of titulos.filter((t: any) =>
+      const doCliente = titulos.filter((t: any) =>
         t.codigo_cliente_fornecedor && Number(t.codigo_cliente_fornecedor) === Number(omieCodigoCliente)
-      )) {
+      )
+      console.log(`sync-lead: CR página ${paginaCR}/${data.total_de_paginas ?? 1}, total=${titulos.length}, doCliente=${doCliente.length}`)
+      for (const titulo of doCliente) {
         try {
           const dataVenc = parseOmieDate(titulo.data_vencimento)
           if (!dataVenc) continue
