@@ -596,14 +596,14 @@ async function patchLeadFromCliente(
   parsed: ReturnType<typeof parseOmieCliente>
 ) {
   const { data: cur } = await (supabase as any).from("lia_attendances")
-    .select("cidade,estado,empresa_cnpj").eq("id", leadId).single()
+    .select("cidade,uf,empresa_cnpj").eq("id", leadId).single()
   const patch: Record<string, any> = {
     omie_codigo_cliente:  parsed.codigoCliente ? Number(parsed.codigoCliente) : null,
     omie_last_sync:       new Date().toISOString(),
     omie_tipo_pessoa:     parsed.tipoPessoa,
   }
   if (!cur?.cidade       && parsed.cidade)     patch.cidade            = parsed.cidade
-  if (!cur?.estado       && parsed.estado)     patch.estado            = parsed.estado
+  if (!cur?.uf           && parsed.estado)     patch.uf                = parsed.estado
   if (!cur?.empresa_cnpj && parsed.docDigits)  patch.empresa_cnpj      = parsed.docDigits
   if (parsed.razaoSocial)                      patch.omie_razao_social  = parsed.razaoSocial
   if (parsed.tags?.length)                     patch.omie_segmento      = parsed.tags[0]
