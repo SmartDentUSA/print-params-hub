@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 import { ErpDataTab } from "../leads/tabs/ErpDataTab";
 import { FinanceiroTab } from "../leads/tabs/FinanceiroTab";
+import LeadFieldsInventory from "./LeadFieldsInventory";
 
 // ─── Constants ───
 const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
@@ -1882,6 +1883,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
               </div>
             </div>
           )}
+
+          {/* ── INVENTÁRIO COMPLETO DE CAMPOS ── */}
+          <LeadFieldsInventory lead={detail.lead} />
         </div>
       )}
 
