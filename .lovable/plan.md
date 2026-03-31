@@ -1,43 +1,32 @@
 
 
-## Fluxo Mapeamento → portfolio_json do Lead
+## Problema: Lead Criado na Etapa Errada do Distribuidor
 
-### Problema
-Os campos de mapeamento do formulário (scanner, impressora, CAD, etc.) são salvos na tabela `smartops_form_field_responses` com o `workflow_cell_target`, mas **nada os converte em entradas na coluna `portfolio_json`** do lead. O `smart-ops-leads-api` já renderiza a camada "mapeamento" do Workflow 7×3 a partir de `portfolio_json`, mas essa camada fica sempre vazia.
+### Diagnóstico
 
-### Solução
+O `resolveFirstStage` (linha 1391 do `lia-assign`) consulta a API PipeRun buscando stages do pipeline 70898 (Distribuidor de Leads) ordenados por `order ASC` e pega o primeiro. A API está retornando **"Vendas no site"** como primeiro resultado, ao invés de **"0. Distribuidor de leads"**.
 
-Criar um **trigger de banco** que, ao inserir uma resposta em `smartops_form_field_responses`, atualiza automaticamente o `portfolio_json` do lead correspondente com a camada `mapeamento`.
+Isso acontece porque a API do PipeRun nem sempre respeita o parâmetro `order_by`, ou porque "Vendas no site" tem ordem menor que "0. Distribuidor de leads" na configuração do funil.
 
-### Arquivos e Mudanças
+### Correção
 
-#### 1. SQL Migration — Trigger `fn_sync_form_response_to_portfolio`
+**Hardcodar o stage ID** da etapa "0. Distribuidor de leads", assim como já fazemos com `STAGES_VENDAS`, `STAGES_ESTAGNADOS`, etc. Isso elimina a dependência da API para resolver o stage correto.
 
-Criar uma função PL/pgSQL que:
-- Dispara no `AFTER INSERT` em `smartops_form_field_responses`
-- Converte o `workflow_cell_target` (ex: `3_impressao__impressora_3d`) em `stageKey` + `subcat` (ex: `etapa_3_impressao` / `impressora`)
-- Faz `jsonb_set` no `portfolio_json` do lead, adicionando `{ "mapeamento": { "valor": "<value>", "status": "mapeado" } }` na célula correta
-- Atualiza `portfolio_updated_at = now()`
+### Mudanças
 
-Mapeamento de `workflow_cell_target` → `stageKey.subcat`:
+#### 1. `supabase/functions/_shared/piperun-field-map.ts`
+- Adicionar constante `STAGES_DISTRIBUIDOR` com o ID correto da etapa "0. Distribuidor de leads"
+- Precisaremos consultar o ID real via API ou o usuário nos informar
 
-```text
-1_captura_digital__scanner_intraoral  → etapa_1_scanner.scanner_intraoral
-2_cad__software                       → etapa_2_cad.software
-3_impressao__impressora_3d            → etapa_3_impressao.impressora
-(etc. — 25 células totais)
-```
+#### 2. `supabase/functions/smart-ops-lia-assign/index.ts`
+- Substituir a chamada `resolveFirstStage(PIPERUN_API_KEY, PIPELINES.DISTRIBUIDOR_LEADS)` na linha 1130 por `STAGES_DISTRIBUIDOR.ETAPA_0`
+- Remover a dependência dinâmica da API
 
-#### 2. Atualizar `smart-ops-ingest-lead/index.ts`
+### Informação necessária
 
-Após o `ingest-lead` retornar o `lead_id`, e o `PublicFormPage` gravar as `field_responses`, o trigger do banco cuidará do resto automaticamente. Nenhuma mudança necessária no edge function.
-
-#### 3. Backfill — Processar respostas já existentes
-
-Executar um UPDATE que leia todas as respostas em `smartops_form_field_responses` e popule o `portfolio_json` dos leads que já têm respostas mas `portfolio_json` não reflete os dados de mapeamento.
+Para hardcodar o stage, preciso do **ID numérico** da etapa "0. Distribuidor de leads" no PipeRun. Posso obtê-lo invocando a edge function `piperun-api-test` com endpoint `stages?pipeline_id=70898` para listar todos os stages deste funil e identificar o correto.
 
 ### Resultado
-- Formulários de mapeamento preenchem automaticamente a 4ª camada (roxo) do Workflow 7×3
-- O card do lead mostra imediatamente o que o lead possui (scanner, impressora, CAD, etc.)
-- LIA e Copilot passam a ter visibilidade dos equipamentos mapeados via formulário
+- Leads sem vendedor ativo sempre cairão em "0. Distribuidor de leads" (e não "Vendas no site")
+- Sem dependência de ordenação da API PipeRun
 
