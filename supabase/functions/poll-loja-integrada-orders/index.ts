@@ -6,7 +6,8 @@ const corsHeaders = {
 };
 
 const API_BASE = 'https://api.awsli.com.br/v1';
-const RATE_LIMIT_DELAY = 800;
+const RATE_LIMIT_DELAY = 1000; // 1s between pages
+const ORDER_DELAY = 300; // 300ms between individual orders
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000;
 
@@ -69,10 +70,27 @@ Deno.serve(async (req) => {
     const text = await response.text();
     try {
       const data = JSON.parse(text);
-      await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
       return data;
     } catch {
       throw new Error(`JSON inválido: ${text.slice(0, 150)}`);
+    }
+  }
+
+  /**
+   * Resolve client data from a cliente URI string (e.g. "/api/v1/cliente/12345")
+   * Returns { email, nome, telefone_celular, cpf } or null on failure
+   */
+  async function resolveCliente(clienteUri: string): Promise<Record<string, unknown> | null> {
+    try {
+      const match = clienteUri.match(/\/cliente\/(\d+)/);
+      if (!match) return null;
+      const clienteId = match[1];
+      console.log(`[poll-li] Resolving cliente ${clienteId}...`);
+      const data = await apiFetch(`/cliente/${clienteId}/`);
+      return data;
+    } catch (err) {
+      console.warn(`[poll-li] Failed to resolve cliente from ${clienteUri}:`, (err as Error).message);
+      return null;
     }
   }
 
@@ -106,6 +124,7 @@ Deno.serve(async (req) => {
     let totalProcessed = 0;
     let totalIgnored = 0;
     let totalFetched = 0;
+    let totalClienteResolved = 0;
     const allResults: Array<{ id: unknown; success: boolean; error?: string }> = [];
 
     while (page < maxPages) {
@@ -127,6 +146,27 @@ Deno.serve(async (req) => {
 
       for (const pedido of pedidos) {
         try {
+          // ── Pre-enrich: resolve cliente URI to actual client data ──
+          if (typeof pedido.cliente === 'string' && /\/cliente\//.test(pedido.cliente)) {
+            const clienteData = await resolveCliente(pedido.cliente);
+            if (clienteData) {
+              // Inject resolved client fields into pedido
+              pedido.cliente = {
+                ...clienteData,
+                resource_uri: pedido.cliente, // keep original URI for reference
+              };
+              totalClienteResolved++;
+              console.log(`[poll-li] Cliente resolved: email=${clienteData.email || '?'} nome=${clienteData.nome || '?'}`);
+            } else {
+              console.warn(`[poll-li] Could not resolve cliente for pedido ${pedido.numero || pedido.id}`);
+            }
+            // Rate limit after client resolution
+            await new Promise(r => setTimeout(r, ORDER_DELAY));
+          }
+
+          // Mark as enriched by poll so webhook skips redundant API calls
+          pedido._enriched_by_poll = true;
+
           const webhookUrl = `${supabaseUrl}/functions/v1/smart-ops-ecommerce-webhook`;
           const resp = await fetch(webhookUrl, {
             method: 'POST',
@@ -146,6 +186,9 @@ Deno.serve(async (req) => {
           totalIgnored++;
           allResults.push({ id: pedido.id || pedido.numero, success: false, error: (e as Error).message });
         }
+
+        // Delay between individual orders to respect rate limits
+        await new Promise(r => setTimeout(r, ORDER_DELAY));
       }
 
       // Check if there are more pages
@@ -157,19 +200,23 @@ Deno.serve(async (req) => {
 
       offset += batchSize;
       page++;
+
+      // Delay between pages
+      await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
     }
 
-    console.log(`[poll-li] Done: ${totalProcessed} processed, ${totalIgnored} ignored, ${totalFetched} fetched across ${page + 1} pages`);
+    console.log(`[poll-li] Done: ${totalProcessed} processed, ${totalIgnored} ignored, ${totalFetched} fetched, ${totalClienteResolved} clientes resolved across ${page + 1} pages`);
 
     return new Response(JSON.stringify({
       success: true,
       total_fetched: totalFetched,
       processados: totalProcessed,
       ignorados: totalIgnored,
+      clientes_resolved: totalClienteResolved,
       pages_scanned: page + 1,
       max_pages: maxPages,
       since_usado: since || 'full',
-      results: allResults.slice(0, 100), // cap results array
+      results: allResults.slice(0, 100),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
   } catch (err) {
