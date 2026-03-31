@@ -977,16 +977,25 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
   }
 
   // 3. Buscar pedidos do cliente no Omie
+  // Omie ListarPedidos não suporta filtrar_por_cliente — iterar páginas e filtrar in-code
   let totalPedidos = 0
   let pagina = 1
+  const TIMEOUT_SYNC_LEAD = 45_000
+  const syncLeadStart = Date.now()
   while (true) {
+    if (Date.now() - syncLeadStart > TIMEOUT_SYNC_LEAD) {
+      console.log(`sync-lead: timeout pedidos na página ${pagina}`)
+      break
+    }
     try {
       const data = await omieGet("/produtos/pedido/", "ListarPedidos", {
-        pagina, registros_por_pagina: 20,
-        etapa: "60", status_pedido: "FATURADO",
-        filtrar_por_cliente: omieCodigoCliente
+        pagina, registros_por_pagina: 50,
+        etapa: "60", status_pedido: "FATURADO"
       })
       for (const resumo of data.pedido_venda_produto ?? []) {
+        // Filtrar pelo codigo_cliente do lead
+        const cabCliente = resumo.cabecalho?.codigo_cliente ?? resumo.cabecalho?.codigo_cliente_omie
+        if (cabCliente && Number(cabCliente) !== Number(omieCodigoCliente)) continue
         try {
           const pedido = await omieGet("/produtos/pedido/", "ConsultarPedido", {
             nCodPed: resumo.cabecalho.codigo_pedido
