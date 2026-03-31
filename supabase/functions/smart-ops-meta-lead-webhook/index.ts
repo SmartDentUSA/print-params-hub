@@ -11,17 +11,19 @@ Deno.serve(async (req) => {
   if (req.method === "GET") {
     const url = new URL(req.url);
     const mode = url.searchParams.get("hub.mode");
-    const token = url.searchParams.get("hub.verify_token");
+    const token = (url.searchParams.get("hub.verify_token") || "").trim();
     const challenge = url.searchParams.get("hub.challenge");
 
-    const VERIFY_TOKEN = Deno.env.get("META_WEBHOOK_VERIFY_TOKEN");
+    const VERIFY_TOKEN = (Deno.env.get("META_WEBHOOK_VERIFY_TOKEN") || "").trim();
 
-    if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("[meta-webhook] Verification successful");
+    console.log(`[meta-webhook] GET verification: mode=${mode}, token_len=${token.length}, expected_len=${VERIFY_TOKEN.length}, match=${token === VERIFY_TOKEN}`);
+
+    if (mode === "subscribe" && token && VERIFY_TOKEN && token === VERIFY_TOKEN) {
+      console.log("[meta-webhook] ✅ Verification successful");
       return new Response(challenge, { status: 200 });
     }
 
-    console.warn("[meta-webhook] Verification failed. Token mismatch.");
+    console.warn(`[meta-webhook] ❌ Verification failed. mode=${mode}, token_match=${token === VERIFY_TOKEN}, has_challenge=${!!challenge}`);
     return new Response("Forbidden", { status: 403 });
   }
 
