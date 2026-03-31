@@ -984,8 +984,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
   return (
     <div className="intel-detail">
-      {/* Close button */}
-      <div style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "flex-end", padding: "8px 12px", background: "var(--bg)" }}>
+      {/* Close button + Sync */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "flex-end", gap: 4, padding: "8px 12px", background: "var(--bg)" }}>
+        <button
+          onClick={handleSyncPipeRun}
+          disabled={syncing}
+          title="Sincronizar dados do PipeRun"
+          style={{ background: "none", border: "none", color: syncing ? "var(--accent)" : "var(--muted)", cursor: syncing ? "wait" : "pointer", padding: 4 }}
+        >
+          <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+        </button>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4 }}>
           <X size={18} />
         </button>

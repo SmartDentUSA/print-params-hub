@@ -383,7 +383,19 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              disabled={syncing}
+              title="Sincronizar PipeRun"
+              onClick={handleSyncPipeRun}
+            >
+              <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-1">
             <Badge variant="outline">{lead.lead_status}</Badge>
             {lead.temperatura_lead && (
