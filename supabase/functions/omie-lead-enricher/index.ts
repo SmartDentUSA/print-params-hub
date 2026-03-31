@@ -95,11 +95,19 @@ async function resolveLeadByOmieEvent(
     pedidoCabecalho?.cnpj_cpf_cliente
   )
   if (cnpjCpf) {
-    const { data } = await (supabase as any)
+    const cnpjCpfNorm = cnpjCpf.replace(/\D/g, "")
+    // Busca por CNPJ (empresa_cnpj)
+    const { data: byCnpj } = await (supabase as any)
       .from("lia_attendances").select("id")
-      .eq("cnpj", cnpjCpf.replace(/\D/g, ""))
+      .eq("empresa_cnpj", cnpjCpfNorm)
       .is("merged_into", null).maybeSingle()
-    if (data) return data
+    if (byCnpj) return byCnpj
+    // Fallback: busca por CPF (pessoa_cpf) — PF
+    const { data: byCpf } = await (supabase as any)
+      .from("lia_attendances").select("id")
+      .eq("pessoa_cpf", cnpjCpfNorm)
+      .is("merged_into", null).maybeSingle()
+    if (byCpf) return byCpf
   }
 
   const email = (
