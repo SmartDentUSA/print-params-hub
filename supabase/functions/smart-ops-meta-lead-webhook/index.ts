@@ -1,4 +1,4 @@
-// deployed 2026-03-31
+// redeployed 2026-03-31T14:30Z — fix token trim + diagnostic logs
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
