@@ -119,6 +119,14 @@ export const STAGES_ECOMMERCE = {
   ATIVACAO_MENSAL: 660008,
 } as const;
 
+// Distribuidor de Leads (70898) — order-sorted
+export const STAGES_DISTRIBUIDOR = {
+  DISTRIBUIDOR_DE_LEADS: 433601,   // "Distribuidor de leads" (order 0)
+  DISTRIBUIDOR_FRESADORA: 433602,  // "Distirbuidor - Fresadora" (order 1)
+  ESTOQUE: 451633,                 // "Estoque" (order 2)
+  VENDAS_SITE: 526027,             // "Vendas site" (order 3)
+} as const;
+
 // ─── Stage ID → lia_attendances.ultima_etapa_comercial mapping ───
 
 export const STAGE_TO_ETAPA: Record<number, string> = {
