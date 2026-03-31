@@ -716,13 +716,15 @@ Deno.serve(async (req) => {
 
     // ─── Enrich with order history if we have a client ID ───
     let enrichmentData: Record<string, unknown> = {};
-    if (liClienteId && LI_API_KEY) {
+    if (liClienteId && LI_API_KEY && !isEnrichedByPoll) {
       const orderHistory = await fetchClienteOrderHistory(liClienteId, LI_API_KEY, LI_APP_KEY || null);
       if (orderHistory.length > 0) {
         const enrichment = enrichWithOrderHistory(orderHistory, tagsToAdd);
         enrichmentData = enrichment.extraUpdateData;
         console.log(`[ecommerce-webhook] Enrichment: LTV=${enrichment.ltv} | pedidosPagos=${enrichment.totalPedidosPagos} | primeiraCompra=${enrichment.dataPrimeiraCompra} | ultimaCompra=${enrichment.dataUltimaCompra}`);
       }
+    } else if (isEnrichedByPoll && liClienteId) {
+      console.log(`[ecommerce-webhook] Skipping order history fetch — enriched by poll (cliente=${liClienteId})`);
     }
 
     // ─── Upsert lead in lia_attendances ───
