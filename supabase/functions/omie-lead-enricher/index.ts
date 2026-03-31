@@ -1,4 +1,4 @@
-// redeployed 2026-03-31T14:30Z
+// redeployed 2026-03-31T20:00Z — fix cnpj→empresa_cnpj, add CPF fallback, action=sync
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
@@ -95,11 +95,19 @@ async function resolveLeadByOmieEvent(
     pedidoCabecalho?.cnpj_cpf_cliente
   )
   if (cnpjCpf) {
-    const { data } = await (supabase as any)
+    const cnpjCpfNorm = cnpjCpf.replace(/\D/g, "")
+    // Busca por CNPJ (empresa_cnpj)
+    const { data: byCnpj } = await (supabase as any)
       .from("lia_attendances").select("id")
-      .eq("cnpj", cnpjCpf.replace(/\D/g, ""))
+      .eq("empresa_cnpj", cnpjCpfNorm)
       .is("merged_into", null).maybeSingle()
-    if (data) return data
+    if (byCnpj) return byCnpj
+    // Fallback: busca por CPF (pessoa_cpf) — PF
+    const { data: byCpf } = await (supabase as any)
+      .from("lia_attendances").select("id")
+      .eq("pessoa_cpf", cnpjCpfNorm)
+      .is("merged_into", null).maybeSingle()
+    if (byCpf) return byCpf
   }
 
   const email = (
@@ -593,24 +601,135 @@ async function handleWebhook(
       codigo_cliente_omie: event.codigo_cliente_omie
     })
     const email = cliente?.email?.toLowerCase()?.trim()
-    if (!email) return
-    const { data: lead } = await (supabase as any).from("lia_attendances")
-      .select("id,cidade,estado,cnpj")
-      .eq("email", email).is("merged_into", null).maybeSingle()
+    const cnpjCpfNorm = cliente?.cnpj_cpf?.replace(/\D/g, "")
+    // Resolve lead: email → CNPJ → CPF
+    let lead: { id: string; cidade?: string; estado?: string; empresa_cnpj?: string } | null = null
+    if (email) {
+      const { data } = await (supabase as any).from("lia_attendances")
+        .select("id,cidade,estado,empresa_cnpj")
+        .eq("email", email).is("merged_into", null).maybeSingle()
+      lead = data
+    }
+    if (!lead && cnpjCpfNorm) {
+      const { data } = await (supabase as any).from("lia_attendances")
+        .select("id,cidade,estado,empresa_cnpj")
+        .eq("empresa_cnpj", cnpjCpfNorm).is("merged_into", null).maybeSingle()
+      lead = data
+    }
+    if (!lead && cnpjCpfNorm) {
+      const { data } = await (supabase as any).from("lia_attendances")
+        .select("id,cidade,estado,empresa_cnpj")
+        .eq("pessoa_cpf", cnpjCpfNorm).is("merged_into", null).maybeSingle()
+      lead = data
+    }
     if (!lead) return
     const patch: Record<string, any> = {
       omie_codigo_cliente:  event.codigo_cliente_omie,
       omie_last_sync:       new Date().toISOString(),
       omie_tipo_pessoa:     cliente.pessoa_fisica === "S" ? "PF" : "PJ",
     }
-    if (!lead.cidade && cliente.cidade)   patch.cidade            = cliente.cidade
-    if (!lead.estado && cliente.estado)   patch.estado            = cliente.estado
-    if (!lead.cnpj   && cliente.cnpj_cpf) patch.cnpj              = cliente.cnpj_cpf.replace(/\D/g,"")
-    if (cliente.razao_social)             patch.omie_razao_social  = cliente.razao_social
-    if (cliente.tags?.length)             patch.omie_segmento      = cliente.tags[0]
+    if (!lead.cidade && cliente.cidade)          patch.cidade            = cliente.cidade
+    if (!lead.estado && cliente.estado)          patch.estado            = cliente.estado
+    if (!lead.empresa_cnpj && cnpjCpfNorm)       patch.empresa_cnpj      = cnpjCpfNorm
+    if (cliente.razao_social)                     patch.omie_razao_social  = cliente.razao_social
+    if (cliente.tags?.length)                     patch.omie_segmento      = cliente.tags[0]
     await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
     return
   }
+}
+
+// ─── runSync — Fase A incremental (para cron leve) ───────────────────────────
+async function runSync(supabase: ReturnType<typeof createClient>) {
+  const startTime = Date.now()
+  const TIMEOUT_MS = 50_000 // 50s guard
+  console.log("Sync incremental Omie — apenas Fase A (clientes)")
+  leadsToEnrich.clear()
+  let totalClientes = 0
+  let pagina = 1
+
+  // Recuperar cursor salvo
+  const { data: cursorRow } = await (supabase as any).from("omie_sync_cursors")
+    .select("cursor_value").eq("cursor_key", "sync_clientes_pagina").maybeSingle()
+  if (cursorRow?.cursor_value) {
+    pagina = parseInt(cursorRow.cursor_value) || 1
+  }
+
+  while (true) {
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      console.log(`Timeout guard: parando na página ${pagina}`)
+      // Salvar cursor para retomar
+      await (supabase as any).from("omie_sync_cursors")
+        .upsert({ cursor_key: "sync_clientes_pagina", cursor_value: String(pagina), updated_at: new Date().toISOString() },
+          { onConflict: "cursor_key" })
+      break
+    }
+    const data = await omieGet("/geral/clientes/", "ListarClientes", {
+      pagina, registros_por_pagina: 50
+    })
+    for (const c of data.clientes_cadastro ?? []) {
+      const email    = c.email?.toLowerCase()?.trim()
+      const cnpjNorm = c.cnpj_cpf?.replace(/\D/g,"")
+      if (!email && !cnpjNorm) continue
+
+      let lead: { id: string } | null = null
+      if (email) {
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("email", email).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && cnpjNorm) {
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("empresa_cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && cnpjNorm) {
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("pessoa_cpf", cnpjNorm).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && c.telefone1_ddd && c.telefone1_numero) {
+        const tel = normalizePhone(c.telefone1_ddd, c.telefone1_numero)
+        if (tel) {
+          const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+            .eq("telefone_normalized", tel).is("merged_into", null).maybeSingle()
+          lead = r
+        }
+      }
+      if (!lead) continue
+
+      const { data: cur } = await (supabase as any).from("lia_attendances")
+        .select("cidade,estado,empresa_cnpj").eq("id", lead.id).single()
+      const patch: Record<string, any> = {
+        omie_codigo_cliente:  c.codigo_cliente_omie,
+        omie_last_sync:       new Date().toISOString(),
+        omie_tipo_pessoa:     c.pessoa_fisica === "S" ? "PF" : "PJ",
+      }
+      if (!cur?.cidade       && c.cidade)  patch.cidade            = c.cidade
+      if (!cur?.estado       && c.estado)  patch.estado            = c.estado
+      if (!cur?.empresa_cnpj && cnpjNorm)  patch.empresa_cnpj      = cnpjNorm
+      if (c.razao_social)                  patch.omie_razao_social  = c.razao_social
+      if (c.tags?.length)                  patch.omie_segmento      = c.tags[0]
+      await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
+      queueEnrich(lead.id)
+      totalClientes++
+    }
+    if (pagina >= (data.total_de_paginas ?? 1)) {
+      // Completou — resetar cursor
+      await (supabase as any).from("omie_sync_cursors")
+        .upsert({ cursor_key: "sync_clientes_pagina", cursor_value: "1", updated_at: new Date().toISOString() },
+          { onConflict: "cursor_key" })
+      break
+    }
+    pagina++
+    await sleep(280)
+  }
+  console.log(`Sync: ${totalClientes} clientes vinculados`)
+
+  // Fase D rápida: atualizar parcelas vencidas
+  try { await (supabase as any).rpc("fn_atualizar_parcelas_vencidas") } catch (_) {}
+
+  const scoreCount = await flushEnrichQueue(supabase, "Sync score")
+  return { totalClientes, scoreCount }
 }
 
 // ─── runBackfill — 6 fases com debounce ──────────────────────────────────────
@@ -639,7 +758,13 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
       }
       if (!lead && cnpjNorm) {
         const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
+          .eq("empresa_cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && cnpjNorm) {
+        // Fallback: busca por CPF (pessoa física)
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("pessoa_cpf", cnpjNorm).is("merged_into", null).maybeSingle()
         lead = r
       }
       if (!lead && c.telefone1_ddd && c.telefone1_numero) {
@@ -654,15 +779,15 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
       if (!lead) continue
 
       const { data: cur } = await (supabase as any).from("lia_attendances")
-        .select("cidade,estado,cnpj").eq("id", lead.id).single()
+        .select("cidade,estado,empresa_cnpj").eq("id", lead.id).single()
       const patch: Record<string, any> = {
         omie_codigo_cliente:  c.codigo_cliente_omie,
         omie_last_sync:       new Date().toISOString(),
         omie_tipo_pessoa:     c.pessoa_fisica === "S" ? "PF" : "PJ",
       }
-      if (!cur?.cidade && c.cidade)   patch.cidade            = c.cidade
-      if (!cur?.estado && c.estado)   patch.estado            = c.estado
-      if (!cur?.cnpj   && cnpjNorm)   patch.cnpj              = cnpjNorm
+      if (!cur?.cidade       && c.cidade)  patch.cidade            = c.cidade
+      if (!cur?.estado       && c.estado)  patch.estado            = c.estado
+      if (!cur?.empresa_cnpj && cnpjNorm)  patch.empresa_cnpj      = cnpjNorm
       if (c.razao_social)             patch.omie_razao_social  = c.razao_social
       if (c.tags?.length)             patch.omie_segmento      = c.tags[0]
       await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
@@ -940,6 +1065,10 @@ serve(async (req) => {
       if (!leadId) return new Response(JSON.stringify({ error: "lead_id required" }), { status: 400, headers: CORS })
       await enrichLead(supabase, leadId)
       return new Response(JSON.stringify({ ok: true }), { headers: CORS })
+    }
+    if (action === "sync") {
+      const result = await runSync(supabase)
+      return new Response(JSON.stringify({ ok: true, ...result }), { headers: CORS })
     }
     if (body?.topic) {
       await handleWebhook(supabase, body)
