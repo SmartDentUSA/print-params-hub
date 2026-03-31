@@ -664,7 +664,13 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
       }
       if (!lead && cnpjNorm) {
         const { data: r } = await (supabase as any).from("lia_attendances").select("id")
-          .eq("cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
+          .eq("empresa_cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && cnpjNorm) {
+        // Fallback: busca por CPF (pessoa física)
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("pessoa_cpf", cnpjNorm).is("merged_into", null).maybeSingle()
         lead = r
       }
       if (!lead && c.telefone1_ddd && c.telefone1_numero) {
@@ -679,15 +685,15 @@ async function runBackfill(supabase: ReturnType<typeof createClient>) {
       if (!lead) continue
 
       const { data: cur } = await (supabase as any).from("lia_attendances")
-        .select("cidade,estado,cnpj").eq("id", lead.id).single()
+        .select("cidade,estado,empresa_cnpj").eq("id", lead.id).single()
       const patch: Record<string, any> = {
         omie_codigo_cliente:  c.codigo_cliente_omie,
         omie_last_sync:       new Date().toISOString(),
         omie_tipo_pessoa:     c.pessoa_fisica === "S" ? "PF" : "PJ",
       }
-      if (!cur?.cidade && c.cidade)   patch.cidade            = c.cidade
-      if (!cur?.estado && c.estado)   patch.estado            = c.estado
-      if (!cur?.cnpj   && cnpjNorm)   patch.cnpj              = cnpjNorm
+      if (!cur?.cidade       && c.cidade)  patch.cidade            = c.cidade
+      if (!cur?.estado       && c.estado)  patch.estado            = c.estado
+      if (!cur?.empresa_cnpj && cnpjNorm)  patch.empresa_cnpj      = cnpjNorm
       if (c.razao_social)             patch.omie_razao_social  = c.razao_social
       if (c.tags?.length)             patch.omie_segmento      = c.tags[0]
       await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
