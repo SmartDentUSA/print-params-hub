@@ -1128,7 +1128,7 @@ Deno.serve(async (req) => {
     const isDistribuidor = assignedOwnerId === FALLBACK_OWNER_ID;
     const pipeline_id = isDistribuidor ? PIPELINES.DISTRIBUIDOR_LEADS : PIPELINES.VENDAS;
     const stage_id = isDistribuidor
-      ? await resolveFirstStage(PIPERUN_API_KEY, PIPELINES.DISTRIBUIDOR_LEADS)
+      ? STAGES_DISTRIBUIDOR.DISTRIBUIDOR_DE_LEADS
       : STAGES_VENDAS.SEM_CONTATO;
 
     // ── 4. Build PipeRun custom fields ──
