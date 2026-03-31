@@ -541,7 +541,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const ltvAbandono = liCancelled.reduce((sum: number, p: any) => sum + (parseFloat(p.valor_total) || 0), 0);
   const ecomWon = liApproved.length;
   const ecomLost = liCancelled.length;
-  const financeiroTotal = psWon + ltvEcommerce;
+  const omieFat = Number(ld.omie_faturamento_total) || 0;
+  const omiePago = Number(ld.omie_valor_pago) || 0;
+  const omieAberto = Number(ld.omie_valor_em_aberto) || 0;
+  const omiePctPago = Number(ld.omie_percentual_pago) || 0;
+  const omieScore = Number(ld.omie_score) || 0;
+  const omieClassif = (ld.omie_classificacao as string) || null;
+  const omieInad = ld.omie_inadimplente === true;
+  const omieDiasSem = ld.omie_dias_sem_comprar != null ? Number(ld.omie_dias_sem_comprar) : null;
+  // Consolidado: maior entre CRM Won e Omie (evita double-count) + E-com
+  const financeiroTotal = Math.max(psWon, omieFat) + ltvEcommerce;
 
   // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; sku: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
@@ -617,6 +626,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
     { num: String(totalProposals || "—"), lbl: "Propostas", cls: "" },
     { num: ltvWon > 0 ? formatBRLFull(ltvWon / wonDeals.length) : "—", lbl: "Ticket médio", cls: "green" },
     { num: support_summary?.total ? String(support_summary.total) : "—", lbl: "Chamados", cls: support_summary?.open ? "red" : "green" },
+    ...(omieScore > 0 ? [{ num: String(omieScore), lbl: "Score ERP", cls: omieScore >= 80 ? "green" : omieScore >= 50 ? "" : "red" }] : []),
   ];
 
   // Cognitive cards
@@ -1019,7 +1029,23 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             {tags.includes("EC_INICIOU_CHECKOUT") && (
               <span className="ctx-badge ctx-badge-cart">🛒 Carrinho pendente</span>
             )}
-          </div>
+            {omieScore > 0 && (
+              <span className="ctx-badge" style={{ background: omieScore >= 80 ? "rgba(34,197,94,0.15)" : omieScore >= 50 ? "rgba(59,130,246,0.15)" : omieScore >= 20 ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: omieScore >= 80 ? "#22c55e" : omieScore >= 50 ? "#3b82f6" : omieScore >= 20 ? "#f59e0b" : "#ef4444" }}>
+                🏭 Score ERP: {omieScore} ({omieScore >= 80 ? "PREMIUM" : omieScore >= 50 ? "ATIVO" : omieScore >= 20 ? "OPORTUNIDADE" : "RISCO"})
+              </span>
+            )}
+            {omieClassif && (
+              <span className="ctx-badge" style={{ background: omieClassif === "PRIORIDADE" ? "rgba(34,197,94,0.15)" : omieClassif === "ATIVO" ? "rgba(59,130,246,0.15)" : omieClassif === "RECUPERACAO" ? "rgba(245,158,11,0.15)" : omieClassif === "REATIVACAO" ? "rgba(168,85,247,0.15)" : "rgba(156,163,175,0.15)", color: omieClassif === "PRIORIDADE" ? "#22c55e" : omieClassif === "ATIVO" ? "#3b82f6" : omieClassif === "RECUPERACAO" ? "#f59e0b" : omieClassif === "REATIVACAO" ? "#a855f7" : "#9ca3af" }}>
+                📊 {omieClassif}
+              </span>
+            )}
+            {omieInad && (
+              <span className="ctx-badge" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", fontWeight: 700 }}>⚠️ Inadimplente</span>
+            )}
+            {omieDiasSem != null && omieDiasSem > 90 && (
+              <span className="ctx-badge" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>⏰ {omieDiasSem}d sem comprar</span>
+            )}
+           </div>
           <div className="meta-row">
             {meta.map((m, i) => (
               <span key={i} className="meta">{m}</span>
@@ -1065,10 +1091,40 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </>
           )}
 
+          {/* ERP Omie financial block */}
+          {omieFat > 0 && (
+            <>
+              <div className="ltv-label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em", marginTop: 10, marginBottom: 6 }}>🏭 Faturamento ERP (Omie)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: "var(--won, #22c55e)" }}>{formatBRL(omieFat)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Faturamento Total</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: "#22c55e" }}>{formatBRL(omiePago)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Recebido</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: omieAberto > 0 ? "#f59e0b" : "var(--muted)" }}>{formatBRL(omieAberto)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Em Aberto</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: omiePctPago >= 90 ? "#22c55e" : omiePctPago >= 50 ? "#f59e0b" : "#ef4444" }}>{omiePctPago.toFixed(0)}%</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Quitado</div>
+                </div>
+              </div>
+              {omieInad && (
+                <div style={{ marginTop: 6, padding: "4px 8px", borderRadius: 4, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", fontSize: "0.65rem", color: "#ef4444", fontWeight: 600 }}>
+                  ⚠️ Cliente inadimplente — parcelas vencidas detectadas
+                </div>
+              )}
+            </>
+          )}
+
           {/* Financeiro Total consolidado */}
           {financeiroTotal > 0 && (
             <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: 6, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
-              <div style={{ fontSize: "0.6rem", opacity: 0.7, marginBottom: 2 }}>💰 Financeiro Total (CRM + E-com)</div>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7, marginBottom: 2 }}>💰 Financeiro Total {omieFat > 0 ? "(CRM/ERP + E-com)" : "(CRM + E-com)"}</div>
               <div className="ltv-val" style={{ fontSize: "1.1rem", color: "var(--won, #22c55e)", fontWeight: 800 }}>{formatBRL(financeiroTotal)}</div>
             </div>
           )}
