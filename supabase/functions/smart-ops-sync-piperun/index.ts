@@ -195,6 +195,22 @@ function mergeDealHistorySets(...histories: Array<unknown[] | null | undefined>)
   return merged;
 }
 
+async function clearMergedLeadUniqueKeys(
+  supabase: ReturnType<typeof createClient>,
+  leadId: string,
+): Promise<void> {
+  await supabase
+    .from("lia_attendances")
+    .update({
+      piperun_id: null,
+      piperun_link: null,
+      email: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", leadId);
+  console.log(`[sync-piperun] Cleared unique keys from merged lead ${leadId}`);
+}
+
 async function resolveDuplicateEmailConflict(
   supabase: ReturnType<typeof createClient>,
   email: string,
@@ -208,12 +224,20 @@ async function resolveDuplicateEmailConflict(
     return false;
   }
 
+  // Step 1: Clear unique keys from the lead being merged BEFORE updating canonical
+  if (currentLead && currentLead.id !== canonicalLead.id) {
+    await clearMergedLeadUniqueKeys(supabase, currentLead.id);
+  }
+
   const payloadHistory = Array.isArray(payload.piperun_deals_history)
     ? (payload.piperun_deals_history as unknown[])
     : null;
 
+  // Remove email from payload to avoid setting it again on canonical (it already has it)
+  const { email: _email, ...payloadWithoutEmail } = payload;
+
   const canonicalPayload: Record<string, unknown> = {
-    ...payload,
+    ...payloadWithoutEmail,
     piperun_deals_history: mergeDealHistorySets(
       canonicalLead.piperun_deals_history,
       currentLead?.piperun_deals_history,
