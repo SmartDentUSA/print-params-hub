@@ -598,7 +598,7 @@ async function patchLeadFromCliente(
   const { data: cur } = await (supabase as any).from("lia_attendances")
     .select("cidade,estado,empresa_cnpj").eq("id", leadId).single()
   const patch: Record<string, any> = {
-    omie_codigo_cliente:  parsed.codigoCliente,
+    omie_codigo_cliente:  parsed.codigoCliente ? Number(parsed.codigoCliente) : null,
     omie_last_sync:       new Date().toISOString(),
     omie_tipo_pessoa:     parsed.tipoPessoa,
   }
@@ -607,7 +607,10 @@ async function patchLeadFromCliente(
   if (!cur?.empresa_cnpj && parsed.docDigits)  patch.empresa_cnpj      = parsed.docDigits
   if (parsed.razaoSocial)                      patch.omie_razao_social  = parsed.razaoSocial
   if (parsed.tags?.length)                     patch.omie_segmento      = parsed.tags[0]
-  await (supabase as any).from("lia_attendances").update(patch).eq("id", leadId)
+  console.log(`patchLeadFromCliente: leadId=${leadId}, patch=`, JSON.stringify(patch))
+  const { error } = await (supabase as any).from("lia_attendances").update(patch).eq("id", leadId)
+  if (error) console.error(`patchLeadFromCliente ERROR: ${error.message}`, error)
+  return { patched: !error, error: error?.message }
 }
 
 // ─── handleWebhook ────────────────────────────────────────────────────────────
