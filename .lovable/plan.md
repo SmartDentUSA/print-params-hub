@@ -1,68 +1,45 @@
 
-Objetivo: fazer o lead `afonsomsjunior@hotmail.com` passar a exibir dados nas abas **🏭 Dados do ERP** e **💰 Financeiro** do card.
 
-Diagnóstico confirmado (com base no estado atual):
-1) O lead está sem vínculo Omie no banco (`omie_codigo_cliente = null`, `omie_last_sync = null`, `omie_faturamento_total = 0`), então o frontend não tem o que mostrar.
-2) As tabelas fonte do Financeiro/ERP estão vazias para esse lead (`deal_items` com `source='omie'` = 0, `omie_parcelas` = 0).
-3) O cron atual chama `?action=sync`, mas esse fluxo faz apenas Fase A (clientes) + enrich; não ingere pedidos/parcelas/NF.
-4) O matching por CPF/CNPJ ainda é frágil porque compara documento normalizado com campos que no banco muitas vezes estão mascarados (ex.: `906.236.573-68`), o que impede o vínculo de vários PF.
-5) Há inconsistência no código do cursor (`cursor_key/cursor_value`) versus schema real da tabela (`key/value`), com erros silenciosos.
+## Problema
 
-Plano de implementação:
+O lead `afonsomsjunior@hotmail.com` está sendo encontrado no Omie (a busca por email/CPF funciona), mas as buscas de pedidos e contas a receber dão **timeout na página 11** porque o código itera TODAS as páginas do Omie filtrando in-code pelo `codigo_cliente`, ao invés de usar os filtros nativos da API.
 
-1) Corrigir resolução de identidade (PF/PJ robusto)
-- Arquivo: `supabase/functions/omie-lead-enricher/index.ts`
-- Criar helper único para match documental:
-  - normaliza para dígitos
-  - tenta comparar com versão dígitos **e** versão mascarada (CPF/CNPJ formatados)
-  - aplica em todos os pontos: `resolveLeadByOmieEvent`, `runSync`, `runBackfill`, `cliente.alterado`.
-- Resultado esperado: lead PF com CPF mascarado passa a ser encontrado corretamente.
+Evidência dos logs:
+- 3 execuções consecutivas: `sync-lead: timeout pedidos na página 11` → `0 pedidos, 0 CR`
+- O `omie_codigo_cliente` permanece null apesar do `omie_last_sync` atualizar
 
-2) Corrigir parser da resposta de clientes Omie
-- Arquivo: `supabase/functions/omie-lead-enricher/index.ts`
-- Tornar leitura resiliente para payload flat e payload aninhado (ex.: `cliente_cadastro`), com fallback de chaves para:
-  - email
-  - cnpj/cpf
-  - código do cliente Omie
-  - razão social/tipo pessoa
-- Resultado esperado: `omie_codigo_cliente`, `omie_tipo_pessoa`, `omie_razao_social` deixam de ficar nulos após sync.
+## Causa Raiz
 
-3) Corrigir cursor incremental (schema real + sem erro silencioso)
-- Arquivo: `supabase/functions/omie-lead-enricher/index.ts`
-- Trocar uso de `cursor_key/cursor_value` para `key/value`.
-- Adicionar tratamento explícito de erro em select/upsert de cursor (log e fallback seguro).
-- Resultado esperado: sync retoma corretamente entre execuções e não “finge” avançar.
+1. `runSyncLead` linha 980: comenta "Omie ListarPedidos não suporta filtrar_por_cliente" — **incorreto**. A API Omie aceita `filtrar_por_cliente` no endpoint de pedidos e `nCodCliente` no endpoint de contas a receber.
 
-4) Fazer `action=sync` realmente alimentar ERP/Financeiro
-- Arquivo: `supabase/functions/omie-lead-enricher/index.ts`
-- Manter sync leve, mas incluir ingestão incremental de dados financeiros (pedidos/NF/contas a receber) por cursor e janela curta, respeitando timeout de 50s.
-- Continuar usando fila `queueEnrich` para recalcular score só dos leads tocados.
-- Resultado esperado: cron diário passa a preencher `deal_items`/`omie_parcelas` continuamente, e não só marcar sync de cliente.
+2. O `patchLeadFromCliente` pode não estar salvando `omie_codigo_cliente` se `parsed.codigoCliente` vier null da API. É preciso adicionar log para rastrear.
 
-5) Adicionar reprocessamento pontual por lead (correção imediata do caso Afonso)
-- Arquivo: `supabase/functions/omie-lead-enricher/index.ts`
-- Nova ação: `action=sync-lead&lead_id=<uuid>`:
-  - resolve o cliente no Omie por email/CPF/CNPJ
-  - busca e grava pedidos/NF/parcelas desse lead
-  - executa `fn_enrich_lead_from_omie`.
-- Resultado esperado: correção imediata do lead sem esperar ciclo completo do cron.
+## Correções
 
-6) Ajuste de segurança operacional do cron
-- Remover exposição de credencial sensível versionada em migration e rotacionar a service role key no projeto.
-- Regravar jobs cron com a nova chave fora do versionamento de código.
+### Arquivo: `supabase/functions/omie-lead-enricher/index.ts`
 
-Validação (fim a fim):
-1) Banco:
-- `lia_attendances` do lead com `omie_codigo_cliente` e `omie_last_sync` preenchidos.
-- `deal_items` (`source in ('omie','omie_nfe')`) > 0 para o lead.
-- `omie_parcelas` > 0 para o lead.
-- `omie_faturamento_total`, `omie_score`, `omie_classificacao` atualizados.
+**1. Adicionar log na busca por email/CPF no sync-lead** (linhas 939-970)
+- Logar se o cliente foi encontrado ou não, e qual `codigoCliente` retornou
+- Logar o resultado do `patchLeadFromCliente`
 
-2) API:
-- `smart-ops-leads-api?action=detail&id=<leadId>` retornando campos Omie não zerados.
+**2. Usar filtro nativo da API Omie em `runSyncLead`** (linhas 980-1037)
+- Pedidos: passar `filtrar_por_cliente: omieCodigoCliente` nos params de `ListarPedidos`
+- Remover o filtro in-code por `codigo_cliente`
+- Resultado: apenas pedidos daquele cliente retornam, reduzindo de 11+ páginas para 1-2
 
-3) UI:
-- Abrir o lead no `/admin` e validar:
-  - aba **🏭 Dados do ERP** com score/classificação e pedidos
-  - aba **💰 Financeiro** com parcelas e resumo
-  - Hero card refletindo os dados ERP já integrados.
+**3. Usar filtro nativo em contas a receber** (linhas 1040-1096)
+- Passar `nCodCliente: omieCodigoCliente` nos params de `ListarContasReceber`
+- Remover filtro in-code
+
+**4. Usar filtro por cliente no `runSync` Fase B** (linhas 777-920)
+- Manter iteração completa mas com performance melhor usando `filtrar_por_cliente` quando disponível
+
+**5. Garantir que `omie_codigo_cliente` é salvo mesmo sem pedidos**
+- Na lógica do sync-lead, após encontrar o cliente por email/CPF, confirmar que o update no banco executou com sucesso
+
+## Resultado Esperado
+- sync-lead do Afonso completa em <5s (apenas pedidos dele)
+- `omie_codigo_cliente` preenchido
+- `deal_items` e `omie_parcelas` populados (se existirem pedidos/CR no Omie)
+- Abas ERP e Financeiro funcionando no card
+
