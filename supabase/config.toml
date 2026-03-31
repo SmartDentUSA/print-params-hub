@@ -278,3 +278,6 @@ verify_jwt = false
 
 [functions.omie-lead-enricher]
 verify_jwt = false
+
+[functions.omie-api-explorer]
+verify_jwt = false
