@@ -396,7 +396,12 @@ async function processDeal(
   const person = deal.person;
   const pessoaHash = person?.hash ? String(person.hash) : null;
   const pessoaPiperunId = deal.person_id ? Number(deal.person_id) : null;
-  const email = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
+  // Normalize email: take first if comma-separated, lowercase, trim
+  const rawEmail = updatePayload.email ? String(updatePayload.email).trim().toLowerCase() : null;
+  const email = rawEmail?.includes(",") ? rawEmail.split(",")[0].trim() : rawEmail;
+  if (email && email !== rawEmail) {
+    updatePayload.email = email;
+  }
 
   // GAP 2 FIX: 4-level identity cascade (matching webhook)
   const currentLead = await findLeadByCascade(supabase, dealId, pessoaHash, pessoaPiperunId, email);
