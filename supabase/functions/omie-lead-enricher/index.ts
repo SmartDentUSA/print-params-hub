@@ -601,21 +601,38 @@ async function handleWebhook(
       codigo_cliente_omie: event.codigo_cliente_omie
     })
     const email = cliente?.email?.toLowerCase()?.trim()
-    if (!email) return
-    const { data: lead } = await (supabase as any).from("lia_attendances")
-      .select("id,cidade,estado,cnpj")
-      .eq("email", email).is("merged_into", null).maybeSingle()
+    const cnpjCpfNorm = cliente?.cnpj_cpf?.replace(/\D/g, "")
+    // Resolve lead: email → CNPJ → CPF
+    let lead: { id: string; cidade?: string; estado?: string; empresa_cnpj?: string } | null = null
+    if (email) {
+      const { data } = await (supabase as any).from("lia_attendances")
+        .select("id,cidade,estado,empresa_cnpj")
+        .eq("email", email).is("merged_into", null).maybeSingle()
+      lead = data
+    }
+    if (!lead && cnpjCpfNorm) {
+      const { data } = await (supabase as any).from("lia_attendances")
+        .select("id,cidade,estado,empresa_cnpj")
+        .eq("empresa_cnpj", cnpjCpfNorm).is("merged_into", null).maybeSingle()
+      lead = data
+    }
+    if (!lead && cnpjCpfNorm) {
+      const { data } = await (supabase as any).from("lia_attendances")
+        .select("id,cidade,estado,empresa_cnpj")
+        .eq("pessoa_cpf", cnpjCpfNorm).is("merged_into", null).maybeSingle()
+      lead = data
+    }
     if (!lead) return
     const patch: Record<string, any> = {
       omie_codigo_cliente:  event.codigo_cliente_omie,
       omie_last_sync:       new Date().toISOString(),
       omie_tipo_pessoa:     cliente.pessoa_fisica === "S" ? "PF" : "PJ",
     }
-    if (!lead.cidade && cliente.cidade)   patch.cidade            = cliente.cidade
-    if (!lead.estado && cliente.estado)   patch.estado            = cliente.estado
-    if (!lead.cnpj   && cliente.cnpj_cpf) patch.cnpj              = cliente.cnpj_cpf.replace(/\D/g,"")
-    if (cliente.razao_social)             patch.omie_razao_social  = cliente.razao_social
-    if (cliente.tags?.length)             patch.omie_segmento      = cliente.tags[0]
+    if (!lead.cidade && cliente.cidade)          patch.cidade            = cliente.cidade
+    if (!lead.estado && cliente.estado)          patch.estado            = cliente.estado
+    if (!lead.empresa_cnpj && cnpjCpfNorm)       patch.empresa_cnpj      = cnpjCpfNorm
+    if (cliente.razao_social)                     patch.omie_razao_social  = cliente.razao_social
+    if (cliente.tags?.length)                     patch.omie_segmento      = cliente.tags[0]
     await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
     return
   }
