@@ -1,52 +1,62 @@
 
 
-## Plano: Integrar dados Omie ERP no Hero Card do Lead
+## Diagnóstico: Por que o lead afonsomsjunior@hotmail.com não tem dados Omie
 
-### Problema identificado
+### Problemas encontrados
 
-O card do lead (LeadDetailPanel) tem abas dedicadas "🏭 Dados do ERP" e "💰 Financeiro" que exibem corretamente os dados do Omie. Porém, o **hero card** (resumo principal visível ao abrir o lead) mostra apenas dados de CRM (PipeRun) e E-commerce (Loja Integrada), ignorando completamente:
+**1. A função `omie-lead-enricher` NUNCA executou com sucesso**
+- 0 leads sincronizados (`omie_last_sync IS NOT NULL` = 0 de 28.436)
+- 0 parcelas em `omie_parcelas`
+- 0 registros em `omie_sync_cursors`
+- 0 logs da função (nem mesmo um "Backfill Omie iniciado")
+- Os cron jobs (`omie-sync-morning`, `omie-sync-evening`) estão configurados mas usam a **anon key** e enviam um body genérico (`{"time": "morning-sync"}`), que cai no `runBackfill()` — uma operação pesada que provavelmente estoura o timeout do `net.http_post`
 
-- **Faturamento Omie** (receita real confirmada pelo ERP)
-- **Omie Score** (0-100) e classificação operacional (PRIORIDADE, RECUPERACAO, etc.)
-- **Flag de inadimplência** (alertas de parcelas vencidas)
-- **Dias sem comprar** (indicador de reativação)
+**2. Bug de coluna: `cnpj` vs `empresa_cnpj`**
+- O código usa `.eq("cnpj", cnpjNorm)` em 3 locais (resolveLeadByOmieEvent linha 100, backfill Fase A linha 641)
+- A coluna real é `empresa_cnpj` — o query silenciosamente falha (retorna 0 resultados)
 
-Isso faz com que o vendedor precise navegar até a aba ERP para ver informações críticas de decisão.
+**3. Busca por CPF inexistente**
+- O lead afonsomsjunior tem `pessoa_cpf: 906.236.573-68` mas NÃO tem `empresa_cnpj`
+- A identity resolution busca: `omie_codigo_cliente` → `cnpj` → `email` → `telefone`
+- **Nunca busca por `pessoa_cpf`**, então PF (pessoa física) só encontra match por email ou telefone
+- Se o cadastro Omie tiver email diferente (ex: outro email), o lead nunca será vinculado
 
-### Solução
+---
 
-Adicionar ao hero card do `LeadDetailPanel` um bloco "ERP Omie" que exiba:
+### Plano de correção
 
-1. **Faturamento ERP** ao lado do "Financeiro Total (CRM + E-com)" existente
-2. **Badge de classificação Omie** (PRIORIDADE/RECUPERACAO/REATIVACAO/ATIVO/MONITORAR) no hero
-3. **Alerta de inadimplência** quando `omie_inadimplente = true`
-4. **Score Omie** como badge compacto ao lado do LIS score
+**Arquivo: `supabase/functions/omie-lead-enricher/index.ts`**
 
-### Arquivos a modificar
+**Correção A — Coluna CNPJ (3 locais)**
+- Trocar `.eq("cnpj", ...)` por `.eq("empresa_cnpj", ...)` em:
+  - `resolveLeadByOmieEvent` (linha 100)
+  - Backfill Fase A (linha 641)
+  - `handleWebhook` → `cliente.alterado` (linha 608)
 
-**`src/components/smartops/LeadDetailPanel.tsx`**
+**Correção B — Adicionar busca por CPF na identity resolution**
+- Após busca por `empresa_cnpj`, adicionar fallback por `pessoa_cpf`
+- Normalizar CPF do Omie (remover pontos/traços) para comparar com `pessoa_cpf` no DB
+- Aplicar tanto em `resolveLeadByOmieEvent` quanto no backfill Fase A
 
-1. No bloco hero (linhas ~1029-1075), após "Financeiro Total (CRM + E-com)":
-   - Adicionar bloco "Faturamento ERP Omie" usando `ld.omie_faturamento_total`
-   - Exibir grid: Faturamento Total | Recebido | Em Aberto | % Quitado
-   - Badge de classificação (`ld.omie_classificacao`) com cores (verde/vermelho/laranja/azul/cinza)
-   - Alert inline se `ld.omie_inadimplente === true`
+**Correção C — Cron jobs com service_role key e batch leve**
+- Recriar os cron jobs usando a `service_role` key (migration SQL)
+- Adicionar rota `action=sync` que executa apenas Fase A (clientes) em modo incremental (últimas 24h), não o backfill completo
+- Manter `runBackfill()` completo apenas para chamadas manuais (sem action ou `action=backfill`)
 
-2. No hero badges row (linhas ~1012-1022):
-   - Adicionar badge do Omie Score: `🏭 Score ERP: {omie_score}` com cor por faixa
-   - Adicionar badge de inadimplência: `⚠️ Inadimplente` em vermelho
-   - Adicionar badge de dias sem comprar quando > 90 dias
+**Correção D — Timeout e paginação segura**
+- Adicionar timeout guard: se a execução ultrapassar 50s, parar e retornar parcial
+- Salvar cursor de paginação em `omie_sync_cursors` para retomar no próximo cron
 
-3. No `financeiroTotal` (linha ~544):
-   - Somar `omie_faturamento_total` ao total consolidado, usando o maior entre CRM Won e Omie (para evitar double-counting quando faturamento Omie já reflete deals ganhos)
+---
 
-4. Nos `stats` (linhas ~613-619):
-   - Adicionar stat box "Score ERP" com o valor do `omie_score`
+### Detalhes técnicos
 
-### Detalhes Técnicos
+Arquivos modificados:
+- `supabase/functions/omie-lead-enricher/index.ts` (correções A, B, C, D)
+- 1 migration SQL (recriar cron jobs com service_role key + rota `action=sync`)
 
-- Os dados já estão disponíveis em `detail.lead` (alias `ld`) porque o endpoint `smart-ops-leads-api` retorna todas as colunas de `lia_attendances`, incluindo `omie_faturamento_total`, `omie_valor_pago`, `omie_valor_em_aberto`, `omie_score`, `omie_classificacao`, `omie_inadimplente`, `omie_dias_sem_comprar`
-- Não é necessário criar novo hook ou query — os dados já chegam pelo fluxo existente
-- O `ErpDataTab` e `FinanceiroTab` continuam funcionando independentemente (sem mudanças)
-- Cores e labels da classificação Omie seguem o padrão já definido no `ErpDataTab` (`CLASSIFICACAO_CONFIG`)
+Impacto esperado:
+- O lead afonsomsjunior será encontrado via email OU CPF na Fase A
+- Todos os leads PF (pessoa física) passam a ser vinculáveis pelo CPF
+- Cron executará diariamente sem timeout, preenchendo `omie_faturamento_total`, `omie_score`, parcelas, etc.
 
