@@ -2,6 +2,8 @@ import React, { useEffect, useState, useRef } from "react";
 import { X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
+import { ErpDataTab } from "../leads/tabs/ErpDataTab";
+import { FinanceiroTab } from "../leads/tabs/FinanceiroTab";
 
 // ─── Constants ───
 const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
