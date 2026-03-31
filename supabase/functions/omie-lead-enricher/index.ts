@@ -1066,6 +1066,10 @@ serve(async (req) => {
       await enrichLead(supabase, leadId)
       return new Response(JSON.stringify({ ok: true }), { headers: CORS })
     }
+    if (action === "sync") {
+      const result = await runSync(supabase)
+      return new Response(JSON.stringify({ ok: true, ...result }), { headers: CORS })
+    }
     if (body?.topic) {
       await handleWebhook(supabase, body)
       return new Response(JSON.stringify({ ok: true }), { headers: CORS })
