@@ -1896,6 +1896,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       {activeTab === "cs" && (
         <CsEnrollmentsTab leadId={lead.id} />
       )}
+
+      {/* ── ERP — Dados do Omie ── */}
+      {activeTab === "erp" && (
+        <ErpDataTab leadId={lead.id} />
+      )}
+
+      {/* ── Financeiro — Parcelas ── */}
+      {activeTab === "financeiro" && (
+        <FinanceiroTab leadId={lead.id} />
+      )}
     </div>
   );
 }
