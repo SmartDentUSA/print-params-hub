@@ -90,7 +90,7 @@ interface DetailResponse {
   activity_log: ActivityLogEvent[];
 }
 
-type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs";
+type TabKey = "historico" | "cognitivo" | "upsell" | "fluxo" | "lis" | "acoes" | "cs" | "erp" | "financeiro";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "historico", label: "📋 Histórico Completo" },
@@ -100,6 +100,8 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "lis", label: "📊 LIS Breakdown" },
   { key: "acoes", label: "⚡ Ações Recomendadas" },
   { key: "cs", label: "🎓 CS" },
+  { key: "erp", label: "🏭 Dados do ERP" },
+  { key: "financeiro", label: "💰 Financeiro" },
 ];
 
 // ─── Helpers ───
