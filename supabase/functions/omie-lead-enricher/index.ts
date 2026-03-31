@@ -1048,9 +1048,10 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     }
   }
 
-  // 4. Buscar contas a receber do cliente
+  // 4. Buscar contas a receber do cliente (filtro nativo por nCodCliente)
   let totalCR = 0
   let paginaCR = 1
+  console.log(`sync-lead: buscando CR com nCodCliente=${omieCodigoCliente}`)
   while (true) {
     if (Date.now() - syncLeadStart > TIMEOUT_SYNC_LEAD) {
       console.log(`sync-lead: timeout CR na página ${paginaCR}`)
@@ -1059,12 +1060,12 @@ async function runSyncLead(supabase: ReturnType<typeof createClient>, leadId: st
     try {
       const data = await omieGet("/financas/contareceber/", "ListarContasReceber", {
         pagina: paginaCR, registros_por_pagina: 100,
-        apenas_importado_api: "N"
+        apenas_importado_api: "N",
+        nCodCliente: Number(omieCodigoCliente)
       })
       const titulos = data.conta_receber_cadastro ?? []
-      for (const titulo of titulos.filter((t: any) =>
-        t.codigo_cliente_fornecedor && Number(t.codigo_cliente_fornecedor) === Number(omieCodigoCliente)
-      )) {
+      console.log(`sync-lead: CR página ${paginaCR}/${data.total_de_paginas ?? 1}, titulos=${titulos.length}`)
+      for (const titulo of titulos) {
         try {
           const dataVenc = parseOmieDate(titulo.data_vencimento)
           if (!dataVenc) continue
