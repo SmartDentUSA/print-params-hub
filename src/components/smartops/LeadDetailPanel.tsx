@@ -541,7 +541,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const ltvAbandono = liCancelled.reduce((sum: number, p: any) => sum + (parseFloat(p.valor_total) || 0), 0);
   const ecomWon = liApproved.length;
   const ecomLost = liCancelled.length;
-  const financeiroTotal = psWon + ltvEcommerce;
+  const omieFat = Number(ld.omie_faturamento_total) || 0;
+  const omiePago = Number(ld.omie_valor_pago) || 0;
+  const omieAberto = Number(ld.omie_valor_em_aberto) || 0;
+  const omiePctPago = Number(ld.omie_percentual_pago) || 0;
+  const omieScore = Number(ld.omie_score) || 0;
+  const omieClassif = (ld.omie_classificacao as string) || null;
+  const omieInad = ld.omie_inadimplente === true;
+  const omieDiasSem = ld.omie_dias_sem_comprar != null ? Number(ld.omie_dias_sem_comprar) : null;
+  // Consolidado: maior entre CRM Won e Omie (evita double-count) + E-com
+  const financeiroTotal = Math.max(psWon, omieFat) + ltvEcommerce;
 
   // Consolidated proposal items (filtered: skip empty/placeholder items)
   const allProposalItems: { dealId: string; proposalId: string; name: string; sku: string; qty: number; unitVal: number; totalVal: number; dealStatus: string }[] = [];
