@@ -1,32 +1,65 @@
 
 
-## Problema: Lead Criado na Etapa Errada do Distribuidor
+## Enviar respostas do formulário como nota no Deal do PipeRun
 
-### Diagnóstico
+### Problema
 
-O `resolveFirstStage` (linha 1391 do `lia-assign`) consulta a API PipeRun buscando stages do pipeline 70898 (Distribuidor de Leads) ordenados por `order ASC` e pega o primeiro. A API está retornando **"Vendas no site"** como primeiro resultado, ao invés de **"0. Distribuidor de leads"**.
+O fluxo atual:
+1. `PublicFormPage` → chama `smart-ops-ingest-lead` (que dispara `lia-assign` fire-and-forget)
+2. `lia-assign` cria/atualiza deal e adiciona nota via `buildSellerNotification`
+3. **Depois** disso, `PublicFormPage` grava as respostas em `smartops_form_field_responses`
 
-Isso acontece porque a API do PipeRun nem sempre respeita o parâmetro `order_by`, ou porque "Vendas no site" tem ordem menor que "0. Distribuidor de leads" na configuração do funil.
+A nota do deal é criada **antes** das respostas existirem no banco, então as respostas do formulário nunca aparecem no PipeRun.
 
-### Correção
+### Solução
 
-**Hardcodar o stage ID** da etapa "0. Distribuidor de leads", assim como já fazemos com `STAGES_VENDAS`, `STAGES_ESTAGNADOS`, etc. Isso elimina a dependência da API para resolver o stage correto.
+Criar uma **nova Edge Function** `smart-ops-deal-form-note` que:
+- Recebe `lead_id` e as respostas do formulário (label + valor)
+- Busca o `piperun_id` do lead em `lia_attendances`
+- Se o deal existir, adiciona uma nota formatada com as respostas
+
+Chamar essa function no `PublicFormPage.tsx` **após** gravar as field responses, garantindo que a nota seja enviada depois do deal já existir.
 
 ### Mudanças
 
-#### 1. `supabase/functions/_shared/piperun-field-map.ts`
-- Adicionar constante `STAGES_DISTRIBUIDOR` com o ID correto da etapa "0. Distribuidor de leads"
-- Precisaremos consultar o ID real via API ou o usuário nos informar
+#### 1. Nova Edge Function: `supabase/functions/smart-ops-deal-form-note/index.ts`
 
-#### 2. `supabase/functions/smart-ops-lia-assign/index.ts`
-- Substituir a chamada `resolveFirstStage(PIPERUN_API_KEY, PIPELINES.DISTRIBUIDOR_LEADS)` na linha 1130 por `STAGES_DISTRIBUIDOR.ETAPA_0`
-- Remover a dependência dinâmica da API
+- Recebe JSON: `{ lead_id, form_name, responses: [{ label, value }] }`
+- Busca `piperun_id` do lead (com retry/polling curto, pois `lia-assign` roda em paralelo)
+- Formata nota:
+```text
+📝 Respostas do Formulário: [Nome do Form]
 
-### Informação necessária
+• Scanner Intraoral: Medit i700
+• Software CAD: exocad
+• Impressora 3D: Não possuo
+...
+```
+- Chama `addDealNote` via PipeRun API (reutiliza `piperunPost` do `_shared/piperun-field-map.ts`)
 
-Para hardcodar o stage, preciso do **ID numérico** da etapa "0. Distribuidor de leads" no PipeRun. Posso obtê-lo invocando a edge function `piperun-api-test` com endpoint `stages?pipeline_id=70898` para listar todos os stages deste funil e identificar o correto.
+#### 2. `src/pages/PublicFormPage.tsx`
+
+Após o bloco que grava `smartops_form_field_responses` (linha ~258), adicionar chamada:
+```typescript
+// Enviar respostas como nota no deal do PipeRun
+const allResponses = fields
+  .filter(f => values[f.id])
+  .map(f => ({ label: f.label, value: String(values[f.id]) }));
+
+supabase.functions.invoke("smart-ops-deal-form-note", {
+  body: { lead_id: leadId, form_name: form.name, responses: allResponses },
+}).catch(err => console.warn("Deal note error:", err));
+```
+
+Fire-and-forget — não bloqueia o submit do formulário.
+
+### Detalhes técnicos
+
+- A function usa `setTimeout` / retry (3 tentativas com 3s de intervalo) para aguardar o `piperun_id` ser preenchido pelo `lia-assign` que roda em paralelo
+- Reutiliza `PIPERUN_API_KEY` dos secrets existentes e a função `piperunPost` do shared
+- CORS headers incluídos para chamada do frontend
 
 ### Resultado
-- Leads sem vendedor ativo sempre cairão em "0. Distribuidor de leads" (e não "Vendas no site")
-- Sem dependência de ordenação da API PipeRun
+- Toda submissão de formulário gera automaticamente uma nota no deal do PipeRun com todas as respostas
+- O vendedor vê no PipeRun exatamente o que o lead respondeu no formulário
 
