@@ -528,11 +528,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── ALWAYS fetch full order from LI API when we have keys + order identifier ───
+    // ─── Fetch full order from LI API (SKIP when pre-enriched by poll) ───
+    const isEnrichedByPoll = !!(order as Record<string, unknown>)._enriched_by_poll;
     const orderResourceUri = resourceUri || order.resource_uri as string | undefined;
     const orderId = order.numero || order.id;
 
-    if (LI_API_KEY && (orderResourceUri || orderId)) {
+    if (isEnrichedByPoll) {
+      console.log(`[ecommerce-webhook] Skipping LI API re-fetch — order pre-enriched by poll (pedido=${orderId})`);
+    } else if (LI_API_KEY && (orderResourceUri || orderId)) {
       const fetchUri = orderResourceUri || `/api/v1/pedido/${orderId}/`;
       console.log(`[ecommerce-webhook] Force-fetching full order from LI API: ${fetchUri}`);
       const fullOrder = await fetchOrderFromLI(fetchUri, LI_API_KEY, LI_APP_KEY || null);
@@ -713,13 +716,15 @@ Deno.serve(async (req) => {
 
     // ─── Enrich with order history if we have a client ID ───
     let enrichmentData: Record<string, unknown> = {};
-    if (liClienteId && LI_API_KEY) {
+    if (liClienteId && LI_API_KEY && !isEnrichedByPoll) {
       const orderHistory = await fetchClienteOrderHistory(liClienteId, LI_API_KEY, LI_APP_KEY || null);
       if (orderHistory.length > 0) {
         const enrichment = enrichWithOrderHistory(orderHistory, tagsToAdd);
         enrichmentData = enrichment.extraUpdateData;
         console.log(`[ecommerce-webhook] Enrichment: LTV=${enrichment.ltv} | pedidosPagos=${enrichment.totalPedidosPagos} | primeiraCompra=${enrichment.dataPrimeiraCompra} | ultimaCompra=${enrichment.dataUltimaCompra}`);
       }
+    } else if (isEnrichedByPoll && liClienteId) {
+      console.log(`[ecommerce-webhook] Skipping order history fetch — enriched by poll (cliente=${liClienteId})`);
     }
 
     // ─── Upsert lead in lia_attendances ───
