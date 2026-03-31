@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 import { ErpDataTab } from "../leads/tabs/ErpDataTab";
 import { FinanceiroTab } from "../leads/tabs/FinanceiroTab";
+import LeadFieldsInventory from "./LeadFieldsInventory";
 
 // ─── Constants ───
 const API_BASE = "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1";
