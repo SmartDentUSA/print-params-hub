@@ -266,6 +266,24 @@ export default function PublicFormPage() {
         }
       }
 
+      // Enviar respostas como nota no deal do PipeRun (fire-and-forget)
+      if (leadId) {
+        const allResponses = fields
+          .filter((f) => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
+          .map((f) => ({
+            label: f.label,
+            value: Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id]),
+          }));
+
+        if (allResponses.length > 0) {
+          supabase.functions
+            .invoke("smart-ops-deal-form-note", {
+              body: { lead_id: leadId, form_name: form.name, responses: allResponses },
+            })
+            .catch((err) => console.warn("[PublicFormPage] Deal note error:", err));
+        }
+      }
+
       // GTM — Lead gerado via formulário SDR-CAPTAÇÃO
       try {
         if (typeof window !== 'undefined' && (window as any).dataLayer) {
