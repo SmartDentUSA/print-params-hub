@@ -1029,7 +1029,23 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             {tags.includes("EC_INICIOU_CHECKOUT") && (
               <span className="ctx-badge ctx-badge-cart">🛒 Carrinho pendente</span>
             )}
-          </div>
+            {omieScore > 0 && (
+              <span className="ctx-badge" style={{ background: omieScore >= 80 ? "rgba(34,197,94,0.15)" : omieScore >= 50 ? "rgba(59,130,246,0.15)" : omieScore >= 20 ? "rgba(245,158,11,0.15)" : "rgba(239,68,68,0.15)", color: omieScore >= 80 ? "#22c55e" : omieScore >= 50 ? "#3b82f6" : omieScore >= 20 ? "#f59e0b" : "#ef4444" }}>
+                🏭 Score ERP: {omieScore} ({omieScore >= 80 ? "PREMIUM" : omieScore >= 50 ? "ATIVO" : omieScore >= 20 ? "OPORTUNIDADE" : "RISCO"})
+              </span>
+            )}
+            {omieClassif && (
+              <span className="ctx-badge" style={{ background: omieClassif === "PRIORIDADE" ? "rgba(34,197,94,0.15)" : omieClassif === "ATIVO" ? "rgba(59,130,246,0.15)" : omieClassif === "RECUPERACAO" ? "rgba(245,158,11,0.15)" : omieClassif === "REATIVACAO" ? "rgba(168,85,247,0.15)" : "rgba(156,163,175,0.15)", color: omieClassif === "PRIORIDADE" ? "#22c55e" : omieClassif === "ATIVO" ? "#3b82f6" : omieClassif === "RECUPERACAO" ? "#f59e0b" : omieClassif === "REATIVACAO" ? "#a855f7" : "#9ca3af" }}>
+                📊 {omieClassif}
+              </span>
+            )}
+            {omieInad && (
+              <span className="ctx-badge" style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", fontWeight: 700 }}>⚠️ Inadimplente</span>
+            )}
+            {omieDiasSem != null && omieDiasSem > 90 && (
+              <span className="ctx-badge" style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>⏰ {omieDiasSem}d sem comprar</span>
+            )}
+           </div>
           <div className="meta-row">
             {meta.map((m, i) => (
               <span key={i} className="meta">{m}</span>
