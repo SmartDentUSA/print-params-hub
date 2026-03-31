@@ -897,6 +897,8 @@ export type Database = {
           installments: number | null
           lead_id: string | null
           metodo_pagamento: string | null
+          nfe_chave: string | null
+          nfe_number: string | null
           nome_produto: string | null
           num_parcelas: number | null
           payment_method: string | null
@@ -906,6 +908,8 @@ export type Database = {
           proposta_raw: Json | null
           quantidade: number | null
           quantity: number | null
+          serial_number: string | null
+          source: string | null
           synced_at: string | null
           tipo_frete: string | null
           total_value: number | null
@@ -926,6 +930,8 @@ export type Database = {
           installments?: number | null
           lead_id?: string | null
           metodo_pagamento?: string | null
+          nfe_chave?: string | null
+          nfe_number?: string | null
           nome_produto?: string | null
           num_parcelas?: number | null
           payment_method?: string | null
@@ -935,6 +941,8 @@ export type Database = {
           proposta_raw?: Json | null
           quantidade?: number | null
           quantity?: number | null
+          serial_number?: string | null
+          source?: string | null
           synced_at?: string | null
           tipo_frete?: string | null
           total_value?: number | null
@@ -955,6 +963,8 @@ export type Database = {
           installments?: number | null
           lead_id?: string | null
           metodo_pagamento?: string | null
+          nfe_chave?: string | null
+          nfe_number?: string | null
           nome_produto?: string | null
           num_parcelas?: number | null
           payment_method?: string | null
@@ -964,6 +974,8 @@ export type Database = {
           proposta_raw?: Json | null
           quantidade?: number | null
           quantity?: number | null
+          serial_number?: string | null
+          source?: string | null
           synced_at?: string | null
           tipo_frete?: string | null
           total_value?: number | null
@@ -1046,6 +1058,111 @@ export type Database = {
           },
           {
             foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      deal_status_history: {
+        Row: {
+          created_at: string | null
+          event_name: string | null
+          id: string
+          lead_id: string
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_name?: string | null
+          id?: string
+          lead_id: string
+          source: string
+          status: string
+        }
+        Update: {
+          created_at?: string | null
+          event_name?: string | null
+          id?: string
+          lead_id?: string
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
@@ -5395,6 +5512,156 @@ export type Database = {
           },
         ]
       }
+      omie_parcelas: {
+        Row: {
+          cobranca_canal: string | null
+          cobranca_count: number | null
+          cobranca_enviada_em: string | null
+          created_at: string | null
+          data_pagamento: string | null
+          data_vencimento: string
+          id: string
+          lead_id: string
+          nfe_chave: string | null
+          numero_parcela: number
+          numero_pedido: string | null
+          omie_pedido_id: number | null
+          omie_titulo_id: number | null
+          omie_titulo_repet: number | null
+          source: string | null
+          status: string
+          tipo_documento: string | null
+          total_parcelas: number
+          updated_at: string | null
+          valor: number
+          valor_pago: number | null
+        }
+        Insert: {
+          cobranca_canal?: string | null
+          cobranca_count?: number | null
+          cobranca_enviada_em?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento: string
+          id?: string
+          lead_id: string
+          nfe_chave?: string | null
+          numero_parcela?: number
+          numero_pedido?: string | null
+          omie_pedido_id?: number | null
+          omie_titulo_id?: number | null
+          omie_titulo_repet?: number | null
+          source?: string | null
+          status?: string
+          tipo_documento?: string | null
+          total_parcelas?: number
+          updated_at?: string | null
+          valor?: number
+          valor_pago?: number | null
+        }
+        Update: {
+          cobranca_canal?: string | null
+          cobranca_count?: number | null
+          cobranca_enviada_em?: string | null
+          created_at?: string | null
+          data_pagamento?: string | null
+          data_vencimento?: string
+          id?: string
+          lead_id?: string
+          nfe_chave?: string | null
+          numero_parcela?: number
+          numero_pedido?: string | null
+          omie_pedido_id?: number | null
+          omie_titulo_id?: number | null
+          omie_titulo_repet?: number | null
+          source?: string | null
+          status?: string
+          tipo_documento?: string | null
+          total_parcelas?: number
+          updated_at?: string | null
+          valor?: number
+          valor_pago?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       pandavideo_folders: {
         Row: {
           created_at: string | null
@@ -8440,6 +8707,103 @@ export type Database = {
         }
         Relationships: []
       }
+      v_lead_financeiro: {
+        Row: {
+          lead_id: string | null
+          max_dias_vencido: number | null
+          parcelas_canceladas: number | null
+          parcelas_pagas: number | null
+          parcelas_pendentes: number | null
+          parcelas_vencidas: number | null
+          percentual_pago: number | null
+          proximo_vencimento: string | null
+          total_parcelas: number | null
+          ultima_atualizacao: string | null
+          valor_pago: number | null
+          valor_pendente: number | null
+          valor_total: number | null
+          valor_vencido: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       v_lead_timeline: {
         Row: {
           details: string | null
@@ -9190,6 +9554,7 @@ export type Database = {
         Args: { lead: Database["public"]["Tables"]["lia_attendances"]["Row"] }
         Returns: Json
       }
+      fn_atualizar_parcelas_vencidas: { Args: never; Returns: number }
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
         Returns: undefined
