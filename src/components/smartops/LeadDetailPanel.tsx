@@ -1091,10 +1091,40 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
             </>
           )}
 
+          {/* ERP Omie financial block */}
+          {omieFat > 0 && (
+            <>
+              <div className="ltv-label" style={{ fontSize: "0.65rem", letterSpacing: "0.05em", marginTop: 10, marginBottom: 6 }}>🏭 Faturamento ERP (Omie)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 12px" }}>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: "var(--won, #22c55e)" }}>{formatBRL(omieFat)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Faturamento Total</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: "#22c55e" }}>{formatBRL(omiePago)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Recebido</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: omieAberto > 0 ? "#f59e0b" : "var(--muted)" }}>{formatBRL(omieAberto)}</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Em Aberto</div>
+                </div>
+                <div>
+                  <div className="ltv-val" style={{ fontSize: "0.95rem", color: omiePctPago >= 90 ? "#22c55e" : omiePctPago >= 50 ? "#f59e0b" : "#ef4444" }}>{omiePctPago.toFixed(0)}%</div>
+                  <div style={{ fontSize: "0.6rem", opacity: 0.7 }}>Quitado</div>
+                </div>
+              </div>
+              {omieInad && (
+                <div style={{ marginTop: 6, padding: "4px 8px", borderRadius: 4, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", fontSize: "0.65rem", color: "#ef4444", fontWeight: 600 }}>
+                  ⚠️ Cliente inadimplente — parcelas vencidas detectadas
+                </div>
+              )}
+            </>
+          )}
+
           {/* Financeiro Total consolidado */}
           {financeiroTotal > 0 && (
             <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: 6, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
-              <div style={{ fontSize: "0.6rem", opacity: 0.7, marginBottom: 2 }}>💰 Financeiro Total (CRM + E-com)</div>
+              <div style={{ fontSize: "0.6rem", opacity: 0.7, marginBottom: 2 }}>💰 Financeiro Total {omieFat > 0 ? "(CRM/ERP + E-com)" : "(CRM + E-com)"}</div>
               <div className="ltv-val" style={{ fontSize: "1.1rem", color: "var(--won, #22c55e)", fontWeight: 800 }}>{formatBRL(financeiroTotal)}</div>
             </div>
           )}
