@@ -1,68 +1,28 @@
 
 
-# Fix: Backfill Missing Proposals + Prevent Future Gaps
+# Plan: Generate Lead Architecture Documentation (MD)
 
-## Summary
+## Objective
+Create a comprehensive Markdown document at `/mnt/documents/LEAD_ARCHITECTURE_SMARTDENT.md` documenting the full lead lifecycle, data flows, B2B/B2C treatment, Copilot usage, audience generation, forms, and CRM integration.
 
-The sync engine (`smart-ops-sync-piperun`) already requests `with[]=proposals` (line 292). The `upsertDealHistory` function replaces snapshots by `deal_id` — so re-syncing WILL overwrite empty snapshots. The root cause was likely that these deals were first ingested via webhook (which doesn't include proposals) and subsequent syncs didn't reach them (offset/pagination or timing).
+## Document Structure
 
-## Changes
+1. **Overview** — CDP architecture centered on `lia_attendances`
+2. **Lead Sources** — 7 ingestion paths (Forms, Meta Ads, SellFlux, E-commerce/Loja Integrada, PipeRun Webhook, PipeRun Sync, Dra. LIA)
+3. **Ingestion Pipeline** — `smart-ops-ingest-lead` flow, Smart Merge logic, field categories (PROTECTED, ALWAYS_UPDATE, ENRICHMENT_ONLY, MERGE_ARRAY, MERGE_JSONB), source priority table
+4. **CRM Bidirectional Sync** — PipeRun flows: `lia-assign` (outbound: person creation, deal creation, Golden Rule), `sync-piperun` (inbound: 12 pipelines, Rich Deal Snapshots, person-centric consolidation), `piperun-webhook` (real-time with proposal re-fetch)
+5. **B2B vs B2C Classification** — `buyer_type` generated column, `empresa_piperun_id` as discriminator, `companies` + `people` + `deals` normalized tables, `fn_sync_normalized_from_lead`, implications in filtering/segmentation/LTV
+6. **Lead Card (LeadDetailPanel)** — Hero card (LIS score, buyer badge, heat, meta), 7 tabs (Historico, Cognitivo, Upsell, Fluxo, LIS, Acoes, CS), Timeline (10 sources), Financial tables (CRM P&S, E-commerce LTV, Product Mix), Proposals detail table
+7. **Intelligence Score (LIS)** — 4 axes (Sales Heat, Technical Maturity, Behavioral Engagement, Purchase Power), stage detection hierarchy, regression tracking
+8. **Cognitive Analysis** — DeepSeek-powered longitudinal analysis, stage trajectory, urgency classification
+9. **Copilot IA** — 19 tools, Dual Brain (DeepSeek/Gemini), `query_deal_history` for sales analysis, `bulk_campaign` for mass operations, `create_audience` for segmentation
+10. **Audience Builder** — Filters (pipeline, temperature, stage, urgency, SDR interests, active products, item proposta, UF, proprietario, valor range), SellFlux export
+11. **Forms System** — `smartops_forms` + `smartops_form_fields`, purposes (SDR Captacao, NPS, CS, ROI, Evento), public form page, field mapping
+12. **Stagnation Engine** — 5-day progression through stages, AI-generated reactivation messages, SellFlux campaign sync
+13. **SellFlux Integration** — Bidirectional: inbound webhook (tag migration, source detection), outbound (lead sync, campaign dispatch)
+14. **Workflow Portfolio 7x3** — 7 stages x subcategories x 3 layers (Ativo SmartDent, Concorrente, SDR Interest)
+15. **Data Flow Diagrams** — ASCII diagrams for ingestion, CRM sync, and campaign flows
 
-### 1. Create Edge Function: `backfill-deal-proposals` (new file)
-
-A targeted function that:
-- Accepts a list of `deal_ids` (or auto-detects deals with `proposals: []` and `value > 0`)
-- Fetches each deal individually from PipeRun API with `with[]=proposals,proposals.items`
-- Rebuilds the `RichDealSnapshot` using `buildRichDealSnapshot`
-- Replaces the snapshot in `piperun_deals_history` via `upsertDealHistory`
-- Calls `callNormalizeFromLead` to propagate to normalized tables
-
-```text
-Input:  { deal_ids?: string[], auto_detect?: boolean, limit?: number }
-Output: { backfilled: number, errors: number, details: [...] }
-```
-
-Auto-detect query logic:
-```sql
-SELECT id, piperun_deals_history
-FROM lia_attendances
-WHERE piperun_deals_history IS NOT NULL
-  -- Find any deal in the JSONB array with value > 0 but empty proposals
-```
-
-For each matching lead, iterate `piperun_deals_history`, find snapshots where `proposals` is empty and `value > 0`, fetch from PipeRun `/deals/{deal_id}?with[]=proposals&with[]=proposals.items`, rebuild snapshot.
-
-### 2. Update `smart-ops-piperun-webhook/index.ts` — Re-fetch deal with proposals
-
-The webhook payload from PipeRun does NOT include `proposals` data. After processing the webhook deal, if the snapshot has `proposals: []` and `value > 0`, make a follow-up API call to fetch the deal with `with[]=proposals` and update the snapshot.
-
-Add after the `buildRichDealSnapshot` call (~line 200-250 area):
-```ts
-// If proposals are empty but deal has value, re-fetch with proposals
-if (dealSnapshot.proposals.length === 0 && (dealSnapshot.value ?? 0) > 0) {
-  const enriched = await piperunGet(PIPERUN_API_KEY, `deals/${dealId}`, {}, 
-    { "with[]": ["proposals", "proposals.items"] });
-  if (enriched.success && enriched.data?.data?.proposals) {
-    // Rebuild snapshot with proposals
-    const enrichedDeal = { ...deal, proposals: enriched.data.data.proposals };
-    dealSnapshot = buildRichDealSnapshot(enrichedDeal, overrides);
-  }
-}
-```
-
-### 3. Immediate backfill execution
-
-After deploying the new function, invoke it with:
-```json
-{ "deal_ids": ["56243300", "56506351"] }
-```
-
-This will fix the two confirmed missing-proposal deals for `lucasmatheus@hotmail.com`.
-
-## Technical Details
-
-- **File 1** (new): `supabase/functions/backfill-deal-proposals/index.ts`
-- **File 2** (edit): `supabase/functions/smart-ops-piperun-webhook/index.ts` — add proposal re-fetch when webhook snapshot has empty proposals
-- **No migration needed** — data structure unchanged
-- **Reuses**: `piperunGet`, `buildRichDealSnapshot`, `upsertDealHistory`, `callNormalizeFromLead` from `_shared/piperun-field-map.ts`
+## Implementation
+Single script execution to write the MD file to `/mnt/documents/`.
 
