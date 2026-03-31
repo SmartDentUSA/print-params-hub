@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import { X } from "lucide-react";
+import { X, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
 
 // ─── Constants ───
@@ -185,7 +186,42 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const [activeTab, setActiveTab] = useState<TabKey>("historico");
   const [cognitiveLoading, setCognitiveLoading] = useState(false);
   const [cognitiveText, setCognitiveText] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const cachedIdRef = useRef<string | null>(null);
+
+  const handleSyncPipeRun = async () => {
+    if (!lead?.id || syncing) return;
+    setSyncing(true);
+    try {
+      const ld = detail?.lead || lead;
+      const dealIds = Array.isArray(ld.piperun_deals_history)
+        ? ld.piperun_deals_history.map((d: any) => String(d.deal_id)).filter(Boolean)
+        : ld.piperun_id ? [String(ld.piperun_id)] : [];
+      if (dealIds.length === 0) {
+        toast.error("Lead sem deal_id para sincronizar");
+        return;
+      }
+      const res = await fetch(`${API_BASE}/backfill-deal-proposals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_ids: dealIds, lead_ids: [lead.id] }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro na API");
+      toast.success(`Sync concluído: ${data.backfilled || 0} deal(s) atualizados`);
+      // Re-fetch detail
+      cachedIdRef.current = null;
+      setLoading(true);
+      const r2 = await fetch(`${API_BASE}/smart-ops-leads-api?action=detail&id=${lead.id}`);
+      const d2 = await r2.json();
+      if (d2?.lead) setDetail(d2);
+    } catch (e: any) {
+      toast.error(`Erro ao sincronizar: ${e.message}`);
+    } finally {
+      setSyncing(false);
+      setLoading(false);
+    }
+  };
 
   // Fetch detail when lead changes
   useEffect(() => {
@@ -948,8 +984,16 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
 
   return (
     <div className="intel-detail">
-      {/* Close button */}
-      <div style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "flex-end", padding: "8px 12px", background: "var(--bg)" }}>
+      {/* Close button + Sync */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, display: "flex", justifyContent: "flex-end", gap: 4, padding: "8px 12px", background: "var(--bg)" }}>
+        <button
+          onClick={handleSyncPipeRun}
+          disabled={syncing}
+          title="Sincronizar dados do PipeRun"
+          style={{ background: "none", border: "none", color: syncing ? "var(--accent)" : "var(--muted)", cursor: syncing ? "wait" : "pointer", padding: 4 }}
+        >
+          <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+        </button>
         <button onClick={onClose} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4 }}>
           <X size={18} />
         </button>

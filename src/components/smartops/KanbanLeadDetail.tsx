@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { Lead, ParsedProposalItem } from "./KanbanLeadCard";
 
 function formatCurrency(val: number): string {
@@ -294,6 +296,31 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
   const [whatsappMsgs, setWhatsappMsgs] = useState<WhatsAppMsg[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncPipeRun = async () => {
+    if (!lead?.id || syncing) return;
+    setSyncing(true);
+    try {
+      const dealIds = Array.isArray(lead.piperun_deals_history)
+        ? (lead.piperun_deals_history as any[]).map((d: any) => String(d.deal_id)).filter(Boolean)
+        : lead.piperun_id ? [String(lead.piperun_id)] : [];
+      if (dealIds.length === 0) {
+        toast.error("Lead sem deal_id para sincronizar");
+        setSyncing(false);
+        return;
+      }
+      const { data, error } = await supabase.functions.invoke("backfill-deal-proposals", {
+        body: { deal_ids: dealIds, lead_ids: [lead.id] },
+      });
+      if (error) throw error;
+      toast.success(`Sync concluído: ${data?.backfilled || 0} deal(s) atualizados`);
+    } catch (e: any) {
+      toast.error(`Erro ao sincronizar: ${e.message}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!lead?.id || !open) {
@@ -381,7 +408,19 @@ export function KanbanLeadDetail({ lead, open, onClose }: KanbanLeadDetailProps)
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
+          <div className="flex items-center justify-between">
+            <SheetTitle className="text-lg">{lead.nome}</SheetTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              disabled={syncing}
+              title="Sincronizar PipeRun"
+              onClick={handleSyncPipeRun}
+            >
+              <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-1">
             <Badge variant="outline">{lead.lead_status}</Badge>
             {lead.temperatura_lead && (
