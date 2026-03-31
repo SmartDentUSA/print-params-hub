@@ -30,13 +30,14 @@ const REAL_STATUS_ALERT: Record<string, { message: string; className: string } |
 }
 
 interface DualStatusBadgeProps {
-  crmStatus:  string | null
-  erpStatus:  string | null
-  realStatus: string | null
-  compact?:   boolean
+  crmStatus:        string | null
+  erpStatus:        string | null
+  realStatus:       string | null
+  compact?:         boolean
+  omieInadimplente?: boolean
 }
 
-export function DualStatusBadge({ crmStatus, erpStatus, realStatus, compact = false }: DualStatusBadgeProps) {
+export function DualStatusBadge({ crmStatus, erpStatus, realStatus, compact = false, omieInadimplente }: DualStatusBadgeProps) {
   const crm   = CRM_CONFIG[crmStatus ?? ""] ?? { label: crmStatus ?? "—", className: "bg-gray-50 text-gray-500 border-gray-200" }
   const erp   = ERP_CONFIG[erpStatus ?? "NONE"] ?? ERP_CONFIG["NONE"]
   const alert = realStatus ? REAL_STATUS_ALERT[realStatus] : undefined
@@ -52,6 +53,11 @@ export function DualStatusBadge({ crmStatus, erpStatus, realStatus, compact = fa
           <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", erp.dot)} />
           {erp.label}
         </span>
+        {omieInadimplente && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold bg-red-100 text-red-700 border border-red-300">
+            !
+          </span>
+        )}
       </div>
     )
   }
@@ -73,7 +79,18 @@ export function DualStatusBadge({ crmStatus, erpStatus, realStatus, compact = fa
           </span>
         </div>
       </div>
-      {alert && (
+      {/* Inadimplente: precedência máxima */}
+      {omieInadimplente && (
+        <div className="px-3 py-2 rounded-md bg-red-50 border border-red-300">
+          <p className="text-xs text-red-700 font-semibold">
+            ! INADIMPLENTE — parcelas vencidas no ERP
+          </p>
+          <p className="text-xs text-red-600 mt-0.5">
+            Acionar cobrança antes de novas negociações
+          </p>
+        </div>
+      )}
+      {alert && !omieInadimplente && (
         <div className={cn("text-xs px-3 py-2 rounded-md font-medium", alert.className)}>
           {alert.message}
         </div>

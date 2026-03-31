@@ -4091,9 +4091,27 @@ export type Database = {
           nps_satisfacao: number | null
           nps_temas_cursos: string[] | null
           objection_risk: string | null
+          omie_classificacao: string | null
           omie_codigo_cliente: number | null
+          omie_dias_atraso_max: number | null
+          omie_dias_sem_comprar: number | null
+          omie_faturamento_total: number | null
+          omie_frequencia_compra: number | null
+          omie_inadimplente: boolean | null
           omie_last_sync: string | null
           omie_nf_count: number | null
+          omie_percentual_pago: number | null
+          omie_razao_social: string | null
+          omie_score: number | null
+          omie_segmento: string | null
+          omie_ticket_medio: number | null
+          omie_tipo_pessoa: string | null
+          omie_total_pedidos: number | null
+          omie_ultima_compra: string | null
+          omie_ultima_nf_emitida: string | null
+          omie_valor_em_aberto: number | null
+          omie_valor_pago: number | null
+          omie_valor_vencido: number | null
           opportunity_score: number | null
           opportunity_signals: Json | null
           origem_campanha: string | null
@@ -4540,9 +4558,27 @@ export type Database = {
           nps_satisfacao?: number | null
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
+          omie_classificacao?: string | null
           omie_codigo_cliente?: number | null
+          omie_dias_atraso_max?: number | null
+          omie_dias_sem_comprar?: number | null
+          omie_faturamento_total?: number | null
+          omie_frequencia_compra?: number | null
+          omie_inadimplente?: boolean | null
           omie_last_sync?: string | null
           omie_nf_count?: number | null
+          omie_percentual_pago?: number | null
+          omie_razao_social?: string | null
+          omie_score?: number | null
+          omie_segmento?: string | null
+          omie_ticket_medio?: number | null
+          omie_tipo_pessoa?: string | null
+          omie_total_pedidos?: number | null
+          omie_ultima_compra?: string | null
+          omie_ultima_nf_emitida?: string | null
+          omie_valor_em_aberto?: number | null
+          omie_valor_pago?: number | null
+          omie_valor_vencido?: number | null
           opportunity_score?: number | null
           opportunity_signals?: Json | null
           origem_campanha?: string | null
@@ -4989,9 +5025,27 @@ export type Database = {
           nps_satisfacao?: number | null
           nps_temas_cursos?: string[] | null
           objection_risk?: string | null
+          omie_classificacao?: string | null
           omie_codigo_cliente?: number | null
+          omie_dias_atraso_max?: number | null
+          omie_dias_sem_comprar?: number | null
+          omie_faturamento_total?: number | null
+          omie_frequencia_compra?: number | null
+          omie_inadimplente?: boolean | null
           omie_last_sync?: string | null
           omie_nf_count?: number | null
+          omie_percentual_pago?: number | null
+          omie_razao_social?: string | null
+          omie_score?: number | null
+          omie_segmento?: string | null
+          omie_ticket_medio?: number | null
+          omie_tipo_pessoa?: string | null
+          omie_total_pedidos?: number | null
+          omie_ultima_compra?: string | null
+          omie_ultima_nf_emitida?: string | null
+          omie_valor_em_aberto?: number | null
+          omie_valor_pago?: number | null
+          omie_valor_vencido?: number | null
           opportunity_score?: number | null
           opportunity_signals?: Json | null
           origem_campanha?: string | null
@@ -5706,6 +5760,27 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
         ]
+      }
+      omie_sync_cursors: {
+        Row: {
+          key: string
+          meta: Json | null
+          updated_at: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          meta?: Json | null
+          updated_at?: string | null
+          value?: string
+        }
+        Update: {
+          key?: string
+          meta?: Json | null
+          updated_at?: string | null
+          value?: string
+        }
+        Relationships: []
       }
       pandavideo_folders: {
         Row: {
@@ -9618,6 +9693,10 @@ export type Database = {
           valor_unitario: number
         }[]
       }
+      fn_enrich_lead_from_omie: {
+        Args: { p_lead_id: string }
+        Returns: undefined
+      }
       fn_generate_recurrent_turmas: {
         Args: {
           p_base_date: string
@@ -9648,6 +9727,8 @@ export type Database = {
           source_reference: string
         }[]
       }
+      fn_map_omie_titulo_status: { Args: { s: string }; Returns: string }
+      fn_omie_score_label: { Args: { score: number }; Returns: string }
       fn_record_lead_event: {
         Args: {
           p_entity_id?: string
@@ -9973,9 +10054,27 @@ export type Database = {
           nps_satisfacao: number | null
           nps_temas_cursos: string[] | null
           objection_risk: string | null
+          omie_classificacao: string | null
           omie_codigo_cliente: number | null
+          omie_dias_atraso_max: number | null
+          omie_dias_sem_comprar: number | null
+          omie_faturamento_total: number | null
+          omie_frequencia_compra: number | null
+          omie_inadimplente: boolean | null
           omie_last_sync: string | null
           omie_nf_count: number | null
+          omie_percentual_pago: number | null
+          omie_razao_social: string | null
+          omie_score: number | null
+          omie_segmento: string | null
+          omie_ticket_medio: number | null
+          omie_tipo_pessoa: string | null
+          omie_total_pedidos: number | null
+          omie_ultima_compra: string | null
+          omie_ultima_nf_emitida: string | null
+          omie_valor_em_aberto: number | null
+          omie_valor_pago: number | null
+          omie_valor_vencido: number | null
           opportunity_score: number | null
           opportunity_signals: Json | null
           origem_campanha: string | null
