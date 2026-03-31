@@ -1,52 +1,43 @@
 
 
-## Problema: Dados do Formulário Não Chegam ao Card do Lead
+## Fluxo Mapeamento → portfolio_json do Lead
 
-### Diagnóstico
+### Problema
+Os campos de mapeamento do formulário (scanner, impressora, CAD, etc.) são salvos na tabela `smartops_form_field_responses` com o `workflow_cell_target`, mas **nada os converte em entradas na coluna `portfolio_json`** do lead. O `smart-ops-leads-api` já renderiza a camada "mapeamento" do Workflow 7×3 a partir de `portfolio_json`, mas essa camada fica sempre vazia.
 
-O formulário **"# - Formulário exocad I.A."** foi preenchido pelo Thiago às 16:42 UTC de hoje. Os dados **foram capturados** pelo `ingest-lead`, mas parcialmente:
+### Solução
 
-**Campos COM `db_column` → capturados ✅:**
-- `nome`, `email`, `telefone_raw`, `area_atuacao`, `especialidade`, `equip_scanner`, `impressora_modelo`
+Criar um **trigger de banco** que, ao inserir uma resposta em `smartops_form_field_responses`, atualiza automaticamente o `portfolio_json` do lead correspondente com a camada `mapeamento`.
 
-**Campos SEM `db_column` (só `custom_field_name`) → perdidos no `raw_payload.custom_fields` ❌:**
-- `software_CAD_utilzado_atualmente` → deveria ir para `software_cad`
-- `atualmente_imprimi_modelos_com_a_resina` → sem coluna DB mapeada
-- `atualmente_imprimi_placas_miorrelaxantes_com_a_resina` → sem coluna DB mapeada
-- `atualmente_imprimi_elementos_dcom_resinae_longa_duracao_com_resina` → sem coluna DB mapeada
-- `atualmente_imprimi_guias_cirurgicas_com_resina` → sem coluna DB mapeada
+### Arquivos e Mudanças
 
-**Campos que NÃO atualizaram (smart merge bloqueou) ⚠️:**
-- `impressora_modelo`: form enviou "RAYSHAPE" mas o DB já tinha "BLZ INO200" — o merge default é enrichment-only (só preenche se vazio)
+#### 1. SQL Migration — Trigger `fn_sync_form_response_to_portfolio`
 
-### Causa Raiz
+Criar uma função PL/pgSQL que:
+- Dispara no `AFTER INSERT` em `smartops_form_field_responses`
+- Converte o `workflow_cell_target` (ex: `3_impressao__impressora_3d`) em `stageKey` + `subcat` (ex: `etapa_3_impressao` / `impressora`)
+- Faz `jsonb_set` no `portfolio_json` do lead, adicionando `{ "mapeamento": { "valor": "<value>", "status": "mapeado" } }` na célula correta
+- Atualiza `portfolio_updated_at = now()`
 
-1. **Form fields sem `db_column`**: 5 dos 12 campos do formulário têm apenas `custom_field_name`, então vão para `raw_payload.custom_fields` mas **nunca são extraídos para as colunas reais do lead**
-2. **`ingest-lead` não processa `custom_fields`**: A função monta o payload a partir de keys top-level; ignora completamente o objeto `custom_fields` aninhado
-3. **Smart Merge bloqueia atualizações**: Campos como `impressora_modelo` e `software_cad` são "enrichment-only" — se já preenchidos, o form não os atualiza. Para formulários, o dado mais recente deveria ganhar
+Mapeamento de `workflow_cell_target` → `stageKey.subcat`:
 
-### Correções
+```text
+1_captura_digital__scanner_intraoral  → etapa_1_scanner.scanner_intraoral
+2_cad__software                       → etapa_2_cad.software
+3_impressao__impressora_3d            → etapa_3_impressao.impressora
+(etc. — 25 células totais)
+```
 
-#### 1. Atualizar configuração dos campos do formulário (SQL)
-- Definir `db_column` para o campo de software CAD: `software_CAD_utilzado_atualmente` → `db_column = 'software_cad'`
+#### 2. Atualizar `smart-ops-ingest-lead/index.ts`
 
-#### 2. Melhorar `smart-ops-ingest-lead/index.ts`
-- Após montar o payload, verificar se existe `raw_payload.custom_fields` e mapear campos conhecidos para colunas do lead:
-  - `software_CAD*` → `software_cad`
-  - `*imprimi_modelos*` → `principal_aplicacao` (append "modelos")
-  - `*imprimi_placas*` → detectar e enriquecer `principal_aplicacao`
-  - `*imprimi_guias*` → detectar e enriquecer `principal_aplicacao`
-  - Guardar respostas completas no `raw_payload` para contexto da LIA/Copilot
+Após o `ingest-lead` retornar o `lead_id`, e o `PublicFormPage` gravar as `field_responses`, o trigger do banco cuidará do resto automaticamente. Nenhuma mudança necessária no edge function.
 
-#### 3. Adicionar campos de equipamento ao `ALWAYS_UPDATE` em `lead-enrichment.ts`
-- Quando a fonte é `formulario`/`form`, campos como `impressora_modelo`, `software_cad`, `como_digitaliza`, `equip_scanner` devem ser atualizados (o dado mais recente do form vence)
-- Adicionar ao set: `impressora_modelo`, `software_cad`, `como_digitaliza`, `equip_scanner`, `area_atuacao`, `especialidade`
+#### 3. Backfill — Processar respostas já existentes
 
-#### 4. Reprocessar o lead do Thiago
-- Após o deploy, re-invocar `ingest-lead` com o `latest_payload` que já está salvo no `raw_payload` para preencher os campos faltantes
+Executar um UPDATE que leia todas as respostas em `smartops_form_field_responses` e popule o `portfolio_json` dos leads que já têm respostas mas `portfolio_json` não reflete os dados de mapeamento.
 
-### Arquivos
-1. **SQL migration**: Atualizar `db_column` do campo de software CAD no formulário
-2. **`supabase/functions/smart-ops-ingest-lead/index.ts`**: Extrair e mapear `custom_fields` para colunas do lead
-3. **`supabase/functions/_shared/lead-enrichment.ts`**: Adicionar campos de equipamento/perfil ao `ALWAYS_UPDATE`
+### Resultado
+- Formulários de mapeamento preenchem automaticamente a 4ª camada (roxo) do Workflow 7×3
+- O card do lead mostra imediatamente o que o lead possui (scanner, impressora, CAD, etc.)
+- LIA e Copilot passam a ter visibilidade dos equipamentos mapeados via formulário
 
