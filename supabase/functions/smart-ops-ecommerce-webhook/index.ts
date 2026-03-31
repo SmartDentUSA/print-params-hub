@@ -528,11 +528,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ─── ALWAYS fetch full order from LI API when we have keys + order identifier ───
+    // ─── Fetch full order from LI API (SKIP when pre-enriched by poll) ───
+    const isEnrichedByPoll = !!(order as Record<string, unknown>)._enriched_by_poll;
     const orderResourceUri = resourceUri || order.resource_uri as string | undefined;
     const orderId = order.numero || order.id;
 
-    if (LI_API_KEY && (orderResourceUri || orderId)) {
+    if (isEnrichedByPoll) {
+      console.log(`[ecommerce-webhook] Skipping LI API re-fetch — order pre-enriched by poll (pedido=${orderId})`);
+    } else if (LI_API_KEY && (orderResourceUri || orderId)) {
       const fetchUri = orderResourceUri || `/api/v1/pedido/${orderId}/`;
       console.log(`[ecommerce-webhook] Force-fetching full order from LI API: ${fetchUri}`);
       const fullOrder = await fetchOrderFromLI(fetchUri, LI_API_KEY, LI_APP_KEY || null);
