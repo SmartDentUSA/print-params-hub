@@ -1,63 +1,52 @@
 
-Você está certo: ainda há erros reais ativos; “implementação ok” só valia para o endpoint responder, não para o fluxo completo sem falhas.
 
-**Diagnóstico confirmado**
-1. **Meta Webhook**  
-   - A função está online, mas há log recente: `Verification failed. Token mismatch`.
-   - Resultado: o Meta não valida o webhook de forma consistente e os leads não entram (`lead_activity_log` de meta está zerado).
+## Plano: Integrar dados Omie ERP no Hero Card do Lead
 
-2. **OMIE (cron)**  
-   - Jobs `omie-sync-morning` e `omie-sync-evening` estão ativos e “succeeded” no SQL.
-   - Porém não há logs da função `omie-lead-enricher` e `omie_parcelas` está com **0 registros**.
-   - Há indício de timeout de `net.http_post` no banco, então o cron “executa”, mas a chamada HTTP não conclui como esperado.
+### Problema identificado
 
-3. **PipeRun Sync**  
-   - Logs atuais com muitos `duplicate key` em:
-     - `lia_attendances_piperun_id_key`
-     - `lia_attendances_email_ci_key`
-   - Existe volume relevante de leads já mesclados (`merged_into`) ainda com `piperun_id`, o que gera colisão quando o canônico tenta assumir esse `piperun_id`.
+O card do lead (LeadDetailPanel) tem abas dedicadas "🏭 Dados do ERP" e "💰 Financeiro" que exibem corretamente os dados do Omie. Porém, o **hero card** (resumo principal visível ao abrir o lead) mostra apenas dados de CRM (PipeRun) e E-commerce (Loja Integrada), ignorando completamente:
 
----
+- **Faturamento Omie** (receita real confirmada pelo ERP)
+- **Omie Score** (0-100) e classificação operacional (PRIORIDADE, RECUPERACAO, etc.)
+- **Flag de inadimplência** (alertas de parcelas vencidas)
+- **Dias sem comprar** (indicador de reativação)
 
-**Plano de correção (implementação)**
-1. **Blindar verificação do Meta webhook** (`supabase/functions/smart-ops-meta-lead-webhook/index.ts`)
-   - Normalizar comparação do token (`trim`) e registrar diagnóstico seguro (sem vazar segredo).
-   - Melhorar logs de GET/POST para separar claramente falha de token, payload inválido e erro Graph API.
+Isso faz com que o vendedor precise navegar até a aba ERP para ver informações críticas de decisão.
 
-2. **Corrigir merge com conflito de unicidade no PipeRun** (`supabase/functions/smart-ops-sync-piperun/index.ts`)
-   - No caminho de conflito, liberar primeiro a chave única do lead que será marcado como `merged_into` (especialmente `piperun_id`) antes de gravar no canônico.
-   - Melhorar fallback de resolução por email quando houver registros já mesclados.
-   - Normalizar email de entrada para evitar colisões por formato (ex.: lista separada por vírgula).
+### Solução
 
-3. **Limpeza de legado que alimenta conflito** (migration SQL)
-   - Limpar `piperun_id/piperun_link` de registros já mesclados (`merged_into IS NOT NULL`) para remover colisão histórica.
-   - Preservar rastreabilidade em auditoria (sem mexer em `lead_activity_log` schema).
+Adicionar ao hero card do `LeadDetailPanel` um bloco "ERP Omie" que exiba:
 
-4. **Estabilizar cron OMIE** (migration SQL + ajuste leve da função)
-   - Recriar jobs OMIE com timeout HTTP adequado no `net.http_post`.
-   - Separar execução agendada “rápida” do backfill completo (backfill pesado fica manual/on-demand).
-   - Manter job de cobrança via `action=cobrancas` no horário operacional.
+1. **Faturamento ERP** ao lado do "Financeiro Total (CRM + E-com)" existente
+2. **Badge de classificação Omie** (PRIORIDADE/RECUPERACAO/REATIVACAO/ATIVO/MONITORAR) no hero
+3. **Alerta de inadimplência** quando `omie_inadimplente = true`
+4. **Score Omie** como badge compacto ao lado do LIS score
 
-5. **Observabilidade mínima obrigatória**
-   - Logs estruturados de início/fim com contadores e duração em Meta/OMIE/PipeRun.
-   - Erros externos sempre com status + contexto resumido (sem PII sensível).
+### Arquivos a modificar
 
----
+**`src/components/smartops/LeadDetailPanel.tsx`**
 
-**Validação fim a fim (obrigatória)**
-1. **Meta**: verificação GET + lead real no Lead Ads Testing Tool + confirmação no `lead_activity_log`.
-2. **OMIE**: execução manual + logs presentes + `omie_parcelas` populando.
-3. **PipeRun**: sync incremental sem novos `duplicate key` e atualização normal de leads.
+1. No bloco hero (linhas ~1029-1075), após "Financeiro Total (CRM + E-com)":
+   - Adicionar bloco "Faturamento ERP Omie" usando `ld.omie_faturamento_total`
+   - Exibir grid: Faturamento Total | Recebido | Em Aberto | % Quitado
+   - Badge de classificação (`ld.omie_classificacao`) com cores (verde/vermelho/laranja/azul/cinza)
+   - Alert inline se `ld.omie_inadimplente === true`
 
----
+2. No hero badges row (linhas ~1012-1022):
+   - Adicionar badge do Omie Score: `🏭 Score ERP: {omie_score}` com cor por faixa
+   - Adicionar badge de inadimplência: `⚠️ Inadimplente` em vermelho
+   - Adicionar badge de dias sem comprar quando > 90 dias
 
-**Detalhes técnicos**
-- Arquivos alvo:
-  - `supabase/functions/smart-ops-meta-lead-webhook/index.ts`
-  - `supabase/functions/smart-ops-sync-piperun/index.ts`
-  - `supabase/functions/omie-lead-enricher/index.ts`
-  - `supabase/migrations/*` (limpeza de dados + reconfiguração de cron)
-- Restrições respeitadas:
-  - sem alterar `lead_activity_log` schema,
-  - sem mudar RLS existente,
-  - sem violar Golden Rule de owner/stage em pipeline de vendas aberto.
+3. No `financeiroTotal` (linha ~544):
+   - Somar `omie_faturamento_total` ao total consolidado, usando o maior entre CRM Won e Omie (para evitar double-counting quando faturamento Omie já reflete deals ganhos)
+
+4. Nos `stats` (linhas ~613-619):
+   - Adicionar stat box "Score ERP" com o valor do `omie_score`
+
+### Detalhes Técnicos
+
+- Os dados já estão disponíveis em `detail.lead` (alias `ld`) porque o endpoint `smart-ops-leads-api` retorna todas as colunas de `lia_attendances`, incluindo `omie_faturamento_total`, `omie_valor_pago`, `omie_valor_em_aberto`, `omie_score`, `omie_classificacao`, `omie_inadimplente`, `omie_dias_sem_comprar`
+- Não é necessário criar novo hook ou query — os dados já chegam pelo fluxo existente
+- O `ErpDataTab` e `FinanceiroTab` continuam funcionando independentemente (sem mudanças)
+- Cores e labels da classificação Omie seguem o padrão já definido no `ErpDataTab` (`CLASSIFICACAO_CONFIG`)
+
