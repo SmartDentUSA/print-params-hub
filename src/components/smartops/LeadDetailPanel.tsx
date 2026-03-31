@@ -1883,6 +1883,9 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
               </div>
             </div>
           )}
+
+          {/* ── INVENTÁRIO COMPLETO DE CAMPOS ── */}
+          <LeadFieldsInventory lead={detail.lead} />
         </div>
       )}
 
