@@ -638,6 +638,100 @@ async function handleWebhook(
   }
 }
 
+// ─── runSync — Fase A incremental (para cron leve) ───────────────────────────
+async function runSync(supabase: ReturnType<typeof createClient>) {
+  const startTime = Date.now()
+  const TIMEOUT_MS = 50_000 // 50s guard
+  console.log("Sync incremental Omie — apenas Fase A (clientes)")
+  leadsToEnrich.clear()
+  let totalClientes = 0
+  let pagina = 1
+
+  // Recuperar cursor salvo
+  const { data: cursorRow } = await (supabase as any).from("omie_sync_cursors")
+    .select("cursor_value").eq("cursor_key", "sync_clientes_pagina").maybeSingle()
+  if (cursorRow?.cursor_value) {
+    pagina = parseInt(cursorRow.cursor_value) || 1
+  }
+
+  while (true) {
+    if (Date.now() - startTime > TIMEOUT_MS) {
+      console.log(`Timeout guard: parando na página ${pagina}`)
+      // Salvar cursor para retomar
+      await (supabase as any).from("omie_sync_cursors")
+        .upsert({ cursor_key: "sync_clientes_pagina", cursor_value: String(pagina), updated_at: new Date().toISOString() },
+          { onConflict: "cursor_key" })
+      break
+    }
+    const data = await omieGet("/geral/clientes/", "ListarClientes", {
+      pagina, registros_por_pagina: 50
+    })
+    for (const c of data.clientes_cadastro ?? []) {
+      const email    = c.email?.toLowerCase()?.trim()
+      const cnpjNorm = c.cnpj_cpf?.replace(/\D/g,"")
+      if (!email && !cnpjNorm) continue
+
+      let lead: { id: string } | null = null
+      if (email) {
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("email", email).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && cnpjNorm) {
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("empresa_cnpj", cnpjNorm).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && cnpjNorm) {
+        const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+          .eq("pessoa_cpf", cnpjNorm).is("merged_into", null).maybeSingle()
+        lead = r
+      }
+      if (!lead && c.telefone1_ddd && c.telefone1_numero) {
+        const tel = normalizePhone(c.telefone1_ddd, c.telefone1_numero)
+        if (tel) {
+          const { data: r } = await (supabase as any).from("lia_attendances").select("id")
+            .eq("telefone_normalized", tel).is("merged_into", null).maybeSingle()
+          lead = r
+        }
+      }
+      if (!lead) continue
+
+      const { data: cur } = await (supabase as any).from("lia_attendances")
+        .select("cidade,estado,empresa_cnpj").eq("id", lead.id).single()
+      const patch: Record<string, any> = {
+        omie_codigo_cliente:  c.codigo_cliente_omie,
+        omie_last_sync:       new Date().toISOString(),
+        omie_tipo_pessoa:     c.pessoa_fisica === "S" ? "PF" : "PJ",
+      }
+      if (!cur?.cidade       && c.cidade)  patch.cidade            = c.cidade
+      if (!cur?.estado       && c.estado)  patch.estado            = c.estado
+      if (!cur?.empresa_cnpj && cnpjNorm)  patch.empresa_cnpj      = cnpjNorm
+      if (c.razao_social)                  patch.omie_razao_social  = c.razao_social
+      if (c.tags?.length)                  patch.omie_segmento      = c.tags[0]
+      await (supabase as any).from("lia_attendances").update(patch).eq("id", lead.id)
+      queueEnrich(lead.id)
+      totalClientes++
+    }
+    if (pagina >= (data.total_de_paginas ?? 1)) {
+      // Completou — resetar cursor
+      await (supabase as any).from("omie_sync_cursors")
+        .upsert({ cursor_key: "sync_clientes_pagina", cursor_value: "1", updated_at: new Date().toISOString() },
+          { onConflict: "cursor_key" })
+      break
+    }
+    pagina++
+    await sleep(280)
+  }
+  console.log(`Sync: ${totalClientes} clientes vinculados`)
+
+  // Fase D rápida: atualizar parcelas vencidas
+  try { await (supabase as any).rpc("fn_atualizar_parcelas_vencidas") } catch (_) {}
+
+  const scoreCount = await flushEnrichQueue(supabase, "Sync score")
+  return { totalClientes, scoreCount }
+}
+
 // ─── runBackfill — 6 fases com debounce ──────────────────────────────────────
 async function runBackfill(supabase: ReturnType<typeof createClient>) {
   console.log("Backfill Omie iniciado — 6 fases")
