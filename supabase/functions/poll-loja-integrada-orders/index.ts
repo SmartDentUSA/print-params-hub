@@ -6,10 +6,13 @@ const corsHeaders = {
 };
 
 const API_BASE = 'https://api.awsli.com.br/v1';
-const RATE_LIMIT_DELAY = 1000; // 1s between pages
-const ORDER_DELAY = 300; // 300ms between individual orders
+const RATE_LIMIT_DELAY = 1000;
+const ORDER_DELAY = 300;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY = 1000;
+const TIMEOUT_MS = 45_000;
+const DEFAULT_BATCH = 20;
+const DEFAULT_MAX_PAGES = 10;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,6 +24,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
+  const startTime = Date.now();
 
   async function apiFetch(endpoint: string) {
     const strategies = [
@@ -69,25 +73,19 @@ Deno.serve(async (req) => {
     }
     const text = await response.text();
     try {
-      const data = JSON.parse(text);
-      return data;
+      return JSON.parse(text);
     } catch {
       throw new Error(`JSON inválido: ${text.slice(0, 150)}`);
     }
   }
 
-  /**
-   * Resolve client data from a cliente URI string (e.g. "/api/v1/cliente/12345")
-   * Returns { email, nome, telefone_celular, cpf } or null on failure
-   */
   async function resolveCliente(clienteUri: string): Promise<Record<string, unknown> | null> {
     try {
       const match = clienteUri.match(/\/cliente\/(\d+)/);
       if (!match) return null;
       const clienteId = match[1];
       console.log(`[poll-li] Resolving cliente ${clienteId}...`);
-      const data = await apiFetch(`/cliente/${clienteId}/`);
-      return data;
+      return await apiFetch(`/cliente/${clienteId}/`);
     } catch (err) {
       console.warn(`[poll-li] Failed to resolve cliente from ${clienteUri}:`, (err as Error).message);
       return null;
@@ -96,25 +94,23 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const batchSize = Math.min(body.batch_size || 50, 50);
-    const maxPages = Math.min(body.max_pages || 10, 50);
+    const batchSize = Math.min(body.batch_size || DEFAULT_BATCH, 50);
+    const maxPages = Math.min(body.max_pages || DEFAULT_MAX_PAGES, 50);
     const full = body.full === true;
     const sinceOverride = body.since;
 
-    // ── Determine since cursor ──
+    // ── Cursor dedicado via omie_sync_cursors ──
     let since: string | undefined;
     if (!full) {
       if (sinceOverride) {
         since = sinceOverride;
       } else {
-        const { data: last } = await supabase
-          .from('lia_attendances')
-          .select('lojaintegrada_updated_at')
-          .not('lojaintegrada_updated_at', 'is', null)
-          .order('lojaintegrada_updated_at', { ascending: false })
-          .limit(1)
+        const { data: cursor } = await supabase
+          .from('omie_sync_cursors')
+          .select('value')
+          .eq('key', 'li_poll_since')
           .maybeSingle();
-        if (last?.lojaintegrada_updated_at) since = last.lojaintegrada_updated_at;
+        if (cursor?.value) since = cursor.value;
       }
     }
 
@@ -125,10 +121,20 @@ Deno.serve(async (req) => {
     let totalIgnored = 0;
     let totalFetched = 0;
     let totalClienteResolved = 0;
+    let timedOut = false;
+    let maxTimestamp = since || '';
     const allResults: Array<{ id: unknown; success: boolean; error?: string }> = [];
 
     while (page < maxPages) {
-      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}`;
+      // Timeout guard before fetching next page
+      if (Date.now() - startTime > TIMEOUT_MS) {
+        console.warn('[poll-li] ⏱ Timeout guard before page fetch — breaking');
+        timedOut = true;
+        break;
+      }
+
+      // Ordenação reversa: recentes primeiro
+      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}&order_by=-data_modificada`;
       if (since) endpoint += `&since_atualizado=${encodeURIComponent(since)}`;
 
       console.log(`[poll-li] Page ${page + 1}/${maxPages}: ${endpoint}`);
@@ -145,26 +151,25 @@ Deno.serve(async (req) => {
       console.log(`[poll-li] Page ${page + 1}: ${pedidos.length} orders fetched`);
 
       for (const pedido of pedidos) {
+        // Timeout guard before each order
+        if (Date.now() - startTime > TIMEOUT_MS) {
+          console.warn('[poll-li] ⏱ Timeout guard mid-page — breaking');
+          timedOut = true;
+          break;
+        }
+
         try {
-          // ── Pre-enrich: resolve cliente URI to actual client data ──
+          // ── Pre-enrich: resolve cliente URI ──
           if (typeof pedido.cliente === 'string' && /\/cliente\//.test(pedido.cliente)) {
             const clienteData = await resolveCliente(pedido.cliente);
             if (clienteData) {
-              // Inject resolved client fields into pedido
-              pedido.cliente = {
-                ...clienteData,
-                resource_uri: pedido.cliente, // keep original URI for reference
-              };
+              pedido.cliente = { ...clienteData, resource_uri: pedido.cliente };
               totalClienteResolved++;
               console.log(`[poll-li] Cliente resolved: email=${clienteData.email || '?'} nome=${clienteData.nome || '?'}`);
-            } else {
-              console.warn(`[poll-li] Could not resolve cliente for pedido ${pedido.numero || pedido.id}`);
             }
-            // Rate limit after client resolution
             await new Promise(r => setTimeout(r, ORDER_DELAY));
           }
 
-          // Mark as enriched by poll so webhook skips redundant API calls
           pedido._enriched_by_poll = true;
 
           const webhookUrl = `${supabaseUrl}/functions/v1/smart-ops-ecommerce-webhook`;
@@ -182,16 +187,20 @@ Deno.serve(async (req) => {
 
           totalProcessed++;
           allResults.push({ id: pedido.id || pedido.numero, success: true });
+
+          // Track max timestamp from successfully processed orders
+          const ts = pedido.data_modificada || pedido.data_criacao;
+          if (ts && ts > maxTimestamp) maxTimestamp = ts;
         } catch (e) {
           totalIgnored++;
           allResults.push({ id: pedido.id || pedido.numero, success: false, error: (e as Error).message });
         }
 
-        // Delay between individual orders to respect rate limits
         await new Promise(r => setTimeout(r, ORDER_DELAY));
       }
 
-      // Check if there are more pages
+      if (timedOut) break;
+
       const hasMore = !!res.meta?.next;
       if (!hasMore || pedidos.length < batchSize) {
         console.log(`[poll-li] No more pages (hasMore=${hasMore}, fetched=${pedidos.length})`);
@@ -200,12 +209,20 @@ Deno.serve(async (req) => {
 
       offset += batchSize;
       page++;
-
-      // Delay between pages
       await new Promise(r => setTimeout(r, RATE_LIMIT_DELAY));
     }
 
-    console.log(`[poll-li] Done: ${totalProcessed} processed, ${totalIgnored} ignored, ${totalFetched} fetched, ${totalClienteResolved} clientes resolved across ${page + 1} pages`);
+    // ── Persist cursor ──
+    if (maxTimestamp && maxTimestamp !== (since || '')) {
+      const { error: cursorErr } = await supabase
+        .from('omie_sync_cursors')
+        .upsert({ key: 'li_poll_since', value: maxTimestamp }, { onConflict: 'key' });
+      if (cursorErr) console.error('[poll-li] Cursor save error:', cursorErr.message);
+      else console.log(`[poll-li] 📌 Cursor saved: ${maxTimestamp}`);
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[poll-li] Done in ${elapsed}s: ${totalProcessed} processed, ${totalIgnored} ignored, ${totalFetched} fetched, ${totalClienteResolved} clientes resolved, ${page + 1} pages, timedOut=${timedOut}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -216,6 +233,9 @@ Deno.serve(async (req) => {
       pages_scanned: page + 1,
       max_pages: maxPages,
       since_usado: since || 'full',
+      cursor_saved: maxTimestamp || null,
+      timed_out: timedOut,
+      elapsed_seconds: parseFloat(elapsed),
       results: allResults.slice(0, 100),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
