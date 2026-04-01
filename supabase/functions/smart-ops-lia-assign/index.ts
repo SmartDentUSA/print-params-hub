@@ -254,8 +254,8 @@ async function updateExistingDeal(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
-  // Add structured note (same template as seller notification)
-  const noteText = await buildSellerNotification(lead, supabase);
+  // Add structured HTML note for PipeRun
+  const noteText = await buildDealNoteHTML(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
 }
 
