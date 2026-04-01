@@ -1,101 +1,100 @@
 
 
-## Problema
+## Corrigir Polling da Loja Integrada — Cursor e Captura em Tempo Real
 
-Dois problemas identificados na imagem:
+### Problema Raiz
 
-1. **Respostas do formulário não aparecem na nota principal do deal** — o `buildSellerNotification` (dentro de `lia-assign`) cria a nota ANTES das respostas existirem, e o `deal-form-note` que envia as respostas separadamente parece não estar funcionando ou chegando depois
-2. **Formatação ruim** — as notas usam `\n` (quebra de linha) e `*bold*` (sintaxe WhatsApp), mas o PipeRun renderiza notas com suporte a HTML. Resultado: tudo fica em uma linha só, sem estrutura visual
+O polling atual tem 3 falhas críticas:
 
-3. **Quantidade de deals existentes não é informada** — o vendedor não sabe quantos deals anteriores o lead já teve
+1. **Cursor lido da tabela errada**: busca `MAX(lojaintegrada_updated_at)` de `lia_attendances`. Se o webhook falha ao processar um pedido (e 440 de 500 falharam na última execução), o campo nunca é atualizado → cursor não avança → reprocessa os mesmos pedidos antigos infinitamente.
+
+2. **Sem persistência independente do cursor**: ao contrário do sync Omie (que usa `omie_sync_cursors`), o polling LI não tem cursor próprio. Se nenhum pedido é processado com sucesso, ele reinicia do zero.
+
+3. **Sem timeout guard**: a edge function tem limite de ~50s. Processar 500 pedidos com resolução de cliente (300ms cada) + chamada webhook = timeout garantido nas páginas finais, perdendo pedidos.
 
 ### Solução
 
-#### 1. Reformatar notas para HTML (`lia-assign` + `deal-form-note`)
+#### 1. Cursor dedicado na tabela `omie_sync_cursors`
 
-Substituir a formatação plain text por HTML com `<br>`, `<b>`, `<hr>` etc., que o PipeRun renderiza corretamente nas notas.
+Reutilizar a tabela existente `omie_sync_cursors` (colunas `key`, `value`) com a chave `li_poll_since` para armazenar o timestamp do último pedido processado com sucesso.
 
-**Arquivo:** `supabase/functions/smart-ops-lia-assign/index.ts` — função `buildSellerNotification` (linhas 598-628)
-
-Alterar de:
-```
-🤖 *Novo Lead atribuído - Dra. L.I.A.*\n👤 Lead: Nome...
-```
-Para HTML:
-```html
-<b>🤖 Novo Lead atribuído - Dra. L.I.A.</b><br><br>
-<b>👤 Lead:</b> Nome<br>
-<b>📧 Email:</b> email@...<br>
-...
-<hr>
-<b>HISTÓRICO:</b> ...<br>
-<b>OPORTUNIDADE:</b> ...<br>
-<hr>
-<b>🧠 Análise Cognitiva:</b><br>
-...
-```
-
-**Arquivo:** `supabase/functions/smart-ops-deal-form-note/index.ts` — formatação da nota (linhas 70-73)
-
-Alterar de:
-```
-📝 Respostas do Formulário: Nome\n\n• Campo: Valor
-```
-Para HTML:
-```html
-<b>📝 Respostas do Formulário: Nome</b><br><br>
-• <b>Campo:</b> Valor<br>
-• <b>Campo2:</b> Valor2<br>
-```
-
-#### 2. Incluir contagem de deals existentes na nota principal
-
-**Arquivo:** `supabase/functions/smart-ops-lia-assign/index.ts` — dentro de `buildSellerNotification`
-
-Antes de montar o template, buscar a contagem de deals do lead:
+**Leitura do cursor (antes do loop):**
 ```typescript
-const { count: dealsCount } = await supabase
-  .from("deals")
-  .select("id", { count: "exact", head: true })
-  .eq("lead_id", lead.id as string);
+const { data: cursor } = await supabase
+  .from('omie_sync_cursors')
+  .select('value')
+  .eq('key', 'li_poll_since')
+  .maybeSingle();
+since = cursor?.value || undefined;
 ```
 
-Adicionar linha no template:
-```html
-<b>📊 Deals existentes:</b> 3 deal(s) no histórico<br>
-```
+**Atualização do cursor (após cada pedido processado):**
+Rastrear o `data_modificada` mais recente dos pedidos processados com sucesso e salvar no final (upsert).
 
-#### 3. Incluir respostas do formulário na nota principal (quando disponíveis)
+#### 2. Timeout guard (50s)
 
-**Arquivo:** `supabase/functions/smart-ops-lia-assign/index.ts` — dentro de `buildSellerNotification`
+Adicionar verificação de tempo decorrido antes de processar cada pedido. Se ultrapassar 45s, salvar o cursor no ponto atual e retornar o resultado parcial.
 
-Buscar respostas do formulário que possam já existir:
 ```typescript
-const { data: formResponses } = await supabase
-  .from("smartops_form_field_responses")
-  .select("value, workflow_cell_target")
-  .eq("lead_id", lead.id as string);
+const startTime = Date.now();
+const TIMEOUT_MS = 45_000;
+
+// Dentro do loop:
+if (Date.now() - startTime > TIMEOUT_MS) {
+  console.warn('[poll-li] Timeout guard — saving cursor and returning');
+  break;
+}
 ```
 
-Se existirem, adicionar seção na nota. Se não existirem (caso comum pois são gravadas em paralelo), o `deal-form-note` separado cobre isso.
+#### 3. Ordenação reversa (recentes primeiro)
+
+A API LI suporta `order_by`. Alterar para buscar pedidos mais recentes primeiro:
+```
+/pedido/?limit=20&offset=0&order_by=-data_modificada
+```
+
+Isso garante que pedidos recentes (como o do Thiago) são processados mesmo que o timeout interrompa antes de completar todas as páginas.
+
+#### 4. Batch size menor
+
+Reduzir de 50 para 20 pedidos por página. Com resolução de cliente (300ms) + webhook (~500ms) por pedido, 20 pedidos = ~16s por página. Em 45s cabem ~2-3 páginas com segurança.
+
+#### 5. Avanço incremental do cursor
+
+O cursor avança baseado no `data_modificada` mais recente dos pedidos **processados com sucesso** (não dos buscados). Isso garante que pedidos falhados serão re-tentados na próxima execução.
+
+```typescript
+let maxTimestamp = since || '';
+
+for (const pedido of pedidos) {
+  // ... processar ...
+  if (success) {
+    const ts = pedido.data_modificada || pedido.data_criacao;
+    if (ts && ts > maxTimestamp) maxTimestamp = ts;
+  }
+}
+
+// Após o loop de páginas, salvar cursor
+if (maxTimestamp && maxTimestamp !== (since || '')) {
+  await supabase.from('omie_sync_cursors').upsert(
+    { key: 'li_poll_since', value: maxTimestamp },
+    { onConflict: 'key' }
+  );
+}
+```
 
 ### Arquivos alterados
 
-1. `supabase/functions/smart-ops-lia-assign/index.ts` — `buildSellerNotification`: HTML + deals count + form responses
-2. `supabase/functions/smart-ops-deal-form-note/index.ts` — HTML formatting
-3. `supabase/functions/_shared/waleads-messaging.ts` — manter WhatsApp com formatação plain text (NÃO alterar, pois WhatsApp não suporta HTML)
+1. **`supabase/functions/poll-loja-integrada-orders/index.ts`** — cursor dedicado, timeout guard, ordenação reversa, batch menor
 
-### Detalhe importante
+### Sem mudanças de banco
 
-A função `buildSellerNotification` existe em DOIS lugares:
-- `smart-ops-lia-assign/index.ts` (linhas 534-629) — usada para nota do deal no PipeRun E WhatsApp
-- `_shared/waleads-messaging.ts` (linhas 113-206) — usada por outros fluxos
-
-Como a nota do deal precisa de HTML mas o WhatsApp precisa de plain text, vamos criar uma variante `buildDealNoteHTML` dentro do `lia-assign` para o PipeRun, e manter `buildSellerNotification` inalterada para WhatsApp.
+A tabela `omie_sync_cursors` já existe com a estrutura necessária (`key` text PK, `value` text).
 
 ### Resultado esperado
-- Nota do deal no PipeRun com layout limpo e organizado (HTML)
-- Respostas do formulário visíveis na nota (via `deal-form-note` com HTML)
-- Quantidade de deals anteriores visível para o vendedor
-- WhatsApp continua funcionando com plain text
+
+- Polling processa pedidos recentes primeiro (últimas horas/dias)
+- Cursor avança independentemente do sucesso do webhook
+- Timeout guard salva progresso parcial — próxima execução continua de onde parou
+- Pedidos como o do Thiago são capturados na próxima execução do cron (5 min)
 
