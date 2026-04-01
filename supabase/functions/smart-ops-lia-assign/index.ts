@@ -254,8 +254,8 @@ async function updateExistingDeal(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
-  // Add structured note (same template as seller notification)
-  const noteText = await buildSellerNotification(lead, supabase);
+  // Add structured HTML note for PipeRun
+  const noteText = await buildDealNoteHTML(lead, supabase);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -288,9 +288,9 @@ async function moveDealToVendas(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
-  // Add structured reactivation note
-  const noteText = "🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas\n\n" +
-    await buildSellerNotification(lead, supabase);
+  // Add structured reactivation note (HTML)
+  const reactivationNote = await buildDealNoteHTML(lead, supabase);
+  const noteText = `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>${reactivationNote}`;
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -338,8 +338,8 @@ async function createNewDeal(
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (dealData?.id) {
       const dealId = String(dealData.id);
-      // Add structured note (same template as seller notification)
-      const noteText = await buildSellerNotification(lead, supabase);
+      // Add structured HTML note for PipeRun
+      const noteText = await buildDealNoteHTML(lead, supabase);
       await addDealNote(apiToken, Number(dealId), noteText);
       return dealId;
     }
@@ -626,6 +626,142 @@ async function buildSellerNotification(
   ];
 
   return lines.join("\n");
+}
+
+/**
+ * Build HTML-formatted deal note for PipeRun (NOT for WhatsApp).
+ * Includes deals count and form responses when available.
+ */
+async function buildDealNoteHTML(
+  lead: Record<string, unknown>,
+  supabase: ReturnType<typeof createClient>
+): Promise<string> {
+  const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
+  const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
+
+  // Fetch last user message
+  let lastQuestion = "";
+  try {
+    const { data: leadsRec } = await supabase
+      .from("leads")
+      .select("id")
+      .eq("email", lead.email as string)
+      .maybeSingle();
+    if (leadsRec?.id) {
+      const { data: lastMsg } = await supabase
+        .from("agent_interactions")
+        .select("user_message")
+        .eq("lead_id", leadsRec.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lastMsg?.user_message) lastQuestion = String(lastMsg.user_message).slice(0, 200);
+    }
+  } catch (e) {
+    console.warn("[lia-assign] Failed to fetch last question:", e);
+  }
+
+  // AI-generated HISTÓRICO + OPORTUNIDADE
+  let historico = "";
+  let oportunidade = "";
+  try {
+    const aiResult = await generateHistoricoOportunidade(lead);
+    historico = aiResult.historico;
+    oportunidade = aiResult.oportunidade;
+  } catch (e) {
+    console.warn("[lia-assign] AI historico/oportunidade failed:", e);
+  }
+
+  // Fallback static texts
+  if (!historico) {
+    const parts: string[] = [];
+    if (lead.data_primeiro_contato || lead.created_at) parts.push(`Primeiro contato em ${formatDate(lead.data_primeiro_contato || lead.created_at)}`);
+    if (lead.lojaintegrada_cliente_id) parts.push(`Cliente e-commerce (ID: ${lead.lojaintegrada_cliente_id})`);
+    else parts.push("Sem compras anteriores no e-commerce");
+    if (lead.astron_user_id) parts.push(`Cursos: ${lead.astron_courses_completed || 0}/${lead.astron_courses_total || 0} concluídos`);
+    else parts.push("Sem cadastro na plataforma de cursos");
+    if (lead.proprietario_lead_crm) parts.push(`Vendedor anterior: ${lead.proprietario_lead_crm}`);
+    else parts.push("Nunca teve contato com vendedor");
+    historico = parts.join(". ") + ".";
+  }
+  if (!oportunidade) {
+    const parts: string[] = [];
+    if (lead.software_cad) parts.push(`Possui software CAD (${lead.software_cad})`);
+    if (lead.tem_impressora && lead.tem_impressora !== "nao") parts.push(`Impressora: ${lead.impressora_modelo || lead.tem_impressora}`);
+    if (lead.tem_scanner && lead.tem_scanner !== "nao") parts.push(`Scanner: ${lead.tem_scanner}`);
+    if (lead.urgency_level) parts.push(`Urgência ${lead.urgency_level}`);
+    if (lead.primary_motivation) parts.push(`motivado por ${lead.primary_motivation}`);
+    if (lead.objection_risk) parts.push(`Risco de objeção: ${lead.objection_risk}`);
+    oportunidade = parts.length > 0 ? parts.join(". ") + "." : "Sem dados suficientes.";
+  }
+
+  // Fetch deals count
+  let dealsCountText = "";
+  try {
+    const { count } = await supabase
+      .from("deals")
+      .select("id", { count: "exact", head: true })
+      .eq("lead_id", lead.id as string);
+    if (count !== null && count > 0) {
+      dealsCountText = `<b>📊 Deals existentes:</b> ${count} deal(s) no histórico<br>`;
+    }
+  } catch (e) {
+    console.warn("[lia-assign] Failed to fetch deals count:", e);
+  }
+
+  // Fetch form responses (may not exist yet if saved in parallel)
+  let formResponsesHTML = "";
+  try {
+    const { data: formResponses } = await supabase
+      .from("smartops_form_field_responses")
+      .select("value, field_label")
+      .eq("lead_id", lead.id as string);
+    if (formResponses && formResponses.length > 0) {
+      const items = formResponses
+        .filter((r: Record<string, unknown>) => r.value)
+        .map((r: Record<string, unknown>) => `• <b>${r.field_label || "Campo"}:</b> ${r.value}`)
+        .join("<br>");
+      if (items) {
+        formResponsesHTML = `<hr><b>📝 Respostas do Formulário</b><br><br>${items}<br>`;
+      }
+    }
+  } catch (e) {
+    console.warn("[lia-assign] Failed to fetch form responses:", e);
+  }
+
+  // Build HTML template
+  const html = [
+    `<b>🤖 Novo Lead atribuído - Dra. L.I.A.</b><br><br>`,
+    `<b>👤 Lead:</b> ${lead.nome || "N/A"}<br>`,
+    `<b>📧 Email:</b> ${lead.email || "N/A"}<br>`,
+    `<b>📱 Tel:</b> ${phone || "N/A"}<br>`,
+    `<b>📋 Formulário:</b> ${lead.form_name || "N/A"}<br>`,
+    `<b>🦷 Área de atuação:</b> ${lead.area_atuacao || "N/A"}<br>`,
+    `<b>🦷 Especialidade:</b> ${lead.especialidade || "N/A"}<br>`,
+    `<b>🎯 Interesse:</b> ${lead.produto_interesse || "N/A"}<br>`,
+    `<b>🌡️ Temp:</b> ${lead.temperatura_lead || lead.urgency_level || "N/A"}<br>`,
+    `<b>🔗 PipeRun:</b> ${lead.piperun_link || "N/A"}<br>`,
+    `<b>💬 Última pergunta:</b> ${lastQuestion || "N/A"}<br>`,
+    `<b>🏷️ Contexto:</b> ${lead.rota_inicial_lia || "N/A"}<br>`,
+    `<b>📍 Etapa CRM:</b> ${lead.ultima_etapa_comercial || "N/A"}<br>`,
+    dealsCountText,
+    `<hr>`,
+    `<b>HISTÓRICO:</b> ${historico}<br>`,
+    `<b>OPORTUNIDADE:</b> ${oportunidade}<br>`,
+    `<hr>`,
+    `<b>🧠 Análise Cognitiva:</b><br>`,
+    `<b>Confiança:</b> ${lead.confidence_score_analysis || 0}%<br>`,
+    `<b>Estágio:</b> ${lead.lead_stage_detected || "N/A"}<br>`,
+    `<b>Urgência:</b> ${urgencyEmoji} ${lead.urgency_level || "N/A"}<br>`,
+    `<b>Timeline:</b> ${lead.interest_timeline || "N/A"}<br>`,
+    `<b>Perfil:</b> ${lead.psychological_profile || "N/A"}<br>`,
+    `<b>Motivação:</b> ${lead.primary_motivation || "N/A"}<br>`,
+    `<b>Risco objeção:</b> ${lead.objection_risk || "N/A"}<br>`,
+    `<b>Abordagem:</b> ${lead.recommended_approach || "N/A"}<br>`,
+    formResponsesHTML,
+  ].join("");
+
+  return html;
 }
 
 function formatDate(val: unknown): string {
