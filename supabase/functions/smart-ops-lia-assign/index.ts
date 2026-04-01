@@ -338,8 +338,8 @@ async function createNewDeal(
     const dealData = (createRes.data as Record<string, unknown>).data as Record<string, unknown> | undefined;
     if (dealData?.id) {
       const dealId = String(dealData.id);
-      // Add structured note (same template as seller notification)
-      const noteText = await buildSellerNotification(lead, supabase);
+      // Add structured HTML note for PipeRun
+      const noteText = await buildDealNoteHTML(lead, supabase);
       await addDealNote(apiToken, Number(dealId), noteText);
       return dealId;
     }

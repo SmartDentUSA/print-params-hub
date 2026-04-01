@@ -66,11 +66,11 @@ Deno.serve(async (req) => {
       return json({ ok: false, reason: "no_deal_id" });
     }
 
-    // Format note
+    // Format note as HTML for PipeRun
     const lines = responses.map(
-      (r: { label: string; value: string }) => `• ${r.label}: ${r.value}`,
+      (r: { label: string; value: string }) => `• <b>${r.label}:</b> ${r.value}<br>`,
     );
-    const noteText = `📝 Respostas do Formulário: ${form_name || "Formulário"}\n\n${lines.join("\n")}`;
+    const noteText = `<b>📝 Respostas do Formulário: ${form_name || "Formulário"}</b><br><br>${lines.join("")}`;
 
     const result = await addDealNote(PIPERUN_API_KEY, dealId, noteText);
 
