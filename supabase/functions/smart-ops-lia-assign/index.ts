@@ -288,9 +288,9 @@ async function moveDealToVendas(
   const updateRes = await piperunPut(apiToken, `deals/${dealId}`, updatePayload);
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
-  // Add structured reactivation note
-  const noteText = "🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas\n\n" +
-    await buildSellerNotification(lead, supabase);
+  // Add structured reactivation note (HTML)
+  const reactivationNote = await buildDealNoteHTML(lead, supabase);
+  const noteText = `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>${reactivationNote}`;
   await addDealNote(apiToken, dealId, noteText);
 }
 
