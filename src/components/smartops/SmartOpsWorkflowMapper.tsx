@@ -237,7 +237,10 @@ export function SmartOpsWorkflowMapper() {
                         />
                       </div>
                     ) : options.length > 0 ? (
-                      <Select onValueChange={(v) => addMapping(stage.key, col.field, mappingType, v)}>
+                      <Select onValueChange={(v) => {
+                        const lbl = labelMap?.find(e => e.value === v)?.label;
+                        addMapping(stage.key, col.field, mappingType, v, lbl);
+                      }}>
                         <SelectTrigger className="h-6 text-[10px]">
                           <SelectValue placeholder="+ Adicionar" />
                         </SelectTrigger>
