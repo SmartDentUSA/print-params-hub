@@ -477,6 +477,24 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_opportunity_rules",
+      description: "Consulta regras de oportunidade e mapeamentos do workflow 7×3. Use para entender: quais produtos pertencem a cada etapa, quais equipamentos concorrentes geram oportunidade, tempos úteis de equipamentos, ações recomendadas (upgrade/migration/cross_sell). Essencial para análise de portfólio e predição de comportamento.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow_stage: { type: "string", description: "Filtrar por etapa: etapa_1_scanner, etapa_2_cad, etapa_3_impressao, etc." },
+          source_item: { type: "string", description: "Buscar regra por item específico (ex: 'Medit i500', 'iTero 5D')" },
+          action_type: { type: "string", description: "Filtrar por tipo: upgrade, migration, cross_sell, upsell, recompra, complemento, upsell_edu" },
+          mapping_type: { type: "string", description: "Filtrar mapeamentos: sdr_field, product, competitor" },
+          include_mappings: { type: "boolean", description: "Se true, retorna também os mapeamentos de células (padrão true)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
