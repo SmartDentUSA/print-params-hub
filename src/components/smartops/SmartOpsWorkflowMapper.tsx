@@ -108,6 +108,17 @@ interface OpportunityRule {
   active: boolean;
 }
 
+interface FormField {
+  id: string;
+  label: string;
+  db_column: string | null;
+  custom_field_name: string | null;
+  workflow_cell_target: string | null;
+  form_id: string;
+  field_type: string | null;
+  options: any;
+}
+
 export function SmartOpsWorkflowMapper() {
   const [mappings, setMappings] = useState<CellMapping[]>([]);
   const [rules, setRules] = useState<OpportunityRule[]>([]);
