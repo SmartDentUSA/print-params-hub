@@ -1238,6 +1238,33 @@ async function executeQueryEnrollments(args: any) {
   }
 }
 
+async function executeQueryOpportunityRules(args: any) {
+  try {
+    // Fetch rules
+    let rulesQuery = supabase.from("opportunity_rules").select("*").eq("active", true);
+    if (args.workflow_stage) rulesQuery = rulesQuery.eq("workflow_stage", args.workflow_stage);
+    if (args.source_item) rulesQuery = rulesQuery.ilike("source_item", `%${args.source_item}%`);
+    if (args.action_type) rulesQuery = rulesQuery.eq("action_type", args.action_type);
+    const { data: rules, error: rulesErr } = await rulesQuery.limit(100);
+    if (rulesErr) return { error: rulesErr.message };
+
+    const result: any = { rules_count: rules?.length || 0, rules };
+
+    // Optionally fetch mappings
+    if (args.include_mappings !== false) {
+      let mapQuery = supabase.from("workflow_cell_mappings").select("*");
+      if (args.workflow_stage) mapQuery = mapQuery.eq("workflow_stage", args.workflow_stage);
+      if (args.mapping_type) mapQuery = mapQuery.eq("mapping_type", args.mapping_type);
+      const { data: mappings } = await mapQuery.limit(500);
+      result.mappings_count = mappings?.length || 0;
+      result.mappings = mappings;
+    }
+    return result;
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1265,6 +1292,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   verify_consolidation: executeVerifyConsolidation,
   query_deal_history: executeQueryDealHistory,
   query_enrollments: executeQueryEnrollments,
+  query_opportunity_rules: executeQueryOpportunityRules,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
