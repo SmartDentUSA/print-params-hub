@@ -313,7 +313,11 @@ export function SmartOpsWorkflowMapper() {
         const stageCompetitors = mappings
           .filter(m => m.workflow_stage === stage.key && m.mapping_type === "competitor")
           .map(m => m.mapped_value);
-        const allSourceItems = [...new Set([...stageCompetitors, ...stageProducts])];
+        const formOpts = formFields
+          .filter(f => ["radio", "select", "checkbox"].includes(f.field_type || "") && Array.isArray(f.options))
+          .flatMap(f => (f.options as string[]).map(opt => `${opt}`));
+        const sdrFieldLabels = allSDRFieldEntries.map(e => e.label);
+        const allSourceItems = [...new Set([...stageCompetitors, ...stageProducts, ...formOpts, ...sdrFieldLabels].filter(Boolean))];
 
         return (
           <Card key={stage.key} className="border-border/50">
