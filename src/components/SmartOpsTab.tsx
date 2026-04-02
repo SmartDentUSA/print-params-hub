@@ -20,6 +20,7 @@ import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
 import { SmartOpsCopilot } from "./SmartOpsCopilot";
+import { SmartOpsWorkflowMapper } from "./smartops/SmartOpsWorkflowMapper";
 
 
 export function SmartOpsTab() {
@@ -88,6 +89,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="tokens-ia">Tokens IA</TabsTrigger>
           <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           <TabsTrigger value="roi">ROI</TabsTrigger>
+          <TabsTrigger value="mapeamento">Mapeamento 7×3</TabsTrigger>
           <TabsTrigger value="copilot">🤖 Copilot</TabsTrigger>
         </TabsList>
 
@@ -135,6 +137,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="copilot">
           <SmartOpsCopilot />
+        </TabsContent>
+        <TabsContent value="mapeamento">
+          <SmartOpsWorkflowMapper />
         </TabsContent>
       </Tabs>
     </div>

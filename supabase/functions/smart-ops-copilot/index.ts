@@ -477,6 +477,24 @@ const tools = [
         required: []
       }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_opportunity_rules",
+      description: "Consulta regras de oportunidade e mapeamentos do workflow 7×3. Use para entender: quais produtos pertencem a cada etapa, quais equipamentos concorrentes geram oportunidade, tempos úteis de equipamentos, ações recomendadas (upgrade/migration/cross_sell). Essencial para análise de portfólio e predição de comportamento.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow_stage: { type: "string", description: "Filtrar por etapa: etapa_1_scanner, etapa_2_cad, etapa_3_impressao, etc." },
+          source_item: { type: "string", description: "Buscar regra por item específico (ex: 'Medit i500', 'iTero 5D')" },
+          action_type: { type: "string", description: "Filtrar por tipo: upgrade, migration, cross_sell, upsell, recompra, complemento, upsell_edu" },
+          mapping_type: { type: "string", description: "Filtrar mapeamentos: sdr_field, product, competitor" },
+          include_mappings: { type: "boolean", description: "Se true, retorna também os mapeamentos de células (padrão true)" }
+        },
+        required: []
+      }
+    }
   }
 ];
 
@@ -1220,6 +1238,33 @@ async function executeQueryEnrollments(args: any) {
   }
 }
 
+async function executeQueryOpportunityRules(args: any) {
+  try {
+    // Fetch rules
+    let rulesQuery = supabase.from("opportunity_rules").select("*").eq("active", true);
+    if (args.workflow_stage) rulesQuery = rulesQuery.eq("workflow_stage", args.workflow_stage);
+    if (args.source_item) rulesQuery = rulesQuery.ilike("source_item", `%${args.source_item}%`);
+    if (args.action_type) rulesQuery = rulesQuery.eq("action_type", args.action_type);
+    const { data: rules, error: rulesErr } = await rulesQuery.limit(100);
+    if (rulesErr) return { error: rulesErr.message };
+
+    const result: any = { rules_count: rules?.length || 0, rules };
+
+    // Optionally fetch mappings
+    if (args.include_mappings !== false) {
+      let mapQuery = supabase.from("workflow_cell_mappings").select("*");
+      if (args.workflow_stage) mapQuery = mapQuery.eq("workflow_stage", args.workflow_stage);
+      if (args.mapping_type) mapQuery = mapQuery.eq("mapping_type", args.mapping_type);
+      const { data: mappings } = await mapQuery.limit(500);
+      result.mappings_count = mappings?.length || 0;
+      result.mappings = mappings;
+    }
+    return result;
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   query_leads: executeQueryLeads,
   update_lead: executeUpdateLead,
@@ -1247,6 +1292,7 @@ const toolExecutors: Record<string, (args: any) => Promise<any>> = {
   verify_consolidation: executeVerifyConsolidation,
   query_deal_history: executeQueryDealHistory,
   query_enrollments: executeQueryEnrollments,
+  query_opportunity_rules: executeQueryOpportunityRules,
 };
 
 const SYSTEM_PROMPT = `Você é o Copilot IA do Smart Ops — o cérebro operacional da empresa. Responda em português brasileiro.
@@ -1393,6 +1439,14 @@ CAMPOS IMPORTANTES de lia_attendances:
 - piperun_deals_history (JSONB array — NÃO use query_leads_advanced para buscar dentro dele, use query_deal_history)
 - ltv_total, anchor_product, workflow_score (métricas calculadas)
 - pessoa_hash, empresa_hash, pessoa_piperun_id (identificadores de consolidação)
+- portfolio_json (JSONB — portfólio 7×3 do lead com equipamentos por etapa)
+
+MOTOR DE REGRAS DE OPORTUNIDADE (query_opportunity_rules):
+- Use para consultar regras de upgrade/migration/cross_sell configuradas pela equipe
+- Cruza equipamentos que o lead possui (portfolio_json, respostas de formulários) com regras de oportunidade
+- Cada regra tem: source_item (equipamento detectado), action_type (upgrade/migration/etc), target_product_name (produto SmartDent recomendado), useful_life_months (tempo útil antes de gerar oportunidade)
+- Mapeamentos: campos SDR, produtos SmartDent e concorrentes vinculados a cada célula do workflow 7×3
+- Use para: "Quais leads têm iTero e qual ação recomendar?", "Que oportunidades existem para leads com impressora concorrente?", "Quais produtos SmartDent competem com Medit i500?"
 
 HISTÓRICO DE DEALS (query_deal_history):
 - Use SEMPRE que precisar buscar deals ganhos, perdidos, por produto ou vendedor

@@ -216,6 +216,22 @@ serve(async (req) => {
       dealNotes
     );
 
+    // ── Fetch applicable opportunity rules ──
+    let opportunityRulesContext = "";
+    try {
+      const { data: oppRules } = await supabase
+        .from("opportunity_rules")
+        .select("source_item, action_type, target_product_name, useful_life_months, workflow_stage")
+        .eq("active", true)
+        .limit(100);
+      if (oppRules && oppRules.length > 0) {
+        opportunityRulesContext = `\n- Regras de oportunidade configuradas (${oppRules.length} regras):\n` +
+          oppRules.map(r => `  • ${r.source_item} → ${r.action_type} → ${r.target_product_name || "N/A"} (vida útil: ${r.useful_life_months}m)`).join("\n");
+      }
+    } catch (e) {
+      console.warn("[cognitive] Failed to fetch opportunity rules:", e);
+    }
+
     // ── Fetch last 50 interactions ──
     const { data: messages } = leadsId ? await supabase
       .from("agent_interactions")
@@ -253,6 +269,7 @@ ${longitudinal.sessionHistory}
 ${longitudinal.piperunNotes}
 - Astron (cursos): ${longitudinal.astronContext}
 - E-commerce: ${longitudinal.ecommerceContext}
+${opportunityRulesContext}
 
 **Histórico de conversa (${totalMsgs} msgs):**
 ${contextString.slice(0, 3500)}
