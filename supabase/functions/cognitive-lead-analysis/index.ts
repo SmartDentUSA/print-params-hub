@@ -269,6 +269,7 @@ ${longitudinal.sessionHistory}
 ${longitudinal.piperunNotes}
 - Astron (cursos): ${longitudinal.astronContext}
 - E-commerce: ${longitudinal.ecommerceContext}
+${opportunityRulesContext}
 
 **Histórico de conversa (${totalMsgs} msgs):**
 ${contextString.slice(0, 3500)}
