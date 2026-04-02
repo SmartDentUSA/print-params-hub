@@ -138,6 +138,9 @@ export function SmartOpsTab() {
         <TabsContent value="copilot">
           <SmartOpsCopilot />
         </TabsContent>
+        <TabsContent value="mapeamento">
+          <SmartOpsWorkflowMapper />
+        </TabsContent>
       </Tabs>
     </div>
   );
