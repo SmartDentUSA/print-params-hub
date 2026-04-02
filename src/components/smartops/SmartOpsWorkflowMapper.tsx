@@ -271,8 +271,8 @@ export function SmartOpsWorkflowMapper() {
     </div>
   );
 
-  // ─── SDR Fields (from lia_attendances) ───
-  const SDR_FIELDS = [
+  // ─── SDR Fields: base + dynamic from form fields ───
+  const SDR_FIELDS_BASE = [
     "tem_impressora", "tem_scanner", "impressora_modelo", "scanner_modelo",
     "software_cad", "volume_mensal_pecas", "area_atuacao", "especialidade",
     "como_digitaliza", "produto_interesse", "resina_interesse",
@@ -280,6 +280,25 @@ export function SmartOpsWorkflowMapper() {
     "equip_impressora_marca", "equip_software_cad", "equip_forno",
     "equip_lavadora", "equip_fresadora", "equip_fotopolimerizador",
   ];
+
+  // Build dynamic field list with labels
+  const dynamicFieldEntries = formFields
+    .map(f => ({
+      value: f.db_column || f.custom_field_name || f.id,
+      label: `${f.label} (formulário)`,
+    }))
+    .filter(f => f.value);
+
+  // Merge base + dynamic, deduplicate by value
+  const allSDRFieldEntries = [
+    ...SDR_FIELDS_BASE.map(f => ({ value: f, label: f })),
+    ...dynamicFieldEntries.filter(df => !SDR_FIELDS_BASE.includes(df.value)),
+  ];
+
+  // For competitor tab: extract options from form fields with radio/select/checkbox
+  const formFieldOptions = formFields
+    .filter(f => ["radio", "select", "checkbox"].includes(f.field_type || "") && Array.isArray(f.options))
+    .flatMap(f => (f.options as string[]).map(opt => `${opt} (${f.label})`));
 
   // ─── Render rules table ───
   const renderRulesTable = () => (
