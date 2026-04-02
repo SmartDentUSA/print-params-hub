@@ -439,7 +439,7 @@ export function SmartOpsWorkflowMapper() {
               <p className="text-xs text-muted-foreground">Identifique equipamentos de concorrentes que os leads possuem. Digite ou selecione dos itens pré-cadastrados.</p>
             </CardHeader>
             <CardContent>
-              {renderMappingGrid("competitor", (stageKey) => COMPETITOR_ITEMS[stageKey] || [])}
+              {renderMappingGrid("competitor", (stageKey) => [...(COMPETITOR_ITEMS[stageKey] || []), ...formFieldOptions])}
             </CardContent>
           </Card>
         </TabsContent>
