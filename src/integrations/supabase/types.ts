@@ -5782,6 +5782,45 @@ export type Database = {
         }
         Relationships: []
       }
+      opportunity_rules: {
+        Row: {
+          action_type: string
+          active: boolean | null
+          created_at: string | null
+          id: string
+          source_item: string
+          target_product_name: string | null
+          updated_at: string | null
+          useful_life_months: number | null
+          workflow_cell: string
+          workflow_stage: string
+        }
+        Insert: {
+          action_type: string
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          source_item: string
+          target_product_name?: string | null
+          updated_at?: string | null
+          useful_life_months?: number | null
+          workflow_cell: string
+          workflow_stage: string
+        }
+        Update: {
+          action_type?: string
+          active?: boolean | null
+          created_at?: string | null
+          id?: string
+          source_item?: string
+          target_product_name?: string | null
+          updated_at?: string | null
+          useful_life_months?: number | null
+          workflow_cell?: string
+          workflow_stage?: string
+        }
+        Relationships: []
+      }
       pandavideo_folders: {
         Row: {
           created_at: string | null
@@ -8494,6 +8533,36 @@ export type Database = {
           template_name?: string
           updated_at?: string
           variables?: string[] | null
+        }
+        Relationships: []
+      }
+      workflow_cell_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          mapped_label: string | null
+          mapped_value: string
+          mapping_type: string
+          workflow_cell: string
+          workflow_stage: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          mapped_label?: string | null
+          mapped_value: string
+          mapping_type: string
+          workflow_cell: string
+          workflow_stage: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          mapped_label?: string | null
+          mapped_value?: string
+          mapping_type?: string
+          workflow_cell?: string
+          workflow_stage?: string
         }
         Relationships: []
       }
