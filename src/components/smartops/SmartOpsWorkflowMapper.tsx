@@ -244,9 +244,10 @@ export function SmartOpsWorkflowMapper() {
                         <SelectContent>
                           {options
                             .filter(o => !cellMappings.some(m => m.mapped_value === o))
-                            .map(o => (
-                              <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>
-                            ))}
+                            .map(o => {
+                              const displayLabel = labelMap?.find(e => e.value === o)?.label || o;
+                              return <SelectItem key={o} value={o} className="text-xs">{displayLabel}</SelectItem>;
+                            })}
                         </SelectContent>
                       </Select>
                     ) : (
