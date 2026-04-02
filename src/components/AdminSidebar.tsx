@@ -4,7 +4,7 @@ import {
   Wrench, BarChart3, Users, Settings, LogOut, ArrowLeft,
   Zap, LayoutDashboard, Contact, UsersRound, Bot, MessageSquare,
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
-  Video, ChevronDown, GraduationCap
+  Video, ChevronDown, GraduationCap, Map
 } from "lucide-react";
 import {
   Sidebar,
