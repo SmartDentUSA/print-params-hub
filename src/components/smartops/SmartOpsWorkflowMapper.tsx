@@ -108,10 +108,22 @@ interface OpportunityRule {
   active: boolean;
 }
 
+interface FormField {
+  id: string;
+  label: string;
+  db_column: string | null;
+  custom_field_name: string | null;
+  workflow_cell_target: string | null;
+  form_id: string;
+  field_type: string | null;
+  options: any;
+}
+
 export function SmartOpsWorkflowMapper() {
   const [mappings, setMappings] = useState<CellMapping[]>([]);
   const [rules, setRules] = useState<OpportunityRule[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+  const [formFields, setFormFields] = useState<FormField[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("sdr");
@@ -121,14 +133,16 @@ export function SmartOpsWorkflowMapper() {
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [mappingsRes, rulesRes, productsRes] = await Promise.all([
+    const [mappingsRes, rulesRes, productsRes, formFieldsRes] = await Promise.all([
       supabase.from("workflow_cell_mappings").select("*").order("created_at"),
       supabase.from("opportunity_rules").select("*").order("created_at"),
       supabase.from("system_a_catalog").select("id, name").eq("active", true).order("name"),
+      supabase.from("smartops_form_fields" as any).select("id, label, db_column, custom_field_name, workflow_cell_target, form_id, field_type, options").order("order_index"),
     ]);
     setMappings((mappingsRes.data as CellMapping[]) || []);
     setRules((rulesRes.data as OpportunityRule[]) || []);
     setProducts(productsRes.data || []);
+    setFormFields((formFieldsRes.data as unknown as FormField[]) || []);
     setLoading(false);
   }, []);
 
@@ -186,7 +200,7 @@ export function SmartOpsWorkflowMapper() {
   };
 
   // ─── Render mapping grid ───
-  const renderMappingGrid = (mappingType: string, getOptions: (stageKey: string) => string[]) => (
+  const renderMappingGrid = (mappingType: string, getOptions: (stageKey: string) => string[], labelMap?: { value: string; label: string }[]) => (
     <div className="space-y-4">
       {STAGES.map(stage => (
         <Card key={stage.key} className="border-border/50">
@@ -223,16 +237,20 @@ export function SmartOpsWorkflowMapper() {
                         />
                       </div>
                     ) : options.length > 0 ? (
-                      <Select onValueChange={(v) => addMapping(stage.key, col.field, mappingType, v)}>
+                      <Select onValueChange={(v) => {
+                        const lbl = labelMap?.find(e => e.value === v)?.label;
+                        addMapping(stage.key, col.field, mappingType, v, lbl);
+                      }}>
                         <SelectTrigger className="h-6 text-[10px]">
                           <SelectValue placeholder="+ Adicionar" />
                         </SelectTrigger>
                         <SelectContent>
                           {options
                             .filter(o => !cellMappings.some(m => m.mapped_value === o))
-                            .map(o => (
-                              <SelectItem key={o} value={o} className="text-xs">{o}</SelectItem>
-                            ))}
+                            .map(o => {
+                              const displayLabel = labelMap?.find(e => e.value === o)?.label || o;
+                              return <SelectItem key={o} value={o} className="text-xs">{displayLabel}</SelectItem>;
+                            })}
                         </SelectContent>
                       </Select>
                     ) : (
@@ -257,8 +275,8 @@ export function SmartOpsWorkflowMapper() {
     </div>
   );
 
-  // ─── SDR Fields (from lia_attendances) ───
-  const SDR_FIELDS = [
+  // ─── SDR Fields: base + dynamic from form fields ───
+  const SDR_FIELDS_BASE = [
     "tem_impressora", "tem_scanner", "impressora_modelo", "scanner_modelo",
     "software_cad", "volume_mensal_pecas", "area_atuacao", "especialidade",
     "como_digitaliza", "produto_interesse", "resina_interesse",
@@ -266,6 +284,25 @@ export function SmartOpsWorkflowMapper() {
     "equip_impressora_marca", "equip_software_cad", "equip_forno",
     "equip_lavadora", "equip_fresadora", "equip_fotopolimerizador",
   ];
+
+  // Build dynamic field list with labels
+  const dynamicFieldEntries = formFields
+    .map(f => ({
+      value: f.db_column || f.custom_field_name || f.id,
+      label: `${f.label} (formulário)`,
+    }))
+    .filter(f => f.value);
+
+  // Merge base + dynamic, deduplicate by value
+  const allSDRFieldEntries = [
+    ...SDR_FIELDS_BASE.map(f => ({ value: f, label: f })),
+    ...dynamicFieldEntries.filter(df => !SDR_FIELDS_BASE.includes(df.value)),
+  ];
+
+  // For competitor tab: extract options from form fields with radio/select/checkbox
+  const formFieldOptions = formFields
+    .filter(f => ["radio", "select", "checkbox"].includes(f.field_type || "") && Array.isArray(f.options))
+    .flatMap(f => (f.options as string[]).map(opt => `${opt} (${f.label})`));
 
   // ─── Render rules table ───
   const renderRulesTable = () => (
@@ -378,7 +415,7 @@ export function SmartOpsWorkflowMapper() {
               <p className="text-xs text-muted-foreground">Vincule campos do lead (lia_attendances) que indicam interesse em cada célula do fluxo 7×3</p>
             </CardHeader>
             <CardContent>
-              {renderMappingGrid("sdr_field", () => SDR_FIELDS)}
+              {renderMappingGrid("sdr_field", () => allSDRFieldEntries.map(e => e.value), allSDRFieldEntries)}
             </CardContent>
           </Card>
         </TabsContent>
@@ -402,7 +439,7 @@ export function SmartOpsWorkflowMapper() {
               <p className="text-xs text-muted-foreground">Identifique equipamentos de concorrentes que os leads possuem. Digite ou selecione dos itens pré-cadastrados.</p>
             </CardHeader>
             <CardContent>
-              {renderMappingGrid("competitor", (stageKey) => COMPETITOR_ITEMS[stageKey] || [])}
+              {renderMappingGrid("competitor", (stageKey) => [...(COMPETITOR_ITEMS[stageKey] || []), ...formFieldOptions])}
             </CardContent>
           </Card>
         </TabsContent>
