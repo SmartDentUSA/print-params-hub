@@ -1,31 +1,35 @@
 
 
-## Problema
+## Corrigir: Regras de Oportunidade sem campos de formulário
 
-A lista de campos SDR no `SmartOpsWorkflowMapper.tsx` (linha 261-268) é **hardcoded** — uma lista fixa de ~20 campos. Os campos criados nos formulários (`smartops_form_fields`) e seus `db_column` / `custom_field_name` / `workflow_cell_target` não são consultados.
+### Problema
 
-## Correção
+No `renderRulesTable()` (linha 313-316), o dropdown "Item Detectado" do `NewRuleForm` só recebe:
+- `stageCompetitors` (mapeamentos tipo "competitor")
+- `stageProducts` (mapeamentos tipo "product")
+
+Faltam: campos de formulário e suas opções (radio/select/checkbox).
+
+### Correção
 
 **Arquivo: `src/components/smartops/SmartOpsWorkflowMapper.tsx`**
 
-1. No `fetchAll`, adicionar query para buscar campos de formulários:
-   ```
-   supabase.from("smartops_form_fields").select("id, label, db_column, custom_field_name, workflow_cell_target, form_id")
-   ```
+1. No `renderRulesTable()`, expandir `allSourceItems` (linha 316) para incluir:
+   - Opções dos campos de formulário com tipo radio/select/checkbox (mesma lógica do `formFieldOptions` já existente na linha 303-305)
+   - Labels dos campos SDR dinâmicos (para identificar campos de texto como "Scanner que possui")
 
-2. Substituir `SDR_FIELDS` hardcoded por lista dinâmica que combina:
-   - Campos fixos do `lia_attendances` (os ~20 atuais como fallback)
-   - **Todos os campos criados nos formulários** (`smartops_form_fields`), usando `db_column` ou `custom_field_name` como valor e `label` como display
-   - Deduplicação por valor
+2. Atualizar a construção de `allSourceItems`:
+```
+const formOpts = formFields
+  .filter(f => ["radio","select","checkbox"].includes(f.field_type||"") && Array.isArray(f.options))
+  .flatMap(f => (f.options as string[]));
+const sdrFieldLabels = allSDRFieldEntries.map(e => e.label);
+const allSourceItems = [...new Set([...stageCompetitors, ...stageProducts, ...formOpts, ...sdrFieldLabels])];
+```
 
-3. Na aba SDR, o dropdown de cada célula mostrará os campos com label amigável (ex: "Scanner que possui (formulário SDR)" em vez de "equip_scanner")
+3. No `NewRuleForm`, permitir também digitação livre (fallback Input) além do dropdown, para itens não pré-cadastrados — adicionar opção "Outro (digitar)" no select.
 
-4. Na aba Concorrência, para os campos de formulário que têm `options` (radio/select), permitir selecionar os **valores específicos** das opções como itens concorrentes — não apenas o campo
-
-### Detalhes técnicos
-
-- Novo state: `formFields` com os dados de `smartops_form_fields`
-- A função `getOptions` para a tab SDR retorna `[...SDR_FIELDS_BASE, ...formFields.map(f => f.db_column || f.custom_field_name)]` filtrado por únicos
-- Cada opção no dropdown mostra `label` do formulário quando disponível
-- Sem mudança de banco — apenas leitura da tabela existente
+### Resultado
+- Dropdown "Item Detectado" nas regras mostra: concorrentes mapeados + produtos + todas as opções de formulários + campos SDR
+- Permite criar regras baseadas em qualquer resposta de formulário
 
