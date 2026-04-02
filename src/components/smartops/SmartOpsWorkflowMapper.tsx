@@ -476,6 +476,8 @@ function NewRuleForm({ stageKey, sourceItems, products, onAdd }: {
 }) {
   const [open, setOpen] = useState(false);
   const [sourceItem, setSourceItem] = useState("");
+  const [customSourceItem, setCustomSourceItem] = useState("");
+  const [useCustomSource, setUseCustomSource] = useState(false);
   const [actionType, setActionType] = useState("");
   const [targetProduct, setTargetProduct] = useState("");
   const [months, setMonths] = useState("12");
