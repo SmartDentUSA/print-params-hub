@@ -20,6 +20,7 @@ import { SmartOpsIntelligenceDashboard } from "./SmartOpsIntelligenceDashboard";
 import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
 import { SmartOpsCopilot } from "./SmartOpsCopilot";
+import { SmartOpsWorkflowMapper } from "./smartops/SmartOpsWorkflowMapper";
 
 
 export function SmartOpsTab() {
