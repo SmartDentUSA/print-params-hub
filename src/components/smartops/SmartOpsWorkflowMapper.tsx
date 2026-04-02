@@ -123,6 +123,7 @@ export function SmartOpsWorkflowMapper() {
   const [mappings, setMappings] = useState<CellMapping[]>([]);
   const [rules, setRules] = useState<OpportunityRule[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+  const [formFields, setFormFields] = useState<FormField[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("sdr");
