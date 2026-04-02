@@ -507,15 +507,19 @@ function NewRuleForm({ stageKey, sourceItems, products, onAdd }: {
     <div className="mt-2 flex flex-wrap gap-2 items-end border-t pt-2">
       <div className="flex-1 min-w-[150px]">
         <label className="text-[10px] text-muted-foreground">Item Detectado</label>
-        {sourceItems.length > 0 ? (
-          <Select value={sourceItem} onValueChange={setSourceItem}>
+        {useCustomSource ? (
+          <div className="flex gap-1">
+            <Input className="h-7 text-xs flex-1" value={customSourceItem} onChange={e => setCustomSourceItem(e.target.value)} placeholder="Digite o item..." />
+            <Button variant="ghost" size="sm" className="h-7 text-[10px] px-1" onClick={() => { setUseCustomSource(false); setCustomSourceItem(""); }}>Lista</Button>
+          </div>
+        ) : (
+          <Select value={sourceItem} onValueChange={v => { if (v === "__custom__") { setUseCustomSource(true); setSourceItem(""); } else { setSourceItem(v); } }}>
             <SelectTrigger className="h-7 text-xs"><SelectValue placeholder="Selecione..." /></SelectTrigger>
             <SelectContent>
               {sourceItems.map(i => <SelectItem key={i} value={i} className="text-xs">{i}</SelectItem>)}
+              <SelectItem value="__custom__" className="text-xs italic text-muted-foreground">Outro (digitar)</SelectItem>
             </SelectContent>
           </Select>
-        ) : (
-          <Input className="h-7 text-xs" value={sourceItem} onChange={e => setSourceItem(e.target.value)} placeholder="Digite..." />
         )}
       </div>
       <div className="w-[130px]">
