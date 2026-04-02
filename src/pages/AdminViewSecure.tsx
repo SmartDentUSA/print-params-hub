@@ -235,6 +235,7 @@ export default function AdminViewSecure() {
       case 'so-intelligence': return <SmartOpsIntelligenceDashboard key={`intelligence-${refreshKey}`} />;
       case 'so-roi': return <SmartOpsSmartFlowAnalytics />;
       case 'so-copilot': return <SmartOpsCopilot />;
+      case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
       default: return <AdminModels />;
     }
   };

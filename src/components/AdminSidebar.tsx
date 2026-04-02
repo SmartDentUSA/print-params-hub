@@ -87,6 +87,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-tokens-ia", title: "Tokens IA", icon: Coins },
       { id: "so-intelligence", title: "Intelligence", icon: BrainCircuit },
       { id: "so-roi", title: "ROI", icon: LineChart },
+      { id: "so-mapeamento", title: "Mapeamento 7×3", icon: Map },
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
     ],
   },
