@@ -200,7 +200,7 @@ export function SmartOpsWorkflowMapper() {
   };
 
   // ─── Render mapping grid ───
-  const renderMappingGrid = (mappingType: string, getOptions: (stageKey: string) => string[]) => (
+  const renderMappingGrid = (mappingType: string, getOptions: (stageKey: string) => string[], labelMap?: { value: string; label: string }[]) => (
     <div className="space-y-4">
       {STAGES.map(stage => (
         <Card key={stage.key} className="border-border/50">
