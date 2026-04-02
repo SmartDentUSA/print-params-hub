@@ -1,100 +1,102 @@
 
 
-## Corrigir Polling da Loja Integrada — Cursor e Captura em Tempo Real
+## Nova Aba "Mapeamento 7×3" — Motor de Regras Dinâmico com Integração LIA/Copilot
 
-### Problema Raiz
+### Resumo
 
-O polling atual tem 3 falhas críticas:
+Criar aba no SmartOps com interface visual para configurar mapeamentos e regras de oportunidade nas 7 etapas do workflow. Sem campo "Valor Estimado". Todas as regras ficam acessíveis para LIA, Copilot e análise cognitiva.
 
-1. **Cursor lido da tabela errada**: busca `MAX(lojaintegrada_updated_at)` de `lia_attendances`. Se o webhook falha ao processar um pedido (e 440 de 500 falharam na última execução), o campo nunca é atualizado → cursor não avança → reprocessa os mesmos pedidos antigos infinitamente.
+### Banco de Dados — 2 tabelas novas
 
-2. **Sem persistência independente do cursor**: ao contrário do sync Omie (que usa `omie_sync_cursors`), o polling LI não tem cursor próprio. Se nenhum pedido é processado com sucesso, ele reinicia do zero.
+```sql
+-- Mapeamentos: vincula campos/produtos/concorrentes às células do workflow
+CREATE TABLE workflow_cell_mappings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workflow_stage text NOT NULL,       -- 'etapa_1_scanner'
+  workflow_cell text NOT NULL,        -- 'scanner_intraoral'
+  mapping_type text NOT NULL,         -- 'sdr_field' | 'product' | 'competitor'
+  mapped_value text NOT NULL,         -- campo do banco, produto, ou valor concorrente
+  mapped_label text,                  -- label para exibição
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(workflow_stage, workflow_cell, mapping_type, mapped_value)
+);
 
-3. **Sem timeout guard**: a edge function tem limite de ~50s. Processar 500 pedidos com resolução de cliente (300ms cada) + chamada webhook = timeout garantido nas páginas finais, perdendo pedidos.
-
-### Solução
-
-#### 1. Cursor dedicado na tabela `omie_sync_cursors`
-
-Reutilizar a tabela existente `omie_sync_cursors` (colunas `key`, `value`) com a chave `li_poll_since` para armazenar o timestamp do último pedido processado com sucesso.
-
-**Leitura do cursor (antes do loop):**
-```typescript
-const { data: cursor } = await supabase
-  .from('omie_sync_cursors')
-  .select('value')
-  .eq('key', 'li_poll_since')
-  .maybeSingle();
-since = cursor?.value || undefined;
+-- Regras de oportunidade por item detectado
+CREATE TABLE opportunity_rules (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workflow_stage text NOT NULL,
+  workflow_cell text NOT NULL,
+  source_item text NOT NULL,          -- ex: 'Medit i500', 'iTero 5D'
+  action_type text NOT NULL,          -- upgrade | migration | cross_sell | upsell | recompra | complemento | upsell_edu
+  target_product_name text,           -- produto SmartDent recomendado
+  useful_life_months int DEFAULT 12,  -- tempo útil antes de gerar oportunidade
+  active boolean DEFAULT true,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+-- SEM campo value_est_brl
 ```
 
-**Atualização do cursor (após cada pedido processado):**
-Rastrear o `data_modificada` mais recente dos pedidos processados com sucesso e salvar no final (upsert).
+RLS: acesso público de leitura (mesma política das outras tabelas operacionais).
 
-#### 2. Timeout guard (50s)
+### Frontend — Novo componente
 
-Adicionar verificação de tempo decorrido antes de processar cada pedido. Se ultrapassar 45s, salvar o cursor no ponto atual e retornar o resultado parcial.
+**`src/components/smartops/SmartOpsWorkflowMapper.tsx`**
 
-```typescript
-const startTime = Date.now();
-const TIMEOUT_MS = 45_000;
+4 seções verticais:
 
-// Dentro do loop:
-if (Date.now() - startTime > TIMEOUT_MS) {
-  console.warn('[poll-li] Timeout guard — saving cursor and returning');
-  break;
-}
-```
+**Seção 1 — SDR / Interesse**
+- Grade 7 etapas × subcategorias (reutilizando STAGES do WorkflowPortfolio)
+- Cada célula: multi-select com campos existentes de `lia_attendances` + campos customizados de formulários
 
-#### 3. Ordenação reversa (recentes primeiro)
+**Seção 2 — Produtos SmartDent**
+- Mesma grade, cada célula: multi-select com produtos de `system_a_catalog` (ativos)
 
-A API LI suporta `order_by`. Alterar para buscar pedidos mais recentes primeiro:
-```
-/pedido/?limit=20&offset=0&order_by=-data_modificada
-```
+**Seção 3 — Concorrência**
+- Mesma grade, cada célula: multi-select com valores livres (itens concorrentes como os scanners listados)
 
-Isso garante que pedidos recentes (como o do Thiago) são processados mesmo que o timeout interrompa antes de completar todas as páginas.
+**Seção 4 — Quadro de Regras**
+- Tabela editável agrupada por etapa
+- Colunas: Item Detectado | Tipo Ação (dropdown) | Produto do Mix (dropdown de produtos SmartDent da etapa) | Tempo Útil (meses)
+- Botão "+ Adicionar Regra" por etapa
 
-#### 4. Batch size menor
+**`SmartOpsTab.tsx`** — Adicionar aba "Mapeamento 7×3" com trigger e content.
 
-Reduzir de 50 para 20 pedidos por página. Com resolução de cliente (300ms) + webhook (~500ms) por pedido, 20 pedidos = ~16s por página. Em 45s cabem ~2-3 páginas com segurança.
+### Integração com LIA, Copilot e Análise Cognitiva
 
-#### 5. Avanço incremental do cursor
+**1. Copilot (`smart-ops-copilot/index.ts`)**
+- Nova tool `query_opportunity_rules`: consulta `opportunity_rules` e `workflow_cell_mappings` com filtros por stage, tipo, item
+- Adicionada ao system prompt: "Use query_opportunity_rules para entender o portfólio de produtos por etapa, regras de upgrade/migration, e tempos úteis de equipamentos"
+- O Copilot poderá responder: "Quais leads têm iTero e qual a ação recomendada?"
 
-O cursor avança baseado no `data_modificada` mais recente dos pedidos **processados com sucesso** (não dos buscados). Isso garante que pedidos falhados serão re-tentados na próxima execução.
+**2. LIA SDR (`_shared/lia-sdr.ts`)**
+- Ao montar contexto comercial, consultar `opportunity_rules` para enriquecer a abordagem com base nos equipamentos detectados do lead
+- Ex: lead tem "3Shape Omnicam" → regra diz migration → Medit i700W → LIA sugere essa abordagem
 
-```typescript
-let maxTimestamp = since || '';
+**3. Análise Cognitiva (`cognitive-lead-analysis/index.ts`)**
+- Incluir no prompt do DeepSeek as regras aplicáveis ao lead (cruzando portfolio_json + opportunity_rules)
+- A análise cognitiva passa a considerar: "Lead tem equipamento X há Y meses, tempo útil é Z meses → oportunidade de upgrade iminente"
 
-for (const pedido of pedidos) {
-  // ... processar ...
-  if (success) {
-    const ts = pedido.data_modificada || pedido.data_criacao;
-    if (ts && ts > maxTimestamp) maxTimestamp = ts;
-  }
-}
+**4. `fn_get_lead_context`** (DB function)
+- Expandir para incluir: `oportunidades_mapeadas` (regras que se aplicam ao lead baseado no portfolio_json)
 
-// Após o loop de páginas, salvar cursor
-if (maxTimestamp && maxTimestamp !== (since || '')) {
-  await supabase.from('omie_sync_cursors').upsert(
-    { key: 'li_poll_since', value: maxTimestamp },
-    { onConflict: 'key' }
-  );
-}
-```
+### Arquivos modificados/criados
 
-### Arquivos alterados
+| Arquivo | Ação |
+|---------|------|
+| Migration SQL | Criar `workflow_cell_mappings` + `opportunity_rules` |
+| `src/components/smartops/SmartOpsWorkflowMapper.tsx` | Novo — interface completa |
+| `src/components/SmartOpsTab.tsx` | Adicionar aba |
+| `supabase/functions/smart-ops-copilot/index.ts` | Nova tool `query_opportunity_rules` |
+| `supabase/functions/cognitive-lead-analysis/index.ts` | Injetar regras no prompt |
+| `supabase/functions/_shared/lia-sdr.ts` | Consultar regras para abordagem |
+| Migration SQL | Atualizar `fn_get_lead_context` |
 
-1. **`supabase/functions/poll-loja-integrada-orders/index.ts`** — cursor dedicado, timeout guard, ordenação reversa, batch menor
+### Resultado
 
-### Sem mudanças de banco
-
-A tabela `omie_sync_cursors` já existe com a estrutura necessária (`key` text PK, `value` text).
-
-### Resultado esperado
-
-- Polling processa pedidos recentes primeiro (últimas horas/dias)
-- Cursor avança independentemente do sucesso do webhook
-- Timeout guard salva progresso parcial — próxima execução continua de onde parou
-- Pedidos como o do Thiago são capturados na próxima execução do cron (5 min)
+- Regras configuráveis pela equipe sem deploy
+- LIA usa as regras para personalizar abordagem comercial
+- Copilot consulta regras para análise e campanhas
+- Análise cognitiva considera tempo útil de equipamentos para predição
+- Zero hardcode — tudo vem do banco
 
