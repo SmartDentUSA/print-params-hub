@@ -142,7 +142,7 @@ export function SmartOpsWorkflowMapper() {
     setMappings((mappingsRes.data as CellMapping[]) || []);
     setRules((rulesRes.data as OpportunityRule[]) || []);
     setProducts(productsRes.data || []);
-    setFormFields((formFieldsRes.data as FormField[]) || []);
+    setFormFields((formFieldsRes.data as unknown as FormField[]) || []);
     setLoading(false);
   }, []);
 
