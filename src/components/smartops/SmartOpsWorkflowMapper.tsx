@@ -489,16 +489,17 @@ function NewRuleForm({ stageKey, sourceItems, products, onAdd }: {
   );
 
   const handleSubmit = () => {
-    if (!sourceItem || !actionType) { toast.error("Preencha item e tipo de ação"); return; }
+    const finalSource = useCustomSource ? customSourceItem : sourceItem;
+    if (!finalSource || !actionType) { toast.error("Preencha item e tipo de ação"); return; }
     onAdd({
       workflow_stage: stageKey,
       workflow_cell: "",
-      source_item: sourceItem,
+      source_item: finalSource,
       action_type: actionType,
       target_product_name: targetProduct,
       useful_life_months: parseInt(months) || 12,
     });
-    setSourceItem(""); setActionType(""); setTargetProduct(""); setMonths("12");
+    setSourceItem(""); setCustomSourceItem(""); setUseCustomSource(false); setActionType(""); setTargetProduct(""); setMonths("12");
     setOpen(false);
   };
 
