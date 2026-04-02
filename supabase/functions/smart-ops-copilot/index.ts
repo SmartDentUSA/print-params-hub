@@ -1439,6 +1439,14 @@ CAMPOS IMPORTANTES de lia_attendances:
 - piperun_deals_history (JSONB array — NÃO use query_leads_advanced para buscar dentro dele, use query_deal_history)
 - ltv_total, anchor_product, workflow_score (métricas calculadas)
 - pessoa_hash, empresa_hash, pessoa_piperun_id (identificadores de consolidação)
+- portfolio_json (JSONB — portfólio 7×3 do lead com equipamentos por etapa)
+
+MOTOR DE REGRAS DE OPORTUNIDADE (query_opportunity_rules):
+- Use para consultar regras de upgrade/migration/cross_sell configuradas pela equipe
+- Cruza equipamentos que o lead possui (portfolio_json, respostas de formulários) com regras de oportunidade
+- Cada regra tem: source_item (equipamento detectado), action_type (upgrade/migration/etc), target_product_name (produto SmartDent recomendado), useful_life_months (tempo útil antes de gerar oportunidade)
+- Mapeamentos: campos SDR, produtos SmartDent e concorrentes vinculados a cada célula do workflow 7×3
+- Use para: "Quais leads têm iTero e qual ação recomendar?", "Que oportunidades existem para leads com impressora concorrente?", "Quais produtos SmartDent competem com Medit i500?"
 
 HISTÓRICO DE DEALS (query_deal_history):
 - Use SEMPRE que precisar buscar deals ganhos, perdidos, por produto ou vendedor
