@@ -411,7 +411,7 @@ export function SmartOpsWorkflowMapper() {
               <p className="text-xs text-muted-foreground">Vincule campos do lead (lia_attendances) que indicam interesse em cada célula do fluxo 7×3</p>
             </CardHeader>
             <CardContent>
-              {renderMappingGrid("sdr_field", () => SDR_FIELDS)}
+              {renderMappingGrid("sdr_field", () => allSDRFieldEntries.map(e => e.value), allSDRFieldEntries)}
             </CardContent>
           </Card>
         </TabsContent>
