@@ -253,15 +253,14 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
       try {
         const sid = sessionId.current;
         // Check if this session has a known lead in lia_attendances
-        const { data } = await import('@/integrations/supabase/client').then(m =>
-          (m.supabase
-            .from('lia_attendances')
-            .select('id, nome, email')
-            .eq('session_id', sid)
-            .not('nome', 'is', null)
-            .limit(1)
-            .single() as any)
-        );
+        const result: any = await supabase
+          .from('lia_attendances')
+          .select('id, nome, email')
+          .eq('session_id', sid)
+          .not('nome', 'is', null)
+          .limit(1)
+          .single();
+        const data = result.data;
 
         if (data?.nome) {
           const firstName = data.nome.split(' ')[0];
