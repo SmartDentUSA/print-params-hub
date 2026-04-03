@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { getPageTrackingSessionId } from '@/hooks/usePageTracking';
 import draLiaGif from '@/assets/dra-lia-avatar.gif';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
@@ -240,6 +241,58 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const lang = localeMap[language] || 'pt-BR';
   const pendingQueryRef = useRef<string | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const knownLeadChecked = useRef(false);
+
+  // Detect known lead from session and personalize welcome
+  useEffect(() => {
+    if (knownLeadChecked.current) return;
+    knownLeadChecked.current = true;
+
+    const checkKnownLead = async () => {
+      try {
+        const sid = sessionId.current;
+        // Check if this session has a known lead in lia_attendances via REST
+        const resp = await fetch(
+          `${SUPABASE_URL}/rest/v1/lia_attendances?session_id=eq.${encodeURIComponent(sid)}&nome=not.is.null&select=id,nome,email&limit=1`,
+          { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
+        );
+        const rows = await resp.json();
+        const data = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+
+        if (data?.nome) {
+          const firstName = data.nome.split(' ')[0];
+          // Also link page tracking session to this lead
+          const pageSessionId = getPageTrackingSessionId();
+          if (pageSessionId) {
+            fetch(
+              `${SUPABASE_URL}/rest/v1/rpc/fn_link_page_views_to_lead`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({ p_session_id: pageSessionId, p_lead_id: data.id }),
+              }
+            ).catch(() => {});
+          }
+          // Personalize welcome message
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === 'welcome'
+                ? { ...m, content: `Olá, **${firstName}**! 😊 Que bom te ver de volta! Como posso te ajudar hoje?` }
+                : m
+            )
+          );
+        }
+      } catch {
+        // No known lead, keep default welcome
+      }
+    };
+
+    checkKnownLead();
+  }, []);
   const sentMsgCountRef = useRef(0);
 
   // Fire summarize_session (fire-and-forget, idempotent via sessionStorage flag)
