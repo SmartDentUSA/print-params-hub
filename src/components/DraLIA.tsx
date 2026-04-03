@@ -252,15 +252,13 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
     const checkKnownLead = async () => {
       try {
         const sid = sessionId.current;
-        // Check if this session has a known lead in lia_attendances
-        const result: any = await supabase
-          .from('lia_attendances')
-          .select('id, nome, email')
-          .eq('session_id', sid)
-          .not('nome', 'is', null)
-          .limit(1)
-          .single();
-        const data = result.data;
+        // Check if this session has a known lead in lia_attendances via REST
+        const resp = await fetch(
+          `${SUPABASE_URL}/rest/v1/lia_attendances?session_id=eq.${encodeURIComponent(sid)}&nome=not.is.null&select=id,nome,email&limit=1`,
+          { headers: { apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` } }
+        );
+        const rows = await resp.json();
+        const data = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 
         if (data?.nome) {
           const firstName = data.nome.split(' ')[0];
