@@ -209,6 +209,29 @@ export async function upsertKnowledgeGap(
   }
 }
 
+// ── Prompt injection / meta-question detection ──
+const PROMPT_INJECTION_PATTERNS = [
+  /\b(quem sou eu|who am i|qui[eé]n soy)\b/i,
+  /\b(qual [eéé] (seu|teu|o seu) (system ?prompt|prompt|instru[cç][oõ]|configura[cç]))/i,
+  /\b(me mostre|show me|reveal|revele).{0,20}(instru[cç]|prompt|configura[cç]|system)/i,
+  /\b(ignore|disregard|forget).{0,15}(previous|above|all|prior).{0,15}(instruct|prompt|rules)/i,
+  /\b(DAN mode|jailbreak|developer mode|god mode)\b/i,
+  /\b(SOUL\.md|Admin Core|core access)\b/i,
+  /\b(quem [eé] (seu|teu|o) (admin|criador|dono|master|operador))\b/i,
+  /\b(qual [eé] (seu|teu) (ID|identifica[cç]|c[oó]digo))\b/i,
+  /\b(que modelo (de IA|voc[eê] usa|[eé] voc[eê]))\b/i,
+  /\b(act as|pretend|finja|aja como).{0,15}(different|another|outro|diferente)/i,
+];
+
+export const isPromptInjection = (msg: string) =>
+  PROMPT_INJECTION_PATTERNS.some((p) => p.test(msg.trim()));
+
+export const PROMPT_INJECTION_RESPONSE: Record<string, string> = {
+  "pt-BR": "Sou a **Dra. L.I.A.**, consultora de odontologia digital da SmartDent 😊\nFui criada pela equipe da SmartDent para ajudar com impressão 3D, resinas, scanners e fluxos digitais.\nComo posso te ajudar hoje?",
+  "en-US": "I'm **Dr. L.I.A.**, SmartDent's digital dentistry consultant 😊\nI was created by the SmartDent team to help with 3D printing, resins, scanners, and digital workflows.\nHow can I help you today?",
+  "es-ES": "Soy la **Dra. L.I.A.**, consultora de odontología digital de SmartDent 😊\nFui creada por el equipo de SmartDent para ayudar con impresión 3D, resinas, escáneres y flujos digitales.\n¿Cómo puedo ayudarte hoy?",
+};
+
 // ── Stopwords (shared with RAG pipeline) ──
 export const STOPWORDS_PT = [
   'você', 'voce', 'tem', 'algum', 'alguma', 'entre', 'para', 'sobre',
