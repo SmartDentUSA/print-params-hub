@@ -52,7 +52,7 @@ export const SUPPORT_FALLBACK: Record<string, string> = {
 };
 
 // Informational queries about existing tickets — should NOT trigger support creation flow
-const SUPPORT_INFO_QUERY = /\b(quantos?|quais?|ver|listar|consultar|hist[oó]rico|status|meus?|[uú]ltimo|n[uú]mero)\b.{0,25}\b(chamado|ticket|ocorr[eê]ncia)/i;
+const SUPPORT_INFO_QUERY = /\b(quantos?|quais?|ver|listar|consultar|hist[oó]rico|status|meus?|[uú]ltimo|n[uú]mero)\b.{0,25}\b(chamado|ticket|ocorr[eê]ncia|formul[aá]rio)/i;
 
 export const isSupportInfoQuery = (msg: string) => SUPPORT_INFO_QUERY.test(msg);
 
