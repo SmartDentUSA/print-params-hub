@@ -72,6 +72,9 @@ const App = () => (
       <Route path="*" element={<NotFound />} />
     </Routes>
 
+    {/* Page view tracking */}
+    <PageTracker />
+
     {/* Dra. L.I.A. floating widget — shown on all pages except admin and embed */}
     <DraLIAGlobal />
   </>
