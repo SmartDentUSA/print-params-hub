@@ -3286,6 +3286,144 @@ export type Database = {
           },
         ]
       }
+      lead_page_views: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device_type: string | null
+          id: string
+          ip_hash: string | null
+          lead_id: string | null
+          page_path: string
+          page_title: string | null
+          page_type: string | null
+          referrer: string | null
+          session_id: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
+          viewed_at: string
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          id?: string
+          ip_hash?: string | null
+          lead_id?: string | null
+          page_path: string
+          page_title?: string | null
+          page_type?: string | null
+          referrer?: string | null
+          session_id: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device_type?: string | null
+          id?: string
+          ip_hash?: string | null
+          lead_id?: string | null
+          page_path?: string
+          page_title?: string | null
+          page_type?: string | null
+          referrer?: string | null
+          session_id?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       lead_product_history: {
         Row: {
           added_to_cart_at: string | null
@@ -9776,6 +9914,10 @@ export type Database = {
         Returns: number
       }
       fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
+      fn_link_page_views_to_lead: {
+        Args: { p_lead_id: string; p_session_id: string }
+        Returns: number
+      }
       fn_list_proposal_products: {
         Args: never
         Returns: {

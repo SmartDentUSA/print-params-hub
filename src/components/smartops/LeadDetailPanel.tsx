@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { X, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { WorkflowPortfolio, type Portfolio } from "./WorkflowPortfolio";
@@ -193,6 +194,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const [cognitiveText, setCognitiveText] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const cachedIdRef = useRef<string | null>(null);
+  const [pageViews, setPageViews] = useState<any[]>([]);
 
   const handleSyncPipeRun = async () => {
     if (!lead?.id || syncing) return;
@@ -252,6 +254,18 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       })
       .catch(() => setError("Erro ao carregar dados do lead"))
       .finally(() => setLoading(false));
+  }, [lead?.id]);
+
+  // Fetch page views for lead
+  useEffect(() => {
+    if (!lead?.id) { setPageViews([]); return; }
+    supabase
+      .from("lead_page_views" as any)
+      .select("id, page_path, page_title, page_type, utm_source, device_type, viewed_at")
+      .eq("lead_id", lead.id)
+      .order("viewed_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setPageViews((data || []) as any[]));
   }, [lead?.id]);
 
   // Reset cache on lead change
@@ -470,6 +484,21 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
         dotCls: tag.startsWith("LIA") || tag.startsWith("A_H") ? "tl-dot-ai" : "tl-dot-crm",
         title: TAG_LABELS[tag] || tag,
         desc: TAG_DESCS[tag] || "",
+      });
+    });
+
+    // Page views
+    pageViews.forEach((pv: any) => {
+      events.push({
+        date: pv.viewed_at,
+        dotCls: "tl-dot-lead",
+        title: `👁️ Visitou: ${pv.page_title || pv.page_path}`,
+        desc: pv.page_type ? `Tipo: ${pv.page_type}` : "",
+        detail: {
+          Página: pv.page_path,
+          ...(pv.utm_source ? { UTM: pv.utm_source } : {}),
+          ...(pv.device_type ? { Dispositivo: pv.device_type } : {}),
+        },
       });
     });
 
