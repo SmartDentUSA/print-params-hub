@@ -256,6 +256,18 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       .finally(() => setLoading(false));
   }, [lead?.id]);
 
+  // Fetch page views for lead
+  useEffect(() => {
+    if (!lead?.id) { setPageViews([]); return; }
+    supabase
+      .from("lead_page_views" as any)
+      .select("id, page_path, page_title, page_type, utm_source, device_type, viewed_at")
+      .eq("lead_id", lead.id)
+      .order("viewed_at", { ascending: false })
+      .limit(50)
+      .then(({ data }) => setPageViews((data || []) as any[]));
+  }, [lead?.id]);
+
   // Reset cache on lead change
   useEffect(() => {
     if (lead?.id !== cachedIdRef.current) {
