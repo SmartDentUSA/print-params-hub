@@ -487,6 +487,21 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
       });
     });
 
+    // Page views
+    pageViews.forEach((pv: any) => {
+      events.push({
+        date: pv.viewed_at,
+        dotCls: "tl-dot-lead",
+        title: `👁️ Visitou: ${pv.page_title || pv.page_path}`,
+        desc: pv.page_type ? `Tipo: ${pv.page_type}` : "",
+        detail: {
+          Página: pv.page_path,
+          ...(pv.utm_source ? { UTM: pv.utm_source } : {}),
+          ...(pv.device_type ? { Dispositivo: pv.device_type } : {}),
+        },
+      });
+    });
+
     return events.filter((e) => Boolean(e.date)).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
