@@ -264,12 +264,18 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
           // Also link page tracking session to this lead
           const pageSessionId = getPageTrackingSessionId();
           if (pageSessionId) {
-            import('@/integrations/supabase/client').then(m =>
-              m.supabase.rpc('fn_link_page_views_to_lead' as any, {
-                p_session_id: pageSessionId,
-                p_lead_id: data.id,
-              }).then(() => {})
-            );
+            fetch(
+              `${SUPABASE_URL}/rest/v1/rpc/fn_link_page_views_to_lead`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+                  Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({ p_session_id: pageSessionId, p_lead_id: data.id }),
+              }
+            ).catch(() => {});
           }
           // Personalize welcome message
           setMessages(prev =>
