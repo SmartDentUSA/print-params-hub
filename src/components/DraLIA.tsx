@@ -241,6 +241,55 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
   const lang = localeMap[language] || 'pt-BR';
   const pendingQueryRef = useRef<string | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const knownLeadChecked = useRef(false);
+
+  // Detect known lead from session and personalize welcome
+  useEffect(() => {
+    if (knownLeadChecked.current) return;
+    knownLeadChecked.current = true;
+
+    const checkKnownLead = async () => {
+      try {
+        const sid = sessionId.current;
+        // Check if this session has a known lead in lia_attendances
+        const { data } = await import('@/integrations/supabase/client').then(m =>
+          m.supabase
+            .from('lia_attendances')
+            .select('id, nome, email')
+            .eq('session_id', sid)
+            .not('nome', 'is', null)
+            .limit(1)
+            .single()
+        );
+
+        if (data?.nome) {
+          const firstName = data.nome.split(' ')[0];
+          // Also link page tracking session to this lead
+          const pageSessionId = getPageTrackingSessionId();
+          if (pageSessionId) {
+            import('@/integrations/supabase/client').then(m =>
+              m.supabase.rpc('fn_link_page_views_to_lead' as any, {
+                p_session_id: pageSessionId,
+                p_lead_id: data.id,
+              }).then(() => {})
+            );
+          }
+          // Personalize welcome message
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === 'welcome'
+                ? { ...m, content: `Olá, **${firstName}**! 😊 Que bom te ver de volta! Como posso te ajudar hoje?` }
+                : m
+            )
+          );
+        }
+      } catch {
+        // No known lead, keep default welcome
+      }
+    };
+
+    checkKnownLead();
+  }, []);
   const sentMsgCountRef = useRef(0);
 
   // Fire summarize_session (fire-and-forget, idempotent via sessionStorage flag)
