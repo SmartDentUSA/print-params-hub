@@ -2988,6 +2988,7 @@ REGRAS:
         try { await supabase.from("agent_interactions").insert({ session_id, user_message: message, agent_response: ticketConfirmText, lang, top_similarity: 1, unanswered: false, lead_id: currentLeadId, context_raw: "[INTERCEPTOR] support_flow→ticket_created" }); } catch { /* ignore */ }
         return streamTextResponse(ticketConfirmText, corsHeaders);
       }
+      } // end else (not escaping flow)
     }
 
     // 0b-query. Ticket listing interceptor — detect "meus chamados", "status do chamado", etc.
