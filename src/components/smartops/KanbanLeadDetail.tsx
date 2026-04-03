@@ -234,6 +234,7 @@ const TIMELINE_EMOJI: Record<string, string> = {
   sellflux_sync: "🔗",
   astron_enrollment: "🎓",
   cognitive_analysis: "🧠",
+  page_view: "👁️",
 };
 
 const TIMELINE_LABEL: Record<string, string> = {
