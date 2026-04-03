@@ -194,6 +194,7 @@ export function LeadDetailPanel({ lead, onClose }: { lead: { id: string; nome: s
   const [cognitiveText, setCognitiveText] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const cachedIdRef = useRef<string | null>(null);
+  const [pageViews, setPageViews] = useState<any[]>([]);
 
   const handleSyncPipeRun = async () => {
     if (!lead?.id || syncing) return;
