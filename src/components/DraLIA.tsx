@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { getPageTrackingSessionId } from '@/hooks/usePageTracking';
 import draLiaGif from '@/assets/dra-lia-avatar.gif';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PrinterParamsFlow from './PrinterParamsFlow';
