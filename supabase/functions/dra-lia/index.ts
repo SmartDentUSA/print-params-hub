@@ -1713,6 +1713,21 @@ Campos:
       console.warn("[lead-collection] session lookup failed:", e);
     }
 
+    // ── Prompt Injection Guard (ANTES de qualquer processamento) ──
+    if (isPromptInjection(message)) {
+      const injectionResponse = PROMPT_INJECTION_RESPONSE[lang] || PROMPT_INJECTION_RESPONSE["pt-BR"];
+      try {
+        await supabase.from("agent_interactions").insert({
+          session_id,
+          user_message: message,
+          agent_response: injectionResponse,
+          lang,
+          top_similarity: 1,
+        });
+      } catch (_e) { /* non-critical */ }
+      return new Response(injectionResponse, { headers: { ...corsHeaders, "Content-Type": "text/plain" } });
+    }
+
     // Include current message in history for lead detection
     const historyWithCurrent = [...history, { role: "user", content: message }];
     const leadState = detectLeadCollectionState(historyWithCurrent, sessionEntities);
