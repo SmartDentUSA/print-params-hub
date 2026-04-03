@@ -2780,6 +2780,29 @@ REGRAS:
       const supportEnt = (sessionEntities || {}) as Record<string, unknown>;
       const supportAnswers = (supportEnt.support_answers || {}) as Record<string, string>;
 
+      // ── Escape hatch: detect unrelated questions / exit intent mid-flow ──
+      const isEscapingFlow =
+        isSupportInfoQuery(message) ||
+        isGreeting(message) ||
+        isPromptInjection(message) ||
+        PRICE_INTENT_PATTERNS.some((p: RegExp) => p.test(message)) ||
+        /\b(cancelar|sair|parar|cancel|exit|stop|voltar|back)\b/i.test(message) ||
+        /^(quantos?|quais?|como|onde|quando|por ?qu[eê])\b/i.test(message.trim());
+
+      if (isEscapingFlow) {
+        console.log(`[support_flow] Escape hatch triggered — clearing support flow state`);
+        const clearedEnt = { ...supportEnt };
+        delete clearedEnt.support_flow_stage;
+        delete clearedEnt.support_equipment;
+        delete clearedEnt.support_answers;
+        await supabase.from("agent_sessions").upsert({
+          session_id,
+          extracted_entities: clearedEnt,
+          last_activity_at: new Date().toISOString(),
+        }, { onConflict: "session_id" });
+        // Fall through to normal processing below (don't return)
+      } else {
+
       // ── Stage: select_equipment — user is choosing which equipment has the problem ──
       if (supportFlowStage === "select_equipment") {
         const chosenEquipment = message.trim();
