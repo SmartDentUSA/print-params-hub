@@ -14,6 +14,12 @@ import AgentEmbed from "./pages/AgentEmbed";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import DraLIA from "./components/DraLIA";
+import { usePageTracking } from "./hooks/usePageTracking";
+
+function PageTracker() {
+  usePageTracking();
+  return null;
+}
 
 const App = () => (
   <>
