@@ -1,35 +1,57 @@
 
 
-## Corrigir: Regras de Oportunidade sem campos de formulário
+## Problem
 
-### Problema
+When the user is inside the **support ticket flow** (multi-step diagnostic), every message is blindly captured as an answer to the current step. The bot doesn't check if the user is asking an unrelated question (e.g., "Quantos chamados eu tenho?", "Quantos formulários eu respondi?") or trying to exit the flow.
 
-No `renderRulesTable()` (linha 313-316), o dropdown "Item Detectado" do `NewRuleForm` só recebe:
-- `stageCompetitors` (mapeamentos tipo "competitor")
-- `stageProducts` (mapeamentos tipo "product")
+The `isSupportInfoQuery` guard and other guards are never evaluated because the `supportFlowStage` block returns early before reaching them.
 
-Faltam: campos de formulário e suas opções (radio/select/checkbox).
+## Solution
 
-### Correção
+Add an **escape hatch** at the top of the `supportFlowStage` block that checks if the user's message matches known non-answer patterns before processing it as a diagnostic answer.
 
-**Arquivo: `src/components/smartops/SmartOpsWorkflowMapper.tsx`**
+### Changes to `supabase/functions/dra-lia/index.ts`
 
-1. No `renderRulesTable()`, expandir `allSourceItems` (linha 316) para incluir:
-   - Opções dos campos de formulário com tipo radio/select/checkbox (mesma lógica do `formFieldOptions` já existente na linha 303-305)
-   - Labels dos campos SDR dinâmicos (para identificar campos de texto como "Scanner que possui")
+Inside the `if (supportFlowStage)` block (line ~2778), before processing any stage, add:
 
-2. Atualizar a construção de `allSourceItems`:
+```typescript
+// Check if the user is asking something unrelated to the support flow
+const isEscapingFlow = 
+  isSupportInfoQuery(message) ||       // "quantos chamados eu tenho"
+  isGreeting(message) ||                // "oi"
+  isPromptInjection(message) ||         // security
+  PRICE_INTENT_PATTERNS.some(p => p.test(message)) ||
+  /\b(cancelar|sair|parar|cancel|exit|stop|voltar|back)\b/i.test(message) ||
+  // Detect questions that are clearly not diagnostic answers
+  /^(quantos?|quais?|como|onde|quando|por ?qu[eê])\b/i.test(message.trim());
+
+if (isEscapingFlow) {
+  // Clear support flow state so the message is processed normally
+  const clearedEnt = { ...supportEnt };
+  delete clearedEnt.support_flow_stage;
+  delete clearedEnt.support_equipment;
+  delete clearedEnt.support_answers;
+  await supabase.from("agent_sessions").upsert({
+    session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
+  }, { onConflict: "session_id" });
+  // Fall through to normal processing below (don't return)
+}
 ```
-const formOpts = formFields
-  .filter(f => ["radio","select","checkbox"].includes(f.field_type||"") && Array.isArray(f.options))
-  .flatMap(f => (f.options as string[]));
-const sdrFieldLabels = allSDRFieldEntries.map(e => e.label);
-const allSourceItems = [...new Set([...stageCompetitors, ...stageProducts, ...formOpts, ...sdrFieldLabels])];
+
+Then wrap the existing stage processing in `else { ... }` so it only runs when NOT escaping.
+
+### Also update `lia-guards.ts`
+
+Add a pattern to `SUPPORT_INFO_QUERY` to also catch "quantos formulários":
+
+```typescript
+const SUPPORT_INFO_QUERY = /\b(quantos?|quais?|ver|listar|consultar|hist[oó]rico|status|meus?|[uú]ltimo|n[uú]mero)\b.{0,25}\b(chamado|ticket|ocorr[eê]ncia|formul[aá]rio)/i;
 ```
 
-3. No `NewRuleForm`, permitir também digitação livre (fallback Input) além do dropdown, para itens não pré-cadastrados — adicionar opção "Outro (digitar)" no select.
+### Summary of behavior change
 
-### Resultado
-- Dropdown "Item Detectado" nas regras mostra: concorrentes mapeados + produtos + todas as opções de formulários + campos SDR
-- Permite criar regras baseadas em qualquer resposta de formulário
+- If the user asks a question (starts with "quantos", "como", "quando", etc.) while in the support flow, the flow is cancelled and the question is processed normally
+- If the user says "cancelar"/"sair"/"voltar", the flow is also cancelled
+- Security guards (prompt injection) are respected even mid-flow
+- Existing diagnostic flow behavior is unchanged for actual answers
 
