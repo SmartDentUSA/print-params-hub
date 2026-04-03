@@ -249,6 +249,7 @@ const TIMELINE_LABEL: Record<string, string> = {
   ecommerce_order_delivered: "Pedido entregue",
   ecommerce_boleto_generated: "Boleto gerado",
   ecommerce_boleto_expired: "Boleto vencido",
+  page_view: "Visitou página",
 };
 
 function TimelineItem({ event }: { event: TimelineEvent }) {
