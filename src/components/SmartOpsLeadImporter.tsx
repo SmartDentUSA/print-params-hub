@@ -79,15 +79,40 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
       const buffer = await file.arrayBuffer();
       let rows: Record<string, unknown>[];
 
+      const workbook = new ExcelJS.Workbook();
       if (file.name.endsWith(".csv")) {
         const text = new TextDecoder("utf-8").decode(buffer);
-        const wb = XLSX.read(text, { type: "string", raw: false });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+        const blob = new Blob([text], { type: "text/csv" });
+        const stream = blob.stream() as unknown as NodeJS.ReadableStream;
+        await workbook.csv.read(stream);
       } else {
-        const wb = XLSX.read(buffer, { type: "array", cellDates: true });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+        await workbook.xlsx.load(buffer);
+      }
+
+      const sheet = workbook.worksheets[0];
+      if (!sheet || sheet.rowCount < 2) {
+        rows = [];
+      } else {
+        const headerRow = sheet.getRow(1);
+        const headers: string[] = [];
+        headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          headers[colNumber] = cell.value != null ? String(cell.value).trim() : `col_${colNumber}`;
+        });
+
+        rows = [];
+        for (let r = 2; r <= sheet.rowCount; r++) {
+          const row = sheet.getRow(r);
+          const obj: Record<string, unknown> = {};
+          let hasValue = false;
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const key = headers[colNumber];
+            if (key) {
+              obj[key] = cell.value ?? null;
+              if (cell.value != null) hasValue = true;
+            }
+          });
+          if (hasValue) rows.push(obj);
+        }
       }
 
       if (isAutoDetect) {
