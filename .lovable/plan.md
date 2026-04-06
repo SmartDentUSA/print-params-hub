@@ -1,57 +1,25 @@
 
 
-## Problem
+## Replace vulnerable `xlsx` package
 
-When the user is inside the **support ticket flow** (multi-step diagnostic), every message is blindly captured as an answer to the current step. The bot doesn't check if the user is asking an unrelated question (e.g., "Quantos chamados eu tenho?", "Quantos formulários eu respondi?") or trying to exit the flow.
+### Problem
+The `xlsx` (SheetJS) package v0.18.5 has two high-severity vulnerabilities: Prototype Pollution and ReDoS. It's used only in `SmartOpsLeadImporter.tsx` for parsing CSV/XLSX uploads.
 
-The `isSupportInfoQuery` guard and other guards are never evaluated because the `supportFlowStage` block returns early before reaching them.
+### Solution
+Replace `xlsx` with `exceljs`, a maintained alternative with no known vulnerabilities that supports both CSV and XLSX parsing.
 
-## Solution
+### Changes
 
-Add an **escape hatch** at the top of the `supportFlowStage` block that checks if the user's message matches known non-answer patterns before processing it as a diagnostic answer.
+**1. `package.json`** — Remove `xlsx`, add `exceljs`
 
-### Changes to `supabase/functions/dra-lia/index.ts`
+**2. `src/components/SmartOpsLeadImporter.tsx`** — Replace the XLSX import and file parsing logic:
+- Remove `import * as XLSX from "xlsx"`
+- Add `import ExcelJS from "exceljs"`
+- Rewrite the `handleFile` function to use ExcelJS's `workbook.xlsx.load(buffer)` for XLSX files and `workbook.csv.read(stream)` for CSV files
+- Convert worksheet rows to `Record<string, unknown>[]` using ExcelJS's row/cell API (read header row, then map data rows to objects)
 
-Inside the `if (supportFlowStage)` block (line ~2778), before processing any stage, add:
-
-```typescript
-// Check if the user is asking something unrelated to the support flow
-const isEscapingFlow = 
-  isSupportInfoQuery(message) ||       // "quantos chamados eu tenho"
-  isGreeting(message) ||                // "oi"
-  isPromptInjection(message) ||         // security
-  PRICE_INTENT_PATTERNS.some(p => p.test(message)) ||
-  /\b(cancelar|sair|parar|cancel|exit|stop|voltar|back)\b/i.test(message) ||
-  // Detect questions that are clearly not diagnostic answers
-  /^(quantos?|quais?|como|onde|quando|por ?qu[eê])\b/i.test(message.trim());
-
-if (isEscapingFlow) {
-  // Clear support flow state so the message is processed normally
-  const clearedEnt = { ...supportEnt };
-  delete clearedEnt.support_flow_stage;
-  delete clearedEnt.support_equipment;
-  delete clearedEnt.support_answers;
-  await supabase.from("agent_sessions").upsert({
-    session_id, extracted_entities: clearedEnt, last_activity_at: new Date().toISOString(),
-  }, { onConflict: "session_id" });
-  // Fall through to normal processing below (don't return)
-}
-```
-
-Then wrap the existing stage processing in `else { ... }` so it only runs when NOT escaping.
-
-### Also update `lia-guards.ts`
-
-Add a pattern to `SUPPORT_INFO_QUERY` to also catch "quantos formulários":
-
-```typescript
-const SUPPORT_INFO_QUERY = /\b(quantos?|quais?|ver|listar|consultar|hist[oó]rico|status|meus?|[uú]ltimo|n[uú]mero)\b.{0,25}\b(chamado|ticket|ocorr[eê]ncia|formul[aá]rio)/i;
-```
-
-### Summary of behavior change
-
-- If the user asks a question (starts with "quantos", "como", "quando", etc.) while in the support flow, the flow is cancelled and the question is processed normally
-- If the user says "cancelar"/"sair"/"voltar", the flow is also cancelled
-- Security guards (prompt injection) are respected even mid-flow
-- Existing diagnostic flow behavior is unchanged for actual answers
+### Scope
+- Only one component uses this package
+- No edge functions or other files are affected
+- Parsing behavior (sheet_to_json equivalent) will be preserved
 
