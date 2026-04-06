@@ -17,7 +17,7 @@ import {
   findColumnByHeader, applyMappings,
   type FieldMapping,
 } from "@/utils/leadParsers";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 interface ImportResult {
   inserted: number;
