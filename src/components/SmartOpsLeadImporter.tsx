@@ -82,9 +82,11 @@ export function SmartOpsLeadImporter({ onComplete }: { onComplete?: () => void }
       const workbook = new ExcelJS.Workbook();
       if (file.name.endsWith(".csv")) {
         const text = new TextDecoder("utf-8").decode(buffer);
-        const blob = new Blob([text], { type: "text/csv" });
-        const stream = blob.stream() as unknown as NodeJS.ReadableStream;
-        await workbook.csv.read(stream);
+        // Parse CSV manually via workbook.csv
+        const csvBuffer = new TextEncoder().encode(text);
+        await workbook.csv.read(new (require('stream').Readable)({
+          read() { this.push(Buffer.from(csvBuffer)); this.push(null); }
+        }) as any);
       } else {
         await workbook.xlsx.load(buffer);
       }
