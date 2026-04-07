@@ -134,8 +134,8 @@ Deno.serve(async (req) => {
       }
 
       // Ordenação reversa: recentes primeiro
-      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}&order_by=-modificado`;
-      if (since) endpoint += `&since_modificado=${encodeURIComponent(since)}`;
+      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}`;
+      if (since) endpoint += `&since_atualizado=${encodeURIComponent(since)}`;
 
       console.log(`[poll-li] Page ${page + 1}/${maxPages}: ${endpoint}`);
 
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
           allResults.push({ id: pedido.id || pedido.numero, success: true });
 
           // Track max timestamp from successfully processed orders
-          const ts = pedido.data_modificada || pedido.data_criacao;
+          const ts = pedido.data_modificacao || pedido.data_criacao;
           if (ts && ts > maxTimestamp) maxTimestamp = ts;
         } catch (e) {
           totalIgnored++;
