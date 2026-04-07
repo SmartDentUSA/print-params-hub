@@ -1377,12 +1377,12 @@ Deno.serve(async (req) => {
         if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
 
         // Update ONLY custom fields + note (owner_id = null → preserved)
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase);
+        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
         console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
       } else if (estagnDeal) {
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
-        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase);
+        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
         flowType = "new_deal";
@@ -1390,7 +1390,7 @@ Deno.serve(async (req) => {
           PIPERUN_API_KEY, personId, companyId,
           lead as Record<string, unknown>,
           pipeline_id, stage_id, assignedOwnerId,
-          customFields, leadEmail, supabase
+          customFields, leadEmail, supabase, inputFormResponses
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
       }
