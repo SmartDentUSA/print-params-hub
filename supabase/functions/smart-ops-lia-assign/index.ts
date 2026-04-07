@@ -709,17 +709,28 @@ async function buildDealNoteHTML(
     console.warn("[lia-assign] Failed to fetch deals count:", e);
   }
 
-  // Fetch form responses (may not exist yet if saved in parallel)
+  // Fetch form responses — prefer inline (from ingest-lead payload) over DB query to avoid race condition
   let formResponsesHTML = "";
   try {
-    const { data: formResponses } = await supabase
-      .from("smartops_form_field_responses")
-      .select("value, field_label")
-      .eq("lead_id", lead.id as string);
-    if (formResponses && formResponses.length > 0) {
-      const items = formResponses
-        .filter((r: Record<string, unknown>) => r.value)
-        .map((r: Record<string, unknown>) => `• <b>${r.field_label || "Campo"}:</b> ${r.value}`)
+    let responses: Array<{ label?: string; field_label?: string; value?: unknown }> = [];
+    if (inputFormResponses && Array.isArray(inputFormResponses) && inputFormResponses.length > 0) {
+      responses = inputFormResponses;
+      console.log(`[lia-assign] Using ${responses.length} inline form responses`);
+    } else {
+      // Fallback: query DB (may still be empty due to race condition)
+      const { data: dbResponses } = await supabase
+        .from("smartops_form_field_responses")
+        .select("value, field_label")
+        .eq("lead_id", lead.id as string);
+      if (dbResponses && dbResponses.length > 0) {
+        responses = dbResponses;
+        console.log(`[lia-assign] Using ${responses.length} DB form responses`);
+      }
+    }
+    if (responses.length > 0) {
+      const items = responses
+        .filter((r) => r.value)
+        .map((r) => `• <b>${r.label || r.field_label || "Campo"}:</b> ${r.value}`)
         .join("<br>");
       if (items) {
         formResponsesHTML = `<hr><b>📝 Respostas do Formulário</b><br><br>${items}<br>`;
