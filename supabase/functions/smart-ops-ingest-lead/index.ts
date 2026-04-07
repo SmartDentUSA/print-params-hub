@@ -200,6 +200,22 @@ Deno.serve(async (req) => {
       ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
+    // --- Auto-forward: dynamically include any payload key that matches a lia_attendances column ---
+    const META_KEYS = new Set([
+      "source", "form_name", "form_purpose", "form_responses", "raw_payload",
+      "campaign", "formName", "form", "ip", "full_name", "name", "user_name",
+      "first_name", "last_name", "phone_number", "phone", "mobile", "celular",
+      "user_phone", "user_email", "specialty", "product", "nome", "email",
+      "telefone", "utm_source", "utm_medium", "utm_campaign", "utm_term",
+    ]);
+    for (const [key, value] of Object.entries(payload)) {
+      if (value == null || value === "") continue;
+      if (META_KEYS.has(key)) continue;
+      if (key in incomingData) continue;
+      if (typeof value === "object") continue;
+      incomingData[key] = value;
+    }
+
     let leadId: string;
     let fieldsUpdated: string[] = [];
 
