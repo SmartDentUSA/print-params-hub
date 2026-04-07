@@ -1,68 +1,194 @@
 
 
-## Analise: Caminho A (form_data JSONB) vs. Status Atual
+## Fix: L.I.A. deve usar links internos da base de conhecimento + integrar depoimentos
 
-### O que ja existe hoje
+### Problemas identificados
 
-O `ingest-lead` ja tem:
-1. **Auto-forward dinamico** (linhas 203-217) — qualquer chave do payload que nao seja meta-key e tenha valor primitivo ja e incluida automaticamente no `incomingData`
-2. **Retry para colunas inexistentes** (linhas 314-324) — se o Supabase rejeitar uma coluna, o sistema remove e retenta
-3. **`form_responses` inline** passado para o `lia-assign` — respostas do formulario ja chegam na nota HTML do PipeRun sem depender de query ao banco
-4. **`smartops_form_field_responses`** — tabela separada que persiste cada resposta com `field_label`
+**1. URLs erradas nos resultados de vídeo (lia-rag.ts, linha 154)**
+Quando um vídeo tem `content_id`, a URL gerada é `${siteBaseUrl}/base-de-conhecimento/${v.content_id}` — usando o UUID do content e a rota errada (`base-de-conhecimento` em vez de `base-conhecimento`). Deveria resolver o `slug` e `category_letter` do artigo pai para montar `/base-conhecimento/{letter}/{slug}`.
 
-### Veredicto: Caminho A faz sentido, mas como COMPLEMENTO
+**2. URLs erradas nos artigos do searchContentDirect (linha 166)**
+Artigos usam `${siteBaseUrl}/base-de-conhecimento/${a.slug}` — rota errada e sem `category_letter`. Deveria ser `/base-conhecimento/{letter}/{slug}`.
 
-O Caminho A (coluna `form_data` JSONB) resolve um problema real: **campos que NAO tem coluna na tabela `lia_attendances` sao descartados pelo retry** (linha 319 — o sistema deleta a chave e segue). Com `form_data`, esses campos seriam preservados como contexto.
+**3. Depoimentos não existem no RAG**
+A L.I.A. não busca depoimentos (`system_a_catalog` com `category = 'video_testimonial'`). Quando um lead pergunta sobre treinamentos, experiências de outros clientes ou se alguém na cidade dele comprou, a L.I.A. não tem como recomendar depoimentos com link interno (`/depoimentos/{slug}`).
 
-Porem, o sistema ja esta 80% dinamico. O que falta e apenas o "catch-all" para campos sem coluna.
+**4. Copilot não utiliza conteúdos da base de conhecimento**
+O Copilot deveria poder referenciar artigos, vídeos e depoimentos ao montar briefings e respostas.
 
-### Plano recomendado: Caminho B simplificado
+### Correções
 
-Adicionar `form_data JSONB` como catch-all, sem remover nada do que ja funciona.
+**Arquivo 1: `supabase/functions/_shared/lia-rag.ts`**
 
-**1. Migration** — Adicionar coluna `form_data` em `lia_attendances`
-```sql
-ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS form_data jsonb DEFAULT '{}'::jsonb;
-```
+**1a. Fix URLs de vídeo (linha 143-158)**
+No bloco de vídeos do `searchContentDirect`, quando o vídeo tem `content_id`, fazer JOIN com `knowledge_contents` para obter `slug` e `category_letter`:
 
-**2. `smart-ops-ingest-lead/index.ts`** — Antes do insert/update, salvar o payload completo do formulario em `form_data` (merge com existente se lead ja existe)
 ```typescript
-if (source === "form" || formName) {
-  incomingData.form_data = {
-    ...(existingLead?.form_data || {}),
-    [formName || "unknown"]: {
-      submitted_at: new Date().toISOString(),
-      responses: payload.form_responses || {},
-      raw_fields: Object.fromEntries(
-        Object.entries(payload).filter(([k, v]) => v != null && typeof v !== "object" && !META_KEYS.has(k))
-      ),
-    },
-  };
+// Buscar vídeos COM artigo pai para resolver URL correta
+const { data: videos } = await supabaseClient
+  .from("knowledge_videos")
+  .select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags, knowledge_contents(slug, knowledge_categories(letter))")
+  .textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" })
+  .limit(5);
+
+for (const v of videos) {
+  let videoUrl = v.url || v.embed_url;
+  if (v.content_id && v.knowledge_contents?.slug) {
+    const letter = v.knowledge_contents.knowledge_categories?.letter?.toLowerCase() || '';
+    videoUrl = letter 
+      ? `${siteBaseUrl}/base-conhecimento/${letter}/${v.knowledge_contents.slug}`
+      : `${siteBaseUrl}/base-conhecimento/${v.knowledge_contents.slug}`;
+  }
+  // ... rest unchanged, use videoUrl as url_interna
 }
 ```
 
-**3. `smart-ops-lia-assign/index.ts`** — No bloco de montagem do prompt da IA, injetar `form_data` se existir (ja esta parcialmente implementado via `form_responses` inline; adicionar fallback para `lead.form_data`)
+**1b. Fix URLs de artigos (linha 160-168)**
+No bloco de artigos, adicionar JOIN com `knowledge_categories` para obter a letter:
 
-**4. Template de nota HTML** — Ja funciona via `form_responses` inline. O `form_data` serve como persistencia de longo prazo e backup.
+```typescript
+const { data: articles } = await supabaseClient
+  .from("knowledge_contents")
+  .select("id, title, excerpt, slug, category_id, knowledge_categories(letter)")
+  .eq("active", true)
+  .or(...)
+  .limit(5);
 
-### O que NAO muda
-- Auto-forward de campos com coluna existente continua funcionando
-- `form_responses` inline para o PipeRun continua funcionando
-- `smartops_form_field_responses` continua como registro granular
-- Campos com `db_column` mapeado para colunas reais continuam salvando diretamente
+// URL correta: /base-conhecimento/{letter}/{slug}
+const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+const url = letter 
+  ? `${siteBaseUrl}/base-conhecimento/${letter}/${a.slug}` 
+  : `${siteBaseUrl}/base-conhecimento/${a.slug}`;
+```
+
+**1c. Adicionar busca de depoimentos (novo bloco após resins, ~linha 189)**
+
+```typescript
+// Testimonials (depoimentos)
+try {
+  const { data: testimonials } = await supabaseClient
+    .from("system_a_catalog")
+    .select("id, name, slug, description, image_url, extra_data")
+    .eq("category", "video_testimonial")
+    .eq("active", true)
+    .eq("approved", true)
+    .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
+    .limit(5);
+  if (testimonials) {
+    for (const t of testimonials) {
+      results.push({
+        source_type: "testimonial",
+        similarity: 0.70,
+        chunk_text: `DEPOIMENTO: ${t.name} — ${t.description?.slice(0, 300) || ""}`,
+        metadata: {
+          title: t.name,
+          slug: t.slug,
+          url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`,
+          thumbnail_url: t.image_url,
+        },
+      });
+    }
+  }
+} catch (e) { console.warn("[searchContentDirect] Testimonials search failed:", e); }
+```
+
+**1d. Fix `searchByILIKE` (linha 47)**
+Mesma correção de URL: usar `/base-conhecimento/{letter}/{slug}` em vez de `/base-conhecimento/${letter}/${slug}` (que já está correto — confirmar apenas consistência).
+
+**1e. Adicionar detecção de intenção de depoimento no RAG principal**
+No `searchKnowledge` ou no `searchContentDirect`, adicionar regex para detectar quando o lead quer social proof:
+
+```typescript
+const TESTIMONIAL_INTENT = /depoimento|testemunho|experi[êe]ncia|relato|quem (j[aá] )?comprou|na minha cidade|caso real|prova social|treinamento.*como [eé]|como foi/i;
+```
+
+Quando detectado, buscar depoimentos automaticamente.
+
+**Arquivo 2: `supabase/functions/dra-lia/index.ts`**
+
+**2a. Adicionar busca de depoimentos no pipeline principal (~linha 3314)**
+Após o `searchContentDirect`, adicionar busca de depoimentos quando a intenção for detectada:
+
+```typescript
+const wantsTestimonials = TESTIMONIAL_INTENT.test(message) || 
+  /treinamento|training|entrenamiento/i.test(message);
+
+if (wantsTestimonials) {
+  const testimonialResults = await searchTestimonials(supabase, message, SITE_BASE_URL);
+  if (testimonialResults.length > 0) {
+    allResults.push(...testimonialResults);
+  }
+}
+```
+
+**2b. Atualizar instrução do prompt (linha 3667)**
+Adicionar regra para depoimentos:
+
+```
+21. Ao encontrar um DEPOIMENTO: Gere um link Markdown [📝 Ver depoimento](URL) 
+    apontando para a página interna /depoimentos/{slug}. 
+    Use depoimentos para responder perguntas sobre experiências de clientes, 
+    treinamentos, resultados reais e prova social.
+```
+
+**Arquivo 3: `supabase/functions/_shared/lia-rag.ts`**
+
+**3a. Exportar função `searchTestimonials`**
+
+```typescript
+export async function searchTestimonials(
+  supabase: SupabaseClient, 
+  message: string, 
+  siteBaseUrl: string
+) {
+  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2).slice(0, 6);
+  const searchPattern = `%${words.join("%")}%`;
+  
+  const { data } = await supabase
+    .from("system_a_catalog")
+    .select("id, name, slug, description, image_url, extra_data")
+    .eq("category", "video_testimonial")
+    .eq("active", true)
+    .eq("approved", true)
+    .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
+    .limit(5);
+  
+  if (!data?.length) return [];
+  
+  return data.map(t => ({
+    source_type: "testimonial",
+    similarity: 0.72,
+    chunk_text: `DEPOIMENTO DE CLIENTE: ${t.name}\n${t.description?.slice(0, 400) || ""}`,
+    metadata: {
+      title: t.name,
+      slug: t.slug,
+      url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`,
+      thumbnail_url: t.image_url,
+    },
+  }));
+}
+```
+
+**3b. Atualizar `buildStructuredContext` (linha 498)**
+Adicionar case para `testimonial`:
+
+```typescript
+case 'testimonial': articles.push(formatted); break;
+// Ou criar seção separada:
+// const testimonials: string[] = [];
+// case 'testimonial': testimonials.push(formatted); break;
+```
 
 ### Escopo
 
-| Arquivo | Mudanca |
-|---------|---------|
-| Migration SQL | `ADD COLUMN form_data jsonb` |
-| `smart-ops-ingest-lead/index.ts` | Salvar payload do form em `form_data` (~10 linhas) |
-| `smart-ops-lia-assign/index.ts` | Ler `form_data` como fallback no prompt da IA (~5 linhas) |
+| Arquivo | Mudanças |
+|---------|----------|
+| `supabase/functions/_shared/lia-rag.ts` | Fix URLs de vídeo e artigo, adicionar `searchTestimonials`, atualizar `buildStructuredContext` |
+| `supabase/functions/dra-lia/index.ts` | Integrar busca de depoimentos, adicionar regra no prompt |
 
 ### Resultado
-- Campos com coluna na tabela: salvos diretamente (como hoje)
-- Campos SEM coluna: preservados em `form_data` JSONB (novo)
-- Nota do PipeRun: usa `form_responses` inline (como hoje)
-- Prompt da IA: usa `form_data` como contexto adicional (novo)
-- Zero perda de dados em qualquer cenario
+- Links de vídeo e artigo apontam para páginas internas corretas (`/base-conhecimento/{letter}/{slug}`)
+- Depoimentos são buscados e recomendados quando o lead pergunta sobre experiências, treinamentos ou prova social
+- Todos os links gerados pela L.I.A. levam para páginas internas do site
+- O Copilot herda os mesmos dados via RAG compartilhado
 
