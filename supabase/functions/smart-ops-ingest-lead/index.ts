@@ -255,10 +255,21 @@ Deno.serve(async (req) => {
           previousValues[key] = existingLead[key];
         }
 
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from("lia_attendances")
           .update(merged)
           .eq("id", existingLead.id);
+
+        // Retry: if unknown column, strip it and retry once
+        if (updateError?.message?.includes("column") && updateError?.message?.includes("does not exist")) {
+          const colMatch = updateError.message.match(/column "([^"]+)"/);
+          if (colMatch) {
+            console.warn("[ingest-lead] Stripping unknown column from update:", colMatch[1]);
+            delete merged[colMatch[1]];
+            const retry = await supabase.from("lia_attendances").update(merged).eq("id", existingLead.id);
+            updateError = retry.error;
+          }
+        }
 
         if (updateError) {
           console.error("[ingest-lead] Update error:", updateError);
