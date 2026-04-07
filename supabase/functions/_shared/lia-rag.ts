@@ -545,7 +545,45 @@ export function buildStructuredContext(
   if (authors.length > 0) sections.push(`## KOLs E AUTORES (apresente quando perguntado sobre autores/especialistas)\n${authors.join("\n\n")}`);
   if (videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS (mencione APENAS se solicitado)\n${videos.join("\n\n")}`);
   if (params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS (cite apenas se perguntado)\n${params.join("\n\n")}`);
+  if (testimonials.length > 0) sections.push(`## DEPOIMENTOS DE CLIENTES (use como prova social quando relevante)\n${testimonials.join("\n\n")}`);
 
   if (sections.length === 0) return "";
   return sections.join("\n\n---\n\n");
+}
+
+// ── Testimonial Intent Detection ──
+export const TESTIMONIAL_INTENT = /depoimento|testemunho|experi[êe]ncia|relato|quem (j[aá] )?comprou|na minha cidade|caso real|prova social|treinamento.*como [eé]|como foi|algu[eé]m.*(usa|comprou|tem)|resultado.*real/i;
+
+// ── Standalone Testimonials Search ──
+export async function searchTestimonials(
+  supabase: SupabaseClient,
+  message: string,
+  siteBaseUrl: string
+): Promise<Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>> {
+  const words = message.toLowerCase().replace(/[?!.,;:]/g, '').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS_PT.includes(w)).slice(0, 6);
+  if (!words.length) return [];
+  const searchPattern = `%${words.join("%")}%`;
+
+  const { data } = await supabase
+    .from("system_a_catalog")
+    .select("id, name, slug, description, image_url, extra_data")
+    .eq("category", "video_testimonial")
+    .eq("active", true)
+    .eq("approved", true)
+    .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
+    .limit(5);
+
+  if (!data?.length) return [];
+
+  return data.map((t: any) => ({
+    source_type: "testimonial",
+    similarity: 0.72,
+    chunk_text: `DEPOIMENTO DE CLIENTE: ${t.name}\n${t.description?.slice(0, 400) || ""}`,
+    metadata: {
+      title: t.name,
+      slug: t.slug,
+      url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`,
+      thumbnail_url: t.image_url,
+    },
+  }));
 }
