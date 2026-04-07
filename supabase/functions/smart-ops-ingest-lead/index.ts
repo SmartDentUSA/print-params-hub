@@ -305,11 +305,23 @@ Deno.serve(async (req) => {
         },
       };
 
-      const { data: newLead, error: insertError } = await supabase
+      let { data: newLead, error: insertError } = await supabase
         .from("lia_attendances")
         .insert(newLeadData)
         .select("id")
         .single();
+
+      // Retry: if unknown column, strip it and retry once
+      if (insertError?.message?.includes("column") && insertError?.message?.includes("does not exist")) {
+        const colMatch = insertError.message.match(/column "([^"]+)"/);
+        if (colMatch) {
+          console.warn("[ingest-lead] Stripping unknown column from insert:", colMatch[1]);
+          delete newLeadData[colMatch[1]];
+          const retry = await supabase.from("lia_attendances").insert(newLeadData).select("id").single();
+          newLead = retry.data;
+          insertError = retry.error;
+        }
+      }
 
       if (insertError) {
         console.error("[ingest-lead] Insert error:", insertError);
