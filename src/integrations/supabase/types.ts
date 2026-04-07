@@ -4080,6 +4080,7 @@ export type Database = {
           erp_status: string | null
           erp_updated_at: string | null
           especialidade: string | null
+          form_data: Json | null
           form_name: string | null
           frete_codigo_rastreio: string | null
           frete_link_rastreio: string | null
@@ -4551,6 +4552,7 @@ export type Database = {
           erp_status?: string | null
           erp_updated_at?: string | null
           especialidade?: string | null
+          form_data?: Json | null
           form_name?: string | null
           frete_codigo_rastreio?: string | null
           frete_link_rastreio?: string | null
@@ -5022,6 +5024,7 @@ export type Database = {
           erp_status?: string | null
           erp_updated_at?: string | null
           especialidade?: string | null
+          form_data?: Json | null
           form_name?: string | null
           frete_codigo_rastreio?: string | null
           frete_link_rastreio?: string | null
@@ -10304,6 +10307,7 @@ export type Database = {
           erp_status: string | null
           erp_updated_at: string | null
           especialidade: string | null
+          form_data: Json | null
           form_name: string | null
           frete_codigo_rastreio: string | null
           frete_link_rastreio: string | null
