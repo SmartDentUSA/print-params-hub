@@ -134,8 +134,8 @@ Deno.serve(async (req) => {
       }
 
       // Ordenação reversa: recentes primeiro
-      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}&order_by=-data_modificada`;
-      if (since) endpoint += `&since_atualizado=${encodeURIComponent(since)}`;
+      let endpoint = `/pedido/?limit=${batchSize}&offset=${offset}&order_by=-modificado`;
+      if (since) endpoint += `&since_modificado=${encodeURIComponent(since)}`;
 
       console.log(`[poll-li] Page ${page + 1}/${maxPages}: ${endpoint}`);
 

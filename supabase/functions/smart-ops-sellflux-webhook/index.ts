@@ -215,6 +215,30 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Real timestamp from SellFlux payload (fallback to now)
+    const sellfluxRealTimestamp = payload.created_at || payload.date || payload.timestamp || payload.updated_at || new Date().toISOString();
+
+    // Timeline: log individual tag events
+    if (resolvedLeadId && standardizedTags.length > 0) {
+      const tagEvents = standardizedTags.map((tag: string) => ({
+        lead_id: resolvedLeadId,
+        event_type: "sellflux_tag_applied",
+        entity_type: "sellflux",
+        entity_id: tag,
+        entity_name: `Tag: ${tag}`,
+        event_data: {
+          tag,
+          automation: payload.automation_name || null,
+          source: detected.source,
+        },
+        source_channel: "sellflux",
+        event_timestamp: sellfluxRealTimestamp,
+      }));
+      const { error: tagLogErr } = await supabase.from("lead_activity_log").insert(tagEvents);
+      if (tagLogErr) console.warn("[sellflux-webhook] Tag timeline insert error:", tagLogErr.message);
+      else console.log("[sellflux-webhook] Inserted", tagEvents.length, "tag timeline events");
+    }
+
     // Timeline: log SellFlux entry with detected source context
     if (resolvedLeadId) {
       const hasEcommerce = detected.source === "loja_integrada";
@@ -237,7 +261,7 @@ Deno.serve(async (req) => {
           form_name: payload.form_name || null,
         },
         source_channel: "sellflux",
-        event_timestamp: new Date().toISOString(),
+        event_timestamp: sellfluxRealTimestamp,
       });
     }
 
