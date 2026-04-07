@@ -858,7 +858,7 @@ Software CAD: ${lead.software_cad || "N/A"}
 Urgência: ${lead.urgency_level || "N/A"}
 Motivação: ${lead.primary_motivation || "N/A"}
 Risco objeção: ${lead.objection_risk || "N/A"}
-Status: ${lead.status_oportunidade || "N/A"}${cognitiveContext}
+Status: ${lead.status_oportunidade || "N/A"}${cognitiveContext}${formDataContext}
 
 REGRAS OBRIGATÓRIAS:
 1. NÃO use o nome do lead no texto — diga "o profissional" ou "o lead"
