@@ -1048,7 +1048,8 @@ async function triggerOutboundMessages(
 async function executarReativacaoSdrCaptacao(
   apiToken: string,
   supabase: ReturnType<typeof createClient>,
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<boolean> {
   const leadId = lead.id as string;
   const leadEmail = (lead.email as string).trim().toLowerCase();
@@ -1107,7 +1108,8 @@ async function executarReativacaoSdrCaptacao(
     newOwnerId,
     customFields,
     leadEmail,
-    supabase
+    supabase,
+    formResponses
   );
 
   if (!newDealId) {
@@ -1218,7 +1220,7 @@ Deno.serve(async (req) => {
     if (trigger === "sdr_captacao_reativacao") {
       let reativacaoOk = false;
       try {
-        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead);
+        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead, inputFormResponses);
       } catch (reativErr) {
         console.error("[lia-assign] SDR-CAPTAÇÃO reativação error:", reativErr);
         try {
