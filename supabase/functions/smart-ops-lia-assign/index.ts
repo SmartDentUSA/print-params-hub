@@ -823,6 +823,23 @@ async function generateHistoricoOportunidade(
     ? `\nAnálise Cognitiva: Perfil=${cognitive.psychological_profile || "N/A"}, Motivação=${cognitive.primary_motivation || "N/A"}, Objeção=${cognitive.objection_risk || "N/A"}, Estágio=${cognitive.lead_stage_detected || "N/A"}, Trajetória=${cognitive.stage_trajectory || "N/A"}`
     : "";
 
+  // Enrich prompt with form_data JSONB (catch-all for fields without dedicated columns)
+  let formDataContext = "";
+  if (lead.form_data && typeof lead.form_data === "object") {
+    try {
+      const fd = lead.form_data as Record<string, { responses?: Array<{ label?: string; value?: unknown }>; raw_fields?: Record<string, unknown> }>;
+      const parts: string[] = [];
+      for (const [formName, entry] of Object.entries(fd)) {
+        if (entry?.responses && Array.isArray(entry.responses) && entry.responses.length > 0) {
+          parts.push(`Formulário "${formName}": ` + entry.responses.map(r => `${r.label || "campo"}=${r.value}`).join(", "));
+        } else if (entry?.raw_fields) {
+          parts.push(`Formulário "${formName}": ` + Object.entries(entry.raw_fields).map(([k, v]) => `${k}=${v}`).join(", "));
+        }
+      }
+      if (parts.length > 0) formDataContext = `\nRespostas de formulários: ${parts.join(" | ")}`;
+    } catch {}
+  }
+
   const prompt = `Você é um estrategista comercial sênior. Analise os dados do lead e gere um JSON com 2 campos:
 - "historico": 2-3 frases sobre primeiro contato, compras e-commerce, cursos, vendedores anteriores
 - "oportunidade": Briefing tático para o vendedor contendo: (1) equipamentos e software atuais, (2) objeção provável e como contorná-la, (3) abordagem recomendada e prova social relevante, (4) urgência e motivação
