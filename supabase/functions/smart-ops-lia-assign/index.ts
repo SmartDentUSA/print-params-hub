@@ -239,7 +239,8 @@ async function updateExistingDeal(
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
   companyId: number | null | undefined,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
   const hashFields = customFieldsToHashMap(customFields);
@@ -255,7 +256,7 @@ async function updateExistingDeal(
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
   // Add structured HTML note for PipeRun
-  const noteText = await buildDealNoteHTML(lead, supabase);
+  const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -270,7 +271,8 @@ async function moveDealToVendas(
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
   companyId: number | null | undefined,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
   const hashFields = customFieldsToHashMap(customFields);
@@ -289,7 +291,7 @@ async function moveDealToVendas(
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
   // Add structured reactivation note (HTML)
-  const reactivationNote = await buildDealNoteHTML(lead, supabase);
+  const reactivationNote = await buildDealNoteHTML(lead, supabase, formResponses);
   const noteText = `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>${reactivationNote}`;
   await addDealNote(apiToken, dealId, noteText);
 }
