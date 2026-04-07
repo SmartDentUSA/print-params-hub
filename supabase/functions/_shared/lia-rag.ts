@@ -140,30 +140,38 @@ export async function searchContentDirect(
   const searchTerms = queryNormalized.split(/\s+/).filter(w => w.length > 2).slice(0, 5);
   const searchPattern = `%${searchTerms.join("%")}%`;
 
-  // Videos (FTS)
+  // Videos (FTS) — resolve internal URL via content parent
   try {
     const tsQuery = searchTerms.join(" & ");
     if (tsQuery) {
       const { data: videos } = await supabaseClient
         .from("knowledge_videos")
-        .select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags")
+        .select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags, knowledge_contents(slug, knowledge_categories(letter))")
         .textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" })
         .limit(5);
       if (videos) {
-        for (const v of videos) {
-          const videoUrl = v.content_id ? `${siteBaseUrl}/base-de-conhecimento/${v.content_id}` : v.url || v.embed_url;
+        for (const v of videos as any[]) {
+          let videoUrl = v.url || v.embed_url;
+          if (v.content_id && v.knowledge_contents?.slug) {
+            const letter = v.knowledge_contents.knowledge_categories?.letter?.toLowerCase() || '';
+            videoUrl = letter
+              ? `${siteBaseUrl}/base-conhecimento/${letter}/${v.knowledge_contents.slug}`
+              : `${siteBaseUrl}/base-conhecimento/${v.knowledge_contents.slug}`;
+          }
           results.push({ source_type: "video", similarity: 0.75, chunk_text: `${v.title}${v.description ? ` — ${v.description.slice(0, 200)}` : ""}`, metadata: { title: v.title, thumbnail_url: v.thumbnail_url, url_interna: videoUrl, embed_url: v.embed_url, panda_tags: v.panda_tags } });
         }
       }
     }
   } catch (e) { console.warn("[searchContentDirect] Videos search failed:", e); }
 
-  // Articles (ILIKE)
+  // Articles (ILIKE) — resolve category letter for correct URL
   try {
-    const { data: articles } = await supabaseClient.from("knowledge_contents").select("id, title, excerpt, slug, category_id").eq("active", true).or(`title.ilike.${searchPattern},excerpt.ilike.${searchPattern}`).limit(5);
+    const { data: articles } = await supabaseClient.from("knowledge_contents").select("id, title, excerpt, slug, category_id, knowledge_categories(letter)").eq("active", true).or(`title.ilike.${searchPattern},excerpt.ilike.${searchPattern}`).limit(5);
     if (articles) {
-      for (const a of articles) {
-        results.push({ source_type: "article", similarity: 0.70, chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`, metadata: { title: a.title, slug: a.slug, url_publica: `${siteBaseUrl}/base-de-conhecimento/${a.slug}` } });
+      for (const a of articles as any[]) {
+        const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
+        const articleUrl = letter ? `${siteBaseUrl}/base-conhecimento/${letter}/${a.slug}` : `${siteBaseUrl}/base-conhecimento/${a.slug}`;
+        results.push({ source_type: "article", similarity: 0.70, chunk_text: `${a.title} — ${a.excerpt?.slice(0, 200) || ""}`, metadata: { title: a.title, slug: a.slug, category_letter: letter, url_publica: articleUrl } });
       }
     }
   } catch (e) { console.warn("[searchContentDirect] Articles search failed:", e); }
@@ -187,6 +195,27 @@ export async function searchContentDirect(
       }
     }
   } catch (e) { console.warn("[searchContentDirect] Resins search failed:", e); }
+
+  // Testimonials (depoimentos de clientes)
+  try {
+    const { data: testimonials } = await supabaseClient
+      .from("system_a_catalog")
+      .select("id, name, slug, description, image_url, extra_data")
+      .eq("category", "video_testimonial")
+      .eq("active", true)
+      .eq("approved", true)
+      .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
+      .limit(5);
+    if (testimonials) {
+      for (const t of testimonials as any[]) {
+        results.push({
+          source_type: "testimonial", similarity: 0.70,
+          chunk_text: `DEPOIMENTO DE CLIENTE: ${t.name} — ${t.description?.slice(0, 300) || ""}`,
+          metadata: { title: t.name, slug: t.slug, url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`, thumbnail_url: t.image_url },
+        });
+      }
+    }
+  } catch (e) { console.warn("[searchContentDirect] Testimonials search failed:", e); }
 
   // Cache upsert (fire-and-forget)
   const resultTypes = [...new Set(results.map(r => r.source_type))];
@@ -493,6 +522,8 @@ export function buildStructuredContext(
   const videos: string[] = [];
   const params: string[] = [];
 
+  const testimonials: string[] = [];
+
   for (const m of results) {
     const formatted = formatItem(m);
     switch (m.source_type) {
@@ -501,6 +532,7 @@ export function buildStructuredContext(
       case 'article': articles.push(formatted); break;
       case 'author': authors.push(formatted); break;
       case 'video': videos.push(formatted); break;
+      case 'testimonial': testimonials.push(formatted); break;
       case 'parameter_set': case 'processing_protocol': params.push(formatted); break;
       default: articles.push(formatted);
     }
@@ -513,7 +545,45 @@ export function buildStructuredContext(
   if (authors.length > 0) sections.push(`## KOLs E AUTORES (apresente quando perguntado sobre autores/especialistas)\n${authors.join("\n\n")}`);
   if (videos.length > 0) sections.push(`## VÍDEOS DISPONÍVEIS (mencione APENAS se solicitado)\n${videos.join("\n\n")}`);
   if (params.length > 0) sections.push(`## PARÂMETROS TÉCNICOS (cite apenas se perguntado)\n${params.join("\n\n")}`);
+  if (testimonials.length > 0) sections.push(`## DEPOIMENTOS DE CLIENTES (use como prova social quando relevante)\n${testimonials.join("\n\n")}`);
 
   if (sections.length === 0) return "";
   return sections.join("\n\n---\n\n");
+}
+
+// ── Testimonial Intent Detection ──
+export const TESTIMONIAL_INTENT = /depoimento|testemunho|experi[êe]ncia|relato|quem (j[aá] )?comprou|na minha cidade|caso real|prova social|treinamento.*como [eé]|como foi|algu[eé]m.*(usa|comprou|tem)|resultado.*real/i;
+
+// ── Standalone Testimonials Search ──
+export async function searchTestimonials(
+  supabase: SupabaseClient,
+  message: string,
+  siteBaseUrl: string
+): Promise<Array<{ source_type: string; similarity: number; chunk_text: string; metadata: Record<string, unknown> }>> {
+  const words = message.toLowerCase().replace(/[?!.,;:]/g, '').split(/\s+/).filter(w => w.length > 2 && !STOPWORDS_PT.includes(w)).slice(0, 6);
+  if (!words.length) return [];
+  const searchPattern = `%${words.join("%")}%`;
+
+  const { data } = await supabase
+    .from("system_a_catalog")
+    .select("id, name, slug, description, image_url, extra_data")
+    .eq("category", "video_testimonial")
+    .eq("active", true)
+    .eq("approved", true)
+    .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
+    .limit(5);
+
+  if (!data?.length) return [];
+
+  return data.map((t: any) => ({
+    source_type: "testimonial",
+    similarity: 0.72,
+    chunk_text: `DEPOIMENTO DE CLIENTE: ${t.name}\n${t.description?.slice(0, 400) || ""}`,
+    metadata: {
+      title: t.name,
+      slug: t.slug,
+      url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`,
+      thumbnail_url: t.image_url,
+    },
+  }));
 }
