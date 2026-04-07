@@ -483,12 +483,18 @@ export async function searchKnowledge(
           similarity: (() => {
             const titleWords = v.title.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 3);
             const matchCount = keywords.filter(k => titleWords.some((tw: string) => tw.includes(k) || k.includes(tw))).length;
-            return matchCount > 0 ? Math.min(0.30 + (matchCount / Math.max(keywords.length, 1)) * 0.35, 0.70) : 0.25;
+            const baseSim = matchCount > 0 ? Math.min(0.30 + (matchCount / Math.max(keywords.length, 1)) * 0.35, 0.70) : 0.25;
+            return mapped ? baseSim : Math.min(baseSim, 0.40);
           })(),
         };
       });
+      // Also search articles via ILIKE to prioritize content with internal pages
+      const articleResults = await searchByILIKE(supabase, query, siteBaseUrl);
+      if (articleResults.length > 0) {
+        results.push(...articleResults.map(a => ({ ...a, similarity: Math.max(a.similarity, 0.50) })));
+      }
       const reranked = applyTopicWeights(results, topicContext);
-      return { results: reranked, method: "keyword", topSimilarity: 0.5 };
+      return { results: reranked, method: "keyword", topSimilarity: reranked[0]?.similarity || 0.5 };
     }
   }
 
