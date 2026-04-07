@@ -185,6 +185,13 @@ export default function PublicFormPage() {
       source: "form",
       form_name: form.name,
       form_purpose: form.form_purpose,
+      // Enviar respostas inline para evitar race condition com lia-assign
+      form_responses: fields
+        .filter(f => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
+        .map(f => ({
+          label: f.label,
+          value: Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id]),
+        })),
     };
 
     const customFields: Record<string, any> = {};

@@ -315,6 +315,7 @@ Deno.serve(async (req) => {
         trigger: (formPurpose === "sdr_captacao" && !!existingLead)
           ? "sdr_captacao_reativacao"
           : "ingest-lead",
+        form_responses: payload.form_responses || [],
       }),
     }).catch(e => console.warn("[ingest-lead] lia-assign fire-and-forget error:", e));
 

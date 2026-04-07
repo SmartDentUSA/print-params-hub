@@ -1157,7 +1157,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id, force, trigger } = body;
+    const { email, lead_id, force, trigger, form_responses: inputFormResponses } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
