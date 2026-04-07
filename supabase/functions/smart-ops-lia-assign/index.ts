@@ -239,7 +239,8 @@ async function updateExistingDeal(
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
   companyId: number | null | undefined,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
   const hashFields = customFieldsToHashMap(customFields);
@@ -255,7 +256,7 @@ async function updateExistingDeal(
   console.log(`[lia-assign] Deal update: ${updateRes.success} (${updateRes.status})`);
 
   // Add structured HTML note for PipeRun
-  const noteText = await buildDealNoteHTML(lead, supabase);
+  const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
   await addDealNote(apiToken, dealId, noteText);
 }
 
@@ -270,7 +271,8 @@ async function moveDealToVendas(
   customFields: Array<{ custom_field_id: number; value: string }>,
   lead: Record<string, unknown>,
   companyId: number | null | undefined,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<void> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
   const hashFields = customFieldsToHashMap(customFields);
@@ -289,7 +291,7 @@ async function moveDealToVendas(
   console.log(`[lia-assign] Deal move: ${updateRes.success} (${updateRes.status})`);
 
   // Add structured reactivation note (HTML)
-  const reactivationNote = await buildDealNoteHTML(lead, supabase);
+  const reactivationNote = await buildDealNoteHTML(lead, supabase, formResponses);
   const noteText = `<b>🔄 [Dra. L.I.A.] Deal reativado do funil Estagnados → Funil de Vendas</b><br><br>${reactivationNote}`;
   await addDealNote(apiToken, dealId, noteText);
 }
@@ -307,7 +309,8 @@ async function createNewDeal(
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
   email: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string | null> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
 
@@ -339,7 +342,7 @@ async function createNewDeal(
     if (dealData?.id) {
       const dealId = String(dealData.id);
       // Add structured HTML note for PipeRun
-      const noteText = await buildDealNoteHTML(lead, supabase);
+      const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
       await addDealNote(apiToken, Number(dealId), noteText);
       return dealId;
     }
@@ -634,7 +637,8 @@ async function buildSellerNotification(
  */
 async function buildDealNoteHTML(
   lead: Record<string, unknown>,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string> {
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
@@ -709,17 +713,28 @@ async function buildDealNoteHTML(
     console.warn("[lia-assign] Failed to fetch deals count:", e);
   }
 
-  // Fetch form responses (may not exist yet if saved in parallel)
+  // Fetch form responses — prefer inline (from ingest-lead payload) over DB query to avoid race condition
   let formResponsesHTML = "";
   try {
-    const { data: formResponses } = await supabase
-      .from("smartops_form_field_responses")
-      .select("value, field_label")
-      .eq("lead_id", lead.id as string);
-    if (formResponses && formResponses.length > 0) {
-      const items = formResponses
-        .filter((r: Record<string, unknown>) => r.value)
-        .map((r: Record<string, unknown>) => `• <b>${r.field_label || "Campo"}:</b> ${r.value}`)
+    let responses: Array<{ label?: string; field_label?: string; value?: unknown }> = [];
+    if (formResponses && Array.isArray(formResponses) && formResponses.length > 0) {
+      responses = formResponses;
+      console.log(`[lia-assign] Using ${responses.length} inline form responses`);
+    } else {
+      // Fallback: query DB (may still be empty due to race condition)
+      const { data: dbResponses } = await supabase
+        .from("smartops_form_field_responses")
+        .select("value, field_label")
+        .eq("lead_id", lead.id as string);
+      if (dbResponses && dbResponses.length > 0) {
+        responses = dbResponses;
+        console.log(`[lia-assign] Using ${responses.length} DB form responses`);
+      }
+    }
+    if (responses.length > 0) {
+      const items = responses
+        .filter((r) => r.value)
+        .map((r) => `• <b>${r.label || r.field_label || "Campo"}:</b> ${r.value}`)
         .join("<br>");
       if (items) {
         formResponsesHTML = `<hr><b>📝 Respostas do Formulário</b><br><br>${items}<br>`;
@@ -1033,7 +1048,8 @@ async function triggerOutboundMessages(
 async function executarReativacaoSdrCaptacao(
   apiToken: string,
   supabase: ReturnType<typeof createClient>,
-  lead: Record<string, unknown>
+  lead: Record<string, unknown>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<boolean> {
   const leadId = lead.id as string;
   const leadEmail = (lead.email as string).trim().toLowerCase();
@@ -1092,7 +1108,8 @@ async function executarReativacaoSdrCaptacao(
     newOwnerId,
     customFields,
     leadEmail,
-    supabase
+    supabase,
+    formResponses
   );
 
   if (!newDealId) {
@@ -1157,7 +1174,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { email, lead_id, force, trigger } = body;
+    const { email, lead_id, force, trigger, form_responses: inputFormResponses } = body;
     if (!email && !lead_id) {
       return new Response(JSON.stringify({ error: "email or lead_id required" }), {
         status: 400,
@@ -1203,7 +1220,7 @@ Deno.serve(async (req) => {
     if (trigger === "sdr_captacao_reativacao") {
       let reativacaoOk = false;
       try {
-        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead);
+        reativacaoOk = await executarReativacaoSdrCaptacao(PIPERUN_API_KEY, supabase, lead, inputFormResponses);
       } catch (reativErr) {
         console.error("[lia-assign] SDR-CAPTAÇÃO reativação error:", reativErr);
         try {
@@ -1360,12 +1377,12 @@ Deno.serve(async (req) => {
         if (dealTeamMember) assignedTeamMemberId = dealTeamMember.id;
 
         // Update ONLY custom fields + note (owner_id = null → preserved)
-        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase);
+        await updateExistingDeal(PIPERUN_API_KEY, Number(vendaDeal.id), null, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
         console.log(`[lia-assign] GOLDEN RULE: Preserved Vendas deal ${piperunId}, owner=${dealOwnerName} (${dealOwnerId})`);
       } else if (estagnDeal) {
         piperunId = String(estagnDeal.id);
         flowType = "reactivate_estagnado";
-        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase);
+        await moveDealToVendas(PIPERUN_API_KEY, Number(estagnDeal.id), assignedOwnerId, stage_id, customFields, lead as Record<string, unknown>, companyId, supabase, inputFormResponses);
         console.log(`[lia-assign] Reactivated estagnado deal ${piperunId} → Vendas`);
       } else {
         flowType = "new_deal";
@@ -1373,7 +1390,7 @@ Deno.serve(async (req) => {
           PIPERUN_API_KEY, personId, companyId,
           lead as Record<string, unknown>,
           pipeline_id, stage_id, assignedOwnerId,
-          customFields, leadEmail, supabase
+          customFields, leadEmail, supabase, inputFormResponses
         );
         console.log(`[lia-assign] Created new deal: ${piperunId}`);
       }
