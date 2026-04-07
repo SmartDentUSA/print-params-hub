@@ -634,7 +634,8 @@ async function buildSellerNotification(
  */
 async function buildDealNoteHTML(
   lead: Record<string, unknown>,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string> {
   const phone = (lead.telefone_normalized || lead.telefone_raw) as string | null;
   const urgencyEmoji = (lead.urgency_level === "alta") ? "🔴" : (lead.urgency_level === "media") ? "🟡" : "🟢";
@@ -713,8 +714,8 @@ async function buildDealNoteHTML(
   let formResponsesHTML = "";
   try {
     let responses: Array<{ label?: string; field_label?: string; value?: unknown }> = [];
-    if (inputFormResponses && Array.isArray(inputFormResponses) && inputFormResponses.length > 0) {
-      responses = inputFormResponses;
+    if (formResponses && Array.isArray(formResponses) && formResponses.length > 0) {
+      responses = formResponses;
       console.log(`[lia-assign] Using ${responses.length} inline form responses`);
     } else {
       // Fallback: query DB (may still be empty due to race condition)
