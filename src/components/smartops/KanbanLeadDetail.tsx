@@ -232,6 +232,7 @@ const TIMELINE_EMOJI: Record<string, string> = {
   whatsapp_outbound: "📤",
   form_submission: "📝",
   sellflux_sync: "🔗",
+  sellflux_tag_applied: "🏷️",
   astron_enrollment: "🎓",
   cognitive_analysis: "🧠",
   page_view: "👁️",
@@ -249,6 +250,7 @@ const TIMELINE_LABEL: Record<string, string> = {
   ecommerce_order_delivered: "Pedido entregue",
   ecommerce_boleto_generated: "Boleto gerado",
   ecommerce_boleto_expired: "Boleto vencido",
+  sellflux_tag_applied: "Tag SellFlux aplicada",
   page_view: "Visitou página",
 };
 
