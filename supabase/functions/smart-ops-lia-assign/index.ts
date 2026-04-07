@@ -1189,7 +1189,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Idempotency: skip if assigned in last 5 min (unless force=true or sdr_captacao_reativacao) ──
-    if (!force && trigger !== "sdr_captacao_reativacao" && lead.proprietario_lead_crm && lead.updated_at) {
+    if (!force && trigger !== "sdr_captacao_reativacao" && lead.proprietario_lead_crm && lead.piperun_id && lead.updated_at) {
       const lastUpdate = new Date(lead.updated_at).getTime();
       if (Date.now() - lastUpdate < 5 * 60 * 1000) {
         console.log("[lia-assign] Already assigned recently, skipping");
@@ -1407,9 +1407,25 @@ Deno.serve(async (req) => {
     }
 
     // ── 6. Update lead in lia_attendances ──
-    const updateFields: Record<string, unknown> = {
-      proprietario_lead_crm: assignedOwnerName,
-    };
+    const updateFields: Record<string, unknown> = {};
+
+    if (flowType !== "error_no_person") {
+      updateFields.proprietario_lead_crm = assignedOwnerName;
+    } else {
+      // Log failure for visibility in System Health dashboard
+      console.error("[lia-assign] CRM person creation failed for", lead.email);
+      try {
+        await supabase.from("system_health_logs").insert({
+          function_name: "smart-ops-lia-assign",
+          severity: "error",
+          error_type: "crm_person_creation_failed",
+          lead_email: lead.email,
+          details: { lead_id: lead.id, flow: flowType, assigned_owner: assignedOwnerName },
+        });
+      } catch (logErr) {
+        console.error("[lia-assign] Failed to log health event", logErr);
+      }
+    }
 
     // Set pipeline/stage based on flow
     if (flowType === "preserve_vendas" && vendaDeal) {
