@@ -1,0 +1,1 @@
+ALTER TABLE lia_attendances ADD COLUMN IF NOT EXISTS form_data jsonb DEFAULT '{}'::jsonb;
