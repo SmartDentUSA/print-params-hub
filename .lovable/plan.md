@@ -1,194 +1,84 @@
 
 
-## Fix: L.I.A. deve usar links internos da base de conhecimento + integrar depoimentos
+## Fix: L.I.A. prioriza artigos da base de conhecimento sobre vídeos soltos
 
-### Problemas identificados
+### Problema
 
-**1. URLs erradas nos resultados de vídeo (lia-rag.ts, linha 154)**
-Quando um vídeo tem `content_id`, a URL gerada é `${siteBaseUrl}/base-de-conhecimento/${v.content_id}` — usando o UUID do content e a rota errada (`base-de-conhecimento` em vez de `base-conhecimento`). Deveria resolver o `slug` e `category_letter` do artigo pai para montar `/base-conhecimento/{letter}/{slug}`.
+Quando o lead pergunta "quais vídeos de protocolo vocês têm?", o RAG segue este caminho:
+1. Vector search — falha (similarity < 0.65)
+2. FTS — falha ou fraco
+3. **Keyword fallback on videos** (linha 460-493) — encontra vídeos como `Aula_Dr.FERNANDO.mp4` e `protocolo.mp4` que NÃO têm `content_id` → retorna `VIDEO_SEM_PAGINA`
+4. Como o fallback retornou resultados, o fluxo para aqui — **nunca chega ao `searchContentDirect`** que encontraria o artigo "Protocolos Impressos em 24h na Odontologia Digital"
 
-**2. URLs erradas nos artigos do searchContentDirect (linha 166)**
-Artigos usam `${siteBaseUrl}/base-de-conhecimento/${a.slug}` — rota errada e sem `category_letter`. Deveria ser `/base-conhecimento/{letter}/{slug}`.
+O artigo existe em `/base-conhecimento/d/protocolos-impressos-em-24h-na-odontologia-digital` mas a L.I.A. nunca o vê porque o keyword fallback retorna vídeos soltos antes.
 
-**3. Depoimentos não existem no RAG**
-A L.I.A. não busca depoimentos (`system_a_catalog` com `category = 'video_testimonial'`). Quando um lead pergunta sobre treinamentos, experiências de outros clientes ou se alguém na cidade dele comprou, a L.I.A. não tem como recomendar depoimentos com link interno (`/depoimentos/{slug}`).
+### Solução
 
-**4. Copilot não utiliza conteúdos da base de conhecimento**
-O Copilot deveria poder referenciar artigos, vídeos e depoimentos ao montar briefings e respostas.
+**Arquivo: `supabase/functions/_shared/lia-rag.ts`**
 
-### Correções
+**1. No keyword fallback de vídeos (linhas 460-493), adicionar busca paralela de artigos**
 
-**Arquivo 1: `supabase/functions/_shared/lia-rag.ts`**
+Junto com a busca de vídeos por keyword, buscar também artigos em `knowledge_contents` com os mesmos keywords. Artigos com URL interna devem ter prioridade (similarity boost) sobre vídeos sem página.
 
-**1a. Fix URLs de vídeo (linha 143-158)**
-No bloco de vídeos do `searchContentDirect`, quando o vídeo tem `content_id`, fazer JOIN com `knowledge_contents` para obter `slug` e `category_letter`:
+```text
+Lógica:
+- Buscar knowledge_contents com ILIKE nos mesmos keywords (já existe searchByILIKE)
+- Se encontrar artigos, incluí-los nos resultados com similarity >= 0.50
+- Vídeos SEM content_id (sem página interna) recebem similarity cap de 0.40
+- Resultado: artigos com página interna aparecem ANTES de vídeos soltos
+```
+
+**2. Penalizar vídeos sem página interna no keyword fallback**
+
+Atualmente, vídeos sem `content_id` recebem similarity até 0.70 (linha 486). Reduzir o cap para 0.40 quando `!mapped` (sem página interna), garantindo que artigos e vídeos com página sempre apareçam primeiro.
 
 ```typescript
-// Buscar vídeos COM artigo pai para resolver URL correta
-const { data: videos } = await supabaseClient
-  .from("knowledge_videos")
-  .select("id, title, description, thumbnail_url, url, embed_url, content_id, panda_tags, knowledge_contents(slug, knowledge_categories(letter))")
-  .textSearch("search_vector", tsQuery, { type: "plain", config: "portuguese" })
-  .limit(5);
+// Linha 486, dentro do cálculo de similarity:
+const baseSimilarity = Math.min(0.30 + (matchCount / Math.max(keywords.length, 1)) * 0.35, 0.70);
+// Penalizar vídeos sem página interna
+return mapped ? baseSimilarity : Math.min(baseSimilarity, 0.40);
+```
 
-for (const v of videos) {
-  let videoUrl = v.url || v.embed_url;
-  if (v.content_id && v.knowledge_contents?.slug) {
-    const letter = v.knowledge_contents.knowledge_categories?.letter?.toLowerCase() || '';
-    videoUrl = letter 
-      ? `${siteBaseUrl}/base-conhecimento/${letter}/${v.knowledge_contents.slug}`
-      : `${siteBaseUrl}/base-conhecimento/${v.knowledge_contents.slug}`;
-  }
-  // ... rest unchanged, use videoUrl as url_interna
+**3. Incluir artigos ILIKE no fallback de keywords**
+
+Após buscar vídeos por keyword (linha 466), buscar artigos via `searchByILIKE` e mergear:
+
+```typescript
+// Após os vídeos, buscar artigos com os mesmos keywords
+const articleResults = await searchByILIKE(supabase, query, siteBaseUrl);
+if (articleResults.length > 0) {
+  results.push(...articleResults.map(a => ({ ...a, similarity: Math.max(a.similarity, 0.50) })));
 }
 ```
 
-**1b. Fix URLs de artigos (linha 160-168)**
-No bloco de artigos, adicionar JOIN com `knowledge_categories` para obter a letter:
+**Arquivo: `supabase/functions/dra-lia/index.ts`**
+
+**4. Garantir que `searchContentDirect` roda mesmo quando knowledgeResult tem vídeos fracos**
+
+Linha 3314: a condição `!hasMediaInResults` impede o `searchContentDirect` de rodar se já existem vídeos nos resultados — mesmo que sejam `VIDEO_SEM_PAGINA`. Ajustar para considerar apenas vídeos COM página interna como "media relevante":
 
 ```typescript
-const { data: articles } = await supabaseClient
-  .from("knowledge_contents")
-  .select("id, title, excerpt, slug, category_id, knowledge_categories(letter)")
-  .eq("active", true)
-  .or(...)
-  .limit(5);
+// Antes: qualquer vídeo conta como "media"
+const hasMediaInResults = allResults.some(r => ["video", "article"].includes(r.source_type));
 
-// URL correta: /base-conhecimento/{letter}/{slug}
-const letter = a.knowledge_categories?.letter?.toLowerCase() || '';
-const url = letter 
-  ? `${siteBaseUrl}/base-conhecimento/${letter}/${a.slug}` 
-  : `${siteBaseUrl}/base-conhecimento/${a.slug}`;
-```
-
-**1c. Adicionar busca de depoimentos (novo bloco após resins, ~linha 189)**
-
-```typescript
-// Testimonials (depoimentos)
-try {
-  const { data: testimonials } = await supabaseClient
-    .from("system_a_catalog")
-    .select("id, name, slug, description, image_url, extra_data")
-    .eq("category", "video_testimonial")
-    .eq("active", true)
-    .eq("approved", true)
-    .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
-    .limit(5);
-  if (testimonials) {
-    for (const t of testimonials) {
-      results.push({
-        source_type: "testimonial",
-        similarity: 0.70,
-        chunk_text: `DEPOIMENTO: ${t.name} — ${t.description?.slice(0, 300) || ""}`,
-        metadata: {
-          title: t.name,
-          slug: t.slug,
-          url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`,
-          thumbnail_url: t.image_url,
-        },
-      });
-    }
-  }
-} catch (e) { console.warn("[searchContentDirect] Testimonials search failed:", e); }
-```
-
-**1d. Fix `searchByILIKE` (linha 47)**
-Mesma correção de URL: usar `/base-conhecimento/{letter}/{slug}` em vez de `/base-conhecimento/${letter}/${slug}` (que já está correto — confirmar apenas consistência).
-
-**1e. Adicionar detecção de intenção de depoimento no RAG principal**
-No `searchKnowledge` ou no `searchContentDirect`, adicionar regex para detectar quando o lead quer social proof:
-
-```typescript
-const TESTIMONIAL_INTENT = /depoimento|testemunho|experi[êe]ncia|relato|quem (j[aá] )?comprou|na minha cidade|caso real|prova social|treinamento.*como [eé]|como foi/i;
-```
-
-Quando detectado, buscar depoimentos automaticamente.
-
-**Arquivo 2: `supabase/functions/dra-lia/index.ts`**
-
-**2a. Adicionar busca de depoimentos no pipeline principal (~linha 3314)**
-Após o `searchContentDirect`, adicionar busca de depoimentos quando a intenção for detectada:
-
-```typescript
-const wantsTestimonials = TESTIMONIAL_INTENT.test(message) || 
-  /treinamento|training|entrenamiento/i.test(message);
-
-if (wantsTestimonials) {
-  const testimonialResults = await searchTestimonials(supabase, message, SITE_BASE_URL);
-  if (testimonialResults.length > 0) {
-    allResults.push(...testimonialResults);
-  }
-}
-```
-
-**2b. Atualizar instrução do prompt (linha 3667)**
-Adicionar regra para depoimentos:
-
-```
-21. Ao encontrar um DEPOIMENTO: Gere um link Markdown [📝 Ver depoimento](URL) 
-    apontando para a página interna /depoimentos/{slug}. 
-    Use depoimentos para responder perguntas sobre experiências de clientes, 
-    treinamentos, resultados reais e prova social.
-```
-
-**Arquivo 3: `supabase/functions/_shared/lia-rag.ts`**
-
-**3a. Exportar função `searchTestimonials`**
-
-```typescript
-export async function searchTestimonials(
-  supabase: SupabaseClient, 
-  message: string, 
-  siteBaseUrl: string
-) {
-  const words = message.toLowerCase().split(/\s+/).filter(w => w.length > 2).slice(0, 6);
-  const searchPattern = `%${words.join("%")}%`;
-  
-  const { data } = await supabase
-    .from("system_a_catalog")
-    .select("id, name, slug, description, image_url, extra_data")
-    .eq("category", "video_testimonial")
-    .eq("active", true)
-    .eq("approved", true)
-    .or(`name.ilike.${searchPattern},description.ilike.${searchPattern}`)
-    .limit(5);
-  
-  if (!data?.length) return [];
-  
-  return data.map(t => ({
-    source_type: "testimonial",
-    similarity: 0.72,
-    chunk_text: `DEPOIMENTO DE CLIENTE: ${t.name}\n${t.description?.slice(0, 400) || ""}`,
-    metadata: {
-      title: t.name,
-      slug: t.slug,
-      url_publica: `${siteBaseUrl}/depoimentos/${t.slug}`,
-      thumbnail_url: t.image_url,
-    },
-  }));
-}
-```
-
-**3b. Atualizar `buildStructuredContext` (linha 498)**
-Adicionar case para `testimonial`:
-
-```typescript
-case 'testimonial': articles.push(formatted); break;
-// Ou criar seção separada:
-// const testimonials: string[] = [];
-// case 'testimonial': testimonials.push(formatted); break;
+// Depois: só vídeos com página interna contam
+const hasRelevantMedia = allResults.some(r => 
+  r.source_type === "article" || 
+  (r.source_type === "video" && r.metadata?.url_interna)
+);
+if (userRequestedContent && (!hasRelevantMedia || topSimilarity < 0.5)) {
 ```
 
 ### Escopo
 
-| Arquivo | Mudanças |
-|---------|----------|
-| `supabase/functions/_shared/lia-rag.ts` | Fix URLs de vídeo e artigo, adicionar `searchTestimonials`, atualizar `buildStructuredContext` |
-| `supabase/functions/dra-lia/index.ts` | Integrar busca de depoimentos, adicionar regra no prompt |
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/_shared/lia-rag.ts` | Penalizar vídeos sem página (1 linha), adicionar artigos ILIKE no keyword fallback (~8 linhas) |
+| `supabase/functions/dra-lia/index.ts` | Ajustar condição de `hasMediaInResults` para considerar apenas media com página interna (~3 linhas) |
 
 ### Resultado
-- Links de vídeo e artigo apontam para páginas internas corretas (`/base-conhecimento/{letter}/{slug}`)
-- Depoimentos são buscados e recomendados quando o lead pergunta sobre experiências, treinamentos ou prova social
-- Todos os links gerados pela L.I.A. levam para páginas internas do site
-- O Copilot herda os mesmos dados via RAG compartilhado
+- Artigo "Protocolos Impressos em 24h" aparece com prioridade sobre vídeos soltos
+- Vídeos COM página interna continuam com prioridade normal
+- Vídeos SEM página interna aparecem como complemento, não como resultado principal
+- `searchContentDirect` roda como fallback mesmo quando só há vídeos soltos
 
