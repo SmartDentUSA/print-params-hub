@@ -731,6 +731,27 @@ async function buildDealNoteHTML(
         console.log(`[lia-assign] Using ${responses.length} DB form responses`);
       }
     }
+    // Fallback 3: use form_data JSONB from lead record
+    if (responses.length === 0 && lead.form_data && typeof lead.form_data === "object") {
+      try {
+        const formDataObj = lead.form_data as Record<string, { responses?: Array<{ label?: string; value?: unknown }>; raw_fields?: Record<string, unknown> }>;
+        for (const formEntry of Object.values(formDataObj)) {
+          if (formEntry?.responses && Array.isArray(formEntry.responses) && formEntry.responses.length > 0) {
+            responses = formEntry.responses;
+            console.log(`[lia-assign] Using ${responses.length} form_data JSONB responses`);
+            break;
+          }
+          if (formEntry?.raw_fields && Object.keys(formEntry.raw_fields).length > 0) {
+            responses = Object.entries(formEntry.raw_fields).map(([k, v]) => ({ label: k, value: v }));
+            console.log(`[lia-assign] Using ${responses.length} form_data raw_fields as responses`);
+            break;
+          }
+        }
+      } catch (fdErr) {
+        console.warn("[lia-assign] Failed to parse form_data:", fdErr);
+      }
+    }
+
     if (responses.length > 0) {
       const items = responses
         .filter((r) => r.value)
@@ -802,6 +823,23 @@ async function generateHistoricoOportunidade(
     ? `\nAnálise Cognitiva: Perfil=${cognitive.psychological_profile || "N/A"}, Motivação=${cognitive.primary_motivation || "N/A"}, Objeção=${cognitive.objection_risk || "N/A"}, Estágio=${cognitive.lead_stage_detected || "N/A"}, Trajetória=${cognitive.stage_trajectory || "N/A"}`
     : "";
 
+  // Enrich prompt with form_data JSONB (catch-all for fields without dedicated columns)
+  let formDataContext = "";
+  if (lead.form_data && typeof lead.form_data === "object") {
+    try {
+      const fd = lead.form_data as Record<string, { responses?: Array<{ label?: string; value?: unknown }>; raw_fields?: Record<string, unknown> }>;
+      const parts: string[] = [];
+      for (const [formName, entry] of Object.entries(fd)) {
+        if (entry?.responses && Array.isArray(entry.responses) && entry.responses.length > 0) {
+          parts.push(`Formulário "${formName}": ` + entry.responses.map(r => `${r.label || "campo"}=${r.value}`).join(", "));
+        } else if (entry?.raw_fields) {
+          parts.push(`Formulário "${formName}": ` + Object.entries(entry.raw_fields).map(([k, v]) => `${k}=${v}`).join(", "));
+        }
+      }
+      if (parts.length > 0) formDataContext = `\nRespostas de formulários: ${parts.join(" | ")}`;
+    } catch {}
+  }
+
   const prompt = `Você é um estrategista comercial sênior. Analise os dados do lead e gere um JSON com 2 campos:
 - "historico": 2-3 frases sobre primeiro contato, compras e-commerce, cursos, vendedores anteriores
 - "oportunidade": Briefing tático para o vendedor contendo: (1) equipamentos e software atuais, (2) objeção provável e como contorná-la, (3) abordagem recomendada e prova social relevante, (4) urgência e motivação
@@ -820,7 +858,7 @@ Software CAD: ${lead.software_cad || "N/A"}
 Urgência: ${lead.urgency_level || "N/A"}
 Motivação: ${lead.primary_motivation || "N/A"}
 Risco objeção: ${lead.objection_risk || "N/A"}
-Status: ${lead.status_oportunidade || "N/A"}${cognitiveContext}
+Status: ${lead.status_oportunidade || "N/A"}${cognitiveContext}${formDataContext}
 
 REGRAS OBRIGATÓRIAS:
 1. NÃO use o nome do lead no texto — diga "o profissional" ou "o lead"
