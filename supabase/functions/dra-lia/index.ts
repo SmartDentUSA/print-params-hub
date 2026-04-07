@@ -6,7 +6,7 @@ import { buildCommercialInstruction, determineLeadArchetype, ARCHETYPE_STRATEGIE
 import { detectEscalationIntent, notifySellerEscalation, ESCALATION_RESPONSES, FALLBACK_MESSAGES, type EscalationType } from "../_shared/lia-escalation.ts";
 import { detectPrinterDialogState, isPrinterParamQuestion, isOffTopicFromDialog, fetchActiveBrands, fetchBrandModels, fetchAvailableResins, findBrandInMessage, findModelInList, findResinInList, ASK_BRAND, ASK_MODEL, ASK_RESIN, RESIN_FOUND, RESIN_NOT_FOUND, BRAND_NOT_FOUND, MODEL_NOT_FOUND, type DialogState } from "../_shared/lia-printer-dialog.ts";
 import { isGreeting, isSupportQuestion, isSupportInfoQuery, SUPPORT_FALLBACK, isProtocolQuestion, isProblemReport, isMetaArticleQuery, GENERAL_KNOWLEDGE_PATTERNS, PRICE_INTENT_PATTERNS, STOPWORDS_PT, upsertKnowledgeGap, isPromptInjection, PROMPT_INJECTION_RESPONSE } from "../_shared/lia-guards.ts";
-import { TOPIC_WEIGHTS, applyTopicWeights, searchByILIKE, searchCompanyKB, CONTENT_REQUEST_REGEX, searchContentDirect, searchCatalogProducts, searchProcessingInstructions, searchParameterSets, searchArticlesAndAuthors, searchKnowledge, buildStructuredContext } from "../_shared/lia-rag.ts";
+import { TOPIC_WEIGHTS, applyTopicWeights, searchByILIKE, searchCompanyKB, CONTENT_REQUEST_REGEX, searchContentDirect, searchCatalogProducts, searchProcessingInstructions, searchParameterSets, searchArticlesAndAuthors, searchKnowledge, buildStructuredContext, TESTIMONIAL_INTENT, searchTestimonials } from "../_shared/lia-rag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3323,6 +3323,20 @@ REGRAS:
       }
     }
 
+    // 3e. Testimonials search — when lead asks about experiences, training, social proof
+    const wantsTestimonials = TESTIMONIAL_INTENT.test(message) || /treinamento|training|entrenamiento/i.test(message);
+    if (wantsTestimonials) {
+      try {
+        const testimonialResults = await searchTestimonials(supabase, message, SITE_BASE_URL);
+        if (testimonialResults.length > 0) {
+          allResults.push(...testimonialResults);
+          console.log(`[RAG] searchTestimonials added ${testimonialResults.length} results`);
+        }
+      } catch (e) {
+        console.warn("[RAG] searchTestimonials failed:", e);
+      }
+    }
+
     // 3d. Inject image RAG results if gatekeeper classified as clinical/troubleshooting
     if (imageContext && imageContext.ragResults && imageContext.ragResults.length > 0) {
       allResults.push(...imageContext.ragResults.map(r => ({
@@ -3691,6 +3705,7 @@ Sempre que você admitir que não sabe algo ou notar frustração (ex: "você n�
 18. CONTEXTO FRACO → PERGUNTA CLARIFICADORA: Se os dados das fontes não mencionam diretamente o produto, resina ou tema que o usuário perguntou, NÃO invente uma resposta com o que está disponível. Sinais de contexto fraco: o contexto fala sobre produto X mas o usuário mencionou produto Y, ou o contexto é sobre categoria diferente da pergunta. Em vez de inventar, pergunte: "Para te ajudar com precisão, você poderia confirmar qual produto ou resina específica você está buscando informações?"
 19. VÍDEOS SEM PÁGINA (VIDEO_SEM_PAGINA): NUNCA descreva, resuma ou infira o conteúdo técnico de um vídeo marcado como VIDEO_SEM_PAGINA. Se o vídeo não tem página interna, você pode mencionar APENAS o título. PROIBIDO dizer "este vídeo ensina X", "este tutorial mostra Y", "o vídeo explica como Z" — você NÃO tem acesso ao conteúdo real do vídeo, apenas ao título. Se o usuário quiser saber o que o vídeo ensina, redirecione para o WhatsApp.
 20. LINKS NUNCA EM NEGRITO: PROIBIDO gerar **[texto](url)** ou [**texto**](url). Links de produto e WhatsApp devem ser SEMPRE no formato simples [texto](url), sem asteriscos. O negrito em volta de links quebra a renderização do chat e o torna não-clicável.
+21. Ao encontrar um DEPOIMENTO no contexto: Gere um link Markdown [📝 Ver depoimento](URL) apontando para a URL fornecida no campo URL do depoimento (página interna /depoimentos/{slug}). Use depoimentos para responder perguntas sobre experiências de clientes, treinamentos, resultados reais e prova social. Depoimentos são poderosos para convencer leads indecisos.
 
 ### 🚫 REGRA SOBRE PREÇOS DE SCANNER/EQUIPAMENTOS
 24. PROIBIDO INFORMAR PREÇOS DE SCANNERS OU EQUIPAMENTOS:
