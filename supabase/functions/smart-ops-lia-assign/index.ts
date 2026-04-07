@@ -309,7 +309,8 @@ async function createNewDeal(
   ownerId: number,
   customFields: Array<{ custom_field_id: number; value: string }>,
   email: string,
-  supabase: ReturnType<typeof createClient>
+  supabase: ReturnType<typeof createClient>,
+  formResponses?: Array<{ label?: string; value?: unknown }>
 ): Promise<string | null> {
   const formOriginId = await resolveOriginId(apiToken, lead.form_name as string | null);
 
