@@ -4131,6 +4131,10 @@ export type Database = {
           imersao_equipamentos_treinados: string[] | null
           imersao_turma_id: string | null
           impressora_modelo: string | null
+          imprime_guias: string | null
+          imprime_modelos: string | null
+          imprime_placas: string | null
+          imprime_resinas_ld: string | null
           informacao_desejada: string | null
           instagram: string | null
           insumos_adquiridos: string | null
@@ -4598,6 +4602,10 @@ export type Database = {
           imersao_equipamentos_treinados?: string[] | null
           imersao_turma_id?: string | null
           impressora_modelo?: string | null
+          imprime_guias?: string | null
+          imprime_modelos?: string | null
+          imprime_placas?: string | null
+          imprime_resinas_ld?: string | null
           informacao_desejada?: string | null
           instagram?: string | null
           insumos_adquiridos?: string | null
@@ -5065,6 +5073,10 @@ export type Database = {
           imersao_equipamentos_treinados?: string[] | null
           imersao_turma_id?: string | null
           impressora_modelo?: string | null
+          imprime_guias?: string | null
+          imprime_modelos?: string | null
+          imprime_placas?: string | null
+          imprime_resinas_ld?: string | null
           informacao_desejada?: string | null
           instagram?: string | null
           insumos_adquiridos?: string | null
@@ -7464,6 +7476,7 @@ export type Database = {
         Row: {
           created_at: string | null
           field_id: string
+          field_label: string | null
           form_id: string
           id: string
           lead_id: string
@@ -7473,6 +7486,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           field_id: string
+          field_label?: string | null
           form_id: string
           id?: string
           lead_id: string
@@ -7482,6 +7496,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           field_id?: string
+          field_label?: string | null
           form_id?: string
           id?: string
           lead_id?: string
@@ -7501,6 +7516,13 @@ export type Database = {
             columns: ["form_id"]
             isOneToOne: false
             referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "v_form_health"
             referencedColumns: ["id"]
           },
           {
@@ -7643,6 +7665,13 @@ export type Database = {
             columns: ["form_id"]
             isOneToOne: false
             referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_fields_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "v_form_health"
             referencedColumns: ["id"]
           },
         ]
@@ -8869,6 +8898,141 @@ export type Database = {
         }
         Relationships: []
       }
+      v_form_health: {
+        Row: {
+          active: boolean | null
+          campos_sem_db_column: number | null
+          counter_declarado: number | null
+          form_purpose: string | null
+          formulario: string | null
+          id: string | null
+          leads_com_respostas: number | null
+          leads_no_piperun: number | null
+          leads_sem_piperun: number | null
+          total_campos_configurados: number | null
+          total_respostas: number | null
+          ultima_resposta: string | null
+        }
+        Relationships: []
+      }
+      v_form_responses_enriched: {
+        Row: {
+          created_at: string | null
+          db_column: string | null
+          field_id: string | null
+          field_label: string | null
+          field_type: string | null
+          form_id: string | null
+          form_name: string | null
+          form_purpose: string | null
+          id: string | null
+          lead_email: string | null
+          lead_id: string | null
+          lead_nome: string | null
+          value: string | null
+          workflow_cell_target: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smartops_form_field_responses_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_form_fields"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "smartops_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "v_form_health"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       v_lead_academy: {
         Row: {
           academy_curso_concluido: string[] | null
@@ -9904,6 +10068,20 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_form_leads_sem_piperun: {
+        Args: never
+        Returns: {
+          criado_em: string
+          email: string
+          form_name: string
+          lead_id: string
+          lead_status: string
+          nome: string
+          source: string
+          telefone_raw: string
+          ultima_atividade: string
+        }[]
+      }
       fn_generate_recurrent_turmas: {
         Args: {
           p_base_date: string
@@ -9951,6 +10129,16 @@ export type Database = {
           p_source_channel?: string
         }
         Returns: string
+      }
+      fn_requeue_form_leads_for_piperun: {
+        Args: never
+        Returns: {
+          acao: string
+          email: string
+          form_name: string
+          lead_id: string
+          nome: string
+        }[]
       }
       fn_search_deals_by_status: {
         Args: {
@@ -10167,6 +10355,10 @@ export type Database = {
           imersao_equipamentos_treinados: string[] | null
           imersao_turma_id: string | null
           impressora_modelo: string | null
+          imprime_guias: string | null
+          imprime_modelos: string | null
+          imprime_placas: string | null
+          imprime_resinas_ld: string | null
           informacao_desejada: string | null
           instagram: string | null
           insumos_adquiridos: string | null
