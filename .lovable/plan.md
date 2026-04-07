@@ -1,55 +1,31 @@
 
 
-## Fix: Falhas Silenciosas no `smart-ops-lia-assign`
+## Fix: Adicionar `field_label` no insert de respostas do formulário
 
-### Causa Raiz (3 falhas no codigo)
+### Problema
+Na linha 248-254, o insert em `smartops_form_field_responses` não inclui `field_label`. Embora exista trigger no banco, é melhor passar explicitamente para evitar dependência do trigger e garantir dados corretos.
 
-**Falha 1 — Linha 1410-1411**: Quando `createPerson` falha (retorna `null`), o codigo cai no `else` (linha 1404) e define `flowType = "error_no_person"`. Porem, na linha 1410, o `updateFields` **sempre** define `proprietario_lead_crm: assignedOwnerName` — independente do `flowType`. Resultado: o lead fica com dono atribuido mas sem Person/Deal no PipeRun.
+### Correção
 
-**Falha 2 — Linha 1192**: O guard de idempotencia verifica apenas `lead.proprietario_lead_crm && lead.updated_at`. Nao verifica se `piperun_id` existe. Entao na proxima tentativa, o lead e ignorado porque "ja tem dono", mesmo que nunca tenha criado deal.
+**Arquivo: `src/pages/PublicFormPage.tsx` — linha 248-254**
 
-**Falha 3 — Nenhum log**: Quando `flowType === "error_no_person"`, nao ha registro em `system_health_logs`. A falha e completamente invisivel.
-
-### Correcoes
-
-**1. `supabase/functions/smart-ops-lia-assign/index.ts` — Linha ~1409-1412**
-
-Condicionar a atribuicao de `proprietario_lead_crm` ao sucesso do sync:
+Adicionar `field_label: f.label` ao objeto de resposta:
 
 ```typescript
-const updateFields: Record<string, unknown> = {};
-
-if (flowType !== "error_no_person") {
-  updateFields.proprietario_lead_crm = assignedOwnerName;
-} else {
-  // Log the failure for visibility
-  try {
-    await supabase.from("system_health_logs").insert({
-      function_name: "smart-ops-lia-assign",
-      severity: "error",
-      error_type: "crm_person_creation_failed",
-      lead_email: lead.email,
-      details: { lead_id: lead.id, flow: flowType },
-    });
-  } catch {}
-}
+return {
+  form_id: form.id,
+  field_id: f.id,
+  lead_id: leadId,
+  value,
+  workflow_cell_target: f.workflow_cell_target,
+  field_label: f.label,
+};
 ```
 
-**2. Linha 1192 — Fortalecer guard de idempotencia**
+### Chamada ao `smart-ops-deal-form-note`
+Já confirmado: linhas 278-280 mostram que `smart-ops-deal-form-note` é invocado com `lead_id` e `form_name` (fire-and-forget) após salvar as respostas. Nenhuma mudança necessária nesta parte.
 
-Adicionar `lead.piperun_id` na condicao:
-
-```typescript
-if (!force && trigger !== "sdr_captacao_reativacao" 
-    && lead.proprietario_lead_crm && lead.piperun_id && lead.updated_at) {
-```
-
-Assim, leads que falharam (tem dono mas sem `piperun_id`) serao reprocessados automaticamente na proxima interacao.
-
-**3. Deploy da edge function**
-
-### Resultado
-- Leads que falharem na criacao de Person no PipeRun NAO terao o proprietario bloqueado — permitindo retry automatico
-- Falhas ficam visiveis no System Health dashboard
-- Lead `dralucianajuliano@gmail.com` sera reprocessado na proxima interacao com a L.I.A. (ou via force=true manual)
+### Escopo
+- 1 linha adicionada em 1 arquivo
+- Sem breaking changes
 
