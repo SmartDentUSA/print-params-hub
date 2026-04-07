@@ -216,6 +216,23 @@ Deno.serve(async (req) => {
       incomingData[key] = value;
     }
 
+    // --- form_data JSONB catch-all: preserve ALL form fields (even without dedicated columns) ---
+    if (source === "form" || formName) {
+      const existingFormData = (existingLead?.form_data as Record<string, unknown>) || {};
+      const rawFields = Object.fromEntries(
+        Object.entries(payload).filter(([k, v]) => v != null && typeof v !== "object" && !META_KEYS.has(k))
+      );
+      incomingData.form_data = {
+        ...existingFormData,
+        [formName || "unknown"]: {
+          submitted_at: new Date().toISOString(),
+          responses: payload.form_responses || [],
+          raw_fields: rawFields,
+        },
+      };
+      console.log(`[ingest-lead] form_data saved for form "${formName}" with ${Object.keys(rawFields).length} raw fields`);
+    }
+
     let leadId: string;
     let fieldsUpdated: string[] = [];
 
