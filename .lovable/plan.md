@@ -1,104 +1,66 @@
 
 
-## Fix: Respostas do formulário não aparecem na nota HTML do PipeRun
+## Tornar o `ingest-lead` dinâmico para novos campos de formulário
 
-### Causa raiz — Race condition
+### Problema atual
 
-O fluxo atual tem uma corrida temporal:
+O frontend (`PublicFormPage.tsx`) já envia campos dinamicamente — se o form field tem `db_column = "novo_campo"`, ele envia `payload.novo_campo = valor`. Porém, o backend (`smart-ops-ingest-lead/index.ts`) constrói o objeto `incomingData` manualmente listando ~60 campos hardcoded (linhas 117-201). Qualquer campo novo criado no editor de formulários que não esteja nessa lista é **silenciosamente descartado**.
+
+A nota HTML do PipeRun já funciona dinamicamente (usa `form_responses` inline). O card do lead já exibe todos os campos via Lead Fields Inventory. O único gargalo é o `ingest-lead`.
+
+### Solução: Auto-forward de campos com `db_column`
+
+Modificar o `ingest-lead` para aceitar **qualquer** campo que corresponda a uma coluna real da tabela `lia_attendances`, sem precisar listá-los manualmente.
+
+### Mudança — 1 arquivo
+
+**`supabase/functions/smart-ops-ingest-lead/index.ts`**
+
+Após o bloco hardcoded de `incomingData` (linha ~201), adicionar um loop que percorre todas as chaves do payload e, se a chave não já estiver no `incomingData` e não for uma meta-chave do sistema (como `source`, `form_name`, `form_responses`, `raw_payload`), adiciona-a ao `incomingData`.
 
 ```text
-PublicFormPage                    Backend
-     │                              │
-     ├── invoke(ingest-lead) ──────►│
-     │                              ├── fire-and-forget: lia-assign ──► busca form_responses (VAZIO!)
-     │◄── retorna lead_id ──────────┤                                   monta HTML sem respostas
-     │                              │
-     ├── insert form_responses ────►│  ← respostas salvas DEPOIS
-     ├── invoke(deal-form-note) ───►│  ← nota separada (backup)
+Lógica:
+
+1. Definir um Set de chaves "meta" que NÃO são colunas do lead:
+   META_KEYS = { "source", "form_name", "form_purpose", "form_responses",
+                 "raw_payload", "campaign", "formName", "form", "ip",
+                 "full_name", "name", "user_name", "first_name", "last_name",
+                 "phone_number", "phone", "mobile", "celular", "user_phone",
+                 "user_email", "specialty", "product" }
+
+2. Após construir incomingData, iterar sobre Object.entries(payload):
+   for (const [key, value] of Object.entries(payload)) {
+     if (value == null || value === "") continue;
+     if (META_KEYS.has(key)) continue;
+     if (key in incomingData) continue;  // já mapeado explicitamente
+     if (typeof value === "object") continue;  // skip objetos complexos
+     incomingData[key] = value;
+   }
+
+3. Se a coluna não existir na tabela, o Supabase retornará erro no insert/update.
+   Para evitar isso, adicionar um try-catch no insert/update que, em caso
+   de "column X does not exist", remove a chave e retenta UMA vez.
 ```
 
-O `lia-assign` roda ANTES das respostas serem salvas no banco. O `deal-form-note` deveria compensar, mas é um complemento — a nota principal já foi enviada sem as respostas.
+### O que isso resolve
 
-### Solução: Passar respostas diretamente no payload do ingest-lead
+- Novos campos criados no SmartOpsFormEditor com `db_column` mapeado para uma coluna existente no `lia_attendances` serão automaticamente salvos no lead
+- O HTML do PipeRun já funciona (usa `form_responses`)
+- O card do lead já exibe qualquer campo preenchido (Lead Fields Inventory)
+- O ALWAYS_UPDATE set no `lead-enrichment.ts` continua controlando a política de merge — campos novos que não estão no set seguem a regra padrão (só atualizam se vazio)
 
-Em vez de depender de uma query ao banco (que sofre race condition), enviar as respostas do formulário como parte do payload para `smart-ops-ingest-lead`, que as repassa para `lia-assign`.
+### Segurança
 
-### Mudanças
-
-**1. `src/pages/PublicFormPage.tsx` (~linha 184-217)**
-
-Adicionar `form_responses` ao payload do `ingest-lead`:
-
-```typescript
-const payload: Record<string, any> = {
-  source: "form",
-  form_name: form.name,
-  form_purpose: form.form_purpose,
-  // NOVO: enviar respostas inline para evitar race condition
-  form_responses: fields
-    .filter(f => values[f.id] !== undefined && values[f.id] !== null && values[f.id] !== "")
-    .map(f => ({
-      label: f.label,
-      value: Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id]),
-    })),
-};
-```
-
-**2. `supabase/functions/smart-ops-ingest-lead/index.ts` (~linha 306)**
-
-Repassar `form_responses` no body do fire-and-forget para `lia-assign`:
-
-```typescript
-body: JSON.stringify({
-  lead_id: finalLeadId,
-  trigger: ...,
-  form_responses: body.form_responses || [],  // NOVO
-}),
-```
-
-**3. `supabase/functions/smart-ops-lia-assign/index.ts` (~linha 712-727)**
-
-Priorizar respostas recebidas via parâmetro sobre query ao banco:
-
-```typescript
-// Fetch form responses — prefer inline (from ingest-lead) over DB query
-let formResponsesHTML = "";
-const inlineResponses = inputFormResponses; // from request body
-try {
-  let responses = inlineResponses;
-  if (!responses || responses.length === 0) {
-    // Fallback: query DB (may still be empty due to race)
-    const { data: dbResponses } = await supabase
-      .from("smartops_form_field_responses")
-      .select("value, field_label")
-      .eq("lead_id", lead.id as string);
-    responses = dbResponses?.map(r => ({ label: r.field_label, value: r.value })) || [];
-  }
-  if (responses.length > 0) {
-    const items = responses
-      .filter(r => r.value)
-      .map(r => `• <b>${r.label || "Campo"}:</b> ${r.value}`)
-      .join("<br>");
-    if (items) {
-      formResponsesHTML = `<hr><b>📝 Respostas do Formulário</b><br><br>${items}<br>`;
-    }
-  }
-} catch (e) {
-  console.warn("[lia-assign] Failed to fetch form responses:", e);
-}
-```
-
-Tambem extrair `form_responses` do body do request (onde `lead_id` e `trigger` ja sao extraidos).
+- Apenas valores primitivos (string, number, boolean) são aceitos — objetos são ignorados
+- Chaves meta do sistema são explicitamente excluídas
+- O Supabase rejeita qualquer coluna inexistente (proteção natural)
+- O retry com remoção de coluna inválida previne falhas silenciosas
 
 ### Escopo
+
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/PublicFormPage.tsx` | Adicionar `form_responses` ao payload (~3 linhas) |
-| `supabase/functions/smart-ops-ingest-lead/index.ts` | Repassar `form_responses` para lia-assign (~1 linha) |
-| `supabase/functions/smart-ops-lia-assign/index.ts` | Aceitar e priorizar respostas inline (~15 linhas) |
+| `supabase/functions/smart-ops-ingest-lead/index.ts` | Adicionar auto-forward loop após `incomingData` (~15 linhas) |
 
-### Resultado
-- Respostas do formulário aparecerao na nota principal do PipeRun imediatamente
-- `deal-form-note` continua como backup (segunda nota separada)
-- Sem breaking changes — campo `form_responses` e opcional
+Nenhum outro arquivo precisa mudar. O sistema todo já consome os dados dinamicamente.
 
