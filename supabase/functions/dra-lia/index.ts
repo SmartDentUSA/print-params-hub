@@ -3310,8 +3310,11 @@ REGRAS:
 
     // 3c. Content Direct Search: if user requested media/content and RAG didn't return relevant results
     const userRequestedContent = CONTENT_REQUEST_REGEX.test(message);
-    const hasMediaInResults = allResults.some((r: { source_type: string }) => ["video", "article"].includes(r.source_type));
-    if (userRequestedContent && (!hasMediaInResults || topSimilarity < 0.5)) {
+    const hasRelevantMedia = allResults.some((r: { source_type: string; metadata?: Record<string, unknown> }) =>
+      r.source_type === "article" || r.source_type === "testimonial" ||
+      (r.source_type === "video" && r.metadata?.url_interna)
+    );
+    if (userRequestedContent && (!hasRelevantMedia || topSimilarity < 0.5)) {
       try {
         const directResults = await searchContentDirect(supabase, message, SITE_BASE_URL, session_id, currentLeadId);
         if (directResults.length > 0) {
