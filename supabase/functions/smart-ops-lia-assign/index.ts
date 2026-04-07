@@ -342,7 +342,7 @@ async function createNewDeal(
     if (dealData?.id) {
       const dealId = String(dealData.id);
       // Add structured HTML note for PipeRun
-      const noteText = await buildDealNoteHTML(lead, supabase);
+      const noteText = await buildDealNoteHTML(lead, supabase, formResponses);
       await addDealNote(apiToken, Number(dealId), noteText);
       return dealId;
     }
