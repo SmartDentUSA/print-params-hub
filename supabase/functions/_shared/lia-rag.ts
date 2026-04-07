@@ -522,6 +522,8 @@ export function buildStructuredContext(
   const videos: string[] = [];
   const params: string[] = [];
 
+  const testimonials: string[] = [];
+
   for (const m of results) {
     const formatted = formatItem(m);
     switch (m.source_type) {
@@ -530,6 +532,7 @@ export function buildStructuredContext(
       case 'article': articles.push(formatted); break;
       case 'author': authors.push(formatted); break;
       case 'video': videos.push(formatted); break;
+      case 'testimonial': testimonials.push(formatted); break;
       case 'parameter_set': case 'processing_protocol': params.push(formatted); break;
       default: articles.push(formatted);
     }
