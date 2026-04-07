@@ -1,57 +1,38 @@
 
 
-## Fix: Loja Integrada Polling + SellFlux Tags na Timeline
+## Fix: Polling da Loja Integrada — Erro 400 no `order_by`
 
-### Problema 1 — Polling da Loja Integrada com Erro 400
+### Causa raiz
 
-**Linha 137** de `poll-loja-integrada-orders/index.ts` usa `order_by=-data_modificada`, mas a API da Loja Integrada não suporta esse campo no endpoint `/pedido/`. Resultado: erro 400 em todas as varreduras automáticas.
+A API da Loja Integrada (`api.awsli.com.br/v1/pedido/`) **não suporta o parâmetro `order_by`** — nem `-data_modificada`, nem `-modificado`. O endpoint retorna pedidos na ordem padrão da API (por ID/criação). Resultado: erro 400 em todas as execuções do polling desde a última alteração.
 
-**Fix**: Trocar `-data_modificada` por `-modificado` (campo correto da API LI). Também ajustar o cursor `since_atualizado` na mesma linha 138 se necessário.
+Os logs confirmam: `"No matching 'modificado' field for ordering on."` — erro persistente a cada 5 minutos.
 
----
+### Dados atuais
+- **554 eventos** de e-commerce já registrados (31 created, 17 cancelled, 502 invoiced, 4 sellflux)
+- Último evento: 18/Mar/2026 — polling parado há 20 dias
+- Cursor `li_poll_since` inexistente (nunca foi salvo com sucesso)
 
-### Problema 2 — Tags do SellFlux não geram pontos na Timeline
+### Correção
 
-Atualmente, quando tags chegam via SellFlux webhook:
-- O `merge_tags_crm` RPC apenas faz UPDATE no array `tags_crm` do lead
-- Um único evento genérico `sellflux_webhook_entry` é inserido no `lead_activity_log`
-- **Nenhum evento individual por tag** é registrado na timeline
-- O `event_timestamp` usa `new Date().toISOString()` (hora do sistema) em vez da data real do SellFlux
+**Arquivo: `supabase/functions/poll-loja-integrada-orders/index.ts`**
 
-**Fix em 2 partes:**
+**Linha 137**: Remover `order_by=-modificado` completamente. A API LI não suporta ordenação customizada no endpoint `/pedido/`.
 
-#### 2a. Registrar cada tag como evento individual na timeline
+**Linha 138**: Trocar `since_modificado` por `since_atualizado` — parâmetro que a API LI reconhece para filtrar pedidos atualizados após uma data.
 
-No `smart-ops-sellflux-webhook/index.ts`, após o `merge_tags_crm` (linha 216), inserir um evento `lead_activity_log` para cada tag nova com:
-- `event_type`: `"sellflux_tag_applied"`
-- `entity_type`: `"sellflux"`
-- `entity_id`: nome da tag
-- `entity_name`: nome da tag formatado
-- `event_data`: `{ tag: tagName, automation: automationName, source: detectedSource }`
-- `event_timestamp`: timestamp real do payload SellFlux (fallback para `new Date()`)
+```text
+ANTES:  /pedido/?limit=${batchSize}&offset=${offset}&order_by=-modificado
+        &since_modificado=...
 
-Para extrair o timestamp real: usar `payload.created_at || payload.date || payload.timestamp || payload.updated_at` — o SellFlux envia `created_at` no payload quando disponível.
+DEPOIS: /pedido/?limit=${batchSize}&offset=${offset}
+        &since_atualizado=...
+```
 
-#### 2b. Corrigir timestamp do evento genérico existente
+**Linha 192**: O campo de timestamp do pedido para o cursor também precisa usar `data_modificacao` (campo real do objeto pedido LI) com fallback para `data_criacao`.
 
-Linha 240 do webhook: trocar `new Date().toISOString()` pelo timestamp real do SellFlux (mesma lógica acima).
-
-#### 2c. Atualizar o frontend para renderizar os novos eventos
-
-Em `KanbanLeadDetail.tsx`, adicionar nas constantes de timeline:
-- `TIMELINE_EMOJI`: `sellflux_tag_applied: "🏷️"`
-- `TIMELINE_LABEL`: `sellflux_tag_applied: "Tag SellFlux aplicada"`
-
----
-
-### Arquivos alterados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/poll-loja-integrada-orders/index.ts` | Trocar `order_by=-data_modificada` por `-modificado` (linha 137) |
-| `supabase/functions/smart-ops-sellflux-webhook/index.ts` | Adicionar inserção individual de tags na timeline + corrigir timestamp (linhas 206-242) |
-| `src/components/smartops/KanbanLeadDetail.tsx` | Adicionar `sellflux_tag_applied` nos mapas de emoji/label |
-
-### Deploy
-- Deploy automático das 2 edge functions após edição
+### Escopo
+- 1 arquivo alterado, 3 linhas modificadas
+- Deploy automático da edge function
+- Após deploy, o cron job voltará a funcionar no próximo ciclo (a cada 5 min)
 
