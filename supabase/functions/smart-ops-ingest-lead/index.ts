@@ -200,6 +200,22 @@ Deno.serve(async (req) => {
       ...(detectedStage ? { lead_stage_detected: detectedStage } : {}),
     };
 
+    // --- Auto-forward: dynamically include any payload key that matches a lia_attendances column ---
+    const META_KEYS = new Set([
+      "source", "form_name", "form_purpose", "form_responses", "raw_payload",
+      "campaign", "formName", "form", "ip", "full_name", "name", "user_name",
+      "first_name", "last_name", "phone_number", "phone", "mobile", "celular",
+      "user_phone", "user_email", "specialty", "product", "nome", "email",
+      "telefone", "utm_source", "utm_medium", "utm_campaign", "utm_term",
+    ]);
+    for (const [key, value] of Object.entries(payload)) {
+      if (value == null || value === "") continue;
+      if (META_KEYS.has(key)) continue;
+      if (key in incomingData) continue;
+      if (typeof value === "object") continue;
+      incomingData[key] = value;
+    }
+
     let leadId: string;
     let fieldsUpdated: string[] = [];
 
@@ -239,10 +255,21 @@ Deno.serve(async (req) => {
           previousValues[key] = existingLead[key];
         }
 
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from("lia_attendances")
           .update(merged)
           .eq("id", existingLead.id);
+
+        // Retry: if unknown column, strip it and retry once
+        if (updateError?.message?.includes("column") && updateError?.message?.includes("does not exist")) {
+          const colMatch = updateError.message.match(/column "([^"]+)"/);
+          if (colMatch) {
+            console.warn("[ingest-lead] Stripping unknown column from update:", colMatch[1]);
+            delete merged[colMatch[1]];
+            const retry = await supabase.from("lia_attendances").update(merged).eq("id", existingLead.id);
+            updateError = retry.error;
+          }
+        }
 
         if (updateError) {
           console.error("[ingest-lead] Update error:", updateError);
@@ -278,11 +305,23 @@ Deno.serve(async (req) => {
         },
       };
 
-      const { data: newLead, error: insertError } = await supabase
+      let { data: newLead, error: insertError } = await supabase
         .from("lia_attendances")
         .insert(newLeadData)
         .select("id")
         .single();
+
+      // Retry: if unknown column, strip it and retry once
+      if (insertError?.message?.includes("column") && insertError?.message?.includes("does not exist")) {
+        const colMatch = insertError.message.match(/column "([^"]+)"/);
+        if (colMatch) {
+          console.warn("[ingest-lead] Stripping unknown column from insert:", colMatch[1]);
+          delete newLeadData[colMatch[1]];
+          const retry = await supabase.from("lia_attendances").insert(newLeadData).select("id").single();
+          newLead = retry.data;
+          insertError = retry.error;
+        }
+      }
 
       if (insertError) {
         console.error("[ingest-lead] Insert error:", insertError);
