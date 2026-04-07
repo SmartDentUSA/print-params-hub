@@ -251,6 +251,7 @@ export default function PublicFormPage() {
                 lead_id: leadId,
                 value,
                 workflow_cell_target: f.workflow_cell_target,
+                field_label: f.label,
               };
             })
             .filter(Boolean);
