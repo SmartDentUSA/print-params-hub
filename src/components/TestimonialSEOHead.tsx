@@ -169,7 +169,7 @@ export const TestimonialSEOHead = ({ testimonial }: TestimonialSEOHeadProps) => 
       <meta property="og:title" content={seoTitle} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={thumbnailUrl || ogImage} />
-      <meta property="og:site_name" content="PrinterParams Smart Dent" />
+      <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
       <meta property="og:locale" content="pt_BR" />
       
       {/* Twitter Card */}

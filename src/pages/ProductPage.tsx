@@ -158,7 +158,7 @@ const ProductPage = () => {
         <meta property="og:title" content={seoTitle} />
         <meta property="og:description" content={metaDescription} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content={`PrinterParams ${companyName}`} />
+        <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
         <meta property="og:locale" content={getOgLocale(language)} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={seoTitle} />

@@ -153,8 +153,8 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
   const { data: companyData } = useCompanyData();
   
   // Generate dynamic title and description
-  let title = 'PrinterParams - Parâmetros de Impressão 3D Odontológica | Smart Dent';
-  let description = 'Encontre parâmetros otimizados de impressão 3D para sua impressora e resina Smart Dent. Configurações testadas para modelos odontológicos com melhor qualidade e precisão.';
+  let title = 'Hub de Fluxo Digital e Parâmetros 3D | Smart Dent';
+  let description = 'Central de conhecimento Smart Dent para o Fluxo Digital. Parâmetros de impressão 3D, guias de aplicação clínica e protocolos de alta performance para odontologia.';
   let canonical = baseUrl;
   let ogImage = companyData?.logo_url || 'https://smartdent.com.br/logo-og.png';
   
@@ -641,7 +641,7 @@ export const SEOHead = ({ pageType, brand, model, resins = [], faqs = [] }: SEOH
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={ogImage} />
-      <meta property="og:site_name" content="PrinterParams Smart Dent" />
+      <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
       <meta property="og:locale" content="pt_BR" />
 
       {/* Twitter Card */}

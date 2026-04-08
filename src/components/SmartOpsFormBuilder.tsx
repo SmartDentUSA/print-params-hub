@@ -384,13 +384,13 @@ export function SmartOpsFormBuilder() {
   <meta property="og:title" content="${formName} | SmartDent 3D" />
   <meta property="og:description" content="${formName} - Formulário SmartDent 3D." />
   <meta property="og:url" content="${url}" />
-  <meta property="og:site_name" content="SmartDent 3D" />
+  <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
   <meta property="og:locale" content="pt_BR" />
   <!-- Geo -->
-  <meta name="geo.region" content="BR-SC" />
-  <meta name="geo.placename" content="Florianópolis" />
-  <meta name="geo.position" content="-27.5954;-48.5480" />
-  <meta name="ICBM" content="-27.5954, -48.5480" />
+  <meta name="geo.region" content="BR-SP" />
+  <meta name="geo.placename" content="São Carlos" />
+  <meta name="geo.position" content="-22.0154;-47.8911" />
+  <meta name="ICBM" content="-22.0154, -47.8911" />
   <!-- Schema.org -->
   <script type="application/ld+json">
   {

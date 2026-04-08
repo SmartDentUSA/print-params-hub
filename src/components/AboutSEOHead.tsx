@@ -31,7 +31,7 @@ export const AboutSEOHead = ({ company }: AboutSEOHeadProps) => {
   const seoTitle = `Sobre Nós - ${company.name} | Impressão 3D Odontológica`;
   const metaDescription = company.description?.substring(0, 155) || 
     `Conheça a ${company.name}, especialista em impressão 3D odontológica. Nossa missão, visão e valores.`;
-  const ogImage = company.logo_url || `${baseUrl}/og-image.jpg`;
+  const ogImage = company.logo_url || `${baseUrl}/og-fluxo-digital.jpg`;
   
   const keywords = [
     company.name,
@@ -120,7 +120,7 @@ export const AboutSEOHead = ({ company }: AboutSEOHeadProps) => {
       <meta property="og:title" content={seoTitle} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:image" content={ogImage} />
-      <meta property="og:site_name" content="PrinterParams Smart Dent" />
+      <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
       <meta property="og:locale" content="pt_BR" />
       
       {/* Twitter Card */}

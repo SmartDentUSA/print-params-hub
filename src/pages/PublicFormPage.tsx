@@ -606,35 +606,38 @@ export default function PublicFormPage() {
 
       {/* Footer — dados da empresa */}
       <footer className="w-full max-w-5xl mt-12 mb-6 pt-6 border-t border-border text-center space-y-2">
-        <p className="text-xs font-semibold text-foreground">
-          {company?.business?.legal_name || "Smart Dent Produtos Odontológicos Ltda"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          CNPJ {company?.business?.tax_id || "18.569.948/0001-77"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {company?.contact?.address || "Rua Doutor Paulo Décio Regis, 1055 — Parque Industrial Lagoinha — Ribeirão Preto/SP — CEP 14095-290"}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          <a href={company?.website_url || "https://smartdent.com.br"} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
-            {(company?.website_url || "smartdent.com.br").replace(/^https?:\/\//, '')}
-          </a>
-          {(company?.contact?.phone || "(16) 3621-9100") && (
-            <>
-              {" · "}
-              <a href={`tel:${company?.contact?.phone || "+551636219100"}`} className="underline hover:opacity-80">
-                {company?.contact?.phone || "(16) 3621-9100"}
+        {company?.business?.legal_name && (
+          <p className="text-xs font-semibold text-foreground">{company.business.legal_name}</p>
+        )}
+        {company?.business?.tax_id && (
+          <p className="text-xs text-muted-foreground">CNPJ {company.business.tax_id}</p>
+        )}
+        {company?.contact?.address && (
+          <p className="text-xs text-muted-foreground">{company.contact.address}</p>
+        )}
+        {(company?.website_url || company?.contact?.phone) && (
+          <p className="text-xs text-muted-foreground">
+            {company?.website_url && (
+              <a href={company.website_url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
+                {company.website_url.replace(/^https?:\/\//, '')}
               </a>
-            </>
-          )}
-        </p>
+            )}
+            {company?.website_url && company?.contact?.phone && " · "}
+            {company?.contact?.phone && (
+              <a href={`tel:${company.contact.phone}`} className="underline hover:opacity-80">
+                {company.contact.phone}
+              </a>
+            )}
+          </p>
+        )}
 
-        {/* Social media icons */}
+        {/* Social media icons — only from System B data */}
         {(() => {
-          const sm = company?.social_media || {};
+          const sm = company?.social_media;
+          if (!sm) return null;
           const socialLinks = [
-            { icon: Instagram, url: sm.instagram || "https://www.instagram.com/smartdentbr", label: "Instagram" },
-            { icon: Youtube, url: sm.youtube || "https://www.youtube.com/@smartdentbr", label: "YouTube" },
+            { icon: Instagram, url: sm.instagram, label: "Instagram" },
+            { icon: Youtube, url: sm.youtube, label: "YouTube" },
             { icon: Facebook, url: sm.facebook, label: "Facebook" },
             { icon: Linkedin, url: sm.linkedin, label: "LinkedIn" },
             { icon: Twitter, url: sm.twitter, label: "Twitter" },
