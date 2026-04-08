@@ -1903,6 +1903,8 @@ export type Database = {
           author_id: string | null
           canva_template_url: string | null
           category_id: string | null
+          client_name: string | null
+          client_specialty: string | null
           content_html: string | null
           content_html_en: string | null
           content_html_es: string | null
@@ -1917,6 +1919,9 @@ export type Database = {
           faqs_es: Json | null
           file_name: string | null
           file_url: string | null
+          geo_city: string | null
+          geo_state: string | null
+          geo_state_code: string | null
           icon_color: string | null
           id: string
           keyword_ids: string[] | null
@@ -1946,6 +1951,8 @@ export type Database = {
           author_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
+          client_name?: string | null
+          client_specialty?: string | null
           content_html?: string | null
           content_html_en?: string | null
           content_html_es?: string | null
@@ -1960,6 +1967,9 @@ export type Database = {
           faqs_es?: Json | null
           file_name?: string | null
           file_url?: string | null
+          geo_city?: string | null
+          geo_state?: string | null
+          geo_state_code?: string | null
           icon_color?: string | null
           id?: string
           keyword_ids?: string[] | null
@@ -1989,6 +1999,8 @@ export type Database = {
           author_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
+          client_name?: string | null
+          client_specialty?: string | null
           content_html?: string | null
           content_html_en?: string | null
           content_html_es?: string | null
@@ -2003,6 +2015,9 @@ export type Database = {
           faqs_es?: Json | null
           file_name?: string | null
           file_url?: string | null
+          geo_city?: string | null
+          geo_state?: string | null
+          geo_state_code?: string | null
           icon_color?: string | null
           id?: string
           keyword_ids?: string[] | null
