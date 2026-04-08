@@ -1,72 +1,47 @@
 
 
-## Rebranding de Meta Tags: "PrinterParams" → "Smart Dent | Fluxo Digital"
+## Gerar Documento de Auditoria Profunda Completa (.MD)
 
-### Problema
+### O que sera feito
 
-Todos os HTML do sistema usam branding antigo "PrinterParams Smart Dent" com descrições focadas apenas em "parâmetros de impressão". O novo posicionamento é **"Smart Dent | Fluxo Digital"** com foco em fluxo digital odontológico completo. Além disso, o footer do formulário público tem dados hardcoded errados (CNPJ, endereço).
+Criar um documento Markdown completo e detalhado (`AUDITORIA_PROFUNDA_SISTEMA_COMPLETO.md`) com auditoria exaustiva de cada subsistema, funcionalidade, integração, ferramenta, uso de IA e fluxo de dados do Revenue Intelligence OS.
 
-### Arquivos afetados (9 arquivos)
+### Estrutura do documento
 
-**1. `index.html`**
-- Linha 6: title → `"Hub de Fluxo Digital e Parâmetros 3D | Smart Dent"`
-- Linha 7: description → nova description sobre fluxo digital
-- Linha 8: keywords → novos keywords
-- Linha 40: apple-mobile-web-app-title → `"Smart Dent"`
-- Linhas 142-152: Substituir todos os OG/Twitter tags pelos novos valores fornecidos (og-fluxo-digital.jpg)
+O documento tera ~20 seções cobrindo:
 
-**2. `src/components/SEOHead.tsx`**
-- Linha 156: title default → `"Hub de Fluxo Digital e Parâmetros 3D | Smart Dent"`
-- Linha 157: description default → nova
-- Linha 644: `og:site_name` → `"Smart Dent | Fluxo Digital"`
-- Twitter tags mantêm o padrão dinâmico mas com site_name atualizado
+1. **Identidade e Stack** — Nomenclatura, versoes, dependencias, domínios
+2. **Arquitetura Dual** — Lead Lifecycle + Content Intelligence com diagramas ASCII
+3. **CDP Unificado (lia_attendances)** — Todos os ~200 campos organizados por domínio (Core, SDR, PipeRun, Cognitive, LIS, Equipamentos, E-commerce, Astron, SellFlux, Automacao)
+4. **Ingestao de Leads** — 5 entry points, Smart Merge (5 categorias), normalizacao, PQL detection, auto-forward dinamico, form_data JSONB
+5. **CRM Sync (PipeRun)** — Hierarquia Person→Company→Deal, Golden Rule, Decision Tree, Round Robin, notas HTML
+6. **Cognitive Engine** — DeepSeek v3, 10 eixos, pipeline cognitivo, batch processing
+7. **Intelligence Score (LIS)** — 4 eixos, formula, RPC, calibracao (max 81)
+8. **Workflow Portfolio 7x3** — 7 etapas, 25 subcategorias, 3 camadas, portfolio_json, triggers SQL
+9. **Formularios Dinamicos** — smartops_forms, smartops_form_fields, smartops_form_field_responses, PublicFormPage, auto-forward
+10. **Integracoes Externas (9 sistemas)** — PipeRun, SellFlux, WaLeads, Meta Ads, Loja Integrada, Astron, PandaVideo, Google Drive/Reviews, Omie ERP
+11. **Dra. L.I.A.** — RAG (vetor + FTS + ILIKE), 3 canais, prioridade artigos sobre videos, depoimentos, links internos
+12. **Copilot IA** — Dual Brain, tool calling, 10 iteracoes, ferramentas operacionais
+13. **Content Intelligence Pipeline** — 14 etapas, orquestrador (1193 linhas), anti-alucinacao, pos-processamento
+14. **SEO & IA Exposure** — 17+ JSON-LD, hreflang, sitemaps (5), RSS, SSR proxy (seo-proxy), llms.txt, AI readiness
+15. **Edge Functions — Inventario Completo (100+)** — Tabela de todas as funcoes com status, categoria, descricao
+16. **Shared Modules (_shared/)** — 22 modulos com descricao e dependencias
+17. **Database Schema** — 30+ tabelas, views, RPCs, triggers, RLS policies
+18. **Automacao & Watchdog** — Stagnation (6 etapas), Proactive Outreach, CS Rules, System Watchdog
+19. **Seguranca** — RLS, JWT, secrets, rate limiting, input validation, concurrency locks
+20. **Metricas e Recomendacoes** — KPIs do sistema, pontos de atencao, recomendacoes
 
-**3. `src/components/KnowledgeSEOHead.tsx`**
-- Linhas 416, 458, 1095: `og:site_name` → `"Smart Dent | Fluxo Digital"`
+### Fonte dos dados
 
-**4. `src/components/AboutSEOHead.tsx`**
-- Linha 123: `og:site_name` → `"Smart Dent | Fluxo Digital"`
-- OG image fallback → `og-fluxo-digital.jpg`
+O documento sera construido a partir de:
+- Todos os docs existentes (`SYSTEM_DESCRIPTION.md`, `REVENUE_INTELLIGENCE_OS_TECHNICAL_DOC.md`, `SKILL_SMARTDENT_REVENUE_OS.md`, `AUDITORIA_WORKFLOW_FORMULARIOS_CRM.md`)
+- Memories do sistema (22 memories de arquitetura, integracoes, features)
+- Codigo fonte explorado (edge functions, shared modules, componentes)
+- Inventario real de edge functions (100+ funcoes listadas)
 
-**5. `src/components/TestimonialSEOHead.tsx`**
-- Linha 172: `og:site_name` → `"Smart Dent | Fluxo Digital"`
+### Saida
 
-**6. `src/pages/ProductPage.tsx`**
-- Linha 161: `og:site_name` → `"Smart Dent | Fluxo Digital"`
-
-**7. `src/pages/CategoryPage.tsx`**
-- Linha 112: `og:site_name` → `"Smart Dent | Fluxo Digital"`
-
-**8. `src/components/SmartOpsFormBuilder.tsx`**
-- Linha 387: `og:site_name` → `"Smart Dent | Fluxo Digital"`
-- Linhas 390-393: Geo tags com dados errados (Florianópolis) → corrigir para São Carlos
-
-**9. `supabase/functions/seo-proxy/index.ts`**
-- Todas as referências a `og-image.jpg` → `og-fluxo-digital.jpg` como fallback
-- Titles e descriptions do homepage generator → novo branding
-
-**10. `src/pages/PublicFormPage.tsx` (footer hardcoded)**
-- Linhas 608-668: Remover todos os fallbacks hardcoded errados (CNPJ, endereço, telefone). Renderizar condicionalmente apenas dados vindos do `company` (Sistema B)
-
-### Dados do Sistema B (company)
-
-Os dados corretos da empresa (endereço, telefone, social media) já vêm via `useCompanyData()` que lê `system_a_catalog` com `category = 'company_info'`. Os componentes já usam esse hook — o problema é apenas os **fallbacks hardcoded** e o **branding textual antigo**.
-
-### Novos valores padrão
-
-| Meta Tag | Valor |
-|----------|-------|
-| `og:site_name` | `Smart Dent \| Fluxo Digital` |
-| `og:title` (homepage) | `Hub de Fluxo Digital e Parâmetros 3D \| Smart Dent` |
-| `og:description` (homepage) | `Domine o fluxo digital odontológico: de parâmetros de impressão validados a estratégias de escaneamento e design. A inteligência que seu laboratório ou clínica precisam.` |
-| `og:image` (fallback) | `https://parametros.smartdent.com.br/og-fluxo-digital.jpg` |
-| `twitter:title` (homepage) | `Smart Dent: Inteligência em Fluxo Digital` |
-| `twitter:description` (homepage) | `Sincronize resinas, impressoras e processos com os protocolos oficiais da Smart Dent.` |
-| `description` (homepage) | `Central de conhecimento Smart Dent para o Fluxo Digital. Parâmetros de impressão 3D, guias de aplicação clínica e protocolos de alta performance para odontologia.` |
-| `keywords` | `fluxo digital odontologia, smart dent, impressão 3d dental, parâmetros resina, cad/cam odontológico, produtividade dental, I.A. na Odontologia` |
-
-### Escopo
-- 10 arquivos alterados (search & replace em strings)
-- 1 edge function redeployada (seo-proxy)
-- Sem breaking changes — apenas texto e URLs de imagem OG
+- Arquivo: `/mnt/documents/AUDITORIA_PROFUNDA_SISTEMA_COMPLETO.md`
+- Tamanho estimado: ~3000-4000 linhas
+- Formato: Markdown com tabelas, diagramas ASCII, blocos de codigo
 
