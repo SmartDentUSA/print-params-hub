@@ -7,6 +7,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { Download, Users, AlertTriangle, TrendingDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// CORREÇÃO 5: Use stage_name instead of stage_id
+interface DealRow {
+  id: string;
+  stage_name: string;
+  status: string;
+  value: number | null;
+  piperun_created_at: string | null;
+  owner_name: string | null;
+  product: string | null;
+  lead_id: string | null;
+}
+
+interface LeadInfo {
+  nome: string | null;
+  email: string | null;
+  telefone_normalized: string | null;
+  cidade: string | null;
+  uf: string | null;
+  anchor_product: string | null;
+}
+
 interface Client {
   id: string;
   nome: string;
@@ -25,24 +46,61 @@ interface Client {
 
 const ASSETS = ["scan", "notebook", "cad", "cad_ia", "smart_slice", "print", "cura", "insumos"] as const;
 
+function formatBRL(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 export function SmartOpsReports() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [deals, setDeals] = useState<(DealRow & { lead?: LeadInfo })[]>([]);
   const [loading, setLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase
+    const fetchAll = async () => {
+      // Clients (existing)
+      const clientsPromise = supabase
         .from("lia_attendances")
         .select("id, nome, email, data_contrato, ativo_scan, ativo_notebook, ativo_cad, ativo_cad_ia, ativo_smart_slice, ativo_print, ativo_cura, ativo_insumos, data_ultima_compra_insumos")
         .not("data_contrato", "is", null)
         .order("data_contrato", { ascending: false })
         .limit(500);
-      setClients((data as Client[]) || []);
+
+      // CORREÇÃO 5: Deals by stage_name with lead join
+      const dealsPromise = supabase
+        .from("deals")
+        .select("id, stage_name, status, value, piperun_created_at, owner_name, product, lead_id")
+        .or("is_deleted.is.null,is_deleted.eq.false")
+        .not("stage_name", "is", null)
+        .order("piperun_created_at", { ascending: false })
+        .limit(100);
+
+      const [clientsRes, dealsRes] = await Promise.all([clientsPromise, dealsPromise]);
+
+      setClients((clientsRes.data as Client[]) || []);
+
+      // Enrich deals with lead info
+      const rawDeals = (dealsRes.data as DealRow[]) || [];
+      const leadIds = [...new Set(rawDeals.map((d) => d.lead_id).filter(Boolean))];
+
+      if (leadIds.length > 0) {
+        const { data: leads } = await supabase
+          .from("lia_attendances")
+          .select("id, nome, email, telefone_normalized, cidade, uf, anchor_product")
+          .in("id", leadIds.slice(0, 100));
+
+        const leadMap = new Map<string, LeadInfo>();
+        (leads || []).forEach((l: any) => leadMap.set(l.id, l));
+
+        setDeals(rawDeals.map((d) => ({ ...d, lead: d.lead_id ? leadMap.get(d.lead_id) || undefined : undefined })));
+      } else {
+        setDeals(rawDeals);
+      }
+
       setLoading(false);
     };
-    fetch();
+    fetchAll();
   }, []);
 
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
@@ -60,7 +118,6 @@ export function SmartOpsReports() {
   const exportCSV = async () => {
     setIsExporting(true);
     try {
-      // Fetch ALL leads in batches of 1000
       const allRows: Record<string, unknown>[] = [];
       const BATCH = 1000;
       let offset = 0;
@@ -84,7 +141,6 @@ export function SmartOpsReports() {
         return;
       }
 
-      // Dynamic headers from first record
       const headerSet = new Set<string>();
       allRows.forEach(row => Object.keys(row).forEach(k => headerSet.add(k)));
       const headers = Array.from(headerSet);
@@ -103,7 +159,6 @@ export function SmartOpsReports() {
         ...allRows.map((row) => headers.map((h) => escapeCSV(row[h])).join(","))
       ];
 
-      // BOM for Excel UTF-8 compat
       const BOM = "\uFEFF";
       const blob = new Blob([BOM + csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -157,14 +212,79 @@ export function SmartOpsReports() {
         </Card>
       </div>
 
-      {/* Detail table */}
+      {/* CORREÇÃO 5: Detalhamento por Cliente (deals by stage_name) */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Detalhamento por Cliente</CardTitle>
+          <CardTitle>Detalhamento por Cliente (Deals Recentes)</CardTitle>
           <Button variant="outline" size="sm" onClick={exportCSV} disabled={isExporting}>
             {isExporting ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
             {isExporting ? "Exportando..." : "Exportar CSV Completo"}
           </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead>Etapa</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Vendedor</TableHead>
+                  <TableHead>Cidade/UF</TableHead>
+                  <TableHead>Data</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {deals.map((d) => (
+                  <TableRow key={d.id}>
+                    <TableCell className="font-medium text-sm">
+                      {d.lead?.nome || "—"}
+                      {d.lead?.email && <div className="text-xs text-muted-foreground">{d.lead.email}</div>}
+                    </TableCell>
+                    <TableCell className="text-xs">{d.lead?.anchor_product || d.product || "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="text-xs">{d.stage_name}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={
+                        d.status === "ganha" ? "bg-green-600 text-white" :
+                        d.status === "perdida" ? "bg-red-600 text-white" :
+                        "bg-blue-600 text-white"
+                      }>
+                        {d.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right text-sm font-medium">
+                      {d.value ? formatBRL(d.value) : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">{d.owner_name || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {[d.lead?.cidade, d.lead?.uf].filter(Boolean).join("/") || "—"}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {d.piperun_created_at ? new Date(d.piperun_created_at).toLocaleDateString("pt-BR") : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {deals.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      Nenhum deal encontrado
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Original client detail table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Detalhamento por Cliente (Ativos)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">

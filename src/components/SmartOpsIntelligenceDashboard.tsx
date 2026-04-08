@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, TrendingDown, TrendingUp, Brain, Zap } from "lucide-react";
+import { RefreshCw, TrendingDown, TrendingUp, Brain, Zap, AlertTriangle } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { toast } from "sonner";
 
@@ -34,11 +34,16 @@ interface StateEvent {
   source: string;
 }
 
+// SQL stages for MQL→SQL calculation
+const SQL_STAGES = new Set([
+  "Negociação", "Fechamento", "Fechamento - Estag", "Proposta enviada", "Proposta Enviada - Estag",
+]);
+
 export function SmartOpsIntelligenceDashboard() {
   const [topLeads, setTopLeads] = useState<TopLead[]>([]);
   const [stageDistribution, setStageDistribution] = useState<StageData[]>([]);
   const [recentEvents, setRecentEvents] = useState<StateEvent[]>([]);
-  const [metrics, setMetrics] = useState({ avgMqlToSql: 0, regressionRate: 0, totalScored: 0 });
+  const [metrics, setMetrics] = useState({ avgMqlToSql: 0, avgMqlToSqlLabel: "", regressionLabel: "", totalScored: 0, maxScore: 0 });
   const [loading, setLoading] = useState(true);
   const [backfilling, setBackfilling] = useState(false);
 
@@ -56,6 +61,7 @@ export function SmartOpsIntelligenceDashboard() {
     const { data } = await supabase
       .from("lia_attendances")
       .select("id, nome, telefone_normalized, intelligence_score_total, intelligence_score, lead_stage_detected")
+      .is("merged_into", null)
       .not("intelligence_score_total", "is", null)
       .order("intelligence_score_total", { ascending: false })
       .limit(20);
@@ -66,6 +72,7 @@ export function SmartOpsIntelligenceDashboard() {
     const { data } = await supabase
       .from("lia_attendances")
       .select("lead_stage_detected")
+      .is("merged_into", null)
       .not("intelligence_score_total", "is", null);
 
     const counts: Record<string, number> = {};
@@ -86,34 +93,59 @@ export function SmartOpsIntelligenceDashboard() {
   }
 
   async function loadMetrics() {
+    // CORREÇÃO 4A: Count with merged_into filter
     const { count: totalScored } = await supabase
       .from("lia_attendances")
       .select("id", { count: "exact", head: true })
+      .is("merged_into", null)
       .not("intelligence_score_total", "is", null);
 
-    const { data: events } = await supabase
-      .from("lead_state_events")
-      .select("is_regression, regression_gap_days, old_stage, new_stage");
+    // CORREÇÃO 4B: Get max score
+    const { data: maxData } = await supabase
+      .from("lia_attendances")
+      .select("intelligence_score_total")
+      .is("merged_into", null)
+      .not("intelligence_score_total", "is", null)
+      .order("intelligence_score_total", { ascending: false })
+      .limit(1);
+    const maxScore = maxData?.[0]?.intelligence_score_total ?? 0;
 
-    if (!events) {
-      setMetrics({ avgMqlToSql: 0, regressionRate: 0, totalScored: totalScored || 0 });
-      return;
+    // CORREÇÃO 4E: MQL→SQL time calculation
+    // MQL = score >= 60, SQL = piperun_stage_name in SQL_STAGES
+    const { data: sqlLeads } = await supabase
+      .from("lia_attendances")
+      .select("created_at, piperun_stage_changed_at")
+      .is("merged_into", null)
+      .gte("intelligence_score_total", 60)
+      .not("piperun_stage_changed_at", "is", null)
+      .in("piperun_stage_name", Array.from(SQL_STAGES))
+      .limit(500);
+
+    let avgMqlToSql = 0;
+    let avgMqlToSqlLabel = "Dados insuficientes";
+    if (sqlLeads && sqlLeads.length >= 3) {
+      const diffs = sqlLeads.map((l) => {
+        const created = new Date(l.created_at).getTime();
+        const stageChanged = new Date(l.piperun_stage_changed_at).getTime();
+        return Math.round((stageChanged - created) / (1000 * 60 * 60 * 24));
+      }).filter((d) => d > 0 && d < 365);
+
+      if (diffs.length >= 3) {
+        avgMqlToSql = Math.round(diffs.reduce((a, b) => a + b, 0) / diffs.length);
+        avgMqlToSqlLabel = `${avgMqlToSql} dias`;
+      }
     }
 
-    const mqlToSql = events.filter(
-      (e) => e.old_stage === "MQL_pesquisador" && e.new_stage === "SQL_decisor" && e.regression_gap_days
-    );
-    const avgMqlToSql =
-      mqlToSql.length > 0
-        ? Math.round(mqlToSql.reduce((a, e) => a + (e.regression_gap_days || 0), 0) / mqlToSql.length)
-        : 0;
+    // CORREÇÃO 4F: Regression rate
+    const regressionLabel = "Não implementado";
 
-    const regressionRate =
-      events.length > 0
-        ? Math.round((events.filter((e) => e.is_regression).length / events.length) * 100)
-        : 0;
-
-    setMetrics({ avgMqlToSql, regressionRate, totalScored: totalScored || 0 });
+    setMetrics({
+      avgMqlToSql,
+      avgMqlToSqlLabel,
+      regressionLabel,
+      totalScored: totalScored || 0,
+      maxScore,
+    });
   }
 
   async function handleBackfill() {
@@ -151,13 +183,21 @@ export function SmartOpsIntelligenceDashboard() {
         <div className="flex items-center gap-2">
           <Brain className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold">Intelligence Score Dashboard</h3>
-          <Badge variant="outline">{metrics.totalScored} leads scored</Badge>
+          <Badge variant="outline">{metrics.totalScored.toLocaleString()} leads scored</Badge>
         </div>
         <Button variant="outline" size="sm" onClick={handleBackfill} disabled={backfilling}>
           <Zap className="w-4 h-4 mr-2" />
           {backfilling ? "Processando..." : "Backfill Scores"}
         </Button>
       </div>
+
+      {/* CORREÇÃO 4B: Score max warning */}
+      {metrics.maxScore > 0 && metrics.maxScore < 100 && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>Score atual: máx. <strong>{metrics.maxScore}</strong> — recalibração necessária</span>
+        </div>
+      )}
 
       {/* Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -166,7 +206,7 @@ export function SmartOpsIntelligenceDashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Leads com Score</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalScored}</div>
+            <div className="text-2xl font-bold">{metrics.totalScored.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card>
@@ -174,7 +214,7 @@ export function SmartOpsIntelligenceDashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Tempo médio MQL → SQL</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.avgMqlToSql > 0 ? `${metrics.avgMqlToSql} dias` : "N/D"}</div>
+            <div className="text-2xl font-bold">{metrics.avgMqlToSqlLabel}</div>
           </CardContent>
         </Card>
         <Card>
@@ -182,7 +222,7 @@ export function SmartOpsIntelligenceDashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Regressão</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics.regressionRate}%</div>
+            <div className="text-2xl font-bold text-muted-foreground">{metrics.regressionLabel}</div>
           </CardContent>
         </Card>
       </div>
