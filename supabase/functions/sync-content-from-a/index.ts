@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
           const { error: upsertErr } = await supabase
             .from("system_a_content_library")
             .upsert(mapped, {
-              onConflict: "source_table,source_id",
+              onConflict: "source_table,source_id,channel",
               ignoreDuplicates: false,
             });
 
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
         const { error: upsertErr2 } = await supabase
           .from("system_a_content_library")
           .upsert(bridgeMapped, {
-            onConflict: "source_table,source_id",
+            onConflict: "source_table,source_id,channel",
             ignoreDuplicates: false,
           });
 
