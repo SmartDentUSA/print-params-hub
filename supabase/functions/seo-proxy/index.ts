@@ -839,11 +839,11 @@ async function generateHomepageHTML(supabase: any): Promise<string> {
   ${buildAICrawlerPolicy()}
   ${buildEntityReferenceMetas(knowledgeCtx, { type: 'technology', name: 'Impressão 3D Odontológica' })}
   <link rel="canonical" href="${baseUrl}/" />
-  <meta property="og:title" content="Parâmetros de Impressão 3D Odontológica" />
-  <meta property="og:description" content="Configurações profissionais para impressoras e resinas 3D odontológicas" />
-  <meta property="og:image" content="${baseUrl}/og-image.jpg" />
+  <meta property="og:title" content="Hub de Fluxo Digital e Parâmetros 3D | Smart Dent" />
+  <meta property="og:description" content="Domine o fluxo digital odontológico: de parâmetros de impressão validados a estratégias de escaneamento e design." />
+  <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
   <meta property="og:type" content="website" />
-  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-image.jpg`, canonicalUrl: `${baseUrl}/` })}
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -927,9 +927,9 @@ async function generateBrandHTML(brandSlug: string, supabase: any): Promise<stri
   <link rel="canonical" href="${baseUrl}/${brandSlug}" />
   <meta property="og:title" content="${title}" />
   <meta property="og:description" content="Configurações para ${modelsCount} modelos ${escapeHtml(brand.name)}" />
-  <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-image.jpg`}" />
+  <meta property="og:image" content="${brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`}" />
   <meta property="og:type" content="website" />
-  ${buildAIHeadTags({ context: contextText, title, description, image: brand.logo_url || `${baseUrl}/og-image.jpg`, canonicalUrl: `${baseUrl}/${brandSlug}` })}
+  ${buildAIHeadTags({ context: contextText, title, description, image: brand.logo_url || `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/${brandSlug}` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -995,7 +995,7 @@ async function generateModelHTML(brandSlug: string, modelSlug: string, supabase:
   const title = `${escapeHtml(model.name)} - Parâmetros de Impressão 3D | Smart Dent`;
   const description = `Parâmetros profissionais para ${escapeHtml(model.name)}. ${resinsCount} resinas disponíveis com configurações testadas.`;
   const contextText = `Parâmetros de impressão 3D para ${escapeHtml(model.name)} (${escapeHtml((model.brands as any).name)}). ${resinsCount} resinas com configurações testadas para odontologia digital.`;
-  const ogImage = model.image_url || `${baseUrl}/og-image.jpg`;
+  const ogImage = model.image_url || `${baseUrl}/og-fluxo-digital.jpg`;
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -1099,7 +1099,7 @@ async function generateResinHTML(brandSlug: string, modelSlug: string, resinSlug
   const seoTitle = resinData?.seo_title_override || `${escapeHtml(resinName)} para ${escapeHtml(modelSlug)} - Parâmetros | Smart Dent`;
   const metaDescription = resinData?.meta_description || `Parâmetros profissionais testados: ${escapeHtml(resinName)}. Layer: ${params.layer_height}mm, Cure: ${params.cure_time}s, Luz: ${params.light_intensity}%.`;
   const canonicalUrl = resinData?.canonical_url || `${baseUrl}/${brandSlug}/${modelSlug}/${resinSlug}`;
-  const ogImage = resinData?.og_image_url || resinData?.image_url || `${baseUrl}/og-image.jpg`;
+  const ogImage = resinData?.og_image_url || resinData?.image_url || `${baseUrl}/og-fluxo-digital.jpg`;
   const keywords = resinData?.keywords || [];
   const contextText = `Resina ${escapeHtml(resinName)} (${escapeHtml(resinManufacturer)}) com parâmetros otimizados para impressora ${escapeHtml(modelSlug)}. Layer height: ${params.layer_height}mm, cure time: ${params.cure_time}s, light intensity: ${params.light_intensity}%.`;
 
@@ -1223,7 +1223,7 @@ async function generateSystemACatalogHTML(
   const categoryPath = category === 'product' ? 'produtos' : 
                        category === 'video_testimonial' ? 'depoimentos' : 'categorias';
   const canonicalUrl = item.canonical_url || `${baseUrl}/${categoryPath}/${slug}`;
-  const ogImage = item.og_image_url || item.image_url || `${baseUrl}/og-image.jpg`;
+  const ogImage = item.og_image_url || item.image_url || `${baseUrl}/og-fluxo-digital.jpg`;
   const keywords = item.keywords || [];
 
   const extraData = item.extra_data || {};
@@ -1358,9 +1358,9 @@ async function generateKnowledgeHubHTML(supabase: any): Promise<string> {
   <link rel="alternate" hreflang="x-default" href="${baseUrl}/base-conhecimento" />
   <meta property="og:title" content="Base de Conhecimento Smart Dent" />
   <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="${baseUrl}/og-image.jpg" />
+  <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
   <meta property="og:type" content="website" />
-  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-image.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento` })}
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
@@ -1431,9 +1431,9 @@ async function generateKnowledgeCategoryHTML(letter: string, supabase: any): Pro
   <link rel="canonical" href="${baseUrl}/base-conhecimento/${letter.toLowerCase()}" />
   <meta property="og:title" content="${escapeHtml(category.name)} - Base de Conhecimento" />
   <meta property="og:description" content="${description}" />
-  <meta property="og:image" content="${baseUrl}/og-image.jpg" />
+  <meta property="og:image" content="${baseUrl}/og-fluxo-digital.jpg" />
   <meta property="og:type" content="website" />
-  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-image.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` })}
+  ${buildAIHeadTags({ context: contextText, title, description, image: `${baseUrl}/og-fluxo-digital.jpg`, canonicalUrl: `${baseUrl}/base-conhecimento/${letter.toLowerCase()}` })}
   <script type="application/ld+json">
   ${JSON.stringify({
     "@context": "https://schema.org",
