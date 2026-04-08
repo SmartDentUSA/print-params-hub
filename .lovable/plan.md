@@ -1,47 +1,60 @@
 
 
-## Gerar Documento de Auditoria Profunda Completa (.MD)
+## Central de Campanhas — Plano de Implementacao
 
-### O que sera feito
+### Resumo
 
-Criar um documento Markdown completo e detalhado (`AUDITORIA_PROFUNDA_SISTEMA_COMPLETO.md`) com auditoria exaustiva de cada subsistema, funcionalidade, integração, ferramenta, uso de IA e fluxo de dados do Revenue Intelligence OS.
+Nova aba "Campanhas" no Smart Ops com 3 sub-abas: Biblioteca de Conteudo, Criar Campanha e Historico. Requer 3 tabelas novas + 1 componente principal + registro na sidebar/renderizacao.
 
-### Estrutura do documento
+### 1. Migration SQL (3 tabelas)
 
-O documento tera ~20 seções cobrindo:
+Criar `system_a_content_library`, `campaign_sessions`, `campaign_send_log` conforme schema fornecido. RLS: leitura para authenticated, escrita para authenticated. Indexes em `channel`, `content_type`, `product_name` na library e `status`, `created_at` em sessions.
 
-1. **Identidade e Stack** — Nomenclatura, versoes, dependencias, domínios
-2. **Arquitetura Dual** — Lead Lifecycle + Content Intelligence com diagramas ASCII
-3. **CDP Unificado (lia_attendances)** — Todos os ~200 campos organizados por domínio (Core, SDR, PipeRun, Cognitive, LIS, Equipamentos, E-commerce, Astron, SellFlux, Automacao)
-4. **Ingestao de Leads** — 5 entry points, Smart Merge (5 categorias), normalizacao, PQL detection, auto-forward dinamico, form_data JSONB
-5. **CRM Sync (PipeRun)** — Hierarquia Person→Company→Deal, Golden Rule, Decision Tree, Round Robin, notas HTML
-6. **Cognitive Engine** — DeepSeek v3, 10 eixos, pipeline cognitivo, batch processing
-7. **Intelligence Score (LIS)** — 4 eixos, formula, RPC, calibracao (max 81)
-8. **Workflow Portfolio 7x3** — 7 etapas, 25 subcategorias, 3 camadas, portfolio_json, triggers SQL
-9. **Formularios Dinamicos** — smartops_forms, smartops_form_fields, smartops_form_field_responses, PublicFormPage, auto-forward
-10. **Integracoes Externas (9 sistemas)** — PipeRun, SellFlux, WaLeads, Meta Ads, Loja Integrada, Astron, PandaVideo, Google Drive/Reviews, Omie ERP
-11. **Dra. L.I.A.** — RAG (vetor + FTS + ILIKE), 3 canais, prioridade artigos sobre videos, depoimentos, links internos
-12. **Copilot IA** — Dual Brain, tool calling, 10 iteracoes, ferramentas operacionais
-13. **Content Intelligence Pipeline** — 14 etapas, orquestrador (1193 linhas), anti-alucinacao, pos-processamento
-14. **SEO & IA Exposure** — 17+ JSON-LD, hreflang, sitemaps (5), RSS, SSR proxy (seo-proxy), llms.txt, AI readiness
-15. **Edge Functions — Inventario Completo (100+)** — Tabela de todas as funcoes com status, categoria, descricao
-16. **Shared Modules (_shared/)** — 22 modulos com descricao e dependencias
-17. **Database Schema** — 30+ tabelas, views, RPCs, triggers, RLS policies
-18. **Automacao & Watchdog** — Stagnation (6 etapas), Proactive Outreach, CS Rules, System Watchdog
-19. **Seguranca** — RLS, JWT, secrets, rate limiting, input validation, concurrency locks
-20. **Metricas e Recomendacoes** — KPIs do sistema, pontos de atencao, recomendacoes
+### 2. Componente principal
 
-### Fonte dos dados
+**Arquivo**: `src/components/SmartOpsCampaigns.tsx`
 
-O documento sera construido a partir de:
-- Todos os docs existentes (`SYSTEM_DESCRIPTION.md`, `REVENUE_INTELLIGENCE_OS_TECHNICAL_DOC.md`, `SKILL_SMARTDENT_REVENUE_OS.md`, `AUDITORIA_WORKFLOW_FORMULARIOS_CRM.md`)
-- Memories do sistema (22 memories de arquitetura, integracoes, features)
-- Codigo fonte explorado (edge functions, shared modules, componentes)
-- Inventario real de edge functions (100+ funcoes listadas)
+Componente com `Tabs` interno (3 sub-abas):
 
-### Saida
+**Sub-aba 1 — Biblioteca de Conteudo**
+- Header: titulo, badge count, botao "Sincronizar Agora" (invoke `sync-content-from-a`), ultimo sync
+- Filtros: canal (Select), tipo (Select), produto (Input ILIKE)
+- Grid de cards com badges, preview, thumbnail, quality_score, botao "Usar em Campanha"
+- Estado vazio quando count=0
 
-- Arquivo: `/mnt/documents/AUDITORIA_PROFUNDA_SISTEMA_COMPLETO.md`
-- Tamanho estimado: ~3000-4000 linhas
-- Formato: Markdown com tabelas, diagramas ASCII, blocos de codigo
+**Sub-aba 2 — Criar Campanha (Wizard 3 steps)**
+- Step 1: selecionar conteudo (busca ou pre-selecionado), nome, descricao, canal
+- Step 2: segmentar leads via filtros em `lia_attendances` (anchor_product, temperatura, stage, status). Count em tempo real
+- Step 3: revisar e INSERT em `campaign_sessions` com status=draft
+
+**Sub-aba 3 — Historico**
+- Tabela de `campaign_sessions` ORDER BY created_at DESC
+- Badges de status coloridos
+- Row expandivel ou Sheet lateral com detalhes + logs de `campaign_send_log`
+
+### 3. Registro no Admin
+
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/components/AdminSidebar.tsx` | Adicionar `{ id: "so-campanhas", title: "Campanhas", icon: Megaphone }` no grupo Smart Ops |
+| `src/pages/AdminViewSecure.tsx` | Importar `SmartOpsCampaigns`, adicionar case `so-campanhas` no switch |
+| `src/components/SmartOpsTab.tsx` | Adicionar TabsTrigger "Campanhas" + TabsContent (para compatibilidade) |
+
+### 4. Arquivos criados/editados
+
+| Arquivo | Acao |
+|---------|------|
+| `supabase/migrations/xxx_create_campaign_tables.sql` | 3 tabelas + RLS + indexes |
+| `src/components/SmartOpsCampaigns.tsx` | Componente principal (~500 linhas) |
+| `src/components/AdminSidebar.tsx` | +1 item sidebar (import Megaphone, +1 linha) |
+| `src/pages/AdminViewSecure.tsx` | +1 import, +1 case |
+| `src/components/SmartOpsTab.tsx` | +1 trigger, +1 content |
+
+### Padrao tecnico
+
+- Queries via `supabase` client importado de `@/integrations/supabase/client`
+- Toast via `sonner`
+- UI: shadcn Card, Badge, Select, Button, Sheet, Tabs, Input
+- Todas as queries em `lia_attendances` com `WHERE merged_into IS NULL`
+- Nenhuma tabela existente sera modificada
 
