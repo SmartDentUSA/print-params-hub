@@ -45,6 +45,7 @@ import { SmartOpsReports } from "@/components/SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "@/components/SmartOpsSmartFlowAnalytics";
 import { SmartOpsCopilot } from "@/components/SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "@/components/smartops/SmartOpsWorkflowMapper";
+import { SmartOpsCampaigns } from "@/components/SmartOpsCampaigns";
 
 export default function AdminViewSecure() {
   const [user, setUser] = useState<User | null>(null);
@@ -236,6 +237,7 @@ export default function AdminViewSecure() {
       case 'so-roi': return <SmartOpsSmartFlowAnalytics />;
       case 'so-copilot': return <SmartOpsCopilot />;
       case 'so-mapeamento': return <SmartOpsWorkflowMapper />;
+      case 'so-campanhas': return <SmartOpsCampaigns />;
       default: return <AdminModels />;
     }
   };
