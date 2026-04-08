@@ -2315,6 +2315,7 @@ export type Database = {
           ai_context_en: string | null
           ai_context_es: string | null
           ai_prompt_template: string | null
+          answer_block: string | null
           author_id: string | null
           canva_template_url: string | null
           category_id: string | null
@@ -2339,9 +2340,12 @@ export type Database = {
           geo_state_code: string | null
           icon_color: string | null
           id: string
+          is_medical_device: boolean | null
+          is_scholarly: boolean | null
           keyword_ids: string[] | null
           keywords: string[] | null
           meta_description: string | null
+          norm_references: string[] | null
           og_image_alt: string | null
           og_image_url: string | null
           order_index: number
@@ -2351,6 +2355,7 @@ export type Database = {
           selected_pdf_ids_es: string[] | null
           selected_pdf_ids_pt: string[] | null
           slug: string
+          technical_properties: Json | null
           title: string
           title_en: string | null
           title_es: string | null
@@ -2363,6 +2368,7 @@ export type Database = {
           ai_context_en?: string | null
           ai_context_es?: string | null
           ai_prompt_template?: string | null
+          answer_block?: string | null
           author_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
@@ -2387,9 +2393,12 @@ export type Database = {
           geo_state_code?: string | null
           icon_color?: string | null
           id?: string
+          is_medical_device?: boolean | null
+          is_scholarly?: boolean | null
           keyword_ids?: string[] | null
           keywords?: string[] | null
           meta_description?: string | null
+          norm_references?: string[] | null
           og_image_alt?: string | null
           og_image_url?: string | null
           order_index: number
@@ -2399,6 +2408,7 @@ export type Database = {
           selected_pdf_ids_es?: string[] | null
           selected_pdf_ids_pt?: string[] | null
           slug: string
+          technical_properties?: Json | null
           title: string
           title_en?: string | null
           title_es?: string | null
@@ -2411,6 +2421,7 @@ export type Database = {
           ai_context_en?: string | null
           ai_context_es?: string | null
           ai_prompt_template?: string | null
+          answer_block?: string | null
           author_id?: string | null
           canva_template_url?: string | null
           category_id?: string | null
@@ -2435,9 +2446,12 @@ export type Database = {
           geo_state_code?: string | null
           icon_color?: string | null
           id?: string
+          is_medical_device?: boolean | null
+          is_scholarly?: boolean | null
           keyword_ids?: string[] | null
           keywords?: string[] | null
           meta_description?: string | null
+          norm_references?: string[] | null
           og_image_alt?: string | null
           og_image_url?: string | null
           order_index?: number
@@ -2447,6 +2461,7 @@ export type Database = {
           selected_pdf_ids_es?: string[] | null
           selected_pdf_ids_pt?: string[] | null
           slug?: string
+          technical_properties?: Json | null
           title?: string
           title_en?: string | null
           title_es?: string | null
@@ -9553,6 +9568,21 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
         ]
+      }
+      v_h2_as_questions: {
+        Row: {
+          answer_block: string | null
+          h2_as_question: boolean | null
+          is_medical_device: boolean | null
+          is_scholarly: boolean | null
+          letter: string | null
+          n_faqs: number | null
+          n_norms: number | null
+          n_tech_props: number | null
+          slug: string | null
+          title: string | null
+        }
+        Relationships: []
       }
       v_lead_academy: {
         Row: {
