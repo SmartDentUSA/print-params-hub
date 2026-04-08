@@ -352,10 +352,10 @@ function CreateCampaign({
       let query = supabase
         .from("lia_attendances")
         .select("id", { count: "exact", head: true })
-        .is("merged_into", null);
+        .is("merged_into", null) as any;
 
       if (anchorProduct !== "all") query = query.ilike("anchor_product", `%${anchorProduct}%`);
-      if (temperatura !== "all") query = query.eq("temperatura_lead" as any, parseInt(temperatura));
+      if (temperatura !== "all") query = query.eq("temperatura_lead", parseInt(temperatura));
       if (stageName !== "all") query = query.eq("piperun_stage_name", stageName);
 
       const { count } = await query;
