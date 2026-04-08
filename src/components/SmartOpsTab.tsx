@@ -21,6 +21,7 @@ import { SmartOpsReports } from "./SmartOpsReports";
 import { SmartOpsSmartFlowAnalytics } from "./SmartOpsSmartFlowAnalytics";
 import { SmartOpsCopilot } from "./SmartOpsCopilot";
 import { SmartOpsWorkflowMapper } from "./smartops/SmartOpsWorkflowMapper";
+import { SmartOpsCampaigns } from "./SmartOpsCampaigns";
 
 
 export function SmartOpsTab() {
@@ -90,6 +91,7 @@ export function SmartOpsTab() {
           <TabsTrigger value="intelligence">Intelligence</TabsTrigger>
           <TabsTrigger value="roi">ROI</TabsTrigger>
           <TabsTrigger value="mapeamento">Mapeamento 7×3</TabsTrigger>
+          <TabsTrigger value="campanhas">Campanhas</TabsTrigger>
           <TabsTrigger value="copilot">🤖 Copilot</TabsTrigger>
         </TabsList>
 
@@ -140,6 +142,9 @@ export function SmartOpsTab() {
         </TabsContent>
         <TabsContent value="mapeamento">
           <SmartOpsWorkflowMapper />
+        </TabsContent>
+        <TabsContent value="campanhas">
+          <SmartOpsCampaigns />
         </TabsContent>
       </Tabs>
     </div>

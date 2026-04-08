@@ -4,7 +4,7 @@ import {
   Wrench, BarChart3, Users, Settings, LogOut, ArrowLeft,
   Zap, LayoutDashboard, Contact, UsersRound, Bot, MessageSquare,
   ClipboardList, Heart, Cpu, Coins, BrainCircuit, LineChart,
-  Video, ChevronDown, GraduationCap, Map
+  Video, ChevronDown, GraduationCap, Map, Megaphone
 } from "lucide-react";
 import {
   Sidebar,
@@ -88,6 +88,7 @@ const sidebarGroups: SidebarGroupDef[] = [
       { id: "so-intelligence", title: "Intelligence", icon: BrainCircuit },
       { id: "so-roi", title: "ROI", icon: LineChart },
       { id: "so-mapeamento", title: "Mapeamento 7×3", icon: Map },
+      { id: "so-campanhas", title: "Campanhas", icon: Megaphone },
       { id: "so-copilot", title: "🤖 Copilot", icon: Cpu },
     ],
   },
