@@ -499,6 +499,320 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_send_log: {
+        Row: {
+          anchor_product: string | null
+          campaign_id: string
+          content_sent: string | null
+          created_at: string | null
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          lead_id: string
+          media_url_sent: string | null
+          nome: string | null
+          piperun_stage: string | null
+          scheduled_at: string | null
+          sellflux_broadcast_id: string | null
+          sent_at: string | null
+          status: string | null
+          telefone: string | null
+          temperatura: string | null
+          waleads_message_id: string | null
+        }
+        Insert: {
+          anchor_product?: string | null
+          campaign_id: string
+          content_sent?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id: string
+          media_url_sent?: string | null
+          nome?: string | null
+          piperun_stage?: string | null
+          scheduled_at?: string | null
+          sellflux_broadcast_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+          telefone?: string | null
+          temperatura?: string | null
+          waleads_message_id?: string | null
+        }
+        Update: {
+          anchor_product?: string | null
+          campaign_id?: string
+          content_sent?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          lead_id?: string
+          media_url_sent?: string | null
+          nome?: string | null
+          piperun_stage?: string | null
+          scheduled_at?: string | null
+          sellflux_broadcast_id?: string | null
+          sent_at?: string | null
+          status?: string | null
+          telefone?: string | null
+          temperatura?: string | null
+          waleads_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_send_log_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
+      campaign_sessions: {
+        Row: {
+          channel: string | null
+          completed_at: string | null
+          content_id: string | null
+          content_type: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          failed_count: number | null
+          id: string
+          lead_count: number | null
+          lead_filters: Json | null
+          lead_ids: string[] | null
+          name: string
+          results: Json | null
+          scheduled_at: string | null
+          sent_count: number | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel?: string | null
+          completed_at?: string | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          failed_count?: number | null
+          id?: string
+          lead_count?: number | null
+          lead_filters?: Json | null
+          lead_ids?: string[] | null
+          name: string
+          results?: Json | null
+          scheduled_at?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel?: string | null
+          completed_at?: string | null
+          content_id?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          failed_count?: number | null
+          id?: string
+          lead_count?: number | null
+          lead_filters?: Json | null
+          lead_ids?: string[] | null
+          name?: string
+          results?: Json | null
+          scheduled_at?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_sessions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_content_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          audience_count: number | null
+          audience_snapshot_at: string | null
+          canal: string
+          completed_at: string | null
+          content_bridge_id: string | null
+          created_at: string | null
+          created_by: string | null
+          descricao: string | null
+          id: string
+          lead_filter: Json | null
+          media_url_override: string | null
+          mensagem_template: string | null
+          nome: string
+          notes: string | null
+          objetivo: string | null
+          scheduled_at: string | null
+          started_at: string | null
+          status: string | null
+          total_delivered: number | null
+          total_failed: number | null
+          total_leads: number | null
+          total_sent: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          audience_count?: number | null
+          audience_snapshot_at?: string | null
+          canal: string
+          completed_at?: string | null
+          content_bridge_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          lead_filter?: Json | null
+          media_url_override?: string | null
+          mensagem_template?: string | null
+          nome: string
+          notes?: string | null
+          objetivo?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string | null
+          total_delivered?: number | null
+          total_failed?: number | null
+          total_leads?: number | null
+          total_sent?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          audience_count?: number | null
+          audience_snapshot_at?: string | null
+          canal?: string
+          completed_at?: string | null
+          content_bridge_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          lead_filter?: Json | null
+          media_url_override?: string | null
+          mensagem_template?: string | null
+          nome?: string
+          notes?: string | null
+          objetivo?: string | null
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string | null
+          total_delivered?: number | null
+          total_failed?: number | null
+          total_leads?: number | null
+          total_sent?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_content_bridge_id_fkey"
+            columns: ["content_bridge_id"]
+            isOneToOne: false
+            referencedRelation: "content_bridge"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalog_documents: {
         Row: {
           active: boolean | null
@@ -750,6 +1064,107 @@ export type Database = {
           title?: string
         }
         Relationships: []
+      }
+      content_bridge: {
+        Row: {
+          approved: boolean | null
+          canal: string
+          content_html: string | null
+          content_text: string | null
+          content_type: string | null
+          created_at: string | null
+          cta_text: string | null
+          cta_url: string | null
+          extra_data: Json | null
+          hashtags: string[] | null
+          id: string
+          imported_at: string | null
+          last_sync_at: string | null
+          last_used_at: string | null
+          media_url: string | null
+          product_category: string | null
+          product_external_id: string | null
+          product_name: string | null
+          product_slug: string | null
+          sistema_a_source_id: string
+          sistema_a_source_table: string
+          sistema_a_updated_at: string | null
+          status: string | null
+          system_a_catalog_id: string | null
+          thumbnail_url: string | null
+          times_used: number | null
+          titulo: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved?: boolean | null
+          canal: string
+          content_html?: string | null
+          content_text?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          cta_text?: string | null
+          cta_url?: string | null
+          extra_data?: Json | null
+          hashtags?: string[] | null
+          id?: string
+          imported_at?: string | null
+          last_sync_at?: string | null
+          last_used_at?: string | null
+          media_url?: string | null
+          product_category?: string | null
+          product_external_id?: string | null
+          product_name?: string | null
+          product_slug?: string | null
+          sistema_a_source_id: string
+          sistema_a_source_table: string
+          sistema_a_updated_at?: string | null
+          status?: string | null
+          system_a_catalog_id?: string | null
+          thumbnail_url?: string | null
+          times_used?: number | null
+          titulo?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved?: boolean | null
+          canal?: string
+          content_html?: string | null
+          content_text?: string | null
+          content_type?: string | null
+          created_at?: string | null
+          cta_text?: string | null
+          cta_url?: string | null
+          extra_data?: Json | null
+          hashtags?: string[] | null
+          id?: string
+          imported_at?: string | null
+          last_sync_at?: string | null
+          last_used_at?: string | null
+          media_url?: string | null
+          product_category?: string | null
+          product_external_id?: string | null
+          product_name?: string | null
+          product_slug?: string | null
+          sistema_a_source_id?: string
+          sistema_a_source_table?: string
+          sistema_a_updated_at?: string | null
+          status?: string | null
+          system_a_catalog_id?: string | null
+          thumbnail_url?: string | null
+          times_used?: number | null
+          titulo?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_bridge_system_a_catalog_id_fkey"
+            columns: ["system_a_catalog_id"]
+            isOneToOne: false
+            referencedRelation: "system_a_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       content_requests: {
         Row: {
@@ -8100,6 +8515,81 @@ export type Database = {
         }
         Relationships: []
       }
+      system_a_content_library: {
+        Row: {
+          channel: string | null
+          content_data: Json
+          content_text: string | null
+          content_type: string
+          created_at: string | null
+          cta_url: string | null
+          id: string
+          is_active: boolean | null
+          landing_page_url: string | null
+          media_url: string | null
+          product_category: string | null
+          product_id: string | null
+          product_name: string | null
+          product_slug: string | null
+          quality_score: number | null
+          source_id: string
+          source_table: string
+          synced_at: string | null
+          system_a_updated_at: string | null
+          tags: string[] | null
+          thumbnail_url: string | null
+          title: string | null
+        }
+        Insert: {
+          channel?: string | null
+          content_data?: Json
+          content_text?: string | null
+          content_type: string
+          created_at?: string | null
+          cta_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          landing_page_url?: string | null
+          media_url?: string | null
+          product_category?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_slug?: string | null
+          quality_score?: number | null
+          source_id: string
+          source_table: string
+          synced_at?: string | null
+          system_a_updated_at?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string | null
+        }
+        Update: {
+          channel?: string | null
+          content_data?: Json
+          content_text?: string | null
+          content_type?: string
+          created_at?: string | null
+          cta_url?: string | null
+          id?: string
+          is_active?: boolean | null
+          landing_page_url?: string | null
+          media_url?: string | null
+          product_category?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          product_slug?: string | null
+          quality_score?: number | null
+          source_id?: string
+          source_table?: string
+          synced_at?: string | null
+          system_a_updated_at?: string | null
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       system_health_logs: {
         Row: {
           ai_analysis: string | null
@@ -8863,6 +9353,19 @@ export type Database = {
           registros: number | null
           tabela: string | null
           ultimo: string | null
+        }
+        Relationships: []
+      }
+      v_content_library_by_product: {
+        Row: {
+          channel: string | null
+          content_count: number | null
+          content_items: Json | null
+          content_type: string | null
+          last_synced: string | null
+          product_category: string | null
+          product_name: string | null
+          product_slug: string | null
         }
         Relationships: []
       }
