@@ -85,6 +85,19 @@ export function usePageTracking() {
       const sessionId = getOrCreateSessionId();
       const utms = getUtmParams();
 
+      // Push virtual pageview to GTM/GA
+      if (typeof window !== 'undefined' && (window as any).dataLayer) {
+        (window as any).dataLayer.push({
+          event: 'page_view',
+          page_path: path,
+          page_title: document.title,
+          page_type: detectPageType(path),
+          page_location: window.location.href,
+          session_id: sessionId,
+          ...utms,
+        });
+      }
+
       supabase
         .from("lead_page_views" as any)
         .insert({
