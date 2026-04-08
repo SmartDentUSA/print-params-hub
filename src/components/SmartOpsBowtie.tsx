@@ -21,13 +21,23 @@ interface BowtieMetrics {
   csOngoing: number;
 }
 
-interface FunnelRow {
-  faixa: string;
+interface FunnelBand {
+  key: string;
   label: string;
-  color: string;
-  curMonth: number;
-  nextMonth: number;
-  futureMonths: number;
+  display: string;
+  mes_anterior: { count: number; value: number };
+  mes_atual: { count: number; value: number };
+  pipeline_atual: { count: number; value: number };
+}
+
+interface FunnelData {
+  funil: FunnelBand[];
+  summary: {
+    colunas: { col1: string; col2: string; col3: string };
+    total_pipeline_atual_value: number;
+    total_mes_atual_value: number;
+    total_mes_anterior_value: number;
+  };
 }
 
 interface PipelineHealth {
@@ -39,14 +49,15 @@ interface PipelineHealth {
   saude: number;
 }
 
-// Goals loaded from DB, with defaults
-
-const FAIXAS = [
-  { key: "contato_realizado", label: "Contato Realizado", color: "bg-red-700 text-white", minScore: -Infinity, maxScore: 60 },
-  { key: "em_contato", label: "Em Contato", color: "bg-orange-500 text-white", minScore: 60, maxScore: 80 },
-  { key: "em_negociacao", label: "Em Negociação", color: "bg-yellow-500 text-white", minScore: 80, maxScore: 100 },
-  { key: "fechamento", label: "Fechamento", color: "bg-green-600 text-white", minScore: 100, maxScore: Infinity },
-];
+interface ProductRow {
+  name: string;
+  prev: number;
+  prevWon: number;
+  cur: number;
+  curWon: number;
+  year: number;
+  yearWon: number;
+}
 
 // ─── Helpers ───
 function healthBadge(value: number, goal: number) {
@@ -59,6 +70,10 @@ function healthBadge(value: number, goal: number) {
 function conversionPct(from: number, to: number) {
   if (from === 0) return "0%";
   return `${((to / from) * 100).toFixed(1)}%`;
+}
+
+function formatBRL(value: number) {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 function monthLabel(date: Date) {
@@ -107,21 +122,16 @@ function GaugeSVG({ value, max = 300 }: { value: number; max?: number }) {
           <stop offset="100%" stopColor="#22c55e" />
         </linearGradient>
       </defs>
-      {/* Background arc */}
       <path d={arcPath(Math.PI, 0)} fill="none" stroke="#e5e7eb" strokeWidth="18" strokeLinecap="round" />
-      {/* Colored arc */}
       <path d={arcPath(Math.PI, 0)} fill="none" stroke="url(#gaugeGrad)" strokeWidth="14" strokeLinecap="round" />
-      {/* Needle */}
       <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
       <circle cx={cx} cy={cy} r="5" fill="#1e293b" />
-      {/* Ticks */}
       {ticks.map((t) => {
         const a = Math.PI - (t / max) * Math.PI;
         const tx = cx + (r + 14) * Math.cos(a);
         const ty = cy - (r + 14) * Math.sin(a);
         return <text key={t} x={tx} y={ty} textAnchor="middle" fontSize="9" fill="#64748b">{t}</text>;
       })}
-      {/* Value */}
       <text x={cx} y={cy + 22} textAnchor="middle" fontSize="16" fontWeight="bold" fill="#1e293b">
         {Math.round(value)}
       </text>
@@ -130,10 +140,16 @@ function GaugeSVG({ value, max = 300 }: { value: number; max?: number }) {
   );
 }
 
+// ─── Converted stages that count as "won" ───
+const WON_STAGES = new Set([
+  "Em espera", "Etapa 1", "Treinamento Agendado", "Equipamentos Entregues", "Pedir Faturamento",
+]);
+
 // ─── Main Component ───
 export function SmartOpsBowtie() {
   const [metrics, setMetrics] = useState<BowtieMetrics>({ mql: 0, sql: 0, vendas: 0, csContratos: 0, csOnboarding: 0, csOngoing: 0 });
-  const [allLeads, setAllLeads] = useState<{ score: number | null; created_at: string; status_atual_lead_crm: string | null; lead_status: string; produto_interesse: string | null; ultima_etapa_comercial: string | null; temperatura_lead: string | null }[]>([]);
+  const [funnelData, setFunnelData] = useState<FunnelData | null>(null);
+  const [productLeads, setProductLeads] = useState<Array<{ anchor_product: string; real_status: string | null; piperun_created_at: string | null; piperun_stage_name: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
   const [goals, setGoals] = useState<GoalsData>(DEFAULT_GOALS);
@@ -189,14 +205,17 @@ export function SmartOpsBowtie() {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-      const [mqlRes, sqlRes, vendasRes, contratosRes, onboardingRes, ongoingRes, leadsRes] = await Promise.all([
+      const [mqlRes, sqlRes, vendasRes, contratosRes, onboardingRes, ongoingRes, funnelRes, productRes] = await Promise.all([
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).eq("lead_status", "novo").gte("created_at", thirtyDaysAgo),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).not("resumo_historico_ia", "is", null).gte("created_at", thirtyDaysAgo),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).eq("status_atual_lead_crm", "Ganha").gte("created_at", thirtyDaysAgo),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).not("data_contrato", "is", null).gte("data_contrato", thirtyDaysAgo),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).eq("cs_treinamento", "concluido").or("ativo_scan.eq.true,ativo_notebook.eq.true,ativo_cad.eq.true,ativo_cad_ia.eq.true,ativo_smart_slice.eq.true,ativo_print.eq.true,ativo_cura.eq.true,ativo_insumos.eq.true"),
         supabase.from("lia_attendances").select("id", { count: "exact", head: true }).gte("data_ultima_compra_insumos", ninetyDaysAgo),
-        supabase.from("lia_attendances").select("score, created_at, status_atual_lead_crm, lead_status, produto_interesse, ultima_etapa_comercial, temperatura_lead").limit(1000),
+        // CORREÇÃO 1: Edge Function for funnel data
+        supabase.functions.invoke("pipeline-funnel-data"),
+        // CORREÇÃO 3: anchor_product instead of produto_interesse
+        fetchProductLeads(),
       ]);
 
       setMetrics({
@@ -207,83 +226,65 @@ export function SmartOpsBowtie() {
         csOnboarding: onboardingRes.count ?? 0,
         csOngoing: ongoingRes.count ?? 0,
       });
-      setAllLeads(leadsRes.data || []);
+
+      if (funnelRes.data && !funnelRes.error) {
+        setFunnelData(funnelRes.data as FunnelData);
+      }
+
       setLoading(false);
     };
+
+    async function fetchProductLeads() {
+      const allRows: typeof productLeads = [];
+      let offset = 0;
+      const BATCH = 1000;
+      while (true) {
+        const { data } = await supabase
+          .from("lia_attendances")
+          .select("anchor_product, real_status, piperun_created_at, piperun_stage_name")
+          .is("merged_into", null)
+          .not("anchor_product", "is", null)
+          .neq("anchor_product", "")
+          .range(offset, offset + BATCH - 1);
+        if (!data || data.length === 0) break;
+        allRows.push(...(data as typeof productLeads));
+        if (data.length < BATCH) break;
+        offset += BATCH;
+      }
+      setProductLeads(allRows);
+    }
+
     fetchAll();
   }, []);
 
-  // ─── Funnel data ───
-  const funnelRows: FunnelRow[] = useMemo(() => {
-    const curStart = selectedMonth;
-    const nextStart = addMonths(selectedMonth, 1);
-    const futureStart = addMonths(selectedMonth, 2);
+  // ─── CORREÇÃO 1: Funnel from Edge Function ───
+  const FAIXA_COLORS: Record<string, string> = {
+    em_processo: "bg-red-700 text-white",
+    boas_chances: "bg-orange-500 text-white",
+    comprometido: "bg-yellow-500 text-white",
+    conquistado: "bg-green-600 text-white",
+  };
 
-    const classify = (lead: typeof allLeads[0]) => {
-      // Prefer CRM stage-based classification when available
-      const etapa = (lead.ultima_etapa_comercial || "").toLowerCase();
-      const temp = (lead.temperatura_lead || "").toLowerCase();
-      const status = lead.status_atual_lead_crm;
-      const s = lead.score ?? 0;
-
-      if (status === "Ganha" || etapa.includes("fechamento") || etapa.includes("ganho")) return "fechamento";
-      if (etapa.includes("negociação") || etapa.includes("negociacao") || etapa.includes("proposta") || temp === "quente") return "em_negociacao";
-      if (etapa.includes("contato") || etapa.includes("apresentação") || etapa.includes("apresentacao") || temp === "morno") return "em_contato";
-      if (etapa || temp) return "contato_realizado";
-
-      // Fallback to score-based
-      if (s >= 100) return "fechamento";
-      if (s >= 80) return "em_negociacao";
-      if (s >= 60) return "em_contato";
-      return "contato_realizado";
-    };
-
-    const countByFaixaAndMonth = (monthStart: Date, monthEnd: Date, faixaKey: string) => {
-      return allLeads.filter((l) => {
-        const d = new Date(l.created_at);
-        return d >= monthStart && d < monthEnd && classify(l) === faixaKey;
-      }).length;
-    };
-
-    const countFuture = (afterDate: Date, faixaKey: string) => {
-      return allLeads.filter((l) => {
-        const d = new Date(l.created_at);
-        return d >= afterDate && classify(l) === faixaKey;
-      }).length;
-    };
-
-    return FAIXAS.map((f) => ({
-      faixa: f.key,
-      label: f.label,
-      color: f.color,
-      curMonth: countByFaixaAndMonth(curStart, nextStart, f.key),
-      nextMonth: countByFaixaAndMonth(nextStart, futureStart, f.key),
-      futureMonths: countFuture(futureStart, f.key),
-    }));
-  }, [allLeads, selectedMonth]);
-
-  // ─── Pipeline health ───
+  // ─── CORREÇÃO 2: Pipeline health from Edge Function data ───
   const pipeline: PipelineHealth = useMemo(() => {
-    const curStart = selectedMonth;
-    const curEnd = addMonths(selectedMonth, 1);
+    if (!funnelData) return { meta: 0, conquistado: 0, aRealizar: 0, pipelineNecessario: 0, pipelineExistente: 0, saude: 0 };
 
-    const autoConquistado = allLeads.filter((l) => {
-      const d = new Date(l.created_at);
-      return d >= curStart && d < curEnd && ((l.score ?? 0) >= 100 || l.status_atual_lead_crm === "Ganha");
-    }).length;
+    const pipelineExistente = savedOverrides.existente ?? funnelData.summary.total_pipeline_atual_value;
+    const conquistadoValue = funnelData.funil[3]?.mes_atual?.value ?? 0;
+    const conquistado = savedOverrides.conquistado ?? conquistadoValue;
 
-    const meta = savedOverrides.meta ?? goals.pipelineMeta;
-    const conquistado = savedOverrides.conquistado ?? autoConquistado;
+    // Meta from site_settings (value "2000" = R$ 2.000.000)
+    const metaMultiplied = (savedOverrides.meta ?? goals.pipelineMeta) * 1000;
+    const meta = metaMultiplied;
+
     const aRealizar = Math.max(meta - conquistado, 0);
     const pipelineNecessario = aRealizar * 3;
-    const autoPipelineExistente = allLeads.filter((l) => (l.score ?? 0) < 100 && l.lead_status !== "perdido").length;
-    const pipelineExistente = savedOverrides.existente ?? autoPipelineExistente;
     const saude = pipelineNecessario > 0 ? (pipelineExistente / pipelineNecessario) * 100 : 300;
 
     return { meta, conquistado, aRealizar, pipelineNecessario, pipelineExistente, saude };
-  }, [allLeads, selectedMonth, goals, savedOverrides]);
+  }, [funnelData, goals, savedOverrides]);
 
-  // ─── Leads por Produto de Interesse ───
+  // ─── CORREÇÃO 3: Leads por Produto (anchor_product) ───
   const productStats = useMemo(() => {
     const now = new Date();
     const curMonthStart = startOfMonth(now);
@@ -292,20 +293,21 @@ export function SmartOpsBowtie() {
 
     const groups: Record<string, { prev: number; prevWon: number; cur: number; curWon: number; year: number; yearWon: number }> = {};
 
-    allLeads.forEach((l) => {
-      const prod = l.produto_interesse || "Não Informado";
+    productLeads.forEach((l) => {
+      const prod = l.anchor_product || "Não Informado";
       if (!groups[prod]) groups[prod] = { prev: 0, prevWon: 0, cur: 0, curWon: 0, year: 0, yearWon: 0 };
-      const d = new Date(l.created_at);
-      const won = l.status_atual_lead_crm === "Ganha";
+      const d = l.piperun_created_at ? new Date(l.piperun_created_at) : null;
+      const won = l.real_status === "CLIENTE" || WON_STAGES.has(l.piperun_stage_name || "");
 
-      if (d >= prevMonthStart && d < curMonthStart) { groups[prod].prev++; if (won) groups[prod].prevWon++; }
-      if (d >= curMonthStart) { groups[prod].cur++; if (won) groups[prod].curWon++; }
-      if (d >= yearStart) { groups[prod].year++; if (won) groups[prod].yearWon++; }
+      if (d && d >= prevMonthStart && d < curMonthStart) { groups[prod].prev++; if (won) groups[prod].prevWon++; }
+      if (d && d >= curMonthStart) { groups[prod].cur++; if (won) groups[prod].curWon++; }
+      if (d && d >= yearStart) { groups[prod].year++; if (won) groups[prod].yearWon++; }
     });
 
-    const rows = Object.entries(groups)
+    const rows: ProductRow[] = Object.entries(groups)
       .map(([name, s]) => ({ name, ...s }))
-      .sort((a, b) => b.year - a.year);
+      .sort((a, b) => b.year - a.year)
+      .slice(0, 10);
 
     const totals = rows.reduce(
       (t, r) => ({ prev: t.prev + r.prev, prevWon: t.prevWon + r.prevWon, cur: t.cur + r.cur, curWon: t.curWon + r.curWon, year: t.year + r.year, yearWon: t.yearWon + r.yearWon }),
@@ -313,7 +315,7 @@ export function SmartOpsBowtie() {
     );
 
     return { rows, totals };
-  }, [allLeads]);
+  }, [productLeads]);
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Carregando métricas...</div>;
 
@@ -395,65 +397,74 @@ export function SmartOpsBowtie() {
         </CardContent>
       </Card>
 
-      {/* ═══ Funil de Oportunidades ═══ */}
+      {/* ═══ CORREÇÃO 1: Funil de Oportunidades (Edge Function) ═══ */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Funil de Oportunidades</CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSelectedMonth((m) => addMonths(m, -1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="text-sm font-medium capitalize min-w-[140px] text-center">{monthLabel(selectedMonth)}</span>
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setSelectedMonth((m) => addMonths(m, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[40px]">🌡️</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-center">Mês Atual</TableHead>
-                <TableHead className="text-center">Mês Seguinte</TableHead>
-                <TableHead className="text-center">Meses Seguintes</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {funnelRows.map((row, i) => {
-                const widths = [100, 85, 70, 55];
-                return (
-                  <TableRow key={row.faixa}>
-                    <TableCell>
-                      <div className={`w-6 h-6 rounded-full ${row.color} flex items-center justify-center text-[10px] font-bold`}>
-                        {i + 1}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`${row.color} px-2 py-0.5 rounded text-xs font-medium`} style={{ width: `${widths[i]}%` }}>
-                          {row.label}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center font-semibold">{row.curMonth}</TableCell>
-                    <TableCell className="text-center font-semibold">{row.nextMonth}</TableCell>
-                    <TableCell className="text-center font-semibold">{row.futureMonths}</TableCell>
+          {funnelData ? (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40px]">🌡️</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-center">{funnelData.summary.colunas.col1}</TableHead>
+                    <TableHead className="text-center">{funnelData.summary.colunas.col2}</TableHead>
+                    <TableHead className="text-center">{funnelData.summary.colunas.col3}</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          <div className="mt-3 text-xs text-muted-foreground text-center">
-            Total mês atual: <strong>{funnelRows.reduce((s, r) => s + r.curMonth, 0)}</strong> leads
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {funnelData.funil.map((row, i) => {
+                    const widths = [100, 85, 70, 55];
+                    const color = FAIXA_COLORS[row.key] || "bg-muted";
+                    return (
+                      <TableRow key={row.key}>
+                        <TableCell>
+                          <div className={`w-6 h-6 rounded-full ${color} flex items-center justify-center text-[10px] font-bold`}>
+                            {row.display}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className={`${color} px-2 py-0.5 rounded text-xs font-medium`} style={{ width: `${widths[i]}%` }}>
+                              {row.label}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          <div className="font-semibold">{formatBRL(row.mes_anterior.value)}</div>
+                          <div className="text-xs text-muted-foreground">({row.mes_anterior.count})</div>
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          <div className="font-semibold">{formatBRL(row.mes_atual.value)}</div>
+                          <div className="text-xs text-muted-foreground">({row.mes_atual.count})</div>
+                        </TableCell>
+                        <TableCell className="text-center text-sm">
+                          <div className="font-semibold">{formatBRL(row.pipeline_atual.value)}</div>
+                          <div className="text-xs text-muted-foreground">({row.pipeline_atual.count})</div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-muted-foreground text-center">
+                <div>Total: <strong>{formatBRL(funnelData.summary.total_mes_anterior_value)}</strong></div>
+                <div>Total: <strong>{formatBRL(funnelData.summary.total_mes_atual_value)}</strong></div>
+                <div>Total: <strong>{formatBRL(funnelData.summary.total_pipeline_atual_value)}</strong></div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center text-muted-foreground py-4">Erro ao carregar dados do funil</div>
+          )}
         </CardContent>
       </Card>
 
-      {/* ═══ Saúde do Pipeline ═══ */}
+      {/* ═══ CORREÇÃO 2: Saúde do Pipeline ═══ */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg">Saúde do Pipeline</CardTitle>
@@ -477,17 +488,17 @@ export function SmartOpsBowtie() {
                 <DialogTitle>Ajustar Saúde do Pipeline</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Deixe vazio para usar o cálculo automático.</p>
+                <p className="text-sm text-muted-foreground">Deixe vazio para usar o cálculo automático. Meta em milhares (ex: 2000 = R$ 2.000.000).</p>
                 <div className="space-y-2">
-                  <Label>Meta (override)</Label>
+                  <Label>Meta (override, em milhares)</Label>
                   <Input type="number" placeholder="Automático" value={pipelineOverrides.meta ?? ""} onChange={(e) => setPipelineOverrides((p) => ({ ...p, meta: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Fechamento (override)</Label>
+                  <Label>Conquistado (override, R$)</Label>
                   <Input type="number" placeholder="Automático" value={pipelineOverrides.conquistado ?? ""} onChange={(e) => setPipelineOverrides((p) => ({ ...p, conquistado: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Pipeline Existente (override)</Label>
+                  <Label>Pipeline Existente (override, R$)</Label>
                   <Input type="number" placeholder="Automático" value={pipelineOverrides.existente ?? ""} onChange={(e) => setPipelineOverrides((p) => ({ ...p, existente: e.target.value }))} />
                 </div>
                 <Button onClick={savePipelineOverrides} className="w-full">Salvar</Button>
@@ -497,36 +508,34 @@ export function SmartOpsBowtie() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            {/* Left: boxes */}
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-green-50 border border-green-200">
                 <div className="text-xs text-muted-foreground">Meta (+)</div>
-                <div className="text-2xl font-bold text-green-700">{pipeline.meta}</div>
+                <div className="text-2xl font-bold text-green-700">{formatBRL(pipeline.meta)}</div>
               </div>
               <div className="text-center text-muted-foreground text-lg">−</div>
               <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                <div className="text-xs text-muted-foreground">Fechamento (−)</div>
-                <div className="text-2xl font-bold text-blue-700">{pipeline.conquistado}</div>
+                <div className="text-xs text-muted-foreground">Conquistado (−)</div>
+                <div className="text-2xl font-bold text-blue-700">{formatBRL(pipeline.conquistado)}</div>
               </div>
               <div className="text-center text-muted-foreground text-lg">=</div>
               <div className="p-3 rounded-lg bg-orange-50 border border-orange-200">
                 <div className="text-xs text-muted-foreground">A Realizar (=)</div>
-                <div className="text-2xl font-bold text-orange-700">{pipeline.aRealizar}</div>
+                <div className="text-2xl font-bold text-orange-700">{formatBRL(pipeline.aRealizar)}</div>
               </div>
               <div className="text-center font-bold text-primary">× 3</div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 rounded-lg bg-muted border">
                   <div className="text-xs text-muted-foreground">Pipeline Necessário</div>
-                  <div className="text-xl font-bold">{pipeline.pipelineNecessario}</div>
+                  <div className="text-xl font-bold">{formatBRL(pipeline.pipelineNecessario)}</div>
                 </div>
                 <div className="p-3 rounded-lg bg-muted border">
                   <div className="text-xs text-muted-foreground">Pipeline Existente</div>
-                  <div className="text-xl font-bold">{pipeline.pipelineExistente}</div>
+                  <div className="text-xl font-bold">{formatBRL(pipeline.pipelineExistente)}</div>
                 </div>
               </div>
             </div>
 
-            {/* Right: gauge */}
             <div className="flex justify-center">
               <GaugeSVG value={pipeline.saude} />
             </div>
@@ -534,10 +543,11 @@ export function SmartOpsBowtie() {
         </CardContent>
       </Card>
 
-      {/* ═══ Leads por Produto de Interesse ═══ */}
+      {/* ═══ CORREÇÃO 3: Leads por Produto de Interesse (anchor_product) ═══ */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Leads por Produto de Interesse</CardTitle>
+          <p className="text-xs text-muted-foreground">Top 10 por anchor_product · {productLeads.length.toLocaleString()} leads com produto</p>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
