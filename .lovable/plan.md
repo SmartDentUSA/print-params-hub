@@ -1,84 +1,72 @@
 
 
-## Fix: L.I.A. prioriza artigos da base de conhecimento sobre vídeos soltos
+## Rebranding de Meta Tags: "PrinterParams" → "Smart Dent | Fluxo Digital"
 
 ### Problema
 
-Quando o lead pergunta "quais vídeos de protocolo vocês têm?", o RAG segue este caminho:
-1. Vector search — falha (similarity < 0.65)
-2. FTS — falha ou fraco
-3. **Keyword fallback on videos** (linha 460-493) — encontra vídeos como `Aula_Dr.FERNANDO.mp4` e `protocolo.mp4` que NÃO têm `content_id` → retorna `VIDEO_SEM_PAGINA`
-4. Como o fallback retornou resultados, o fluxo para aqui — **nunca chega ao `searchContentDirect`** que encontraria o artigo "Protocolos Impressos em 24h na Odontologia Digital"
+Todos os HTML do sistema usam branding antigo "PrinterParams Smart Dent" com descrições focadas apenas em "parâmetros de impressão". O novo posicionamento é **"Smart Dent | Fluxo Digital"** com foco em fluxo digital odontológico completo. Além disso, o footer do formulário público tem dados hardcoded errados (CNPJ, endereço).
 
-O artigo existe em `/base-conhecimento/d/protocolos-impressos-em-24h-na-odontologia-digital` mas a L.I.A. nunca o vê porque o keyword fallback retorna vídeos soltos antes.
+### Arquivos afetados (9 arquivos)
 
-### Solução
+**1. `index.html`**
+- Linha 6: title → `"Hub de Fluxo Digital e Parâmetros 3D | Smart Dent"`
+- Linha 7: description → nova description sobre fluxo digital
+- Linha 8: keywords → novos keywords
+- Linha 40: apple-mobile-web-app-title → `"Smart Dent"`
+- Linhas 142-152: Substituir todos os OG/Twitter tags pelos novos valores fornecidos (og-fluxo-digital.jpg)
 
-**Arquivo: `supabase/functions/_shared/lia-rag.ts`**
+**2. `src/components/SEOHead.tsx`**
+- Linha 156: title default → `"Hub de Fluxo Digital e Parâmetros 3D | Smart Dent"`
+- Linha 157: description default → nova
+- Linha 644: `og:site_name` → `"Smart Dent | Fluxo Digital"`
+- Twitter tags mantêm o padrão dinâmico mas com site_name atualizado
 
-**1. No keyword fallback de vídeos (linhas 460-493), adicionar busca paralela de artigos**
+**3. `src/components/KnowledgeSEOHead.tsx`**
+- Linhas 416, 458, 1095: `og:site_name` → `"Smart Dent | Fluxo Digital"`
 
-Junto com a busca de vídeos por keyword, buscar também artigos em `knowledge_contents` com os mesmos keywords. Artigos com URL interna devem ter prioridade (similarity boost) sobre vídeos sem página.
+**4. `src/components/AboutSEOHead.tsx`**
+- Linha 123: `og:site_name` → `"Smart Dent | Fluxo Digital"`
+- OG image fallback → `og-fluxo-digital.jpg`
 
-```text
-Lógica:
-- Buscar knowledge_contents com ILIKE nos mesmos keywords (já existe searchByILIKE)
-- Se encontrar artigos, incluí-los nos resultados com similarity >= 0.50
-- Vídeos SEM content_id (sem página interna) recebem similarity cap de 0.40
-- Resultado: artigos com página interna aparecem ANTES de vídeos soltos
-```
+**5. `src/components/TestimonialSEOHead.tsx`**
+- Linha 172: `og:site_name` → `"Smart Dent | Fluxo Digital"`
 
-**2. Penalizar vídeos sem página interna no keyword fallback**
+**6. `src/pages/ProductPage.tsx`**
+- Linha 161: `og:site_name` → `"Smart Dent | Fluxo Digital"`
 
-Atualmente, vídeos sem `content_id` recebem similarity até 0.70 (linha 486). Reduzir o cap para 0.40 quando `!mapped` (sem página interna), garantindo que artigos e vídeos com página sempre apareçam primeiro.
+**7. `src/pages/CategoryPage.tsx`**
+- Linha 112: `og:site_name` → `"Smart Dent | Fluxo Digital"`
 
-```typescript
-// Linha 486, dentro do cálculo de similarity:
-const baseSimilarity = Math.min(0.30 + (matchCount / Math.max(keywords.length, 1)) * 0.35, 0.70);
-// Penalizar vídeos sem página interna
-return mapped ? baseSimilarity : Math.min(baseSimilarity, 0.40);
-```
+**8. `src/components/SmartOpsFormBuilder.tsx`**
+- Linha 387: `og:site_name` → `"Smart Dent | Fluxo Digital"`
+- Linhas 390-393: Geo tags com dados errados (Florianópolis) → corrigir para São Carlos
 
-**3. Incluir artigos ILIKE no fallback de keywords**
+**9. `supabase/functions/seo-proxy/index.ts`**
+- Todas as referências a `og-image.jpg` → `og-fluxo-digital.jpg` como fallback
+- Titles e descriptions do homepage generator → novo branding
 
-Após buscar vídeos por keyword (linha 466), buscar artigos via `searchByILIKE` e mergear:
+**10. `src/pages/PublicFormPage.tsx` (footer hardcoded)**
+- Linhas 608-668: Remover todos os fallbacks hardcoded errados (CNPJ, endereço, telefone). Renderizar condicionalmente apenas dados vindos do `company` (Sistema B)
 
-```typescript
-// Após os vídeos, buscar artigos com os mesmos keywords
-const articleResults = await searchByILIKE(supabase, query, siteBaseUrl);
-if (articleResults.length > 0) {
-  results.push(...articleResults.map(a => ({ ...a, similarity: Math.max(a.similarity, 0.50) })));
-}
-```
+### Dados do Sistema B (company)
 
-**Arquivo: `supabase/functions/dra-lia/index.ts`**
+Os dados corretos da empresa (endereço, telefone, social media) já vêm via `useCompanyData()` que lê `system_a_catalog` com `category = 'company_info'`. Os componentes já usam esse hook — o problema é apenas os **fallbacks hardcoded** e o **branding textual antigo**.
 
-**4. Garantir que `searchContentDirect` roda mesmo quando knowledgeResult tem vídeos fracos**
+### Novos valores padrão
 
-Linha 3314: a condição `!hasMediaInResults` impede o `searchContentDirect` de rodar se já existem vídeos nos resultados — mesmo que sejam `VIDEO_SEM_PAGINA`. Ajustar para considerar apenas vídeos COM página interna como "media relevante":
-
-```typescript
-// Antes: qualquer vídeo conta como "media"
-const hasMediaInResults = allResults.some(r => ["video", "article"].includes(r.source_type));
-
-// Depois: só vídeos com página interna contam
-const hasRelevantMedia = allResults.some(r => 
-  r.source_type === "article" || 
-  (r.source_type === "video" && r.metadata?.url_interna)
-);
-if (userRequestedContent && (!hasRelevantMedia || topSimilarity < 0.5)) {
-```
+| Meta Tag | Valor |
+|----------|-------|
+| `og:site_name` | `Smart Dent \| Fluxo Digital` |
+| `og:title` (homepage) | `Hub de Fluxo Digital e Parâmetros 3D \| Smart Dent` |
+| `og:description` (homepage) | `Domine o fluxo digital odontológico: de parâmetros de impressão validados a estratégias de escaneamento e design. A inteligência que seu laboratório ou clínica precisam.` |
+| `og:image` (fallback) | `https://parametros.smartdent.com.br/og-fluxo-digital.jpg` |
+| `twitter:title` (homepage) | `Smart Dent: Inteligência em Fluxo Digital` |
+| `twitter:description` (homepage) | `Sincronize resinas, impressoras e processos com os protocolos oficiais da Smart Dent.` |
+| `description` (homepage) | `Central de conhecimento Smart Dent para o Fluxo Digital. Parâmetros de impressão 3D, guias de aplicação clínica e protocolos de alta performance para odontologia.` |
+| `keywords` | `fluxo digital odontologia, smart dent, impressão 3d dental, parâmetros resina, cad/cam odontológico, produtividade dental, I.A. na Odontologia` |
 
 ### Escopo
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/_shared/lia-rag.ts` | Penalizar vídeos sem página (1 linha), adicionar artigos ILIKE no keyword fallback (~8 linhas) |
-| `supabase/functions/dra-lia/index.ts` | Ajustar condição de `hasMediaInResults` para considerar apenas media com página interna (~3 linhas) |
-
-### Resultado
-- Artigo "Protocolos Impressos em 24h" aparece com prioridade sobre vídeos soltos
-- Vídeos COM página interna continuam com prioridade normal
-- Vídeos SEM página interna aparecem como complemento, não como resultado principal
-- `searchContentDirect` roda como fallback mesmo quando só há vídeos soltos
+- 10 arquivos alterados (search & replace em strings)
+- 1 edge function redeployada (seo-proxy)
+- Sem breaking changes — apenas texto e URLs de imagem OG
 
