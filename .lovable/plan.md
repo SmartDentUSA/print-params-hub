@@ -1,60 +1,50 @@
 
 
-## Central de Campanhas — Plano de Implementacao
+## Fix: Page Views do SPA não chegam ao Google Analytics
 
-### Resumo
+### Causa raiz
 
-Nova aba "Campanhas" no Smart Ops com 3 sub-abas: Biblioteca de Conteudo, Criar Campanha e Historico. Requer 3 tabelas novas + 1 componente principal + registro na sidebar/renderizacao.
+O site é uma SPA (Single Page Application). O GTM/GA só dispara `page_view` no carregamento inicial do `index.html`. Navegações internas (React Router) não geram novos requests HTTP — o GA simplesmente não sabe que o usuário mudou de página.
 
-### 1. Migration SQL (3 tabelas)
+O hook `usePageTracking` (linha 63-96) já detecta cada mudança de rota e envia para o Supabase, mas **não faz `dataLayer.push`** para o GTM.
 
-Criar `system_a_content_library`, `campaign_sessions`, `campaign_send_log` conforme schema fornecido. RLS: leitura para authenticated, escrita para authenticated. Indexes em `channel`, `content_type`, `product_name` na library e `status`, `created_at` em sessions.
+### Solução
 
-### 2. Componente principal
+Adicionar um `dataLayer.push` com evento `page_view` virtual dentro do `usePageTracking`, no mesmo ponto onde já insere no Supabase. Isso faz o GTM/GA receber cada navegação.
 
-**Arquivo**: `src/components/SmartOpsCampaigns.tsx`
+### Mudança
 
-Componente com `Tabs` interno (3 sub-abas):
+**Arquivo**: `src/hooks/usePageTracking.ts`
 
-**Sub-aba 1 — Biblioteca de Conteudo**
-- Header: titulo, badge count, botao "Sincronizar Agora" (invoke `sync-content-from-a`), ultimo sync
-- Filtros: canal (Select), tipo (Select), produto (Input ILIKE)
-- Grid de cards com badges, preview, thumbnail, quality_score, botao "Usar em Campanha"
-- Estado vazio quando count=0
+Dentro do `setTimeout` callback (após `lastTracked.current = key`), adicionar antes do insert no Supabase:
 
-**Sub-aba 2 — Criar Campanha (Wizard 3 steps)**
-- Step 1: selecionar conteudo (busca ou pre-selecionado), nome, descricao, canal
-- Step 2: segmentar leads via filtros em `lia_attendances` (anchor_product, temperatura, stage, status). Count em tempo real
-- Step 3: revisar e INSERT em `campaign_sessions` com status=draft
+```typescript
+// Push virtual pageview to GTM/GA
+if (typeof window !== 'undefined' && (window as any).dataLayer) {
+  (window as any).dataLayer.push({
+    event: 'page_view',
+    page_path: path,
+    page_title: document.title,
+    page_type: detectPageType(path),
+    page_location: window.location.href,
+    session_id: sessionId,
+    ...utms,
+  });
+}
+```
 
-**Sub-aba 3 — Historico**
-- Tabela de `campaign_sessions` ORDER BY created_at DESC
-- Badges de status coloridos
-- Row expandivel ou Sheet lateral com detalhes + logs de `campaign_send_log`
+### O que isso resolve
 
-### 3. Registro no Admin
+- Cada navegação interna (artigos, produtos, depoimentos, parâmetros) será reportada ao GA como um page_view
+- Os dados de UTM, tipo de página e session_id ficam disponíveis como variáveis no GTM
+- O `session_id` permite correlacionar o GA com o tracking interno do Supabase
+- Zero impacto no tracking existente — é um push adicional
 
-| Arquivo | Mudanca |
+### Escopo
+
+| Arquivo | Mudança |
 |---------|---------|
-| `src/components/AdminSidebar.tsx` | Adicionar `{ id: "so-campanhas", title: "Campanhas", icon: Megaphone }` no grupo Smart Ops |
-| `src/pages/AdminViewSecure.tsx` | Importar `SmartOpsCampaigns`, adicionar case `so-campanhas` no switch |
-| `src/components/SmartOpsTab.tsx` | Adicionar TabsTrigger "Campanhas" + TabsContent (para compatibilidade) |
+| `src/hooks/usePageTracking.ts` | +8 linhas (dataLayer.push dentro do setTimeout) |
 
-### 4. Arquivos criados/editados
-
-| Arquivo | Acao |
-|---------|------|
-| `supabase/migrations/xxx_create_campaign_tables.sql` | 3 tabelas + RLS + indexes |
-| `src/components/SmartOpsCampaigns.tsx` | Componente principal (~500 linhas) |
-| `src/components/AdminSidebar.tsx` | +1 item sidebar (import Megaphone, +1 linha) |
-| `src/pages/AdminViewSecure.tsx` | +1 import, +1 case |
-| `src/components/SmartOpsTab.tsx` | +1 trigger, +1 content |
-
-### Padrao tecnico
-
-- Queries via `supabase` client importado de `@/integrations/supabase/client`
-- Toast via `sonner`
-- UI: shadcn Card, Badge, Select, Button, Sheet, Tabs, Input
-- Todas as queries em `lia_attendances` com `WHERE merged_into IS NULL`
-- Nenhuma tabela existente sera modificada
+Nenhum outro arquivo precisa mudar.
 
