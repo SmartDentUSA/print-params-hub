@@ -413,7 +413,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         <meta property="og:title" content="Base de Conhecimento - Impressão 3D Odontológica" />
         <meta property="og:description" content="Tutoriais, guias e dicas sobre impressão 3D para odontologia" />
         <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}`} />
-        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
         <meta property="og:locale" content="pt_BR" />
         
         {/* Twitter Card */}
@@ -455,7 +455,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
         <meta property="og:title" content={`${category.name} - Base de Conhecimento`} />
         <meta property="og:description" content={`Artigos sobre ${category.name} em impressão 3D odontológica`} />
         <meta property="og:url" content={`${baseUrl}${pathByLang[currentLang]}/${category.letter?.toLowerCase()}`} />
-        <meta property="og:site_name" content="PrinterParams Smart Dent" />
+        <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
         <meta property="og:locale" content="pt_BR" />
         
         {/* Twitter Card */}
@@ -1092,7 +1092,7 @@ export function KnowledgeSEOHead({ content, category, videos = [], relatedDocume
       <meta property="og:title" content={displayTitle} />
       <meta property="og:description" content={content.excerpt} />
       <meta property="og:url" content={canonicalUrl} />
-      <meta property="og:site_name" content="PrinterParams Smart Dent" />
+      <meta property="og:site_name" content="Smart Dent | Fluxo Digital" />
       <meta property="og:locale" content="pt_BR" />
       <meta property="article:section" content={category?.name || 'Conhecimento'} />
       <meta property="article:published_time" content={content.created_at || new Date().toISOString()} />
