@@ -312,6 +312,13 @@ export type Database = {
             foreignKeyName: "agent_sessions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -622,6 +629,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -1317,13 +1331,16 @@ export type Database = {
           nome_produto: string | null
           num_parcelas: number | null
           payment_method: string | null
+          product_category: string | null
           product_code: string | null
           product_name: string | null
+          product_subcategory: string | null
           proposal_id: string
           proposta_raw: Json | null
           quantidade: number | null
           quantity: number | null
           serial_number: string | null
+          sku: string | null
           source: string | null
           synced_at: string | null
           tipo_frete: string | null
@@ -1350,13 +1367,16 @@ export type Database = {
           nome_produto?: string | null
           num_parcelas?: number | null
           payment_method?: string | null
+          product_category?: string | null
           product_code?: string | null
           product_name?: string | null
+          product_subcategory?: string | null
           proposal_id: string
           proposta_raw?: Json | null
           quantidade?: number | null
           quantity?: number | null
           serial_number?: string | null
+          sku?: string | null
           source?: string | null
           synced_at?: string | null
           tipo_frete?: string | null
@@ -1383,13 +1403,16 @@ export type Database = {
           nome_produto?: string | null
           num_parcelas?: number | null
           payment_method?: string | null
+          product_category?: string | null
           product_code?: string | null
           product_name?: string | null
+          product_subcategory?: string | null
           proposal_id?: string
           proposta_raw?: Json | null
           quantidade?: number | null
           quantity?: number | null
           serial_number?: string | null
+          sku?: string | null
           source?: string | null
           synced_at?: string | null
           tipo_frete?: string | null
@@ -1455,6 +1478,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -1560,6 +1590,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -1770,6 +1807,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -2232,6 +2276,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -2883,6 +2934,13 @@ export type Database = {
             foreignKeyName: "lead_activity_log_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -3030,6 +3088,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -3192,6 +3257,13 @@ export type Database = {
             foreignKeyName: "lead_conversion_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -3345,6 +3417,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -3543,6 +3622,13 @@ export type Database = {
             foreignKeyName: "lead_form_submissions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -3705,6 +3791,13 @@ export type Database = {
             foreignKeyName: "lead_opportunities_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -3736,6 +3829,7 @@ export type Database = {
           browser: string | null
           created_at: string
           device_type: string | null
+          extra_data: Json | null
           id: string
           ip_hash: string | null
           lead_id: string | null
@@ -3755,6 +3849,7 @@ export type Database = {
           browser?: string | null
           created_at?: string
           device_type?: string | null
+          extra_data?: Json | null
           id?: string
           ip_hash?: string | null
           lead_id?: string | null
@@ -3774,6 +3869,7 @@ export type Database = {
           browser?: string | null
           created_at?: string
           device_type?: string | null
+          extra_data?: Json | null
           id?: string
           ip_hash?: string | null
           lead_id?: string | null
@@ -3844,6 +3940,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -4024,6 +4127,13 @@ export type Database = {
             foreignKeyName: "lead_product_history_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -4198,6 +4308,13 @@ export type Database = {
             foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -4333,6 +4450,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -5902,6 +6026,13 @@ export type Database = {
             foreignKeyName: "lia_attendances_merged_into_fkey"
             columns: ["merged_into"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -6139,6 +6270,13 @@ export type Database = {
             foreignKeyName: "message_logs_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -6340,6 +6478,13 @@ export type Database = {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -6530,6 +6675,39 @@ export type Database = {
           xy_adjustment_x_pct?: number | null
           xy_adjustment_y_pct?: number | null
           xy_size_compensation?: number | null
+        }
+        Relationships: []
+      }
+      parameter_views: {
+        Row: {
+          action: string
+          brand_slug: string
+          id: string
+          model_slug: string
+          resin_manufacturer: string | null
+          resin_name: string
+          session_id: string | null
+          viewed_at: string
+        }
+        Insert: {
+          action?: string
+          brand_slug: string
+          id?: string
+          model_slug: string
+          resin_manufacturer?: string | null
+          resin_name: string
+          session_id?: string | null
+          viewed_at?: string
+        }
+        Update: {
+          action?: string
+          brand_slug?: string
+          id?: string
+          model_slug?: string
+          resin_manufacturer?: string | null
+          resin_name?: string
+          session_id?: string | null
+          viewed_at?: string
         }
         Relationships: []
       }
@@ -6919,6 +7097,39 @@ export type Database = {
           whatsapp_messages?: Json | null
           whatsapp_sequences?: Json | null
           workflow_stages?: Json | null
+        }
+        Relationships: []
+      }
+      produto_aliases: {
+        Row: {
+          ativo: boolean | null
+          categoria: string | null
+          created_at: string | null
+          id: number
+          nome_canonico: string
+          nome_variante: string
+          sku_interno: string | null
+          subcategoria: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string | null
+          id?: number
+          nome_canonico: string
+          nome_variante: string
+          sku_interno?: string | null
+          subcategoria?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          categoria?: string | null
+          created_at?: string | null
+          id?: number
+          nome_canonico?: string
+          nome_variante?: string
+          sku_interno?: string | null
+          subcategoria?: string | null
         }
         Relationships: []
       }
@@ -7674,6 +7885,13 @@ export type Database = {
             foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -8027,6 +8245,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -8837,6 +9062,13 @@ export type Database = {
             foreignKeyName: "technical_tickets_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -8979,6 +9211,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -9135,6 +9374,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -9421,6 +9667,110 @@ export type Database = {
         }
         Relationships: []
       }
+      v_deal_items_normalized: {
+        Row: {
+          categoria: string | null
+          deal_date: string | null
+          deal_id: string | null
+          id: string | null
+          lead_id: string | null
+          normalizado: boolean | null
+          produto: string | null
+          produto_original: string | null
+          quantity: number | null
+          source: string | null
+          subcategoria: string | null
+          total_value: number | null
+          unit_value: number | null
+          vendedor: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+        ]
+      }
       v_equipment_field_map: {
         Row: {
           ativacao_field: string | null
@@ -9544,6 +9894,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -9827,6 +10184,13 @@ export type Database = {
             foreignKeyName: "omie_parcelas_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_timing_alerts"
             referencedColumns: ["id"]
           },
@@ -9963,6 +10327,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
             referencedColumns: ["lead_id"]
           },
           {
@@ -10138,6 +10509,20 @@ export type Database = {
         }
         Relationships: []
       }
+      v_parameter_ranking: {
+        Row: {
+          brand_slug: string | null
+          copies: number | null
+          expands: number | null
+          last_seen: string | null
+          model_slug: string | null
+          resin_manufacturer: string | null
+          resin_name: string | null
+          total_interactions: number | null
+          views: number | null
+        }
+        Relationships: []
+      }
       v_person_company_graph: {
         Row: {
           company_id: string | null
@@ -10163,6 +10548,215 @@ export type Database = {
           nomes: string[] | null
           telefone_normalized: string | null
           total: number | null
+        }
+        Relationships: []
+      }
+      v_pipeline_atual: {
+        Row: {
+          anchor_product: string | null
+          email: string | null
+          etapa_crm: string | null
+          lead_id: string | null
+          nome: string | null
+          real_status: string | null
+          score: number | null
+          status_oportunidade: string | null
+          telefone: string | null
+          temperatura_lead: string | null
+          ultima_atualizacao: string | null
+          valor_deal_aberto: number | null
+          valor_total_propostas: number | null
+          vendedor: string | null
+        }
+        Insert: {
+          anchor_product?: string | null
+          email?: string | null
+          etapa_crm?: string | null
+          lead_id?: string | null
+          nome?: string | null
+          real_status?: string | null
+          score?: number | null
+          status_oportunidade?: string | null
+          telefone?: string | null
+          temperatura_lead?: string | null
+          ultima_atualizacao?: string | null
+          valor_deal_aberto?: never
+          valor_total_propostas?: number | null
+          vendedor?: string | null
+        }
+        Update: {
+          anchor_product?: string | null
+          email?: string | null
+          etapa_crm?: string | null
+          lead_id?: string | null
+          nome?: string | null
+          real_status?: string | null
+          score?: number | null
+          status_oportunidade?: string | null
+          telefone?: string | null
+          temperatura_lead?: string | null
+          ultima_atualizacao?: string | null
+          valor_deal_aberto?: never
+          valor_total_propostas?: number | null
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
+      v_portfolio_em_aberto: {
+        Row: {
+          categoria: string | null
+          deals_em_aberto: number | null
+          produto: string | null
+          ticket_medio: number | null
+          unidades_em_proposta: number | null
+          valor_em_proposta: number | null
+          vendedores: string | null
+        }
+        Relationships: []
+      }
+      v_portfolio_em_aberto_por_vendedor: {
+        Row: {
+          categoria: string | null
+          deals: number | null
+          produto: string | null
+          unidades: number | null
+          valor_proposta: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_portfolio_ganhos_vs_pipeline: {
+        Row: {
+          categoria: string | null
+          deals_ganhos: number | null
+          deals_pipeline: number | null
+          produto: string | null
+          ratio_pipeline_pct: number | null
+          receita_ganha: number | null
+          unid_ganhas: number | null
+          unid_pipeline: number | null
+          valor_pipeline: number | null
+        }
+        Relationships: []
+      }
+      v_portfolio_historico: {
+        Row: {
+          categoria: string | null
+          deals: number | null
+          mes: string | null
+          mes_label: string | null
+          mes_str: string | null
+          preco_medio: number | null
+          produto: string | null
+          receita: number | null
+          subcategoria: string | null
+          unidades: number | null
+        }
+        Relationships: []
+      }
+      v_portfolio_mensal: {
+        Row: {
+          categoria: string | null
+          deals: number | null
+          mes: string | null
+          produto: string | null
+          receita: number | null
+          receita_anterior: number | null
+          subcategoria: string | null
+          tendencia: string | null
+          unidades: number | null
+          unidades_anterior: number | null
+          var_receita: string | null
+          var_unidades: string | null
+        }
+        Relationships: []
+      }
+      v_portfolio_mensal_com_abertos: {
+        Row: {
+          categoria: string | null
+          deals_ganhos_mes: number | null
+          deals_pipeline: number | null
+          oportunidade_total: number | null
+          produto: string | null
+          receita_ganha_mes: number | null
+          unid_ganhas_mes: number | null
+          unid_pipeline: number | null
+          valor_pipeline: number | null
+        }
+        Relationships: []
+      }
+      v_portfolio_mensal_comparativo: {
+        Row: {
+          categoria: string | null
+          mes_atual: string | null
+          produto: string | null
+          receita_mes_anterior: number | null
+          receita_mes_atual: number | null
+          subcategoria: string | null
+          tendencia: string | null
+          unidades_mes_anterior: number | null
+          unidades_mes_atual: number | null
+          variacao_unidades_pct: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_produtos_vendidos: {
+        Row: {
+          categoria: string | null
+          deals_distintos: number | null
+          mes: string | null
+          preco_medio: number | null
+          produto: string | null
+          quantidade: number | null
+          receita_total: number | null
+          subcategoria: string | null
+          vendas: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_receita_mensal: {
+        Row: {
+          ano: number | null
+          deals_ganhos: number | null
+          leads_merged_incluidos: number | null
+          leads_unicos: number | null
+          mes: number | null
+          mes_label: string | null
+          mes_referencia: string | null
+          receita_deals: number | null
+          receita_proposta_fallback: number | null
+          receita_total: number | null
+          ticket_medio: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      v_receita_mensal_total: {
+        Row: {
+          ano: number | null
+          deals_ganhos: number | null
+          leads_unicos: number | null
+          mes: number | null
+          mes_label: string | null
+          mes_referencia: string | null
+          receita_deals: number | null
+          receita_proposta_fallback: number | null
+          receita_total: number | null
+          ticket_medio: number | null
+        }
+        Relationships: []
+      }
+      v_receita_por_categoria: {
+        Row: {
+          categoria: string | null
+          deals: number | null
+          mes: string | null
+          mes_label: string | null
+          receita_total: number | null
+          ticket_medio: number | null
+          unidades_vendidas: number | null
         }
         Relationships: []
       }
@@ -10596,7 +11190,7 @@ export type Database = {
         Args: { lead: Database["public"]["Tables"]["lia_attendances"]["Row"] }
         Returns: Json
       }
-      fn_atualizar_parcelas_vencidas: { Args: never; Returns: number }
+      fn_atualizar_parcelas_vencidas: { Args: never; Returns: undefined }
       fn_calc_workflow_score: {
         Args: { p_lead_id: string }
         Returns: undefined
@@ -10691,29 +11285,56 @@ export type Database = {
           nome: string
         }[]
       }
-      fn_search_deals_by_status: {
-        Args: {
-          p_limit?: number
-          p_max_value?: number
-          p_min_value?: number
-          p_owner?: string
-          p_product?: string
-          p_status?: string
-        }
-        Returns: {
-          deal_created_at: string
-          deal_id: string
-          deal_items: string
-          deal_origin: string
-          deal_owner: string
-          deal_stage: string
-          deal_status: string
-          deal_value: number
-          lead_email: string
-          lead_id: string
-          lead_nome: string
-        }[]
-      }
+      fn_search_deals_by_status:
+        | {
+            Args: {
+              p_limit?: number
+              p_max_value?: number
+              p_min_value?: number
+              p_owner?: string
+              p_product?: string
+              p_status?: string
+            }
+            Returns: {
+              deal_created_at: string
+              deal_id: string
+              deal_items: string
+              deal_origin: string
+              deal_owner: string
+              deal_stage: string
+              deal_status: string
+              deal_value: number
+              lead_email: string
+              lead_id: string
+              lead_nome: string
+            }[]
+          }
+        | {
+            Args: {
+              p_limit?: number
+              p_max_value?: number
+              p_min_value?: number
+              p_owner?: string
+              p_product?: string
+              p_since?: string
+              p_status?: string
+              p_until?: string
+            }
+            Returns: {
+              deal_closed_at: string
+              deal_created_at: string
+              deal_id: string
+              deal_items: string
+              deal_origin: string
+              deal_owner: string
+              deal_stage: string
+              deal_status: string
+              deal_value: number
+              lead_email: string
+              lead_id: string
+              lead_nome: string
+            }[]
+          }
       fn_search_leads_by_proposal_product: {
         Args: { deal_status?: string; product_search: string }
         Returns: {

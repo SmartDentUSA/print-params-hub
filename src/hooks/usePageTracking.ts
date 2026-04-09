@@ -42,18 +42,28 @@ function getBrowser(): string {
 }
 
 function detectPageType(path: string): string {
-  if (path === "/" || path === "") return "home";
-  if (path.startsWith("/conhecimento") || path.startsWith("/knowledge")) return "article";
-  if (path.startsWith("/produto") || path.startsWith("/product")) return "product";
-  if (path.startsWith("/depoimento") || path.startsWith("/testimonial")) return "testimonial";
-  if (path.startsWith("/sobre") || path.startsWith("/about")) return "about";
-  if (path.startsWith("/roi")) return "roi_calculator";
-  if (path.startsWith("/doc")) return "document";
-  // Brand/model pages (e.g. /formlabs/form-3)
-  const segments = path.split("/").filter(Boolean);
-  if (segments.length === 1) return "brand";
-  if (segments.length === 2) return "model";
-  return "other";
+  if (path === '/' || path === '') return 'home';
+  if (path === '/base-conhecimento') return 'knowledge_hub';
+  if (/^\/base-conhecimento\/[a-z]$/.test(path)) return 'knowledge_category';
+  if (/^\/(en|es)\//.test(path)) return 'knowledge_article';
+  if (/^\/base-conhecimento\/.+\/.+/.test(path)) return 'knowledge_article';
+  if (/^\/produtos?\/.+/.test(path)) return 'product';
+  if (/^\/depoimentos?\/.+/.test(path)) return 'testimonial';
+  if (/^\/sobre$/.test(path) || /^\/about$/.test(path)) return 'about';
+  if (/^\/roi/.test(path)) return 'roi_calculator';
+  if (/^\/doc/.test(path)) return 'document';
+  if (/^\/[^/]+\/[^/]+\/[^/]+$/.test(path)) return 'resin_params';
+  if (/^\/[^/]+\/[^/]+$/.test(path)) return 'model';
+  if (/^\/[^/]+$/.test(path)) return 'brand';
+  return 'other';
+}
+
+function extractParamSlugs(path: string): { brand: string; model: string; resin: string } | null {
+  const segments = path.split('/').filter(Boolean);
+  if (segments.length === 3) {
+    return { brand: segments[0], model: segments[1], resin: segments[2] };
+  }
+  return null;
 }
 
 /**
@@ -98,22 +108,41 @@ export function usePageTracking() {
         });
       }
 
+      const pageType = detectPageType(path);
+      const paramSlugs = pageType === 'resin_params' ? extractParamSlugs(path) : null;
+
+      // GTM event for parameter card views
+      if (paramSlugs && (window as any).dataLayer) {
+        (window as any).dataLayer.push({
+          event: 'parameter_card_view',
+          brand: paramSlugs.brand,
+          model: paramSlugs.model,
+          resin: paramSlugs.resin,
+        });
+      }
+
+      const insertPayload: Record<string, any> = {
+        session_id: sessionId,
+        page_path: path,
+        page_title: document.title,
+        page_type: pageType,
+        referrer: document.referrer || null,
+        utm_source: utms.utm_source,
+        utm_medium: utms.utm_medium,
+        utm_campaign: utms.utm_campaign,
+        utm_content: utms.utm_content,
+        utm_term: utms.utm_term,
+        device_type: getDeviceType(),
+        browser: getBrowser(),
+      };
+
+      if (paramSlugs) {
+        insertPayload.extra_data = { ...paramSlugs, action: 'view' };
+      }
+
       supabase
         .from("lead_page_views" as any)
-        .insert({
-          session_id: sessionId,
-          page_path: path,
-          page_title: document.title,
-          page_type: detectPageType(path),
-          referrer: document.referrer || null,
-          utm_source: utms.utm_source,
-          utm_medium: utms.utm_medium,
-          utm_campaign: utms.utm_campaign,
-          utm_content: utms.utm_content,
-          utm_term: utms.utm_term,
-          device_type: getDeviceType(),
-          browser: getBrowser(),
-        } as any)
+        .insert(insertPayload as any)
         .then(({ error }) => {
           if (error) {
             console.warn("[PageTracking] insert error:", error.message);
