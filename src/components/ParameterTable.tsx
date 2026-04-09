@@ -318,6 +318,38 @@ export function ParameterTable({ parameterSet, processingInstructions }: Paramet
         description: "Os parâmetros foram copiados para a área de transferência.",
       });
       setTimeout(() => setCopied(false), 2000);
+
+      // Track copy event
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      if (segments.length === 3) {
+        const [brand, model, resin] = segments;
+        const sid = sessionStorage.getItem('sd_page_session');
+
+        // GTM
+        (window as any).dataLayer?.push({
+          event: 'parameter_copied',
+          brand, model, resin,
+        });
+
+        // Supabase fire-and-forget
+        if (sid) {
+          import('@/integrations/supabase/client').then(({ supabase }) => {
+            supabase
+              .from('lead_page_views' as any)
+              .insert({
+                session_id: sid,
+                page_path: window.location.pathname,
+                page_title: document.title,
+                page_type: 'resin_params',
+                device_type: window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1024 ? 'tablet' : 'desktop',
+                extra_data: { brand, model, resin, action: 'copy' },
+              } as any)
+              .then(({ error }) => {
+                if (error) console.warn('[PageTracking] copy event error:', error.message);
+              });
+          });
+        }
+      }
     } catch (err) {
       toast({
         title: "Erro ao copiar",
