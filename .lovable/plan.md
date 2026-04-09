@@ -1,50 +1,39 @@
 
 
-## Fix: Page Views do SPA não chegam ao Google Analytics
+## Melhorar Sistema de Tracking de Páginas
 
-### Causa raiz
+### Tarefa 1 — Corrigir `detectPageType` em `usePageTracking.ts`
 
-O site é uma SPA (Single Page Application). O GTM/GA só dispara `page_view` no carregamento inicial do `index.html`. Navegações internas (React Router) não geram novos requests HTTP — o GA simplesmente não sabe que o usuário mudou de página.
+Substituir a função `detectPageType` (linhas 44-57) pela nova lógica que classifica corretamente rotas de artigos, categorias, resinas (`resin_params`), etc.
 
-O hook `usePageTracking` (linha 63-96) já detecta cada mudança de rota e envia para o Supabase, mas **não faz `dataLayer.push`** para o GTM.
+### Tarefa 2 — Enriquecer tracking nas páginas de parâmetros
 
-### Solução
+No `usePageTracking.ts`, extrair os segmentos da URL para rotas de 3 segmentos (brand/model/resin) e incluir `extra_data` no insert do Supabase. Também enviar `parameter_card_view` ao dataLayer do GTM.
 
-Adicionar um `dataLayer.push` com evento `page_view` virtual dentro do `usePageTracking`, no mesmo ponto onde já insere no Supabase. Isso faz o GTM/GA receber cada navegação.
+Mudança no insert existente: quando `page_type === 'resin_params'`, adicionar campo `extra_data` com `{ brand, model, resin, action: 'view' }`.
 
-### Mudança
+### Tarefa 3 — Evento de cópia de parâmetros
 
-**Arquivo**: `src/hooks/usePageTracking.ts`
+No `ParameterTable.tsx`, após a cópia bem-sucedida (linha 315), adicionar:
+- Insert fire-and-forget em `lead_page_views` com `page_type: 'resin_params'` e `extra_data: { ...slugs, action: 'copy' }`
+- `dataLayer.push` com evento `parameter_copied`
 
-Dentro do `setTimeout` callback (após `lastTracked.current = key`), adicionar antes do insert no Supabase:
+Os slugs serão extraídos de `window.location.pathname` (split por `/`), já que o componente não recebe props de rota.
 
-```typescript
-// Push virtual pageview to GTM/GA
-if (typeof window !== 'undefined' && (window as any).dataLayer) {
-  (window as any).dataLayer.push({
-    event: 'page_view',
-    page_path: path,
-    page_title: document.title,
-    page_type: detectPageType(path),
-    page_location: window.location.href,
-    session_id: sessionId,
-    ...utms,
-  });
-}
-```
+### Tarefa 4 — GTM dataLayer para view de parâmetros
 
-### O que isso resolve
+Já coberto na Tarefa 2 — o `dataLayer.push` com `parameter_card_view` será adicionado junto ao enriquecimento do tracking.
 
-- Cada navegação interna (artigos, produtos, depoimentos, parâmetros) será reportada ao GA como um page_view
-- Os dados de UTM, tipo de página e session_id ficam disponíveis como variáveis no GTM
-- O `session_id` permite correlacionar o GA com o tracking interno do Supabase
-- Zero impacto no tracking existente — é um push adicional
-
-### Escopo
+### Arquivos editados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/hooks/usePageTracking.ts` | +8 linhas (dataLayer.push dentro do setTimeout) |
+| `src/hooks/usePageTracking.ts` | Substituir `detectPageType`, adicionar `extra_data` condicional + GTM push para params |
+| `src/components/ParameterTable.tsx` | Adicionar tracking de cópia (Supabase + GTM) no `handleCopy` |
 
-Nenhum outro arquivo precisa mudar.
+### Detalhes técnicos
+- Slugs extraídos de `window.location.pathname.split('/')` — sem necessidade de passar props
+- Insert fire-and-forget (`.then()` sem await)
+- Session ID reutilizado via `getPageTrackingSessionId()` já exportado
+- Nenhuma tabela ou edge function criada/alterada
 
