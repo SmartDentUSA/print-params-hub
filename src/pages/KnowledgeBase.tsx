@@ -182,8 +182,8 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
         {categoryLetter && (
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Left Sidebar - Articles */}
-            <div className="lg:col-span-1">
-              <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6">
+            <div className="lg:col-span-1 lg:sticky lg:top-4 lg:self-start">
+              <div className="bg-gradient-card rounded-xl border border-border shadow-medium p-6 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
                 <h3 className="text-lg font-semibold text-foreground mb-4">
                   {t('knowledge.content')}
                 </h3>
