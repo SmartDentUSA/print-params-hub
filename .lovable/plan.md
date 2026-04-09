@@ -1,39 +1,23 @@
 
 
-## Melhorar Sistema de Tracking de Páginas
+## Fix: Sidebar da Base de Conhecimento com scroll fixo na viewport
 
-### Tarefa 1 — Corrigir `detectPageType` em `usePageTracking.ts`
+### Problema
+A lista de conteúdos na lateral esquerda cresce indefinidamente com todos os artigos, fazendo a página inteira ficar muito longa. O sidebar deveria ter scroll próprio limitado à altura da tela.
 
-Substituir a função `detectPageType` (linhas 44-57) pela nova lógica que classifica corretamente rotas de artigos, categorias, resinas (`resin_params`), etc.
+### Solução
+Tornar o container do sidebar `sticky` com altura máxima da viewport e scroll interno.
 
-### Tarefa 2 — Enriquecer tracking nas páginas de parâmetros
+### Mudanças
 
-No `usePageTracking.ts`, extrair os segmentos da URL para rotas de 3 segmentos (brand/model/resin) e incluir `extra_data` no insert do Supabase. Também enviar `parameter_card_view` ao dataLayer do GTM.
+**`src/pages/KnowledgeBase.tsx`** (linhas 185-196)
+- Adicionar `lg:sticky lg:top-4` ao wrapper do sidebar para fixá-lo durante scroll
+- Adicionar `lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto` ao card interno para limitar altura e criar scroll próprio
 
-Mudança no insert existente: quando `page_type === 'resin_params'`, adicionar campo `extra_data` com `{ brand, model, resin, action: 'view' }`.
+**`src/components/KnowledgeSidebar.tsx`**
+- Nenhuma mudança necessária — o scroll será controlado pelo container pai
 
-### Tarefa 3 — Evento de cópia de parâmetros
-
-No `ParameterTable.tsx`, após a cópia bem-sucedida (linha 315), adicionar:
-- Insert fire-and-forget em `lead_page_views` com `page_type: 'resin_params'` e `extra_data: { ...slugs, action: 'copy' }`
-- `dataLayer.push` com evento `parameter_copied`
-
-Os slugs serão extraídos de `window.location.pathname` (split por `/`), já que o componente não recebe props de rota.
-
-### Tarefa 4 — GTM dataLayer para view de parâmetros
-
-Já coberto na Tarefa 2 — o `dataLayer.push` com `parameter_card_view` será adicionado junto ao enriquecimento do tracking.
-
-### Arquivos editados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/usePageTracking.ts` | Substituir `detectPageType`, adicionar `extra_data` condicional + GTM push para params |
-| `src/components/ParameterTable.tsx` | Adicionar tracking de cópia (Supabase + GTM) no `handleCopy` |
-
-### Detalhes técnicos
-- Slugs extraídos de `window.location.pathname.split('/')` — sem necessidade de passar props
-- Insert fire-and-forget (`.then()` sem await)
-- Session ID reutilizado via `getPageTrackingSessionId()` já exportado
-- Nenhuma tabela ou edge function criada/alterada
+### Resultado
+- No desktop: sidebar fica fixo na tela com scroll próprio independente do conteúdo do artigo
+- No mobile: comportamento não muda (empilhado normalmente)
 
