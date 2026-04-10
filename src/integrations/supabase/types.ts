@@ -6347,6 +6347,260 @@ export type Database = {
           },
         ]
       }
+      omie_nf_items: {
+        Row: {
+          cfop: string | null
+          created_at: string
+          id: string
+          item_seq: number
+          ncm: string | null
+          nf_id: string
+          produto_alias: string | null
+          produto_codigo: string | null
+          produto_nome: string
+          quantidade: number
+          unidade: string | null
+          valor_desconto: number
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          cfop?: string | null
+          created_at?: string
+          id?: string
+          item_seq: number
+          ncm?: string | null
+          nf_id: string
+          produto_alias?: string | null
+          produto_codigo?: string | null
+          produto_nome: string
+          quantidade?: number
+          unidade?: string | null
+          valor_desconto?: number
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          cfop?: string | null
+          created_at?: string
+          id?: string
+          item_seq?: number
+          ncm?: string | null
+          nf_id?: string
+          produto_alias?: string | null
+          produto_codigo?: string | null
+          produto_nome?: string
+          quantidade?: number
+          unidade?: string | null
+          valor_desconto?: number
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_nf_items_nf_id_fkey"
+            columns: ["nf_id"]
+            isOneToOne: false
+            referencedRelation: "omie_notas_fiscais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      omie_notas_fiscais: {
+        Row: {
+          canal: string | null
+          chave_nfe: string | null
+          cliente_cpf_cnpj: string | null
+          cliente_email: string | null
+          cliente_nome: string | null
+          created_at: string
+          data_competencia: string | null
+          data_emissao: string
+          forma_pagamento: string | null
+          gap_valor: number | null
+          id: string
+          lead_id: string | null
+          numero_nf: string | null
+          omie_nf_id: number | null
+          parcelas: number | null
+          piperun_deal_id: string | null
+          raw_omie_payload: Json | null
+          reconciliado: boolean | null
+          serie: string | null
+          status: string
+          synced_at: string | null
+          updated_at: string
+          valor_desconto: number
+          valor_frete: number
+          valor_outras_desp: number
+          valor_produtos: number
+          valor_total: number
+          vendedor_codigo: string | null
+          vendedor_nome: string | null
+        }
+        Insert: {
+          canal?: string | null
+          chave_nfe?: string | null
+          cliente_cpf_cnpj?: string | null
+          cliente_email?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_competencia?: string | null
+          data_emissao: string
+          forma_pagamento?: string | null
+          gap_valor?: number | null
+          id?: string
+          lead_id?: string | null
+          numero_nf?: string | null
+          omie_nf_id?: number | null
+          parcelas?: number | null
+          piperun_deal_id?: string | null
+          raw_omie_payload?: Json | null
+          reconciliado?: boolean | null
+          serie?: string | null
+          status?: string
+          synced_at?: string | null
+          updated_at?: string
+          valor_desconto?: number
+          valor_frete?: number
+          valor_outras_desp?: number
+          valor_produtos?: number
+          valor_total?: number
+          vendedor_codigo?: string | null
+          vendedor_nome?: string | null
+        }
+        Update: {
+          canal?: string | null
+          chave_nfe?: string | null
+          cliente_cpf_cnpj?: string | null
+          cliente_email?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_competencia?: string | null
+          data_emissao?: string
+          forma_pagamento?: string | null
+          gap_valor?: number | null
+          id?: string
+          lead_id?: string | null
+          numero_nf?: string | null
+          omie_nf_id?: number | null
+          parcelas?: number | null
+          piperun_deal_id?: string | null
+          raw_omie_payload?: Json | null
+          reconciliado?: boolean | null
+          serie?: string | null
+          status?: string
+          synced_at?: string | null
+          updated_at?: string
+          valor_desconto?: number
+          valor_frete?: number
+          valor_outras_desp?: number
+          valor_produtos?: number
+          valor_total?: number
+          vendedor_codigo?: string | null
+          vendedor_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "omie_vendedores"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "vw_omie_vendas_mes"
+            referencedColumns: ["vendedor_codigo"]
+          },
+        ]
+      }
       omie_parcelas: {
         Row: {
           cobranca_canal: string | null
@@ -6504,6 +6758,81 @@ export type Database = {
           },
         ]
       }
+      omie_snapshot_mensal: {
+        Row: {
+          ano: number
+          canal: string
+          computed_at: string
+          gap_pct: number | null
+          gap_valor: number | null
+          id: string
+          mes: number
+          piperun_deals: number | null
+          piperun_receita: number | null
+          total_itens: number
+          total_nfs: number
+          valor_desconto: number
+          valor_frete: number
+          valor_produtos: number
+          valor_total: number
+          vendedor_codigo: string | null
+          vendedor_nome: string
+        }
+        Insert: {
+          ano: number
+          canal: string
+          computed_at?: string
+          gap_pct?: number | null
+          gap_valor?: number | null
+          id?: string
+          mes: number
+          piperun_deals?: number | null
+          piperun_receita?: number | null
+          total_itens?: number
+          total_nfs?: number
+          valor_desconto?: number
+          valor_frete?: number
+          valor_produtos?: number
+          valor_total?: number
+          vendedor_codigo?: string | null
+          vendedor_nome: string
+        }
+        Update: {
+          ano?: number
+          canal?: string
+          computed_at?: string
+          gap_pct?: number | null
+          gap_valor?: number | null
+          id?: string
+          mes?: number
+          piperun_deals?: number | null
+          piperun_receita?: number | null
+          total_itens?: number
+          total_nfs?: number
+          valor_desconto?: number
+          valor_frete?: number
+          valor_produtos?: number
+          valor_total?: number
+          vendedor_codigo?: string | null
+          vendedor_nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_snapshot_mensal_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "omie_vendedores"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "omie_snapshot_mensal_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "vw_omie_vendas_mes"
+            referencedColumns: ["vendedor_codigo"]
+          },
+        ]
+      }
       omie_sync_cursors: {
         Row: {
           key: string
@@ -6522,6 +6851,36 @@ export type Database = {
           meta?: Json | null
           updated_at?: string | null
           value?: string
+        }
+        Relationships: []
+      }
+      omie_vendedores: {
+        Row: {
+          ativo: boolean
+          canal: string
+          codigo: string
+          created_at: string
+          nome_omie: string
+          nome_piperun: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          canal?: string
+          codigo: string
+          created_at?: string
+          nome_omie: string
+          nome_piperun?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          canal?: string
+          codigo?: string
+          created_at?: string
+          nome_omie?: string
+          nome_piperun?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -11180,6 +11539,37 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_alertas_faturamento: {
+        Row: {
+          canal: string | null
+          gap_pct: number | null
+          gap_valor: number | null
+          mensagem_copilot: string | null
+          mes: string | null
+          receita_crm: number | null
+          severidade: string | null
+          status_gap: string | null
+          valor_faturado: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
+      vw_dashboard_financeiro: {
+        Row: {
+          deals_ganhos: number | null
+          faturado_crm: number | null
+          faturado_marketplace: number | null
+          faturado_site: number | null
+          faturado_total: number | null
+          frete_total: number | null
+          gap_pct: number | null
+          gap_total: number | null
+          mes: string | null
+          nfs_emitidas: number | null
+          receita_crm: number | null
+        }
+        Relationships: []
+      }
       vw_deal_items_dedup: {
         Row: {
           deal_date: string | null
@@ -11199,6 +11589,39 @@ export type Database = {
           total_value: number | null
           unit_value: number | null
           vendor_name: string | null
+        }
+        Relationships: []
+      }
+      vw_omie_vendas_mes: {
+        Row: {
+          canal: string | null
+          mes: string | null
+          total_itens: number | null
+          total_nfs: number | null
+          valor_desconto: number | null
+          valor_faturado: number | null
+          valor_frete: number | null
+          valor_produtos: number | null
+          vendedor_codigo: string | null
+          vendedor_omie: string | null
+          vendedor_piperun: string | null
+        }
+        Relationships: []
+      }
+      vw_reconciliacao_financeira: {
+        Row: {
+          canal: string | null
+          deals_crm: number | null
+          gap_pct: number | null
+          gap_valor: number | null
+          itens_nf: number | null
+          mes: string | null
+          nfs_emitidas: number | null
+          receita_crm: number | null
+          status_gap: string | null
+          valor_faturado: number | null
+          valor_frete: number | null
+          vendedor: string | null
         }
         Relationships: []
       }
@@ -11256,6 +11679,35 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_vendas_por_produto: {
+        Row: {
+          ano: string | null
+          categoria: string | null
+          deal_date: string | null
+          deal_id: string | null
+          familia: string | null
+          id: string | null
+          is_bite_splint: boolean | null
+          is_hardware: boolean | null
+          is_impressora: boolean | null
+          is_resina: boolean | null
+          is_scanner: boolean | null
+          is_software: boolean | null
+          is_treinamento: boolean | null
+          is_vitality: boolean | null
+          mes: string | null
+          produto_canonico: string | null
+          produto_original: string | null
+          proposal_id: string | null
+          quantidade: number | null
+          sku: string | null
+          synced_at: string | null
+          valor_total: number | null
+          valor_unitario: number | null
+          vendedor: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_lead_intelligence_score: {
@@ -11289,6 +11741,26 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_faturamento_mes: {
+        Args: { p_ano?: number; p_mes?: number }
+        Returns: {
+          deals_ganhos: number
+          faturado_crm: number
+          faturado_marketplace: number
+          faturado_site: number
+          faturado_total: number
+          frete_total: number
+          gap_pct: number
+          gap_total: number
+          maior_gap_tipo: string
+          maior_gap_valor: number
+          maior_gap_vendedor: string
+          nfs_emitidas: number
+          periodo: string
+          receita_crm: number
+          ticket_medio_crm: number
+        }[]
+      }
       fn_form_leads_sem_piperun: {
         Args: never
         Returns: {
@@ -11301,6 +11773,20 @@ export type Database = {
           source: string
           telefone_raw: string
           ultima_atividade: string
+        }[]
+      }
+      fn_gap_faturamento: {
+        Args: { p_ano?: number; p_mes?: number }
+        Returns: {
+          canal: string
+          gap_pct: number
+          gap_valor: number
+          mensagem: string
+          receita_crm: number
+          severidade: string
+          status_gap: string
+          valor_faturado: number
+          vendedor: string
         }[]
       }
       fn_generate_recurrent_turmas: {
@@ -11338,6 +11824,18 @@ export type Database = {
         }[]
       }
       fn_map_omie_titulo_status: { Args: { s: string }; Returns: string }
+      fn_mix_produtos: {
+        Args: { p_fim?: string; p_inicio?: string }
+        Returns: {
+          categoria: string
+          familia: string
+          pct_receita: number
+          produto_canonico: string
+          receita_total: number
+          total_unidades: number
+          vendedores: number
+        }[]
+      }
       fn_omie_score_label: { Args: { score: number }; Returns: string }
       fn_record_lead_event: {
         Args: {
@@ -11359,6 +11857,16 @@ export type Database = {
           form_name: string
           lead_id: string
           nome: string
+        }[]
+      }
+      fn_resumo_familias: {
+        Args: { p_fim?: string; p_inicio?: string }
+        Returns: {
+          categoria: string
+          num_skus: number
+          pct_receita: number
+          receita_total: number
+          total_unidades: number
         }[]
       }
       fn_resumo_vendas_mes: {
@@ -11431,6 +11939,17 @@ export type Database = {
         Args: { p_lead_id: string }
         Returns: undefined
       }
+      fn_tendencia_receita: {
+        Args: { p_meses?: number }
+        Returns: {
+          deals_ganhos: number
+          faturado_omie: number
+          gap_valor: number
+          mes: string
+          receita_crm: number
+          variacao_crm_pct: number
+        }[]
+      }
       fn_total_vendas_mes: {
         Args: { p_ano?: number; p_mes?: number }
         Returns: {
@@ -11440,6 +11959,36 @@ export type Database = {
           ticket_medio: number
           top_vendedor: string
           total_deals: number
+        }[]
+      }
+      fn_upsert_omie_snapshot: {
+        Args: {
+          p_ano: number
+          p_canal: string
+          p_mes: number
+          p_total_itens: number
+          p_total_nfs: number
+          p_val_desconto: number
+          p_val_frete: number
+          p_val_produtos: number
+          p_val_total: number
+          p_vendedor_cod: string
+          p_vendedor_nome: string
+        }
+        Returns: undefined
+      }
+      fn_vendas_produto: {
+        Args: { p_busca: string; p_fim?: string; p_inicio?: string }
+        Returns: {
+          categoria: string
+          familia: string
+          primeiro_dia: string
+          produto_canonico: string
+          receita_total: number
+          total_unidades: number
+          total_vendas: number
+          ultimo_dia: string
+          valor_unitario_med: number
         }[]
       }
       get_brand_distribution: {
