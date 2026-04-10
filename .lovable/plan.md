@@ -1,89 +1,39 @@
 
 
-## Copilot Comercial — Nova Tool + System Prompt
+## Adicionar Módulo de Estratégia de Marketing ao System Prompt do Copilot
 
 ### Resumo
-Adicionar ferramenta `query_sales_summary` e substituir o system prompt inteiro pelo novo prompt de Gerente Comercial fornecido pelo usuário.
+Inserir o bloco completo "MÓDULO: ESTRATÉGIA DE MARKETING E FLUXOS COMERCIAIS" no final do `SYSTEM_PROMPT`, antes do fechamento do template literal (linha 1546).
 
-### Mudanças em `supabase/functions/smart-ops-copilot/index.ts`
+### Mudança
 
-#### 1. Nova tool definition (após linha 498, antes do `];`)
+**`supabase/functions/smart-ops-copilot/index.ts`** (linha 1546)
 
-```typescript
-{
-  type: "function",
-  function: {
-    name: "query_sales_summary",
-    description: "Retorna total de vendas e ranking de vendedores de um mês via funções SQL consolidadas. USE SEMPRE para faturamento, receita, total de vendas, ranking. NUNCA use query_deal_history ou PipeRun API para totais.",
-    parameters: {
-      type: "object",
-      properties: {
-        ano: { type: "number", description: "Ano (padrão: ano atual)" },
-        mes: { type: "number", description: "Mês 1-12 (padrão: mês atual)" },
-        include_ranking: { type: "boolean", description: "Se true, inclui ranking por vendedor (padrão true)" }
-      },
-      required: []
-    }
-  }
-}
-```
+Antes do fechamento `` `; `` na linha 1546, inserir o bloco completo fornecido pelo usuário contendo:
 
-#### 2. Nova executor function (antes do `toolExecutors`, ~linha 1266)
+- Contexto real da base (25.067 leads em negociação, funil estagnados ~19k)
+- Tabela de upsell por stage com LTV médio
+- Perfis de cliente por anchor_product
+- Estrutura obrigatória de fluxo estratégico (segmento, mensagem, sequência WA, query, métricas)
+- 6 fluxos pré-construídos com queries SQL prontas:
+  1. Reativação de estagnados
+  2. Upsell Scanner → Impressora (E1→E3)
+  3. Upgrade de equipamento
+  4. Recompra de insumos
+  5. Leads B2B alto valor
+  6. Nurture via conteúdo
+- Lógica de segmentação em 4 camadas
+- Regras de projeção de receita
+- Métricas proativas com gatilhos automáticos
 
-```typescript
-async function executeQuerySalesSummary(args: any) {
-  try {
-    const now = new Date();
-    const ano = args.ano || now.getFullYear();
-    const mes = args.mes || (now.getMonth() + 1);
-
-    const { data: totals, error: totErr } = await supabase.rpc("fn_total_vendas_mes", { p_ano: ano, p_mes: mes });
-    if (totErr) return { error: totErr.message };
-
-    const result: any = { periodo: `${mes}/${ano}`, totals: totals?.[0] || null };
-
-    if (args.include_ranking !== false) {
-      const { data: ranking, error: rankErr } = await supabase.rpc("fn_resumo_vendas_mes", { p_ano: ano, p_mes: mes });
-      if (rankErr) return { error: rankErr.message };
-      result.ranking = ranking;
-    }
-
-    return result;
-  } catch (e) {
-    return { error: e.message };
-  }
-}
-```
-
-#### 3. Registrar no `toolExecutors` (linha 1296)
-
-Adicionar: `query_sales_summary: executeQuerySalesSummary,`
-
-#### 4. Substituir SYSTEM_PROMPT completo (linhas 1298-1472)
-
-Substituir pelo novo prompt fornecido pelo usuário que inclui:
-- Identidade de Gerente Comercial
-- 6 capacidades principais
-- Mapa de dados completo com campos de `lia_attendances`
-- Regras de vendas com funções SQL obrigatórias
-- Regras de campanha, oportunidades, comportamento
-- Workflow de campanha passo a passo
-- Regras de comportamento e formato de resposta
-- Tabela de referência rápida de fontes de dados
-- Dados de referência: Abril 2026 até 09/04: R$ 440.329,19
-
-O prompt existente de ~170 linhas será substituído pelo novo prompt de ~400 linhas.
+O bloco tem ~400 linhas de prompt. Será adicionado como seção final do system prompt, mantendo tudo que já existe intacto.
 
 ### Arquivo afetado
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/smart-ops-copilot/index.ts` | +1 tool def, +1 executor, +1 entry no map, system prompt substituído |
+| `supabase/functions/smart-ops-copilot/index.ts` | ~400 linhas adicionadas ao SYSTEM_PROMPT antes do ``;`` na linha 1546 |
 
-### Validação pós-deploy
-
-Testar via `curl_edge_functions` com:
-1. "Qual o total de vendas deste mês?" → espera ~R$ 440k
-2. "Ranking de vendedores abril" → Lucas Silva em 1º
-3. "Compare março e abril" → deve chamar a função 2x
+### Deploy
+Após editar, deploy da edge function `smart-ops-copilot` e teste com "monta uma estratégia para impressora" para validar que o Copilot usa os fluxos pré-construídos.
 
