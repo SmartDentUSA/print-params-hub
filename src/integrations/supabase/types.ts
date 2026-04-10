@@ -11180,6 +11180,82 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_deal_items_dedup: {
+        Row: {
+          deal_date: string | null
+          deal_id: string | null
+          freight_value: number | null
+          id: string | null
+          installments: number | null
+          payment_method: string | null
+          product_category: string | null
+          product_code: string | null
+          product_name: string | null
+          product_subcategory: string | null
+          proposal_id: string | null
+          quantity: number | null
+          sku: string | null
+          synced_at: string | null
+          total_value: number | null
+          unit_value: number | null
+          vendor_name: string | null
+        }
+        Relationships: []
+      }
+      vw_vendas_ganhas: {
+        Row: {
+          categoria: string | null
+          etapa: string | null
+          fechado_em: string | null
+          forma_pagamento: string | null
+          id: string | null
+          mes_fechamento: string | null
+          origem: string | null
+          parcelas: number | null
+          pipeline: string | null
+          piperun_deal_id: string | null
+          produto: string | null
+          valor: number | null
+          valor_frete: number | null
+          valor_produtos: number | null
+          vendedor: string | null
+        }
+        Insert: {
+          categoria?: string | null
+          etapa?: string | null
+          fechado_em?: string | null
+          forma_pagamento?: string | null
+          id?: string | null
+          mes_fechamento?: never
+          origem?: string | null
+          parcelas?: number | null
+          pipeline?: string | null
+          piperun_deal_id?: string | null
+          produto?: string | null
+          valor?: number | null
+          valor_frete?: number | null
+          valor_produtos?: number | null
+          vendedor?: string | null
+        }
+        Update: {
+          categoria?: string | null
+          etapa?: string | null
+          fechado_em?: string | null
+          forma_pagamento?: string | null
+          id?: string | null
+          mes_fechamento?: never
+          origem?: string | null
+          parcelas?: number | null
+          pipeline?: string | null
+          piperun_deal_id?: string | null
+          produto?: string | null
+          valor?: number | null
+          valor_frete?: number | null
+          valor_produtos?: number | null
+          vendedor?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calculate_lead_intelligence_score: {
@@ -11285,6 +11361,16 @@ export type Database = {
           nome: string
         }[]
       }
+      fn_resumo_vendas_mes: {
+        Args: { p_ano?: number; p_mes?: number }
+        Returns: {
+          pct_receita: number
+          receita_total: number
+          ticket_medio: number
+          total_deals: number
+          vendedor: string
+        }[]
+      }
       fn_search_deals_by_status:
         | {
             Args: {
@@ -11344,6 +11430,17 @@ export type Database = {
       fn_sync_normalized_from_lead: {
         Args: { p_lead_id: string }
         Returns: undefined
+      }
+      fn_total_vendas_mes: {
+        Args: { p_ano?: number; p_mes?: number }
+        Returns: {
+          periodo: string
+          receita_top: number
+          receita_total: number
+          ticket_medio: number
+          top_vendedor: string
+          total_deals: number
+        }[]
       }
       get_brand_distribution: {
         Args: never
