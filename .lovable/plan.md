@@ -1,29 +1,24 @@
 
 
-## Plano: Alinhar footer do Support Resources com o resto do site
+## Plano: Tornar categorias e produtos visíveis no catálogo público
 
-### Problema
-A página `/support-resources` usa o componente `<Footer />` completo (com grid de 4 colunas, redes sociais, contato, etc.), enquanto a Base de Conhecimento usa um footer simples e minimalista com apenas o copyright. Isso causa inconsistência visual.
+### Causa raiz
+Quando implementamos o filtro `.eq("visible_in_ui", true)` na query do catálogo, **127 de 128 produtos** tinham `visible_in_ui = false`. Por isso só aparece RESINAS 3D (que vem da tabela `resins`, sem esse filtro).
 
 ### Solução
-Substituir o `<Footer />` importado por um footer inline idêntico ao da KnowledgeBase, e adicionar a seção "Precisa de Ajuda?" com botão WhatsApp antes do footer — exatamente como faz a KnowledgeBase.
 
-### Implementação em `src/pages/SupportResources.tsx`
+#### 1. Migração SQL — ativar `visible_in_ui` para todos os produtos aprovados
+Criar uma migration que faz:
+```sql
+UPDATE system_a_catalog 
+SET visible_in_ui = true 
+WHERE active = true AND approved = true;
+```
+Isso torna todos os produtos ativos/aprovados visíveis por padrão. O admin pode depois ocultar individualmente pelo checkbox.
 
-1. **Remover** o import de `<Footer>` e o `<Footer />` no JSX
-2. **Adicionar antes do fechamento de `</main>`**:
-   - Seção "Precisa de Ajuda?" com botão WhatsApp (mesmo estilo da KnowledgeBase)
-3. **Após `</main>`**, adicionar footer inline:
-   ```html
-   <footer className="border-t border-border bg-gradient-surface mt-16">
-     <div className="container mx-auto px-4 py-8">
-       <div className="text-center text-muted-foreground">
-         <p>© 2024 Smart Dent...</p>
-       </div>
-     </div>
-   </footer>
-   ```
+#### 2. Nenhuma alteração no frontend
+O código já está correto — sidebar de categorias, grid de produtos, filtro `visible_in_ui`. Só faltavam os dados marcados como visíveis.
 
 ### Arquivo afetado
-- `src/pages/SupportResources.tsx`
+- **Nova migration SQL**: `UPDATE system_a_catalog SET visible_in_ui = true WHERE active AND approved`
 
