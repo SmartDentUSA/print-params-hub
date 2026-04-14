@@ -42,6 +42,10 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
+# ==== GOOGLEBOT VIDEO ====
+User-agent: Googlebot-Video
+Allow: /base-conhecimento/a/
+
 # ==== REGRA GERAL ====
 User-agent: *
 Allow: /
@@ -57,6 +61,7 @@ Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-en.xml
 Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-es.xml
 Sitemap: https://parametros.smartdent.com.br/sitemap-documentos.xml
 Sitemap: https://parametros.smartdent.com.br/video-sitemap.xml
+Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap
 
 # ==== LLMs.txt ====
 # See https://llmstxt.org/
