@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { FileText, Play } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Content {
@@ -13,6 +13,7 @@ interface Content {
   icon_color: string;
   og_image_url?: string;
   content_image_url?: string;
+  hasVideo?: boolean;
 }
 
 interface KnowledgeSidebarProps {
@@ -44,12 +45,17 @@ export function KnowledgeSidebar({ contents, selectedSlug, onContentSelect }: Kn
         >
           {/* Imagem de destaque */}
           {(content.content_image_url || content.og_image_url) && (
-            <div className="w-full aspect-[1.91/1] overflow-hidden">
+            <div className="w-full aspect-[1.91/1] overflow-hidden relative">
               <img 
                 src={content.content_image_url || content.og_image_url} 
                 alt={content.title}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
               />
+              {content.hasVideo && (
+                <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground rounded-full p-1">
+                  <Play className="w-3 h-3 fill-current" />
+                </div>
+              )}
             </div>
           )}
           

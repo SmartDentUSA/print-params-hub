@@ -54,12 +54,38 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
     load();
   }, []);
 
-  // Load contents when category changes
+  // Load contents when category changes, prioritize by video + hero image
   useEffect(() => {
     if (categoryLetter) {
       const load = async () => {
         const data = await fetchContentsByCategory(categoryLetter);
-        setContents(data);
+        
+        // Fetch which contents have videos
+        const contentIds = data.map((c: any) => c.id);
+        let videoContentIds = new Set<string>();
+        if (contentIds.length > 0) {
+          const { data: videoData } = await (await import('@/integrations/supabase/client')).supabase
+            .from('knowledge_videos')
+            .select('content_id')
+            .in('content_id', contentIds);
+          if (videoData) {
+            videoContentIds = new Set(videoData.map((v: any) => v.content_id));
+          }
+        }
+
+        // Add hasVideo flag and sort by priority
+        const enriched = data.map((c: any) => ({
+          ...c,
+          hasVideo: videoContentIds.has(c.id),
+        }));
+        
+        enriched.sort((a: any, b: any) => {
+          const scoreA = (a.hasVideo ? 2 : 0) + (a.content_image_url ? 1 : 0);
+          const scoreB = (b.hasVideo ? 2 : 0) + (b.content_image_url ? 1 : 0);
+          return scoreB - scoreA;
+        });
+
+        setContents(enriched);
       };
       load();
     } else {
