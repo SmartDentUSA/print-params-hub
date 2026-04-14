@@ -15,6 +15,7 @@ import { useRef } from 'react';
 import { LanguageFlags } from '@/components/LanguageFlags';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getKnowledgeBasePath, getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
+import { getArticleUrl, isCategoryEnabled } from '@/utils/knowledgeUrls';
 
 const getCategoryColor = (letter: string) => {
   const colors: Record<string, string> = {
@@ -133,7 +134,8 @@ export const KnowledgeFeed = () => {
             const imageAlt = article.content_image_alt || article.title;
             const categoryLetter = article.knowledge_categories?.letter || 'A';
             const categoryName = article.knowledge_categories?.name || 'Geral';
-            const articleUrl = `${getKnowledgeBasePath(language)}/${categoryLetter.toLowerCase()}/${article.slug}`;
+            const articleUrl = getArticleUrl(article, language);
+            const enabled = isCategoryEnabled(article);
 
             return (
               <CarouselItem 

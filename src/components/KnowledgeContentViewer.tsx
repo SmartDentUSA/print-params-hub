@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
+import { getArticleUrl } from '@/utils/knowledgeUrls';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { PDFContentRenderer } from '@/components/PDFContentRenderer';
 import { PDFViewerEmbed } from '@/components/PDFViewerEmbed';
@@ -652,7 +653,7 @@ ${processedHTML}
             {relatedArticles.map(article => (
               <Link 
                 key={article.id} 
-                to={`${basePath}/${article.knowledge_categories?.letter?.toLowerCase()}/${article.slug}`}
+                to={getArticleUrl(article, language)}
               >
                 <Card className="hover:shadow-lg transition-shadow h-full">
                   {article.og_image_url && (

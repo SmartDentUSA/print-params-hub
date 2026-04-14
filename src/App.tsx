@@ -13,6 +13,7 @@ import ResinRedirect from "./pages/ResinRedirect";
 import AgentEmbed from "./pages/AgentEmbed";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
+import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
 import DraLIA from "./components/DraLIA";
 import { usePageTracking } from "./hooks/usePageTracking";
 
@@ -36,6 +37,8 @@ const App = () => (
       <Route path="/base-conhecimento/calculadora-roi/:slug" element={<ROICalculatorPage />} />
       <Route path="/base-conhecimento/:categoryLetter" element={<KnowledgeBase lang="pt" />} />
       <Route path="/base-conhecimento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="pt" />} />
+      {/* Fallback: slug-only (resolves category and redirects) */}
+      <Route path="/base-conhecimento/:slug" element={<KnowledgeArticleRedirect />} />
       
       {/* English routes */}
       <Route path="/en/knowledge-base" element={<KnowledgeBase lang="en" />} />
@@ -43,6 +46,7 @@ const App = () => (
       <Route path="/en/knowledge-base/roi-calculator/:slug" element={<ROICalculatorPage />} />
       <Route path="/en/knowledge-base/:categoryLetter" element={<KnowledgeBase lang="en" />} />
       <Route path="/en/knowledge-base/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="en" />} />
+      <Route path="/en/knowledge-base/:slug" element={<KnowledgeArticleRedirect />} />
       
       {/* Spanish routes */}
       <Route path="/es/base-conocimiento" element={<KnowledgeBase lang="es" />} />
@@ -50,6 +54,7 @@ const App = () => (
       <Route path="/es/base-conocimiento/calculadora-roi/:slug" element={<ROICalculatorPage />} />
       <Route path="/es/base-conocimiento/:categoryLetter" element={<KnowledgeBase lang="es" />} />
       <Route path="/es/base-conocimiento/:categoryLetter/:contentSlug" element={<KnowledgeBase lang="es" />} />
+      <Route path="/es/base-conocimiento/:slug" element={<KnowledgeArticleRedirect />} />
       
       <Route path="/produtos/:slug" element={<ProductPage />} />
       <Route path="/depoimentos/:slug" element={<TestimonialPage />} />
