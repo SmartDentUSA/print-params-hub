@@ -88,6 +88,10 @@ export function AdminCatalog() {
         filtered = filtered.filter(p => p.approved);
       } else if (selectedStatus === 'pending') {
         filtered = filtered.filter(p => !p.approved);
+      } else if (selectedStatus === 'visible') {
+        filtered = filtered.filter(p => p.visible_in_ui);
+      } else if (selectedStatus === 'hidden') {
+        filtered = filtered.filter(p => !p.visible_in_ui);
       }
     }
 
