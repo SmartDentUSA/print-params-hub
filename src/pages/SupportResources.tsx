@@ -26,6 +26,7 @@ interface PresentationInfo {
   grams_per_print: number;
   prints_per_bottle: number;
   cost_per_print: number;
+  print_type?: string;
 }
 
 interface UnifiedProduct {
@@ -38,6 +39,7 @@ interface UnifiedProduct {
   documents: DocInfo[];
   presentations: PresentationInfo[];
   processing_instructions: string | null;
+  subcategory?: string | null;
   source: "catalog" | "resin";
 }
 
@@ -115,7 +117,7 @@ export default function SupportResources() {
         resinIds.length
           ? supabase
               .from("resin_presentations")
-              .select("resin_id, label, price, grams_per_print, prints_per_bottle, cost_per_print")
+              .select("resin_id, label, price, grams_per_print, prints_per_bottle, cost_per_print, print_type")
               .in("resin_id", resinIds)
               .order("sort_order")
           : Promise.resolve({ data: [] as any[] }),
@@ -157,8 +159,22 @@ export default function SupportResources() {
           grams_per_print: Number(p.grams_per_print) || 0,
           prints_per_bottle: Number(p.prints_per_bottle) || 0,
           cost_per_print: Number(p.cost_per_print) || 0,
+          print_type: p.print_type || undefined,
         });
         resinPresMap.set(p.resin_id, list);
+      });
+
+      // Fetch subcategories for RESINAS 3D from system_a_catalog
+      const { data: subcatData } = await supabase
+        .from("system_a_catalog")
+        .select("name, product_subcategory")
+        .eq("product_category", "RESINAS 3D")
+        .eq("active", true)
+        .not("product_subcategory", "is", null);
+
+      const subcatMap = new Map<string, string>();
+      (subcatData || []).forEach((s: any) => {
+        subcatMap.set(s.name.toLowerCase().trim(), s.product_subcategory);
       });
 
       // Build unified list
@@ -173,6 +189,7 @@ export default function SupportResources() {
           documents: resinDocMap.get(r.id) || [],
           presentations: resinPresMap.get(r.id) || [],
           processing_instructions: r.processing_instructions || null,
+          subcategory: subcatMap.get(r.name.toLowerCase().trim()) || null,
           source: "resin" as const,
         })),
         ...uniqueCatalog.map((p) => ({
@@ -322,9 +339,20 @@ export default function SupportResources() {
                           </div>
 
                           <div className="p-3 flex flex-col flex-1">
-                            <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-2 flex-1">
+                            <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-1 flex-1">
                               {product.name}
                             </h3>
+                            {product.subcategory && (
+                              <span
+                                className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mb-2 ${
+                                  product.subcategory === "BIOCOMPATÍVEIS"
+                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                    : "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400"
+                                }`}
+                              >
+                                {product.subcategory}
+                              </span>
+                            )}
 
                             <div className="flex flex-wrap gap-1.5 mb-2">
                               {product.shop_url && (
@@ -450,6 +478,11 @@ export default function SupportResources() {
                                               key={i}
                                               className="text-xs text-muted-foreground border border-border rounded p-1.5"
                                             >
+                                              {pres.print_type && (
+                                                <p className="text-[10px] text-primary font-medium italic mb-0.5">
+                                                  (Tipo impressão) {pres.print_type}
+                                                </p>
+                                              )}
                                               {pres.label && (
                                                 <p className="font-medium text-foreground">{pres.label}</p>
                                               )}
