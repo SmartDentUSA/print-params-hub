@@ -8,6 +8,7 @@
       "source": "/video-sitemap.xml",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap"
     },
+    {
       "source": "/sitemap.xml",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap"
     },
@@ -76,11 +77,15 @@
       "headers": [
         {
           "key": "Content-Type",
-          "value": "application/xml"
+          "value": "application/xml; charset=utf-8"
         },
         {
           "key": "Cache-Control",
           "value": "public, max-age=3600"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
         }
       ]
     }
