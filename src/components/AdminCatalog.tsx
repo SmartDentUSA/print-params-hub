@@ -334,8 +334,8 @@ export function AdminCatalog() {
                   <TableHead>Imagem</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Subcategoria</TableHead>
-                  <TableHead>Última Atualização</TableHead>
+                  <TableHead className="text-center">Visível</TableHead>
+                  <TableHead className="text-center">Docs</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
