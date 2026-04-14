@@ -213,8 +213,30 @@ function renderMarkdown(text: string): React.ReactNode {
   );
 }
 
+// Known production base URLs to convert to relative paths
+const SITE_BASES = [
+  'https://parametros.smartdent.com.br',
+  'https://print-params-hub.lovable.app',
+];
+
+function resolveInternalPath(url?: string): string | null {
+  if (!url) return null;
+  // Already a relative path
+  if (url.startsWith('/base-conhecimento/') || url.startsWith('/depoimentos/') || url.startsWith('/produtos/')) {
+    return url;
+  }
+  // Convert absolute production URLs to relative
+  for (const base of SITE_BASES) {
+    if (url.startsWith(base)) {
+      return url.slice(base.length) || '/';
+    }
+  }
+  return null;
+}
+
 export default function DraLIA({ embedded = false }: DraLIAProps) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(embedded);
   const [messages, setMessages] = useState<Message[]>([
     {
