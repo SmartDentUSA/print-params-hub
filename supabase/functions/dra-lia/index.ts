@@ -4012,34 +4012,42 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
     const topicTokens = userRequestedMedia ? extractVideoTopic(message) : [];
 
     const mediaCards = userRequestedMedia
-      ? allResults
-          .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-            const meta = r.metadata as Record<string, unknown>;
-            return meta.thumbnail_url || meta.url_publica || meta.url_interna;
-          })
-          .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-            // Se é query de protocolo, remove cards de parâmetros de impressora
-            if (isProtocolQuery) {
+      ? (() => {
+          const seen = new Set<string>();
+          return allResults
+            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+              const meta = r.metadata as Record<string, unknown>;
+              return meta.thumbnail_url || meta.url_publica || meta.url_interna;
+            })
+            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+              if (isProtocolQuery) {
+                const title = (r.metadata as Record<string, unknown>).title as string ?? '';
+                return !isParameterCard(title);
+              }
+              return true;
+            })
+            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
               const title = (r.metadata as Record<string, unknown>).title as string ?? '';
-              return !isParameterCard(title);
-            }
-            return true;
-          })
-          .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-            // Gate de relevância: o título do card deve conter tokens do sub-tema pedido
-            const title = (r.metadata as Record<string, unknown>).title as string ?? '';
-            return cardMatchesTopic(title, topicTokens);
-          })
-          .slice(0, 3)
-          .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
-            const meta = r.metadata as Record<string, unknown>;
-            return {
-              type: r.source_type === 'video' ? 'video' : 'article',
-              title: meta.title as string,
-              thumbnail: meta.thumbnail_url as string | undefined,
-              url: (meta.url_interna || meta.url_publica) as string | undefined,
-            };
-          })
+              return cardMatchesTopic(title, topicTokens);
+            })
+            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+              // Dedup by title
+              const title = ((r.metadata as Record<string, unknown>).title as string ?? '').trim().toLowerCase();
+              if (seen.has(title)) return false;
+              seen.add(title);
+              return true;
+            })
+            .slice(0, 3)
+            .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
+              const meta = r.metadata as Record<string, unknown>;
+              return {
+                type: r.source_type === 'video' ? 'video' : 'article',
+                title: meta.title as string,
+                thumbnail: meta.thumbnail_url as string | undefined,
+                url: (meta.url_interna || meta.url_publica) as string | undefined,
+              };
+            });
+        })()
       : [];
 
     const transformedStream = new ReadableStream({

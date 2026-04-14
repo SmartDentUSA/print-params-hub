@@ -121,6 +121,16 @@ export function usePageTracking() {
         });
       }
 
+      // Check for pending tracking context from Dra. LIA media card clicks
+      let pendingContext: Record<string, any> | null = null;
+      try {
+        const raw = sessionStorage.getItem('sd_pending_page_view_context');
+        if (raw) {
+          pendingContext = JSON.parse(raw);
+          sessionStorage.removeItem('sd_pending_page_view_context');
+        }
+      } catch {}
+
       const insertPayload: Record<string, any> = {
         session_id: sessionId,
         page_path: path,
@@ -136,8 +146,15 @@ export function usePageTracking() {
         browser: getBrowser(),
       };
 
+      const extraData: Record<string, any> = {};
       if (paramSlugs) {
-        insertPayload.extra_data = { ...paramSlugs, action: 'view' };
+        Object.assign(extraData, paramSlugs, { action: 'view' });
+      }
+      if (pendingContext) {
+        Object.assign(extraData, pendingContext);
+      }
+      if (Object.keys(extraData).length > 0) {
+        insertPayload.extra_data = extraData;
       }
 
       supabase

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getPageTrackingSessionId } from '@/hooks/usePageTracking';
 import draLiaGif from '@/assets/dra-lia-avatar.gif';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -212,8 +213,30 @@ function renderMarkdown(text: string): React.ReactNode {
   );
 }
 
+// Known production base URLs to convert to relative paths
+const SITE_BASES = [
+  'https://parametros.smartdent.com.br',
+  'https://print-params-hub.lovable.app',
+];
+
+function resolveInternalPath(url?: string): string | null {
+  if (!url) return null;
+  // Already a relative path
+  if (url.startsWith('/base-conhecimento/') || url.startsWith('/depoimentos/') || url.startsWith('/produtos/')) {
+    return url;
+  }
+  // Convert absolute production URLs to relative
+  for (const base of SITE_BASES) {
+    if (url.startsWith(base)) {
+      return url.slice(base.length) || '/';
+    }
+  }
+  return null;
+}
+
 export default function DraLIA({ embedded = false }: DraLIAProps) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(embedded);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -950,14 +973,36 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                 </div>
               )}
               {/* Media cards strip — videos with thumbnail / articles */}
-              {msg.role === 'assistant' && msg.mediaCards && msg.mediaCards.length > 0 && (
+              {msg.role === 'assistant' && msg.mediaCards && msg.mediaCards.length > 0 && (() => {
+                // Dedup by title
+                const uniqueCards = msg.mediaCards.filter((card, i, arr) =>
+                  arr.findIndex(c => c.title === card.title) === i
+                );
+                return (
                 <div className="mt-2 space-y-2">
-                  {msg.mediaCards.map((card, i) => (
+                  {uniqueCards.map((card, i) => {
+                    const internalPath = resolveInternalPath(card.url);
+                    const isInternal = !!internalPath;
+                    const handleClick = (e: React.MouseEvent) => {
+                      if (isInternal) {
+                        e.preventDefault();
+                        try {
+                          sessionStorage.setItem('sd_pending_page_view_context', JSON.stringify({
+                            source: 'dra_lia',
+                            content_title: card.title,
+                            content_type: card.type,
+                          }));
+                        } catch {}
+                        navigate(internalPath);
+                      }
+                    };
+                    return (
                     <a
                       key={i}
-                      href={card.url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={isInternal ? internalPath : (card.url || '#')}
+                      target={isInternal ? undefined : "_blank"}
+                      rel={isInternal ? undefined : "noopener noreferrer"}
+                      onClick={handleClick}
                       className="flex items-center gap-2 rounded-xl border border-gray-100 bg-white hover:bg-gray-50 transition-colors overflow-hidden shadow-sm p-2"
                     >
                       <div className="w-16 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100 flex items-center justify-center">
@@ -981,9 +1026,11 @@ export default function DraLIA({ embedded = false }: DraLIAProps) {
                         </div>
                       </div>
                     </a>
-                  ))}
+                    );
+                  })}
                 </div>
-              )}
+                );
+              })()}
 
 
               {msg.role === 'assistant' &&
