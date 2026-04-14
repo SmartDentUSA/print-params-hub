@@ -14,6 +14,10 @@
       "destination": "/api/video-sitemap"
     },
     {
+      "source": "/base-conhecimento/:letter/:slug",
+      "destination": "/api/middleware-bot"
+    },
+    {
       "source": "/sitemap.xml",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap"
     },
