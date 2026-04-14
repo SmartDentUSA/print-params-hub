@@ -5,6 +5,9 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/:path*"
     },
     {
+      "source": "/video-sitemap.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap"
+    },
       "source": "/sitemap.xml",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap"
     },
@@ -65,6 +68,19 @@
         {
           "key": "Content-Type",
           "value": "application/manifest+json"
+        }
+      ]
+    },
+    {
+      "source": "/video-sitemap.xml",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
         }
       ]
     }

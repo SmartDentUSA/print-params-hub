@@ -56,6 +56,7 @@ Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-pt.xml
 Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-en.xml
 Sitemap: https://parametros.smartdent.com.br/sitemap-conhecimento-es.xml
 Sitemap: https://parametros.smartdent.com.br/sitemap-documentos.xml
+Sitemap: https://parametros.smartdent.com.br/video-sitemap.xml
 
 # ==== LLMs.txt ====
 # See https://llmstxt.org/
