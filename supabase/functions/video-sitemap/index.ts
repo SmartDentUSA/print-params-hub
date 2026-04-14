@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
 
     const activeVideos = (videos || []).filter((v: any) => {
       const content = v.knowledge_contents;
-      return content?.active && content?.knowledge_categories?.enabled !== false;
+      return content?.active && content?.knowledge_categories?.enabled !== false
+        && (v.url || v.embed_url); // Must have at least one playable URL
     });
 
     let xml = `<?xml version="1.0" encoding="UTF-8"?>
