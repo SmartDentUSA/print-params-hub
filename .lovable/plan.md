@@ -1,61 +1,91 @@
 
+Objetivo: restaurar imediatamente os textos dos artigos da Base de Conhecimento, com foco no que mudou no último deploy e no ponto real de renderização do `content_html`.
 
-## Fix: Video Sitemap via Vercel API Function
+Diagnóstico encontrado:
+- O frontend ainda busca `content_html` corretamente: `useKnowledge.fetchContentBySlug()` faz `.select('*, knowledge_categories(*), authors(*)')`.
+- O componente de artigo ainda renderiza HTML: `KnowledgeContentViewer` monta `processedHTML` a partir de `displayContent.content_html` e passa isso para `PDFContentRenderer`.
+- O render final usa `DirectHTMLRenderer`, que aplica `dangerouslySetInnerHTML`.
+- Então o problema não parece ser “campo vazio no banco” nem “remoção do dangerouslySetInnerHTML”.
+- O maior suspeito do último deploy é o roteamento no `vercel.json`: hoje `/base-conhecimento/:letter/:slug` está sempre sendo reescrito para `/api/middleware-bot`, inclusive para usuários normais. Isso é perigoso em projeto Vite SPA e combina com o sintoma “sumiu após deploy”.
+- Há também um segundo ponto frágil: `PDFContentRenderer` tenta parsear `pdf-viewer-container` com regex muito sensível. Se o HTML tiver blocos de PDF com divs aninhadas, ele pode engolir partes do artigo ou montar `parts` de forma incompleta.
 
-### Contexto
+Plano de correção:
 
-O `vercel.json` atual já tem um rewrite direto para a Supabase Edge Function (linha 8-10), mas isso não funciona porque rewrites para URLs externas em projetos Vite/SPA no Vercel não fazem proxy — eles apenas redirecionam internamente. O Vercel precisa de uma **API Function** como intermediário para fazer o fetch e retornar o XML.
+1. Corrigir o rewrite do Vercel para não capturar tráfego normal
+- Remover o rewrite incondicional:
+  - `/base-conhecimento/:letter/:slug -> /api/middleware-bot`
+- Deixar o middleware de bot atuar apenas por detecção de bot no `has.user-agent`, ou manter só a regra global já existente para bots.
+- Garantir que usuário normal continue indo para `/index.html` e o React Router resolva a página.
+- Revisar a ordem dos rewrites para a SPA continuar funcionando.
 
-### Mudanças
+2. Ajustar `api/middleware-bot.ts`
+- Manter a função só para bots/crawlers.
+- Para requisição não-bot, evitar `return fetch(request)` como fallback primário para rota SPA.
+- Tornar o comportamento explícito:
+  - ou o rewrite só acontece para bots;
+  - ou a função responde com um redirecionamento/rewrite seguro para a SPA, sem depender de comportamento ambíguo do Edge Runtime.
 
-#### 1. Criar `api/video-sitemap.ts` (na raiz, ao lado de `package.json`)
+3. Blindar o renderizador de conteúdo dos artigos
+- Simplificar `PDFContentRenderer` para nunca “sumir” com o artigo:
+  - se o parse dos PDFs falhar ou ficar duvidoso, renderizar o HTML inteiro via `DirectHTMLRenderer`;
+  - evitar regex que tenta capturar containers completos com divs aninhadas de forma frágil;
+  - preferir estratégia conservadora: separar apenas quando houver extração confiável, senão mostrar tudo.
+- Isso reduz risco de artigos com `pdf-viewer-container` esconderem o resto do `content_html`.
 
-Serverless function simples que faz fetch da Edge Function e retorna o XML:
+4. Validar o componente de artigo
+- Confirmar que `KnowledgeContentViewer` continua usando:
+  - `displayContent.content_html`
+  - `processedHTML`
+  - `PDFContentRenderer`
+- Se necessário, adicionar fallback explícito de segurança:
+  - quando `processedHTML` existir, sempre renderizar ao menos um `DirectHTMLRenderer`, mesmo que o parser de PDF falhe.
 
-```typescript
-export default async function handler(req: any, res: any) {
-  try {
-    const upstream = await fetch(
-      'https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap'
-    );
-    const xml = await upstream.text();
-    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400');
-    res.status(200).send(xml);
-  } catch (e) {
-    res.status(500).send('Error fetching sitemap');
-  }
-}
+5. Verificação após implementação
+- Abrir um artigo afetado e confirmar:
+  - hero, vídeo e principalmente corpo do texto visíveis;
+  - artigos com e sem bloco de PDF funcionando;
+  - rotas `/base-conhecimento/*` abrindo normalmente para usuário real;
+  - bots ainda recebendo HTML SEO via proxy.
+- Testes prioritários:
+  - um artigo sem PDF embutido;
+  - um artigo com `pdf-viewer-container`;
+  - um acesso simulando bot;
+  - um acesso normal no navegador.
+
+Arquivos que pretendo alterar:
+- `vercel.json`
+- `api/middleware-bot.ts`
+- `src/components/PDFContentRenderer.tsx`
+- possivelmente `src/components/KnowledgeContentViewer.tsx` (apenas para fallback de segurança)
+
+Resultado esperado:
+- os textos dos artigos voltam a aparecer;
+- o SEO para bots continua;
+- o roteamento SPA da Base de Conhecimento deixa de interferir na renderização normal.
+
+Detalhes técnicos:
+```text
+Fluxo atual suspeito
+usuário normal
+  /base-conhecimento/a/slug
+    -> vercel rewrite
+    -> /api/middleware-bot
+    -> fetch(request)
+    -> comportamento inconsistente para SPA
+
+Fluxo desejado
+usuário normal
+  /base-conhecimento/a/slug
+    -> /index.html
+    -> React Router
+    -> KnowledgeBase
+    -> fetchContentBySlug
+    -> KnowledgeContentViewer
+    -> DirectHTMLRenderer
+
+bot
+  /base-conhecimento/a/slug
+    -> middleware/proxy SEO
+    -> seo-proxy
+    -> HTML renderizado para crawler
 ```
-
-#### 2. Atualizar `vercel.json`
-
-- Adicionar bloco `functions` para configurar runtime Node.js 20
-- Alterar o rewrite de `/video-sitemap.xml` para apontar para `/api/video-sitemap` em vez da URL externa
-- Manter todos os outros rewrites e headers existentes intactos
-
-```json
-{
-  "functions": {
-    "api/*.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
-  "rewrites": [
-    { "source": "/docs/:path*", "destination": "..." },
-    { "source": "/video-sitemap.xml", "destination": "/api/video-sitemap" },
-    // ... demais rewrites inalterados
-  ]
-}
-```
-
-### Arquivos afetados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `api/video-sitemap.ts` | **Novo** — proxy serverless |
-| `vercel.json` | Adicionar `functions`, alterar destination do video-sitemap |
-
-### Verificação pós-deploy
-`https://parametros.smartdent.com.br/video-sitemap.xml` deve retornar XML com `<urlset>` e entries `<video:video>`.
-
