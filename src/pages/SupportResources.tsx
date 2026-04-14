@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ShoppingCart, FileText, BookOpen, ChevronRight, Package } from "lucide-react";
@@ -457,9 +457,26 @@ export default function SupportResources() {
             </div>
           </div>
         )}
+        {/* CTA Ajuda */}
+        <section className="mt-16 text-center">
+          <h2 className="text-2xl font-bold text-foreground mb-4">Precisa de Ajuda?</h2>
+          <p className="text-muted-foreground mb-6">Nossa equipe está pronta para ajudar com qualquer dúvida técnica.</p>
+          <Button asChild className="bg-green-600 hover:bg-green-700 text-white">
+            <a href="https://wa.me/551146733686" target="_blank" rel="noopener noreferrer">
+              <MessageCircle className="w-5 h-5 mr-2" />
+              Falar com Especialista
+            </a>
+          </Button>
+        </section>
       </main>
 
-      <Footer />
+      <footer className="border-t border-border mt-16">
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center text-sm text-muted-foreground">
+            <p>© {new Date().getFullYear()} Smart Dent. Todos os direitos reservados.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
