@@ -26,72 +26,70 @@ export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFC
   let match;
   let key = 0;
 
-  while ((match = containerPattern.exec(htmlContent)) !== null) {
-    const containerHTML = match[0];
-    const containerContent = match[1];
-    
-    // Extrair URL do iframe
-    const iframeMatch = containerContent.match(/<iframe[^>]+src="([^"]+)"[^>]*>/);
-    // Extrair title do iframe
-    const titleMatch = containerContent.match(/<iframe[^>]+title="([^"]+)"[^>]*>/) || 
-                       containerContent.match(/<h3[^>]*>([^<]+)<\/h3>/);
-    // Extrair subtitle (texto do <p> no header)
-    const subtitleMatch = containerContent.match(/<p[^>]*style="[^"]*font-size:\s*12px[^"]*"[^>]*>([^<]+)<\/p>/);
-    
-    if (!iframeMatch) {
-      devWarn('PDFContentRenderer: Found container but no iframe, skipping');
-      continue;
+  try {
+    while ((match = containerPattern.exec(htmlContent)) !== null) {
+      const containerHTML = match[0];
+      const containerContent = match[1];
+      
+      const iframeMatch = containerContent.match(/<iframe[^>]+src="([^"]+)"[^>]*>/);
+      const titleMatch = containerContent.match(/<iframe[^>]+title="([^"]+)"[^>]*>/) || 
+                         containerContent.match(/<h3[^>]*>([^<]+)<\/h3>/);
+      const subtitleMatch = containerContent.match(/<p[^>]*style="[^"]*font-size:\s*12px[^"]*"[^>]*>([^<]+)<\/p>/);
+      
+      if (!iframeMatch) {
+        devWarn('PDFContentRenderer: Found container but no iframe, skipping');
+        continue;
+      }
+      
+      const pdfUrl = iframeMatch[1];
+      const pdfTitle = titleMatch ? titleMatch[1] : 'Documento PDF';
+      const pdfSubtitle = subtitleMatch ? subtitleMatch[1].trim() : '';
+      
+      devLog('PDFContentRenderer: Found PDF:', { pdfUrl, pdfTitle, pdfSubtitle });
+      
+      if (match.index > lastIndex) {
+        const htmlBefore = htmlContent.slice(lastIndex, match.index);
+        if (htmlBefore.trim()) {
+          parts.push(
+            <DirectHTMLRenderer 
+              key={`html-${key}`} 
+              htmlContent={htmlBefore}
+              deviceMode={deviceMode}
+            />
+          );
+        }
+      }
+      
+      parts.push(
+        <PDFViewerEmbed 
+          key={`pdf-${key}`}
+          url={pdfUrl} 
+          title={pdfTitle}
+          subtitle={pdfSubtitle}
+        />
+      );
+      
+      lastIndex = match.index + containerHTML.length;
+      key++;
     }
-    
-    const pdfUrl = iframeMatch[1];
-    const pdfTitle = titleMatch ? titleMatch[1] : 'Documento PDF';
-    const pdfSubtitle = subtitleMatch ? subtitleMatch[1].trim() : '';
-    
-    devLog('PDFContentRenderer: Found PDF:', { pdfUrl, pdfTitle, pdfSubtitle });
-    
-    // Conteúdo HTML antes do PDF
-    if (match.index > lastIndex) {
-      const htmlBefore = htmlContent.slice(lastIndex, match.index);
-      if (htmlBefore.trim()) {
+
+    if (lastIndex < htmlContent.length) {
+      const htmlAfter = htmlContent.slice(lastIndex);
+      if (htmlAfter.trim()) {
         parts.push(
           <DirectHTMLRenderer 
             key={`html-${key}`} 
-            htmlContent={htmlBefore}
+            htmlContent={htmlAfter}
             deviceMode={deviceMode}
           />
         );
       }
     }
-    
-    // PDF viewer
-    parts.push(
-      <PDFViewerEmbed 
-        key={`pdf-${key}`}
-        url={pdfUrl} 
-        title={pdfTitle}
-        subtitle={pdfSubtitle}
-      />
-    );
-    
-    lastIndex = match.index + containerHTML.length;
-    key++;
+  } catch (err) {
+    devWarn('PDFContentRenderer: Regex parsing failed, falling back to DirectHTMLRenderer', err);
+    return <DirectHTMLRenderer htmlContent={htmlContent} deviceMode={deviceMode} />;
   }
 
-  // Conteúdo HTML após o último PDF
-  if (lastIndex < htmlContent.length) {
-    const htmlAfter = htmlContent.slice(lastIndex);
-    if (htmlAfter.trim()) {
-      parts.push(
-        <DirectHTMLRenderer 
-          key={`html-${key}`} 
-          htmlContent={htmlAfter}
-          deviceMode={deviceMode}
-        />
-      );
-    }
-  }
-
-  // Se não conseguiu extrair nenhum PDF com o regex, renderizar tudo diretamente
   if (parts.length === 0) {
     devWarn('PDFContentRenderer: Container found but regex failed, falling back to DirectHTMLRenderer');
     return <DirectHTMLRenderer htmlContent={htmlContent} deviceMode={deviceMode} />;

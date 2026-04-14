@@ -163,7 +163,13 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     return () => { cancelled = true; };
   }, [content?.id, language, hasTranslation]);
 
-  // Fetch data - dependencies simplified since functions are now memoized
+  // Store fetch functions in refs to avoid infinite loops from unstable references
+  const fetchVideosByContentRef = useRef(fetchVideosByContent);
+  const fetchRelatedContentsRef = useRef(fetchRelatedContents);
+  fetchVideosByContentRef.current = fetchVideosByContent;
+  fetchRelatedContentsRef.current = fetchRelatedContents;
+
+  // Fetch data - uses refs to avoid re-triggering on function identity changes
   useEffect(() => {
     if (!content?.id) return;
     
@@ -177,8 +183,8 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
 
       // Fetch paralelo: videos + artigos relacionados + resinas CTA + documentos relacionados + PDFs selecionados
       const [vids, related, resinsData, documentsData, pdfsData] = await Promise.all([
-        fetchVideosByContent(content.id),
-        fetchRelatedContents(
+        fetchVideosByContentRef.current(content.id),
+        fetchRelatedContentsRef.current(
           content.id, 
           content.category_id, 
           content.keywords || []
@@ -204,19 +210,12 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                   document_name,
                   document_description,
                   file_url,
-                  file_size,
-                  updated_at,
                   resins!inner(name, manufacturer)
                 `)
                 .in('resin_id', content.recommended_resins)
                 .eq('active', true)
-                .limit(5);
-              
-              return data ? data.map((doc: any) => ({
-                ...doc,
-                resin_name: doc.resins.name,
-                resin_manufacturer: doc.resins.manufacturer
-              })) : [];
+                .in('document_type', ['IFU', 'SDS', 'TDS', 'Ficha Técnica', 'Manual']);
+              return data || [];
             })()
           : Promise.resolve([]),
         // Fetch PDFs selecionados de AMBAS as tabelas (resinas + catálogo)
@@ -248,25 +247,14 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
                 .in('id', pdfIds)
                 .eq('active', true);
               
-              // Normalizar estrutura de resin_documents
-              const resinPdfs = resinDocs?.map((doc: any) => ({
-                id: doc.id,
-                document_name: doc.document_name,
-                document_description: doc.document_description,
-                file_url: doc.file_url,
-                resin_name: doc.resins.name,
-                resin_manufacturer: doc.resins.manufacturer,
+              // Mapear para formato uniforme
+              const resinPdfs = resinDocs?.map(d => ({
+                ...d,
                 source: 'resin' as const
               })) || [];
               
-              // Normalizar estrutura de catalog_documents
-              const catalogPdfs = catalogDocs?.map((doc: any) => ({
-                id: doc.id,
-                document_name: doc.document_name,
-                document_description: doc.document_description,
-                file_url: doc.file_url,
-                resin_name: doc.system_a_catalog.name,
-                resin_manufacturer: '',
+              const catalogPdfs = catalogDocs?.map(d => ({
+                ...d,
                 source: 'catalog' as const
               })) || [];
               
@@ -287,7 +275,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     };
     
     load();
-  }, [content?.id, language, fetchVideosByContent, fetchRelatedContents]);
+  }, [content?.id, language]);
 
   // Fetch members_area_url setting
   useEffect(() => {
