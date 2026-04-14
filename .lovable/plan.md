@@ -1,32 +1,33 @@
 
 
-## Plano: Corrigir Vitality, adicionar visibilidade no admin, mostrar docs de produtos
+## Plano: Filtrar por `visible_in_ui` na página pública e adicionar controle de categoria
 
-### Problemas identificados
-
-1. **Vitality "Apresentações (1)" mas nada aparece**: A presentation existe no banco mas com `label = ""`, `price = 0`, todos campos zerados. O card renderiza o container vazio porque todos os `>0` checks falham e `label` é vazio. Precisa mostrar pelo menos "Sem dados preenchidos" quando a presentation existe mas está vazia.
-
-2. **Admin Catálogo sem controle de visibilidade**: A tabela `AdminCatalog` não tem coluna de checkbox para `visible_in_ui`. O admin não consegue habilitar/desabilitar a visibilidade dos produtos na UI pública.
-
-3. **Documentos dos produtos não aparecem**: Os `catalog_documents` têm URLs malformadas (ex: `https://...supabase.co/storage/.../https://loja.smartdent.com.br/...`). A validação `isValidUrl` passa, mas os links estão quebrados. Além disso, a query está correta mas poucos produtos têm docs cadastrados (apenas 2 registros existem na tabela).
+### Problema
+1. **A página `/support-resources` não respeita `visible_in_ui`** -- a query filtra apenas `active` e `approved`, ignorando o checkbox do admin.
+2. **Não há controle de visibilidade por categoria** -- o admin pode marcar produtos individuais mas não pode ocultar/mostrar uma categoria inteira de uma vez.
+3. **Opções duplicadas no filtro de status** do AdminCatalog (linhas 314-317 repetem "Visível na UI" e "Oculto na UI").
 
 ### Implementação
 
 #### 1. `src/pages/SupportResources.tsx`
-- Quando uma presentation existe mas todos os valores são zero/vazio, mostrar "Dados pendentes de preenchimento" em vez de um card vazio
-- Manter a contagem correta no trigger do accordion
+- Adicionar `.eq("visible_in_ui", true)` na query de `system_a_catalog` (linha 68-72)
+- Isso faz com que o checkbox do admin controle efetivamente o que aparece na página pública
 
 #### 2. `src/components/AdminCatalog.tsx`
-- Adicionar coluna **"Visível"** na tabela com um `Checkbox` para toggle de `visible_in_ui`
-- Ao clicar, chamar `updateCatalogProduct(id, { visible_in_ui: !current })` diretamente
-- Adicionar filtro de status "Visível na UI" / "Oculto na UI" no dropdown de filtros
-- Importar o componente `Checkbox` de `@/components/ui/checkbox`
+- **Remover opções duplicadas** no dropdown de status (linhas 316-317)
+- **Adicionar botão "Selecionar/Desmarcar Categoria"**: ao lado do filtro de categoria, quando uma categoria estiver selecionada, mostrar dois botões:
+  - "Tornar todos visíveis" -- faz `updateCatalogProduct` em batch para `visible_in_ui = true` em todos os produtos da categoria filtrada
+  - "Ocultar todos" -- faz `visible_in_ui = false` em batch
+- Isso permite ao admin controlar a visibilidade de uma categoria inteira de uma vez
 
-#### 3. `src/components/AdminCatalog.tsx` (documentos)
-- Exibir contagem de documentos por produto na tabela (badge com número de docs)
-- Buscar contagem de `catalog_documents` agrupada por `product_id` no `loadData`
+#### 3. Ações em batch no `AdminCatalog.tsx`
+- Adicionar função `handleBatchVisibility(visible: boolean)` que:
+  1. Filtra os produtos pela categoria selecionada
+  2. Para cada produto, chama `updateCatalogProduct(id, { visible_in_ui: visible })`
+  3. Atualiza o state local
+  4. Mostra toast com resultado
 
 ### Arquivos afetados
-- **Editar**: `src/pages/SupportResources.tsx` — tratar presentations vazias
-- **Editar**: `src/components/AdminCatalog.tsx` — adicionar coluna checkbox `visible_in_ui`, filtro, e contagem de docs
+- **Editar**: `src/pages/SupportResources.tsx` -- adicionar filtro `visible_in_ui`
+- **Editar**: `src/components/AdminCatalog.tsx` -- remover duplicatas, adicionar batch visibility
 
