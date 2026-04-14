@@ -1,39 +1,32 @@
 
 
-## Adicionar Módulo de Estratégia de Marketing ao System Prompt do Copilot
+## Priorizar conteúdos com vídeos e imagem hero na sidebar
 
-### Resumo
-Inserir o bloco completo "MÓDULO: ESTRATÉGIA DE MARKETING E FLUXOS COMERCIAIS" no final do `SYSTEM_PROMPT`, antes do fechamento do template literal (linha 1546).
+### Problema
+Os artigos na sidebar aparecem por data de criação, sem priorizar os que têm conteúdo visual rico (vídeos e imagem hero).
 
-### Mudança
+### Solução
+Após carregar os conteúdos de uma categoria, buscar quais têm vídeos associados e reordenar a lista para priorizar:
+1. Conteúdos com vídeo **E** imagem hero (maior prioridade)
+2. Conteúdos com vídeo **OU** imagem hero
+3. Demais conteúdos
 
-**`supabase/functions/smart-ops-copilot/index.ts`** (linha 1546)
+Adicionar badge visual de "Vídeo" na sidebar para indicar conteúdos com vídeo.
 
-Antes do fechamento `` `; `` na linha 1546, inserir o bloco completo fornecido pelo usuário contendo:
+### Mudanças
 
-- Contexto real da base (25.067 leads em negociação, funil estagnados ~19k)
-- Tabela de upsell por stage com LTV médio
-- Perfis de cliente por anchor_product
-- Estrutura obrigatória de fluxo estratégico (segmento, mensagem, sequência WA, query, métricas)
-- 6 fluxos pré-construídos com queries SQL prontas:
-  1. Reativação de estagnados
-  2. Upsell Scanner → Impressora (E1→E3)
-  3. Upgrade de equipamento
-  4. Recompra de insumos
-  5. Leads B2B alto valor
-  6. Nurture via conteúdo
-- Lógica de segmentação em 4 camadas
-- Regras de projeção de receita
-- Métricas proativas com gatilhos automáticos
+**`src/pages/KnowledgeBase.tsx`**
+- Após `fetchContentsByCategory`, fazer query leve em `knowledge_videos` para obter `content_id`s que possuem vídeos
+- Reordenar `contents` no state: primeiro os que têm vídeo + imagem, depois vídeo ou imagem, depois o resto
+- Passar flag `hasVideo` para cada item do sidebar
 
-O bloco tem ~400 linhas de prompt. Será adicionado como seção final do system prompt, mantendo tudo que já existe intacto.
+**`src/components/KnowledgeSidebar.tsx`**
+- Adicionar `hasVideo?: boolean` na interface `Content`
+- Exibir badge pequeno (ícone Play) nos cards que têm vídeo
+- Manter ordenação recebida do pai (já vem priorizada)
 
-### Arquivo afetado
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/smart-ops-copilot/index.ts` | ~400 linhas adicionadas ao SYSTEM_PROMPT antes do ``;`` na linha 1546 |
-
-### Deploy
-Após editar, deploy da edge function `smart-ops-copilot` e teste com "monta uma estratégia para impressora" para validar que o Copilot usa os fluxos pré-construídos.
+### Resultado
+- Artigos com vídeo e imagem hero aparecem primeiro na lista lateral
+- Badge de vídeo indica visualmente quais artigos têm conteúdo audiovisual
+- Sem queries adicionais pesadas — apenas um select de `content_id` em `knowledge_videos`
 
