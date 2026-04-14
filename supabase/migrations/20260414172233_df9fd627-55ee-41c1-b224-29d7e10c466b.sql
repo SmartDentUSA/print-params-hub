@@ -1,0 +1,1 @@
+UPDATE system_a_catalog SET visible_in_ui = true WHERE active = true AND approved = true;
