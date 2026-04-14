@@ -1,0 +1,1 @@
+UPDATE knowledge_categories SET enabled = true WHERE letter = 'E';
