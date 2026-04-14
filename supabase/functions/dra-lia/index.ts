@@ -4011,44 +4011,93 @@ Responda à pergunta do usuário usando APENAS as fontes acima.`;
 
     const topicTokens = userRequestedMedia ? extractVideoTopic(message) : [];
 
-    const mediaCards = userRequestedMedia
-      ? (() => {
-          const seen = new Set<string>();
-          return allResults
-            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-              const meta = r.metadata as Record<string, unknown>;
-              return meta.thumbnail_url || meta.url_publica || meta.url_interna;
-            })
-            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-              if (isProtocolQuery) {
-                const title = (r.metadata as Record<string, unknown>).title as string ?? '';
-                return !isParameterCard(title);
+    // Build media cards with URL resolution for videos
+    let mediaCards: { type: string; title: string; thumbnail?: string; url?: string }[] = [];
+    if (userRequestedMedia) {
+      const seen = new Set<string>();
+      const rawCards = allResults
+        .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+          const meta = r.metadata as Record<string, unknown>;
+          return meta.thumbnail_url || meta.url_publica || meta.url_interna || meta.video_id;
+        })
+        .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+          if (isProtocolQuery) {
+            const title = (r.metadata as Record<string, unknown>).title as string ?? '';
+            return !isParameterCard(title);
+          }
+          return true;
+        })
+        .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+          const title = (r.metadata as Record<string, unknown>).title as string ?? '';
+          return cardMatchesTopic(title, topicTokens);
+        })
+        .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
+          const title = ((r.metadata as Record<string, unknown>).title as string ?? '').trim().toLowerCase();
+          if (seen.has(title)) return false;
+          seen.add(title);
+          return true;
+        })
+        .slice(0, 6) // take extra to compensate for resolution failures
+        .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
+          const meta = r.metadata as Record<string, unknown>;
+          return {
+            type: r.source_type === 'video' ? 'video' : 'article',
+            title: meta.title as string,
+            thumbnail: meta.thumbnail_url as string | undefined,
+            url: (meta.url_interna || meta.url_publica) as string | undefined,
+            video_id: meta.video_id as string | undefined,
+          };
+        });
+
+      // Resolve canonical URLs for video cards missing url via DB lookup
+      const videoIdsToResolve = rawCards
+        .filter(c => !c.url && c.video_id)
+        .map(c => c.video_id!);
+
+      const videoUrlMap: Record<string, { slug: string; letter: string; articleTitle: string }> = {};
+      if (videoIdsToResolve.length > 0) {
+        try {
+          const { data: videoData } = await supabase
+            .from('knowledge_videos')
+            .select('id, title, knowledge_contents!inner(slug, title, knowledge_categories!inner(letter))')
+            .in('id', videoIdsToResolve);
+
+          if (videoData) {
+            for (const v of videoData as any[]) {
+              const content = v.knowledge_contents;
+              if (content?.slug && content?.knowledge_categories?.letter) {
+                videoUrlMap[v.id] = {
+                  slug: content.slug,
+                  letter: content.knowledge_categories.letter.toLowerCase(),
+                  articleTitle: content.title || v.title,
+                };
               }
-              return true;
-            })
-            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-              const title = (r.metadata as Record<string, unknown>).title as string ?? '';
-              return cardMatchesTopic(title, topicTokens);
-            })
-            .filter((r: { source_type: string; metadata: Record<string, unknown> }) => {
-              // Dedup by title
-              const title = ((r.metadata as Record<string, unknown>).title as string ?? '').trim().toLowerCase();
-              if (seen.has(title)) return false;
-              seen.add(title);
-              return true;
-            })
-            .slice(0, 3)
-            .map((r: { source_type: string; metadata: Record<string, unknown> }) => {
-              const meta = r.metadata as Record<string, unknown>;
-              return {
-                type: r.source_type === 'video' ? 'video' : 'article',
-                title: meta.title as string,
-                thumbnail: meta.thumbnail_url as string | undefined,
-                url: (meta.url_interna || meta.url_publica) as string | undefined,
-              };
-            });
-        })()
-      : [];
+            }
+          }
+        } catch (e) {
+          console.warn('[media-cards] video URL resolution failed:', e);
+        }
+      }
+
+      mediaCards = rawCards
+        .map(card => {
+          let url = card.url;
+          let title = card.title;
+          // Resolve URL from video_id if missing
+          if (!url && card.video_id && videoUrlMap[card.video_id]) {
+            const resolved = videoUrlMap[card.video_id];
+            url = `${SITE_BASE_URL}/base-conhecimento/${resolved.letter}/${resolved.slug}`;
+            // Replace raw .mp4/.mov filenames with the article title
+            if (title && /\.(mp4|mov|avi|mkv)$/i.test(title)) {
+              title = resolved.articleTitle;
+            }
+          }
+          return { type: card.type, title, thumbnail: card.thumbnail, url };
+        })
+        .filter(card => !!card.url) // Drop cards we couldn't resolve
+        .filter(card => !card.title || !/\.(mp4|mov|avi|mkv)$/i.test(card.title)) // Safety: drop remaining raw filenames
+        .slice(0, 3);
+    }
 
     const transformedStream = new ReadableStream({
       async start(controller) {
