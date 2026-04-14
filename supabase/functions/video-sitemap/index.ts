@@ -44,8 +44,9 @@ Deno.serve(async (req) => {
           knowledge_categories!inner(letter, enabled)
         )
       `)
-      .not('url', 'is', null)
-      .order('created_at', { ascending: false });
+      .not('content_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (error) {
       console.error('Error fetching videos:', error);
