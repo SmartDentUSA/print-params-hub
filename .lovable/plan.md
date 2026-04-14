@@ -1,28 +1,37 @@
 
 
-## Diagnóstico: Documento do Kit Atos Academic
+## Plano: Adicionar `print_type` e `subcategory` nos cards de resinas
 
-### O que encontrei
+### Problema
+1. O campo `print_type` existe em `resin_presentations` (ex: "Coroas sobre dente", "Facetas", "Protocolos") mas não é buscado nem exibido nos cards
+2. O campo `product_subcategory` existe em `system_a_catalog` (ex: "BIOCOMPATÍVEIS", "USO GERAL") mas não aparece nos cards de resinas
 
-O documento **existe** corretamente no banco de dados:
-- **Tabela `catalog_documents`**: registro ativo com `document_name = "IFU Atos Academic"`, vinculado ao produto `Kit Resina Atos Academic - 06 cores` (ID: `88dd8797...`)
-- **Storage**: arquivo PDF real existe no bucket `catalog-documents`
-- **URL válida**: `https://okeogjgqijbfkudfjadz.supabase.co/storage/v1/object/public/catalog-documents/resina-atos-academic-6-cores-aprendizado-otimizado-1776194750363.pdf`
-- **Produto**: ativo, aprovado, `visible_in_ui = true`, categoria "DENTÍSTICA, ESTÉTICA E ORTODONTIA"
+### Alterações em `src/pages/SupportResources.tsx`
 
-### Por que pode não estar aparecendo
+#### 1. Adicionar `print_type` à interface e query
+- Adicionar `print_type?: string` em `PresentationInfo`
+- Adicionar `subcategory?: string` em `UnifiedProduct`
+- Na query de `resin_presentations`, incluir `print_type` no select
 
-O produto "Kit Resina Atos Academic" aparece na categoria **"DENTÍSTICA, ESTÉTICA E ORTODONTIA"**, não em "RESINAS 3D" (que é a categoria padrão selecionada ao abrir a página). Se você estava olhando em "RESINAS 3D", o produto não aparece ali.
+#### 2. Buscar subcategorias dos produtos RESINAS 3D
+- Query adicional: `system_a_catalog` com `product_category = 'RESINAS 3D'` buscando `name, product_subcategory`
+- Construir mapa `nome → subcategoria` e aplicar ao construir os items de resina no array unified
 
-Além disso, a página carrega os dados apenas uma vez ao montar. Se o documento foi adicionado enquanto a página já estava aberta, é necessário **recarregar a página** (F5) para os novos dados aparecerem.
+#### 3. Renderizar `print_type` em cada apresentação
+Dentro do card de apresentação (linha ~448), antes do label:
+```
+(Tipo impressão) Coroas sobre dente
+250
+R$ 1850.00
+2g/impressão
+...
+```
 
-### Verificação rápida
-1. Recarregue a página `/support-resources` (F5)
-2. Clique na categoria **"DENTÍSTICA, ESTÉTICA E ORTODONTIA"** na barra lateral
-3. Procure o card "Kit Resina Atos Academic - 06 cores"
-4. O botão **IFU** e o accordion "Documentos (1)" devem aparecer
+#### 4. Renderizar badge de subcategoria no card
+Abaixo do nome do produto, exibir badge colorido:
+- "BIOCOMPATÍVEIS" → badge com estilo verde
+- "USO GERAL" → badge com estilo azul/cinza
 
-### Se ainda não aparecer — Plano de correção
-
-Nenhuma alteração de código necessária se os passos acima resolverem. Caso contrário, posso investigar em tempo real usando as ferramentas do browser para ver exatamente o que está sendo renderizado.
+### Arquivo afetado
+- `src/pages/SupportResources.tsx` — único arquivo
 
