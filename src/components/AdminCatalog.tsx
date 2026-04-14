@@ -311,6 +311,8 @@ export function AdminCatalog() {
                 <option value="inactive">Inativos</option>
                 <option value="approved">Aprovados</option>
                 <option value="pending">Pendentes</option>
+                <option value="visible">Visível na UI</option>
+                <option value="hidden">Oculto na UI</option>
               </select>
             </div>
 
