@@ -410,26 +410,36 @@ export default function SupportResources() {
                                       </p>
                                     ) : (
                                       <div className="space-y-1.5">
-                                        {product.presentations.map((pres, i) => (
-                                          <div
-                                            key={i}
-                                            className="text-xs text-muted-foreground border border-border rounded p-1.5"
-                                          >
-                                            {pres.label && (
-                                              <p className="font-medium text-foreground">{pres.label}</p>
-                                            )}
-                                            {pres.price > 0 && <p>R$ {pres.price.toFixed(2)}</p>}
-                                            {pres.grams_per_print > 0 && (
-                                              <p>{pres.grams_per_print}g/impressão</p>
-                                            )}
-                                            {pres.prints_per_bottle > 0 && (
-                                              <p>{pres.prints_per_bottle} impressões/frasco</p>
-                                            )}
-                                            {pres.cost_per_print > 0 && (
-                                              <p>R$ {pres.cost_per_print.toFixed(2)}/impressão</p>
-                                            )}
-                                          </div>
-                                        ))}
+                                        {product.presentations.map((pres, i) => {
+                                          const hasData = !!(pres.label || pres.price > 0 || pres.grams_per_print > 0 || pres.prints_per_bottle > 0 || pres.cost_per_print > 0);
+                                          if (!hasData) {
+                                            return (
+                                              <p key={i} className="text-xs text-muted-foreground italic">
+                                                Dados pendentes de preenchimento
+                                              </p>
+                                            );
+                                          }
+                                          return (
+                                            <div
+                                              key={i}
+                                              className="text-xs text-muted-foreground border border-border rounded p-1.5"
+                                            >
+                                              {pres.label && (
+                                                <p className="font-medium text-foreground">{pres.label}</p>
+                                              )}
+                                              {pres.price > 0 && <p>R$ {pres.price.toFixed(2)}</p>}
+                                              {pres.grams_per_print > 0 && (
+                                                <p>{pres.grams_per_print}g/impressão</p>
+                                              )}
+                                              {pres.prints_per_bottle > 0 && (
+                                                <p>{pres.prints_per_bottle} impressões/frasco</p>
+                                              )}
+                                              {pres.cost_per_print > 0 && (
+                                                <p>R$ {pres.cost_per_print.toFixed(2)}/impressão</p>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
                                       </div>
                                     )}
                                   </AccordionContent>

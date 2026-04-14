@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter, RefreshCw } from "lucide-react";
+import { Plus, Edit, Trash2, ShoppingCart, AlertTriangle, FileText, Filter, RefreshCw, Eye } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useCatalogCRUD, CatalogProduct } from "@/hooks/useCatalogCRUD";
 import { AdminModal } from "./AdminModal";
@@ -15,6 +16,7 @@ export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<CatalogProduct[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [docCounts, setDocCounts] = useState<Record<string, number>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,6 +88,10 @@ export function AdminCatalog() {
         filtered = filtered.filter(p => p.approved);
       } else if (selectedStatus === 'pending') {
         filtered = filtered.filter(p => !p.approved);
+      } else if (selectedStatus === 'visible') {
+        filtered = filtered.filter(p => p.visible_in_ui);
+      } else if (selectedStatus === 'hidden') {
+        filtered = filtered.filter(p => !p.visible_in_ui);
       }
     }
 
@@ -102,6 +108,20 @@ export function AdminCatalog() {
       setProducts(productsData);
       setFilteredProducts(productsData);
       setCategories(categoriesData);
+
+      // Fetch doc counts
+      const { data: docs } = await supabase
+        .from('catalog_documents')
+        .select('product_id')
+        .eq('active', true);
+      
+      if (docs) {
+        const counts: Record<string, number> = {};
+        docs.forEach(d => {
+          counts[d.product_id] = (counts[d.product_id] || 0) + 1;
+        });
+        setDocCounts(counts);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -109,6 +129,17 @@ export function AdminCatalog() {
         description: "Erro ao carregar produtos. Tente recarregar a página.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleToggleVisibility = async (productId: string, currentVisible: boolean | undefined) => {
+    try {
+      const updated = await updateCatalogProduct(productId, { visible_in_ui: !currentVisible });
+      if (updated) {
+        setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+      }
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
     }
   };
 
@@ -280,6 +311,10 @@ export function AdminCatalog() {
                 <option value="inactive">Inativos</option>
                 <option value="approved">Aprovados</option>
                 <option value="pending">Pendentes</option>
+                <option value="visible">Visível na UI</option>
+                <option value="hidden">Oculto na UI</option>
+                <option value="visible">Visível na UI</option>
+                <option value="hidden">Oculto na UI</option>
               </select>
             </div>
 
@@ -299,8 +334,8 @@ export function AdminCatalog() {
                   <TableHead>Imagem</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead>Subcategoria</TableHead>
-                  <TableHead>Última Atualização</TableHead>
+                  <TableHead className="text-center">Visível</TableHead>
+                  <TableHead className="text-center">Docs</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
@@ -308,7 +343,7 @@ export function AdminCatalog() {
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {searchTerm || selectedCategory !== 'all' || selectedStatus !== 'all'
                         ? 'Nenhum produto encontrado com os filtros aplicados.'
                         : 'Nenhum produto encontrado. Crie o primeiro produto.'}
@@ -352,33 +387,16 @@ export function AdminCatalog() {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {product.product_subcategory ? (
-                          <Badge variant="secondary">{product.product_subcategory}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={!!product.visible_in_ui}
+                          onCheckedChange={() => handleToggleVisibility(product.id!, product.visible_in_ui)}
+                        />
                       </TableCell>
-                      <TableCell>
-                        {product.updated_at ? (
-                          <div className="text-sm">
-                            <div className="font-medium">
-                              {new Date(product.updated_at).toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(product.updated_at).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                      <TableCell className="text-center">
+                        <Badge variant={docCounts[product.id!] ? "default" : "secondary"}>
+                          {docCounts[product.id!] || 0}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
