@@ -313,8 +313,6 @@ export function AdminCatalog() {
                 <option value="pending">Pendentes</option>
                 <option value="visible">Visível na UI</option>
                 <option value="hidden">Oculto na UI</option>
-                <option value="visible">Visível na UI</option>
-                <option value="hidden">Oculto na UI</option>
               </select>
             </div>
 
