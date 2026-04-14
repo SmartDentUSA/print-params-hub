@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/*.ts": {
+      "runtime": "nodejs20.x"
+    }
+  },
   "rewrites": [
     {
       "source": "/docs/:path*",
@@ -6,7 +11,7 @@
     },
     {
       "source": "/video-sitemap.xml",
-      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap"
+      "destination": "/api/video-sitemap"
     },
     {
       "source": "/sitemap.xml",
