@@ -325,6 +325,16 @@ export function AdminCatalog() {
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+              {selectedCategory !== 'all' && (
+                <div className="flex gap-1 mt-1">
+                  <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleBatchVisibility(true)}>
+                    <Eye className="w-3 h-3 mr-1" /> Mostrar todos
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleBatchVisibility(false)}>
+                    Ocultar todos
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
