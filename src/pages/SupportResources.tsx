@@ -47,14 +47,12 @@ export default function SupportResources() {
 
   useEffect(() => {
     async function fetchData() {
-      // Fetch catalog products (visible_in_ui) + their documents
       const [catalogRes, resinsRes] = await Promise.all([
         supabase
           .from("system_a_catalog")
           .select("id, name, image_url, description, product_category, cta_1_url")
           .eq("active", true)
           .eq("approved", true)
-          .eq("visible_in_ui", true)
           .not("product_category", "is", null)
           .order("name"),
         supabase
@@ -67,19 +65,34 @@ export default function SupportResources() {
       const catalogItems = catalogRes.data || [];
       const resinItems = resinsRes.data || [];
 
+      // Build a set of resin names (normalized) to deduplicate
+      const resinNamesNorm = new Set(
+        resinItems.map((r) => r.name.toLowerCase().replace(/\s+/g, " ").trim())
+      );
+
+      // Filter catalog: exclude items that match a resin name AND are in RESINAS 3D category
+      const filteredCatalog = catalogItems.filter((p) => {
+        if (p.product_category === "RESINAS 3D") {
+          const norm = p.name.toLowerCase().replace(/\s+/g, " ").trim();
+          return !resinNamesNorm.has(norm);
+        }
+        return true;
+      });
+
       // Fetch docs for catalog products
-      const catalogIds = catalogItems.map((p) => p.id);
-      const catalogDocsRes = catalogIds.length
-        ? await supabase
+      const catalogIds = filteredCatalog.map((p) => p.id);
+      const catalogDocsPromise = catalogIds.length
+        ? supabase
             .from("catalog_documents")
             .select("product_id, document_name, document_category, file_url")
             .eq("active", true)
             .in("product_id", catalogIds)
-        : { data: [] };
+        : Promise.resolve({ data: [] as any[] });
 
       // Fetch docs + presentations for resins
       const resinIds = resinItems.map((r) => r.id);
-      const [resinDocsRes, resinPresRes] = await Promise.all([
+      const [catalogDocsRes, resinDocsRes, resinPresRes] = await Promise.all([
+        catalogDocsPromise,
         resinIds.length
           ? supabase
               .from("resin_documents")
@@ -115,18 +128,18 @@ export default function SupportResources() {
       (resinPresRes.data || []).forEach((p: any) => {
         const list = resinPresMap.get(p.resin_id) || [];
         list.push({
-          label: p.label,
-          price: p.price,
-          grams_per_print: p.grams_per_print,
-          prints_per_bottle: p.prints_per_bottle,
-          cost_per_print: p.cost_per_print,
+          label: p.label || "",
+          price: Number(p.price) || 0,
+          grams_per_print: Number(p.grams_per_print) || 0,
+          prints_per_bottle: Number(p.prints_per_bottle) || 0,
+          cost_per_print: Number(p.cost_per_print) || 0,
         });
         resinPresMap.set(p.resin_id, list);
       });
 
       // Unify
       const unified: UnifiedProduct[] = [
-        ...catalogItems.map((p) => ({
+        ...filteredCatalog.map((p) => ({
           id: p.id,
           name: p.name,
           image_url: p.image_url,
@@ -156,19 +169,17 @@ export default function SupportResources() {
     fetchData();
   }, []);
 
-  // Extract unique categories
   const categories = useMemo(() => {
-    const set = new Set(products.map((p) => p.category));
-    return Array.from(set).sort();
+    const map = new Map<string, number>();
+    products.forEach((p) => map.set(p.category, (map.get(p.category) || 0) + 1));
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [products]);
 
-  // Filter by selected category
   const filteredProducts = useMemo(() => {
     if (!selectedCategory) return [];
     return products.filter((p) => p.category === selectedCategory);
   }, [products, selectedCategory]);
 
-  // Strip HTML tags for plain text description
   const stripHtml = (html: string) => {
     const div = document.createElement("div");
     div.innerHTML = html;
@@ -180,7 +191,6 @@ export default function SupportResources() {
       <Header showAdminButton={true} />
 
       <main className="container mx-auto px-4 py-8">
-        {/* Hero */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             {t("knowledge.category_g") || "Catálogo de Produtos"}
@@ -200,32 +210,33 @@ export default function SupportResources() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Sidebar */}
             <aside className="lg:col-span-1">
-              <div className="sticky top-24 space-y-1">
+              <div className="sticky top-24 space-y-1 bg-card border border-border rounded-xl p-3">
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
                   Conteúdo
                 </h2>
-                {categories.map((cat) => {
-                  const count = products.filter((p) => p.category === cat).length;
-                  return (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                        selectedCategory === cat
-                          ? "bg-primary text-primary-foreground font-medium"
-                          : "text-foreground hover:bg-accent/50"
+                {categories.map(([cat, count]) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                      selectedCategory === cat
+                        ? "bg-primary text-primary-foreground font-medium"
+                        : "text-foreground hover:bg-accent/50"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 truncate text-left">
+                      <Package className="w-4 h-4 shrink-0" />
+                      {cat}
+                    </span>
+                    <span
+                      className={`text-xs ml-2 ${
+                        selectedCategory === cat ? "text-primary-foreground/80" : "text-muted-foreground"
                       }`}
                     >
-                      <span className="flex items-center gap-2 truncate">
-                        <Package className="w-4 h-4 shrink-0" />
-                        {cat}
-                      </span>
-                      <span className={`text-xs ${selectedCategory === cat ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+                      {count}
+                    </span>
+                  </button>
+                ))}
               </div>
             </aside>
 
@@ -256,7 +267,6 @@ export default function SupportResources() {
                         key={product.id}
                         className="bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
                       >
-                        {/* Image */}
                         <div className="aspect-square bg-muted flex items-center justify-center p-4">
                           {product.image_url ? (
                             <img
@@ -272,13 +282,11 @@ export default function SupportResources() {
                           )}
                         </div>
 
-                        {/* Info */}
                         <div className="p-3 flex flex-col flex-1">
                           <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-2 flex-1">
                             {product.name}
                           </h3>
 
-                          {/* Quick action buttons */}
                           <div className="flex flex-wrap gap-1.5 mb-2">
                             {product.shop_url && (
                               <Button size="sm" variant="default" className="text-xs h-7 px-2" asChild>
@@ -318,9 +326,7 @@ export default function SupportResources() {
                             )}
                           </div>
 
-                          {/* Accordion with details */}
                           <Accordion type="single" collapsible className="w-full">
-                            {/* Description */}
                             {product.description && (
                               <AccordionItem value="desc" className="border-b-0">
                                 <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
@@ -335,7 +341,6 @@ export default function SupportResources() {
                               </AccordionItem>
                             )}
 
-                            {/* Documents */}
                             {product.documents.length > 0 && (
                               <AccordionItem value="docs" className="border-b-0">
                                 <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
@@ -360,7 +365,6 @@ export default function SupportResources() {
                               </AccordionItem>
                             )}
 
-                            {/* Presentations (resins only) */}
                             {product.presentations.length > 0 && (
                               <AccordionItem value="skus" className="border-b-0">
                                 <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
