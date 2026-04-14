@@ -4,7 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLink, ArrowLeft } from "lucide-react";
+import { ExternalLink, ArrowLeft, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { KnowledgeFAQ } from "@/components/KnowledgeFAQ";
 import { useCompanyData } from "@/hooks/useCompanyData";
@@ -65,6 +65,7 @@ const ProductPage = () => {
           .eq("slug", slug)
           .eq("active", true)
           .eq("approved", true)
+          .eq("catalog_documents.active", true)
           .maybeSingle();
 
         if (error) throw error;
@@ -292,6 +293,34 @@ const ProductPage = () => {
                       {variation.price && (<p className="text-lg font-bold text-primary">R$ {variation.price}</p>)}
                       {variation.description && (<p className="text-sm text-muted-foreground">{variation.description}</p>)}
                     </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(product as any).documents && (product as any).documents.length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  {t('product.technical_documents') || 'Documentos Técnicos'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {(product as any).documents.map((doc: any) => (
+                    <a key={doc.id} href={doc.file_url} target="_blank" rel="noopener noreferrer"
+                       className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors">
+                      <FileText className="w-8 h-8 text-destructive shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium">{doc.document_name}</p>
+                        {doc.document_description && (
+                          <p className="text-sm text-muted-foreground">{doc.document_description}</p>
+                        )}
+                      </div>
+                      <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+                    </a>
                   ))}
                 </div>
               </CardContent>
