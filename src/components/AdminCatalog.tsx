@@ -108,6 +108,20 @@ export function AdminCatalog() {
       setProducts(productsData);
       setFilteredProducts(productsData);
       setCategories(categoriesData);
+
+      // Fetch doc counts
+      const { data: docs } = await supabase
+        .from('catalog_documents')
+        .select('product_id')
+        .eq('active', true);
+      
+      if (docs) {
+        const counts: Record<string, number> = {};
+        docs.forEach(d => {
+          counts[d.product_id] = (counts[d.product_id] || 0) + 1;
+        });
+        setDocCounts(counts);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
       toast({
@@ -115,6 +129,17 @@ export function AdminCatalog() {
         description: "Erro ao carregar produtos. Tente recarregar a página.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleToggleVisibility = async (productId: string, currentVisible: boolean | undefined) => {
+    try {
+      const updated = await updateCatalogProduct(productId, { visible_in_ui: !currentVisible });
+      if (updated) {
+        setProducts(prev => prev.map(p => p.id === productId ? updated : p));
+      }
+    } catch (error) {
+      console.error('Error toggling visibility:', error);
     }
   };
 
