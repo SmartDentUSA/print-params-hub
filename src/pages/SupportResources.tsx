@@ -3,89 +3,177 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ShoppingCart, FileText, BookOpen, ExternalLink } from "lucide-react";
+import { ShoppingCart, FileText, BookOpen, ChevronRight, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-interface ProductCard {
+interface DocInfo {
+  name: string;
+  url: string;
+  category?: string;
+}
+
+interface PresentationInfo {
+  label: string;
+  price: number;
+  grams_per_print: number;
+  prints_per_bottle: number;
+  cost_per_print: number;
+}
+
+interface UnifiedProduct {
   id: string;
   name: string;
   image_url: string | null;
-  cta_1_url: string | null;
-  product_category: string;
-  fds_url?: string | null;
-  ifu_url?: string | null;
+  description: string | null;
+  category: string;
+  shop_url: string | null;
+  documents: DocInfo[];
+  presentations: PresentationInfo[];
+  source: "catalog" | "resin";
 }
 
 export default function SupportResources() {
   const { t } = useLanguage();
-  const [products, setProducts] = useState<ProductCard[]>([]);
+  const [products, setProducts] = useState<UnifiedProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
-      // Fetch products with their documents
-      const { data: catalogData } = await supabase
-        .from("system_a_catalog")
-        .select("id, name, image_url, cta_1_url, product_category")
-        .eq("active", true)
-        .eq("approved", true)
-        .not("product_category", "is", null)
-        .order("name");
+      // Fetch catalog products (visible_in_ui) + their documents
+      const [catalogRes, resinsRes] = await Promise.all([
+        supabase
+          .from("system_a_catalog")
+          .select("id, name, image_url, description, product_category, cta_1_url")
+          .eq("active", true)
+          .eq("approved", true)
+          .eq("visible_in_ui", true)
+          .not("product_category", "is", null)
+          .order("name"),
+        supabase
+          .from("resins")
+          .select("id, name, image_url, description, slug, cta_1_url, cta_1_label")
+          .eq("active", true)
+          .order("name"),
+      ]);
 
-      if (!catalogData) {
-        setLoading(false);
-        return;
-      }
+      const catalogItems = catalogRes.data || [];
+      const resinItems = resinsRes.data || [];
 
-      // Fetch documents for all products
-      const productIds = catalogData.map((p) => p.id);
-      const { data: docsData } = await supabase
-        .from("catalog_documents")
-        .select("product_id, document_category, file_url")
-        .eq("active", true)
-        .in("product_id", productIds);
+      // Fetch docs for catalog products
+      const catalogIds = catalogItems.map((p) => p.id);
+      const catalogDocsRes = catalogIds.length
+        ? await supabase
+            .from("catalog_documents")
+            .select("product_id, document_name, document_category, file_url")
+            .eq("active", true)
+            .in("product_id", catalogIds)
+        : { data: [] };
 
-      // Build doc map
-      const docMap = new Map<string, { fds_url?: string; ifu_url?: string }>();
-      docsData?.forEach((doc) => {
-        const entry = docMap.get(doc.product_id) || {};
-        const cat = (doc.document_category || "").toLowerCase();
-        if (cat.includes("fds") || cat.includes("safety") || cat.includes("segurança")) {
-          entry.fds_url = doc.file_url;
-        } else if (cat.includes("ifu") || cat.includes("instruction") || cat.includes("instrução") || cat.includes("uso")) {
-          entry.ifu_url = doc.file_url;
-        } else {
-          // Default: first doc as IFU
-          if (!entry.ifu_url) entry.ifu_url = doc.file_url;
-        }
-        docMap.set(doc.product_id, entry);
+      // Fetch docs + presentations for resins
+      const resinIds = resinItems.map((r) => r.id);
+      const [resinDocsRes, resinPresRes] = await Promise.all([
+        resinIds.length
+          ? supabase
+              .from("resin_documents")
+              .select("resin_id, document_name, document_category, file_url")
+              .eq("active", true)
+              .in("resin_id", resinIds)
+          : Promise.resolve({ data: [] as any[] }),
+        resinIds.length
+          ? supabase
+              .from("resin_presentations")
+              .select("resin_id, label, price, grams_per_print, prints_per_bottle, cost_per_print")
+              .in("resin_id", resinIds)
+              .order("sort_order")
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+
+      // Build doc maps
+      const catalogDocMap = new Map<string, DocInfo[]>();
+      (catalogDocsRes.data || []).forEach((d: any) => {
+        const list = catalogDocMap.get(d.product_id) || [];
+        list.push({ name: d.document_name, url: d.file_url, category: d.document_category });
+        catalogDocMap.set(d.product_id, list);
       });
 
-      const enriched: ProductCard[] = catalogData.map((p) => ({
-        ...p,
-        product_category: p.product_category!,
-        fds_url: docMap.get(p.id)?.fds_url || null,
-        ifu_url: docMap.get(p.id)?.ifu_url || null,
-      }));
+      const resinDocMap = new Map<string, DocInfo[]>();
+      (resinDocsRes.data || []).forEach((d: any) => {
+        const list = resinDocMap.get(d.resin_id) || [];
+        list.push({ name: d.document_name, url: d.file_url, category: d.document_category });
+        resinDocMap.set(d.resin_id, list);
+      });
 
-      setProducts(enriched);
+      const resinPresMap = new Map<string, PresentationInfo[]>();
+      (resinPresRes.data || []).forEach((p: any) => {
+        const list = resinPresMap.get(p.resin_id) || [];
+        list.push({
+          label: p.label,
+          price: p.price,
+          grams_per_print: p.grams_per_print,
+          prints_per_bottle: p.prints_per_bottle,
+          cost_per_print: p.cost_per_print,
+        });
+        resinPresMap.set(p.resin_id, list);
+      });
+
+      // Unify
+      const unified: UnifiedProduct[] = [
+        ...catalogItems.map((p) => ({
+          id: p.id,
+          name: p.name,
+          image_url: p.image_url,
+          description: p.description || null,
+          category: p.product_category!,
+          shop_url: p.cta_1_url || null,
+          documents: catalogDocMap.get(p.id) || [],
+          presentations: [],
+          source: "catalog" as const,
+        })),
+        ...resinItems.map((r) => ({
+          id: r.id,
+          name: r.name,
+          image_url: r.image_url,
+          description: r.description || null,
+          category: "RESINAS 3D",
+          shop_url: r.cta_1_url || null,
+          documents: resinDocMap.get(r.id) || [],
+          presentations: resinPresMap.get(r.id) || [],
+          source: "resin" as const,
+        })),
+      ];
+
+      setProducts(unified);
       setLoading(false);
     }
     fetchData();
   }, []);
 
-  // Group by category
-  const grouped = useMemo(() => {
-    const map = new Map<string, ProductCard[]>();
-    products.forEach((p) => {
-      const list = map.get(p.product_category) || [];
-      list.push(p);
-      map.set(p.product_category, list);
-    });
-    // Sort categories alphabetically
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  // Extract unique categories
+  const categories = useMemo(() => {
+    const set = new Set(products.map((p) => p.category));
+    return Array.from(set).sort();
   }, [products]);
+
+  // Filter by selected category
+  const filteredProducts = useMemo(() => {
+    if (!selectedCategory) return [];
+    return products.filter((p) => p.category === selectedCategory);
+  }, [products, selectedCategory]);
+
+  // Strip HTML tags for plain text description
+  const stripHtml = (html: string) => {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return div.textContent || div.innerText || "";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-surface">
@@ -93,12 +181,12 @@ export default function SupportResources() {
 
       <main className="container mx-auto px-4 py-8">
         {/* Hero */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
             {t("knowledge.category_g") || "Catálogo de Produtos"}
           </h1>
           <p className="text-lg text-muted-foreground">
-            {t("support_resources.subtitle") || "Documentos técnicos, fichas de segurança e informações de uso dos nossos produtos"}
+            Documentos técnicos, fichas de segurança e informações dos nossos produtos
           </p>
         </div>
 
@@ -109,97 +197,209 @@ export default function SupportResources() {
             ))}
           </div>
         ) : (
-          grouped.map(([category, items]) => (
-            <section key={category} className="mb-12">
-              <h2 className="text-xl font-semibold text-foreground mb-4 border-b border-border pb-2">
-                {category}
-              </h2>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {items.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
-                  >
-                    {/* Image */}
-                    <div className="aspect-square bg-muted flex items-center justify-center p-4">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-contain"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full bg-muted-foreground/10 flex items-center justify-center">
-                          <BookOpen className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Info */}
-                    <div className="p-3 flex flex-col flex-1">
-                      <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-3 flex-1">
-                        {product.name}
-                      </h3>
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {product.cta_1_url && (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="text-xs h-7 px-2"
-                            asChild
-                          >
-                            <a href={product.cta_1_url} target="_blank" rel="noopener noreferrer">
-                              <ShoppingCart className="w-3 h-3 mr-1" />
-                              Loja
-                            </a>
-                          </Button>
-                        )}
-                        {product.fds_url && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 px-2"
-                            asChild
-                          >
-                            <a href={product.fds_url} target="_blank" rel="noopener noreferrer">
-                              <FileText className="w-3 h-3 mr-1" />
-                              FDS
-                            </a>
-                          </Button>
-                        )}
-                        {product.ifu_url && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7 px-2"
-                            asChild
-                          >
-                            <a href={product.ifu_url} target="_blank" rel="noopener noreferrer">
-                              <FileText className="w-3 h-3 mr-1" />
-                              IFU
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Sidebar */}
+            <aside className="lg:col-span-1">
+              <div className="sticky top-24 space-y-1">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-2">
+                  Conteúdo
+                </h2>
+                {categories.map((cat) => {
+                  const count = products.filter((p) => p.category === cat).length;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                        selectedCategory === cat
+                          ? "bg-primary text-primary-foreground font-medium"
+                          : "text-foreground hover:bg-accent/50"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <Package className="w-4 h-4 shrink-0" />
+                        {cat}
+                      </span>
+                      <span className={`text-xs ${selectedCategory === cat ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </section>
-          ))
+            </aside>
+
+            {/* Content area */}
+            <div className="lg:col-span-3">
+              {!selectedCategory ? (
+                <div className="flex flex-col items-center justify-center py-24 text-center">
+                  <BookOpen className="w-16 h-16 text-muted-foreground/30 mb-4" />
+                  <h2 className="text-xl font-semibold text-foreground mb-2">
+                    Selecionar conteúdo
+                  </h2>
+                  <p className="text-muted-foreground max-w-md">
+                    Escolha uma categoria na barra lateral para visualizar os produtos disponíveis
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <ChevronRight className="w-5 h-5 text-primary" />
+                    {selectedCategory}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      ({filteredProducts.length})
+                    </span>
+                  </h2>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {filteredProducts.map((product) => (
+                      <div
+                        key={product.id}
+                        className="bg-card rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col"
+                      >
+                        {/* Image */}
+                        <div className="aspect-square bg-muted flex items-center justify-center p-4">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              className="w-full h-full object-contain"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-full bg-muted-foreground/10 flex items-center justify-center">
+                              <BookOpen className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div className="p-3 flex flex-col flex-1">
+                          <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-2 flex-1">
+                            {product.name}
+                          </h3>
+
+                          {/* Quick action buttons */}
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {product.shop_url && (
+                              <Button size="sm" variant="default" className="text-xs h-7 px-2" asChild>
+                                <a href={product.shop_url} target="_blank" rel="noopener noreferrer">
+                                  <ShoppingCart className="w-3 h-3 mr-1" />
+                                  Loja
+                                </a>
+                              </Button>
+                            )}
+                            {product.documents.some((d) =>
+                              d.name?.toLowerCase().includes("fds")
+                            ) && (
+                              <Button size="sm" variant="outline" className="text-xs h-7 px-2" asChild>
+                                <a
+                                  href={product.documents.find((d) => d.name?.toLowerCase().includes("fds"))!.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  FDS
+                                </a>
+                              </Button>
+                            )}
+                            {product.documents.some((d) =>
+                              d.name?.toLowerCase().includes("ifu")
+                            ) && (
+                              <Button size="sm" variant="outline" className="text-xs h-7 px-2" asChild>
+                                <a
+                                  href={product.documents.find((d) => d.name?.toLowerCase().includes("ifu"))!.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <FileText className="w-3 h-3 mr-1" />
+                                  IFU
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Accordion with details */}
+                          <Accordion type="single" collapsible className="w-full">
+                            {/* Description */}
+                            {product.description && (
+                              <AccordionItem value="desc" className="border-b-0">
+                                <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
+                                  Descrição
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <p className="text-xs text-muted-foreground leading-relaxed">
+                                    {stripHtml(product.description).substring(0, 300)}
+                                    {stripHtml(product.description).length > 300 ? "…" : ""}
+                                  </p>
+                                </AccordionContent>
+                              </AccordionItem>
+                            )}
+
+                            {/* Documents */}
+                            {product.documents.length > 0 && (
+                              <AccordionItem value="docs" className="border-b-0">
+                                <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
+                                  Documentos ({product.documents.length})
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-1">
+                                    {product.documents.map((doc, i) => (
+                                      <a
+                                        key={i}
+                                        href={doc.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+                                      >
+                                        <FileText className="w-3 h-3 shrink-0" />
+                                        {doc.name}
+                                      </a>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            )}
+
+                            {/* Presentations (resins only) */}
+                            {product.presentations.length > 0 && (
+                              <AccordionItem value="skus" className="border-b-0">
+                                <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
+                                  Apresentações ({product.presentations.length})
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="space-y-1.5">
+                                    {product.presentations.map((pres, i) => (
+                                      <div key={i} className="text-xs text-muted-foreground border border-border rounded p-1.5">
+                                        {pres.label && (
+                                          <p className="font-medium text-foreground">{pres.label}</p>
+                                        )}
+                                        {pres.price > 0 && <p>R$ {pres.price.toFixed(2)}</p>}
+                                        {pres.grams_per_print > 0 && <p>{pres.grams_per_print}g/impressão</p>}
+                                        {pres.prints_per_bottle > 0 && (
+                                          <p>{pres.prints_per_bottle} impressões/frasco</p>
+                                        )}
+                                        {pres.cost_per_print > 0 && (
+                                          <p>R$ {pres.cost_per_print.toFixed(2)}/impressão</p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            )}
+                          </Accordion>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )}
       </main>
 
-      <footer className="border-t border-border bg-gradient-surface mt-16">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center text-muted-foreground">
-            <p>{t("footer.copyright") || "© 2024 Smart Dent. Desenvolvido para a comunidade de impressão 3D."}</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
