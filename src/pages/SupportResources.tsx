@@ -37,6 +37,7 @@ interface UnifiedProduct {
   shop_url: string | null;
   documents: DocInfo[];
   presentations: PresentationInfo[];
+  processing_instructions: string | null;
   source: "catalog" | "resin";
 }
 
@@ -73,7 +74,7 @@ export default function SupportResources() {
           .order("name"),
         supabase
           .from("resins")
-          .select("id, name, image_url, description, slug, cta_1_url")
+          .select("id, name, image_url, description, slug, cta_1_url, processing_instructions")
           .eq("active", true)
           .order("name"),
       ]);
@@ -162,7 +163,7 @@ export default function SupportResources() {
 
       // Build unified list
       const unified: UnifiedProduct[] = [
-        ...resinItems.map((r) => ({
+        ...resinItems.map((r: any) => ({
           id: r.id,
           name: r.name,
           image_url: r.image_url,
@@ -171,6 +172,7 @@ export default function SupportResources() {
           shop_url: isValidUrl(r.cta_1_url) ? r.cta_1_url : null,
           documents: resinDocMap.get(r.id) || [],
           presentations: resinPresMap.get(r.id) || [],
+          processing_instructions: r.processing_instructions || null,
           source: "resin" as const,
         })),
         ...uniqueCatalog.map((p) => ({
@@ -182,6 +184,7 @@ export default function SupportResources() {
           shop_url: isValidUrl(p.cta_1_url) ? p.cta_1_url : null,
           documents: catalogDocMap.get(p.id) || [],
           presentations: [],
+          processing_instructions: null,
           source: "catalog" as const,
         })),
       ];
@@ -394,6 +397,29 @@ export default function SupportResources() {
                                         ) : null
                                       )}
                                     </div>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              )}
+
+                              {product.processing_instructions && (
+                                <AccordionItem value="processing" className="border-b-0">
+                                  <AccordionTrigger className="py-1.5 text-xs hover:no-underline">
+                                    ⚙️ Instruções de Processamento
+                                  </AccordionTrigger>
+                                  <AccordionContent>
+                                    <div
+                                      className="text-xs text-muted-foreground leading-relaxed space-y-1 prose-headings:text-foreground prose-headings:font-semibold prose-headings:text-xs"
+                                      dangerouslySetInnerHTML={{
+                                        __html: product.processing_instructions
+                                          .replace(/^### (.+)$/gm, '<h4 class="font-semibold text-foreground mt-2 mb-1">$1</h4>')
+                                          .replace(/^## (.+)$/gm, '<h3 class="font-semibold text-foreground mt-2 mb-1">$1</h3>')
+                                          .replace(/^> (.+)$/gm, '<blockquote class="border-l-2 border-primary pl-2 italic my-1">$1</blockquote>')
+                                          .replace(/^[•\-] (.+)$/gm, '<li class="ml-3">$1</li>')
+                                          .replace(/(<li[^>]*>.*<\/li>\n?)+/g, (m) => `<ul class="list-disc">${m}</ul>`)
+                                          .replace(/\n{2,}/g, '<br/>')
+                                          .replace(/\n/g, '<br/>'),
+                                      }}
+                                    />
                                   </AccordionContent>
                                 </AccordionItem>
                               )}
