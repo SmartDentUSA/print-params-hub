@@ -336,6 +336,20 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ai_token_usage: {
@@ -382,19 +396,24 @@ export type Database = {
       }
       authors: {
         Row: {
+          academic_title: string | null
           active: boolean
           created_at: string
           facebook_url: string | null
+          fapesp_url: string | null
           full_bio: string | null
+          google_scholar_url: string | null
           id: string
           instagram_url: string | null
           lattes_url: string | null
           linkedin_url: string | null
           mini_bio: string | null
           name: string
+          orcid_url: string | null
           order_index: number
           photo_alt: string | null
           photo_url: string | null
+          scopus_url: string | null
           specialty: string | null
           tiktok_url: string | null
           twitter_url: string | null
@@ -403,19 +422,24 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          academic_title?: string | null
           active?: boolean
           created_at?: string
           facebook_url?: string | null
+          fapesp_url?: string | null
           full_bio?: string | null
+          google_scholar_url?: string | null
           id?: string
           instagram_url?: string | null
           lattes_url?: string | null
           linkedin_url?: string | null
           mini_bio?: string | null
           name: string
+          orcid_url?: string | null
           order_index?: number
           photo_alt?: string | null
           photo_url?: string | null
+          scopus_url?: string | null
           specialty?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
@@ -424,19 +448,24 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          academic_title?: string | null
           active?: boolean
           created_at?: string
           facebook_url?: string | null
+          fapesp_url?: string | null
           full_bio?: string | null
+          google_scholar_url?: string | null
           id?: string
           instagram_url?: string | null
           lattes_url?: string | null
           linkedin_url?: string | null
           mini_bio?: string | null
           name?: string
+          orcid_url?: string | null
           order_index?: number
           photo_alt?: string | null
           photo_url?: string | null
+          scopus_url?: string | null
           specialty?: string | null
           tiktok_url?: string | null
           twitter_url?: string | null
@@ -658,6 +687,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_send_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1508,6 +1551,20 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
         ]
       }
       deal_status_history: {
@@ -1619,6 +1676,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_status_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1838,6 +1909,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "deals_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -1859,6 +1944,120 @@ export type Database = {
             referencedColumns: ["person_id"]
           },
         ]
+      }
+      dh_leads_staging: {
+        Row: {
+          area_atuacao: string | null
+          data_primeiro_contato: string | null
+          email: string
+          empresa_cnpj: string | null
+          entrada: number | null
+          especialidade: string | null
+          forma_pagamento: string | null
+          hits_cad: number | null
+          hits_e1_bancada: number | null
+          hits_e1_intraoral: number | null
+          hits_e2_sw: number | null
+          hits_e3_impressora: number | null
+          hits_e3_resina: number | null
+          hits_e4_lim: number | null
+          hits_e5_car: number | null
+          hits_impressao3d: number | null
+          hits_insumos: number | null
+          hits_scanner: number | null
+          id: number
+          informacao_desejada: string | null
+          nome: string | null
+          origem_campanha: string | null
+          paga_por_placa: string | null
+          parcelas: number | null
+          perde_pacientes: string | null
+          phone: string | null
+          piperun_id: string | null
+          platform_lead_id: string | null
+          produto_interesse: string | null
+          produto_interesse_raw: string | null
+          quantas_placas: string | null
+          tem_impressora: string | null
+          tem_scanner: string | null
+          temperatura_lead: string | null
+          uf: string | null
+        }
+        Insert: {
+          area_atuacao?: string | null
+          data_primeiro_contato?: string | null
+          email: string
+          empresa_cnpj?: string | null
+          entrada?: number | null
+          especialidade?: string | null
+          forma_pagamento?: string | null
+          hits_cad?: number | null
+          hits_e1_bancada?: number | null
+          hits_e1_intraoral?: number | null
+          hits_e2_sw?: number | null
+          hits_e3_impressora?: number | null
+          hits_e3_resina?: number | null
+          hits_e4_lim?: number | null
+          hits_e5_car?: number | null
+          hits_impressao3d?: number | null
+          hits_insumos?: number | null
+          hits_scanner?: number | null
+          id?: number
+          informacao_desejada?: string | null
+          nome?: string | null
+          origem_campanha?: string | null
+          paga_por_placa?: string | null
+          parcelas?: number | null
+          perde_pacientes?: string | null
+          phone?: string | null
+          piperun_id?: string | null
+          platform_lead_id?: string | null
+          produto_interesse?: string | null
+          produto_interesse_raw?: string | null
+          quantas_placas?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          temperatura_lead?: string | null
+          uf?: string | null
+        }
+        Update: {
+          area_atuacao?: string | null
+          data_primeiro_contato?: string | null
+          email?: string
+          empresa_cnpj?: string | null
+          entrada?: number | null
+          especialidade?: string | null
+          forma_pagamento?: string | null
+          hits_cad?: number | null
+          hits_e1_bancada?: number | null
+          hits_e1_intraoral?: number | null
+          hits_e2_sw?: number | null
+          hits_e3_impressora?: number | null
+          hits_e3_resina?: number | null
+          hits_e4_lim?: number | null
+          hits_e5_car?: number | null
+          hits_impressao3d?: number | null
+          hits_insumos?: number | null
+          hits_scanner?: number | null
+          id?: number
+          informacao_desejada?: string | null
+          nome?: string | null
+          origem_campanha?: string | null
+          paga_por_placa?: string | null
+          parcelas?: number | null
+          perde_pacientes?: string | null
+          phone?: string | null
+          piperun_id?: string | null
+          platform_lead_id?: string | null
+          produto_interesse?: string | null
+          produto_interesse_raw?: string | null
+          quantas_placas?: string | null
+          tem_impressora?: string | null
+          tem_scanner?: string | null
+          temperatura_lead?: string | null
+          uf?: string | null
+        }
+        Relationships: []
       }
       drive_kb_sync_log: {
         Row: {
@@ -2305,6 +2504,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "interactions_person_id_fkey"
@@ -2959,6 +3172,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_activity_log_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_activity_log_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -3117,6 +3344,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_cart_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_cart_history_person_id_fkey"
@@ -3280,6 +3521,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_conversion_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_conversion_history_person_id_fkey"
@@ -3446,6 +3701,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_course_progress_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lead_course_progress_person_id_fkey"
@@ -3647,6 +3916,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_form_submissions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_form_submissions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -3816,6 +4099,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_opportunities_product_key_fkey"
             columns: ["product_key"]
             isOneToOne: false
@@ -3969,6 +4266,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_page_views_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4152,6 +4463,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_product_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_product_history_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -4333,6 +4658,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_sdr_interactions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lead_sdr_interactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
@@ -4479,6 +4818,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_state_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -4651,6 +5004,7 @@ export type Database = {
           especialidade: string | null
           form_data: Json | null
           form_name: string | null
+          forma_pagamento: string | null
           frete_codigo_rastreio: string | null
           frete_link_rastreio: string | null
           frete_previsao_entrega: string | null
@@ -4903,6 +5257,7 @@ export type Database = {
           proactive_sent_at: string | null
           produto_interesse: string | null
           produto_interesse_auto: string | null
+          produto_interesse_raw: string | null
           proposals_data: Json | null
           proposals_last_status: number | null
           proposals_total_mrr: number | null
@@ -4921,6 +5276,13 @@ export type Database = {
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
           score: number | null
+          sdr_blz_ino200_data_resposta: string | null
+          sdr_blz_ino200_duracao_seg: number | null
+          sdr_blz_ino200_ip_hash: string | null
+          sdr_blz_ino200_outcome: string | null
+          sdr_blz_ino200_pais: string | null
+          sdr_blz_ino200_pontos: number | null
+          sdr_blz_ino200_score: number | null
           sdr_cad_funcionalidades: string | null
           sdr_cad_licenca: string | null
           sdr_cad_treinamento: string | null
@@ -4931,6 +5293,7 @@ export type Database = {
           sdr_cursos_interesse: string | null
           sdr_cursos_modalidade: string | null
           sdr_dentistica_interesse: string | null
+          sdr_entrada_valor: number | null
           sdr_fresadora_marca: string | null
           sdr_fresadora_modelo: string | null
           sdr_fresagem_interesse: string | null
@@ -4939,9 +5302,20 @@ export type Database = {
           sdr_insumos_tipo: string | null
           sdr_marca_impressora_param: string | null
           sdr_modelo_impressora_param: string | null
+          sdr_paga_por_placa: string | null
+          sdr_perde_pacientes: string | null
           sdr_pos_impressao_interesse: string | null
+          sdr_quant_parcelas: number | null
+          sdr_quantas_placas: string | null
           sdr_resina_atual: string | null
           sdr_resina_param: string | null
+          sdr_scanner_bancada_data_resposta: string | null
+          sdr_scanner_bancada_duracao_seg: number | null
+          sdr_scanner_bancada_ip_hash: string | null
+          sdr_scanner_bancada_outcome: string | null
+          sdr_scanner_bancada_pais: string | null
+          sdr_scanner_bancada_pontos: number | null
+          sdr_scanner_bancada_score: number | null
           sdr_scanner_interesse: string | null
           sdr_scanner_modelo: string | null
           sdr_smartgum_interesse: boolean | null
@@ -5123,6 +5497,7 @@ export type Database = {
           especialidade?: string | null
           form_data?: Json | null
           form_name?: string | null
+          forma_pagamento?: string | null
           frete_codigo_rastreio?: string | null
           frete_link_rastreio?: string | null
           frete_previsao_entrega?: string | null
@@ -5375,6 +5750,7 @@ export type Database = {
           proactive_sent_at?: string | null
           produto_interesse?: string | null
           produto_interesse_auto?: string | null
+          produto_interesse_raw?: string | null
           proposals_data?: Json | null
           proposals_last_status?: number | null
           proposals_total_mrr?: number | null
@@ -5393,6 +5769,13 @@ export type Database = {
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          sdr_blz_ino200_data_resposta?: string | null
+          sdr_blz_ino200_duracao_seg?: number | null
+          sdr_blz_ino200_ip_hash?: string | null
+          sdr_blz_ino200_outcome?: string | null
+          sdr_blz_ino200_pais?: string | null
+          sdr_blz_ino200_pontos?: number | null
+          sdr_blz_ino200_score?: number | null
           sdr_cad_funcionalidades?: string | null
           sdr_cad_licenca?: string | null
           sdr_cad_treinamento?: string | null
@@ -5403,6 +5786,7 @@ export type Database = {
           sdr_cursos_interesse?: string | null
           sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
+          sdr_entrada_valor?: number | null
           sdr_fresadora_marca?: string | null
           sdr_fresadora_modelo?: string | null
           sdr_fresagem_interesse?: string | null
@@ -5411,9 +5795,20 @@ export type Database = {
           sdr_insumos_tipo?: string | null
           sdr_marca_impressora_param?: string | null
           sdr_modelo_impressora_param?: string | null
+          sdr_paga_por_placa?: string | null
+          sdr_perde_pacientes?: string | null
           sdr_pos_impressao_interesse?: string | null
+          sdr_quant_parcelas?: number | null
+          sdr_quantas_placas?: string | null
           sdr_resina_atual?: string | null
           sdr_resina_param?: string | null
+          sdr_scanner_bancada_data_resposta?: string | null
+          sdr_scanner_bancada_duracao_seg?: number | null
+          sdr_scanner_bancada_ip_hash?: string | null
+          sdr_scanner_bancada_outcome?: string | null
+          sdr_scanner_bancada_pais?: string | null
+          sdr_scanner_bancada_pontos?: number | null
+          sdr_scanner_bancada_score?: number | null
           sdr_scanner_interesse?: string | null
           sdr_scanner_modelo?: string | null
           sdr_smartgum_interesse?: boolean | null
@@ -5595,6 +5990,7 @@ export type Database = {
           especialidade?: string | null
           form_data?: Json | null
           form_name?: string | null
+          forma_pagamento?: string | null
           frete_codigo_rastreio?: string | null
           frete_link_rastreio?: string | null
           frete_previsao_entrega?: string | null
@@ -5847,6 +6243,7 @@ export type Database = {
           proactive_sent_at?: string | null
           produto_interesse?: string | null
           produto_interesse_auto?: string | null
+          produto_interesse_raw?: string | null
           proposals_data?: Json | null
           proposals_last_status?: number | null
           proposals_total_mrr?: number | null
@@ -5865,6 +6262,13 @@ export type Database = {
           reuniao_agendada?: boolean | null
           rota_inicial_lia?: string | null
           score?: number | null
+          sdr_blz_ino200_data_resposta?: string | null
+          sdr_blz_ino200_duracao_seg?: number | null
+          sdr_blz_ino200_ip_hash?: string | null
+          sdr_blz_ino200_outcome?: string | null
+          sdr_blz_ino200_pais?: string | null
+          sdr_blz_ino200_pontos?: number | null
+          sdr_blz_ino200_score?: number | null
           sdr_cad_funcionalidades?: string | null
           sdr_cad_licenca?: string | null
           sdr_cad_treinamento?: string | null
@@ -5875,6 +6279,7 @@ export type Database = {
           sdr_cursos_interesse?: string | null
           sdr_cursos_modalidade?: string | null
           sdr_dentistica_interesse?: string | null
+          sdr_entrada_valor?: number | null
           sdr_fresadora_marca?: string | null
           sdr_fresadora_modelo?: string | null
           sdr_fresagem_interesse?: string | null
@@ -5883,9 +6288,20 @@ export type Database = {
           sdr_insumos_tipo?: string | null
           sdr_marca_impressora_param?: string | null
           sdr_modelo_impressora_param?: string | null
+          sdr_paga_por_placa?: string | null
+          sdr_perde_pacientes?: string | null
           sdr_pos_impressao_interesse?: string | null
+          sdr_quant_parcelas?: number | null
+          sdr_quantas_placas?: string | null
           sdr_resina_atual?: string | null
           sdr_resina_param?: string | null
+          sdr_scanner_bancada_data_resposta?: string | null
+          sdr_scanner_bancada_duracao_seg?: number | null
+          sdr_scanner_bancada_ip_hash?: string | null
+          sdr_scanner_bancada_outcome?: string | null
+          sdr_scanner_bancada_pais?: string | null
+          sdr_scanner_bancada_pontos?: number | null
+          sdr_scanner_bancada_score?: number | null
           sdr_scanner_interesse?: string | null
           sdr_scanner_modelo?: string | null
           sdr_smartgum_interesse?: boolean | null
@@ -6049,6 +6465,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lia_attendances_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "lia_attendances_person_id_fkey"
@@ -6295,6 +6725,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "message_logs_team_member_id_fkey"
             columns: ["team_member_id"]
             isOneToOne: false
@@ -6404,6 +6848,13 @@ export type Database = {
             referencedRelation: "omie_notas_fiscais"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "omie_nf_items_nf_id_fkey"
+            columns: ["nf_id"]
+            isOneToOne: false
+            referencedRelation: "vw_produtos_faturados"
+            referencedColumns: ["nf_id"]
+          },
         ]
       }
       omie_notas_fiscais: {
@@ -6422,6 +6873,7 @@ export type Database = {
           lead_id: string | null
           numero_nf: string | null
           omie_nf_id: number | null
+          omie_pedido_id: number | null
           parcelas: number | null
           piperun_deal_id: string | null
           raw_omie_payload: Json | null
@@ -6429,6 +6881,7 @@ export type Database = {
           serie: string | null
           status: string
           synced_at: string | null
+          tipo_operacao: string | null
           updated_at: string
           valor_desconto: number
           valor_frete: number
@@ -6453,6 +6906,7 @@ export type Database = {
           lead_id?: string | null
           numero_nf?: string | null
           omie_nf_id?: number | null
+          omie_pedido_id?: number | null
           parcelas?: number | null
           piperun_deal_id?: string | null
           raw_omie_payload?: Json | null
@@ -6460,6 +6914,7 @@ export type Database = {
           serie?: string | null
           status?: string
           synced_at?: string | null
+          tipo_operacao?: string | null
           updated_at?: string
           valor_desconto?: number
           valor_frete?: number
@@ -6484,6 +6939,7 @@ export type Database = {
           lead_id?: string | null
           numero_nf?: string | null
           omie_nf_id?: number | null
+          omie_pedido_id?: number | null
           parcelas?: number | null
           piperun_deal_id?: string | null
           raw_omie_payload?: Json | null
@@ -6491,6 +6947,7 @@ export type Database = {
           serie?: string | null
           status?: string
           synced_at?: string | null
+          tipo_operacao?: string | null
           updated_at?: string
           valor_desconto?: number
           valor_frete?: number
@@ -6586,6 +7043,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
             columns: ["vendedor_codigo"]
             isOneToOne: false
@@ -6594,6 +7065,185 @@ export type Database = {
           },
           {
             foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "vw_omie_vendas_mes"
+            referencedColumns: ["vendedor_codigo"]
+          },
+        ]
+      }
+      omie_notas_servico: {
+        Row: {
+          cliente_cpf_cnpj: string | null
+          cliente_nome: string | null
+          created_at: string
+          data_competencia: string | null
+          data_emissao: string
+          descricao_servico: string | null
+          id: string
+          lead_id: string | null
+          numero_nfse: string | null
+          omie_nfse_id: number | null
+          status: string
+          synced_at: string | null
+          valor_desconto: number
+          valor_iss: number
+          valor_liquido: number
+          valor_servico: number
+          valor_total: number
+          vendedor_codigo: string | null
+          vendedor_nome: string | null
+        }
+        Insert: {
+          cliente_cpf_cnpj?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_competencia?: string | null
+          data_emissao: string
+          descricao_servico?: string | null
+          id?: string
+          lead_id?: string | null
+          numero_nfse?: string | null
+          omie_nfse_id?: number | null
+          status?: string
+          synced_at?: string | null
+          valor_desconto?: number
+          valor_iss?: number
+          valor_liquido?: number
+          valor_servico?: number
+          valor_total?: number
+          vendedor_codigo?: string | null
+          vendedor_nome?: string | null
+        }
+        Update: {
+          cliente_cpf_cnpj?: string | null
+          cliente_nome?: string | null
+          created_at?: string
+          data_competencia?: string | null
+          data_emissao?: string
+          descricao_servico?: string | null
+          id?: string
+          lead_id?: string | null
+          numero_nfse?: string | null
+          omie_nfse_id?: number | null
+          status?: string
+          synced_at?: string | null
+          valor_desconto?: number
+          valor_iss?: number
+          valor_liquido?: number
+          valor_servico?: number
+          valor_total?: number
+          vendedor_codigo?: string | null
+          vendedor_nome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_model_routing"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lia_attendances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_academy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_cognitive"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_commercial"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_lead_ecommerce"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_leads_correto"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_opportunity_engine"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_pipeline_atual"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_timing_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_portfolio"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "v_workflow_timeline"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "omie_vendedores"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "omie_notas_servico_vendedor_codigo_fkey"
             columns: ["vendedor_codigo"]
             isOneToOne: false
             referencedRelation: "vw_omie_vendas_mes"
@@ -6756,6 +7406,20 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
         ]
       }
       omie_snapshot_mensal: {
@@ -6862,6 +7526,7 @@ export type Database = {
           created_at: string
           nome_omie: string
           nome_piperun: string | null
+          omie_id_numerico: number | null
           updated_at: string
         }
         Insert: {
@@ -6871,6 +7536,7 @@ export type Database = {
           created_at?: string
           nome_omie: string
           nome_piperun?: string | null
+          omie_id_numerico?: number | null
           updated_at?: string
         }
         Update: {
@@ -6880,6 +7546,7 @@ export type Database = {
           created_at?: string
           nome_omie?: string
           nome_piperun?: string | null
+          omie_id_numerico?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -8269,6 +8936,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_course_enrollments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "smartops_course_enrollments_turma_id_fkey"
             columns: ["turma_id"]
             isOneToOne: false
@@ -8633,6 +9314,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -9446,6 +10141,20 @@ export type Database = {
             referencedColumns: ["lead_id"]
           },
           {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "technical_tickets_support_team_member_id_fkey"
             columns: ["support_team_member_id"]
             isOneToOne: false
@@ -9600,6 +10309,20 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_predictions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
         ]
       }
       user_roles: {
@@ -9623,6 +10346,42 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      vitality_gen_control: {
+        Row: {
+          batch_size: number
+          created_count: number
+          current_offset: number
+          failed_count: number
+          id: number
+          last_run: string | null
+          status: string
+          total: number
+          updated_at: string | null
+        }
+        Insert: {
+          batch_size?: number
+          created_count?: number
+          current_offset?: number
+          failed_count?: number
+          id?: number
+          last_run?: string | null
+          status?: string
+          total?: number
+          updated_at?: string | null
+        }
+        Update: {
+          batch_size?: number
+          created_count?: number
+          current_offset?: number
+          failed_count?: number
+          id?: number
+          last_run?: string | null
+          status?: string
+          total?: number
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -9762,6 +10521,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_inbox_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -10128,6 +10901,20 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_items_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_equipment_field_map: {
@@ -10282,6 +11069,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smartops_form_field_responses_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -10567,6 +11368,20 @@ export type Database = {
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
           },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "omie_parcelas_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
+          },
         ]
       }
       v_lead_timeline: {
@@ -10715,6 +11530,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_workflow_timeline"
             referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_orfaos_recentes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_opportunities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "vw_leads_qualidade_ruim"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -11557,15 +12386,17 @@ export type Database = {
       vw_dashboard_financeiro: {
         Row: {
           deals_ganhos: number | null
-          faturado_crm: number | null
+          faturado_crm_snp: number | null
           faturado_marketplace: number | null
+          faturado_operacional: number | null
           faturado_site: number | null
           faturado_total: number | null
           frete_total: number | null
+          gap_operacional: number | null
           gap_pct: number | null
-          gap_total: number | null
           mes: string | null
-          nfs_emitidas: number | null
+          nfs_operacionais: number | null
+          nfs_snapshot: number | null
           receita_crm: number | null
         }
         Relationships: []
@@ -11592,6 +12423,107 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_faturamento_consolidado: {
+        Row: {
+          canal: string | null
+          mes: string | null
+          notas: number | null
+          tipo_nota: string | null
+          valor_frete: number | null
+          valor_iss: number | null
+          valor_total: number | null
+          vendedor_codigo: string | null
+          vendedor_nome: string | null
+        }
+        Relationships: []
+      }
+      vw_leads_orfaos_recentes: {
+        Row: {
+          dias_sem_dono: number | null
+          email: string | null
+          entrada: string | null
+          funil: string | null
+          hits_impressao3d: number | null
+          hits_insumos_cursos: number | null
+          hits_scanner: number | null
+          id: string | null
+          nome: string | null
+          score: number | null
+          status: string | null
+          telefone_normalized: string | null
+          temp: string | null
+        }
+        Insert: {
+          dias_sem_dono?: never
+          email?: string | null
+          entrada?: never
+          funil?: string | null
+          hits_impressao3d?: number | null
+          hits_insumos_cursos?: number | null
+          hits_scanner?: number | null
+          id?: string | null
+          nome?: string | null
+          score?: number | null
+          status?: string | null
+          telefone_normalized?: string | null
+          temp?: string | null
+        }
+        Update: {
+          dias_sem_dono?: never
+          email?: string | null
+          entrada?: never
+          funil?: string | null
+          hits_impressao3d?: number | null
+          hits_insumos_cursos?: number | null
+          hits_scanner?: number | null
+          id?: string | null
+          nome?: string | null
+          score?: number | null
+          status?: string | null
+          telefone_normalized?: string | null
+          temp?: string | null
+        }
+        Relationships: []
+      }
+      vw_leads_qualidade_ruim: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string | null
+          nome: string | null
+          problema_nome: string | null
+          problema_proprietario: string | null
+          problema_telefone: string | null
+          proprietario_lead_crm: string | null
+          real_status: string | null
+          telefone_normalized: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          nome?: string | null
+          problema_nome?: never
+          problema_proprietario?: never
+          problema_telefone?: never
+          proprietario_lead_crm?: string | null
+          real_status?: string | null
+          telefone_normalized?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string | null
+          nome?: string | null
+          problema_nome?: never
+          problema_proprietario?: never
+          problema_telefone?: never
+          proprietario_lead_crm?: string | null
+          real_status?: string | null
+          telefone_normalized?: string | null
+        }
+        Relationships: []
+      }
       vw_omie_vendas_mes: {
         Row: {
           canal: string | null
@@ -11608,6 +12540,42 @@ export type Database = {
         }
         Relationships: []
       }
+      vw_produtos_faturados: {
+        Row: {
+          canal: string | null
+          categoria: string | null
+          cliente_nome: string | null
+          data_competencia: string | null
+          mes: string | null
+          ncm: string | null
+          nf_id: string | null
+          numero_nf: string | null
+          produto_codigo: string | null
+          produto_nome: string | null
+          quantidade: number | null
+          tipo_operacao: string | null
+          valor_total: number | null
+          valor_unitario: number | null
+          vendedor_codigo: string | null
+          vendedor_nome: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "omie_vendedores"
+            referencedColumns: ["codigo"]
+          },
+          {
+            foreignKeyName: "omie_notas_fiscais_vendedor_codigo_fkey"
+            columns: ["vendedor_codigo"]
+            isOneToOne: false
+            referencedRelation: "vw_omie_vendas_mes"
+            referencedColumns: ["vendedor_codigo"]
+          },
+        ]
+      }
       vw_reconciliacao_financeira: {
         Row: {
           canal: string | null
@@ -11622,6 +12590,18 @@ export type Database = {
           valor_faturado: number | null
           valor_frete: number | null
           vendedor: string | null
+        }
+        Relationships: []
+      }
+      vw_saude_leads: {
+        Row: {
+          cliente_omie_sem_dono: number | null
+          negociacao_sem_dono: number | null
+          nome_com_timestamp_bug: number | null
+          nome_invalido: number | null
+          sem_contato_algum: number | null
+          sem_telefone: number | null
+          total_ativos: number | null
         }
         Relationships: []
       }
@@ -11745,17 +12725,17 @@ export type Database = {
         Args: { p_ano?: number; p_mes?: number }
         Returns: {
           deals_ganhos: number
-          faturado_crm: number
           faturado_marketplace: number
+          faturado_operacional: number
           faturado_site: number
           faturado_total: number
           frete_total: number
+          gap_operacional: number
           gap_pct: number
-          gap_total: number
           maior_gap_tipo: string
           maior_gap_valor: number
           maior_gap_vendedor: string
-          nfs_emitidas: number
+          nfs_operacionais: number
           periodo: string
           receita_crm: number
           ticket_medio_crm: number
@@ -11799,6 +12779,14 @@ export type Database = {
         Returns: number
       }
       fn_get_lead_context: { Args: { p_lead_id: string }; Returns: Json }
+      fn_import_dh_leads: {
+        Args: { p_leads: Json }
+        Returns: {
+          enriquecidos: number
+          erros: number
+          novos: number
+        }[]
+      }
       fn_link_page_views_to_lead: {
         Args: { p_lead_id: string; p_session_id: string }
         Returns: number
@@ -11834,6 +12822,18 @@ export type Database = {
           receita_total: number
           total_unidades: number
           vendedores: number
+        }[]
+      }
+      fn_mix_produtos_mes: {
+        Args: { p_ano?: number; p_mes?: number }
+        Returns: {
+          categoria: string
+          clientes: number
+          nfs: number
+          produto: string
+          qtd_faturada: number
+          receita_omie: number
+          ticket_medio: number
         }[]
       }
       fn_omie_score_label: { Args: { score: number }; Returns: string }
@@ -11877,6 +12877,15 @@ export type Database = {
           ticket_medio: number
           total_deals: number
           vendedor: string
+        }[]
+      }
+      fn_saude_sistema: {
+        Args: never
+        Returns: {
+          acao: string
+          metrica: string
+          status: string
+          valor: number
         }[]
       }
       fn_search_deals_by_status:
@@ -11935,6 +12944,7 @@ export type Database = {
           lead_id: string
         }[]
       }
+      fn_stage_dh_leads: { Args: { p_data: Json }; Returns: number }
       fn_sync_normalized_from_lead: {
         Args: { p_lead_id: string }
         Returns: undefined
@@ -11991,6 +13001,7 @@ export type Database = {
           valor_unitario_med: number
         }[]
       }
+      fn_vitality_gen_tick: { Args: never; Returns: undefined }
       get_brand_distribution: {
         Args: never
         Returns: {
@@ -12124,6 +13135,7 @@ export type Database = {
           especialidade: string | null
           form_data: Json | null
           form_name: string | null
+          forma_pagamento: string | null
           frete_codigo_rastreio: string | null
           frete_link_rastreio: string | null
           frete_previsao_entrega: string | null
@@ -12376,6 +13388,7 @@ export type Database = {
           proactive_sent_at: string | null
           produto_interesse: string | null
           produto_interesse_auto: string | null
+          produto_interesse_raw: string | null
           proposals_data: Json | null
           proposals_last_status: number | null
           proposals_total_mrr: number | null
@@ -12394,6 +13407,13 @@ export type Database = {
           reuniao_agendada: boolean | null
           rota_inicial_lia: string | null
           score: number | null
+          sdr_blz_ino200_data_resposta: string | null
+          sdr_blz_ino200_duracao_seg: number | null
+          sdr_blz_ino200_ip_hash: string | null
+          sdr_blz_ino200_outcome: string | null
+          sdr_blz_ino200_pais: string | null
+          sdr_blz_ino200_pontos: number | null
+          sdr_blz_ino200_score: number | null
           sdr_cad_funcionalidades: string | null
           sdr_cad_licenca: string | null
           sdr_cad_treinamento: string | null
@@ -12404,6 +13424,7 @@ export type Database = {
           sdr_cursos_interesse: string | null
           sdr_cursos_modalidade: string | null
           sdr_dentistica_interesse: string | null
+          sdr_entrada_valor: number | null
           sdr_fresadora_marca: string | null
           sdr_fresadora_modelo: string | null
           sdr_fresagem_interesse: string | null
@@ -12412,9 +13433,20 @@ export type Database = {
           sdr_insumos_tipo: string | null
           sdr_marca_impressora_param: string | null
           sdr_modelo_impressora_param: string | null
+          sdr_paga_por_placa: string | null
+          sdr_perde_pacientes: string | null
           sdr_pos_impressao_interesse: string | null
+          sdr_quant_parcelas: number | null
+          sdr_quantas_placas: string | null
           sdr_resina_atual: string | null
           sdr_resina_param: string | null
+          sdr_scanner_bancada_data_resposta: string | null
+          sdr_scanner_bancada_duracao_seg: number | null
+          sdr_scanner_bancada_ip_hash: string | null
+          sdr_scanner_bancada_outcome: string | null
+          sdr_scanner_bancada_pais: string | null
+          sdr_scanner_bancada_pontos: number | null
+          sdr_scanner_bancada_score: number | null
           sdr_scanner_interesse: string | null
           sdr_scanner_modelo: string | null
           sdr_smartgum_interesse: boolean | null
