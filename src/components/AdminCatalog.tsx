@@ -343,7 +343,7 @@ export function AdminCatalog() {
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       {searchTerm || selectedCategory !== 'all' || selectedStatus !== 'all'
                         ? 'Nenhum produto encontrado com os filtros aplicados.'
                         : 'Nenhum produto encontrado. Crie o primeiro produto.'}
@@ -387,33 +387,16 @@ export function AdminCatalog() {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {product.product_subcategory ? (
-                          <Badge variant="secondary">{product.product_subcategory}</Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={!!product.visible_in_ui}
+                          onCheckedChange={() => handleToggleVisibility(product.id!, product.visible_in_ui)}
+                        />
                       </TableCell>
-                      <TableCell>
-                        {product.updated_at ? (
-                          <div className="text-sm">
-                            <div className="font-medium">
-                              {new Date(product.updated_at).toLocaleDateString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              })}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              {new Date(product.updated_at).toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
+                      <TableCell className="text-center">
+                        <Badge variant={docCounts[product.id!] ? "default" : "secondary"}>
+                          {docCounts[product.id!] || 0}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
