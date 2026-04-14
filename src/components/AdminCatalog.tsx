@@ -186,6 +186,34 @@ export function AdminCatalog() {
     }
   };
 
+  const handleBatchVisibility = async (visible: boolean) => {
+    const targetProducts = selectedCategory !== 'all'
+      ? products.filter(p => p.product_category === selectedCategory)
+      : products;
+    
+    if (targetProducts.length === 0) return;
+
+    try {
+      let count = 0;
+      for (const p of targetProducts) {
+        if (p.id && p.visible_in_ui !== visible) {
+          await updateCatalogProduct(p.id, { visible_in_ui: visible });
+          count++;
+        }
+      }
+      setProducts(prev => prev.map(p => 
+        targetProducts.some(tp => tp.id === p.id) ? { ...p, visible_in_ui: visible } : p
+      ));
+      toast({
+        title: visible ? "✅ Produtos visíveis" : "🙈 Produtos ocultos",
+        description: `${count} produto(s) atualizado(s)`,
+      });
+    } catch (error) {
+      console.error('Error batch updating visibility:', error);
+      toast({ title: "Erro", description: "Erro ao atualizar visibilidade em lote", variant: "destructive" });
+    }
+  };
+
   const handleMigrateImages = async () => {
     setMigrating(true);
     try {
@@ -297,6 +325,16 @@ export function AdminCatalog() {
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>
+              {selectedCategory !== 'all' && (
+                <div className="flex gap-1 mt-1">
+                  <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleBatchVisibility(true)}>
+                    <Eye className="w-3 h-3 mr-1" /> Mostrar todos
+                  </Button>
+                  <Button variant="outline" size="sm" className="text-xs h-7" onClick={() => handleBatchVisibility(false)}>
+                    Ocultar todos
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -311,8 +349,6 @@ export function AdminCatalog() {
                 <option value="inactive">Inativos</option>
                 <option value="approved">Aprovados</option>
                 <option value="pending">Pendentes</option>
-                <option value="visible">Visível na UI</option>
-                <option value="hidden">Oculto na UI</option>
                 <option value="visible">Visível na UI</option>
                 <option value="hidden">Oculto na UI</option>
               </select>

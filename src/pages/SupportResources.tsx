@@ -68,6 +68,7 @@ export default function SupportResources() {
           .select("id, name, image_url, description, product_category, cta_1_url")
           .eq("active", true)
           .eq("approved", true)
+          .eq("visible_in_ui", true)
           .neq("product_category", "RESINAS 3D")
           .not("product_category", "is", null)
           .order("name"),
