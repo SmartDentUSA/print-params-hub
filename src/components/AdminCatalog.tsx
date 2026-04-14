@@ -186,6 +186,34 @@ export function AdminCatalog() {
     }
   };
 
+  const handleBatchVisibility = async (visible: boolean) => {
+    const targetProducts = selectedCategory !== 'all'
+      ? products.filter(p => p.product_category === selectedCategory)
+      : products;
+    
+    if (targetProducts.length === 0) return;
+
+    try {
+      let count = 0;
+      for (const p of targetProducts) {
+        if (p.id && p.visible_in_ui !== visible) {
+          await updateCatalogProduct(p.id, { visible_in_ui: visible });
+          count++;
+        }
+      }
+      setProducts(prev => prev.map(p => 
+        targetProducts.some(tp => tp.id === p.id) ? { ...p, visible_in_ui: visible } : p
+      ));
+      toast({
+        title: visible ? "✅ Produtos visíveis" : "🙈 Produtos ocultos",
+        description: `${count} produto(s) atualizado(s)`,
+      });
+    } catch (error) {
+      console.error('Error batch updating visibility:', error);
+      toast({ title: "Erro", description: "Erro ao atualizar visibilidade em lote", variant: "destructive" });
+    }
+  };
+
   const handleMigrateImages = async () => {
     setMigrating(true);
     try {
