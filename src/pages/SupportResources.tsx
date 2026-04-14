@@ -342,17 +342,6 @@ export default function SupportResources() {
                             <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-1 flex-1">
                               {product.name}
                             </h3>
-                            {product.subcategory && (
-                              <span
-                                className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mb-2 ${
-                                  product.subcategory === "BIOCOMPATÍVEIS"
-                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                    : "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400"
-                                }`}
-                              >
-                                {product.subcategory}
-                              </span>
-                            )}
 
                             <div className="flex flex-wrap gap-1.5 mb-2">
                               {product.shop_url && (
