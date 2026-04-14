@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getLocalizedTitle, getLocalizedExcerpt } from '@/utils/i18nPaths';
+import { getArticleUrl } from '@/utils/knowledgeUrls';
 import { KnowledgeFAQ } from '@/components/KnowledgeFAQ';
 import { PDFContentRenderer } from '@/components/PDFContentRenderer';
 import { PDFViewerEmbed } from '@/components/PDFViewerEmbed';
