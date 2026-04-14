@@ -652,7 +652,7 @@ ${processedHTML}
             {relatedArticles.map(article => (
               <Link 
                 key={article.id} 
-                to={`${basePath}/${article.knowledge_categories?.letter?.toLowerCase()}/${article.slug}`}
+                to={getArticleUrl(article, language)}
               >
                 <Card className="hover:shadow-lg transition-shadow h-full">
                   {article.og_image_url && (
