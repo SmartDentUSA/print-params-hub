@@ -387,7 +387,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     { label: displayContent.title }
   ];
 
-  const processedHTML = useMemo(() => {
+  const processedHTML = (() => {
     if (!displayContent.content_html) return '';
     try {
       const result = prettifyLinkLabels(
@@ -404,7 +404,7 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
       console.error('KnowledgeContentViewer: error processing HTML, using raw content_html', err);
       return displayContent.content_html;
     }
-  }, [displayContent.content_html, content.authors, language]);
+  })();
 
   const handleDownloadHTML = () => {
     const title = displayContent.title || 'article';
