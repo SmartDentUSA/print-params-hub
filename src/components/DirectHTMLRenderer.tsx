@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface DirectHTMLRendererProps {
@@ -8,6 +9,7 @@ interface DirectHTMLRendererProps {
 
 export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: DirectHTMLRendererProps) {
   const contentRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   // Clean schema.org microdata that leaks as visible text
   const cleanSchemaMarkup = (html: string): string => {
@@ -15,11 +17,8 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
     cleaned = cleaned.replace(/\s*itemtype="https?:\/\/schema\.org\/[^"]*"/gi, '');
     cleaned = cleaned.replace(/\s*itemprop="[^"]*"/gi, '');
     cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
-    // Remove <a> tags linking to schema.org (created by reformatter)
     cleaned = cleaned.replace(/<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>/gi, '');
-    // Fix itemtype attributes corrupted by reformatter (contains <a> tags instead of plain URL)
     cleaned = cleaned.replace(/\s*itemtype="<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>"/gi, '');
-    // Clean leftover itemscope="" (empty)
     cleaned = cleaned.replace(/\s*itemscope=""/gi, '');
     return cleaned;
   };
@@ -27,7 +26,6 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
   // Process HTML to add IDs to headings for better LLM citation
   const processHTML = (html: string): string => {
     let counter = 0;
-    // Add IDs to h2, h3, h4 tags that don't have them
     return html.replace(/<(h[2-4])([^>]*)>/gi, (match, tag, attrs) => {
       counter++;
       if (attrs.includes('id=')) return match;
@@ -42,7 +40,7 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
     });
   };
 
-  // Process external links to open in new tab
+  // Process external links + intercept clicks on placeholder/internal links
   useEffect(() => {
     if (!contentRef.current) return;
 
@@ -51,7 +49,30 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
       link.setAttribute('target', '_blank');
       link.setAttribute('rel', 'noopener noreferrer');
     });
-  }, [htmlContent]);
+
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest('a');
+      if (!target) return;
+
+      const href = target.getAttribute('href');
+
+      // Block placeholder links
+      if (!href || href === '#' || href.startsWith('javascript:')) {
+        e.preventDefault();
+        return;
+      }
+
+      // Intercept internal knowledge base links → use React Router
+      if (href.startsWith('/base-conhecimento/') || href.startsWith('/en/knowledge-base/') || href.startsWith('/es/base-conocimiento/')) {
+        e.preventDefault();
+        navigate(href);
+      }
+    };
+
+    const container = contentRef.current;
+    container.addEventListener('click', handleClick);
+    return () => container.removeEventListener('click', handleClick);
+  }, [htmlContent, navigate]);
 
   const cleanedHTML = cleanSchemaMarkup(htmlContent);
   const processedHTML = processHTML(cleanedHTML);
