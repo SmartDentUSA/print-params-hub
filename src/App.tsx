@@ -14,6 +14,7 @@ import AgentEmbed from "./pages/AgentEmbed";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
+import SupportResources from "./pages/SupportResources";
 import DraLIA from "./components/DraLIA";
 import { usePageTracking } from "./hooks/usePageTracking";
 
@@ -73,6 +74,9 @@ const App = () => (
       
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
+      
+      {/* Support Resources / Product Catalog (Category G) */}
+      <Route path="/support-resources" element={<SupportResources />} />
       
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -126,6 +126,11 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
   }, [selectedContent, isMobile]);
 
   const handleCategorySelect = (letter: string) => {
+    // Category G redirects to dedicated support-resources page
+    if (letter.toUpperCase() === 'G') {
+      navigate('/support-resources');
+      return;
+    }
     const basePath = lang === 'en' ? '/en/knowledge-base' : lang === 'es' ? '/es/base-conocimiento' : '/base-conhecimento';
     navigate(`${basePath}/${letter.toLowerCase()}`);
   };
