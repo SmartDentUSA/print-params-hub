@@ -75,6 +75,9 @@ const App = () => (
       {/* Public forms */}
       <Route path="/f/:slug" element={<PublicFormPage />} />
       
+      {/* Support Resources / Product Catalog (Category G) */}
+      <Route path="/support-resources" element={<SupportResources />} />
+      
       <Route path="*" element={<NotFound />} />
     </Routes>
 
