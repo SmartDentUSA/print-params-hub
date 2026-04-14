@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { Header } from "@/components/Header";
-import { MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ShoppingCart, FileText, BookOpen, ChevronRight, Package } from "lucide-react";
+import { ShoppingCart, FileText, BookOpen, ChevronRight, Package, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
