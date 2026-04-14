@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getArticleUrl } from "@/utils/knowledgeUrls";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "@/components/Header";
@@ -98,13 +99,22 @@ export default function KnowledgeBase({ lang = 'pt' }: KnowledgeBaseProps) {
     if (contentSlug) {
       const load = async () => {
         const data = await fetchContentBySlug(contentSlug);
+        if (data) {
+          const realLetter = (data.knowledge_categories as any)?.letter?.toLowerCase() 
+            || (data as any).category?.letter?.toLowerCase();
+          if (realLetter && categoryLetter && realLetter !== categoryLetter.toLowerCase()) {
+            const correctUrl = getArticleUrl(data, lang);
+            navigate(correctUrl, { replace: true });
+            return;
+          }
+        }
         setSelectedContent(data);
       };
       load();
     } else {
       setSelectedContent(null);
     }
-  }, [contentSlug]);
+  }, [contentSlug, categoryLetter, lang, navigate]);
 
   // Auto-scroll to content on mobile
   useEffect(() => {
