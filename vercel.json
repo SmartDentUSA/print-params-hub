@@ -5,6 +5,9 @@
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/:path*"
     },
     {
+      "source": "/video-sitemap.xml",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap"
+    },
       "source": "/sitemap.xml",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/generate-sitemap"
     },
