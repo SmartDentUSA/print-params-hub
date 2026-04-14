@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { getArticleUrl } from "@/utils/knowledgeUrls";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "@/components/Header";
