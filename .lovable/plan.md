@@ -1,27 +1,36 @@
 
 
-## Plano: Habilitar Categoria E (Depoimentos e Cursos)
+## Problema identificado
 
-### Situacao atual
-- Categoria E (`Depoimentos e Cursos`) esta com `enabled: false` no banco de dados (tabela `knowledge_categories`)
-- Existem **301 artigos ativos** nessa categoria, mas nenhum aparece para o usuario
-- O frontend filtra categorias desabilitadas: `cats.filter(c => c.enabled)` em `KnowledgeBase.tsx` (linha 53)
-- Os labels nos locales estao como "Ebooks e Guias" em vez de "Depoimentos e Cursos"
+Os documentos inseridos no catálogo estão sendo salvos na tabela `catalog_documents`, mas a página de produto (`ProductPage.tsx`) busca documentos da tabela `resin_documents`. Por isso, os documentos nunca aparecem na UI pública.
 
-### Alteracoes necessarias
+### Dados confirmados
+- Existem 2 documentos ativos na tabela `catalog_documents`
+- A tabela `resin_documents` é uma tabela separada (para resinas, não para produtos do catálogo)
+- O `ProductPage.tsx` linha 54 faz: `documents:resin_documents(...)` -- tabela errada
 
-**1. Banco de dados** — Habilitar categoria E
-- Migration SQL: `UPDATE knowledge_categories SET enabled = true WHERE letter = 'E';`
+### Correção
 
-**2. Locales** — Corrigir nome da categoria E
-- `src/locales/pt.json`: `"category_e": "Depoimentos e Cursos"`
-- `src/locales/en.json`: `"category_e": "Testimonials and Courses"`
-- `src/locales/es.json`: `"category_e": "Testimonios y Cursos"`
+**Arquivo: `src/pages/ProductPage.tsx`**
 
-**3. Sitemaps** — Os sitemaps ja incluem todos os artigos ativos independente de `enabled`, entao nenhuma mudanca e necessaria ali.
+Alterar a query de busca de documentos de `resin_documents` para `catalog_documents`:
+
+```typescript
+// DE:
+documents:resin_documents(
+  id, document_name, document_description, file_url, file_name, file_size, updated_at
+)
+
+// PARA:
+documents:catalog_documents(
+  id, document_name, document_description, file_url, file_name, file_size, updated_at
+)
+```
+
+Adicionar filtro `.eq('catalog_documents.active', true)` para mostrar apenas documentos ativos.
+
+Verificar também se a seção de renderização de documentos no JSX do `ProductPage` está presente e funcional (linhas 200+).
 
 ### Resultado
-- A pill "E - Depoimentos e Cursos" aparecera na barra de categorias da Base de Conhecimento
-- Os 301 artigos da categoria E ficarao navegaveis e indexaveis
-- URLs como `/base-conhecimento/e/{slug}` funcionarao normalmente
+Os documentos inseridos via admin aparecerão corretamente na página pública do produto.
 
