@@ -8,6 +8,12 @@ interface PDFContentRendererProps {
 }
 
 export function PDFContentRenderer({ htmlContent, deviceMode = 'desktop' }: PDFContentRendererProps) {
+  // Safeguard: if no content, render nothing
+  if (!htmlContent || !htmlContent.trim()) {
+    devWarn('PDFContentRenderer: empty htmlContent received');
+    return null;
+  }
+
   // Verificar se há PDFs no conteúdo
   const hasPDFContainer = htmlContent.includes('pdf-viewer-container');
   

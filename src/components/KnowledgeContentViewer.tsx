@@ -387,9 +387,24 @@ export function KnowledgeContentViewer({ content }: KnowledgeContentViewerProps)
     { label: displayContent.title }
   ];
 
-  const processedHTML = displayContent.content_html 
-    ? prettifyLinkLabels(renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es'), language)
-    : '';
+  const processedHTML = useMemo(() => {
+    if (!displayContent.content_html) return '';
+    try {
+      const result = prettifyLinkLabels(
+        renderAuthorSignaturePlaceholders(displayContent.content_html, content.authors, language as 'pt' | 'en' | 'es'),
+        language
+      );
+      // Safeguard: if processing zeroed out the content, fall back to raw HTML
+      if (!result && displayContent.content_html) {
+        console.warn('KnowledgeContentViewer: processedHTML empty after transforms, using raw content_html');
+        return displayContent.content_html;
+      }
+      return result;
+    } catch (err) {
+      console.error('KnowledgeContentViewer: error processing HTML, using raw content_html', err);
+      return displayContent.content_html;
+    }
+  }, [displayContent.content_html, content.authors, language]);
 
   const handleDownloadHTML = () => {
     const title = displayContent.title || 'article';

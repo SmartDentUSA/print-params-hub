@@ -13,14 +13,24 @@ export function DirectHTMLRenderer({ htmlContent, deviceMode = 'desktop' }: Dire
 
   // Clean schema.org microdata that leaks as visible text
   const cleanSchemaMarkup = (html: string): string => {
-    let cleaned = html.replace(/\s*itemscope\s*/gi, ' ');
-    cleaned = cleaned.replace(/\s*itemtype="https?:\/\/schema\.org\/[^"]*"/gi, '');
-    cleaned = cleaned.replace(/\s*itemprop="[^"]*"/gi, '');
-    cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
-    cleaned = cleaned.replace(/<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>/gi, '');
-    cleaned = cleaned.replace(/\s*itemtype="<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>"/gi, '');
-    cleaned = cleaned.replace(/\s*itemscope=""/gi, '');
-    return cleaned;
+    try {
+      let cleaned = html.replace(/\s*itemscope\s*/gi, ' ');
+      cleaned = cleaned.replace(/\s*itemtype="https?:\/\/schema\.org\/[^"]*"/gi, '');
+      cleaned = cleaned.replace(/\s*itemprop="[^"]*"/gi, '');
+      cleaned = cleaned.replace(/https?:\/\/schema\.org\/\w+"\s*>/gi, '');
+      cleaned = cleaned.replace(/<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>/gi, '');
+      cleaned = cleaned.replace(/\s*itemtype="<a\s[^>]*href="https?:\/\/schema\.org\/[^"]*"[^>]*>[^<]*<\/a>"/gi, '');
+      cleaned = cleaned.replace(/\s*itemscope=""/gi, '');
+      // Safeguard: never return empty if input had content
+      if (!cleaned.trim() && html.trim()) {
+        console.warn('DirectHTMLRenderer: cleanSchemaMarkup zeroed content, returning original');
+        return html;
+      }
+      return cleaned;
+    } catch (err) {
+      console.error('DirectHTMLRenderer: cleanSchemaMarkup error, returning original', err);
+      return html;
+    }
   };
 
   // Process HTML to add IDs to headings for better LLM citation
