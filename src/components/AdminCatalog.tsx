@@ -16,6 +16,7 @@ export function AdminCatalog() {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<CatalogProduct[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [docCounts, setDocCounts] = useState<Record<string, number>>({});
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<CatalogProduct | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
