@@ -51,7 +51,7 @@ const ProductPage = () => {
           .from("system_a_catalog")
           .select(`
             *,
-            documents:resin_documents(
+            documents:catalog_documents(
               id,
               document_name,
               document_description,
