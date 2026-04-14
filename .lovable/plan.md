@@ -1,24 +1,23 @@
 
 
-## Plano: Tornar categorias e produtos visíveis no catálogo público
+## Plano: Adicionar Instruções de Pré e Pós Processamento nos cards de produtos (Resinas)
 
-### Causa raiz
-Quando implementamos o filtro `.eq("visible_in_ui", true)` na query do catálogo, **127 de 128 produtos** tinham `visible_in_ui = false`. Por isso só aparece RESINAS 3D (que vem da tabela `resins`, sem esse filtro).
+### Problema
+A tabela `resins` possui o campo `processing_instructions` com dados ricos em markdown para 3 resinas (Bite Splint +Flex, Vitality, Try-in Calcinável), mas a página `/support-resources` não busca nem exibe essas instruções nos cards.
 
 ### Solução
 
-#### 1. Migração SQL — ativar `visible_in_ui` para todos os produtos aprovados
-Criar uma migration que faz:
-```sql
-UPDATE system_a_catalog 
-SET visible_in_ui = true 
-WHERE active = true AND approved = true;
-```
-Isso torna todos os produtos ativos/aprovados visíveis por padrão. O admin pode depois ocultar individualmente pelo checkbox.
+#### 1. Atualizar interface `UnifiedProduct` e fetch
+- Adicionar campo `processing_instructions: string | null` à interface `UnifiedProduct`
+- Na query de `resins`, incluir o campo `processing_instructions` no `.select()`
+- Passar o valor ao construir o array `unified`
 
-#### 2. Nenhuma alteração no frontend
-O código já está correto — sidebar de categorias, grid de produtos, filtro `visible_in_ui`. Só faltavam os dados marcados como visíveis.
+#### 2. Renderizar no card como Accordion
+- Adicionar uma nova `AccordionItem` com value `"processing"` nos cards de resinas que tenham `processing_instructions`
+- Titulo: "⚙️ Instruções de Processamento"
+- Renderizar o markdown convertendo `##` em subtítulos, `•` em listas, e `>` em blocos de destaque
+- Usar uma função simples de parse markdown-to-html (sem dependência externa)
 
 ### Arquivo afetado
-- **Nova migration SQL**: `UPDATE system_a_catalog SET visible_in_ui = true WHERE active AND approved`
+- `src/pages/SupportResources.tsx`
 
