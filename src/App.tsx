@@ -14,6 +14,7 @@ import AgentEmbed from "./pages/AgentEmbed";
 import PublicFormPage from "./pages/PublicFormPage";
 import ROICalculatorPage from "./pages/ROICalculatorPage";
 import KnowledgeArticleRedirect from "./pages/KnowledgeArticleRedirect";
+import SupportResources from "./pages/SupportResources";
 import DraLIA from "./components/DraLIA";
 import { usePageTracking } from "./hooks/usePageTracking";
 
