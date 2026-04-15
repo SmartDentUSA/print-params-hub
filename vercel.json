@@ -6,6 +6,14 @@
   },
   "rewrites": [
     {
+      "source": "/llms.txt",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-txt"
+    },
+    {
+      "source": "/.well-known/llms.txt",
+      "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-txt"
+    },
+    {
       "source": "/docs/:path*",
       "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/document-proxy/:path*"
     },
