@@ -46,7 +46,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { dryRun = true } = await req.json().catch(() => ({}));
+    const { dryRun = true, limit = 500 } = await req.json().catch(() => ({}));
 
     const { data: articles, error } = await supabase
       .from('knowledge_contents')
