@@ -40,6 +40,7 @@ interface UnifiedProduct {
   presentations: PresentationInfo[];
   processing_instructions: string | null;
   subcategory?: string | null;
+  slug?: string | null;
   source: "catalog" | "resin";
 }
 
@@ -190,6 +191,7 @@ export default function SupportResources() {
           presentations: resinPresMap.get(r.id) || [],
           processing_instructions: r.processing_instructions || null,
           subcategory: subcatMap.get(r.name.toLowerCase().trim()) || null,
+          slug: r.slug || null,
           source: "resin" as const,
         })),
         ...uniqueCatalog.map((p) => ({
@@ -369,6 +371,17 @@ export default function SupportResources() {
                                 </Button>
                               )}
                             </div>
+
+                            {product.source === "resin" && product.slug && (
+                              <div className="mb-2">
+                                <Button size="sm" variant="tech" className="text-xs h-7 px-2 w-full" asChild>
+                                  <a href={`/resinas/${product.slug}`}>
+                                    <BookOpen className="w-3 h-3 mr-1" />
+                                    Parametrização
+                                  </a>
+                                </Button>
+                              </div>
+                            )}
 
                             <Accordion type="single" collapsible className="w-full">
                               {product.description && (
