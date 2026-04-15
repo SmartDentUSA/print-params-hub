@@ -6,19 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-/**
- * fix-category-e-cleanup
- * 
- * Audits category E (Depoimentos e Cursos) articles and reclassifies
- * off-topic articles to the correct category.
- * 
- * Heuristics:
- * - If title matches resins/materials → category D (Produtos)
- * - If title matches tutorial/how-to → category C (Tutoriais)
- * - Otherwise keeps in E
- * 
- * POST body: { dryRun?: boolean }
- */
+// Category UUIDs
+const CAT_E = 'ff524477-c553-4518-868e-8435e16a5c57'; // Depoimentos e Cursos
+const CAT_C = 'fc493982-ad8c-417f-9579-82786a97925a'; // Ciência e tecnologia
+const CAT_D = '6b724172-f7c8-4a4c-bfb1-8c2ee4fc608e'; // Catálogo de Produtos
 
 const DEPOIMENTO_KEYWORDS = [
   'depoimento', 'testimonial', 'testimonio', 'case', 'caso clínico',
@@ -57,11 +48,10 @@ serve(async (req) => {
 
     const { dryRun = true } = await req.json().catch(() => ({}));
 
-    // Fetch all category E articles
     const { data: articles, error } = await supabase
       .from('knowledge_contents')
-      .select('id, title, category, slug')
-      .eq('category', 'E')
+      .select('id, title, category_id, slug')
+      .eq('category_id', CAT_E)
       .eq('active', true);
 
     if (error) throw error;
@@ -69,8 +59,7 @@ serve(async (req) => {
     const results: Array<{
       id: string;
       title: string;
-      currentCategory: string;
-      newCategory: string | null;
+      newCategory: string;
       reason: string;
     }> = [];
 
@@ -81,31 +70,28 @@ serve(async (req) => {
     for (const article of articles || []) {
       const titleLower = (article.title || '').toLowerCase();
 
-      // Check if it's a real depoimento/curso
       const isDepoimento = DEPOIMENTO_KEYWORDS.some(kw => titleLower.includes(kw));
       if (isDepoimento) {
         kept++;
         continue;
       }
 
-      // Classify: product or tutorial?
       const isProduct = PRODUCT_KEYWORDS.some(kw => titleLower.includes(kw));
       const isTutorial = TUTORIAL_KEYWORDS.some(kw => titleLower.includes(kw));
 
-      let newCategory: string | null = null;
+      let newCategoryId: string;
       let reason = '';
 
       if (isProduct && !isTutorial) {
-        newCategory = 'D';
+        newCategoryId = CAT_D;
         reason = 'Título contém palavras-chave de produto';
         movedToD++;
       } else if (isTutorial) {
-        newCategory = 'C';
+        newCategoryId = CAT_C;
         reason = 'Título contém palavras-chave de tutorial';
         movedToC++;
       } else {
-        // Default: move generic non-depoimento to D
-        newCategory = 'D';
+        newCategoryId = CAT_D;
         reason = 'Sem palavras-chave de depoimento/curso — mover para Produtos';
         movedToD++;
       }
@@ -113,15 +99,14 @@ serve(async (req) => {
       results.push({
         id: article.id,
         title: article.title,
-        currentCategory: 'E',
-        newCategory,
+        newCategory: newCategoryId === CAT_D ? 'Catálogo de Produtos' : 'Ciência e tecnologia',
         reason,
       });
 
-      if (!dryRun && newCategory) {
+      if (!dryRun) {
         await supabase
           .from('knowledge_contents')
-          .update({ category: newCategory, updated_at: new Date().toISOString() })
+          .update({ category_id: newCategoryId, updated_at: new Date().toISOString() })
           .eq('id', article.id);
       }
     }
