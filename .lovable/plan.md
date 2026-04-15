@@ -1,68 +1,61 @@
 
 
-# Plano: Criar MCP Server para Claude usar o SmartDent Revenue OS
+# Plano: Corrigir conteúdos corrompidos na Base de Conhecimento
 
-## O que é isso
+## Diagnóstico
 
-Um **MCP Server** (Model Context Protocol) é um serviço que permite ao Claude acessar diretamente os dados e ferramentas do seu sistema. Ao configurá-lo como "Conector Personalizado" no Claude, ele poderá consultar leads, buscar artigos, verificar métricas — tudo sem sair da conversa.
+Encontrei **dois problemas graves** nos dados da tabela `knowledge_contents`:
 
-## Como funciona
+### 1. HTML corrompido com links aninhados — **657 de 770 artigos afetados** (85%)
 
-O Claude envia requisições HTTP para uma Edge Function no seu Supabase. Essa function expõe "tools" (ferramentas) que o Claude pode chamar, como buscar leads, consultar estatísticas, pesquisar conteúdo, etc.
+O pipeline de geração de conteúdo (provavelmente `auto-inject-product-cards` ou `ai-orchestrate-content`) inseriu `<a href="...">` dentro de atributos `href`, criando HTML inválido que quebra o layout. Exemplo:
 
-```text
-Claude Desktop/Web
-      │
-      ▼
-MCP Connector (HTTPS)
-      │
-      ▼
-Edge Function: mcp-server (Supabase)
-      │
-      ▼
-Banco de dados SmartDent (lia_attendances, knowledge_base, etc.)
+```html
+<!-- CORROMPIDO -->
+href="https://loja.smartdent.com.br/pos-cura-<a href="https://loja.smartdent.com.br/shapecure">ShapeCure</a>"
+
+<!-- DEVERIA SER -->
+href="https://loja.smartdent.com.br/shapecure"
 ```
 
-## Alterações
+### 2. Artigos de produtos misturados na categoria E (Depoimentos e Cursos) — **~166 artigos irrelevantes**
 
-### 1. Nova Edge Function: `supabase/functions/mcp-server/index.ts`
+Artigos sobre resinas, cimentos e tutoriais genéricos foram classificados na categoria E. Títulos como "UniKK VENNER: Cimento Dental", "Amarelamento Resinas 3D", "Atos: Resina Nanohíbrida" não são depoimentos.
 
-Usar a biblioteca **mcp-lite** com Hono para criar um MCP Server Streamable HTTP. Expor as seguintes tools (reutilizando a lógica já existente no Copilot):
+## Alterações propostas
 
-| Tool | Descrição |
-|------|-----------|
-| `query_leads` | Busca leads por filtros (nome, email, cidade, etapa CRM, score) |
-| `query_stats` | Métricas agregadas (leads por etapa, score médio, total) |
-| `search_content` | Busca artigos na base de conhecimento |
-| `search_videos` | Busca vídeos por título/tags |
-| `describe_table` | Lista colunas de uma tabela |
-| `query_table` | Consulta genérica em tabelas do sistema |
-| `check_missing_fields` | Auditoria de dados — campos faltantes |
+### 1. Nova Edge Function: `supabase/functions/fix-corrupted-links/index.ts`
 
-Cada tool faz queries diretas no Supabase usando `SUPABASE_SERVICE_ROLE_KEY`. Autenticação via Bearer token (um secret `MCP_AUTH_TOKEN` que você define).
+Script de limpeza que:
+- Percorre todos os 657 artigos com HTML corrompido
+- Usa regex para detectar padrões `href="...<a ...>...</a>..."` aninhados
+- Extrai a URL correta do `<a>` interno e reconstrói o link limpo
+- Remove tags `<a>` soltas dentro de atributos
+- Limpa o padrão `[SUA URL CANÔNICA AQUI - Ex: <a href=` (placeholder esquecido)
+- Opera em modo dry-run (preview) ou write (aplicar)
+- Registra relatório de quantos artigos corrigidos
 
-### 2. Segurança
+### 2. Nova Edge Function: `supabase/functions/fix-category-e-cleanup/index.ts`
 
-- Validação de Bearer token em todas as requisições (secret `MCP_AUTH_TOKEN`)
-- Queries somente leitura (SELECT) — sem UPDATE/DELETE
-- Filtro `WHERE merged_into IS NULL` obrigatório em `lia_attendances`
-- Limite de 50 resultados por query
+Script de auditoria que:
+- Lista todos os artigos da categoria E que **não** contêm palavras-chave de depoimento/curso
+- Move artigos para a categoria correta (C = Tutoriais, D = Produtos) com base em heurísticas de título
+- Opera em modo dry-run primeiro para revisão manual
 
-### 3. Configuração no Claude
+### 3. Correção no `auto-inject-product-cards` para prevenir recorrência
 
-Após deploy, você configura no Claude como conector personalizado:
-- **URL**: `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/mcp-server`
-- **Auth**: Bearer token com o `MCP_AUTH_TOKEN` definido
+- Adicionar sanitização: antes de injetar um card, verificar se a `shop_url` do produto contém HTML (`<a`) e limpá-la
+- Verificar se os slugs no `system_a_catalog` estão contaminados (encontrei slugs com URLs completas como `https://loja.smartdent.com.br/...` em vez de slugs simples)
 
 ## Detalhes técnicos
 
-- Biblioteca: `mcp-lite@^0.10.0` via npm (compatível com Deno)
-- Roteamento: Hono
-- Protocolo: MCP Streamable HTTP (POST)
-- Arquivo único: `supabase/functions/mcp-server/index.ts`
-- Secret necessário: `MCP_AUTH_TOKEN` (você escolhe o valor)
+A raiz do problema parece ser dupla:
+1. **Slugs contaminados** no `system_a_catalog` — o campo `slug` contém URLs completas em vez de slugs, e o `auto-inject-product-cards` usa esses slugs para construir links, causando concatenação quebrada
+2. **AI gerando links com HTML** — o pipeline de conteúdo AI injeta `<a>` tags dentro de atributos de outras tags
 
 ## Arquivos afetados
-
-- `supabase/functions/mcp-server/index.ts` — **novo** (único arquivo de código)
+- `supabase/functions/fix-corrupted-links/index.ts` — **novo**
+- `supabase/functions/fix-category-e-cleanup/index.ts` — **novo**
+- `supabase/functions/auto-inject-product-cards/index.ts` — correção preventiva
+- `supabase/config.toml` — registrar novas functions
 
