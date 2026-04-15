@@ -37,19 +37,19 @@ export function KnowledgeCategoryPills({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         {/* Left: Pills */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 md:gap-4 flex-1">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
+          <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">
+            {categories.filter(cat => cat.letter !== 'G').map((cat) => (
               <Button
                 key={cat.id}
                 variant={selectedCategory === cat.letter ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => onCategorySelect(cat.letter)}
-                className="transition-smooth hover:shadow-soft"
+                className="w-full md:w-auto transition-smooth hover:shadow-soft"
               >
                 {cat.letter} • {getCategoryName(cat.letter)}
               </Button>
             ))}
-            {/* ROI Calculator pill */}
+            {/* ROI Calculator pill - F before G */}
             <Button
               variant={selectedCategory === 'ROI' ? 'default' : 'outline'}
               size="sm"
@@ -59,10 +59,22 @@ export function KnowledgeCategoryPills({
                   '/base-conhecimento';
                 window.location.href = `${basePath}/calculadora-roi`;
               }}
-              className="transition-smooth hover:shadow-soft"
+              className="w-full md:w-auto transition-smooth hover:shadow-soft"
             >
               F • {t('knowledge.roi_calculator')}
             </Button>
+            {/* G after F */}
+            {categories.filter(cat => cat.letter === 'G').map((cat) => (
+              <Button
+                key={cat.id}
+                variant={selectedCategory === cat.letter ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => onCategorySelect(cat.letter)}
+                className="w-full md:w-auto transition-smooth hover:shadow-soft"
+              >
+                {cat.letter} • {getCategoryName(cat.letter)}
+              </Button>
+            ))}
           </div>
         </div>
         
