@@ -287,3 +287,6 @@ verify_jwt = false
 
 [functions.omie-api-explorer]
 verify_jwt = false
+
+[functions.mcp-server]
+verify_jwt = false
