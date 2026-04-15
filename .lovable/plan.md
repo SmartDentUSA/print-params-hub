@@ -1,28 +1,68 @@
 
 
-## Plano: Editar vercel.json e robots.txt
+# Plano: Criar MCP Server para Claude usar o SmartDent Revenue OS
 
-### 1. `vercel.json` — Adicionar 2 rewrites no início do array
+## O que é isso
 
-Inserir antes da linha 8 (primeiro item do array `rewrites`) duas novas regras:
-```json
-{
-  "source": "/llms.txt",
-  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-txt"
-},
-{
-  "source": "/.well-known/llms.txt",
-  "destination": "https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/llms-txt"
-}
+Um **MCP Server** (Model Context Protocol) é um serviço que permite ao Claude acessar diretamente os dados e ferramentas do seu sistema. Ao configurá-lo como "Conector Personalizado" no Claude, ele poderá consultar leads, buscar artigos, verificar métricas — tudo sem sair da conversa.
+
+## Como funciona
+
+O Claude envia requisições HTTP para uma Edge Function no seu Supabase. Essa function expõe "tools" (ferramentas) que o Claude pode chamar, como buscar leads, consultar estatísticas, pesquisar conteúdo, etc.
+
+```text
+Claude Desktop/Web
+      │
+      ▼
+MCP Connector (HTTPS)
+      │
+      ▼
+Edge Function: mcp-server (Supabase)
+      │
+      ▼
+Banco de dados SmartDent (lia_attendances, knowledge_base, etc.)
 ```
 
-### 2. `public/robots.txt` — Adicionar bloco ao final
+## Alterações
 
-O arquivo já contém as entradas de bots de IA e a diretiva `LLMs: /llms.txt`. O pedido solicita adicionar um bloco adicional com `Anthropic-ai` (minúsculo) e re-declarar os agentes. Vou **append** o bloco exato solicitado ao final sem remover nada existente.
+### 1. Nova Edge Function: `supabase/functions/mcp-server/index.ts`
 
-### Arquivos afetados
-- `vercel.json`
-- `public/robots.txt`
+Usar a biblioteca **mcp-lite** com Hono para criar um MCP Server Streamable HTTP. Expor as seguintes tools (reutilizando a lógica já existente no Copilot):
 
-Nenhum componente React, rota ou lógica será alterado.
+| Tool | Descrição |
+|------|-----------|
+| `query_leads` | Busca leads por filtros (nome, email, cidade, etapa CRM, score) |
+| `query_stats` | Métricas agregadas (leads por etapa, score médio, total) |
+| `search_content` | Busca artigos na base de conhecimento |
+| `search_videos` | Busca vídeos por título/tags |
+| `describe_table` | Lista colunas de uma tabela |
+| `query_table` | Consulta genérica em tabelas do sistema |
+| `check_missing_fields` | Auditoria de dados — campos faltantes |
+
+Cada tool faz queries diretas no Supabase usando `SUPABASE_SERVICE_ROLE_KEY`. Autenticação via Bearer token (um secret `MCP_AUTH_TOKEN` que você define).
+
+### 2. Segurança
+
+- Validação de Bearer token em todas as requisições (secret `MCP_AUTH_TOKEN`)
+- Queries somente leitura (SELECT) — sem UPDATE/DELETE
+- Filtro `WHERE merged_into IS NULL` obrigatório em `lia_attendances`
+- Limite de 50 resultados por query
+
+### 3. Configuração no Claude
+
+Após deploy, você configura no Claude como conector personalizado:
+- **URL**: `https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/mcp-server`
+- **Auth**: Bearer token com o `MCP_AUTH_TOKEN` definido
+
+## Detalhes técnicos
+
+- Biblioteca: `mcp-lite@^0.10.0` via npm (compatível com Deno)
+- Roteamento: Hono
+- Protocolo: MCP Streamable HTTP (POST)
+- Arquivo único: `supabase/functions/mcp-server/index.ts`
+- Secret necessário: `MCP_AUTH_TOKEN` (você escolhe o valor)
+
+## Arquivos afetados
+
+- `supabase/functions/mcp-server/index.ts` — **novo** (único arquivo de código)
 
