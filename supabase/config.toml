@@ -290,3 +290,9 @@ verify_jwt = false
 
 [functions.mcp-server]
 verify_jwt = false
+
+[functions.fix-corrupted-links]
+verify_jwt = false
+
+[functions.fix-category-e-cleanup]
+verify_jwt = false
