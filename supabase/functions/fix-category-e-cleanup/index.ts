@@ -52,7 +52,8 @@ serve(async (req) => {
       .from('knowledge_contents')
       .select('id, title, category_id, slug')
       .eq('category_id', CAT_E)
-      .eq('active', true);
+      .eq('active', true)
+      .limit(limit);
 
     if (error) throw error;
 
