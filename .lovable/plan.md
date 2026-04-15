@@ -1,13 +1,29 @@
 
 
-## Plano: Remover badges de subcategoria dos cards de resinas
+## Plano: Adicionar botão "Parametrização" nos cards de resinas
 
-Remover os badges "BIOCOMPATÍVEIS" e "USO GERAL" que foram adicionados nos cards de resinas em `src/pages/SupportResources.tsx`.
+### O que será feito
+Adicionar um botão "Parametrização" abaixo da linha de botões (Loja, FDS, IFU), visível apenas para produtos do tipo resina que possuem slug.
 
-### Alteração
-- Remover o bloco de renderização do badge `product.subcategory` no card (o `<span>` com classes `bg-emerald-100` / `bg-sky-100`)
-- Opcionalmente, remover o campo `subcategory` da interface e da lógica de fetch, já que não será mais usado na UI
+### Alterações em `src/pages/SupportResources.tsx`
+
+1. **Interface `UnifiedProduct`**: adicionar campo `slug?: string | null`
+2. **Mapeamento de dados**: popular `slug: r.slug` ao construir os itens de resina (linha ~182)
+3. **UI**: após o `<div className="flex flex-wrap gap-1.5 mb-2">` dos 3 botões (linha ~371), adicionar:
+
+```tsx
+{product.source === "resin" && product.slug && (
+  <Button size="sm" variant="tech" className="text-xs h-7 px-2 w-full" asChild>
+    <a href={`/resinas/${product.slug}`}>
+      <BookOpen className="w-3 h-3 mr-1" />
+      Parametrização
+    </a>
+  </Button>
+)}
+```
+
+O botão usará a variante `tech` para diferenciá-lo visualmente, ocupando largura total abaixo dos 3 botões, e linkará para `/resinas/:slug` que já faz o redirect automático para a página de parâmetros correta.
 
 ### Arquivo afetado
-- `src/pages/SupportResources.tsx`
+- `src/pages/SupportResources.tsx` — único arquivo
 
