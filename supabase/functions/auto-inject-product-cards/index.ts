@@ -140,7 +140,7 @@ async function processArticle(
           image_url: product.image_url,
           rating: product.rating,
           description: product.description,
-          shop_url: product.cta_1_url || product.slug || '#'
+          shop_url: sanitizeUrl(product.cta_1_url || product.slug || '#')
         });
       }
     }
@@ -175,7 +175,7 @@ async function processArticle(
           image_url: resin.image_url,
           rating: null,
           description: resin.description,
-          shop_url: resin.system_a_product_url || `/resinas/${resin.slug}` || '#',
+          shop_url: sanitizeUrl(resin.system_a_product_url || `/resinas/${resin.slug}` || '#'),
           processing_instructions: resin.processing_instructions
         });
       }
@@ -300,6 +300,17 @@ function generateCardHtml(product: ProductMatch): string {
     </div>
   </a>
 </div>`.trim();
+}
+
+function sanitizeUrl(url: string): string {
+  if (!url) return '#';
+  // Strip any HTML tags that may have leaked into URLs
+  let clean = url.replace(/<[^>]*>/g, '');
+  // Remove common broken patterns
+  clean = clean.replace(/\[SUA URL[^\]]*\]/gi, '');
+  // Trim whitespace
+  clean = clean.trim();
+  return clean || '#';
 }
 
 function escapeRegex(str: string): string {
