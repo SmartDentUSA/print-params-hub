@@ -74,11 +74,8 @@ serve(async (req) => {
   }
 });
 
-/**
- * Strip all <a ...>text</a> tags from a string, keeping just the text content.
- */
-function stripAnchorTags(s: string): string {
-  return s.replace(/<a\s[^>]*>([\s\S]*?)<\/a>/gi, '$1');
+function stripAnchors(s: string): string {
+  return s.replace(/<a\s[^>]*>([\s\S]*?)<\/a>/gi, '$1').replace(/<a\s[^>]*>/gi, '');
 }
 
 function cleanCorruptedHtml(html: string): { cleaned: string; fixCount: number; sample?: string } {
@@ -87,179 +84,91 @@ function cleanCorruptedHtml(html: string): { cleaned: string; fixCount: number; 
   let cleaned = html;
   const track = (m: string) => { fixCount++; if (!sample) sample = m; };
 
-  // ═══ PHASE 1: Clean <a> tags inside HTML attributes ═══
-  // Generic approach: find any attribute="value" where value contains <a...>...</a>
-  // This handles alt, title, data-*, itemtype, content, etc.
-  // We need to handle nested quotes: attr="text <a href="url">label</a> more"
-  // Strategy: find attribute start, then scan forward to find balanced quotes
-
-  // Phase 1a: Clean <a> tags from JSON-LD script blocks first (isolate them)
+  // 1. JSON-LD script blocks — strip all <a> tags inside
   cleaned = cleaned.replace(
     /(<script\s[^>]*type\s*=\s*"application\/ld\+json"[^>]*>)([\s\S]*?)(<\/script>)/gi,
-    (m, open, jsonContent, close) => {
-      const stripped = stripAnchorTags(jsonContent);
-      if (stripped !== jsonContent) { track(m); return `${open}${stripped}${close}`; }
+    (m, open, json, close) => {
+      const s = stripAnchors(json);
+      if (s !== json) { track(m.substring(0, 100)); return `${open}${s}${close}`; }
       return m;
     }
   );
 
-  // Phase 1b: Clean <a> tags inside <h1> headings
+  // 2. <h1> headings — strip all <a> tags
   cleaned = cleaned.replace(
     /(<h1[^>]*>)([\s\S]*?)(<\/h1>)/gi,
     (m, open, content, close) => {
-      const stripped = stripAnchorTags(content);
-      if (stripped !== content) { track(m); return `${open}${stripped}${close}`; }
+      const s = stripAnchors(content);
+      if (s !== content) { track(m.substring(0, 100)); return `${open}${s}${close}`; }
       return m;
     }
   );
 
-  // Phase 1c: Clean loja.smartdent inline links in body (generic anchor text)
+  // 3. loja.smartdent inline links — strip, keep text
   cleaned = cleaned.replace(
     /<a\s[^>]*href="https?:\/\/loja\.smartdent\.com\.br[^"]*"[^>]*>([^<]{1,100})<\/a>/gi,
     (m, text) => { track(m); return text; }
   );
 
-  // Phase 1d: [SUA URL CANÔNICA AQUI ...] placeholder
+  // 4. Placeholders
   cleaned = cleaned.replace(/\[SUA URL CANÔNICA AQUI[^\]]*\]/gi, (m) => { track(m); return ''; });
 
-  // Phase 1e: Double-nested anchors <a><a>text</a></a>
+  // 5. Double-nested anchors
   cleaned = cleaned.replace(
     /<a\s[^>]*href="[^"]*"[^>]*>\s*<a\s([^>]*)>([\s\S]*?)<\/a>\s*<\/a>/gi,
-    (m, innerAttrs, innerText) => { track(m); return `<a ${innerAttrs}>${innerText}</a>`; }
+    (m, a, t) => { track(m); return `<a ${a}>${t}</a>`; }
   );
 
-  // ═══ PHASE 2: Fix corrupted attribute values containing <a> tags ═══
-  // This is the most complex fix. The AI pipeline injected <a> tags INSIDE attribute values,
-  // creating invalid HTML like: href="url-part-<a href="real-url">text</a>-more"
-  // or: alt="<a href="url">text</a>"
-  // 
-  // We use a DOM-like approach: scan for attributes and fix their values.
-  // Since the nested quotes break standard regex, we do a character-level scan.
+  // 6. Corrupted href values containing <a tags mid-URL
+  //    Pattern: href="url-part-<a href="real-url">text</a>rest"
+  //    Since [^"]* stops at nested quotes, use [\s\S] with lazy matching
+  //    Match: href=" + anything containing <a + up to the LAST " before > or space+attr
+  for (let pass = 0; pass < 3; pass++) {
+    const before = cleaned;
+    // Match an opening <a tag whose href contains another <a tag
+    cleaned = cleaned.replace(
+      /<a\s+href="([^"]*?)<a\s[^>]*href="([^"]*)"[^>]*>[^<]*<\/a>([^"]*)"([^>]*)>/gi,
+      (m, prefix, innerUrl, suffix, rest) => {
+        track(m.substring(0, 100));
+        // Use the inner URL as the correct one
+        return `<a href="${innerUrl}"${rest}>`;
+      }
+    );
+    if (cleaned === before) break;
+  }
 
-  cleaned = fixAttributeCorruption(cleaned, (m: string) => track(m));
+  // 7. Attributes (non-href) containing <a> tags
+  //    e.g. alt="<a href="url">text</a> suffix"  or  data-ai-summary="...<a>..text..</a>..."
+  //    These have nested quotes that break. Use broader pattern:
+  //    Match the attribute name, then find <a...>text</a> and strip it
+  const attrNames = ['alt', 'title', 'content', 'data-ai-summary', 'data-schema',
+    'data-orcid-url', 'data-standard-url', 'data-entity-id', 'data-wikidata',
+    'data-company', 'data-founded', 'data-geo-region', 'aria-label', 'placeholder',
+    'itemtype', 'data-source'];
+  
+  for (const attr of attrNames) {
+    for (let pass = 0; pass < 5; pass++) {
+      const before = cleaned;
+      // Simple pattern: attr="...<a ...>text</a>..." → attr="...text..."
+      const re = new RegExp(`(${attr}="[^"]*?)<a\\s[^>]*>([^<]*)</a>`, 'gi');
+      cleaned = cleaned.replace(re, (m, pre, text) => { track(m.substring(0, 100)); return `${pre}${text}`; });
+      if (cleaned === before) break;
+    }
+  }
+
+  // 8. Orphan </a> inside attributes
+  cleaned = cleaned.replace(
+    /(href|src|action)="([^"]*)<\/a>([^"]*)"/gi,
+    (m, attr, before, after) => {
+      track(m);
+      return `${attr}="${before.replace(/<[^>]*>/g, '').trim()}${after}"`;
+    }
+  );
 
   // Safeguard
   if (!cleaned.trim() && html.trim()) {
-    console.warn('fix-corrupted-links: cleaning zeroed content, returning original');
     return { cleaned: html, fixCount: 0 };
   }
 
   return { cleaned, fixCount, sample };
-}
-
-/**
- * Scan HTML for attribute values that contain <a> tags and strip them.
- * Handles the tricky case where nested quotes break standard regex patterns.
- */
-function fixAttributeCorruption(html: string, track: (m: string) => void): string {
-  // Find patterns like: someattr="...<a ...<a href="url">text</a>..."
-  // The key insight: a legitimate attribute value never contains '<a ' followed by 'href='
-  
-  // Approach: find each occurrence of '<a ' inside what should be an attribute value
-  // by looking for patterns like ='...<a ' or ="...<a " where the <a is not preceded by >
-  
-  const result: string[] = [];
-  let i = 0;
-  
-  while (i < html.length) {
-    // Look for start of an HTML tag
-    if (html[i] === '<' && i + 1 < html.length && /[a-zA-Z\/!]/.test(html[i + 1])) {
-      // We're inside a tag. Find all attributes and clean their values.
-      const tagStart = i;
-      
-      // Skip tag name
-      i++;
-      while (i < html.length && html[i] !== '>' && html[i] !== ' ') i++;
-      
-      // Now process attributes until >
-      let tagContent = html.substring(tagStart, i);
-      let insideTag = true;
-      
-      while (i < html.length && html[i] !== '>') {
-        // Skip whitespace
-        while (i < html.length && html[i] === ' ') { tagContent += html[i]; i++; }
-        
-        if (i >= html.length || html[i] === '>') break;
-        
-        // Read attribute name
-        let attrName = '';
-        while (i < html.length && html[i] !== '=' && html[i] !== ' ' && html[i] !== '>') {
-          attrName += html[i];
-          i++;
-        }
-        tagContent += attrName;
-        
-        if (i < html.length && html[i] === '=') {
-          tagContent += '=';
-          i++;
-          
-          if (i < html.length && html[i] === '"') {
-            // Read quoted attribute value - handle nested quotes from <a> tags
-            i++; // skip opening quote
-            let attrValue = '';
-            let depth = 0;
-            
-            // Scan forward, tracking nested <a> tag quotes
-            while (i < html.length) {
-              if (html[i] === '"' && depth === 0) {
-                // This might be the closing quote, or it might be a nested quote from <a href="...">
-                // Check if what follows looks like it's still inside a corrupted attribute
-                // Heuristic: if after the " we see something like href=" or > or space+attr=, 
-                // then this might be a nested quote
-                
-                const afterQuote = html.substring(i + 1, i + 20);
-                
-                if (afterQuote.match(/^[^<>]*>/)) {
-                  // The attribute closes and tag continues normally — this is the real end
-                  break;
-                } else if (afterQuote.match(/^https?:\/\//)) {
-                  // Nested quote from href="url"
-                  attrValue += html[i];
-                  i++;
-                  continue;
-                } else {
-                  break;
-                }
-              }
-              attrValue += html[i];
-              i++;
-            }
-            
-            // Check if attrValue contains <a tags
-            if (attrValue.includes('<a ') || attrValue.includes('</a>')) {
-              const cleaned = stripAnchorTags(attrValue).replace(/<a\s[^>]*>/gi, '');
-              if (cleaned !== attrValue) {
-                track(attrValue.substring(0, 100));
-                tagContent += '"' + cleaned + '"';
-              } else {
-                tagContent += '"' + attrValue + '"';
-              }
-            } else {
-              tagContent += '"' + attrValue + '"';
-            }
-            
-            if (i < html.length && html[i] === '"') i++; // skip closing quote
-          } else {
-            // Unquoted attribute value
-            while (i < html.length && html[i] !== ' ' && html[i] !== '>') {
-              tagContent += html[i];
-              i++;
-            }
-          }
-        }
-      }
-      
-      if (i < html.length && html[i] === '>') {
-        tagContent += '>';
-        i++;
-      }
-      
-      result.push(tagContent);
-    } else {
-      result.push(html[i]);
-      i++;
-    }
-  }
-  
-  return result.join('');
 }
