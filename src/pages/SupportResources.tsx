@@ -375,7 +375,7 @@ export default function SupportResources() {
                             {product.source === "resin" && product.slug && (
                               <div className="mb-2">
                                 <Button size="sm" variant="tech" className="text-xs h-7 px-2 w-full" asChild>
-                                  <a href={`/resinas/${product.slug}`}>
+                                  <a href="https://parametros.smartdent.com.br/" target="_blank" rel="noopener noreferrer">
                                     <BookOpen className="w-3 h-3 mr-1" />
                                     Parametrização
                                   </a>
