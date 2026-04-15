@@ -67,3 +67,4 @@ Sitemap: https://okeogjgqijbfkudfjadz.supabase.co/functions/v1/video-sitemap
 # See https://llmstxt.org/
 # Instructions for AI crawlers
 # Available at: https://parametros.smartdent.com.br/llms.txt
+LLMs: /llms.txt
