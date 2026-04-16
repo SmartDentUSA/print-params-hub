@@ -135,16 +135,21 @@ async function fetchBrands(supabase: any, options: any) {
   const { data: brands, error } = await query;
   if (error) throw error;
   
-  // Count models for each brand
+  // Count models for each brand (batch)
   if (options.denormalize) {
+    const brandIds = brands.map((b: any) => b.id);
+    const { data: allModels } = await supabase
+      .from('models')
+      .select('brand_id')
+      .in('brand_id', brandIds)
+      .eq('active', true);
+    
+    const modelCountByBrand: Record<string, number> = {};
+    for (const m of (allModels || [])) {
+      modelCountByBrand[m.brand_id] = (modelCountByBrand[m.brand_id] || 0) + 1;
+    }
     for (const brand of brands) {
-      const { count } = await supabase
-        .from('models')
-        .select('id', { count: 'exact', head: true })
-        .eq('brand_id', brand.id)
-        .eq('active', true);
-      
-      brand.models_count = count || 0;
+      brand.models_count = modelCountByBrand[brand.id] || 0;
     }
   }
   
@@ -211,28 +216,38 @@ async function fetchResins(supabase: any, options: any) {
   
   // Denormalize keywords and count parameter sets
   if (options.denormalize) {
-    for (const resin of resins) {
-      // Fetch keywords
-      if (resin.keyword_ids && resin.keyword_ids.length > 0) {
-        const { data: keywords } = await supabase
-          .from('external_links')
-          .select('id, name, url, monthly_searches, search_intent')
-          .in('id', resin.keyword_ids);
-        
-        resin.keywords_data = keywords || [];
-      } else {
-        resin.keywords_data = [];
+    // Batch fetch keywords for all resins
+    const allResinKeywordIds = [...new Set(resins.flatMap((r: any) => r.keyword_ids || []))];
+    let keywordsMap: Record<string, any> = {};
+    if (allResinKeywordIds.length > 0) {
+      const { data: allKeywords } = await supabase
+        .from('external_links')
+        .select('id, name, url, monthly_searches, search_intent')
+        .in('id', allResinKeywordIds);
+      for (const kw of (allKeywords || [])) {
+        keywordsMap[kw.id] = kw;
       }
+    }
+
+    // Batch fetch parameter set counts
+    const { data: allParamSets } = await supabase
+      .from('parameter_sets')
+      .select('resin_name, resin_manufacturer')
+      .eq('active', true);
+    const paramCountMap: Record<string, number> = {};
+    for (const ps of (allParamSets || [])) {
+      const key = `${ps.resin_name}||${ps.resin_manufacturer}`;
+      paramCountMap[key] = (paramCountMap[key] || 0) + 1;
+    }
+
+    for (const resin of resins) {
+      // Map keywords from batch
+      resin.keywords_data = (resin.keyword_ids || [])
+        .map((id: string) => keywordsMap[id])
+        .filter(Boolean);
       
-      // Count parameter sets using this resin
-      const { count } = await supabase
-        .from('parameter_sets')
-        .select('id', { count: 'exact', head: true })
-        .eq('resin_name', resin.name)
-        .eq('resin_manufacturer', resin.manufacturer)
-        .eq('active', true);
-      
-      resin.parameter_sets_count = count || 0;
+      // Count from batch
+      resin.parameter_sets_count = paramCountMap[`${resin.name}||${resin.manufacturer}`] || 0;
       
       // Add public URL
       resin.public_url = resin.slug 
@@ -562,14 +577,18 @@ async function fetchKnowledgeCategories(supabase: any, options: any) {
   
   // Count contents in each category
   if (options.denormalize) {
+    const catIds = categories.map((c: any) => c.id);
+    const { data: allCatContents } = await supabase
+      .from('knowledge_contents')
+      .select('category_id')
+      .in('category_id', catIds)
+      .eq('active', true);
+    const catCountMap: Record<string, number> = {};
+    for (const c of (allCatContents || [])) {
+      catCountMap[c.category_id] = (catCountMap[c.category_id] || 0) + 1;
+    }
     for (const category of categories) {
-      const { count } = await supabase
-        .from('knowledge_contents')
-        .select('id', { count: 'exact', head: true })
-        .eq('category_id', category.id)
-        .eq('active', true);
-      
-      category.contents_count = count || 0;
+      category.contents_count = catCountMap[category.id] || 0;
     }
   }
   
@@ -604,7 +623,55 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
   const { data: contents, error } = await query;
   if (error) throw error;
   
-  // Process each content
+  // ===== BATCH QUERIES (avoid N+1) =====
+  const contentIds = contents.map((c: any) => c.id);
+
+  // 1. Batch fetch all videos for all contents
+  const { data: allVideos } = await supabase
+    .from('knowledge_videos')
+    .select('*')
+    .in('content_id', contentIds)
+    .order('order_index');
+  const videosByContent: Record<string, any[]> = {};
+  for (const v of (allVideos || [])) {
+    if (!videosByContent[v.content_id]) videosByContent[v.content_id] = [];
+    videosByContent[v.content_id].push(v);
+  }
+
+  // 2. Batch fetch all recommended resins
+  const allResinIds = [...new Set(contents.flatMap((c: any) => c.recommended_resins || []))];
+  let resinsMap: Record<string, any> = {};
+  if (allResinIds.length > 0 && options.denormalize) {
+    const { data: allResins } = await supabase
+      .from('resins')
+      .select(`
+        id, name, manufacturer, image_url, price, slug,
+        cta_1_enabled, cta_1_label, cta_1_url, cta_1_description,
+        cta_2_label, cta_2_url, cta_2_description, cta_2_source_type, cta_2_source_id,
+        cta_3_label, cta_3_url, cta_3_description, cta_3_source_type, cta_3_source_id,
+        cta_4_label, cta_4_url, cta_4_description, cta_4_source_type, cta_4_source_id,
+        processing_instructions
+      `)
+      .in('id', allResinIds);
+    for (const r of (allResins || [])) {
+      resinsMap[r.id] = r;
+    }
+  }
+
+  // 3. Batch fetch all keywords
+  const allKeywordIds = [...new Set(contents.flatMap((c: any) => c.keyword_ids || []))];
+  let kwMap: Record<string, any> = {};
+  if (allKeywordIds.length > 0 && options.denormalize) {
+    const { data: allKw } = await supabase
+      .from('external_links')
+      .select('id, name, url, search_intent, monthly_searches')
+      .in('id', allKeywordIds);
+    for (const kw of (allKw || [])) {
+      kwMap[kw.id] = kw;
+    }
+  }
+
+  // ===== PROCESS EACH CONTENT (no more DB calls) =====
   for (const content of contents) {
     // Extract text from HTML
     if (options.extract_text && content.content_html) {
@@ -614,7 +681,7 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
     // Add AI metadata for Category F (technical parameters)
     if (content.knowledge_categories?.letter === 'F') {
       const aiSummary = content.excerpt || '';
-      const confidenceScore = 9; // High confidence for validated parameters
+      const confidenceScore = 9;
       
       content.ai_metadata = {
         type: 'technical_parameters',
@@ -630,50 +697,23 @@ async function fetchKnowledgeContents(supabase: any, options: any) {
       };
     }
     
-    // Fetch videos
-    const { data: videos } = await supabase
-      .from('knowledge_videos')
-      .select('*')
-      .eq('content_id', content.id)
-      .order('order_index');
-    
-    content.videos = (videos || []).map((v: any) => ({
+    // Videos from batch
+    content.videos = (videosByContent[content.id] || []).map((v: any) => ({
       ...v,
       embed_url: getEmbedUrl(v.url)
     }));
     
     // Denormalize relationships
     if (options.denormalize) {
-      // Denormalize recommended resins
-      if (content.recommended_resins && content.recommended_resins.length > 0) {
-        const { data: resins } = await supabase
-          .from('resins')
-          .select(`
-            id, name, manufacturer, image_url, price, slug,
-            cta_1_enabled, cta_1_label, cta_1_url, cta_1_description,
-            cta_2_label, cta_2_url, cta_2_description, cta_2_source_type, cta_2_source_id,
-            cta_3_label, cta_3_url, cta_3_description, cta_3_source_type, cta_3_source_id,
-            cta_4_label, cta_4_url, cta_4_description, cta_4_source_type, cta_4_source_id,
-            processing_instructions
-          `)
-          .in('id', content.recommended_resins);
-        
-        content.recommended_resins_data = resins || [];
-      } else {
-        content.recommended_resins_data = [];
-      }
+      // Recommended resins from batch
+      content.recommended_resins_data = (content.recommended_resins || [])
+        .map((id: string) => resinsMap[id])
+        .filter(Boolean);
       
-      // Denormalize keywords
-      if (content.keyword_ids && content.keyword_ids.length > 0) {
-        const { data: keywords } = await supabase
-          .from('external_links')
-          .select('id, name, url, search_intent, monthly_searches')
-          .in('id', content.keyword_ids);
-        
-        content.keywords_data = keywords || [];
-      } else {
-        content.keywords_data = [];
-      }
+      // Keywords from batch
+      content.keywords_data = (content.keyword_ids || [])
+        .map((id: string) => kwMap[id])
+        .filter(Boolean);
       
       // Denormalize author
       if (content.authors) {
