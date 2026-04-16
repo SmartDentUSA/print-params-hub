@@ -147,7 +147,11 @@ Deno.serve(async (req) => {
           description: 'Artigos sobre Ciência, Tecnologia, Ebooks, Informativos, Vídeos, Troubleshooting e Parâmetros',
           updated_at: new Date().toISOString(),
           categories_included: categoriesParam ? categoriesParam.split(',').map(l => l.trim().toUpperCase()) : ['A', 'B', 'C', 'D', 'E', 'F'],
-          version: '2.0',
+          version: '2.1',
+          total_count: totalCount || 0,
+          offset,
+          limit,
+          has_more: (offset + limit) < (totalCount || 0),
         },
         items: contents?.map((item: any) => ({
           id: item.id,
