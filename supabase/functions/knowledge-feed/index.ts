@@ -29,7 +29,8 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const format = url.searchParams.get('format') || 'json';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 1000);
+    const offset = parseInt(url.searchParams.get('offset') || '0');
     const categoriesParam = url.searchParams.get('categories'); // e.g. "A,B,C"
 
     console.log(`[knowledge-feed] Request: format=${format}, limit=${limit}, categories=${categoriesParam || 'all'}`);
