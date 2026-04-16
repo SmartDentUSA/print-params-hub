@@ -1,53 +1,43 @@
 
 
-# Plano: Corrigir Timeout do data-export (CPU Time exceeded)
+# Plano: Adicionar Botões de Sync PipeRun na UI Admin
 
-## Diagnóstico
+## Problema
 
-O endpoint `data-export?format=ai_ready` falha com **CPU Time exceeded** porque `fetchKnowledgeContents` executa 3 queries individuais por artigo (604 artigos = ~1800 queries):
+Quando o layout do admin foi refatorado de `SmartOpsTab` (com tabs) para o sidebar flattened (`AdminSidebar` + `AdminViewSecure`), os botões de ação "Sync PipeRun" e "Atualizar Dados" que ficavam no header do `SmartOpsTab` foram perdidos. Além disso, nunca existiu um botão para `piperun-full-sync`.
 
-1. **Linha 634**: `knowledge_videos` por `content_id` — 604 queries
-2. **Linha 649**: `resins` por `recommended_resins` IDs — ~200 queries  
-3. **Linha 668**: `external_links` por `keyword_ids` — ~300 queries
+## Correção
 
-**Os dados estão corretos** — campos traduzidos, veredict_data, answer_block, geo, ai_context todos presentes. O único problema é performance.
+### Arquivo: `src/pages/AdminViewSecure.tsx`
 
-## Correção: Batch queries em vez de N+1
+Adicionar uma barra de ações no topo da área de conteúdo quando qualquer seção Smart Ops (`so-*`) estiver ativa:
 
-### Arquivo: `supabase/functions/data-export/index.ts`
+- **Botão "Sync Incremental"** — invoca `smart-ops-sync-piperun` (sync rápido dos deals recentes)
+- **Botão "Full Sync PipeRun"** — invoca `piperun-full-sync` (sync completo de todos os pipelines)
+- **Botão "Atualizar Dados"** — incrementa `refreshKey` para recarregar o componente ativo
+- Badge "Webhook ativo" para contexto visual
 
-Substituir os 3 loops N+1 por 3 batch queries pré-carregadas:
+A barra aparece apenas quando `activeSection.startsWith('so-')`.
 
-```typescript
-// ANTES: 604 queries individuais
-for (const content of contents) {
-  const { data: videos } = await supabase
-    .from('knowledge_videos').select('*').eq('content_id', content.id);
-}
-
-// DEPOIS: 1 query batch
-const contentIds = contents.map(c => c.id);
-const { data: allVideos } = await supabase
-  .from('knowledge_videos').select('*').in('content_id', contentIds);
-const videosByContent = groupBy(allVideos, 'content_id');
+```text
+┌──────────────────────────────────────────────────┐
+│ Smart Ops    [Webhook ativo]                     │
+│                    [Sync Incremental] [Full Sync] [↻ Atualizar] │
+├──────────────────────────────────────────────────┤
+│ (componente atual: Bowtie, Kanban, etc.)         │
+└──────────────────────────────────────────────────┘
 ```
 
-**3 otimizações específicas:**
+### Detalhes Técnicos
 
-1. **Videos**: Buscar todos os `knowledge_videos` com `.in('content_id', contentIds)` e agrupar em memória
-2. **Resins**: Coletar todos os `recommended_resins` IDs únicos, fazer 1 query `.in('id', allResinIds)`, distribuir em memória
-3. **Keywords**: Coletar todos os `keyword_ids` únicos, fazer 1 query `.in('id', allKeywordIds)`, distribuir em memória
+1. Criar dois handlers async no `AdminViewSecure`:
+   - `handleSyncIncremental` → `supabase.functions.invoke("smart-ops-sync-piperun")`
+   - `handleFullSync` → `supabase.functions.invoke("piperun-full-sync")`
+2. Estados `syncingIncremental` e `syncingFull` para disable dos botões
+3. Após sucesso de qualquer sync, incrementar `refreshKey`
+4. A barra fica dentro do `<main>`, antes do `renderContent()`
 
-Resultado: de ~1800 queries para **3 queries** + processamento em memória.
+## Arquivo Afetado
 
-Também aplicar a mesma otimização nos loops N+1 de `fetchResins` (linhas 216-235) e `fetchBrands` (linhas 139-148).
-
-## Impacto
-
-- **Antes**: CPU timeout com 604 artigos
-- **Depois**: 3 batch queries, resposta em <10s
-
-## Arquivo afetado
-
-- `supabase/functions/data-export/index.ts` — substituir N+1 por batch selects
+- `src/pages/AdminViewSecure.tsx`
 
