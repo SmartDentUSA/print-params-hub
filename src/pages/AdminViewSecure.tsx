@@ -26,7 +26,8 @@ import { ApostilaExport } from "@/components/ApostilaExport";
 import { AdminDraLIAStats } from "@/components/AdminDraLIAStats";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
-import { Wrench } from "lucide-react";
+import { Wrench, RefreshCw, Database, Zap } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 // Smart Ops components (flattened from SmartOpsTab)
 import { SmartOpsBowtie } from "@/components/SmartOpsBowtie";
