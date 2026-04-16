@@ -938,6 +938,7 @@ function formatCompact(data: any) {
       cta_4_description: r.cta_4_description,
       
       // Metadata
+      ai_context: r.ai_context || null,
       active: r.active,
       public_url: r.public_url
     })),
