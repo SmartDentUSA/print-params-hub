@@ -57,11 +57,18 @@ Deno.serve(async (req) => {
       categoryIds = categories?.map((c: any) => c.id) || [];
     }
 
-    console.log(`[knowledge-feed] Found ${categoryIds.length} categories`);
+    // Get total count
+    const { count: totalCount } = await supabase
+      .from('knowledge_contents')
+      .select('id', { count: 'exact', head: true })
+      .in('category_id', categoryIds)
+      .eq('active', true);
 
-    if (categoryIds.length === 0) {
+    console.log(`[knowledge-feed] Total active articles: ${totalCount}`);
+
+    if (totalCount === 0) {
       return new Response(
-        JSON.stringify({ feed: { title: 'Base de Conhecimento - Smart Dent', items: [] }, items: [] }),
+        JSON.stringify({ feed: { title: 'Base de Conhecimento - Smart Dent', total_count: 0, items: [] }, items: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
