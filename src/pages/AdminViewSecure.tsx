@@ -57,7 +57,39 @@ export default function AdminViewSecure() {
   const [connectionError, setConnectionError] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('models');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [syncingIncremental, setSyncingIncremental] = useState(false);
+  const [syncingFull, setSyncingFull] = useState(false);
   const { toast } = useToast();
+
+  const handleSyncIncremental = async () => {
+    setSyncingIncremental(true);
+    try {
+      const { error } = await supabase.functions.invoke("smart-ops-sync-piperun");
+      if (error) throw error;
+      toast({ title: "Sync incremental concluído", description: "Deals recentes sincronizados com sucesso." });
+      setRefreshKey(prev => prev + 1);
+    } catch (e: any) {
+      toast({ title: "Erro no sync incremental", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncingIncremental(false);
+    }
+  };
+
+  const handleFullSync = async () => {
+    setSyncingFull(true);
+    try {
+      const { error } = await supabase.functions.invoke("piperun-full-sync");
+      if (error) throw error;
+      toast({ title: "Full Sync concluído", description: "Todos os pipelines sincronizados." });
+      setRefreshKey(prev => prev + 1);
+    } catch (e: any) {
+      toast({ title: "Erro no full sync", description: e.message, variant: "destructive" });
+    } finally {
+      setSyncingFull(false);
+    }
+  };
+
+  const isSmartOps = activeSection.startsWith('so-');
 
   useEffect(() => {
     const checkAuthAndRole = async () => {
