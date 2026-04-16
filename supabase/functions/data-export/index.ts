@@ -1292,11 +1292,17 @@ function formatAiReady(data: any) {
       artigos: (data.knowledge_contents || []).map((c: any) => ({
         id: c.id,
         titulo: c.title,
+        titulo_en: c.title_en || null,
+        titulo_es: c.title_es || null,
         slug: c.slug,
         categoria: c.category_name,
         categoria_letra: c.category_letter,
         resumo: c.excerpt,
+        resumo_en: c.excerpt_en || null,
+        resumo_es: c.excerpt_es || null,
         conteudo_html: c.content_html,
+        conteudo_html_en: c.content_html_en || null,
+        conteudo_html_es: c.content_html_es || null,
         conteudo_texto: c.content_text || stripHtmlTags(c.content_html || ''),
         imagem: c.content_image_url,
         imagem_alt: c.content_image_alt,
@@ -1304,6 +1310,32 @@ function formatAiReady(data: any) {
         palavras_chave: c.keywords || [],
         keywords_detalhadas: c.keywords_data || [],
         cor_icone: c.icon_color,
+        
+        // Enriched content
+        veredict_data: c.veredict_data || null,
+        answer_block: c.answer_block || null,
+        technical_properties: c.technical_properties || null,
+        recommended_products: c.recommended_products || null,
+        
+        // Scientific metadata
+        is_medical_device: c.is_medical_device || false,
+        is_scholarly: c.is_scholarly || false,
+        norm_references: c.norm_references || null,
+        
+        // Geolocation
+        geo: (c.geo_city || c.geo_state) ? {
+          cidade: c.geo_city,
+          estado: c.geo_state,
+          uf: c.geo_state_code,
+          cliente: c.client_name,
+          especialidade: c.client_specialty,
+        } : null,
+        
+        // AI context
+        ai_context: c.ai_context || null,
+        ai_context_en: c.ai_context_en || null,
+        ai_context_es: c.ai_context_es || null,
+        
         // AI Metadata for Category F
         ...(c.ai_metadata && {
           metadados_ia: c.ai_metadata
@@ -1323,6 +1355,8 @@ function formatAiReady(data: any) {
           embed_url: v.embed_url
         })),
         faqs: c.faqs || [],
+        faqs_en: c.faqs_en || null,
+        faqs_es: c.faqs_es || null,
         resinas_recomendadas: (c.recommended_resins_data || []).map((r: any) => ({
           id: r.id,
           nome: r.name,
