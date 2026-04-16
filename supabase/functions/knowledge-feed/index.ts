@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
       .in('category_id', categoryIds)
       .eq('active', true)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (contentsError) throw contentsError;
 
