@@ -29,7 +29,8 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url);
     const format = url.searchParams.get('format') || 'json';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 1000);
+    const offset = parseInt(url.searchParams.get('offset') || '0');
     const categoriesParam = url.searchParams.get('categories'); // e.g. "A,B,C"
 
     console.log(`[knowledge-feed] Request: format=${format}, limit=${limit}, categories=${categoriesParam || 'all'}`);
@@ -56,11 +57,18 @@ Deno.serve(async (req) => {
       categoryIds = categories?.map((c: any) => c.id) || [];
     }
 
-    console.log(`[knowledge-feed] Found ${categoryIds.length} categories`);
+    // Get total count
+    const { count: totalCount } = await supabase
+      .from('knowledge_contents')
+      .select('id', { count: 'exact', head: true })
+      .in('category_id', categoryIds)
+      .eq('active', true);
 
-    if (categoryIds.length === 0) {
+    console.log(`[knowledge-feed] Total active articles: ${totalCount}`);
+
+    if (totalCount === 0) {
       return new Response(
-        JSON.stringify({ feed: { title: 'Base de Conhecimento - Smart Dent', items: [] }, items: [] }),
+        JSON.stringify({ feed: { title: 'Base de Conhecimento - Smart Dent', total_count: 0, items: [] }, items: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -122,7 +130,7 @@ Deno.serve(async (req) => {
       .in('category_id', categoryIds)
       .eq('active', true)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (contentsError) throw contentsError;
 
@@ -139,7 +147,11 @@ Deno.serve(async (req) => {
           description: 'Artigos sobre Ciência, Tecnologia, Ebooks, Informativos, Vídeos, Troubleshooting e Parâmetros',
           updated_at: new Date().toISOString(),
           categories_included: categoriesParam ? categoriesParam.split(',').map(l => l.trim().toUpperCase()) : ['A', 'B', 'C', 'D', 'E', 'F'],
-          version: '2.0',
+          version: '2.1',
+          total_count: totalCount || 0,
+          offset,
+          limit,
+          has_more: (offset + limit) < (totalCount || 0),
         },
         items: contents?.map((item: any) => ({
           id: item.id,
