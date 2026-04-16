@@ -17,14 +17,19 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { dryRun = true, limit = 500, offset = 0 } = await req.json().catch(() => ({}));
+    const { dryRun = true, limit = 500, offset = 0, category, stripProductCards = false } = await req.json().catch(() => ({}));
     const columns = ['content_html', 'content_html_en', 'content_html_es'] as const;
 
-    const { data: articles, error } = await supabase
+    let query = supabase
       .from('knowledge_contents')
-      .select('id, title, content_html, content_html_en, content_html_es')
-      .not('content_html', 'is', null)
-      .range(offset, offset + limit - 1);
+      .select('id, title, category, content_html, content_html_en, content_html_es')
+      .not('content_html', 'is', null);
+    
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    const { data: articles, error } = await query.range(offset, offset + limit - 1);
 
     if (error) throw error;
 
