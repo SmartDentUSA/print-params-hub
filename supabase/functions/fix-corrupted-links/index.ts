@@ -208,80 +208,98 @@ function stripProductCardsFromBody(html: string): { cleaned: string; fixCount: n
   let fixCount = 0;
   let sample: string | undefined;
 
-  // Split on llm-knowledge-layer to only process the visible part
-  const llmMarker = '<section class="llm-knowledge-layer"';
-  const llmIdx = html.indexOf(llmMarker);
+  // Identify the llm-knowledge-layer section boundaries to preserve cards inside it
+  const llmOpenMarker = '<section class="llm-knowledge-layer"';
+  const llmStart = html.indexOf(llmOpenMarker);
+  let llmEnd = -1;
   
-  let visiblePart: string;
-  let hiddenPart: string;
-  
-  if (llmIdx !== -1) {
-    visiblePart = html.substring(0, llmIdx);
-    hiddenPart = html.substring(llmIdx);
-  } else {
-    visiblePart = html;
-    hiddenPart = '';
-  }
-
-  // Remove "📦 Produto Recomendado" headers that precede the cards
-  const beforeH3 = visiblePart;
-  visiblePart = visiblePart.replace(
-    /<h[2-4][^>]*>\s*📦\s*Produto\s+Recomendado\s*<\/h[2-4]>/gi,
-    (m) => { fixCount++; if (!sample) sample = m; return ''; }
-  );
-
-  // Remove inline-product-card blocks (multi-line, nested divs)
-  // Pattern: <div class="inline-product-card"...>...nested content...</div> (outermost closing)
-  // Use a greedy approach: find opening tag, then count div nesting to find the correct closing
-  const cardRegex = /<div\s+class="inline-product-card"[^>]*>/gi;
-  let match: RegExpExecArray | null;
-  const ranges: Array<[number, number]> = [];
-
-  while ((match = cardRegex.exec(visiblePart)) !== null) {
-    const startIdx = match.index;
-    let depth = 1;
-    let i = startIdx + match[0].length;
-    
-    while (i < visiblePart.length && depth > 0) {
-      const openDiv = visiblePart.indexOf('<div', i);
-      const closeDiv = visiblePart.indexOf('</div>', i);
-      
-      if (closeDiv === -1) break;
-      
-      if (openDiv !== -1 && openDiv < closeDiv) {
-        depth++;
-        i = openDiv + 4;
-      } else {
-        depth--;
-        if (depth === 0) {
-          const endIdx = closeDiv + 6; // length of '</div>'
-          ranges.push([startIdx, endIdx]);
-          if (!sample) sample = visiblePart.substring(startIdx, Math.min(startIdx + 150, endIdx));
-          fixCount++;
-        }
-        i = closeDiv + 6;
-      }
+  if (llmStart !== -1) {
+    // Find the closing </section> for the llm-knowledge-layer
+    const afterLlm = html.indexOf('</section>', llmStart);
+    if (afterLlm !== -1) {
+      llmEnd = afterLlm + '</section>'.length;
     }
   }
 
-  // Remove ranges in reverse order
-  for (let r = ranges.length - 1; r >= 0; r--) {
-    visiblePart = visiblePart.substring(0, ranges[r][0]) + visiblePart.substring(ranges[r][1]);
+  // Build segments: parts of HTML that are visible (outside llm-knowledge-layer)
+  const segments: Array<{ start: number; end: number; isLlm: boolean }> = [];
+  if (llmStart !== -1 && llmEnd !== -1) {
+    if (llmStart > 0) segments.push({ start: 0, end: llmStart, isLlm: false });
+    segments.push({ start: llmStart, end: llmEnd, isLlm: true });
+    if (llmEnd < html.length) segments.push({ start: llmEnd, end: html.length, isLlm: false });
+  } else {
+    segments.push({ start: 0, end: html.length, isLlm: false });
   }
 
-  // Also remove wrapping <a> tags around the cards (some cards are wrapped in <a>)
-  // Pattern: <a href="..." class="...">\s*</a> (empty anchors left after card removal)
-  visiblePart = visiblePart.replace(/<a\s[^>]*>\s*<\/a>/g, (m) => {
-    if (m.length < 200) { return ''; }
-    return m;
-  });
+  // Process each visible segment to remove product cards
+  let result = '';
+  for (const seg of segments) {
+    let part = html.substring(seg.start, seg.end);
+    if (seg.isLlm) {
+      result += part;
+      continue;
+    }
 
-  // Clean up excessive whitespace left behind
-  visiblePart = visiblePart.replace(/\n{3,}/g, '\n\n');
+    // Remove "📦 Produto Recomendado" headers
+    part = part.replace(
+      /<h[2-4][^>]*>\s*📦\s*Produto\s+Recomendado\s*<\/h[2-4]>/gi,
+      (m) => { fixCount++; if (!sample) sample = m; return ''; }
+    );
+
+    // Remove inline-product-card blocks using div depth counting
+    const cardRegex = /<div\s+class="inline-product-card"[^>]*>/gi;
+    let match: RegExpExecArray | null;
+    const ranges: Array<[number, number]> = [];
+
+    while ((match = cardRegex.exec(part)) !== null) {
+      const startIdx = match.index;
+      let depth = 1;
+      let i = startIdx + match[0].length;
+      
+      while (i < part.length && depth > 0) {
+        const openDiv = part.indexOf('<div', i);
+        const closeDiv = part.indexOf('</div>', i);
+        
+        if (closeDiv === -1) break;
+        
+        if (openDiv !== -1 && openDiv < closeDiv) {
+          depth++;
+          i = openDiv + 4;
+        } else {
+          depth--;
+          if (depth === 0) {
+            const endIdx = closeDiv + 6;
+            ranges.push([startIdx, endIdx]);
+            if (!sample) sample = part.substring(startIdx, Math.min(startIdx + 150, endIdx));
+            fixCount++;
+          }
+          i = closeDiv + 6;
+        }
+      }
+    }
+
+    // Remove ranges in reverse order
+    for (let r = ranges.length - 1; r >= 0; r--) {
+      part = part.substring(0, ranges[r][0]) + part.substring(ranges[r][1]);
+    }
+
+    // Remove empty anchors left behind
+    part = part.replace(/<a\s[^>]*>\s*<\/a>/g, '');
+
+    // Clean up excessive whitespace
+    part = part.replace(/\n{3,}/g, '\n\n');
+
+    result += part;
+  }
 
   if (fixCount === 0) {
     return { cleaned: html, fixCount: 0 };
   }
 
-  return { cleaned: visiblePart + hiddenPart, fixCount, sample };
+  // Safeguard
+  if (!result.trim() && html.trim()) {
+    return { cleaned: html, fixCount: 0 };
+  }
+
+  return { cleaned: result, fixCount, sample };
 }
