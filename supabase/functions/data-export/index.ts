@@ -1001,20 +1001,25 @@ function formatCompact(data: any) {
     knowledge_contents: data.knowledge_contents?.map((c: any) => ({
       id: c.id,
       title: c.title,
+      title_en: c.title_en || null,
+      title_es: c.title_es || null,
       slug: c.slug,
       excerpt: c.excerpt,
+      excerpt_en: c.excerpt_en || null,
+      excerpt_es: c.excerpt_es || null,
       category_id: c.category_id,
       category_name: c.category_name,
       category_letter: c.category_letter,
       author_id: c.author_id,
       keyword_ids: c.keyword_ids,
       recommended_resins: c.recommended_resins,
+      recommended_products: c.recommended_products || null,
+      veredict_data: c.veredict_data || null,
+      answer_block: c.answer_block || null,
+      ai_context: c.ai_context || null,
       public_url: c.public_url,
       active: c.active,
-      // Include AI metadata for Category F
-      ...(c.ai_metadata && {
-        ai_metadata: c.ai_metadata
-      })
+      ...(c.ai_metadata && { ai_metadata: c.ai_metadata })
     })),
     knowledge_videos: (data.knowledge_videos || []).map((v: any) => ({
       id: v.id,
