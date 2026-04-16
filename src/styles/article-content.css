@@ -37,6 +37,25 @@
   padding: 18px;
 }
 
+/* === PRODUCT CARD IMAGE OVERRIDE === */
+.article-content .inline-product-card img {
+  width: 140px !important;
+  height: 140px !important;
+  object-fit: cover !important;
+  margin: 0 !important;
+  display: block;
+  box-shadow: none !important;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .article-content .inline-product-card img {
+    width: 100% !important;
+    height: 200px !important;
+  }
+}
+
 /* === IMAGENS === */
 .article-content img {
   max-width: 100%;
