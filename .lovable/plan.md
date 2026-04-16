@@ -1,55 +1,53 @@
 
 
-# Plano: Corrigir knowledge-feed para exportar TODOS os artigos
+# Plano: Corrigir Timeout do data-export (CPU Time exceeded)
 
-## Problemas Identificados
+## Diagnóstico
 
-1. **Limite máximo de 500 trunca 104 artigos** — Existem 604 artigos ativos (A-F), mas o `Math.min(limit, 500)` corta em 500. O Supabase SDK também tem limite padrão de 1000 rows.
-2. **FAQs duplicadas persistem** — A função `deduplicateFaqs` existe mas preciso verificar se está sendo chamada corretamente no output JSON.
-3. **Categoria B vazia** — Não é bug, mas o endpoint deveria incluir `total_count` na metadata para o sistema consumidor saber quantos artigos existem.
+O endpoint `data-export?format=ai_ready` falha com **CPU Time exceeded** porque `fetchKnowledgeContents` executa 3 queries individuais por artigo (604 artigos = ~1800 queries):
 
-## Correções
+1. **Linha 634**: `knowledge_videos` por `content_id` — 604 queries
+2. **Linha 649**: `resins` por `recommended_resins` IDs — ~200 queries  
+3. **Linha 668**: `external_links` por `keyword_ids` — ~300 queries
 
-### Arquivo: `supabase/functions/knowledge-feed/index.ts`
+**Os dados estão corretos** — campos traduzidos, veredict_data, answer_block, geo, ai_context todos presentes. O único problema é performance.
 
-1. **Aumentar limite máximo para 1000** (cobrir os 604 artigos atuais com margem):
-   - `Math.min(parseInt(limit || '100'), 1000)` — default 100, max 1000
-   
-2. **Adicionar `total_count` na metadata do feed** para que o sistema consumidor saiba se está recebendo tudo:
-   - Fazer um `count` query separado e incluir no objeto `feed`
+## Correção: Batch queries em vez de N+1
 
-3. **Verificar e garantir que `deduplicateFaqs` está sendo aplicada** nos campos `faqs`, `faqs_en`, `faqs_es` do output JSON
+### Arquivo: `supabase/functions/data-export/index.ts`
 
-4. **Adicionar paginação** via `?offset=0` para permitir consumo em lotes se o total ultrapassar 1000
-
-## Detalhes Técnicos
+Substituir os 3 loops N+1 por 3 batch queries pré-carregadas:
 
 ```typescript
-// Aumentar limite
-const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 1000);
-const offset = parseInt(url.searchParams.get('offset') || '0');
-
-// Count total
-const { count } = await supabase
-  .from('knowledge_contents')
-  .select('id', { count: 'exact', head: true })
-  .in('category_id', categoryIds)
-  .eq('active', true);
-
-// Query com range
-.range(offset, offset + limit - 1)
-
-// Feed metadata
-feed: {
-  ...existing,
-  total_count: count,
-  offset,
-  limit,
-  has_more: (offset + limit) < count
+// ANTES: 604 queries individuais
+for (const content of contents) {
+  const { data: videos } = await supabase
+    .from('knowledge_videos').select('*').eq('content_id', content.id);
 }
+
+// DEPOIS: 1 query batch
+const contentIds = contents.map(c => c.id);
+const { data: allVideos } = await supabase
+  .from('knowledge_videos').select('*').in('content_id', contentIds);
+const videosByContent = groupBy(allVideos, 'content_id');
 ```
 
-## Arquivo Afetado
+**3 otimizações específicas:**
 
-- `supabase/functions/knowledge-feed/index.ts`
+1. **Videos**: Buscar todos os `knowledge_videos` com `.in('content_id', contentIds)` e agrupar em memória
+2. **Resins**: Coletar todos os `recommended_resins` IDs únicos, fazer 1 query `.in('id', allResinIds)`, distribuir em memória
+3. **Keywords**: Coletar todos os `keyword_ids` únicos, fazer 1 query `.in('id', allKeywordIds)`, distribuir em memória
+
+Resultado: de ~1800 queries para **3 queries** + processamento em memória.
+
+Também aplicar a mesma otimização nos loops N+1 de `fetchResins` (linhas 216-235) e `fetchBrands` (linhas 139-148).
+
+## Impacto
+
+- **Antes**: CPU timeout com 604 artigos
+- **Depois**: 3 batch queries, resposta em <10s
+
+## Arquivo afetado
+
+- `supabase/functions/data-export/index.ts` — substituir N+1 por batch selects
 
