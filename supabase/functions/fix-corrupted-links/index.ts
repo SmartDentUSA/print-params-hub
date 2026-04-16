@@ -20,13 +20,24 @@ serve(async (req) => {
     const { dryRun = true, limit = 500, offset = 0, category, stripProductCards = false } = await req.json().catch(() => ({}));
     const columns = ['content_html', 'content_html_en', 'content_html_es'] as const;
 
+    // If category letter provided (e.g. "E"), resolve to category_id first
+    let categoryId: string | null = null;
+    if (category) {
+      const { data: cat } = await supabase
+        .from('knowledge_categories')
+        .select('id')
+        .eq('letter', category.toUpperCase())
+        .single();
+      if (cat) categoryId = cat.id;
+    }
+
     let query = supabase
       .from('knowledge_contents')
-      .select('id, title, category, content_html, content_html_en, content_html_es')
+      .select('id, title, category_id, content_html, content_html_en, content_html_es')
       .not('content_html', 'is', null);
     
-    if (category) {
-      query = query.eq('category', category);
+    if (categoryId) {
+      query = query.eq('category_id', categoryId);
     }
 
     const { data: articles, error } = await query.range(offset, offset + limit - 1);
