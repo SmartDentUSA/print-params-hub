@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
 
 const corsHeaders = {
@@ -6,8 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  // Handle CORS preflight requests
+function deduplicateFaqs(faqs: any[]): any[] {
+  if (!faqs || !Array.isArray(faqs)) return [];
+  const seen = new Set<string>();
+  return faqs.filter((faq: any) => {
+    const key = faq?.question?.trim()?.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -15,53 +24,85 @@ serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     const url = new URL(req.url);
     const format = url.searchParams.get('format') || 'json';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
+    const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 500);
+    const categoriesParam = url.searchParams.get('categories'); // e.g. "A,B,C"
 
-    console.log(`[knowledge-feed] Request: format=${format}, limit=${limit}`);
+    console.log(`[knowledge-feed] Request: format=${format}, limit=${limit}, categories=${categoriesParam || 'all'}`);
 
-    // 1. Buscar IDs das categorias C, D, E
-    const { data: categories, error: categoriesError } = await supabase
-      .from('knowledge_categories')
-      .select('id')
-      .in('letter', ['C', 'D', 'E']);
-
-    if (categoriesError) {
-      console.error('[knowledge-feed] Error fetching categories:', categoriesError);
-      throw categoriesError;
+    // Build category filter
+    let categoryIds: string[] = [];
+    
+    if (categoriesParam) {
+      // Filter by specific categories
+      const letters = categoriesParam.split(',').map(l => l.trim().toUpperCase());
+      const { data: categories, error: categoriesError } = await supabase
+        .from('knowledge_categories')
+        .select('id')
+        .in('letter', letters);
+      if (categoriesError) throw categoriesError;
+      categoryIds = categories?.map((c: any) => c.id) || [];
+    } else {
+      // All categories A-F (exclude G which is support/internal)
+      const { data: categories, error: categoriesError } = await supabase
+        .from('knowledge_categories')
+        .select('id')
+        .in('letter', ['A', 'B', 'C', 'D', 'E', 'F']);
+      if (categoriesError) throw categoriesError;
+      categoryIds = categories?.map((c: any) => c.id) || [];
     }
 
-    const categoryIds = categories?.map((c) => c.id) || [];
-    console.log(`[knowledge-feed] Found ${categoryIds.length} categories (C, D, E)`);
+    console.log(`[knowledge-feed] Found ${categoryIds.length} categories`);
 
     if (categoryIds.length === 0) {
-      console.warn('[knowledge-feed] No categories found for C, D, E');
       return new Response(
         JSON.stringify({ feed: { title: 'Base de Conhecimento - Smart Dent', items: [] }, items: [] }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 2. Buscar artigos apenas dessas categorias
+    // Fetch articles with all translated fields
     const { data: contents, error: contentsError } = await supabase
       .from('knowledge_contents')
       .select(`
         id,
         title,
+        title_en,
+        title_es,
         slug,
         excerpt,
+        excerpt_en,
+        excerpt_es,
         meta_description,
         og_image_url,
         content_image_url,
         content_image_alt,
         faqs,
+        faqs_en,
+        faqs_es,
         created_at,
         updated_at,
         keywords,
+        veredict_data,
+        answer_block,
+        technical_properties,
+        recommended_products,
+        recommended_resins,
+        is_medical_device,
+        is_scholarly,
+        norm_references,
+        geo_city,
+        geo_state,
+        geo_state_code,
+        client_name,
+        client_specialty,
+        ai_context,
+        ai_context_en,
+        ai_context_es,
         knowledge_categories(name, letter),
         authors(
           id,
@@ -83,13 +124,9 @@ serve(async (req) => {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (contentsError) {
-      console.error('[knowledge-feed] Error fetching contents:', contentsError);
-      throw contentsError;
-    }
+    if (contentsError) throw contentsError;
 
     console.log(`[knowledge-feed] Found ${contents?.length || 0} articles`);
-    console.log(`[knowledge-feed] Articles with authors: ${contents?.filter((c: any) => c.authors).length || 0}/${contents?.length || 0}`);
 
     const baseUrl = 'https://parametros.smartdent.com.br';
 
@@ -99,15 +136,20 @@ serve(async (req) => {
         feed: {
           title: 'Base de Conhecimento - Smart Dent',
           link: `${baseUrl}/base-conhecimento`,
-          description: 'Artigos sobre Ciência, Tecnologia, Ebooks e Informativos',
+          description: 'Artigos sobre Ciência, Tecnologia, Ebooks, Informativos, Vídeos, Troubleshooting e Parâmetros',
           updated_at: new Date().toISOString(),
-          categories_included: ['C', 'D', 'E'],
+          categories_included: categoriesParam ? categoriesParam.split(',').map(l => l.trim().toUpperCase()) : ['A', 'B', 'C', 'D', 'E', 'F'],
+          version: '2.0',
         },
         items: contents?.map((item: any) => ({
           id: item.id,
           title: item.title,
+          title_en: item.title_en || null,
+          title_es: item.title_es || null,
           slug: item.slug,
           excerpt: item.excerpt,
+          excerpt_en: item.excerpt_en || null,
+          excerpt_es: item.excerpt_es || null,
           meta_description: item.meta_description || item.excerpt,
           category: {
             name: item.knowledge_categories?.name || 'Sem categoria',
@@ -119,7 +161,36 @@ serve(async (req) => {
           published_at: item.created_at,
           updated_at: item.updated_at,
           keywords: item.keywords || [],
-          faqs: item.faqs || [],
+          faqs: deduplicateFaqs(item.faqs),
+          faqs_en: deduplicateFaqs(item.faqs_en),
+          faqs_es: deduplicateFaqs(item.faqs_es),
+          
+          // Enriched content
+          veredict_data: item.veredict_data || null,
+          answer_block: item.answer_block || null,
+          technical_properties: item.technical_properties || null,
+          recommended_products: item.recommended_products || null,
+          recommended_resins: item.recommended_resins || null,
+          
+          // Scientific metadata
+          is_medical_device: item.is_medical_device || false,
+          is_scholarly: item.is_scholarly || false,
+          norm_references: item.norm_references || null,
+          
+          // Geolocation (testimonials)
+          geo: (item.geo_city || item.geo_state) ? {
+            city: item.geo_city,
+            state: item.geo_state,
+            state_code: item.geo_state_code,
+            client_name: item.client_name,
+            client_specialty: item.client_specialty,
+          } : null,
+          
+          // AI context
+          ai_context: item.ai_context || null,
+          ai_context_en: item.ai_context_en || null,
+          ai_context_es: item.ai_context_es || null,
+          
           author: item.authors ? {
             id: item.authors.id,
             name: item.authors.name,
@@ -144,8 +215,6 @@ serve(async (req) => {
           ...corsHeaders,
           'Content-Type': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
         },
       });
     }
@@ -172,9 +241,9 @@ serve(async (req) => {
       const rssFeed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
   <channel>
-    <title>Base de Conhecimento - Smart Dent (C, D, E)</title>
+    <title>Base de Conhecimento - Smart Dent</title>
     <link>${baseUrl}/base-conhecimento</link>
-    <description>Artigos curados sobre Ciência, Tecnologia, Ebooks e Informativos</description>
+    <description>Artigos curados sobre Impressão 3D Odontológica</description>
     <language>pt-BR</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     <atom:link href="${baseUrl}/feed.rss" rel="self" type="application/rss+xml" />${rssItems}
@@ -186,8 +255,6 @@ serve(async (req) => {
           ...corsHeaders,
           'Content-Type': 'application/rss+xml; charset=utf-8',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
         },
       });
     }
@@ -218,12 +285,12 @@ serve(async (req) => {
 
       const atomFeed = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>Base de Conhecimento - Smart Dent (C, D, E)</title>
+  <title>Base de Conhecimento - Smart Dent</title>
   <link href="${baseUrl}/base-conhecimento" />
   <link href="${baseUrl}/feed.atom" rel="self" />
   <updated>${new Date().toISOString()}</updated>
   <id>${baseUrl}/base-conhecimento</id>
-  <subtitle>Artigos curados sobre Ciência, Tecnologia, Ebooks e Informativos</subtitle>${atomEntries}
+  <subtitle>Artigos curados sobre Impressão 3D Odontológica</subtitle>${atomEntries}
 </feed>`;
 
       return new Response(atomFeed, {
@@ -231,29 +298,20 @@ serve(async (req) => {
           ...corsHeaders,
           'Content-Type': 'application/atom+xml; charset=utf-8',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
         },
       });
     }
 
-    // Invalid format
     return new Response(
       JSON.stringify({ error: 'Invalid format. Use: json, rss, or atom' }),
-      { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('[knowledge-feed] Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
