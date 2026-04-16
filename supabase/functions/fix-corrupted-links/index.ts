@@ -188,3 +188,89 @@ function cleanCorruptedHtml(html: string): { cleaned: string; fixCount: number; 
 
   return { cleaned, fixCount, sample };
 }
+
+/**
+ * Remove inline-product-card divs from the visible body content.
+ * Preserves cards inside the hidden llm-knowledge-layer section.
+ */
+function stripProductCardsFromBody(html: string): { cleaned: string; fixCount: number; sample?: string } {
+  let fixCount = 0;
+  let sample: string | undefined;
+
+  // Split on llm-knowledge-layer to only process the visible part
+  const llmMarker = '<section class="llm-knowledge-layer"';
+  const llmIdx = html.indexOf(llmMarker);
+  
+  let visiblePart: string;
+  let hiddenPart: string;
+  
+  if (llmIdx !== -1) {
+    visiblePart = html.substring(0, llmIdx);
+    hiddenPart = html.substring(llmIdx);
+  } else {
+    visiblePart = html;
+    hiddenPart = '';
+  }
+
+  // Remove "📦 Produto Recomendado" headers that precede the cards
+  const beforeH3 = visiblePart;
+  visiblePart = visiblePart.replace(
+    /<h[2-4][^>]*>\s*📦\s*Produto\s+Recomendado\s*<\/h[2-4]>/gi,
+    (m) => { fixCount++; if (!sample) sample = m; return ''; }
+  );
+
+  // Remove inline-product-card blocks (multi-line, nested divs)
+  // Pattern: <div class="inline-product-card"...>...nested content...</div> (outermost closing)
+  // Use a greedy approach: find opening tag, then count div nesting to find the correct closing
+  const cardRegex = /<div\s+class="inline-product-card"[^>]*>/gi;
+  let match: RegExpExecArray | null;
+  const ranges: Array<[number, number]> = [];
+
+  while ((match = cardRegex.exec(visiblePart)) !== null) {
+    const startIdx = match.index;
+    let depth = 1;
+    let i = startIdx + match[0].length;
+    
+    while (i < visiblePart.length && depth > 0) {
+      const openDiv = visiblePart.indexOf('<div', i);
+      const closeDiv = visiblePart.indexOf('</div>', i);
+      
+      if (closeDiv === -1) break;
+      
+      if (openDiv !== -1 && openDiv < closeDiv) {
+        depth++;
+        i = openDiv + 4;
+      } else {
+        depth--;
+        if (depth === 0) {
+          const endIdx = closeDiv + 6; // length of '</div>'
+          ranges.push([startIdx, endIdx]);
+          if (!sample) sample = visiblePart.substring(startIdx, Math.min(startIdx + 150, endIdx));
+          fixCount++;
+        }
+        i = closeDiv + 6;
+      }
+    }
+  }
+
+  // Remove ranges in reverse order
+  for (let r = ranges.length - 1; r >= 0; r--) {
+    visiblePart = visiblePart.substring(0, ranges[r][0]) + visiblePart.substring(ranges[r][1]);
+  }
+
+  // Also remove wrapping <a> tags around the cards (some cards are wrapped in <a>)
+  // Pattern: <a href="..." class="...">\s*</a> (empty anchors left after card removal)
+  visiblePart = visiblePart.replace(/<a\s[^>]*>\s*<\/a>/g, (m) => {
+    if (m.length < 200) { return ''; }
+    return m;
+  });
+
+  // Clean up excessive whitespace left behind
+  visiblePart = visiblePart.replace(/\n{3,}/g, '\n\n');
+
+  if (fixCount === 0) {
+    return { cleaned: html, fixCount: 0 };
+  }
+
+  return { cleaned: visiblePart + hiddenPart, fixCount, sample };
+}
